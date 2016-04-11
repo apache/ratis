@@ -27,7 +27,7 @@ import com.google.common.base.Preconditions;
 class ServerState {
   private Role role;
   private long currentTerm = 0;
-  private int votedFor = -1;
+  private String votedFor = null;
 
   synchronized long getTerm() {
     return currentTerm;
@@ -54,13 +54,13 @@ class ServerState {
     return newRole;
   }
 
-  synchronized long initElection(int id) {
+  synchronized long initElection(String id) {
     Preconditions.checkState(isFollower() || isCandidate());
     votedFor = id;
     return ++currentTerm;
   }
 
-  synchronized boolean vote(int candidateId, long term) {
+  synchronized boolean vote(String candidateId, long term) {
     Preconditions.checkState(isFollower());
 
     boolean voteGranted = true;
@@ -69,7 +69,7 @@ class ServerState {
     } else if (currentTerm < term) {
       currentTerm = term;
     } else {
-      if (votedFor != -1 && votedFor != candidateId) {
+      if (votedFor != null && votedFor != candidateId) {
         voteGranted = false;
       }
     }

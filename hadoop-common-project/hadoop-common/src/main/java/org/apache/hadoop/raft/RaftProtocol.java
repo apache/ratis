@@ -26,11 +26,11 @@ import org.apache.hadoop.classification.InterfaceStability;
 @InterfaceStability.Unstable
 public interface RaftProtocol {
   class Response {
-    final int id;
+    final String id;
     final long term;
     final boolean success;
 
-    Response(int id, long term, boolean success) {
+    Response(String id, long term, boolean success) {
       this.id = id;
       this.term = term;
       this.success = success;
@@ -42,9 +42,9 @@ public interface RaftProtocol {
     }
   }
 
-  Response requestVote(int candidateId, long term,
+  Response requestVote(String candidateId, long term,
       RaftLog.TermIndex lastCommitted) throws IOException;
 
-  Response appendEntries(int leaderId, long term, RaftLog.TermIndex previous,
+  Response appendEntries(String leaderId, long term, RaftLog.TermIndex previous,
       long leaderCommit, RaftLog.Entry... entries) throws IOException;
 }

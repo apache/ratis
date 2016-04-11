@@ -20,14 +20,14 @@ package org.apache.hadoop.raft;
 public class RaftServerException extends RaftException {
   private static final long serialVersionUID = 1L;
 
-  private final int serverId;
+  private final String serverId;
 
-  RaftServerException(int serverId, Exception cause) {
+  RaftServerException(String serverId, Exception cause) {
     super(cause.getClass().getName() + " from Server " + serverId, cause);
     this.serverId = serverId;
   }
 
-  public int getServerId() {
+  public String getServerId() {
     return serverId;
   }
 }
