@@ -18,10 +18,14 @@
 package org.apache.hadoop.raft;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
@@ -46,27 +50,51 @@ public class RaftServer implements RaftProtocol {
     abstract void rpcTimeout() throws InterruptedException, IOException;
   }
 
+  private static class EntryQueue {
+    private final Queue<RaftLog.Entry> queue = new LinkedList<>();
+
+    synchronized int size() {
+      return queue.size();
+    }
+
+    synchronized void addAll(RaftLog.Entry... entries) {
+      queue.addAll(Arrays.asList(entries));
+    }
+
+    synchronized RaftLog.Entry[] removeAll() {
+      final RaftLog.Entry[] entries = new RaftLog.Entry[size()];
+      for(int i = 0; i < entries.length; i++) {
+        entries[i] = queue.remove();
+      }
+      return entries;
+    }
+  }
+
   class Leader extends Role {
-    private long commitIndex = -1;
+    private RaftLog.TermIndex previous;
 
     private final List<FollowerInfo> followers = new ArrayList<>(ensemable.size());
-    private final Daemon heartbeater = new Daemon(new Heartbeater());
 
     Leader() {
       // set an expired rpc time so that heartbeats are sent to followers immediately.
+      final long nextIndex = raftlog.getNextIndex();
       final long t = Time.monotonicNow() - RaftConstants.RPC_TIMEOUT_MAX_MS;
       for(RaftServer s : ensemable.getOtherServers()) {
-        followers.add(new FollowerInfo(s, t));
+        followers.add(new FollowerInfo(s, t, nextIndex));
       }
     }
 
     void init() {
-      heartbeater.start();
+      for(FollowerInfo f : followers) {
+        f.rpcSender.start();
+      }
     }
 
     /** Request received from client */
-    void clientRequests(RaftLog.Entry... entries) {
-
+    void clientRequests(RaftLog.Message... messages) {
+      for(FollowerInfo f : followers) {
+        // TODO
+      }
     }
 
     @Override
@@ -81,86 +109,90 @@ public class RaftServer implements RaftProtocol {
 
       private long nextIndex;
       private long matchIndex;
+      private final EntryQueue entryQueue = new EntryQueue();
 
-      FollowerInfo(RaftServer server, long lastRpcTime) {
+      private final Daemon rpcSender = new Daemon(new RpcSender());
+
+      FollowerInfo(RaftServer server, long lastRpcTime, long nextIndex) {
         this.server = server;
         this.lastRpcTime = new AtomicLong(lastRpcTime);
       }
 
-      boolean shouldSendHeartbeat() {
-        final long now = Time.monotonicNow();
-        return now > lastRpcTime.get() + RaftConstants.RPC_TIMEOUT_MIN_MS/2;
+      void clientRequests(RaftLog.Entry... entries) {
+        entryQueue.addAll(entries);
+        notify();
       }
 
-      void sendHeartbeat() throws InterruptedException {
-        for(int i = 0;; i++) {
-          if (!shouldSendHeartbeat()) {
-            return;
-          }
+      /**
+       * @return the time in milliseconds that the leader should send a
+       *         heartbeat this follower.
+       */
+      private long getHeartbeatRemainingTime() {
+        return lastRpcTime.get() + RaftConstants.RPC_TIMEOUT_MIN_MS/2
+            - Time.monotonicNow();
+      }
 
+      /** Should the leader send appendEntries RPC to this follower? */
+      private boolean shouldSend() {
+        if (entryQueue.size() > 0) {
+          return true;
+        }
+        return getHeartbeatRemainingTime() <= 0;
+      }
+
+      /** Send an appendEntries RPC; retry indefinitely. */
+      private Response sendAppendEntriesWithRetries()
+          throws InterruptedException, InterruptedIOException {
+        RaftLog.Entry[] entries = {};
+        for(int retry = 0;; retry++) {
           try {
-            server.appendEntries(id, state.getTerm(),
-                null, commitIndex);
-            lastRpcTime.set(Time.monotonicNow());
-            return;
-          } catch (IOException e) {
-            LOG.warn("Failed to send heartbeat to " + server + " " + i, e);
+            if (entries.length == 0) {
+              entries = entryQueue.removeAll();
+            }
+            return server.appendEntries(id, state.getTerm(),
+                previous, raftlog.getLastCommitted().getIndex(), entries);
+          } catch (InterruptedIOException iioe) {
+            throw iioe;
+          } catch (IOException ioe) {
+            LOG.warn("Failed to send appendEntries to " + server
+                + "; retry " + retry, ioe);
           }
 
           Thread.sleep(RaftConstants.RPC_SLEEP_TIME_MS);
         }
       }
 
-      void sendRequest(RaftLog.Entry... entries) throws InterruptedException {
-        for(int i = 0;; i++) {
-          if (!shouldSendHeartbeat()) {
-            return;
-          }
-
-          try {
-            server.appendEntries(id, state.getTerm(),
-                null, commitIndex);
-            lastRpcTime.set(Time.monotonicNow());
-            return;
-          } catch (IOException e) {
-            LOG.warn("Failed to send heartbeat to " + server + " " + i, e);
-          }
-
-          Thread.sleep(RaftConstants.RPC_SLEEP_TIME_MS);
-        }
-      }
-    }
-
-    class Heartbeater implements Runnable {
-      @Override
-      public String toString() {
-        return getClass().getSimpleName();
-      }
-
-      @Override
-      public void run() {
+      /** Check and send appendEntries RPC */
+      private void checkAndSendAppendEntries()
+          throws InterruptedException, InterruptedIOException {
         for(;;) {
-          checkTimeout();
-
-          try {
-            Thread.sleep(RaftConstants.RPC_SLEEP_TIME_MS);
-          } catch (InterruptedException e) {
-            LOG.info(getClass().getSimpleName() + " interrupted.", e);
-            return;
+          if (shouldSend()) {
+            final Response r = sendAppendEntriesWithRetries();
+            lastRpcTime.set(Time.monotonicNow());
+            processResponse(r);
           }
+
+          wait(getHeartbeatRemainingTime());
         }
       }
 
-      private void checkTimeout() {
-        for(final FollowerInfo f : followers) {
-          if (f.shouldSendHeartbeat()) {
-            executor.submit(new Callable<Void>() {
-              @Override
-              public Void call() throws InterruptedException {
-                f.sendHeartbeat();
-                return null;
-              }
-            });
+      void processResponse(Response r) {
+        //TODO
+
+      }
+
+      class RpcSender implements Runnable {
+        @Override
+        public String toString() {
+          return getClass().getSimpleName();
+        }
+
+        @Override
+        public void run() {
+          try {
+            checkAndSendAppendEntries();
+          } catch (InterruptedException | InterruptedIOException e) {
+            LOG.info(getClass().getSimpleName() + " interrupted.", e);
           }
         }
       }
@@ -319,9 +351,17 @@ public class RaftServer implements RaftProtocol {
   public Response appendEntries(String leaderId, long term,
       RaftLog.TermIndex previous, long leaderCommit, RaftLog.Entry... entries)
           throws IOException {
+    RaftLog.Entry.assertEntries(term, entries);
+
     final long currentTerm = state.getTerm();
-    if (term < currentTerm) {
+    if (term > currentTerm) {
+      //
+    }
+    if (term < currentTerm || !raftlog.contains(previous)) {
       return new Response(id, currentTerm, false);
+    }
+    if (entries.length > 0) {
+      raftlog.check(entries[0]);
     }
     return null;
   }
