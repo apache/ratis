@@ -27,11 +27,7 @@ import com.google.common.base.Preconditions;
 class ServerState {
   private Role role;
   private long currentTerm = 0;
-  private String votedFor = null;
-
-  synchronized long getTerm() {
-    return currentTerm;
-  }
+  private String leaderId = null;
 
   synchronized boolean isFollower() {
     return role instanceof Follower;
@@ -49,33 +45,66 @@ class ServerState {
     return role;
   }
 
-  synchronized <T extends Role> T setRole(T newRole) {
+  synchronized <R extends Role> R changeRole(R newRole) {
+    Preconditions.checkState(role != newRole);
     role = newRole;
     return newRole;
   }
 
+  synchronized long getCurrentTerm() {
+    return currentTerm;
+  }
+
+  synchronized String getLeaderId() {
+    return leaderId;
+  }
+
+  synchronized boolean recognizeLeader(String leaderId, long leaderTerm) {
+    if (leaderTerm < currentTerm) {
+      return false;
+    } else if (leaderTerm > currentTerm) {
+      this.leaderId = leaderId;
+      this.currentTerm = leaderTerm;
+      return true;
+    }
+
+    if (this.leaderId == null || !isLeader()) {
+      this.leaderId = leaderId;
+    }
+    return this.leaderId == leaderId;
+  }
+
+  synchronized boolean recognizeCandidate(String candidateId, long candidateTerm) {
+    if (candidateTerm < currentTerm) {
+      return false;
+    } else if (candidateTerm == currentTerm && !isFollower()) {
+      return false;
+    }
+    return true;
+  }
+
   synchronized long initElection(String id) {
     Preconditions.checkState(isFollower() || isCandidate());
-    votedFor = id;
+    leaderId = id;
     return ++currentTerm;
   }
 
-  synchronized boolean vote(String candidateId, long term) {
+  synchronized boolean vote(String candidateId, long candidateTerm) {
     Preconditions.checkState(isFollower());
 
     boolean voteGranted = true;
-    if (currentTerm > term) {
+    if (currentTerm > candidateTerm) {
       voteGranted = false;
-    } else if (currentTerm < term) {
-      currentTerm = term;
+    } else if (currentTerm < candidateTerm) {
+      currentTerm = candidateTerm;
     } else {
-      if (votedFor != null && votedFor != candidateId) {
+      if (leaderId != null && leaderId != candidateId) {
         voteGranted = false;
       }
     }
 
     if (voteGranted) {
-      votedFor = candidateId;
+      leaderId = candidateId;
     }
     return voteGranted;
   }

@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.raft;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import com.google.common.base.Preconditions;
@@ -54,7 +56,9 @@ class RaftLog {
 
   }
 
-  static abstract class Entry extends TermIndex {
+  static class Entry extends TermIndex {
+    static final Entry[] EMPTY_ARRAY = {};
+
     static void assertEntries(long expectedTerm, Entry... entries) {
       if (entries.length > 0) {
         final long index0 = entries[0].getIndex();
@@ -80,16 +84,36 @@ class RaftLog {
     }
   }
 
-  private List<Entry> entries;
-  private int lastCommitted = -1;
+  private final List<Entry> entries = new ArrayList<>();
+  private long lastCommitted = -1;
 
   synchronized TermIndex getLastCommitted() {
-    return lastCommitted > 0? entries.get(lastCommitted): new TermIndex(-1, -1);
+    return lastCommitted > 0? get(lastCommitted): new TermIndex(-1, -1);
+  }
+
+  synchronized void setLastCommitted(long lastCommitted) {
+    Preconditions.checkState(this.lastCommitted <= lastCommitted);
+    this.lastCommitted = lastCommitted;
+  }
+
+  private int findIndex(long index) {
+    return (int)index;
   }
 
   synchronized TermIndex get(long index) {
-    //TODO
-    return null;
+    return entries.get(findIndex(index));
+  }
+
+  synchronized Entry[] getEntries(long startIndex) {
+    final int i = findIndex(startIndex);
+    return entries.subList(i, entries.size()).toArray(Entry.EMPTY_ARRAY);
+  }
+
+  void truncate(long index) {
+    final int truncateIndex = findIndex(index);
+    for(int i = entries.size() - 1; i >= truncateIndex; i--) {
+      entries.remove(i);
+    }
   }
 
   /** Does the contain the given term and index? */
@@ -107,12 +131,20 @@ class RaftLog {
     return last == null? 1: last.getIndex() + 1;
   }
 
+  synchronized void apply(long term, Message message) {
+    final Entry e = new Entry(term, getNextIndex(), message);
+    Preconditions.checkState(entries.add(e));
+  }
+
   /**
    * If an existing entry conflicts with a new one (same index but different
    * terms), delete the existing entry and all that follow it (§5.3)
    */
-  synchronized void check(TermIndex ti) {
-
-
+  synchronized void apply(Entry... entries) {
+    if (entries.length == 0) {
+      return;
+    }
+    truncate(entries[0].getIndex());
+    Preconditions.checkState(this.entries.addAll(Arrays.asList(entries)));
   }
 }

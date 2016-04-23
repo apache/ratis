@@ -28,6 +28,7 @@ public interface RaftProtocol {
   class Response {
     final String id;
     final long term;
+//    final long firstIndexInTerm; TODO
     final boolean success;
 
     Response(String id, long term, boolean success) {
