@@ -81,8 +81,10 @@ public class RaftServer implements RaftProtocol {
     }
 
     void checkResponseTerm(long reponseTerm) {
-      if (reponseTerm > state.getCurrentTerm()) {
-        changeToFollower();
+      synchronized (state) {
+        if (reponseTerm > state.getCurrentTerm()) {
+          changeToFollower();
+        }
       }
     }
 
@@ -142,6 +144,9 @@ public class RaftServer implements RaftProtocol {
               entries = raftlog.getEntries(nextIndex);
             }
             final RaftLog.TermIndex previous = raftlog.get(nextIndex - 1);
+            if (Thread.interrupted()) {
+              throw new InterruptedIOException();
+            }
             final Response r =  server.appendEntries(id, state.getCurrentTerm(),
                 previous, raftlog.getLastCommitted().getIndex(), entries);
             if (r.success) {
@@ -298,7 +303,7 @@ public class RaftServer implements RaftProtocol {
   Response sendRequestVote(long term, RaftServer s) throws RaftServerException {
     for(;;) {
       try {
-        return s.requestVote(id, term, raftlog.getLastCommitted());
+        return s.requestVote(id, term, raftlog.getLastEntry());
       } catch (IOException e) {
         throw new RaftServerException(s.id, e);
       }
@@ -326,7 +331,7 @@ public class RaftServer implements RaftProtocol {
 
   @Override
   public Response requestVote(String candidateId, long candidateTerm,
-      RaftLog.TermIndex lastCommitted) throws IOException {
+      RaftLog.TermIndex candidateLastEntry) throws IOException {
     final long startTime = Time.monotonicNow();
     boolean voteGranted = false;
     synchronized (state) {
@@ -335,7 +340,7 @@ public class RaftServer implements RaftProtocol {
         rpcMonitor.updateLastRpcTime(startTime);
 
         // see Section 5.4.1 Election restriction
-        if (raftlog.getLastCommitted().compareTo(lastCommitted) <= 0) {
+        if (raftlog.getLastCommitted().compareTo(candidateLastEntry) <= 0) {
           voteGranted = state.vote(candidateId, candidateTerm);
         }
       }

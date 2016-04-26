@@ -43,8 +43,8 @@ public interface RaftProtocol {
     }
   }
 
-  Response requestVote(String candidateId, long term,
-      RaftLog.TermIndex lastCommitted) throws IOException;
+  Response requestVote(String candidateId, long candidateTerm,
+      RaftLog.TermIndex candidateLastEntry) throws IOException;
 
   Response appendEntries(String leaderId, long term, RaftLog.TermIndex previous,
       long leaderCommit, RaftLog.Entry... entries) throws IOException;
