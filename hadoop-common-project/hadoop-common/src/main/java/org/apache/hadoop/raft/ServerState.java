@@ -29,6 +29,10 @@ class ServerState {
   private long currentTerm = 0;
   private String leaderId = null;
 
+  ServerState(Role role) {
+    this.role = role;
+  }
+
   synchronized boolean isFollower() {
     return role instanceof Follower;
   }
@@ -107,5 +111,10 @@ class ServerState {
       leaderId = candidateId;
     }
     return voteGranted;
+  }
+
+  @Override
+  public String toString() {
+    return getRole().getClass().getSimpleName() + "-t" + currentTerm + "-leader=" + leaderId;
   }
 }

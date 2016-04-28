@@ -34,8 +34,8 @@ class LeaderElection {
   }
 
   Result begin() throws RaftException, InterruptedException {
-    final ExecutorService executor = Executors.newFixedThreadPool(
-        candidate.getEnsemable().getOtherServers().size());
+    final int size = candidate.getEnsemable().getOtherServers().size();
+    final ExecutorService executor = Executors.newFixedThreadPool(size);
     try {
       return election(executor);
     } finally {

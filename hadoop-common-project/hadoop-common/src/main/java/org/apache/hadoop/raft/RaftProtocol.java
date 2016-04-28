@@ -39,7 +39,7 @@ public interface RaftProtocol {
 
     @Override
     public String toString() {
-      return "s" + id + "-t" + term + ":" + success;
+      return id + "-t" + term + ":" + success;
     }
   }
 

@@ -50,6 +50,15 @@ class RaftLog {
     static boolean equal(TermIndex a, TermIndex b) {
       return a == b || (a != null && b != null && a.compareTo(b) == 0);
     }
+
+    private static String toString(long n) {
+      return n < 0? "~": "" + n;
+    }
+
+    @Override
+    public String toString() {
+      return "t" + toString(term) + "i" + toString(index);
+    }
   }
 
   static interface Message {
@@ -60,7 +69,7 @@ class RaftLog {
     static final Entry[] EMPTY_ARRAY = {};
 
     static void assertEntries(long expectedTerm, Entry... entries) {
-      if (entries.length > 0) {
+      if (entries != null && entries.length > 0) {
         final long index0 = entries[0].getIndex();
         for(int i = 0; i < entries.length; i++) {
           final long t = entries[i].getTerm();
@@ -101,12 +110,14 @@ class RaftLog {
   }
 
   synchronized TermIndex get(long index) {
-    return entries.get(findIndex(index));
+    final int i = findIndex(index);
+    return i < entries.size()? entries.get(i): null;
   }
 
   synchronized Entry[] getEntries(long startIndex) {
     final int i = findIndex(startIndex);
-    return entries.subList(i, entries.size()).toArray(Entry.EMPTY_ARRAY);
+    final int size = entries.size();
+    return i < size? entries.subList(i, size).toArray(Entry.EMPTY_ARRAY): null;
   }
 
   void truncate(long index) {
@@ -141,10 +152,15 @@ class RaftLog {
    * terms), delete the existing entry and all that follow it (§5.3)
    */
   synchronized void apply(Entry... entries) {
-    if (entries.length == 0) {
+    if (entries == null || entries.length == 0) {
       return;
     }
     truncate(entries[0].getIndex());
     Preconditions.checkState(this.entries.addAll(Arrays.asList(entries)));
+  }
+
+  @Override
+  public synchronized String toString() {
+    return getLastEntry() + "_" + getLastCommitted();
   }
 }

@@ -27,19 +27,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 
 import com.google.common.base.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public class RaftServer implements RaftProtocol {
-  static final Log LOG = LogFactory.getLog(RaftServer.class);
+  static final Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
   static abstract class Role {
     /** Handle rpc timeout. */
@@ -106,12 +106,13 @@ public class RaftServer implements RaftProtocol {
       private long nextIndex;
       private final AtomicLong matchIndex = new AtomicLong();
 
-      private final Daemon rpcSender = new Daemon(new RpcSender());
+      private final Daemon rpcSender;
 
       FollowerInfo(RaftServer server, long lastRpcTime, long nextIndex) {
         this.server = server;
         this.lastRpcTime = new AtomicLong(lastRpcTime);
         this.nextIndex = nextIndex;
+        this.rpcSender = new Daemon(new RpcSender());
       }
 
       void updateMatchIndex(final long matchIndex) {
@@ -137,10 +138,10 @@ public class RaftServer implements RaftProtocol {
       /** Send an appendEntries RPC; retry indefinitely. */
       private Response sendAppendEntriesWithRetries()
           throws InterruptedException, InterruptedIOException {
-        RaftLog.Entry[] entries = {};
+        RaftLog.Entry[] entries = null;
         for(int retry = 0;; retry++) {
           try {
-            if (entries.length == 0) {
+            if (entries == null) {
               entries = raftlog.getEntries(nextIndex);
             }
             final RaftLog.TermIndex previous = raftlog.get(nextIndex - 1);
@@ -150,15 +151,17 @@ public class RaftServer implements RaftProtocol {
             final Response r =  server.appendEntries(id, state.getCurrentTerm(),
                 previous, raftlog.getLastCommitted().getIndex(), entries);
             if (r.success) {
-              final long mi = entries[entries.length - 1].getIndex();
-              updateMatchIndex(mi);;
-              nextIndex = mi + 1;
+              if (entries != null && entries.length > 0) {
+                final long mi = entries[entries.length - 1].getIndex();
+                updateMatchIndex(mi);
+                nextIndex = mi + 1;
+              }
             }
             return r;
           } catch (InterruptedIOException iioe) {
             throw iioe;
           } catch (IOException ioe) {
-            LOG.warn("Failed to send appendEntries to " + server
+            LOG.warn(id + ": Failed to send appendEntries to " + server
                 + "; retry " + retry, ioe);
           }
 
@@ -180,7 +183,9 @@ public class RaftServer implements RaftProtocol {
             }
           }
 
-          wait(getHeartbeatRemainingTime());
+          synchronized (this) {
+            wait(getHeartbeatRemainingTime());
+          }
         }
       }
 
@@ -195,7 +200,7 @@ public class RaftServer implements RaftProtocol {
           try {
             checkAndSendAppendEntries();
           } catch (InterruptedException | InterruptedIOException e) {
-            LOG.info(this + " is interrupted.", e);
+            LOG.info(id + ": " + this + " is interrupted.", e);
           }
         }
       }
@@ -273,6 +278,12 @@ public class RaftServer implements RaftProtocol {
   class Ensemable {
     private final Map<String, RaftServer> otherServers = new HashMap<>();
 
+    void setOtherServers(List<RaftServer> otherServers) {
+      for(RaftServer s : otherServers) {
+        this.otherServers.put(s.id, s);
+      }
+    }
+
     Collection<RaftServer> getOtherServers() {
       return otherServers.values();
     }
@@ -283,9 +294,9 @@ public class RaftServer implements RaftProtocol {
   }
 
   private final String id;
-  private final ServerState state = new ServerState();
+  private final ServerState state = new ServerState(new Follower());
 
-  private RaftLog raftlog;
+  private RaftLog raftlog = new RaftLog();
 
   private final Ensemable ensemable = new Ensemable();
 
@@ -294,6 +305,11 @@ public class RaftServer implements RaftProtocol {
 
   RaftServer(String id) {
     this.id = id;
+  }
+
+  void init(List<RaftServer> otherServers) {
+    ensemable.setOtherServers(otherServers);
+    rpcMonitorDaemon.start();
   }
 
   Ensemable getEnsemable() {
@@ -332,6 +348,9 @@ public class RaftServer implements RaftProtocol {
   @Override
   public Response requestVote(String candidateId, long candidateTerm,
       RaftLog.TermIndex candidateLastEntry) throws IOException {
+    LOG.trace("{}: receive requestVote({}, {}, {})",
+        id, candidateId, candidateTerm, candidateLastEntry);
+
     final long startTime = Time.monotonicNow();
     boolean voteGranted = false;
     synchronized (state) {
@@ -340,11 +359,12 @@ public class RaftServer implements RaftProtocol {
         rpcMonitor.updateLastRpcTime(startTime);
 
         // see Section 5.4.1 Election restriction
-        if (raftlog.getLastCommitted().compareTo(candidateLastEntry) <= 0) {
+        if (candidateLastEntry == null
+            || raftlog.getLastCommitted().compareTo(candidateLastEntry) <= 0) {
           voteGranted = state.vote(candidateId, candidateTerm);
         }
       }
-      return new Response(candidateId, state.getCurrentTerm(), voteGranted);
+      return new Response(id, state.getCurrentTerm(), voteGranted);
     }
   }
 
@@ -352,6 +372,11 @@ public class RaftServer implements RaftProtocol {
   public Response appendEntries(String leaderId, long leaderTerm,
       RaftLog.TermIndex previous, long leaderCommit, RaftLog.Entry... entries)
           throws IOException {
+    LOG.trace("{}: receive appendEntries({}, {}, {}, {}, {})",
+        id, leaderId, leaderTerm, previous, leaderCommit,
+        entries == null || entries.length == 0? "[]"
+            : entries.length + " entries start with " + entries[0]);
+
     final long startTime = Time.monotonicNow();
     RaftLog.Entry.assertEntries(leaderTerm, entries);
 
@@ -373,5 +398,10 @@ public class RaftServer implements RaftProtocol {
       raftlog.apply(entries);
       return new Response(id, currentTerm, true);
     }
+  }
+
+  @Override
+  public String toString() {
+    return id + ":" + state + ":" + raftlog;
   }
 }
