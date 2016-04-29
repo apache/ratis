@@ -15,25 +15,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.server.protocol;
 
-import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.test.GenericTestUtils;
-import org.apache.log4j.Level;
-import org.junit.Test;
+public class RaftServerResponse {
+  private final String peerId;
+  private final long term;
+  private final boolean success;
+  // final long lastIndexInTerm; TODO
 
-public class TestRaft {
-  {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.ALL);
+  public RaftServerResponse(String peerId, long term, boolean success) {
+    this.peerId = peerId;
+    this.term = term;
+    this.success = success;
   }
 
-  @Test
-  public void testStartRaft() throws Exception {
-    final MiniRaftCluster cluster = new MiniRaftCluster(5);
-    for(int i = 0; i < 5; i++) {
-      System.out.print("i" + i);
-      cluster.printServers(System.out);
-      Thread.sleep(150);
-    }
+  @Override
+  public String toString() {
+    return "Response from: " + peerId + ", term: " + term + ", result: "
+        + success;
+  }
+
+  public String getPeerId() {
+    return peerId;
+  }
+
+  public long getTerm() {
+    return term;
+  }
+
+  public boolean isSuccess() {
+    return success;
   }
 }

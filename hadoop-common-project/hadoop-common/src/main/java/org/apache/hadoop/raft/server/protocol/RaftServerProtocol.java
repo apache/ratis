@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.server.protocol;
 
 import java.io.IOException;
 
@@ -24,28 +24,12 @@ import org.apache.hadoop.classification.InterfaceStability;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public interface RaftProtocol {
-  class Response {
-    final String id;
-    final long term;
-//    final long firstIndexInTerm; TODO
-    final boolean success;
+public interface RaftServerProtocol {
 
-    Response(String id, long term, boolean success) {
-      this.id = id;
-      this.term = term;
-      this.success = success;
-    }
+  RaftServerResponse requestVote(String candidateId, long candidateTerm,
+      TermIndex candidateLastEntry) throws IOException;
 
-    @Override
-    public String toString() {
-      return id + "-t" + term + ":" + success;
-    }
-  }
-
-  Response requestVote(String candidateId, long candidateTerm,
-      RaftLog.TermIndex candidateLastEntry) throws IOException;
-
-  Response appendEntries(String leaderId, long term, RaftLog.TermIndex previous,
-      long leaderCommit, RaftLog.Entry... entries) throws IOException;
+  RaftServerResponse appendEntries(String leaderId, long leaderTerm,
+      TermIndex previous, long leaderCommit,
+      Entry... entries) throws IOException;
 }

@@ -15,25 +15,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.server;
 
-import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.test.GenericTestUtils;
-import org.apache.log4j.Level;
-import org.junit.Test;
+import org.apache.hadoop.raft.server.protocol.RaftPeer;
 
-public class TestRaft {
-  {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.ALL);
+import java.util.Arrays;
+
+public class RaftConfiguration {
+  private RaftPeer[] peers;
+
+  public RaftConfiguration(RaftPeer[] peers) {
+    this.peers = peers;
   }
 
-  @Test
-  public void testStartRaft() throws Exception {
-    final MiniRaftCluster cluster = new MiniRaftCluster(5);
-    for(int i = 0; i < 5; i++) {
-      System.out.print("i" + i);
-      cluster.printServers(System.out);
-      Thread.sleep(150);
+  public RaftPeer[] getPeers() {
+    return this.peers;
+  }
+
+  public int getSize() {
+    return peers.length;
+  }
+
+  @Override
+  public String toString() {
+    return "RaftConfiguration: " + Arrays.asList(peers);
+  }
+
+  public RaftPeer getPeer(String id) {
+    for (RaftPeer p : peers) {
+      if (p.getId().equals(id)) {
+        return p;
+      }
     }
+    return null;
   }
 }

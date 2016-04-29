@@ -15,25 +15,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.server.protocol;
 
-import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.test.GenericTestUtils;
-import org.apache.log4j.Level;
-import org.junit.Test;
+public class AppendEntriesRequest extends RaftServerRequest {
+  private final long leaderTerm;
+  private final TermIndex previousLog;
+  private final Entry[] entries;
+  private final long leaderCommit;
 
-public class TestRaft {
-  {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.ALL);
+  public AppendEntriesRequest(String from, String to, long leaderTerm,
+      TermIndex previousLog, Entry[] entries, long leaderCommit) {
+    super(from, to);
+    this.leaderTerm = leaderTerm;
+    this.previousLog = previousLog;
+    this.entries = entries;
+    this.leaderCommit = leaderCommit;
   }
 
-  @Test
-  public void testStartRaft() throws Exception {
-    final MiniRaftCluster cluster = new MiniRaftCluster(5);
-    for(int i = 0; i < 5; i++) {
-      System.out.print("i" + i);
-      cluster.printServers(System.out);
-      Thread.sleep(150);
-    }
+  public long getLeaderTerm() {
+    return leaderTerm;
+  }
+
+  public TermIndex getPreviousLog() {
+    return previousLog;
+  }
+
+  public Entry[] getEntries() {
+    return entries;
+  }
+
+  public long getLeaderCommit() {
+    return leaderCommit;
   }
 }

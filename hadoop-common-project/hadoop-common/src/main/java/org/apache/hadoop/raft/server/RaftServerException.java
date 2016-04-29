@@ -15,7 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.server;
+
+import org.apache.hadoop.raft.protocol.RaftException;
 
 public class RaftServerException extends RaftException {
   private static final long serialVersionUID = 1L;

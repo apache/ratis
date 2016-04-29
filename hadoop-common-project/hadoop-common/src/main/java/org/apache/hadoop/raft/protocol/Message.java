@@ -15,22 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.protocol;
 
-import java.io.IOException;
-
-public class RaftException extends IOException {
-  private static final long serialVersionUID = 1L;
-
-  RaftException(String message) {
-    super(message);
-  }
-
-  RaftException(Exception cause) {
-    super(cause);
-  }
-
-  RaftException(String message, Exception cause) {
-    super(message, cause);
-  }
+/**
+ * The information clients append to the raft ring.
+ */
+public interface Message {
 }

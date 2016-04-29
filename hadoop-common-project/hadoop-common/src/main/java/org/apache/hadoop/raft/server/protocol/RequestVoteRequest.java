@@ -15,25 +15,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.server.protocol;
 
-import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.test.GenericTestUtils;
-import org.apache.log4j.Level;
-import org.junit.Test;
+public class RequestVoteRequest extends RaftServerRequest {
+  private final long candidateTerm;
+  private final String candidateId;
+  private final TermIndex candidateLastEntry;
 
-public class TestRaft {
-  {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.ALL);
+  public RequestVoteRequest(String from, String to, long candidateTerm,
+      String candidateId, TermIndex candidateLastEntry) {
+    super(from, to);
+    this.candidateTerm = candidateTerm;
+    this.candidateId = candidateId;
+    this.candidateLastEntry = candidateLastEntry;
   }
 
-  @Test
-  public void testStartRaft() throws Exception {
-    final MiniRaftCluster cluster = new MiniRaftCluster(5);
-    for(int i = 0; i < 5; i++) {
-      System.out.print("i" + i);
-      cluster.printServers(System.out);
-      Thread.sleep(150);
-    }
+  public long getCandidateTerm() {
+    return candidateTerm;
+  }
+
+  public String getCandidateId() {
+    return candidateId;
+  }
+
+  public TermIndex getLastLogIndex() {
+    return candidateLastEntry;
   }
 }

@@ -15,84 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.server;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.server.protocol.Entry;
+import org.apache.hadoop.raft.protocol.Message;
+import org.apache.hadoop.raft.server.protocol.TermIndex;
 
-class RaftLog {
-  static class TermIndex implements Comparable<TermIndex> {
-    private final long term;
-    private final long index; //log index; first index is 1.
-
-    TermIndex(long term, long logIndex) {
-      this.term = term;
-      this.index = logIndex;
-    }
-
-    long getTerm() {
-      return term;
-    }
-
-    long getIndex() {
-      return index;
-    }
-
-    @Override
-    public int compareTo(TermIndex that) {
-      final int diff = Long.compare(this.term, that.term);
-      return diff != 0? diff: Long.compare(this.index, that.index);
-    }
-
-    static boolean equal(TermIndex a, TermIndex b) {
-      return a == b || (a != null && b != null && a.compareTo(b) == 0);
-    }
-
-    private static String toString(long n) {
-      return n < 0? "~": "" + n;
-    }
-
-    @Override
-    public String toString() {
-      return "t" + toString(term) + "i" + toString(index);
-    }
-  }
-
-  static interface Message {
-
-  }
-
-  static class Entry extends TermIndex {
-    static final Entry[] EMPTY_ARRAY = {};
-
-    static void assertEntries(long expectedTerm, Entry... entries) {
-      if (entries != null && entries.length > 0) {
-        final long index0 = entries[0].getIndex();
-        for(int i = 0; i < entries.length; i++) {
-          final long t = entries[i].getTerm();
-          Preconditions.checkArgument(expectedTerm == t,
-              "Unexpected Term: entries[{}].getTerm()={} but expectedTerm={}",
-              i, t, expectedTerm);
-
-          final long indexi = entries[i].getIndex();
-          Preconditions.checkArgument(indexi == index0 + i, "Unexpected Index: "
-              + "entries[{}].getIndex()={} but entries[0].getIndex()={}",
-              i, indexi, index0);
-        }
-      }
-    }
-
-    private final Message message;
-
-    Entry(long term, long logIndex, Message message) {
-      super(term, logIndex);
-      this.message = message;
-    }
-  }
-
+public class RaftLog {
   private final List<Entry> entries = new ArrayList<>();
   private long lastCommitted = -1;
 
@@ -101,8 +35,9 @@ class RaftLog {
   }
 
   synchronized void setLastCommitted(long lastCommitted) {
-    Preconditions.checkState(this.lastCommitted <= lastCommitted);
-    this.lastCommitted = lastCommitted;
+    if (this.lastCommitted < lastCommitted) {
+      this.lastCommitted = lastCommitted;
+    }
   }
 
   private int findIndex(long index) {
@@ -129,7 +64,7 @@ class RaftLog {
 
   /** Does the contain the given term and index? */
   boolean contains(TermIndex ti) {
-    return TermIndex.equal(ti, get(ti.getIndex()));
+    return ti != null && ti.equals(get(ti.getIndex()));
   }
 
   synchronized Entry getLastEntry() {
@@ -142,9 +77,11 @@ class RaftLog {
     return last == null? 1: last.getIndex() + 1;
   }
 
-  synchronized void apply(long term, Message message) {
-    final Entry e = new Entry(term, getNextIndex(), message);
+  synchronized long apply(long term, Message message) {
+    final long nextIndex = getNextIndex();
+    final Entry e = new Entry(term, nextIndex, message);
     Preconditions.checkState(entries.add(e));
+    return nextIndex;
   }
 
   /**
@@ -160,7 +97,9 @@ class RaftLog {
   }
 
   @Override
-  public synchronized String toString() {
-    return getLastEntry() + "_" + getLastCommitted();
+  public String toString() {
+    synchronized (this) {
+      return getLastEntry() + "_" + getLastCommitted();
+    }
   }
 }

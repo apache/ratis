@@ -17,28 +17,32 @@
  */
 package org.apache.hadoop.raft;
 
+import org.apache.hadoop.raft.server.RaftConfiguration;
+import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.server.protocol.RaftPeer;
+
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MiniRaftCluster {
-  final List<RaftServer> servers;
+  private final List<RaftServer> servers;
 
   MiniRaftCluster(int numServers) {
+    RaftConfiguration conf = initConfiguration(numServers);
     this.servers = new ArrayList<>();
-    for(int i = 0; i < numServers; i++) {
-      servers.add(new RaftServer("s" + i));
+    for (RaftPeer p : conf.getPeers()) {
+      servers.add(new RaftServer(p.getId(), conf));
     }
   }
 
-  void init() {
-    final List<RaftServer> otherServers = new ArrayList<>(servers);
-    for(RaftServer s : servers) {
-      otherServers.remove(s);
-      s.init(otherServers);
-      otherServers.add(s);
+  private RaftConfiguration initConfiguration(int num) {
+    RaftPeer[] peers = new RaftPeer[num];
+    for (int i = 0; i < num; i++) {
+      peers[i] = new RaftPeer("s" + i);
     }
+    return new RaftConfiguration(peers);
   }
 
   public void printServers(PrintStream out) {

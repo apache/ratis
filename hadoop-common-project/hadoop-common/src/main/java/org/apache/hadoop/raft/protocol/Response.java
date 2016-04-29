@@ -15,25 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.protocol;
 
-import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.test.GenericTestUtils;
-import org.apache.log4j.Level;
-import org.junit.Test;
-
-public class TestRaft {
-  {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.ALL);
-  }
-
-  @Test
-  public void testStartRaft() throws Exception {
-    final MiniRaftCluster cluster = new MiniRaftCluster(5);
-    for(int i = 0; i < 5; i++) {
-      System.out.print("i" + i);
-      cluster.printServers(System.out);
-      Thread.sleep(150);
-    }
-  }
+public class Response {
 }

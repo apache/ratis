@@ -15,25 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.client;
 
-import java.util.Random;
+import org.apache.hadoop.raft.protocol.Message;
 
-public abstract class RaftConstants {
-  static final int ELECTION_TIMEOUT_MIN_MS = 150;
-  static final int ELECTION_TIMEOUT_MAX_MS = 300;
-  static final int ELECTION_SLEEP_TIME_MS = 50;
+import java.util.concurrent.Future;
 
-  static final int RPC_TIMEOUT_MIN_MS = 150;
-  static final int RPC_TIMEOUT_MAX_MS = 300;
-  static final int RPC_SLEEP_TIME_MS = 50;
-
-  static final int ELECTION_TIMEOUT_MS_WIDTH
-      = ELECTION_TIMEOUT_MAX_MS - ELECTION_TIMEOUT_MIN_MS;
-
-  static final Random RANDOM = new Random();
-
-  static int getRandomElectionWaitTime() {
-    return RANDOM.nextInt(ELECTION_TIMEOUT_MS_WIDTH) + ELECTION_TIMEOUT_MIN_MS;
+public class RaftClient {
+  Future<?> submit(Message message) {
+    return null;
   }
 }

@@ -15,25 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.server;
 
-import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.test.GenericTestUtils;
-import org.apache.log4j.Level;
-import org.junit.Test;
+import java.util.Random;
 
-public class TestRaft {
-  {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.ALL);
-  }
+public abstract class RaftConstants {
+  static final int ELECTION_TIMEOUT_MIN_MS = 150;
+  static final int ELECTION_TIMEOUT_MAX_MS = 300;
+  static final int ELECTION_SLEEP_TIME_MS = 50;
 
-  @Test
-  public void testStartRaft() throws Exception {
-    final MiniRaftCluster cluster = new MiniRaftCluster(5);
-    for(int i = 0; i < 5; i++) {
-      System.out.print("i" + i);
-      cluster.printServers(System.out);
-      Thread.sleep(150);
-    }
+  static final int RPC_TIMEOUT_MIN_MS = 150;
+  static final int RPC_TIMEOUT_MAX_MS = 300;
+  static final int RPC_SLEEP_TIME_MS = 25;
+
+  static final int ELECTION_TIMEOUT_MS_WIDTH
+      = ELECTION_TIMEOUT_MAX_MS - ELECTION_TIMEOUT_MIN_MS;
+
+  static final Random RANDOM = new Random();
+
+  static int getRandomElectionWaitTime() {
+    return RANDOM.nextInt(ELECTION_TIMEOUT_MS_WIDTH) + ELECTION_TIMEOUT_MIN_MS;
   }
 }
