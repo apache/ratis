@@ -20,8 +20,14 @@ package org.apache.hadoop.raft.server;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 
+/**
+ * Common states of a raft peer. Protected by RaftServer's lock.
+ */
 class ServerState {
   private final String selfId;
+  /** Raft log */
+  private final RaftLog log;
+
   /**
    * Latest term server has seen. initialized to 0 on first boot, increases
    * monotonically.
@@ -33,16 +39,11 @@ class ServerState {
    */
   private String leaderId;
   /**
-   * Candidate that received this peer's grantVote in current term (or null if none).
+   * Candidate that this peer granted vote for in current term (or null if none)
    */
   private String votedFor;
-  /**
-   * Raft log
-   */
-  private final RaftLog log;
-  /**
-   * Index of highest log entry applied to state machine
-   */
+
+  /** Index of highest log entry applied to state machine */
   private long lastApplied;
 
   ServerState(String id) {
@@ -133,7 +134,7 @@ class ServerState {
 
   @Override
   public String toString() {
-    return "id: " + selfId + "current term: " + currentTerm
+    return "id: " + selfId + ", current term: " + currentTerm
         + ", leaderId: " + leaderId + ", votedFor: " + votedFor
         + ", raft log: " + log;
   }

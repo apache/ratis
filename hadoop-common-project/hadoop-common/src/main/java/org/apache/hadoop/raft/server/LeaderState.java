@@ -78,15 +78,15 @@ class LeaderState {
     }
   }
 
-  void checkResponseTerm(long reponseTerm) {
+  private void checkResponseTerm(long responseTerm) {
     synchronized (server) {
-      if (reponseTerm > server.getState().getCurrentTerm()) {
+      if (responseTerm > server.getState().getCurrentTerm()) {
         server.changeToFollower();
       }
     }
   }
 
-  void updateLastCommitted() {
+  private void updateLastCommitted() {
     final long[] indices = new long[senders.size() + 1];
     for (int i = 0; i < senders.size(); i++) {
       indices[i] = senders.get(i).follower.matchIndex.get();

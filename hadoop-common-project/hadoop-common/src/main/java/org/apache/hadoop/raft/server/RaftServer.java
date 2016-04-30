@@ -68,9 +68,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
           long waitTime = electionTimeout -
               (Time.monotonicNow() - lastRpcTime.get());
           if (waitTime > 0 ) {
-            synchronized(this) {
-              wait(waitTime);
-            }
+            Thread.sleep(waitTime);
           }
           final long now = Time.monotonicNow();
           if (now >= lastRpcTime.get() + electionTimeout) {
@@ -99,7 +97,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
   private Daemon heartbeatMonitorDaemon;
 
   /** used when the peer is candidate, to request votes from other peers */
-  private Daemon electionDaemon;
+  private LeaderElection electionDaemon;
 
   /** used when the peer is leader */
   private LeaderState leaderState;
@@ -148,6 +146,9 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
       leaderState = null;
       // TODO: handle pending requests: we can send back
       // NotLeaderException and let the client retry
+    } else if (isCandidate()) {
+      electionDaemon.stopRunning();
+      electionDaemon.interrupt();
     }
     role = Role.FOLLOWER;
     heartbeatMonitor = new HeartbeatMonitor();
@@ -169,13 +170,23 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
     heartbeatMonitorDaemon = null;
     role = Role.CANDIDATE;
     // start election
-    electionDaemon = new Daemon(new LeaderElection(this));
+    electionDaemon = new LeaderElection(this);
     electionDaemon.start();
+  }
+
+  synchronized long initElection() {
+    return state.initElection();
   }
 
   @Override
   public String toString() {
-    return role.toString() + ":" + state.toString();
+    return role.toString() + ": " + state.toString();
+  }
+
+  private void checkLeaderState() throws NotLeaderException {
+    if (!isLeader()) {
+      throw new NotLeaderException(raftConf.getPeer(state.getLeaderId()));
+    }
   }
 
   /**
@@ -183,15 +194,16 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
    */
   @Override
   public void submit(Message message) throws IOException {
-    if (!isLeader()) {
-      throw new NotLeaderException(raftConf.getPeer(state.getLeaderId()));
-    }
+    checkLeaderState();
     // append the message to its local log
     final long entryIndex = state.getLog().apply(state.getCurrentTerm(),
         message);
-    // put the request into the pending queue
-    pendingRequests.put(entryIndex, new Response());
-    leaderState.notifySenders();
+    synchronized (this) {
+      checkLeaderState();
+      // put the request into the pending queue
+      pendingRequests.put(entryIndex, new Response());
+      leaderState.notifySenders();
+    }
     // return without waiting.
     // TODO: after the corresponding log entry is committed,
     // a background thread will remove the request from the pending queue and
@@ -205,7 +217,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
         state.getSelfId(), candidateId, candidateTerm, candidateLastEntry);
     final long startTime = Time.monotonicNow();
     boolean voteGranted = false;
-    synchronized (state) {
+    synchronized (this) {
       if (state.recognizeCandidate(candidateId, candidateTerm)) {
         changeToFollower();
 
@@ -234,7 +246,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
     Entry.assertEntries(leaderTerm, entries);
 
     final long currentTerm;
-    synchronized (state) {
+    synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
@@ -248,9 +260,9 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
       if (previous != null && !state.getLog().contains(previous)) {
         return new RaftServerResponse(state.getSelfId(), currentTerm, false);
       }
-      state.getLog().apply(entries);
-      return new RaftServerResponse(state.getSelfId(), currentTerm, true);
     }
+    state.getLog().apply(entries);
+    return new RaftServerResponse(state.getSelfId(), currentTerm, true);
   }
 
   synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,

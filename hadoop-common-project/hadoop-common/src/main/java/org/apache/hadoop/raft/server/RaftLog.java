@@ -55,7 +55,7 @@ public class RaftLog {
     return i < size? entries.subList(i, size).toArray(Entry.EMPTY_ARRAY): null;
   }
 
-  void truncate(long index) {
+  private void truncate(long index) {
     final int truncateIndex = findIndex(index);
     for(int i = entries.size() - 1; i >= truncateIndex; i--) {
       entries.remove(i);

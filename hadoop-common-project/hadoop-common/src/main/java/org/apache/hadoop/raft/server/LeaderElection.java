@@ -18,13 +18,13 @@
 package org.apache.hadoop.raft.server;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.RaftServerResponse;
 import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
+import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -36,10 +36,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-class LeaderElection implements Runnable {
-  public static final Log LOG = LogFactory.getLog(RaftServer.class);
+import static org.apache.hadoop.raft.server.LeaderElection.Result.ELECTED;
+import static org.apache.hadoop.raft.server.LeaderElection.Result.NEWTERM;
+import static org.apache.hadoop.raft.server.LeaderElection.Result.REJECTED;
 
-  static String string(List<RaftServerResponse> responses, List<Exception> exceptions) {
+class LeaderElection extends Daemon {
+  public static final Logger LOG = RaftServer.LOG;
+
+  static String string(List<RaftServerResponse> responses,
+      List<Exception> exceptions) {
     return "received " + responses.size() + " response(s) and "
         + exceptions.size() + " exception(s); "
         + responses + "; " + exceptions;
@@ -49,15 +54,22 @@ class LeaderElection implements Runnable {
 
   private final RaftServer raftServer;
   private ExecutorCompletionService<RaftServerResponse> service;
+  private ExecutorService executor;
   private final Collection<RaftPeer> others;
+  private volatile boolean running;
 
   LeaderElection(RaftServer raftServer) {
     this.raftServer = raftServer;
     others = raftServer.getOtherPeers();
+    this.running = true;
   }
 
-  private void initExecutors() {
-    ExecutorService executor = Executors.newFixedThreadPool(others.size(),
+  void stopRunning() {
+    this.running = false;
+  }
+
+  private void initExecutor() {
+    executor = Executors.newFixedThreadPool(others.size(),
         new ThreadFactoryBuilder().setDaemon(true).build());
     service = new ExecutorCompletionService<>(executor);
   }
@@ -67,8 +79,11 @@ class LeaderElection implements Runnable {
     try {
       askForVotes();
     } catch (InterruptedException e) {
-      // TODO the leader election thread is interrupted. The peer may already step
+      // the leader election thread is interrupted. The peer may already step
       // down to a follower. The leader election should skip.
+      LOG.info("The leader election thread of peer {} is interrupted. " +
+          "Currently role: {}.", raftServer.getState().getSelfId(),
+          raftServer.getRole());
     }
   }
 
@@ -77,16 +92,23 @@ class LeaderElection implements Runnable {
    * send out requestVote rpc to all other peers.
    */
   private void askForVotes() throws InterruptedException {
-    while (raftServer.isCandidate()) {
+    final ServerState state = raftServer.getState();
+    while (running && raftServer.isCandidate()) {
       // one round of requestVotes
-      final long electionTerm = raftServer.getState().initElection();
-      final TermIndex lastEntry = raftServer.getState().getLog().getLastEntry();
-      initExecutors();
-      int submitted = sendRequests(electionTerm, lastEntry);
-      Result r = waitForResults(electionTerm, submitted);
+      final long electionTerm = raftServer.initElection();
+      final TermIndex lastEntry = state.getLog().getLastEntry();
 
-      synchronized (raftServer) { // TODO revisit lock
-        if (electionTerm != raftServer.getState().getCurrentTerm() ||
+      Result r = Result.REJECTED;
+      try {
+        initExecutor();
+        int submitted = submitRequests(electionTerm, lastEntry);
+        r = waitForResults(electionTerm, submitted);
+      } finally {
+        executor.shutdown();
+      }
+
+      synchronized (raftServer) {
+        if (electionTerm != state.getCurrentTerm() || !running ||
             !raftServer.isCandidate()) {
           return; // term already passed or no longer a candidate.
         }
@@ -106,7 +128,7 @@ class LeaderElection implements Runnable {
     }
   }
 
-  private int sendRequests(final long electionTerm, final TermIndex lastEntry) {
+  private int submitRequests(final long electionTerm, final TermIndex lastEntry) {
     int submitted = 0;
     for (final RaftPeer peer : others) {
       final RequestVoteRequest r = raftServer.createRequestVoteRequest(
@@ -130,7 +152,7 @@ class LeaderElection implements Runnable {
     final List<Exception> exceptions = new ArrayList<>();
     int granted = 1; // self
     int waitForNum = submitted;
-    while (waitForNum > 0 && raftServer.isCandidate()) { // check the role to jump out faster
+    while (waitForNum > 0 && running && raftServer.isCandidate()) {
       final long waitTime = timeout - Time.monotonicNow();
       if (waitTime <= 0) {
         LOG.info("Election timeout: " + string(responses, exceptions));
@@ -139,25 +161,25 @@ class LeaderElection implements Runnable {
 
       try {
         RaftServerResponse r = service.poll(waitTime, TimeUnit.MILLISECONDS).get();
-        waitForNum--;
         if (r.getTerm() > electionTerm) {
-          return Result.NEWTERM;
+          return NEWTERM;
         }
         responses.add(r);
         if (r.isSuccess()) {
           granted++;
           if (granted > others.size()/2) {
             LOG.info("Election passed: " + string(responses, exceptions));
-            return Result.ELECTED;
+            return ELECTED;
           }
         }
       } catch(ExecutionException e) {
         LOG.warn("", e);
         exceptions.add(e);
       }
+      waitForNum--;
     }
     // received all the responses
     LOG.info("Election rejected: " + string(responses, exceptions));
-    return Result.REJECTED;
+    return REJECTED;
   }
 }
