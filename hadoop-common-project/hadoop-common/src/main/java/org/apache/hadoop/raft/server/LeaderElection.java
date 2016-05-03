@@ -26,6 +26,7 @@ import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -140,8 +141,8 @@ class LeaderElection extends Daemon {
           peer.getId(), electionTerm, lastEntry);
       service.submit(new Callable<RaftServerResponse>() {
         @Override
-        public RaftServerResponse call() throws RaftServerException {
-          return raftServer.sendRequestVote(peer, r);
+        public RaftServerResponse call() throws IOException {
+          return raftServer.sendRequestVote(r);
         }
       });
       submitted++;

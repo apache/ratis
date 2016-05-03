@@ -33,4 +33,10 @@ public abstract class RaftServerRequest {
   public String getToId() {
     return toId;
   }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() + " from " + getFromId()
+        + " to " + getToId();
+  }
 }

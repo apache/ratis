@@ -41,4 +41,11 @@ public class RequestVoteRequest extends RaftServerRequest {
   public TermIndex getLastLogIndex() {
     return candidateLastEntry;
   }
+
+  @Override
+  public String toString() {
+    return super.toString() + ", candidateTerm: " + getCandidateTerm()
+        + ", candidateId: " + getCandidateId()
+        + ", lastEntry: " + getLastLogIndex();
+  }
 }

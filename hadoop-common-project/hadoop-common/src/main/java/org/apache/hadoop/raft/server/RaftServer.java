@@ -27,23 +27,27 @@ import org.apache.hadoop.raft.protocol.Response;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
+import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.protocol.RaftServerResponse;
 import org.apache.hadoop.raft.server.protocol.RaftServerProtocol;
 import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.apache.hadoop.raft.server.simulation.EventQueues;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.atomic.AtomicLong;
+
+import static org.apache.hadoop.util.ExitUtil.terminate;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -53,25 +57,34 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
   /**
    * Used when the peer is a follower. Used to track the election timeout.
    */
-  private class HeartbeatMonitor implements Runnable {
-    private final AtomicLong lastRpcTime = new AtomicLong(Time.monotonicNow());
+  private class HeartbeatMonitor extends Daemon {
+    private volatile long lastRpcTime = Time.monotonicNow();
     private final long electionTimeout = RaftConstants.getRandomElectionWaitTime();
+    private volatile boolean monitorRunning = true;
 
     void updateLastRpcTime(long now) {
-      lastRpcTime.set(now);
+      LOG.debug("{} update last rpc time to {}", state.getSelfId(), now);
+      lastRpcTime = now;
+    }
+
+    void stopRunning() {
+      this.monitorRunning = false;
     }
 
     @Override
     public  void run() {
-      while (isRunning() && isFollower()) {
+      while (monitorRunning && isFollower()) {
         try {
-          long waitTime = electionTimeout -
-              (Time.monotonicNow() - lastRpcTime.get());
-          if (waitTime > 0 ) {
-            Thread.sleep(waitTime);
+          Thread.sleep(electionTimeout);
+          if (!monitorRunning || !isFollower()) {
+            LOG.info("{} heartbeat monitor quit", state.getSelfId());
+            break;
           }
           final long now = Time.monotonicNow();
-          if (now >= lastRpcTime.get() + electionTimeout) {
+          if (now >= lastRpcTime + electionTimeout) {
+            LOG.info("{} changing to candidate." +
+                " now:{}, last rpc time:{}, electionTimeout:{}",
+                state.getSelfId(), now, lastRpcTime, electionTimeout);
             // election timeout, should become a candidate
             RaftServer.this.changeToCandidate();
             break;
@@ -88,32 +101,43 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
 
     @Override
     public String toString() {
-      return getState().getSelfId() + ": " + getClass().getSimpleName();
+      return RaftServer.this.getState().getSelfId()
+          + ": " + getClass().getSimpleName();
     }
   }
 
   private final ServerState state;
   private final RaftConfiguration raftConf;
-  private volatile Role role = Role.FOLLOWER;
+  private volatile Role role;
   private volatile boolean isRunning = true;
 
   private final NavigableMap<Long, Response> pendingRequests;
 
   /** used when the peer is follower, to monitor election timeout */
-  private HeartbeatMonitor heartbeatMonitor;
-  private Daemon heartbeatMonitorDaemon;
+  private volatile HeartbeatMonitor heartbeatMonitor;
 
   /** used when the peer is candidate, to request votes from other peers */
-  private LeaderElection electionDaemon;
+  private volatile LeaderElection electionDaemon;
 
   /** used when the peer is leader */
   private volatile LeaderState leaderState;
 
-  public RaftServer(String id, RaftConfiguration raftConf) {
-    this.raftConf = raftConf; // TODO: how to init raft conf
+  private final EventQueues rpcQueues;
+  private final RequestHandler handler;
+
+  public RaftServer(String id, RaftConfiguration raftConf, EventQueues rpcQueues) {
+    this.raftConf = raftConf;
     this.state = new ServerState(id);
     this.pendingRequests = new ConcurrentSkipListMap<>();
-    changeToFollower();
+    this.rpcQueues = rpcQueues;
+    this.handler = new RequestHandler();
+  }
+
+  public void start() {
+    handler.start();
+    role = Role.FOLLOWER;
+    heartbeatMonitor = new HeartbeatMonitor();
+    heartbeatMonitor.start();
   }
 
   public ServerState getState() {
@@ -126,11 +150,17 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
 
   public void kill() {
     isRunning = false;
-    heartbeatMonitorDaemon.interrupt();
+    try {
+      handler.interrupt();
+      handler.join();
 
-    final LeaderState leader = leaderState;
-    if (leader != null) {
-      leader.stop();
+      shutdownHeartbeatMonitor();
+      shutdownElectionDaemon();
+      final LeaderState leader = leaderState;
+      if (leader != null) {
+        leader.stop();
+      }
+    } catch (InterruptedException ignored) {
     }
   }
 
@@ -167,6 +197,9 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
   }
 
   synchronized void changeToFollower() {
+    if (isFollower()) {
+      return;
+    }
     if (isLeader()) {
       assert leaderState != null;
       leaderState.stop();
@@ -174,27 +207,51 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
       // TODO: handle pending requests: we can send back
       // NotLeaderException and let the client retry
     } else if (isCandidate()) {
-      electionDaemon.stopRunning();
-      electionDaemon.interrupt();
+      shutdownElectionDaemon();
     }
     role = Role.FOLLOWER;
     heartbeatMonitor = new HeartbeatMonitor();
-    heartbeatMonitorDaemon = new Daemon(heartbeatMonitor);
-    heartbeatMonitorDaemon.start();
+    heartbeatMonitor.start();
+  }
+
+  private void shutdownElectionDaemon() {
+    final LeaderElection election = electionDaemon;
+    if (election != null) {
+      election.stopRunning();
+      election.interrupt();
+      try {
+        election.join();
+      } catch (InterruptedException ignored) {
+      }
+    }
+    electionDaemon = null;
   }
 
   synchronized void changeToLeader() {
     Preconditions.checkState(isCandidate());
-    electionDaemon = null;
+    shutdownElectionDaemon();
     role = Role.LEADER;
     // start sending AppendEntries RPC to followers
     leaderState = new LeaderState(this);
     leaderState.start();
   }
 
+  private void shutdownHeartbeatMonitor() {
+    final HeartbeatMonitor hm = heartbeatMonitor;
+    if (hm != null) {
+      hm.stopRunning();
+      hm.interrupt();
+      try {
+        hm.join();
+      } catch (InterruptedException ignored) {
+      }
+    }
+    heartbeatMonitor = null;
+  }
+
   synchronized void changeToCandidate() {
     Preconditions.checkState(isFollower());
-    heartbeatMonitorDaemon = null;
+    shutdownHeartbeatMonitor();
     role = Role.CANDIDATE;
     // start election
     electionDaemon = new LeaderElection(this);
@@ -308,15 +365,68 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
         state.getSelfId(), lastEntry);
   }
 
-  RaftServerResponse sendRequestVote(RaftPeer peer, RequestVoteRequest request)
-      throws RaftServerException {
-    // TODO
-    return null;
+  RaftServerResponse sendRequestVote(RequestVoteRequest request)
+      throws IOException {
+    try {
+      return rpcQueues.request(request);
+    } catch (InterruptedException e) {
+      throw new InterruptedIOException();
+    }
   }
 
-  RaftServerResponse sendAppendEntries(RaftPeer peer,
-      AppendEntriesRequest request) throws RaftServerException {
-    // TODO
-    return null;
+  RaftServerResponse sendAppendEntries(AppendEntriesRequest request)
+      throws RaftServerException, InterruptedException {
+    return rpcQueues.request(request);
+  }
+
+  private class ClientResponder extends Daemon {
+    @Override
+    public void run() {
+      // TODO: based on committed index, send back response to client
+    }
+  }
+
+  /**
+   * A thread keep polling requests from the request queue. Used for simulation.
+   */
+  private class RequestHandler extends Thread {
+    @Override
+    public void run() {
+      while (isRunning()) {
+        try {
+          RaftServerRequest request = rpcQueues.takeRequest(state.getSelfId());
+          RaftServerResponse response = handleRequest(request);
+          rpcQueues.response(request, response);
+        } catch (Throwable t) {
+          if (!isRunning()) {
+            LOG.info("The Raft peer {} is stopped", state.getSelfId());
+            break;
+          } else if (t instanceof InterruptedException) {
+            LOG.info("Stopping Raft peer {} for testing.", state.getSelfId());
+            break;
+          }
+          LOG.error("Raft peer {}'s request handler received exception.",
+              state.getSelfId(), t);
+          terminate(1, t);
+        }
+      }
+    }
+
+    private RaftServerResponse handleRequest(RaftServerRequest r)
+        throws IOException {
+      if (r instanceof AppendEntriesRequest) {
+        final AppendEntriesRequest ap = (AppendEntriesRequest) r;
+        return appendEntries(ap.getFromId(), ap.getLeaderTerm(),
+            ap.getPreviousLog(), ap.getLeaderCommit(), ap.getEntries());
+      } else if (r instanceof RequestVoteRequest) {
+        final RequestVoteRequest rr = (RequestVoteRequest) r;
+        return requestVote(rr.getCandidateId(), rr.getCandidateTerm(),
+            rr.getLastLogIndex());
+      } else { // TODO support other requests later
+        // should not come here now
+        return new RaftServerResponse(state.getSelfId(),
+            state.getCurrentTerm(), false);
+      }
+    }
   }
 }

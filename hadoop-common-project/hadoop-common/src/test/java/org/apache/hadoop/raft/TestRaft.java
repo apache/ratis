@@ -36,6 +36,7 @@ public class TestRaft {
   public void testBasicLeaderElection() throws Exception {
     final MiniRaftCluster cluster = new MiniRaftCluster(5);
     Assert.assertNull(cluster.getLeader());
+    cluster.start();
 
     waitAndKillLeader(cluster, true);
     waitAndKillLeader(cluster, true);
@@ -54,7 +55,7 @@ public class TestRaft {
       Assert.assertNull(leader);
     } else {
       Assert.assertNotNull(leader);
-      out.println("leader = " + leader);
+      out.println("killing leader = " + leader);
       cluster.killServer(leader.getState().getSelfId());
     }
   }

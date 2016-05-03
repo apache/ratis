@@ -67,6 +67,10 @@ class LeaderState {
     for (RpcSender sender : senders) {
       sender.stopRunning();
       sender.interrupt();
+      try {
+        sender.join();
+      } catch (InterruptedException ignored) {
+      }
     }
   }
 
@@ -178,8 +182,7 @@ class LeaderState {
           final TermIndex previous = raftLog.get(follower.nextIndex - 1);
           AppendEntriesRequest request = server.createAppendEntriesRequest(
               follower.peer.getId(), previous, entries);
-          final RaftServerResponse r = server.sendAppendEntries(follower.peer,
-              request);
+          final RaftServerResponse r = server.sendAppendEntries(request);
           if (r.isSuccess()) {
             if (entries != null && entries.length > 0) {
               final long mi = entries[entries.length - 1].getIndex();

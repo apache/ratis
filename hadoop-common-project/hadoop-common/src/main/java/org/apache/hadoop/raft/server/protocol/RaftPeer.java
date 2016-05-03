@@ -32,4 +32,14 @@ public class RaftPeer {
   public String toString() {
     return id;
   }
+
+  @Override
+  public boolean equals(Object o) {
+    return (o instanceof RaftPeer) && id.equals(((RaftPeer) o).getId());
+  }
+
+  @Override
+  public int hashCode() {
+    return id.hashCode();
+  }
 }

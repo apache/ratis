@@ -72,6 +72,7 @@ public class ServerState {
    */
   long initElection() {
     votedFor = selfId;
+    leaderId = null;
     return ++currentTerm;
   }
 
@@ -81,6 +82,7 @@ public class ServerState {
   void grantVote(String candidateId, long candidateTerm) {
     currentTerm = candidateTerm;
     votedFor = candidateId;
+    leaderId = null;
   }
 
   void setLeader(String leaderId, long leaderTerm) {
@@ -107,7 +109,9 @@ public class ServerState {
       setLeader(leaderId, leaderTerm);
       return true;
     }
-    Preconditions.checkArgument(this.leaderId.equals(leaderId));
+    Preconditions.checkArgument(this.leaderId.equals(leaderId),
+        "selfId:%s, this.leaderId:%s, received leaderId:%s",
+        selfId, this.leaderId, leaderId);
     return true;
   }
 

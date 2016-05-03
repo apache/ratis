@@ -47,4 +47,11 @@ public class AppendEntriesRequest extends RaftServerRequest {
   public long getLeaderCommit() {
     return leaderCommit;
   }
+
+  @Override
+  public String toString() {
+    return super.toString() + ", leaderTerm: " + getLeaderTerm()
+        + ", previous: " + getPreviousLog()
+        + ", leaderCommit: " + getLeaderCommit();
+  }
 }
