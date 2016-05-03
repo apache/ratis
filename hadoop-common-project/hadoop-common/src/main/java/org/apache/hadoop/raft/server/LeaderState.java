@@ -140,17 +140,15 @@ class LeaderState {
   class RpcSender extends Thread {
     private volatile boolean running = true;
     private final FollowerInfo follower;
-    private final String selfId;
 
     public RpcSender(FollowerInfo f) {
       this.follower = f;
-      this.selfId = server.getState().getSelfId();
     }
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + "-from-" + selfId
-          + "-to-" + follower.peer.getId();
+      return getClass().getSimpleName() + "(" + server.getState().getSelfId()
+          + " -> " + follower.peer.getId() + ")";
     }
 
     @Override
@@ -158,7 +156,8 @@ class LeaderState {
       try {
         checkAndSendAppendEntries();
       } catch (InterruptedException e) {
-        LOG.info(this + " is interrupted.", e);
+        LOG.info(this + " was interrupted: " + e);
+        LOG.trace("TRACE", e);
       }
     }
 
@@ -190,8 +189,7 @@ class LeaderState {
           }
           return r;
         } catch (IOException ioe) {
-          LOG.warn(selfId + ": failed to send appendEntries to " + server
-              + "; retry " + retry++, ioe);
+          LOG.warn(this + ": failed to send appendEntries; retry " + retry++, ioe);
         }
         Thread.sleep(RaftConstants.RPC_SLEEP_TIME_MS);
       }

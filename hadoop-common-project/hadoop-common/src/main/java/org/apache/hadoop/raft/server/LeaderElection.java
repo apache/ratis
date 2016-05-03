@@ -36,21 +36,23 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.hadoop.raft.server.LeaderElection.Result.ELECTED;
-import static org.apache.hadoop.raft.server.LeaderElection.Result.NEWTERM;
-import static org.apache.hadoop.raft.server.LeaderElection.Result.REJECTED;
-
 class LeaderElection extends Daemon {
   public static final Logger LOG = RaftServer.LOG;
 
-  static String string(List<RaftServerResponse> responses,
-      List<Exception> exceptions) {
-    return "received " + responses.size() + " response(s) and "
-        + exceptions.size() + " exception(s); "
-        + responses + "; " + exceptions;
+  private Result logAndReturn(Result r, List<RaftServerResponse> responses,
+                              List<Exception> exceptions) {
+    LOG.info(raftServer.getState().getSelfId()
+        + ": Election " + r + "; received "
+        + responses.size() + " response(s) " + responses + " and "
+        + exceptions.size() + " exception(s)");
+    int i = 0;
+    for(Exception e : exceptions) {
+      LOG.info("  " + i++ + ": " + e);
+    }
+    return r;
   }
 
-  enum Result {ELECTED, REJECTED, TIMEOUT, NEWTERM}
+  enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM}
 
   private final RaftServer raftServer;
   private ExecutorCompletionService<RaftServerResponse> service;
@@ -96,9 +98,12 @@ class LeaderElection extends Daemon {
     while (running && raftServer.isCandidate()) {
       // one round of requestVotes
       final long electionTerm = raftServer.initElection();
+      LOG.info(state.getSelfId() + ": begin an election in Term "
+          + electionTerm);
+
       final TermIndex lastEntry = state.getLog().getLastEntry();
 
-      Result r = Result.REJECTED;
+      final Result r;
       try {
         initExecutor();
         int submitted = submitRequests(electionTerm, lastEntry);
@@ -114,11 +119,11 @@ class LeaderElection extends Daemon {
         }
 
         switch (r) {
-          case ELECTED:
+          case PASSED:
             raftServer.changeToLeader();
             return;
           case REJECTED:
-          case NEWTERM:
+          case DISCOVERED_A_NEW_TERM:
             raftServer.changeToFollower();
             return;
           case TIMEOUT:
@@ -155,21 +160,19 @@ class LeaderElection extends Daemon {
     while (waitForNum > 0 && running && raftServer.isCandidate()) {
       final long waitTime = timeout - Time.monotonicNow();
       if (waitTime <= 0) {
-        LOG.info("Election timeout: " + string(responses, exceptions));
-        return Result.TIMEOUT;
+        return logAndReturn(Result.TIMEOUT, responses, exceptions);
       }
 
       try {
         RaftServerResponse r = service.poll(waitTime, TimeUnit.MILLISECONDS).get();
         if (r.getTerm() > electionTerm) {
-          return NEWTERM;
+          return logAndReturn(Result.DISCOVERED_A_NEW_TERM, responses, exceptions);
         }
         responses.add(r);
         if (r.isSuccess()) {
           granted++;
           if (granted > others.size()/2) {
-            LOG.info("Election passed: " + string(responses, exceptions));
-            return ELECTED;
+            return logAndReturn(Result.PASSED, responses, exceptions);
           }
         }
       } catch(ExecutionException e) {
@@ -179,7 +182,6 @@ class LeaderElection extends Daemon {
       waitForNum--;
     }
     // received all the responses
-    LOG.info("Election rejected: " + string(responses, exceptions));
-    return REJECTED;
+    return logAndReturn(Result.REJECTED, responses, exceptions);
   }
 }

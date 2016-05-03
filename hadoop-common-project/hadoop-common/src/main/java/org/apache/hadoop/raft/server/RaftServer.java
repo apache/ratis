@@ -77,12 +77,18 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
             break;
           }
         } catch (InterruptedException e) {
-          LOG.info(getClass().getSimpleName() + " interrupted.");
+          LOG.info(this + " was interrupted: " + e);
+          LOG.trace("TRACE", e);
           return;
         } catch (Exception e) {
-          LOG.warn(getClass().getSimpleName(), e);
+          LOG.warn(this + " caught an excpetion", e);
         }
       }
+    }
+
+    @Override
+    public String toString() {
+      return getState().getSelfId() + ": " + getClass().getSimpleName();
     }
   }
 
@@ -213,7 +219,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
   @Override
   public RaftServerResponse requestVote(String candidateId, long candidateTerm,
       TermIndex candidateLastEntry) throws IOException {
-    LOG.trace("{}: receive requestVote({}, {}, {})",
+    LOG.debug("{}: receive requestVote({}, {}, {})",
         state.getSelfId(), candidateId, candidateTerm, candidateLastEntry);
     final long startTime = Time.monotonicNow();
     boolean voteGranted = false;
@@ -237,7 +243,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
   public RaftServerResponse appendEntries(String leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, Entry... entries)
           throws IOException {
-    LOG.trace("{}: receive appendEntries({}, {}, {}, {}, {})",
+    LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {})",
         state.getSelfId(), leaderId, leaderTerm, previous, leaderCommit,
         (entries == null || entries.length == 0) ? "[]"
             : entries.length + " entries start with " + entries[0]);
