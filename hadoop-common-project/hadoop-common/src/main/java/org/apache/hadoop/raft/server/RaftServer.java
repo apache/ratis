@@ -63,7 +63,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
 
     @Override
     public  void run() {
-      while (isFollower()) {
+      while (isRunning() && isFollower()) {
         try {
           long waitTime = electionTimeout -
               (Time.monotonicNow() - lastRpcTime.get());
@@ -95,6 +95,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
   private final ServerState state;
   private final RaftConfiguration raftConf;
   private volatile Role role = Role.FOLLOWER;
+  private volatile boolean isRunning = true;
 
   private final NavigableMap<Long, Response> pendingRequests;
 
@@ -106,7 +107,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
   private LeaderElection electionDaemon;
 
   /** used when the peer is leader */
-  private LeaderState leaderState;
+  private volatile LeaderState leaderState;
 
   public RaftServer(String id, RaftConfiguration raftConf) {
     this.raftConf = raftConf; // TODO: how to init raft conf
@@ -115,8 +116,28 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
     changeToFollower();
   }
 
-  ServerState getState() {
+  public ServerState getState() {
     return this.state;
+  }
+
+  public boolean isRunning() {
+    return isRunning;
+  }
+
+  public void kill() {
+    isRunning = false;
+    heartbeatMonitorDaemon.interrupt();
+
+    final LeaderState leader = leaderState;
+    if (leader != null) {
+      leader.stop();
+    }
+  }
+
+  void assertRunningState() throws IOException {
+    if (!isRunning()) {
+      throw new IOException(getState().getSelfId() + " is not running.");
+    }
   }
 
   Collection<RaftPeer> getOtherPeers() {
@@ -137,7 +158,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
     return role == Role.CANDIDATE;
   }
 
-  boolean isLeader() {
+  public boolean isLeader() {
     return role == Role.LEADER;
   }
 
@@ -221,6 +242,8 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
       TermIndex candidateLastEntry) throws IOException {
     LOG.debug("{}: receive requestVote({}, {}, {})",
         state.getSelfId(), candidateId, candidateTerm, candidateLastEntry);
+    assertRunningState();
+
     final long startTime = Time.monotonicNow();
     boolean voteGranted = false;
     synchronized (this) {
@@ -247,6 +270,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
         state.getSelfId(), leaderId, leaderTerm, previous, leaderCommit,
         (entries == null || entries.length == 0) ? "[]"
             : entries.length + " entries start with " + entries[0]);
+    assertRunningState();
 
     final long startTime = Time.monotonicNow();
     Entry.assertEntries(leaderTerm, entries);

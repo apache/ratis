@@ -18,22 +18,44 @@
 package org.apache.hadoop.raft;
 
 import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
+import org.junit.Assert;
 import org.junit.Test;
+
+import java.io.PrintStream;
 
 public class TestRaft {
   {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.ALL);
+    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
   }
+  static final PrintStream out = System.out;
 
   @Test
-  public void testStartRaft() throws Exception {
+  public void testBasicLeaderElection() throws Exception {
     final MiniRaftCluster cluster = new MiniRaftCluster(5);
-    for(int i = 0; i < 5; i++) {
-      System.out.print("i" + i);
-      cluster.printServers(System.out);
-      Thread.sleep(150);
+    Assert.assertNull(cluster.getLeader());
+
+    waitAndKillLeader(cluster, true);
+    waitAndKillLeader(cluster, true);
+    waitAndKillLeader(cluster, true);
+    waitAndKillLeader(cluster, false);
+  }
+
+  static void waitAndKillLeader(MiniRaftCluster cluster, boolean expectLeader)
+      throws InterruptedException {
+    cluster.printServers(out);
+    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+    cluster.printServers(out);
+
+    final RaftServer leader = cluster.getLeader();
+    if (!expectLeader) {
+      Assert.assertNull(leader);
+    } else {
+      Assert.assertNotNull(leader);
+      out.println("leader = " + leader);
+      cluster.killServer(leader.getState().getSelfId());
     }
   }
 }

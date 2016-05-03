@@ -20,24 +20,25 @@ package org.apache.hadoop.raft;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
+import org.junit.Assert;
 
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MiniRaftCluster {
-  private final List<RaftServer> servers;
+  private final Map<String, RaftServer> servers = new LinkedHashMap<>();
 
   MiniRaftCluster(int numServers) {
     RaftConfiguration conf = initConfiguration(numServers);
-    this.servers = new ArrayList<>();
     for (RaftPeer p : conf.getPeers()) {
-      servers.add(new RaftServer(p.getId(), conf));
+      servers.put(p.getId(), new RaftServer(p.getId(), conf));
     }
   }
 
-  private RaftConfiguration initConfiguration(int num) {
+  private static RaftConfiguration initConfiguration(int num) {
     RaftPeer[] peers = new RaftPeer[num];
     for (int i = 0; i < num; i++) {
       peers[i] = new RaftPeer("s" + i);
@@ -45,11 +46,30 @@ public class MiniRaftCluster {
     return new RaftConfiguration(peers);
   }
 
-  public void printServers(PrintStream out) {
+  void killServer(String id) {
+    servers.get(id).kill();
+  }
+
+  void printServers(PrintStream out) {
     out.println("#servers = " + servers.size());
-    for(RaftServer s : servers) {
+    for(RaftServer s : servers.values()) {
       out.print("  ");
       out.println(s);
+    }
+  }
+
+  RaftServer getLeader() {
+    final List<RaftServer> leaders = new ArrayList<>();
+    for(RaftServer s : servers.values()) {
+      if (s.isRunning() && s.isLeader()) {
+        leaders.add(s);
+      }
+    }
+    if (leaders.isEmpty()) {
+      return null;
+    } else {
+      Assert.assertEquals(1, leaders.size());
+      return leaders.get(0);
     }
   }
 }

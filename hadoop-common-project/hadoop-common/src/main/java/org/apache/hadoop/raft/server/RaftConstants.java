@@ -21,7 +21,7 @@ import java.util.Random;
 
 public abstract class RaftConstants {
   static final int ELECTION_TIMEOUT_MIN_MS = 150;
-  static final int ELECTION_TIMEOUT_MAX_MS = 300;
+  public static final int ELECTION_TIMEOUT_MAX_MS = 300;
   static final int ELECTION_SLEEP_TIME_MS = 50;
 
   static final int RPC_TIMEOUT_MIN_MS = 150;

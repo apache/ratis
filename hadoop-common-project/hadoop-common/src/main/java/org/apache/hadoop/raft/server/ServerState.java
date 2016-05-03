@@ -23,7 +23,7 @@ import org.apache.hadoop.raft.server.protocol.TermIndex;
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
  */
-class ServerState {
+public class ServerState {
   private final String selfId;
   /** Raft log */
   private final RaftLog log;
@@ -55,7 +55,7 @@ class ServerState {
     leaderId = null;
   }
 
-  String getSelfId() {
+  public String getSelfId() {
     return this.selfId;
   }
 
