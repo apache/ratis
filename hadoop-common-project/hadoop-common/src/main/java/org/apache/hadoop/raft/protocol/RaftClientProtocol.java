@@ -24,6 +24,6 @@ import java.io.IOException;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public interface ClientRaftProtocol {
+public interface RaftClientProtocol {
   void submit(Message m) throws IOException;
 }

@@ -20,7 +20,7 @@ package org.apache.hadoop.raft.server;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.raft.protocol.ClientRaftProtocol;
+import org.apache.hadoop.raft.protocol.RaftClientProtocol;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.protocol.NotLeaderException;
 import org.apache.hadoop.raft.protocol.Response;
@@ -51,7 +51,7 @@ import static org.apache.hadoop.util.ExitUtil.terminate;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
+public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
   /**
@@ -82,7 +82,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
           }
           final long now = Time.monotonicNow();
           if (now >= lastRpcTime + electionTimeout) {
-            LOG.info("{} changing to candidate." +
+            LOG.info("{} changing to " + Role.CANDIDATE +
                 " now:{}, last rpc time:{}, electionTimeout:{}",
                 state.getSelfId(), now, lastRpcTime, electionTimeout);
             // election timeout, should become a candidate
@@ -264,7 +264,7 @@ public class RaftServer implements RaftServerProtocol, ClientRaftProtocol {
 
   @Override
   public String toString() {
-    return role.toString() + ": " + state.toString();
+    return role + " " + state + " " + (isRunning()? "RUNNING": "STOPPED");
   }
 
   private void checkLeaderState() throws NotLeaderException {

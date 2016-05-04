@@ -36,7 +36,7 @@ public abstract class RaftServerRequest {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + " from " + getFromId()
-        + " to " + getToId();
+    return getClass().getSimpleName() + "(" + getFromId()
+        + " -> " + getToId() + ")";
   }
 }

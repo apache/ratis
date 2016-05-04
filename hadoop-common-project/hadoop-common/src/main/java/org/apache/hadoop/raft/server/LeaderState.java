@@ -67,6 +67,8 @@ class LeaderState {
     for (RpcSender sender : senders) {
       sender.stopRunning();
       sender.interrupt();
+    }
+    for (RpcSender sender : senders) {
       try {
         sender.join();
       } catch (InterruptedException ignored) {

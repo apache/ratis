@@ -138,7 +138,7 @@ public class ServerState {
 
   @Override
   public String toString() {
-    return "id: " + selfId + ", current term: " + currentTerm
+    return selfId + ", current term: " + currentTerm
         + ", leaderId: " + leaderId + ", votedFor: " + votedFor
         + ", raft log: " + log;
   }

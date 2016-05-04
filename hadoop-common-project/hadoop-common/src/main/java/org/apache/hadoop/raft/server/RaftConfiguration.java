@@ -19,34 +19,33 @@ package org.apache.hadoop.raft.server;
 
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
 
-import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 public class RaftConfiguration {
-  private RaftPeer[] peers;
+  private final Map<String, RaftPeer> peers = new HashMap<>();
 
   public RaftConfiguration(RaftPeer[] peers) {
-    this.peers = peers;
+    for(RaftPeer p : peers) {
+      this.peers.put(p.getId(), p);
+    }
   }
 
-  public RaftPeer[] getPeers() {
-    return this.peers;
+  public Collection<RaftPeer> getPeers() {
+    return peers.values();
   }
 
   public int getSize() {
-    return peers.length;
+    return peers.size();
   }
 
   @Override
   public String toString() {
-    return "RaftConfiguration: " + Arrays.asList(peers);
+    return getClass().getSimpleName() + ": " + peers.values();
   }
 
   public RaftPeer getPeer(String id) {
-    for (RaftPeer p : peers) {
-      if (p.getId().equals(id)) {
-        return p;
-      }
-    }
-    return null;
+    return peers.get(id);
   }
 }

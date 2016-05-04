@@ -42,7 +42,6 @@ class EventQueue {
         this.wait();
       }
     }
-    requestQueue.remove(request);
     return responseMap.remove(request);
   }
 
