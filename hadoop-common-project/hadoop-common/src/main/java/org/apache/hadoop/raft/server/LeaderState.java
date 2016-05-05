@@ -100,14 +100,14 @@ class LeaderState {
     indices[senders.size()] = raftLog.getNextIndex() - 1;
 
     Arrays.sort(indices);
-    raftLog.setLastCommitted(indices[(indices.length - 1) / 2]);
+    final long majority = indices[(indices.length - 1) / 2];
+    raftLog.updateLastCommitted(majority, server.getState().getCurrentTerm());
   }
 
   /**
-   * @return the time in milliseconds that the leader should send a
-   * heartbeat this follower.
+   * @return the time in milliseconds that the leader should send a heartbeat.
    */
-  private long getHeartbeatRemainingTime(long lastTime) {
+  private static long getHeartbeatRemainingTime(long lastTime) {
     return lastTime + RaftConstants.RPC_TIMEOUT_MIN_MS / 2 - Time.monotonicNow();
   }
 

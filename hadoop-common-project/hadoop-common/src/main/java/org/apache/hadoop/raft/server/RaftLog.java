@@ -34,9 +34,12 @@ public class RaftLog {
     return lastCommitted > 0? get(lastCommitted): new TermIndex(-1, -1);
   }
 
-  synchronized void setLastCommitted(long lastCommitted) {
-    if (this.lastCommitted < lastCommitted) {
-      this.lastCommitted = lastCommitted;
+  synchronized void updateLastCommitted(long majority, long currentTerm) {
+    if (lastCommitted < majority) {
+      // Only update last committed index for current term.
+      if (get(majority).getTerm() == currentTerm) {
+        this.lastCommitted = majority;
+      }
     }
   }
 

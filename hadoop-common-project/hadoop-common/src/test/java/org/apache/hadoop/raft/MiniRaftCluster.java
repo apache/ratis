@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft;
 
+import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
@@ -30,10 +31,12 @@ import java.util.List;
 import java.util.Map;
 
 public class MiniRaftCluster {
+  private final RaftConfiguration conf;
   private final Map<String, RaftServer> servers = new LinkedHashMap<>();
 
   MiniRaftCluster(int numServers) {
-    RaftConfiguration conf = initConfiguration(numServers);
+    this.conf = initConfiguration(numServers);
+
     final EventQueues queues = new EventQueues(conf);
     for (RaftPeer p : conf.getPeers()) {
       servers.put(p.getId(), new RaftServer(p.getId(), conf, queues));
@@ -79,5 +82,9 @@ public class MiniRaftCluster {
       Assert.assertEquals(1, leaders.size());
       return leaders.get(0);
     }
+  }
+
+  RaftClient createClient() {
+    return new RaftClient(conf.getPeers());
   }
 }

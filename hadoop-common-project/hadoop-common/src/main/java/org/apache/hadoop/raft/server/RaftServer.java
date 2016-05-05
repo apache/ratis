@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.NavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.hadoop.util.ExitUtil.terminate;
 
@@ -106,10 +107,13 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     }
   }
 
+  enum RunningState {INITIALIZED, RUNNING, STOPPED}
+
   private final ServerState state;
   private final RaftConfiguration raftConf;
   private volatile Role role;
-  private volatile boolean isRunning = true;
+  private final AtomicReference<RunningState> runningState
+      = new AtomicReference<>(RunningState.INITIALIZED);
 
   private final NavigableMap<Long, Response> pendingRequests;
 
@@ -133,7 +137,14 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     this.handler = new RequestHandler();
   }
 
+  void changeRunningState(RunningState oldState, RunningState newState) {
+    final boolean changed = runningState.compareAndSet(oldState, newState);
+    Preconditions.checkState(changed);
+  }
+
   public void start() {
+    changeRunningState(RunningState.INITIALIZED, RunningState.RUNNING);
+
     handler.start();
     role = Role.FOLLOWER;
     heartbeatMonitor = new HeartbeatMonitor();
@@ -145,11 +156,12 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   public boolean isRunning() {
-    return isRunning;
+    return runningState.get() == RunningState.RUNNING;
   }
 
   public void kill() {
-    isRunning = false;
+    changeRunningState(RunningState.RUNNING, RunningState.STOPPED);
+
     try {
       handler.interrupt();
       handler.join();
@@ -269,7 +281,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   private void checkLeaderState() throws NotLeaderException {
     if (!isLeader()) {
-      throw new NotLeaderException(raftConf.getPeer(state.getLeaderId()));
+      throw new NotLeaderException(state.getSelfId(),
+          raftConf.getPeer(state.getLeaderId()));
     }
   }
 
@@ -328,10 +341,9 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         (entries == null || entries.length == 0) ? "[]"
             : entries.length + " entries start with " + entries[0]);
     assertRunningState();
-
-    final long startTime = Time.monotonicNow();
     Entry.assertEntries(leaderTerm, entries);
 
+    final long startTime = Time.monotonicNow();
     final long currentTerm;
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
@@ -343,6 +355,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
       Preconditions.checkState(currentTerm == leaderTerm);
       heartbeatMonitor.updateLastRpcTime(startTime);
+      state.getLog().updateLastCommitted(leaderCommit, currentTerm);
 
       if (previous != null && !state.getLog().contains(previous)) {
         return new RaftServerResponse(state.getSelfId(), currentTerm, false);

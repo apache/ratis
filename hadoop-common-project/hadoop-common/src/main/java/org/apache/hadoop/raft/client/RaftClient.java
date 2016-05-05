@@ -18,10 +18,22 @@
 package org.apache.hadoop.raft.client;
 
 import org.apache.hadoop.raft.protocol.Message;
+import org.apache.hadoop.raft.server.protocol.RaftPeer;
 
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Future;
 
 public class RaftClient {
+  final Map<String, RaftPeer> servers = new HashMap<>();
+
+  public RaftClient(Collection<RaftPeer> servers) {
+    for(RaftPeer p : servers) {
+      this.servers.put(p.getId(), p);
+    }
+  }
+
   Future<?> submit(Message message) {
     return null;
   }

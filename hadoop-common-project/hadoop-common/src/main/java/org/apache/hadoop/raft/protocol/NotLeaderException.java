@@ -22,8 +22,9 @@ import org.apache.hadoop.raft.server.protocol.RaftPeer;
 public class NotLeaderException extends RaftException {
   private final RaftPeer leader;
 
-  public NotLeaderException(RaftPeer leader) {
-    super("Send the request to leader");
+  public NotLeaderException(String id, RaftPeer leader) {
+    super("Server " + id + " is not the leader (" + leader.getId()
+        + "). Request must be sent to leader.");
     this.leader = leader;
   }
 }

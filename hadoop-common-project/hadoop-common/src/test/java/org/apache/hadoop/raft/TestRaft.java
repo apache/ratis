@@ -17,8 +17,10 @@
  */
 package org.apache.hadoop.raft;
 
+import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RaftConstants;
+import org.apache.hadoop.raft.server.protocol.RaftPeer;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.Assert;
@@ -58,5 +60,12 @@ public class TestRaft {
       out.println("killing leader = " + leader);
       cluster.killServer(leader.getState().getSelfId());
     }
+  }
+
+  @Test
+  public void testBasicAppendEntries() throws Exception {
+    final MiniRaftCluster cluster = new MiniRaftCluster(5);
+    cluster.start();
+    final RaftClient client = cluster.createClient();
   }
 }
