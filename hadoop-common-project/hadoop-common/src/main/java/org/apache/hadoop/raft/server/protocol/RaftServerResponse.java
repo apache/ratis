@@ -17,26 +17,23 @@
  */
 package org.apache.hadoop.raft.server.protocol;
 
-public class RaftServerResponse {
-  private final String peerId;
+import org.apache.hadoop.raft.protocol.RaftRpcMessage;
+
+public class RaftServerResponse extends RaftRpcMessage {
   private final long term;
   private final boolean success;
   // final long lastIndexInTerm; TODO
 
-  public RaftServerResponse(String peerId, long term, boolean success) {
-    this.peerId = peerId;
+  public RaftServerResponse(String requestorId, String replierId,
+                            long term, boolean success) {
+    super(requestorId, replierId);
     this.term = term;
     this.success = success;
   }
 
   @Override
   public String toString() {
-    return "Response from: " + peerId + ", term: " + term + ", result: "
-        + success;
-  }
-
-  public String getPeerId() {
-    return peerId;
+    return super.toString() + ", term: " + term + ", success? " + success;
   }
 
   public long getTerm() {

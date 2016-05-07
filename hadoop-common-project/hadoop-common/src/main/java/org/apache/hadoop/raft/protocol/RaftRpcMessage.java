@@ -17,5 +17,26 @@
  */
 package org.apache.hadoop.raft.protocol;
 
-public class Response {
+public abstract class RaftRpcMessage {
+  private final String requestorId;
+  private final String replierId;
+
+  public RaftRpcMessage(String requestorId, String replierId) {
+    this.requestorId = requestorId;
+    this.replierId = replierId;
+  }
+
+  public String getRequestorId() {
+    return requestorId;
+  }
+
+  public String getReplierId() {
+    return replierId;
+  }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() + "(" + getRequestorId()
+        + " -> " + getReplierId() + ")";
+  }
 }

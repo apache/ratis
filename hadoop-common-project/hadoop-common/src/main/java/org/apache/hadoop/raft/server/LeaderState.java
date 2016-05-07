@@ -27,6 +27,7 @@ import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -161,7 +162,7 @@ class LeaderState {
     public void run() {
       try {
         checkAndSendAppendEntries();
-      } catch (InterruptedException e) {
+      } catch (InterruptedException | InterruptedIOException e) {
         LOG.info(this + " was interrupted: " + e);
         LOG.trace("TRACE", e);
       }
@@ -173,7 +174,7 @@ class LeaderState {
 
     /** Send an appendEntries RPC; retry indefinitely. */
     private RaftServerResponse sendAppendEntriesWithRetries()
-        throws InterruptedException {
+        throws InterruptedException, InterruptedIOException {
       Entry[] entries = null;
       int retry = 0;
       while (running) {
@@ -193,6 +194,8 @@ class LeaderState {
             }
           }
           return r;
+        } catch (InterruptedIOException iioe) {
+          throw iioe;
         } catch (IOException ioe) {
           LOG.warn(this + ": failed to send appendEntries; retry " + retry++, ioe);
         }
@@ -202,7 +205,8 @@ class LeaderState {
     }
 
     /** Check and send appendEntries RPC */
-    private void checkAndSendAppendEntries() throws InterruptedException {
+    private void checkAndSendAppendEntries() throws InterruptedException,
+        InterruptedIOException {
       while (running) {
         if (follower.shouldSend()) {
           final RaftServerResponse r = sendAppendEntriesWithRetries();

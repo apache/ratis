@@ -19,14 +19,12 @@ package org.apache.hadoop.raft.server.protocol;
 
 public class RequestVoteRequest extends RaftServerRequest {
   private final long candidateTerm;
-  private final String candidateId;
   private final TermIndex candidateLastEntry;
 
   public RequestVoteRequest(String from, String to, long candidateTerm,
-      String candidateId, TermIndex candidateLastEntry) {
+      TermIndex candidateLastEntry) {
     super(from, to);
     this.candidateTerm = candidateTerm;
-    this.candidateId = candidateId;
     this.candidateLastEntry = candidateLastEntry;
   }
 
@@ -35,7 +33,7 @@ public class RequestVoteRequest extends RaftServerRequest {
   }
 
   public String getCandidateId() {
-    return candidateId;
+    return getRequestorId(); //requestor is the candidate
   }
 
   public TermIndex getLastLogIndex() {

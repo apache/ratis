@@ -15,12 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.server.protocol;
+package org.apache.hadoop.raft.server;
 
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 
-public abstract class RaftServerRequest extends RaftRpcMessage {
-  public RaftServerRequest(String requestorId, String replierId) {
-    super(requestorId, replierId);
-  }
+import java.io.IOException;
+
+public interface RaftRpc<REQUEST extends RaftRpcMessage,
+    REPLY extends RaftRpcMessage> {
+  public REPLY sendRequest(REQUEST request) throws IOException;
+
+  public REQUEST takeRequest(String qid) throws IOException;
+
+  public void sendReply(REQUEST request, REPLY reply) throws IOException;
 }

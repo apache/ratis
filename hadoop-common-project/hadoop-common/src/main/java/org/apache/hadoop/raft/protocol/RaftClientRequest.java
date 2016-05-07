@@ -15,12 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.server.protocol;
+package org.apache.hadoop.raft.protocol;
 
-import org.apache.hadoop.raft.protocol.RaftRpcMessage;
+public abstract class RaftClientRequest extends RaftRpcMessage {
+  private final Message message;
 
-public abstract class RaftServerRequest extends RaftRpcMessage {
-  public RaftServerRequest(String requestorId, String replierId) {
+  public RaftClientRequest(String  requestorId, String replierId,
+                           Message message) {
     super(requestorId, replierId);
+    this.message = message;
+  }
+
+  public Message getMessage() {
+    return message;
   }
 }

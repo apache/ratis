@@ -21,7 +21,7 @@ import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
-import org.apache.hadoop.raft.server.simulation.EventQueues;
+import org.apache.hadoop.raft.server.simulation.SimulatedRpc;
 import org.junit.Assert;
 
 import java.io.PrintStream;
@@ -37,7 +37,7 @@ public class MiniRaftCluster {
   MiniRaftCluster(int numServers) {
     this.conf = initConfiguration(numServers);
 
-    final EventQueues queues = new EventQueues(conf);
+    final SimulatedRpc queues = new SimulatedRpc(conf);
     for (RaftPeer p : conf.getPeers()) {
       servers.put(p.getId(), new RaftServer(p.getId(), conf, queues));
     }
