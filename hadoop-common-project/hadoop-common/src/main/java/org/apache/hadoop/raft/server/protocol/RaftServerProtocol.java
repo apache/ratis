@@ -26,10 +26,10 @@ import org.apache.hadoop.classification.InterfaceStability;
 @InterfaceStability.Unstable
 public interface RaftServerProtocol {
 
-  RaftServerResponse requestVote(String candidateId, long candidateTerm,
-      TermIndex candidateLastEntry) throws IOException;
+  RaftServerReply requestVote(String candidateId, long candidateTerm,
+                              TermIndex candidateLastEntry) throws IOException;
 
-  RaftServerResponse appendEntries(String leaderId, long leaderTerm,
-      TermIndex previous, long leaderCommit,
-      Entry... entries) throws IOException;
+  RaftServerReply appendEntries(String leaderId, long leaderTerm,
+                                TermIndex previous, long leaderCommit,
+                                Entry... entries) throws IOException;
 }

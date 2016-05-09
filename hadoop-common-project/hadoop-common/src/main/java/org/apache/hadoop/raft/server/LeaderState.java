@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
-import org.apache.hadoop.raft.server.protocol.RaftServerResponse;
+import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
@@ -245,7 +245,7 @@ class LeaderState extends Daemon {
     }
 
     /** Send an appendEntries RPC; retry indefinitely. */
-    private RaftServerResponse sendAppendEntriesWithRetries()
+    private RaftServerReply sendAppendEntriesWithRetries()
         throws InterruptedException, InterruptedIOException {
       Entry[] entries = null;
       int retry = 0;
@@ -257,7 +257,7 @@ class LeaderState extends Daemon {
           final TermIndex previous = raftLog.get(follower.nextIndex - 1);
           AppendEntriesRequest request = server.createAppendEntriesRequest(
               follower.peer.getId(), previous, entries);
-          final RaftServerResponse r = server.sendAppendEntries(request);
+          final RaftServerReply r = server.sendAppendEntries(request);
           if (r.isSuccess() && entries != null && entries.length > 0) {
             final long mi = entries[entries.length - 1].getIndex();
             follower.updateMatchIndex(mi);
@@ -283,7 +283,7 @@ class LeaderState extends Daemon {
         InterruptedIOException {
       while (running) {
         if (shouldSend()) {
-          final RaftServerResponse r = sendAppendEntriesWithRetries();
+          final RaftServerReply r = sendAppendEntriesWithRetries();
           if (r == null) {
             break;
           }

@@ -18,9 +18,9 @@
 package org.apache.hadoop.raft;
 
 import org.apache.hadoop.raft.client.RaftClient;
-import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.raft.server.protocol.RaftPeer;
+import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.Assert;
@@ -46,13 +46,17 @@ public class TestRaft {
     waitAndKillLeader(cluster, false);
   }
 
-  static void waitAndKillLeader(MiniRaftCluster cluster, boolean expectLeader)
+  static RaftServer waitForLeader(MiniRaftCluster cluster)
       throws InterruptedException {
     cluster.printServers(out);
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
     cluster.printServers(out);
+    return cluster.getLeader();
+  }
 
-    final RaftServer leader = cluster.getLeader();
+  static void waitAndKillLeader(MiniRaftCluster cluster, boolean expectLeader)
+      throws InterruptedException {
+    final RaftServer leader = waitForLeader(cluster);
     if (!expectLeader) {
       Assert.assertNull(leader);
     } else {
@@ -66,6 +70,23 @@ public class TestRaft {
   public void testBasicAppendEntries() throws Exception {
     final MiniRaftCluster cluster = new MiniRaftCluster(5);
     cluster.start();
-    final RaftClient client = cluster.createClient();
+    RaftServer leader = waitForLeader(cluster);
+
+    final RaftClient client = cluster.createClient("client",
+        leader.getState().getSelfId());
+    client.send(new SimpleMessage("m1"));
+    cluster.printServers(out);
+    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+    cluster.printServers(out);
+    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+    cluster.printServers(out);
+  }
+
+  static class SimpleMessage implements Message {
+    final String messageId;
+
+    SimpleMessage(final String messageId) {
+      this.messageId = messageId;
+    }
   }
 }

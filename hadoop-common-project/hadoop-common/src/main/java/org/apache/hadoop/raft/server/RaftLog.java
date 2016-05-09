@@ -37,7 +37,8 @@ public class RaftLog {
   synchronized void updateLastCommitted(long majority, long currentTerm) {
     if (lastCommitted < majority) {
       // Only update last committed index for current term.
-      if (get(majority).getTerm() == currentTerm) {
+      final TermIndex ti = get(majority);
+      if (ti != null && ti.getTerm() == currentTerm) {
         this.lastCommitted = majority;
       }
     }
@@ -49,7 +50,7 @@ public class RaftLog {
 
   synchronized TermIndex get(long index) {
     final int i = findIndex(index);
-    return i < entries.size()? entries.get(i): null;
+    return i >= 0 && i < entries.size()? entries.get(i): null;
   }
 
   synchronized Entry[] getEntries(long startIndex) {

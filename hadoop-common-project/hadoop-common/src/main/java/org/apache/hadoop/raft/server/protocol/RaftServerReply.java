@@ -19,13 +19,13 @@ package org.apache.hadoop.raft.server.protocol;
 
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 
-public class RaftServerResponse extends RaftRpcMessage {
+public class RaftServerReply extends RaftRpcMessage {
   private final long term;
   private final boolean success;
   // final long lastIndexInTerm; TODO
 
-  public RaftServerResponse(String requestorId, String replierId,
-                            long term, boolean success) {
+  public RaftServerReply(String requestorId, String replierId,
+                         long term, boolean success) {
     super(requestorId, replierId);
     this.term = term;
     this.success = success;

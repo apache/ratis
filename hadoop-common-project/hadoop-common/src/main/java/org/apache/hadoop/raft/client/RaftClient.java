@@ -18,23 +18,50 @@
 package org.apache.hadoop.raft.client;
 
 import org.apache.hadoop.raft.protocol.Message;
+import org.apache.hadoop.raft.protocol.NotLeaderException;
+import org.apache.hadoop.raft.protocol.RaftClientReply;
+import org.apache.hadoop.raft.protocol.RaftClientRequest;
+import org.apache.hadoop.raft.server.RaftRpc;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.Future;
 
 public class RaftClient {
-  final Map<String, RaftPeer> servers = new HashMap<>();
+  public static final Logger LOG = LoggerFactory.getLogger(RaftClient.class);
 
-  public RaftClient(Collection<RaftPeer> servers) {
+  final String clientId;
+  final Map<String, RaftPeer> servers = new HashMap<>();
+  final RaftRpc<RaftClientRequest, RaftClientReply> client2serverRpc;
+
+  private volatile String leaderId;
+
+  public RaftClient(String clientId, Collection<RaftPeer> servers,
+      RaftRpc<RaftClientRequest, RaftClientReply> client2serverRpc,
+      String leaderId) {
+    this.clientId = clientId;
+    this.client2serverRpc = client2serverRpc;
     for(RaftPeer p : servers) {
       this.servers.put(p.getId(), p);
     }
+
+    this.leaderId = leaderId != null? leaderId : servers.iterator().next().getId();
   }
 
-  Future<?> submit(Message message) {
-    return null;
+  public RaftClientReply send(Message message) throws IOException {
+    for(;;) {
+      final String lid = leaderId;
+      final RaftClientRequest r = new RaftClientRequest(clientId, lid, message);
+      try {
+        return client2serverRpc.sendRequest(r);
+      } catch (NotLeaderException nle) {
+        leaderId = nle.getLeader().getId();
+        LOG.debug("Leader changed from {} to {}", lid, leaderId);
+      }
+    }
   }
 }

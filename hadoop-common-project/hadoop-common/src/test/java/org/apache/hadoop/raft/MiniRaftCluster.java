@@ -18,9 +18,13 @@
 package org.apache.hadoop.raft;
 
 import org.apache.hadoop.raft.client.RaftClient;
+import org.apache.hadoop.raft.protocol.RaftClientReply;
+import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
+import org.apache.hadoop.raft.server.protocol.RaftServerReply;
+import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.simulation.SimulatedRpc;
 import org.junit.Assert;
 
@@ -32,14 +36,18 @@ import java.util.Map;
 
 public class MiniRaftCluster {
   private final RaftConfiguration conf;
+  private final SimulatedRpc<RaftServerRequest, RaftServerReply> serverRpc;
+  private final SimulatedRpc<RaftClientRequest, RaftClientReply> client2serverRpc;
   private final Map<String, RaftServer> servers = new LinkedHashMap<>();
 
   MiniRaftCluster(int numServers) {
     this.conf = initConfiguration(numServers);
+    serverRpc = new SimulatedRpc<>(conf.getPeers());
+    client2serverRpc = new SimulatedRpc<>(conf.getPeers());
 
-    final SimulatedRpc queues = new SimulatedRpc(conf.getPeers());
     for (RaftPeer p : conf.getPeers()) {
-      servers.put(p.getId(), new RaftServer(p.getId(), conf, queues));
+      servers.put(p.getId(), new RaftServer(p.getId(), conf, serverRpc,
+          client2serverRpc));
     }
   }
 
@@ -84,7 +92,7 @@ public class MiniRaftCluster {
     }
   }
 
-  RaftClient createClient() {
-    return new RaftClient(conf.getPeers());
+  RaftClient createClient(String clientId, String leaderId) {
+    return new RaftClient(clientId, conf.getPeers(), client2serverRpc, leaderId);
   }
 }

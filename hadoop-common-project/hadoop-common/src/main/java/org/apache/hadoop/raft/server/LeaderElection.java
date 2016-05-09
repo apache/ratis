@@ -19,7 +19,7 @@ package org.apache.hadoop.raft.server;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
-import org.apache.hadoop.raft.server.protocol.RaftServerResponse;
+import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.util.Daemon;
@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 class LeaderElection extends Daemon {
   public static final Logger LOG = RaftServer.LOG;
 
-  private Result logAndReturn(Result r, List<RaftServerResponse> responses,
+  private Result logAndReturn(Result r, List<RaftServerReply> responses,
                               List<Exception> exceptions) {
     LOG.info(raftServer.getState().getSelfId()
         + ": Election " + r + "; received "
@@ -56,7 +56,7 @@ class LeaderElection extends Daemon {
   enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM}
 
   private final RaftServer raftServer;
-  private ExecutorCompletionService<RaftServerResponse> service;
+  private ExecutorCompletionService<RaftServerReply> service;
   private ExecutorService executor;
   private volatile boolean running;
   /**
@@ -146,9 +146,9 @@ class LeaderElection extends Daemon {
     for (final RaftPeer peer : others) {
       final RequestVoteRequest r = raftServer.createRequestVoteRequest(
           peer.getId(), electionTerm, lastEntry);
-      service.submit(new Callable<RaftServerResponse>() {
+      service.submit(new Callable<RaftServerReply>() {
         @Override
-        public RaftServerResponse call() throws IOException {
+        public RaftServerReply call() throws IOException {
           return raftServer.sendRequestVote(r);
         }
       });
@@ -161,7 +161,7 @@ class LeaderElection extends Daemon {
       throws InterruptedException {
     final long startTime = Time.monotonicNow();
     final long timeout = startTime + RaftConstants.getRandomElectionWaitTime();
-    final List<RaftServerResponse> responses = new ArrayList<>();
+    final List<RaftServerReply> responses = new ArrayList<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;
     Collection<String> votedPeers = new ArrayList<>();
@@ -172,7 +172,7 @@ class LeaderElection extends Daemon {
       }
 
       try {
-        RaftServerResponse r = service.poll(waitTime, TimeUnit.MILLISECONDS).get();
+        RaftServerReply r = service.poll(waitTime, TimeUnit.MILLISECONDS).get();
         if (r.getTerm() > electionTerm) {
           return logAndReturn(Result.DISCOVERED_A_NEW_TERM, responses, exceptions);
         }

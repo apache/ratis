@@ -18,6 +18,7 @@
 package org.apache.hadoop.raft.server;
 
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
+import org.apache.hadoop.util.Daemon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,15 +37,14 @@ public  interface RequestHandler<REQUEST extends RaftRpcMessage,
   /**
    * A thread keep polling requests from the request queue. Used for simulation.
    */
-  static class RhThread<REQUEST extends RaftRpcMessage,
-      REPLY extends RaftRpcMessage>
-      extends Thread {
+  static class HandlerDaemon<REQUEST extends RaftRpcMessage,
+                               REPLY extends RaftRpcMessage> extends Daemon {
     private final String id;
     private final RaftRpc<REQUEST, REPLY> serverRpc;
     private final RequestHandler<REQUEST, REPLY> handler;
 
-    RhThread(String id, RequestHandler<REQUEST, REPLY> handler,
-             RaftRpc<REQUEST, REPLY> serverRpc) {
+    HandlerDaemon(String id, RequestHandler<REQUEST, REPLY> handler,
+                  RaftRpc<REQUEST, REPLY> serverRpc) {
       this.id = id;
       this.serverRpc = serverRpc;
       this.handler = handler;
@@ -70,7 +70,7 @@ public  interface RequestHandler<REQUEST extends RaftRpcMessage,
             LOG.info(this + " is interrupted.");
             break;
           }
-          LOG.error(this + " caught exception.", t);
+          LOG.error(this + " caught " + t, t);
           terminate(1, t);
         }
       }

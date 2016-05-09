@@ -23,7 +23,7 @@ public class NotLeaderException extends RaftException {
   private final RaftPeer leader;
 
   public NotLeaderException(String id, RaftPeer leader) {
-    super("Server " + id + " is not the leader (" + leader.getId()
+    super("Server " + id + " is not the leader (" + leader
         + "). Request must be sent to leader.");
     this.leader = leader;
   }
