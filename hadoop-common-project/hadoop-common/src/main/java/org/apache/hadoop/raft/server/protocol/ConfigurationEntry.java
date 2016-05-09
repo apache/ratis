@@ -17,30 +17,39 @@
  */
 package org.apache.hadoop.raft.server.protocol;
 
-public class RaftPeer {
-  private final String id;
-  // TODO other information including host name, port etc.
+import java.util.Arrays;
 
-  public RaftPeer(String id) {
-    this.id = id;
+public class ConfigurationEntry extends Entry {
+  private final RaftPeer[] oldPeers;
+  private final RaftPeer[] peers;
+
+  public ConfigurationEntry(long term, long logIndex, RaftPeer[] oldPeers,
+      RaftPeer[] peers) {
+    super(term, logIndex, null);
+    this.oldPeers = oldPeers;
+    this.peers = peers;
   }
 
-  public String getId() {
-    return id;
+  public boolean isTranstional() {
+    return oldPeers != null && peers != null;
+  }
+
+  public RaftPeer[] getOldPeers() {
+    return oldPeers;
+  }
+
+  public RaftPeer[] getPeers() {
+    return peers;
+  }
+
+  @Override
+  public boolean isConfigurationEntry() {
+    return true;
   }
 
   @Override
   public String toString() {
-    return id;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    return (o instanceof RaftPeer) && id.equals(((RaftPeer) o).getId());
-  }
-
-  @Override
-  public int hashCode() {
-    return id.hashCode();
+    return super.toString() + ", peers:" + Arrays.asList(peers) + ", old peers:"
+        + (oldPeers != null ? Arrays.asList(oldPeers) : "[]");
   }
 }

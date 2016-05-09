@@ -27,6 +27,8 @@ public class ServerState {
   private final String selfId;
   /** Raft log */
   private final RaftLog log;
+  /** Raft configuration */
+  private final RaftConfiguration raftConf;
 
   /**
    * Latest term server has seen. initialized to 0 on first boot, increases
@@ -46,13 +48,21 @@ public class ServerState {
   /** Index of highest log entry applied to state machine */
   private long lastApplied;
 
-  ServerState(String id) {
+  ServerState(String id, RaftConfiguration conf) {
     this.selfId = id;
+    this.raftConf = conf;
     // TODO load log/currentTerm/votedFor/leaderId from persistent storage
     log = new RaftLog();
     currentTerm = 0;
     votedFor = null;
     leaderId = null;
+  }
+
+  // TODO apply raftlog and update its RaftConfiguration
+
+
+  public RaftConfiguration getRaftConf() {
+    return raftConf;
   }
 
   public String getSelfId() {

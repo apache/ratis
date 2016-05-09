@@ -23,6 +23,7 @@ import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.RaftServerResponse;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 
@@ -41,14 +42,16 @@ class LeaderState {
   private static final Logger LOG = RaftServer.LOG;
 
   private final RaftServer server;
+  private final RaftConfiguration conf;
   private final RaftLog raftLog;
   private final List<RpcSender> senders;
 
   LeaderState(RaftServer server) {
     this.server = server;
+    this.conf = server.getRaftConf();
     this.raftLog = server.getState().getLog();
 
-    Collection<RaftPeer> others = server.getOtherPeers();
+    Collection<RaftPeer> others = conf.getOtherPeers(server.getState().getSelfId());
     final long t = Time.monotonicNow() - RaftConstants.RPC_TIMEOUT_MAX_MS;
     final long nextIndex = raftLog.getNextIndex();
     senders = new ArrayList<>(others.size());
@@ -68,12 +71,11 @@ class LeaderState {
     for (RpcSender sender : senders) {
       sender.stopRunning();
       sender.interrupt();
-    }
-    for (RpcSender sender : senders) {
-      try {
-        sender.join();
-      } catch (InterruptedException ignored) {
-      }
+      // we do not call sender.join but we make sure senders will not change
+      // anything after being stopped.
+      // TODO we should have a single coordinator thread assigning tasks to
+      // senders, and updating committedIndex or change server's state based on
+      // response.
     }
   }
 
@@ -85,24 +87,57 @@ class LeaderState {
     }
   }
 
-  private void checkResponseTerm(long responseTerm) {
-    synchronized (server) {
-      if (responseTerm > server.getState().getCurrentTerm()) {
-        server.changeToFollower();
-      }
+  // TODO this should be called by the coordinator and should hold the server's lock
+  private void updateLastCommitted() {
+    final String selfId = server.getState().getSelfId();
+    List<List<FollowerInfo>> followerLists = divideFollowers();
+    long majorityInNewConf = updateLastCommitted(followerLists.get(0),
+        conf.containsInConf(selfId));
+    if (!conf.inTransitionState()) {
+      raftLog.updateLastCommitted(majorityInNewConf,
+          server.getState().getCurrentTerm());
+    } else {
+      long majorityInOldConf = updateLastCommitted(followerLists.get(1),
+          conf.containsInOldConf(selfId));
+      raftLog.updateLastCommitted(Math.min(majorityInNewConf, majorityInOldConf),
+          server.getState().getCurrentTerm());
     }
   }
 
-  private void updateLastCommitted() {
-    final long[] indices = new long[senders.size() + 1];
-    for (int i = 0; i < senders.size(); i++) {
-      indices[i] = senders.get(i).follower.matchIndex.get();
+  private long updateLastCommitted(List<FollowerInfo> followers,
+      boolean includeSelf) {
+    final int length = includeSelf ? followers.size() + 1 : followers.size();
+    final long[] indices = new long[length];
+    for (int i = 0; i < followers.size(); i++) {
+      indices[i] = followers.get(i).matchIndex.get();
     }
-    indices[senders.size()] = raftLog.getNextIndex() - 1;
+    if (includeSelf) {
+      indices[length - 1] = raftLog.getNextIndex() - 1;
+    }
 
     Arrays.sort(indices);
-    final long majority = indices[(indices.length - 1) / 2];
-    raftLog.updateLastCommitted(majority, server.getState().getCurrentTerm());
+    return indices[(indices.length - 1) / 2];
+  }
+
+  private List<List<FollowerInfo>> divideFollowers() {
+    List<List<FollowerInfo>> lists = new ArrayList<>(2);
+    List<FollowerInfo> listForNew = new ArrayList<>();
+    for (RpcSender sender : senders) {
+      if (conf.containsInConf(sender.follower.peer.getId())) {
+        listForNew.add(sender.follower);
+      }
+    }
+    lists.add(listForNew);
+    if (conf.inTransitionState()) {
+      List<FollowerInfo> listForOld = new ArrayList<>();
+      for (RpcSender sender : senders) {
+        if (conf.containsInOldConf(sender.follower.peer.getId())) {
+          listForOld.add(sender.follower);
+        }
+      }
+      lists.add(listForOld);
+    }
+    return lists;
   }
 
   /**
@@ -144,7 +179,7 @@ class LeaderState {
     }
   }
 
-  class RpcSender extends Thread {
+  class RpcSender extends Daemon {
     private volatile boolean running = true;
     private final FollowerInfo follower;
 
@@ -186,7 +221,7 @@ class LeaderState {
           AppendEntriesRequest request = server.createAppendEntriesRequest(
               follower.peer.getId(), previous, entries);
           final RaftServerResponse r = server.sendAppendEntries(request);
-          if (r.isSuccess()) {
+          if (running && r.isSuccess()) {
             if (entries != null && entries.length > 0) {
               final long mi = entries[entries.length - 1].getIndex();
               follower.updateMatchIndex(mi);
@@ -197,9 +232,12 @@ class LeaderState {
         } catch (InterruptedIOException iioe) {
           throw iioe;
         } catch (IOException ioe) {
-          LOG.warn(this + ": failed to send appendEntries; retry " + retry++, ioe);
+          LOG.warn(this + ": failed to send appendEntries; retry " + retry++,
+              ioe);
         }
-        Thread.sleep(RaftConstants.RPC_SLEEP_TIME_MS);
+        if (running) {
+          Thread.sleep(RaftConstants.RPC_SLEEP_TIME_MS);
+        }
       }
       return null;
     }
@@ -229,6 +267,14 @@ class LeaderState {
         }
         synchronized (this) {
           wait(getHeartbeatRemainingTime(follower.lastRpcTime.get()));
+        }
+      }
+    }
+
+    private void checkResponseTerm(long responseTerm) {
+      synchronized (server) {
+        if (running && responseTerm > server.getState().getCurrentTerm()) {
+          server.changeToFollower();
         }
       }
     }

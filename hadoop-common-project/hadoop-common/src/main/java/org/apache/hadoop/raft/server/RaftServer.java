@@ -93,7 +93,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol,
   enum RunningState {INITIALIZED, RUNNING, STOPPED}
 
   private final ServerState state;
-  private final RaftConfiguration raftConf;
   private volatile Role role;
   private final AtomicReference<RunningState> runningState
       = new AtomicReference<>(RunningState.INITIALIZED);
@@ -114,8 +113,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol,
 
   public RaftServer(String id, RaftConfiguration raftConf,
         RaftRpc<RaftServerRequest, RaftServerResponse> serverRpc) {
-    this.raftConf = raftConf;
-    this.state = new ServerState(id);
+    this.state = new ServerState(id, raftConf);
     this.pendingRequests = new ConcurrentSkipListMap<>();
     this.serverRpc = serverRpc;
     this.serverRequestHandler = new RequestHandler.RhThread<>(id, this, serverRpc);
@@ -137,6 +135,10 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol,
 
   public ServerState getState() {
     return this.state;
+  }
+
+  public RaftConfiguration getRaftConf() {
+    return this.getState().getRaftConf();
   }
 
   public boolean isRunning() {
@@ -164,16 +166,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol,
     if (!isRunning()) {
       throw new IOException(getState().getSelfId() + " is not running.");
     }
-  }
-
-  Collection<RaftPeer> getOtherPeers() {
-    List<RaftPeer> others = new ArrayList<>(raftConf.getSize() - 1);
-    for (RaftPeer peer : raftConf.getPeers()) {
-      if (!state.getSelfId().equals(peer.getId())) {
-        others.add(peer);
-      }
-    }
-    return Collections.unmodifiableList(others);
   }
 
   boolean isFollower() {
@@ -266,7 +258,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol,
   private void checkLeaderState() throws NotLeaderException {
     if (!isLeader()) {
       throw new NotLeaderException(state.getSelfId(),
-          raftConf.getPeer(state.getLeaderId()));
+          getRaftConf().getPeer(state.getLeaderId()));
     }
   }
 

@@ -19,11 +19,11 @@ package org.apache.hadoop.raft.server.simulation;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
-import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.RaftRpc;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
 
 import java.io.InterruptedIOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -67,9 +67,9 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
 
   private final Map<String, EventQueue<REQUEST, REPLY>> queues;
 
-  public SimulatedRpc(RaftConfiguration conf) {
+  public SimulatedRpc(Collection<RaftPeer> allPeers) {
     Map<String, EventQueue<REQUEST, REPLY>> map = new HashMap<>();
-    for (RaftPeer peer : conf.getPeers()) {
+    for (RaftPeer peer : allPeers) {
       map.put(peer.getId(), new EventQueue());
     }
     queues = Collections.unmodifiableMap(map);

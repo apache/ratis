@@ -58,12 +58,19 @@ class LeaderElection extends Daemon {
   private final RaftServer raftServer;
   private ExecutorCompletionService<RaftServerResponse> service;
   private ExecutorService executor;
-  private final Collection<RaftPeer> others;
   private volatile boolean running;
+  /**
+   * The Raft configuration should not change while the peer is in candidate
+   * state. If the configuration changes, another peer should be acting as a
+   * leader and this LeaderElection session should end.
+   */
+  private final RaftConfiguration conf;
+  private final Collection<RaftPeer> others;
 
   LeaderElection(RaftServer raftServer) {
     this.raftServer = raftServer;
-    others = raftServer.getOtherPeers();
+    conf = raftServer.getRaftConf();
+    others = conf.getOtherPeers(raftServer.getState().getSelfId());
     this.running = true;
   }
 
@@ -156,8 +163,8 @@ class LeaderElection extends Daemon {
     final long timeout = startTime + RaftConstants.getRandomElectionWaitTime();
     final List<RaftServerResponse> responses = new ArrayList<>();
     final List<Exception> exceptions = new ArrayList<>();
-    int granted = 1; // self
     int waitForNum = submitted;
+    Collection<String> votedPeers = new ArrayList<>();
     while (waitForNum > 0 && running && raftServer.isCandidate()) {
       final long waitTime = timeout - Time.monotonicNow();
       if (waitTime <= 0) {
@@ -171,8 +178,8 @@ class LeaderElection extends Daemon {
         }
         responses.add(r);
         if (r.isSuccess()) {
-          granted++;
-          if (granted > others.size()/2) {
+          votedPeers.add(r.getReplierId());
+          if (conf.hasMajorities(votedPeers, raftServer.getState().getSelfId())) {
             return logAndReturn(Result.PASSED, responses, exceptions);
           }
         }

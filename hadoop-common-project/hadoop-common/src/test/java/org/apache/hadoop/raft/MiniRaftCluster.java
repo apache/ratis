@@ -37,7 +37,7 @@ public class MiniRaftCluster {
   MiniRaftCluster(int numServers) {
     this.conf = initConfiguration(numServers);
 
-    final SimulatedRpc queues = new SimulatedRpc(conf);
+    final SimulatedRpc queues = new SimulatedRpc(conf.getPeers());
     for (RaftPeer p : conf.getPeers()) {
       servers.put(p.getId(), new RaftServer(p.getId(), conf, queues));
     }

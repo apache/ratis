@@ -46,4 +46,8 @@ public class Entry extends TermIndex {
     super(term, logIndex);
     this.message = message;
   }
+
+  public boolean isConfigurationEntry() {
+    return false;
+  }
 }

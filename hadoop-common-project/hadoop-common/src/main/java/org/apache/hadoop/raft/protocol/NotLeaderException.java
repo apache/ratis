@@ -27,4 +27,8 @@ public class NotLeaderException extends RaftException {
         + "). Request must be sent to leader.");
     this.leader = leader;
   }
+
+  public RaftPeer getLeader() {
+    return this.leader;
+  }
 }
