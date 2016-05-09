@@ -33,25 +33,46 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * States for leader only
  */
-class LeaderState {
+class LeaderState extends Daemon {
   private static final Logger LOG = RaftServer.LOG;
+
+  /**
+   * @return the time in milliseconds that the leader should send a heartbeat.
+   */
+  private static long getHeartbeatRemainingTime(long lastTime) {
+    return lastTime + RaftConstants.RPC_TIMEOUT_MIN_MS / 2 - Time.monotonicNow();
+  }
+
+  enum StateUpdateEvent {
+    STEPDOWN, UPDATECOMMIT
+  }
 
   private final RaftServer server;
   private final RaftConfiguration conf;
   private final RaftLog raftLog;
+  private final long currentTerm;
+
   private final List<RpcSender> senders;
+  private final BlockingQueue<StateUpdateEvent> eventQ;
+  private volatile boolean running = true;
 
   LeaderState(RaftServer server) {
     this.server = server;
     this.conf = server.getRaftConf();
-    this.raftLog = server.getState().getLog();
 
-    Collection<RaftPeer> others = conf.getOtherPeers(server.getState().getSelfId());
+    final ServerState state = server.getState();
+    this.raftLog = state.getLog();
+    this.currentTerm = state.getCurrentTerm();
+    eventQ = new LinkedBlockingQueue<>();
+
+    Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
     final long t = Time.monotonicNow() - RaftConstants.RPC_TIMEOUT_MAX_MS;
     final long nextIndex = raftLog.getNextIndex();
     senders = new ArrayList<>(others.size());
@@ -59,23 +80,20 @@ class LeaderState {
       FollowerInfo f = new FollowerInfo(p, t, nextIndex);
       senders.add(new RpcSender(f));
     }
+
+    startSenders();
   }
 
-  void start() {
+  private void startSenders() {
     for (RpcSender sender : senders) {
       sender.start();
     }
   }
 
-  void stop() {
+  void stopRunning() {
+    this.running = false;
     for (RpcSender sender : senders) {
-      sender.stopRunning();
       sender.interrupt();
-      // we do not call sender.join but we make sure senders will not change
-      // anything after being stopped.
-      // TODO we should have a single coordinator thread assigning tasks to
-      // senders, and updating committedIndex or change server's state based on
-      // response.
     }
   }
 
@@ -87,24 +105,62 @@ class LeaderState {
     }
   }
 
-  // TODO this should be called by the coordinator and should hold the server's lock
-  private void updateLastCommitted() {
-    final String selfId = server.getState().getSelfId();
-    List<List<FollowerInfo>> followerLists = divideFollowers();
-    long majorityInNewConf = updateLastCommitted(followerLists.get(0),
-        conf.containsInConf(selfId));
-    if (!conf.inTransitionState()) {
-      raftLog.updateLastCommitted(majorityInNewConf,
-          server.getState().getCurrentTerm());
-    } else {
-      long majorityInOldConf = updateLastCommitted(followerLists.get(1),
-          conf.containsInOldConf(selfId));
-      raftLog.updateLastCommitted(Math.min(majorityInNewConf, majorityInOldConf),
-          server.getState().getCurrentTerm());
+  void submitUpdateStateEvent(StateUpdateEvent e) {
+    eventQ.offer(e);
+  }
+
+  /**
+   * The LeaderState thread itself takes the responsibility to update
+   * the raft server's state, such as changing to follower, or updating the
+   * committed index.
+   */
+  @Override
+  public void run() {
+    while (running) {
+      try {
+        StateUpdateEvent event = eventQ.take();
+        if (running) {
+          handleEvent(event);
+        }
+      } catch (InterruptedException e) {
+        if (!running) {
+          LOG.info("The LeaderState gets is stopped");
+        } else {
+          LOG.warn("The leader election thread of peer {} is interrupted. "
+              + "Currently role: {}.", server.getState().getSelfId(),
+              server.getRole());
+          throw new RuntimeException(e);
+        }
+      }
     }
   }
 
-  private long updateLastCommitted(List<FollowerInfo> followers,
+  void handleEvent(StateUpdateEvent e) {
+    if (e == StateUpdateEvent.STEPDOWN) {
+      server.changeToFollower();
+    } else if (e == StateUpdateEvent.UPDATECOMMIT) {
+      updateLastCommitted();
+    }
+  }
+
+  private void updateLastCommitted() {
+    final String selfId = server.getState().getSelfId();
+    List<List<FollowerInfo>> followerLists = divideFollowers();
+    synchronized (server) {
+      long majorityInNewConf = computeLastCommitted(followerLists.get(0),
+          conf.containsInConf(selfId));
+      if (!conf.inTransitionState()) {
+        raftLog.updateLastCommitted(majorityInNewConf, currentTerm);
+      } else {
+        long majorityInOldConf = computeLastCommitted(followerLists.get(1),
+            conf.containsInOldConf(selfId));
+        raftLog.updateLastCommitted(
+            Math.min(majorityInNewConf, majorityInOldConf), currentTerm);
+      }
+    }
+  }
+
+  private long computeLastCommitted(List<FollowerInfo> followers,
       boolean includeSelf) {
     final int length = includeSelf ? followers.size() + 1 : followers.size();
     final long[] indices = new long[length];
@@ -140,13 +196,6 @@ class LeaderState {
     return lists;
   }
 
-  /**
-   * @return the time in milliseconds that the leader should send a heartbeat.
-   */
-  private static long getHeartbeatRemainingTime(long lastTime) {
-    return lastTime + RaftConstants.RPC_TIMEOUT_MIN_MS / 2 - Time.monotonicNow();
-  }
-
   private class FollowerInfo {
     private final RaftPeer peer;
     private final AtomicLong lastRpcTime;
@@ -161,13 +210,6 @@ class LeaderState {
 
     void updateMatchIndex(final long matchIndex) {
       this.matchIndex.set(matchIndex);
-      updateLastCommitted();
-    }
-
-    /** Should the leader send appendEntries RPC to this follower? */
-    boolean shouldSend() {
-      return raftLog.get(nextIndex) != null ||
-          getHeartbeatRemainingTime(lastRpcTime.get()) <= 0;
     }
 
     void updateNextIndex(long i) {
@@ -180,7 +222,6 @@ class LeaderState {
   }
 
   class RpcSender extends Daemon {
-    private volatile boolean running = true;
     private final FollowerInfo follower;
 
     public RpcSender(FollowerInfo f) {
@@ -203,10 +244,6 @@ class LeaderState {
       }
     }
 
-    void stopRunning() {
-      this.running = false;
-    }
-
     /** Send an appendEntries RPC; retry indefinitely. */
     private RaftServerResponse sendAppendEntriesWithRetries()
         throws InterruptedException, InterruptedIOException {
@@ -221,12 +258,11 @@ class LeaderState {
           AppendEntriesRequest request = server.createAppendEntriesRequest(
               follower.peer.getId(), previous, entries);
           final RaftServerResponse r = server.sendAppendEntries(request);
-          if (running && r.isSuccess()) {
-            if (entries != null && entries.length > 0) {
-              final long mi = entries[entries.length - 1].getIndex();
-              follower.updateMatchIndex(mi);
-              follower.updateNextIndex(mi + 1);
-            }
+          if (r.isSuccess() && entries != null && entries.length > 0) {
+            final long mi = entries[entries.length - 1].getIndex();
+            follower.updateMatchIndex(mi);
+            follower.updateNextIndex(mi + 1);
+            submitUpdateStateEvent(StateUpdateEvent.UPDATECOMMIT);
           }
           return r;
         } catch (InterruptedIOException iioe) {
@@ -246,35 +282,39 @@ class LeaderState {
     private void checkAndSendAppendEntries() throws InterruptedException,
         InterruptedIOException {
       while (running) {
-        if (follower.shouldSend()) {
+        if (shouldSend()) {
           final RaftServerResponse r = sendAppendEntriesWithRetries();
           if (r == null) {
-            Preconditions.checkState(!server.isLeader());
             break;
           }
           follower.lastRpcTime.set(Time.monotonicNow());
 
           // check if should step down
           checkResponseTerm(r.getTerm());
-          if (!running) {
-            return;
-          }
 
           if (!r.isSuccess()) {
             // may implements the optimization in Section 5.3
             follower.decreaseNextIndex();
           }
         }
-        synchronized (this) {
-          wait(getHeartbeatRemainingTime(follower.lastRpcTime.get()));
+        if (running) {
+          synchronized (this) {
+            wait(getHeartbeatRemainingTime(follower.lastRpcTime.get()));
+          }
         }
       }
     }
 
+    /** Should the leader send appendEntries RPC to this follower? */
+    private boolean shouldSend() {
+      return raftLog.get(follower.nextIndex) != null ||
+          getHeartbeatRemainingTime(follower.lastRpcTime.get()) <= 0;
+    }
+
     private void checkResponseTerm(long responseTerm) {
       synchronized (server) {
-        if (running && responseTerm > server.getState().getCurrentTerm()) {
-          server.changeToFollower();
+        if (running && responseTerm > currentTerm) {
+          submitUpdateStateEvent(StateUpdateEvent.STEPDOWN);
         }
       }
     }

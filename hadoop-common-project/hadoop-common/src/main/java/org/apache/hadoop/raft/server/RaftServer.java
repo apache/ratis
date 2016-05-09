@@ -154,10 +154,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol,
 
       shutdownHeartbeatMonitor();
       shutdownElectionDaemon();
-      final LeaderState leader = leaderState;
-      if (leader != null) {
-        leader.stop();
-      }
+      shutdownLeaderState();
     } catch (InterruptedException ignored) {
     }
   }
@@ -190,8 +187,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol,
     }
     if (isLeader()) {
       assert leaderState != null;
-      leaderState.stop();
-      leaderState = null;
+      shutdownLeaderState();
       // TODO: handle pending requests: we can send back
       // NotLeaderException and let the client retry
     } else if (isCandidate()) {
@@ -200,6 +196,15 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol,
     role = Role.FOLLOWER;
     heartbeatMonitor = new HeartbeatMonitor();
     heartbeatMonitor.start();
+  }
+
+  private void shutdownLeaderState() {
+    final LeaderState leader = leaderState;
+    if (leader != null) {
+      leader.stopRunning();
+      leader.interrupt();
+    }
+    leaderState = null;
   }
 
   private void shutdownElectionDaemon() {

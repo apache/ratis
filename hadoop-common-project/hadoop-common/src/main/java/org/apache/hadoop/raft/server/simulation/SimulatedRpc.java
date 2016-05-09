@@ -44,7 +44,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
 
     REPLY request(REQUEST request)
         throws InterruptedException {
-      requestQueue.add(request);
+      requestQueue.put(request);
       synchronized (this) {
         while (!replyMap.containsKey(request)) {
           this.wait();
@@ -70,7 +70,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   public SimulatedRpc(Collection<RaftPeer> allPeers) {
     Map<String, EventQueue<REQUEST, REPLY>> map = new HashMap<>();
     for (RaftPeer peer : allPeers) {
-      map.put(peer.getId(), new EventQueue());
+      map.put(peer.getId(), new EventQueue<REQUEST, REPLY>());
     }
     queues = Collections.unmodifiableMap(map);
   }
