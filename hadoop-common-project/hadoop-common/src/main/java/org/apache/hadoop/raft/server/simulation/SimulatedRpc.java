@@ -20,7 +20,7 @@ package org.apache.hadoop.raft.server.simulation;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftRpc;
-import org.apache.hadoop.raft.server.protocol.RaftPeer;
+import org.apache.hadoop.raft.protocol.RaftPeer;
 
 import java.io.InterruptedIOException;
 import java.util.Collection;

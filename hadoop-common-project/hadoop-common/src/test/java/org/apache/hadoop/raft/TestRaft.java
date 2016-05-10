@@ -17,7 +17,6 @@
  */
 package org.apache.hadoop.raft;
 
-import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConstants;
@@ -30,8 +29,6 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.List;
 
 public class TestRaft {
   {

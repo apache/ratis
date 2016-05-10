@@ -15,32 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.server.protocol;
+package org.apache.hadoop.raft.protocol;
 
-public class RaftPeer {
-  private final String id;
-  // TODO other information including host name, port etc.
-
-  public RaftPeer(String id) {
-    this.id = id;
+public class SetConfigurationRequest extends RaftClientRequest {
+  public SetConfigurationRequest(String requestorId, String replierId,
+      RaftPeer[] newMembers) {
+    super(requestorId, replierId, new ConfigurationMessage(newMembers));
   }
 
-  public String getId() {
-    return id;
-  }
-
-  @Override
-  public String toString() {
-    return id;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    return (o instanceof RaftPeer) && id.equals(((RaftPeer) o).getId());
-  }
-
-  @Override
-  public int hashCode() {
-    return id.hashCode();
+  public RaftPeer[] getNewMembers() {
+    return ((ConfigurationMessage) getMessage()).getNewMembers();
   }
 }

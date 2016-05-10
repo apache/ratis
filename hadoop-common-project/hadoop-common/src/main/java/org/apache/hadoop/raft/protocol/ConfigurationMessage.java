@@ -17,15 +17,14 @@
  */
 package org.apache.hadoop.raft.protocol;
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
+public class ConfigurationMessage implements Message {
+  private final RaftPeer[] newMembers;
 
-import java.io.IOException;
+  public ConfigurationMessage(RaftPeer[] newMembers) {
+    this.newMembers = newMembers;
+  }
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
-public interface RaftClientProtocol {
-  void submit(RaftClientRequest request) throws IOException;
-
-  void setConfiguration(SetConfigurationRequest request) throws IOException;
+  public RaftPeer[] getNewMembers() {
+    return newMembers;
+  }
 }

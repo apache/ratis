@@ -18,6 +18,7 @@
 package org.apache.hadoop.raft.server;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 
 /**

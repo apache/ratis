@@ -22,7 +22,7 @@ import org.apache.hadoop.raft.protocol.NotLeaderException;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.server.RaftRpc;
-import org.apache.hadoop.raft.server.protocol.RaftPeer;
+import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

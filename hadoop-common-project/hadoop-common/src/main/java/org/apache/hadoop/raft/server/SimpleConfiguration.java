@@ -18,7 +18,7 @@
 package org.apache.hadoop.raft.server;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.raft.server.protocol.RaftPeer;
+import org.apache.hadoop.raft.protocol.RaftPeer;
 
 import java.util.ArrayList;
 import java.util.Collection;

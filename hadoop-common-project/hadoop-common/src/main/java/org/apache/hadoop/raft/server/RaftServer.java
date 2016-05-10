@@ -230,7 +230,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     heartbeatMonitor.start();
   }
 
-  private void shutdownLeaderState() {
+  private synchronized void shutdownLeaderState() {
     final LeaderState leader = leaderState;
     if (leader != null) {
       leader.stopRunning();
@@ -304,20 +304,64 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
    */
   @Override
   public void submit(RaftClientRequest request) throws IOException {
-    checkLeaderState();
-    // append the message to its local log
-    final long entryIndex = state.getLog().apply(state.getCurrentTerm(),
-        request.getMessage());
     synchronized (this) {
+      // append the message to its local log
+      final long entryIndex = state.getLog().apply(state.getCurrentTerm(),
+          request.getMessage());
       checkLeaderState();
       // put the request into the pending queue
       pendingRequests.put(entryIndex, request);
       leaderState.notifySenders();
     }
+    state.getLog().logSync();
     // return without waiting.
     // TODO: after the corresponding log entry is committed,
     // a background thread will remove the request from the pending queue and
     // send back the response
+  }
+
+  @Override
+  public void setConfiguration(SetConfigurationRequest request)
+      throws IOException {
+    final RaftPeer[] newMembers = request.getNewMembers();
+    synchronized (this) {
+      checkLeaderState();
+      final RaftConfiguration current = getRaftConf();
+      // make sure there is no other raft reconfiguration in progress
+      if (!current.inStableState()) {
+        throw new ReconfigurationInProgressException(current,
+            "Reconfiguration in progress");
+      }
+      // todo: wait for staging peers to catch up
+
+      // return true if the new configuration is the same with the current one
+      if (current.hasNoChange(newMembers)) {
+        return;
+      }
+
+      RaftPeer[] oldMembers = current.getPeers().toArray(
+          new RaftPeer[current.getPeers().size()]);
+      final RaftConfiguration newConf= new RaftConfiguration(newMembers,
+          oldMembers);
+
+      // apply the new configuration to log, and use it as the current conf
+      final long entryIndex = state.getLog().apply(state.getCurrentTerm(),
+          current, newConf);
+      state.setRaftConf(newConf);
+      LOG.info("{}: successfully update the configuration {}",
+          getState().getSelfId(), newConf);
+
+      // update the LeaderState's sender list
+      leaderState.addSenders(current.getNewPeers(newMembers));
+
+      // start replicating the configuration change
+      pendingRequests.put(entryIndex, request);
+      leaderState.notifySenders();
+    }
+    state.getLog().logSync();
+    // release the handler and the LeaderState thread will trigger the next step
+    // once the (old, new) entry is committed, and finally send the response
+    // back the client.
   }
 
   @Override

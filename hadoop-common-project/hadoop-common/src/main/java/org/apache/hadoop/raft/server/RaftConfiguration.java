@@ -18,9 +18,11 @@
 package org.apache.hadoop.raft.server;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.raft.server.protocol.RaftPeer;
+import org.apache.hadoop.raft.protocol.RaftPeer;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 public class RaftConfiguration {
 
@@ -68,6 +70,10 @@ public class RaftConfiguration {
 
   public boolean inTransitionState() {
     return this.state == State.TRANSITIONAL;
+  }
+
+  public boolean inStableState() {
+    return this.state == State.STABLE;
   }
 
   public boolean containsInConf(String peerId) {
@@ -124,6 +130,28 @@ public class RaftConfiguration {
   public String toString() {
     return conf.toString() + ", old:"
         + (oldConf != null ? oldConf : "[]");
+  }
+
+  boolean hasNoChange(RaftPeer[] newMembers) {
+    if (!inStableState() || conf.getSize() != newMembers.length) {
+      return false;
+    }
+    for (RaftPeer peer : newMembers) {
+      if (!conf.contains(peer.getId())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Collection<RaftPeer> getNewPeers(RaftPeer[] newMembers) {
+    List<RaftPeer> peers = new ArrayList<>();
+    for (RaftPeer p : newMembers) {
+      if (!conf.contains(p.getId())) {
+        peers.add(p);
+      }
+    }
+    return peers;
   }
 
   // TODO check if leader is in the new/old configuration

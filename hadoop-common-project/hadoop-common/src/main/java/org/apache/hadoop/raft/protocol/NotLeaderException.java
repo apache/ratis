@@ -17,8 +17,6 @@
  */
 package org.apache.hadoop.raft.protocol;
 
-import org.apache.hadoop.raft.server.protocol.RaftPeer;
-
 public class NotLeaderException extends RaftException {
   private final RaftPeer leader;
 

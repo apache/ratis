@@ -17,15 +17,30 @@
  */
 package org.apache.hadoop.raft.protocol;
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
+public class RaftPeer {
+  private final String id;
+  // TODO other information including host name, port etc.
 
-import java.io.IOException;
+  public RaftPeer(String id) {
+    this.id = id;
+  }
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
-public interface RaftClientProtocol {
-  void submit(RaftClientRequest request) throws IOException;
+  public String getId() {
+    return id;
+  }
 
-  void setConfiguration(SetConfigurationRequest request) throws IOException;
+  @Override
+  public String toString() {
+    return id;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return (o instanceof RaftPeer) && id.equals(((RaftPeer) o).getId());
+  }
+
+  @Override
+  public int hashCode() {
+    return id.hashCode();
+  }
 }

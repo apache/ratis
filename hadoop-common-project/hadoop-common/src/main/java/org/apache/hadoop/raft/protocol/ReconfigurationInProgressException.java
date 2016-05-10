@@ -17,15 +17,20 @@
  */
 package org.apache.hadoop.raft.protocol;
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.raft.server.RaftConfiguration;
 
-import java.io.IOException;
+public class ReconfigurationInProgressException extends RaftException {
+  private final RaftConfiguration confInProgress;
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
-public interface RaftClientProtocol {
-  void submit(RaftClientRequest request) throws IOException;
+  public ReconfigurationInProgressException(RaftConfiguration conf,
+      String message) {
+    super(message);
+    this.confInProgress = conf;
+  }
 
-  void setConfiguration(SetConfigurationRequest request) throws IOException;
+  @Override
+  public String toString() {
+    return "In progress configuration:" + confInProgress
+        + ", " + super.toString();
+  }
 }

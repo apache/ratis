@@ -19,7 +19,7 @@ package org.apache.hadoop.raft.server;
 
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.raft.server.protocol.Entry;
-import org.apache.hadoop.raft.server.protocol.RaftPeer;
+import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.util.Daemon;
@@ -57,6 +57,10 @@ class LeaderState extends Daemon {
   private final RaftLog raftLog;
   private final long currentTerm;
 
+  /**
+   * The list of threads appending entries to followers. The list is protected
+   * by the RaftServer's lock.
+   */
   private final List<RpcSender> senders;
   private final BlockingQueue<StateUpdateEvent> eventQ;
   private volatile boolean running = true;
@@ -103,6 +107,21 @@ class LeaderState extends Daemon {
     }
   }
 
+  /**
+   * After receiving a setConfiguration request, the leader should update its
+   * RpcSender list.
+   */
+  void addSenders(Collection<RaftPeer> newMembers) {
+    final long t = Time.monotonicNow() - RaftConstants.RPC_TIMEOUT_MAX_MS;
+    final long nextIndex = raftLog.getNextIndex();
+    for (RaftPeer peer : newMembers) {
+      FollowerInfo f = new FollowerInfo(peer, t, nextIndex);
+      RpcSender sender = new RpcSender(f);
+      senders.add(sender);
+      sender.start();
+    }
+  }
+
   void submitUpdateStateEvent(StateUpdateEvent e) {
     eventQ.offer(e);
   }
@@ -117,8 +136,10 @@ class LeaderState extends Daemon {
     while (running) {
       try {
         StateUpdateEvent event = eventQ.take();
-        if (running) {
-          handleEvent(event);
+        synchronized (server) {
+          if (running) {
+            handleEvent(event);
+          }
         }
       } catch (InterruptedException e) {
         if (!running) {
@@ -142,19 +163,17 @@ class LeaderState extends Daemon {
 
   private void updateLastCommitted() {
     final String selfId = server.getId();
-    synchronized (server) {
-      final RaftConfiguration conf = server.getRaftConf();
-      List<List<FollowerInfo>> followerLists = divideFollowers(conf);
-      long majorityInNewConf = computeLastCommitted(followerLists.get(0),
-          conf.containsInConf(selfId));
-      if (!conf.inTransitionState()) {
-        raftLog.updateLastCommitted(majorityInNewConf, currentTerm);
-      } else {
-        long majorityInOldConf = computeLastCommitted(followerLists.get(1),
-            conf.containsInOldConf(selfId));
-        raftLog.updateLastCommitted(
-            Math.min(majorityInNewConf, majorityInOldConf), currentTerm);
-      }
+    final RaftConfiguration conf = server.getRaftConf();
+    List<List<FollowerInfo>> followerLists = divideFollowers(conf);
+    long majorityInNewConf = computeLastCommitted(followerLists.get(0),
+        conf.containsInConf(selfId));
+    if (!conf.inTransitionState()) {
+      raftLog.updateLastCommitted(majorityInNewConf, currentTerm);
+    } else {
+      long majorityInOldConf = computeLastCommitted(followerLists.get(1),
+          conf.containsInOldConf(selfId));
+      raftLog.updateLastCommitted(
+          Math.min(majorityInNewConf, majorityInOldConf), currentTerm);
     }
   }
 

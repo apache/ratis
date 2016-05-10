@@ -108,6 +108,15 @@ public class RaftLog {
     return nextIndex;
   }
 
+  synchronized long apply(long term, RaftConfiguration old,
+      RaftConfiguration newConf) {
+    final long nextIndex = getNextIndex();
+    ConfigurationEntry entry = new ConfigurationEntry(term, nextIndex, old,
+        newConf);
+    entries.add(entry);
+    return nextIndex;
+  }
+
   /**
    * If an existing entry conflicts with a new one (same index but different
    * terms), delete the existing entry and all that follow it (§5.3)
