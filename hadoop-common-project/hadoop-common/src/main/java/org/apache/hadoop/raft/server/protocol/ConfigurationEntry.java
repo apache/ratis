@@ -17,29 +17,22 @@
  */
 package org.apache.hadoop.raft.server.protocol;
 
-import java.util.Arrays;
+import org.apache.hadoop.raft.server.RaftConfiguration;
 
 public class ConfigurationEntry extends Entry {
-  private final RaftPeer[] oldPeers;
-  private final RaftPeer[] peers;
+  /**
+   * the raft configuration before this entry. we need to use this to set back
+   * the configuration in case that the new conf entry is truncated later.
+   */
+  private final RaftConfiguration prev;
+  /** the new configuration described by this entry */
+  private final RaftConfiguration current;
 
-  public ConfigurationEntry(long term, long logIndex, RaftPeer[] oldPeers,
-      RaftPeer[] peers) {
+  public ConfigurationEntry(long term, long logIndex, RaftConfiguration prev,
+      RaftConfiguration current) {
     super(term, logIndex, null);
-    this.oldPeers = oldPeers;
-    this.peers = peers;
-  }
-
-  public boolean isTranstional() {
-    return oldPeers != null && peers != null;
-  }
-
-  public RaftPeer[] getOldPeers() {
-    return oldPeers;
-  }
-
-  public RaftPeer[] getPeers() {
-    return peers;
+    this.prev = prev;
+    this.current = current;
   }
 
   @Override
@@ -49,7 +42,15 @@ public class ConfigurationEntry extends Entry {
 
   @Override
   public String toString() {
-    return super.toString() + ", peers:" + Arrays.asList(peers) + ", old peers:"
-        + (oldPeers != null ? Arrays.asList(oldPeers) : "[]");
+    return super.toString() + " current conf:" + current
+        + ", previous conf: " + prev;
+  }
+
+  public RaftConfiguration getCurrent() {
+    return this.current;
+  }
+
+  public RaftConfiguration getPrev() {
+    return this.prev;
   }
 }

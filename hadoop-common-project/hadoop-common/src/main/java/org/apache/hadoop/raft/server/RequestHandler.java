@@ -23,12 +23,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 
 import static org.apache.hadoop.util.ExitUtil.terminate;
 
-public  interface RequestHandler<REQUEST extends RaftRpcMessage,
+public interface RequestHandler<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> {
-  static final Logger LOG = LoggerFactory.getLogger(RequestHandler.class);
+  Logger LOG = LoggerFactory.getLogger(RequestHandler.class);
 
   boolean isRunning();
 
@@ -37,8 +38,8 @@ public  interface RequestHandler<REQUEST extends RaftRpcMessage,
   /**
    * A thread keep polling requests from the request queue. Used for simulation.
    */
-  static class HandlerDaemon<REQUEST extends RaftRpcMessage,
-                               REPLY extends RaftRpcMessage> extends Daemon {
+  class HandlerDaemon<REQUEST extends RaftRpcMessage,
+      REPLY extends RaftRpcMessage> extends Daemon {
     private final String id;
     private final RaftRpc<REQUEST, REPLY> serverRpc;
     private final RequestHandler<REQUEST, REPLY> handler;
@@ -66,7 +67,7 @@ public  interface RequestHandler<REQUEST extends RaftRpcMessage,
           if (!handler.isRunning()) {
             LOG.info(this + " is stopped.");
             break;
-          } else if (t instanceof InterruptedException) {
+          } else if (t instanceof InterruptedIOException) {
             LOG.info(this + " is interrupted.");
             break;
           }

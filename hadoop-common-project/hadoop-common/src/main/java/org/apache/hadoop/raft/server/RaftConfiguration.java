@@ -33,67 +33,52 @@ public class RaftConfiguration {
   /**
    * The state of the raft ring.
    */
-  private State state;
+  private final State state;
   /**
    * non-null while in TRANSITIONAL state
    */
-  private SimpleConfiguration oldConf;
+  private final SimpleConfiguration oldConf;
   /**
    * the new configuration while in TRANSITIONAL state,
    * or the current configuration in STABLE/STAGING state
    */
-  private SimpleConfiguration conf;
+  private final SimpleConfiguration conf;
 
   // TODO private Map<String, RaftPeer> stagingNewPeers;
 
   public RaftConfiguration(RaftPeer[] peers) {
+    Preconditions.checkArgument(peers != null && peers.length > 0);
     this.conf = new SimpleConfiguration(peers);
+    this.oldConf = null;
     this.state = State.STABLE;
   }
 
-  public synchronized State getState() {
+  public RaftConfiguration(RaftPeer[] newPeers, RaftPeer[] oldPeers) {
+    Preconditions.checkArgument(newPeers != null && newPeers.length > 0);
+    Preconditions.checkArgument(oldPeers != null && oldPeers.length > 0);
+
+    this.conf = new SimpleConfiguration(newPeers);
+    this.oldConf = new SimpleConfiguration(oldPeers);
+    this.state = State.TRANSITIONAL;
+  }
+
+  public State getState() {
     return this.state;
   }
 
-  public synchronized boolean containsInConf(String peerId) {
+  public boolean inTransitionState() {
+    return this.state == State.TRANSITIONAL;
+  }
+
+  public boolean containsInConf(String peerId) {
     return conf.contains(peerId);
   }
 
-  public synchronized boolean containsInOldConf(String peerId) {
+  public boolean containsInOldConf(String peerId) {
     return oldConf != null && oldConf.contains(peerId);
   }
 
-  public synchronized boolean inStableState() {
-    final boolean stable = state == State.STABLE;
-    if (stable) {
-      Preconditions.checkState(oldConf == null && conf != null);
-    }
-    return stable;
-  }
-
-  public synchronized void setNewConfiguration(RaftPeer[] newPeers) {
-    Preconditions.checkArgument(newPeers != null && newPeers.length > 0);
-    Preconditions.checkState(inStableState());
-    oldConf = conf;
-    conf = new SimpleConfiguration(newPeers);
-    state = State.TRANSITIONAL;
-  }
-
-  public synchronized boolean inTransitionState() {
-    final boolean transitional = state == State.TRANSITIONAL;
-    if (transitional) {
-      Preconditions.checkState(oldConf != null && conf != null);
-    }
-    return transitional;
-  }
-
-  public synchronized void commitNewConfiguration() {
-    Preconditions.checkState(inTransitionState());
-    oldConf = null;
-    state = State.STABLE;
-  }
-
-  public synchronized RaftPeer getPeer(String id) {
+  public RaftPeer getPeer(String id) {
     RaftPeer peer = conf.getPeer(id);
     if (peer != null) {
       return peer;
@@ -103,7 +88,7 @@ public class RaftConfiguration {
     return null;
   }
 
-  public synchronized Collection<RaftPeer> getPeers() {
+  public Collection<RaftPeer> getPeers() {
     Collection<RaftPeer> peers = conf.getPeers();
     if (oldConf != null) {
       for (RaftPeer p : oldConf.getPeers()) {
@@ -115,7 +100,7 @@ public class RaftConfiguration {
     return peers;
   }
 
-  public synchronized Collection<RaftPeer> getOtherPeers(String selfId) {
+  public Collection<RaftPeer> getOtherPeers(String selfId) {
     Collection<RaftPeer> others = conf.getOtherPeers(selfId);
     if (oldConf != null) {
       Collection<RaftPeer> oldOthers = oldConf.getOtherPeers(selfId);
@@ -128,11 +113,17 @@ public class RaftConfiguration {
     return others;
   }
 
-  public synchronized boolean hasMajorities(Collection<String> others,
+  public boolean hasMajorities(Collection<String> others,
       String selfId) {
     Preconditions.checkArgument(!others.contains(selfId));
     return conf.hasMajority(others, selfId) &&
         (oldConf == null || oldConf.hasMajority(others, selfId));
+  }
+
+  @Override
+  public String toString() {
+    return conf.toString() + ", old:"
+        + (oldConf != null ? oldConf : "[]");
   }
 
   // TODO check if leader is in the new/old configuration

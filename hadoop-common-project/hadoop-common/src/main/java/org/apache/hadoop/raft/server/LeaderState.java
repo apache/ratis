@@ -17,7 +17,6 @@
  */
 package org.apache.hadoop.raft.server;
 
-import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.server.protocol.RaftPeer;
@@ -55,7 +54,6 @@ class LeaderState extends Daemon {
   }
 
   private final RaftServer server;
-  private final RaftConfiguration conf;
   private final RaftLog raftLog;
   private final long currentTerm;
 
@@ -65,14 +63,14 @@ class LeaderState extends Daemon {
 
   LeaderState(RaftServer server) {
     this.server = server;
-    this.conf = server.getRaftConf();
 
     final ServerState state = server.getState();
     this.raftLog = state.getLog();
     this.currentTerm = state.getCurrentTerm();
     eventQ = new LinkedBlockingQueue<>();
 
-    Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
+    Collection<RaftPeer> others = server.getRaftConf()
+        .getOtherPeers(state.getSelfId());
     final long t = Time.monotonicNow() - RaftConstants.RPC_TIMEOUT_MAX_MS;
     final long nextIndex = raftLog.getNextIndex();
     senders = new ArrayList<>(others.size());
@@ -145,8 +143,9 @@ class LeaderState extends Daemon {
 
   private void updateLastCommitted() {
     final String selfId = server.getState().getSelfId();
-    List<List<FollowerInfo>> followerLists = divideFollowers();
     synchronized (server) {
+      final RaftConfiguration conf = server.getRaftConf();
+      List<List<FollowerInfo>> followerLists = divideFollowers(conf);
       long majorityInNewConf = computeLastCommitted(followerLists.get(0),
           conf.containsInConf(selfId));
       if (!conf.inTransitionState()) {
@@ -175,7 +174,7 @@ class LeaderState extends Daemon {
     return indices[(indices.length - 1) / 2];
   }
 
-  private List<List<FollowerInfo>> divideFollowers() {
+  private List<List<FollowerInfo>> divideFollowers(RaftConfiguration conf) {
     List<List<FollowerInfo>> lists = new ArrayList<>(2);
     List<FollowerInfo> listForNew = new ArrayList<>();
     for (RpcSender sender : senders) {

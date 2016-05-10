@@ -371,8 +371,30 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         return new RaftServerReply(leaderId, state.getSelfId(), currentTerm, false);
       }
     }
-    state.getLog().apply(entries);
+    RaftConfiguration newConf = state.getLog().apply(entries);
+    if (newConf != null) {
+      assert entries != null;
+      Entry lastEntry = entries[entries.length - 1];
+      updateConfiguration(newConf,
+          new TermIndex(lastEntry.getTerm(), lastEntry.getIndex()));
+    }
     return new RaftServerReply(leaderId, state.getSelfId(), currentTerm, true);
+  }
+
+  /**
+   * @param requestIndex the TermIndex of the last entry of the RPC request that
+   *                     causes this configuration update.
+   */
+  private synchronized void updateConfiguration(RaftConfiguration newConf,
+      TermIndex requestIndex) {
+    final boolean updated = state.setRaftConf(newConf, requestIndex);
+    if (updated) {
+      LOG.info("{}: successfully update the configuration {}",
+          getState().getSelfId(), newConf);
+    } else {
+      LOG.info("{}: skip stale configuration {}, current conf: {}",
+          getState().getSelfId(), newConf, state.getRaftConf());
+    }
   }
 
   synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,
@@ -403,7 +425,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       // TODO: based on committed index, send back response to client
     }
   }
-
 
   final RequestHandler<RaftServerRequest, RaftServerReply> serverRequestHandler
       = new RequestHandler<RaftServerRequest, RaftServerReply>() {

@@ -28,7 +28,7 @@ public class ServerState {
   /** Raft log */
   private final RaftLog log;
   /** Raft configuration */
-  private final RaftConfiguration raftConf;
+  private ConfigurationAndTermIndex raftConf;
 
   /**
    * Latest term server has seen. initialized to 0 on first boot, increases
@@ -50,19 +50,30 @@ public class ServerState {
 
   ServerState(String id, RaftConfiguration conf) {
     this.selfId = id;
-    this.raftConf = conf;
+    this.raftConf = new ConfigurationAndTermIndex(conf, new TermIndex(0, 0));
     // TODO load log/currentTerm/votedFor/leaderId from persistent storage
     log = new RaftLog();
     currentTerm = 0;
     votedFor = null;
     leaderId = null;
+    loadConfFromLog();
   }
 
-  // TODO apply raftlog and update its RaftConfiguration
-
+  private void loadConfFromLog() {
+    // TODO apply raftlog and update its RaftConfiguration
+  }
 
   public RaftConfiguration getRaftConf() {
-    return raftConf;
+    return raftConf.conf;
+  }
+
+  public boolean setRaftConf(RaftConfiguration conf, TermIndex termIndex) {
+    if (termIndex.compareTo(raftConf.ti) > 0) {
+      this.raftConf = new ConfigurationAndTermIndex(conf, termIndex);
+      return true;
+    } else {
+      return false;
+    }
   }
 
   public String getSelfId() {
@@ -151,5 +162,15 @@ public class ServerState {
     return selfId + ", current term: " + currentTerm
         + ", leaderId: " + leaderId + ", votedFor: " + votedFor
         + ", raft log: " + log;
+  }
+
+  private static class ConfigurationAndTermIndex {
+    final RaftConfiguration conf;
+    final TermIndex ti;
+
+    ConfigurationAndTermIndex(RaftConfiguration conf, TermIndex ti) {
+      this.conf = conf;
+      this.ti = ti;
+    }
   }
 }

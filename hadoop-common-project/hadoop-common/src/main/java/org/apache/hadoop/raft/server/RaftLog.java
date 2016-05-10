@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
 import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
@@ -59,11 +60,16 @@ public class RaftLog {
     return i < size? entries.subList(i, size).toArray(Entry.EMPTY_ARRAY): null;
   }
 
-  private void truncate(long index) {
+  private RaftConfiguration truncate(long index) {
     final int truncateIndex = findIndex(index);
+    RaftConfiguration oldConf = null;
     for(int i = entries.size() - 1; i >= truncateIndex; i--) {
-      entries.remove(i);
+      Entry removed = entries.remove(i);
+      if (removed.isConfigurationEntry()) {
+        oldConf = ((ConfigurationEntry) removed).getPrev();
+      }
     }
+    return oldConf;
   }
 
   /** Does the contain the given term and index? */
@@ -92,12 +98,19 @@ public class RaftLog {
    * If an existing entry conflicts with a new one (same index but different
    * terms), delete the existing entry and all that follow it (§5.3)
    */
-  synchronized void apply(Entry... entries) {
+  synchronized RaftConfiguration apply(Entry... entries) {
     if (entries == null || entries.length == 0) {
-      return;
+      return null;
     }
-    truncate(entries[0].getIndex());
+    RaftConfiguration conf = truncate(entries[0].getIndex());
     Preconditions.checkState(this.entries.addAll(Arrays.asList(entries)));
+    for (Entry entry : entries) {
+      this.entries.add(entry);
+      if (entry.isConfigurationEntry()) {
+        conf = ((ConfigurationEntry) entry).getCurrent();
+      }
+    }
+    return conf;
   }
 
   @Override
