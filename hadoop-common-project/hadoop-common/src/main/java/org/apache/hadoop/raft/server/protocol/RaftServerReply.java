@@ -19,7 +19,7 @@ package org.apache.hadoop.raft.server.protocol;
 
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 
-public class RaftServerReply extends RaftRpcMessage {
+public class RaftServerReply extends RaftRpcMessage.Reply {
   private final long term;
   private final boolean success;
   // final long lastIndexInTerm; TODO

@@ -45,7 +45,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     private volatile boolean monitorRunning = true;
 
     void updateLastRpcTime(long now) {
-      LOG.trace("{} update last rpc time to {}", state.getSelfId(), now);
+      LOG.trace("{} update last rpc time to {}", getId(), now);
       lastRpcTime = now;
     }
 
@@ -60,14 +60,14 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         try {
           Thread.sleep(electionTimeout);
           if (!monitorRunning || !isFollower()) {
-            LOG.info("{} heartbeat monitor quit", state.getSelfId());
+            LOG.info("{} heartbeat monitor quit", getId());
             break;
           }
           final long now = Time.monotonicNow();
           if (now >= lastRpcTime + electionTimeout) {
             LOG.info("{} changing to " + Role.CANDIDATE +
                 " now:{}, last rpc time:{}, electionTimeout:{}",
-                state.getSelfId(), now, lastRpcTime, electionTimeout);
+                getId(), now, lastRpcTime, electionTimeout);
             // election timeout, should become a candidate
             RaftServer.this.changeToCandidate();
             break;
@@ -84,8 +84,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
     @Override
     public String toString() {
-      return RaftServer.this.getState().getSelfId()
-          + ": " + getClass().getSimpleName();
+      return RaftServer.this.getId() + ": " + getClass().getSimpleName();
     }
   }
 
@@ -166,6 +165,10 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     return this.state;
   }
 
+  public String getId() {
+    return getState().getSelfId();
+  }
+
   public RaftConfiguration getRaftConf() {
     return this.getState().getRaftConf();
   }
@@ -190,15 +193,15 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   void assertRunningState() throws IOException {
     if (!isRunning()) {
-      throw new IOException(getState().getSelfId() + " is not running.");
+      throw new IOException(getId() + " is not running.");
     }
   }
 
-  boolean isFollower() {
+  public boolean isFollower() {
     return role == Role.FOLLOWER;
   }
 
-  boolean isCandidate() {
+  public boolean isCandidate() {
     return role == Role.CANDIDATE;
   }
 
@@ -291,7 +294,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   private void checkLeaderState() throws NotLeaderException {
     if (!isLeader()) {
-      throw new NotLeaderException(state.getSelfId(),
+      throw new NotLeaderException(getId(),
           getRaftConf().getPeer(state.getLeaderId()));
     }
   }
@@ -321,7 +324,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   public RaftServerReply requestVote(String candidateId, long candidateTerm,
                                      TermIndex candidateLastEntry) throws IOException {
     LOG.debug("{}: receive requestVote({}, {}, {})",
-        state.getSelfId(), candidateId, candidateTerm, candidateLastEntry);
+        getId(), candidateId, candidateTerm, candidateLastEntry);
     assertRunningState();
 
     final long startTime = Time.monotonicNow();
@@ -337,7 +340,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
           voteGranted = true;
         }
       }
-      return new RaftServerReply(candidateId, state.getSelfId(),
+      return new RaftServerReply(candidateId, getId(),
           state.getCurrentTerm(), voteGranted);
     }
     // TODO persist the votedFor/currentTerm information
@@ -348,7 +351,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       TermIndex previous, long leaderCommit, Entry... entries)
           throws IOException {
     LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {})",
-        state.getSelfId(), leaderId, leaderTerm, previous, leaderCommit,
+        getId(), leaderId, leaderTerm, previous, leaderCommit,
         (entries == null || entries.length == 0) ? "HEARTBEAT"
             : entries.length == 1? entries[0]: Arrays.asList(entries));
     assertRunningState();
@@ -360,7 +363,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
-        return new RaftServerReply(leaderId, state.getSelfId(), currentTerm, false);
+        return new RaftServerReply(leaderId, getId(), currentTerm, false);
       }
       changeToFollower();
 
@@ -369,7 +372,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       state.getLog().updateLastCommitted(leaderCommit, currentTerm);
 
       if (previous != null && !state.getLog().contains(previous)) {
-        return new RaftServerReply(leaderId, state.getSelfId(), currentTerm, false);
+        return new RaftServerReply(leaderId, getId(), currentTerm, false);
       }
 
       RaftConfiguration newConf = state.getLog().apply(entries);
@@ -386,14 +389,14 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,
       TermIndex previous, Entry[] entries) {
-    return new AppendEntriesRequest(state.getSelfId(), targetId,
+    return new AppendEntriesRequest(getId(), targetId,
         state.getCurrentTerm(), previous, entries,
         state.getLog().getLastCommitted().getIndex());
   }
 
   synchronized RequestVoteRequest createRequestVoteRequest(String targetId,
       long term, TermIndex lastEntry) {
-    return new RequestVoteRequest(state.getSelfId(), targetId, term, lastEntry);
+    return new RequestVoteRequest(getId(), targetId, term, lastEntry);
   }
 
   RaftServerReply sendRequestVote(RequestVoteRequest request)
@@ -426,7 +429,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
             rr.getLastLogIndex());
       } else { // TODO support other requests later
         // should not come here now
-        return new RaftServerReply(r.getRequestorId(), state.getSelfId(),
+        return new RaftServerReply(r.getRequestorId(), getId(),
             state.getCurrentTerm(), false);
       }
     }

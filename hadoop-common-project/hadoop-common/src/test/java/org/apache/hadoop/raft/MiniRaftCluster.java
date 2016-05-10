@@ -29,10 +29,7 @@ import org.apache.hadoop.raft.server.simulation.SimulatedRpc;
 import org.junit.Assert;
 
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class MiniRaftCluster {
   private final RaftConfiguration conf;
@@ -71,9 +68,19 @@ public class MiniRaftCluster {
 
   void printServers(PrintStream out) {
     out.println("#servers = " + servers.size());
+    for (RaftServer s : servers.values()) {
+      out.print("  ");
+      out.println(s);
+    }
+  }
+
+  void printAllLogs(PrintStream out) {
+    out.println("#servers = " + servers.size());
     for(RaftServer s : servers.values()) {
       out.print("  ");
       out.println(s);
+      out.print("    ");
+      s.getState().getLog().printEntries(out);
     }
   }
 
@@ -90,6 +97,20 @@ public class MiniRaftCluster {
       Assert.assertEquals(1, leaders.size());
       return leaders.get(0);
     }
+  }
+
+  List<RaftServer> getFollowers() {
+    final List<RaftServer> followers = new ArrayList<>();
+    for (RaftServer s : servers.values()) {
+      if (s.isRunning() && s.isFollower()) {
+        followers.add(s);
+      }
+    }
+    return followers;
+  }
+
+  Collection<RaftServer> getServers() {
+    return servers.values();
   }
 
   RaftClient createClient(String clientId, String leaderId) {

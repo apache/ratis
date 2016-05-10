@@ -19,7 +19,7 @@ package org.apache.hadoop.raft.server.protocol;
 
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 
-public abstract class RaftServerRequest extends RaftRpcMessage {
+public abstract class RaftServerRequest extends RaftRpcMessage.Request {
   public RaftServerRequest(String requestorId, String replierId) {
     super(requestorId, replierId);
   }

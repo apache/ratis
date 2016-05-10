@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -26,14 +27,19 @@ import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
 import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RaftLog {
+  public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
   static final Entry DUMMY_ENTRY = new Entry(-1, 0, null);
 
+  private final ServerState state;
   private final List<Entry> entries = new ArrayList<>();
   private long lastCommitted = 0;
 
-  {
+  RaftLog(ServerState state) {
+    this.state = state;
     //add a dummy entry so that the first log index is 1.
     entries.add(DUMMY_ENTRY);
   }
@@ -47,12 +53,14 @@ public class RaftLog {
       // Only update last committed index for current term.
       final TermIndex ti = get(majority);
       if (ti != null && ti.getTerm() == currentTerm) {
+        LOG.debug("{}: Updating lastCommitted to {}", state, majority);
         this.lastCommitted = majority;
       }
     }
   }
 
   private int findIndex(long index) {
+    Preconditions.checkArgument(index >= 0);
     return (int)index;
   }
 
@@ -61,7 +69,7 @@ public class RaftLog {
     return i >= 0 && i < entries.size()? entries.get(i): null;
   }
 
-  synchronized Entry[] getEntries(long startIndex) {
+  public synchronized Entry[] getEntries(long startIndex) {
     final int i = findIndex(startIndex);
     final int size = entries.size();
     return i < size? entries.subList(i, size).toArray(Entry.EMPTY_ARRAY): null;
@@ -90,8 +98,7 @@ public class RaftLog {
   }
 
   long getNextIndex() {
-    final Entry last = getLastEntry();
-    return last == null? 1: last.getIndex() + 1;
+    return getLastEntry().getIndex() + 1;
   }
 
   synchronized long apply(long term, Message message) {
@@ -114,9 +121,8 @@ public class RaftLog {
       return null;
     }
     RaftConfiguration conf = truncate(entries[0].getIndex());
-    Preconditions.checkState(this.entries.addAll(Arrays.asList(entries)));
     for (Entry entry : entries) {
-      this.entries.add(entry);
+      Preconditions.checkState(this.entries.add(entry));
       if (entry.isConfigurationEntry()) {
         conf = ((ConfigurationEntry) entry).getCurrent();
       }
@@ -125,10 +131,12 @@ public class RaftLog {
   }
 
   @Override
-  public String toString() {
-    synchronized (this) {
-      return "last=" + getLastEntry() + ", committed=" + getLastCommitted();
-    }
+  public synchronized String toString() {
+    return "last=" + getLastEntry() + ", committed=" + getLastCommitted();
+  }
+
+  public synchronized void printEntries(PrintStream out) {
+    out.println("entries=" + entries);
   }
 
   /**

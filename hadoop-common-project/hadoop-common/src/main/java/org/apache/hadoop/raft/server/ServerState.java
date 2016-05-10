@@ -52,7 +52,7 @@ public class ServerState {
     this.selfId = id;
     this.raftConf = conf;
     // TODO load log/currentTerm/votedFor/leaderId from persistent storage
-    log = new RaftLog();
+    log = new RaftLog(this);
     currentTerm = 0;
     votedFor = null;
     leaderId = null;
@@ -106,7 +106,7 @@ public class ServerState {
     this.leaderId = leaderId;
   }
 
-  RaftLog getLog() {
+  public RaftLog getLog() {
     return log;
   }
 

@@ -21,10 +21,12 @@ public abstract class RaftRpcMessage {
   private final String requestorId;
   private final String replierId;
 
-  public RaftRpcMessage(String requestorId, String replierId) {
+  private RaftRpcMessage(String requestorId, String replierId) {
     this.requestorId = requestorId;
     this.replierId = replierId;
   }
+
+  public abstract boolean isRequest();
 
   public String getRequestorId() {
     return requestorId;
@@ -37,6 +39,28 @@ public abstract class RaftRpcMessage {
   @Override
   public String toString() {
     return getClass().getSimpleName() + "(" + getRequestorId()
-        + " -> " + getReplierId() + ")";
+        + (isRequest()? "->": "<-") + getReplierId() + ")";
+  }
+
+  public static class Request extends RaftRpcMessage {
+    public Request(String requestorId, String replierId) {
+      super(requestorId, replierId);
+    }
+
+    @Override
+    public final boolean isRequest() {
+      return true;
+    }
+  }
+
+  public static class Reply extends RaftRpcMessage {
+    public Reply(String requestorId, String replierId) {
+      super(requestorId, replierId);
+    }
+
+    @Override
+    public final boolean isRequest() {
+      return false;
+    }
   }
 }

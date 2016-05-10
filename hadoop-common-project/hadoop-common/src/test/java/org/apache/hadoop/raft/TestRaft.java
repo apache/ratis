@@ -17,20 +17,26 @@
  */
 package org.apache.hadoop.raft;
 
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConstants;
+import org.apache.hadoop.raft.server.RaftLog;
 import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TestRaft {
   {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
   static final PrintStream out = System.out;
@@ -63,7 +69,7 @@ public class TestRaft {
     } else {
       Assert.assertNotNull(leader);
       out.println("killing leader = " + leader);
-      cluster.killServer(leader.getState().getSelfId());
+      cluster.killServer(leader.getId());
     }
   }
 
@@ -72,12 +78,47 @@ public class TestRaft {
     final MiniRaftCluster cluster = new MiniRaftCluster(5);
     cluster.start();
     RaftServer leader = waitForLeader(cluster);
+    final String killed = cluster.getFollowers().get(0).getId();
+    cluster.killServer(killed);
 
-    final RaftClient client = cluster.createClient("client",
-        leader.getState().getSelfId());
-    client.send(new SimpleMessage("m1"));
+    final SimpleMessage[] messages = new SimpleMessage[10];
+    final RaftClient client = cluster.createClient("client", leader.getId());
+    for(int i = 0; i < messages.length; i++) {
+      messages[i] = new SimpleMessage("m" + i);
+      client.send(messages[i]);
+    }
+
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-    cluster.printServers(out);
+    cluster.printAllLogs(out);
+
+    for(RaftServer s : cluster.getServers()) {
+      if (s.isRunning()) {
+        assertLogEntries(s.getState().getLog().getEntries(1), 1, 1, messages);
+      }
+    }
+  }
+
+  static void assertLogEntries(Entry[] entries, long startIndex,
+      long expertedTerm, SimpleMessage... expectedMessages) {
+    Assert.assertEquals(expectedMessages.length, entries.length);
+    for(int i = 0; i < entries.length; i++) {
+      final Entry e = entries[i];
+      Assert.assertEquals(expertedTerm, e.getTerm());
+      Assert.assertEquals(startIndex + i, e.getIndex());
+      assertMessage(expectedMessages[i], (SimpleMessage)e.getMessage());
+    }
+  }
+
+  static void assertMessage(SimpleMessage message, SimpleMessage expected) {
+    final boolean equal;
+    if (message == expected) {
+      equal = true;
+    } else if (message == null || expected == null) {
+      equal = false;
+    } else {
+      equal = message.messageId.equals(expected.messageId);
+    }
+    Assert.assertTrue(equal);
   }
 
   static class SimpleMessage implements Message {

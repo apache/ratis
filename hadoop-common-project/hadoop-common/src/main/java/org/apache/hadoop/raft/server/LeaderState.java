@@ -125,8 +125,7 @@ class LeaderState extends Daemon {
           LOG.info("The LeaderState gets is stopped");
         } else {
           LOG.warn("The leader election thread of peer {} is interrupted. "
-              + "Currently role: {}.", server.getState().getSelfId(),
-              server.getRole());
+              + "Currently role: {}.", server.getId(), server.getRole());
           throw new RuntimeException(e);
         }
       }
@@ -142,7 +141,7 @@ class LeaderState extends Daemon {
   }
 
   private void updateLastCommitted() {
-    final String selfId = server.getState().getSelfId();
+    final String selfId = server.getId();
     synchronized (server) {
       final RaftConfiguration conf = server.getRaftConf();
       List<List<FollowerInfo>> followerLists = divideFollowers(conf);
@@ -235,7 +234,7 @@ class LeaderState extends Daemon {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + "(" + server.getState().getSelfId()
+      return getClass().getSimpleName() + "(" + server.getId()
           + " -> " + follower.peer.getId() + ")";
     }
 
@@ -261,7 +260,7 @@ class LeaderState extends Daemon {
           }
           final TermIndex previous = raftLog.get(follower.nextIndex - 1);
           if (entries != null || previous != null) {
-            LOG.debug("follower {}, log {}", follower, raftLog);
+            LOG.trace("follower {}, log {}", follower, raftLog);
           }
           AppendEntriesRequest request = server.createAppendEntriesRequest(
               follower.peer.getId(), previous, entries);

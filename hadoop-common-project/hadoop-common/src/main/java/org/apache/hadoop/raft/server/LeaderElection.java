@@ -37,8 +37,7 @@ class LeaderElection extends Daemon {
 
   private Result logAndReturn(Result r, List<RaftServerReply> responses,
                               List<Exception> exceptions) {
-    LOG.info(raftServer.getState().getSelfId()
-        + ": Election " + r + "; received "
+    LOG.info(raftServer.getId() + ": Election " + r + "; received "
         + responses.size() + " response(s) " + responses + " and "
         + exceptions.size() + " exception(s)");
     int i = 0;
@@ -65,7 +64,7 @@ class LeaderElection extends Daemon {
   LeaderElection(RaftServer raftServer) {
     this.raftServer = raftServer;
     conf = raftServer.getRaftConf();
-    others = conf.getOtherPeers(raftServer.getState().getSelfId());
+    others = conf.getOtherPeers(raftServer.getId());
     this.running = true;
   }
 
@@ -87,8 +86,7 @@ class LeaderElection extends Daemon {
       // the leader election thread is interrupted. The peer may already step
       // down to a follower. The leader election should skip.
       LOG.info("The leader election thread of peer {} is interrupted. " +
-          "Currently role: {}.", raftServer.getState().getSelfId(),
-          raftServer.getRole());
+          "Currently role: {}.", raftServer.getId(), raftServer.getRole());
     }
   }
 
@@ -180,7 +178,7 @@ class LeaderElection extends Daemon {
         responses.add(r);
         if (r.isSuccess()) {
           votedPeers.add(r.getReplierId());
-          if (conf.hasMajorities(votedPeers, raftServer.getState().getSelfId())) {
+          if (conf.hasMajorities(votedPeers, raftServer.getId())) {
             return logAndReturn(Result.PASSED, responses, exceptions);
           }
         }

@@ -47,6 +47,10 @@ public class Entry extends TermIndex {
     this.message = message;
   }
 
+  public Message getMessage() {
+    return message;
+  }
+
   public boolean isConfigurationEntry() {
     return false;
   }
