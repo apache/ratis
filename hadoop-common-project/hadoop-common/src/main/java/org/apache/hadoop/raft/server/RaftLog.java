@@ -104,6 +104,10 @@ public class RaftLog {
   /**
    * If an existing entry conflicts with a new one (same index but different
    * terms), delete the existing entry and all that follow it (§5.3)
+   *
+   * This method, {@link #apply(long, Message)}, and {@link #truncate(long)}
+   * do not guarantee the changes are persisted. Need to call {@link #logSync()}
+   * to persist the changes.
    */
   synchronized RaftConfiguration apply(Entry... entries) {
     if (entries == null || entries.length == 0) {
@@ -125,5 +129,13 @@ public class RaftLog {
     synchronized (this) {
       return "last=" + getLastEntry() + ", committed=" + getLastCommitted();
     }
+  }
+
+  /**
+   * TODO persist the log
+   * TODO also need to persist leaderId/currentTerm in ServerState when logSync
+   * is triggered by AppendEntries RPC request from the leader
+   */
+  public void logSync() {
   }
 }
