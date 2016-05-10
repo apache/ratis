@@ -159,9 +159,8 @@ public class ServerState {
 
   @Override
   public String toString() {
-    return selfId + ", current term: " + currentTerm
-        + ", leaderId: " + leaderId + ", votedFor: " + votedFor
-        + ", raft log: " + log;
+    return selfId + ": term=" + currentTerm + ", leader=" + leaderId
+        + ", voted=" + votedFor + ", raftlog: " + log;
   }
 
   private static class ConfigurationAndTermIndex {

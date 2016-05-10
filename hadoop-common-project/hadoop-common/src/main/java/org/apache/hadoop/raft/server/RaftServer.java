@@ -45,7 +45,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     private volatile boolean monitorRunning = true;
 
     void updateLastRpcTime(long now) {
-      LOG.debug("{} update last rpc time to {}", state.getSelfId(), now);
+      LOG.trace("{} update last rpc time to {}", state.getSelfId(), now);
       lastRpcTime = now;
     }
 
@@ -286,7 +286,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   @Override
   public String toString() {
-    return role + " " + state + " " + (isRunning()? "RUNNING": "STOPPED");
+    return role + " " + state + " " + runningState;
   }
 
   private void checkLeaderState() throws NotLeaderException {
@@ -417,13 +417,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   RaftServerReply sendAppendEntries(AppendEntriesRequest request)
       throws IOException {
     return serverHandler.sendRequest(request);
-  }
-
-  private class ClientResponder extends Daemon {
-    @Override
-    public void run() {
-      // TODO: based on committed index, send back response to client
-    }
   }
 
   final RequestHandler<RaftServerRequest, RaftServerReply> serverRequestHandler

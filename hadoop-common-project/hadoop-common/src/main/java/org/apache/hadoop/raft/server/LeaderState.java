@@ -199,12 +199,13 @@ class LeaderState extends Daemon {
     private final RaftPeer peer;
     private final AtomicLong lastRpcTime;
     private long nextIndex;
-    private final AtomicLong matchIndex = new AtomicLong();
+    private final AtomicLong matchIndex;
 
     FollowerInfo(RaftPeer peer, long lastRpcTime, long nextIndex) {
       this.peer = peer;
       this.lastRpcTime = new AtomicLong(lastRpcTime);
       this.nextIndex = nextIndex;
+      this.matchIndex = new AtomicLong(nextIndex - 1);
     }
 
     void updateMatchIndex(final long matchIndex) {
@@ -217,6 +218,11 @@ class LeaderState extends Daemon {
 
     void decreaseNextIndex() {
       nextIndex--;
+    }
+
+    @Override
+    public String toString() {
+      return peer.getId() + "(next=" + nextIndex + ", match=" + matchIndex + ")";
     }
   }
 
@@ -250,10 +256,13 @@ class LeaderState extends Daemon {
       int retry = 0;
       while (running) {
         try {
-          if (entries == null) {
+          if (entries == null || entries.length == 0) {
             entries = raftLog.getEntries(follower.nextIndex);
           }
           final TermIndex previous = raftLog.get(follower.nextIndex - 1);
+          if (entries != null || previous != null) {
+            LOG.debug("follower {}, log {}", follower, raftLog);
+          }
           AppendEntriesRequest request = server.createAppendEntriesRequest(
               follower.peer.getId(), previous, entries);
           final RaftServerReply r = server.sendAppendEntries(request);

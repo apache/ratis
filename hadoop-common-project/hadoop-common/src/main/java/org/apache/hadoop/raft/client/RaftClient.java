@@ -53,6 +53,7 @@ public class RaftClient {
   }
 
   public RaftClientReply send(Message message) throws IOException {
+    LOG.debug("{} sends {} to {}", clientId, message, leaderId);
     for(;;) {
       final String lid = leaderId;
       final RaftClientRequest r = new RaftClientRequest(clientId, lid, message);

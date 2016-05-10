@@ -28,11 +28,18 @@ import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 
 public class RaftLog {
+  static final Entry DUMMY_ENTRY = new Entry(-1, 0, null);
+
   private final List<Entry> entries = new ArrayList<>();
-  private long lastCommitted = -1;
+  private long lastCommitted = 0;
+
+  {
+    //add a dummy entry so that the first log index is 1.
+    entries.add(DUMMY_ENTRY);
+  }
 
   synchronized TermIndex getLastCommitted() {
-    return lastCommitted > 0? get(lastCommitted): new TermIndex(-1, -1);
+    return get(lastCommitted);
   }
 
   synchronized void updateLastCommitted(long majority, long currentTerm) {
@@ -116,7 +123,7 @@ public class RaftLog {
   @Override
   public String toString() {
     synchronized (this) {
-      return getLastEntry() + "_" + getLastCommitted();
+      return "last=" + getLastEntry() + ", committed=" + getLastCommitted();
     }
   }
 }

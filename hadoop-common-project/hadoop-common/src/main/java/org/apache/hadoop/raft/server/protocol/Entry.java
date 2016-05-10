@@ -29,12 +29,12 @@ public class Entry extends TermIndex {
       for (int i = 0; i < entries.length; i++) {
         final long t = entries[i].getTerm();
         Preconditions.checkArgument(expectedTerm == t,
-            "Unexpected Term: entries[{}].getTerm()={} but expectedTerm={}",
+            "Unexpected Term: entries[%s].getTerm()=%s but expectedTerm=%s",
             i, t, expectedTerm);
 
         final long indexi = entries[i].getIndex();
         Preconditions.checkArgument(indexi == index0 + i, "Unexpected Index: " +
-                "entries[{}].getIndex()={} but entries[0].getIndex()={}",
+                "entries[%s].getIndex()=%s but entries[0].getIndex()=%s",
             i, indexi, index0);
       }
     }

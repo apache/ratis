@@ -30,12 +30,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 class LeaderElection extends Daemon {
   public static final Logger LOG = RaftServer.LOG;
@@ -172,7 +167,13 @@ class LeaderElection extends Daemon {
       }
 
       try {
-        RaftServerReply r = service.poll(waitTime, TimeUnit.MILLISECONDS).get();
+        final Future<RaftServerReply> future = service.poll(
+            waitTime, TimeUnit.MILLISECONDS);
+        if (future == null) {
+          continue; // poll timeout, continue to return Result.TIMEOUT
+        }
+
+        final RaftServerReply r = future.get();
         if (r.getTerm() > electionTerm) {
           return logAndReturn(Result.DISCOVERED_A_NEW_TERM, responses, exceptions);
         }

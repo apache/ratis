@@ -31,6 +31,7 @@ import java.io.PrintStream;
 public class TestRaft {
   {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
   static final PrintStream out = System.out;
 
@@ -75,9 +76,6 @@ public class TestRaft {
     final RaftClient client = cluster.createClient("client",
         leader.getState().getSelfId());
     client.send(new SimpleMessage("m1"));
-    cluster.printServers(out);
-    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-    cluster.printServers(out);
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
     cluster.printServers(out);
   }
@@ -87,6 +85,11 @@ public class TestRaft {
 
     SimpleMessage(final String messageId) {
       this.messageId = messageId;
+    }
+
+    @Override
+    public String toString() {
+      return messageId;
     }
   }
 }

@@ -62,7 +62,11 @@ public interface RequestHandler<REQUEST extends RaftRpcMessage,
         try {
           final REQUEST request = serverRpc.takeRequest(id);
           final REPLY reply = handler.handleRequest(request);
-          serverRpc.sendReply(request, reply);
+          if (reply != null) {
+            serverRpc.sendReply(request, reply);
+          } else {
+            //TODO
+          }
         } catch (Throwable t) {
           if (!handler.isRunning()) {
             LOG.info(this + " is stopped.");
@@ -75,6 +79,15 @@ public interface RequestHandler<REQUEST extends RaftRpcMessage,
           terminate(1, t);
         }
       }
+    }
+  }
+
+  static class ReplierDaemon<REQUEST extends RaftRpcMessage,
+                             REPLY   extends RaftRpcMessage> extends Daemon {
+
+    @Override
+    public void run() {
+      // TODO: based on committed index, send back response to client
     }
   }
 }
