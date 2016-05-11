@@ -18,7 +18,6 @@
 package org.apache.hadoop.raft.server;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 
 /**
@@ -70,6 +69,8 @@ public class ServerState {
 
   public void setRaftConf(RaftConfiguration conf) {
     this.raftConf = conf;
+    RaftServer.LOG.info("{}: successfully update the configuration {}",
+        getSelfId(), conf);
   }
 
   public String getSelfId() {
@@ -157,5 +158,9 @@ public class ServerState {
   public String toString() {
     return selfId + ": term=" + currentTerm + ", leader=" + leaderId
         + ", voted=" + votedFor + ", raftlog: " + log;
+  }
+
+  boolean isConfCommitted() {
+    return getLog().getLastCommitted().getIndex() < raftConf.getLogEntryIndex();
   }
 }

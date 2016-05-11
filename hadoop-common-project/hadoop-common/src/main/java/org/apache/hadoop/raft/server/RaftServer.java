@@ -22,7 +22,6 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.raft.protocol.*;
 import org.apache.hadoop.raft.server.protocol.*;
-import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,61 +31,12 @@ import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.apache.hadoop.raft.server.RaftConfiguration.computeNewPeers;
+
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServer.class);
-
-  /**
-   * Used when the peer is a follower. Used to track the election timeout.
-   */
-  private class HeartbeatMonitor extends Daemon {
-    private volatile long lastRpcTime = Time.monotonicNow();
-    private volatile boolean monitorRunning = true;
-
-    void updateLastRpcTime(long now) {
-      LOG.trace("{} update last rpc time to {}", getId(), now);
-      lastRpcTime = now;
-    }
-
-    void stopRunning() {
-      this.monitorRunning = false;
-    }
-
-    @Override
-    public  void run() {
-      while (monitorRunning && isFollower()) {
-        final long electionTimeout = RaftConstants.getRandomElectionWaitTime();
-        try {
-          Thread.sleep(electionTimeout);
-          if (!monitorRunning || !isFollower()) {
-            LOG.info("{} heartbeat monitor quit", getId());
-            break;
-          }
-          final long now = Time.monotonicNow();
-          if (now >= lastRpcTime + electionTimeout) {
-            LOG.info("{} changing to " + Role.CANDIDATE +
-                " now:{}, last rpc time:{}, electionTimeout:{}",
-                getId(), now, lastRpcTime, electionTimeout);
-            // election timeout, should become a candidate
-            RaftServer.this.changeToCandidate();
-            break;
-          }
-        } catch (InterruptedException e) {
-          LOG.info(this + " was interrupted: " + e);
-          LOG.trace("TRACE", e);
-          return;
-        } catch (Exception e) {
-          LOG.warn(this + " caught an excpetion", e);
-        }
-      }
-    }
-
-    @Override
-    public String toString() {
-      return RaftServer.this.getId() + ": " + getClass().getSimpleName();
-    }
-  }
 
   static class RpcAndHandler<REQUEST extends RaftRpcMessage,
                              REPLY   extends RaftRpcMessage>  {
@@ -125,7 +75,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   private final NavigableMap<Long, RaftClientRequest> pendingRequests;
 
   /** used when the peer is follower, to monitor election timeout */
-  private volatile HeartbeatMonitor heartbeatMonitor;
+  private volatile FollowerState heartbeatMonitor;
 
   /** used when the peer is candidate, to request votes from other peers */
   private volatile LeaderElection electionDaemon;
@@ -154,7 +104,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     changeRunningState(RunningState.INITIALIZED, RunningState.RUNNING);
 
     role = Role.FOLLOWER;
-    heartbeatMonitor = new HeartbeatMonitor();
+    heartbeatMonitor = new FollowerState(this);
     heartbeatMonitor.start();
 
     serverHandler.startDaemon();
@@ -226,7 +176,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       shutdownElectionDaemon();
     }
     role = Role.FOLLOWER;
-    heartbeatMonitor = new HeartbeatMonitor();
+    heartbeatMonitor = new FollowerState(this);
     heartbeatMonitor.start();
   }
 
@@ -262,7 +212,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   private void shutdownHeartbeatMonitor() {
-    final HeartbeatMonitor hm = heartbeatMonitor;
+    final FollowerState hm = heartbeatMonitor;
     if (hm != null) {
       hm.stopRunning();
       hm.interrupt();
@@ -339,20 +289,15 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         return;
       }
 
-      RaftPeer[] oldMembers = current.getPeers().toArray(
-          new RaftPeer[current.getPeers().size()]);
-      final RaftConfiguration newConf= new RaftConfiguration(newMembers,
-          oldMembers);
-
+      final RaftConfiguration newConf= current.generateOldNewConf(newMembers,
+          state.getLog().getNextIndex());
       // apply the new configuration to log, and use it as the current conf
       final long entryIndex = state.getLog().apply(state.getCurrentTerm(),
           current, newConf);
       state.setRaftConf(newConf);
-      LOG.info("{}: successfully update the configuration {}",
-          getState().getSelfId(), newConf);
 
       // update the LeaderState's sender list
-      leaderState.addSenders(current.getNewPeers(newMembers));
+      leaderState.addSenders(computeNewPeers(newMembers, current));
 
       // start replicating the configuration change
       pendingRequests.put(entryIndex, request);
@@ -373,6 +318,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
     final long startTime = Time.monotonicNow();
     boolean voteGranted = false;
+    final RaftServerReply reply;
     synchronized (this) {
       if (state.recognizeCandidate(candidateId, candidateTerm)) {
         changeToFollower();
@@ -384,10 +330,12 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
           voteGranted = true;
         }
       }
-      return new RaftServerReply(candidateId, getId(),
+      reply = new RaftServerReply(candidateId, getId(),
           state.getCurrentTerm(), voteGranted);
     }
     // TODO persist the votedFor/currentTerm information
+    state.getLog().logSync();
+    return reply;
   }
 
   @Override
@@ -422,13 +370,11 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       RaftConfiguration newConf = state.getLog().apply(entries);
       if (newConf != null) {
         state.setRaftConf(newConf);
-        LOG.info("{}: successfully update the configuration {}",
-            getState().getSelfId(), newConf);
       }
     }
 
     state.getLog().logSync();
-    return new RaftServerReply(leaderId, state.getSelfId(), currentTerm, true);
+    return new RaftServerReply(leaderId, getId(), currentTerm, true);
   }
 
   synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,

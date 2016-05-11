@@ -59,7 +59,7 @@ public class MiniRaftCluster {
     for (int i = 0; i < num; i++) {
       peers[i] = new RaftPeer("s" + i);
     }
-    return new RaftConfiguration(peers);
+    return new RaftConfiguration(peers, 0);
   }
 
   void killServer(String id) {

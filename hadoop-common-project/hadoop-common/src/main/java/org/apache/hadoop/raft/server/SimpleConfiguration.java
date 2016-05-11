@@ -42,7 +42,7 @@ class SimpleConfiguration {
     return peers.values();
   }
 
-  int getSize() {
+  int size() {
     return peers.size();
   }
 
@@ -79,7 +79,7 @@ class SimpleConfiguration {
       if (contains(other)) {
         num++;
       }
-      if (num > getSize() / 2) {
+      if (num > size() / 2) {
         return true;
       }
     }

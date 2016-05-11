@@ -46,22 +46,39 @@ public class RaftConfiguration {
    */
   private final SimpleConfiguration conf;
 
+  /** the index of the corresponding log entry */
+  private final long logEntryIndex;
+
   // TODO private Map<String, RaftPeer> stagingNewPeers;
 
-  public RaftConfiguration(RaftPeer[] peers) {
+  public RaftConfiguration(RaftPeer[] peers, long index) {
     Preconditions.checkArgument(peers != null && peers.length > 0);
     this.conf = new SimpleConfiguration(peers);
     this.oldConf = null;
     this.state = State.STABLE;
+    this.logEntryIndex = index;
   }
 
-  public RaftConfiguration(RaftPeer[] newPeers, RaftPeer[] oldPeers) {
+  private RaftConfiguration(RaftPeer[] newPeers, SimpleConfiguration old,
+      long index) {
     Preconditions.checkArgument(newPeers != null && newPeers.length > 0);
-    Preconditions.checkArgument(oldPeers != null && oldPeers.length > 0);
-
+    Preconditions.checkArgument(old != null && old.size() > 0);
     this.conf = new SimpleConfiguration(newPeers);
-    this.oldConf = new SimpleConfiguration(oldPeers);
+    this.oldConf = old;
     this.state = State.TRANSITIONAL;
+    this.logEntryIndex = index;
+  }
+
+  public RaftConfiguration generateOldNewConf(RaftPeer[] newMembers, long index) {
+    Preconditions.checkState(inStableState());
+    return new RaftConfiguration(newMembers, this.conf, index);
+  }
+
+  public RaftConfiguration generateNewConf(long index) {
+    Preconditions.checkState(inTransitionState());
+    RaftPeer[] newPeers = conf.getPeers()
+        .toArray(new RaftPeer[conf.getPeers().size()]);
+    return new RaftConfiguration(newPeers, index);
   }
 
   public State getState() {
@@ -133,7 +150,7 @@ public class RaftConfiguration {
   }
 
   boolean hasNoChange(RaftPeer[] newMembers) {
-    if (!inStableState() || conf.getSize() != newMembers.length) {
+    if (!inStableState() || conf.size() != newMembers.length) {
       return false;
     }
     for (RaftPeer peer : newMembers) {
@@ -144,15 +161,18 @@ public class RaftConfiguration {
     return true;
   }
 
-  Collection<RaftPeer> getNewPeers(RaftPeer[] newMembers) {
+  long getLogEntryIndex() {
+    return logEntryIndex;
+  }
+
+  static Collection<RaftPeer> computeNewPeers(RaftPeer[] newMembers,
+      RaftConfiguration old) {
     List<RaftPeer> peers = new ArrayList<>();
     for (RaftPeer p : newMembers) {
-      if (!conf.contains(p.getId())) {
+      if (!old.conf.contains(p.getId())) {
         peers.add(p);
       }
     }
     return peers;
   }
-
-  // TODO check if leader is in the new/old configuration
 }

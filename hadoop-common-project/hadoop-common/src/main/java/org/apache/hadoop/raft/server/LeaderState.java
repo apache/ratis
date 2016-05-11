@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server;
 
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.protocol.RaftPeer;
@@ -31,6 +32,7 @@ import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -58,8 +60,8 @@ class LeaderState extends Daemon {
   private final long currentTerm;
 
   /**
-   * The list of threads appending entries to followers. The list is protected
-   * by the RaftServer's lock.
+   * The list of threads appending entries to followers.
+   * The list is protected by the RaftServer's lock.
    */
   private final List<RpcSender> senders;
   private final BlockingQueue<StateUpdateEvent> eventQ;
@@ -95,6 +97,7 @@ class LeaderState extends Daemon {
   void stopRunning() {
     this.running = false;
     for (RpcSender sender : senders) {
+      sender.stopSender();
       sender.interrupt();
     }
   }
@@ -122,6 +125,23 @@ class LeaderState extends Daemon {
     }
   }
 
+  /**
+   * Update the RpcSender list based on the current configuration
+   */
+  private void updateSenders() {
+    final RaftConfiguration conf = server.getRaftConf();
+    Preconditions.checkState(conf.inStableState());
+    Iterator<RpcSender> iterator = senders.iterator();
+    while (iterator.hasNext()) {
+      RpcSender sender = iterator.next();
+      if (!conf.containsInConf(sender.follower.peer.getId())) {
+        iterator.remove();
+        sender.stopSender();
+        sender.interrupt();
+      }
+    }
+  }
+
   void submitUpdateStateEvent(StateUpdateEvent e) {
     eventQ.offer(e);
   }
@@ -133,6 +153,16 @@ class LeaderState extends Daemon {
    */
   @Override
   public void run() {
+    synchronized (server) {
+      if (running) {
+        final RaftConfiguration conf = server.getRaftConf();
+        if (conf.inTransitionState() && server.getState().isConfCommitted()) {
+          // the configuration is in transitional state, and has been committed
+          // so it is time to generate and replicate (new) conf.
+          replicateNewConf();
+        }
+      }
+    }
     while (running) {
       try {
         StateUpdateEvent event = eventQ.take();
@@ -141,6 +171,7 @@ class LeaderState extends Daemon {
             handleEvent(event);
           }
         }
+        raftLog.logSync();
       } catch (InterruptedException e) {
         if (!running) {
           LOG.info("The LeaderState gets is stopped");
@@ -167,14 +198,48 @@ class LeaderState extends Daemon {
     List<List<FollowerInfo>> followerLists = divideFollowers(conf);
     long majorityInNewConf = computeLastCommitted(followerLists.get(0),
         conf.containsInConf(selfId));
+    final long oldLastCommitted = raftLog.getLastCommitted().getIndex();
     if (!conf.inTransitionState()) {
       raftLog.updateLastCommitted(majorityInNewConf, currentTerm);
-    } else {
+    } else { // configuration is in transitional state
       long majorityInOldConf = computeLastCommitted(followerLists.get(1),
           conf.containsInOldConf(selfId));
-      raftLog.updateLastCommitted(
-          Math.min(majorityInNewConf, majorityInOldConf), currentTerm);
+      final long majority = Math.min(majorityInNewConf, majorityInOldConf);
+      raftLog.updateLastCommitted(majority, currentTerm);
     }
+    checkAndUpdateConfiguration(oldLastCommitted);
+  }
+
+  private void checkAndUpdateConfiguration(long oldLastCommitted) {
+    final RaftConfiguration conf = server.getRaftConf();
+    if (raftLog.committedConfEntry(oldLastCommitted)) {
+      if (conf.inTransitionState()) {
+        replicateNewConf();
+      } else { // the (new) log entry has been committed
+        // TODO: send back response to client
+        // if the leader is not included in the current configuration, step down
+        if (!conf.containsInConf(server.getId())) {
+          // TODO: make sure all the responses have been sent
+          server.kill();
+        }
+      }
+    }
+  }
+
+  /**
+   * when the (old, new) log entry has been committed, should replicate (new):
+   * 1) append (new) to log
+   * 2) update conf to (new)
+   * 3) update RpcSenders list
+   * 4) start replicating the log entry
+   */
+  private void replicateNewConf() {
+    final RaftConfiguration conf = server.getRaftConf();
+    RaftConfiguration newConf = conf.generateNewConf(raftLog.getNextIndex());
+    raftLog.apply(server.getState().getCurrentTerm(), conf, newConf);
+    server.getState().setRaftConf(newConf);
+    updateSenders();
+    notifySenders();
   }
 
   private long computeLastCommitted(List<FollowerInfo> followers,
@@ -246,6 +311,7 @@ class LeaderState extends Daemon {
 
   class RpcSender extends Daemon {
     private final FollowerInfo follower;
+    private volatile boolean sending = true;
 
     public RpcSender(FollowerInfo f) {
       this.follower = f;
@@ -267,12 +333,20 @@ class LeaderState extends Daemon {
       }
     }
 
+    private boolean isSenderRunning() {
+      return running && sending;
+    }
+
+    void stopSender() {
+      this.sending = false;
+    }
+
     /** Send an appendEntries RPC; retry indefinitely. */
     private RaftServerReply sendAppendEntriesWithRetries()
         throws InterruptedException, InterruptedIOException {
       Entry[] entries = null;
       int retry = 0;
-      while (running) {
+      while (isSenderRunning()) {
         try {
           if (entries == null || entries.length == 0) {
             entries = raftLog.getEntries(follower.nextIndex);
@@ -297,7 +371,7 @@ class LeaderState extends Daemon {
           LOG.warn(this + ": failed to send appendEntries; retry " + retry++,
               ioe);
         }
-        if (running) {
+        if (isSenderRunning()) {
           Thread.sleep(RaftConstants.RPC_SLEEP_TIME_MS);
         }
       }
@@ -307,7 +381,7 @@ class LeaderState extends Daemon {
     /** Check and send appendEntries RPC */
     private void checkAndSendAppendEntries() throws InterruptedException,
         InterruptedIOException {
-      while (running) {
+      while (isSenderRunning()) {
         if (shouldSend()) {
           final RaftServerReply r = sendAppendEntriesWithRetries();
           if (r == null) {
@@ -323,7 +397,7 @@ class LeaderState extends Daemon {
             follower.decreaseNextIndex();
           }
         }
-        if (running) {
+        if (isSenderRunning()) {
           synchronized (this) {
             wait(getHeartbeatRemainingTime(follower.lastRpcTime.get()));
           }
@@ -339,7 +413,7 @@ class LeaderState extends Daemon {
 
     private void checkResponseTerm(long responseTerm) {
       synchronized (server) {
-        if (running && responseTerm > currentTerm) {
+        if (isSenderRunning() && responseTerm > currentTerm) {
           submitUpdateStateEvent(StateUpdateEvent.STEPDOWN);
         }
       }

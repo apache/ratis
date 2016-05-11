@@ -19,7 +19,6 @@ package org.apache.hadoop.raft.server;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import com.google.common.base.Preconditions;
@@ -48,6 +47,18 @@ public class RaftLog {
     return get(lastCommitted);
   }
 
+  /**
+   * @return whether there is a configuration log entry between the index range
+   */
+  synchronized boolean committedConfEntry(long oldCommitted) {
+    for (long i = oldCommitted + 1; i <= lastCommitted; i++) {
+      if (get(i).isConfigurationEntry()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   synchronized void updateLastCommitted(long majority, long currentTerm) {
     if (lastCommitted < majority) {
       // Only update last committed index for current term.
@@ -64,7 +75,7 @@ public class RaftLog {
     return (int)index;
   }
 
-  synchronized TermIndex get(long index) {
+  synchronized Entry get(long index) {
     final int i = findIndex(index);
     return i >= 0 && i < entries.size()? entries.get(i): null;
   }
@@ -152,6 +163,7 @@ public class RaftLog {
    * TODO persist the log
    * TODO also need to persist leaderId/currentTerm in ServerState when logSync
    * is triggered by AppendEntries RPC request from the leader
+   * and also votedFor for requestVote or leaderelection
    */
   public void logSync() {
   }

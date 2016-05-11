@@ -33,11 +33,11 @@ import java.util.List;
 import java.util.concurrent.*;
 
 class LeaderElection extends Daemon {
-  public static final Logger LOG = RaftServer.LOG;
+  static final Logger LOG = RaftServer.LOG;
 
   private Result logAndReturn(Result r, List<RaftServerReply> responses,
                               List<Exception> exceptions) {
-    LOG.info(raftServer.getId() + ": Election " + r + "; received "
+    LOG.info(server.getId() + ": Election " + r + "; received "
         + responses.size() + " response(s) " + responses + " and "
         + exceptions.size() + " exception(s)");
     int i = 0;
@@ -49,7 +49,7 @@ class LeaderElection extends Daemon {
 
   enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM}
 
-  private final RaftServer raftServer;
+  private final RaftServer server;
   private ExecutorCompletionService<RaftServerReply> service;
   private ExecutorService executor;
   private volatile boolean running;
@@ -61,10 +61,10 @@ class LeaderElection extends Daemon {
   private final RaftConfiguration conf;
   private final Collection<RaftPeer> others;
 
-  LeaderElection(RaftServer raftServer) {
-    this.raftServer = raftServer;
-    conf = raftServer.getRaftConf();
-    others = conf.getOtherPeers(raftServer.getId());
+  LeaderElection(RaftServer server) {
+    this.server = server;
+    conf = server.getRaftConf();
+    others = conf.getOtherPeers(server.getId());
     this.running = true;
   }
 
@@ -86,7 +86,7 @@ class LeaderElection extends Daemon {
       // the leader election thread is interrupted. The peer may already step
       // down to a follower. The leader election should skip.
       LOG.info("The leader election thread of peer {} is interrupted. " +
-          "Currently role: {}.", raftServer.getId(), raftServer.getRole());
+          "Currently role: {}.", server.getId(), server.getRole());
     }
   }
 
@@ -95,10 +95,12 @@ class LeaderElection extends Daemon {
    * send out requestVote rpc to all other peers.
    */
   private void askForVotes() throws InterruptedException {
-    final ServerState state = raftServer.getState();
-    while (running && raftServer.isCandidate()) {
+    final ServerState state = server.getState();
+    while (running && server.isCandidate()) {
       // one round of requestVotes
-      final long electionTerm = raftServer.initElection();
+      final long electionTerm = server.initElection();
+      // TODO: persist term/votedFor/leaderId
+      server.getState().getLog().logSync();
       LOG.info(state.getSelfId() + ": begin an election in Term "
           + electionTerm);
 
@@ -113,19 +115,19 @@ class LeaderElection extends Daemon {
         executor.shutdown();
       }
 
-      synchronized (raftServer) {
+      synchronized (server) {
         if (electionTerm != state.getCurrentTerm() || !running ||
-            !raftServer.isCandidate()) {
+            !server.isCandidate()) {
           return; // term already passed or no longer a candidate.
         }
 
         switch (r) {
           case PASSED:
-            raftServer.changeToLeader();
+            server.changeToLeader();
             return;
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:
-            raftServer.changeToFollower();
+            server.changeToFollower();
             return;
           case TIMEOUT:
             // should start another election
@@ -137,12 +139,12 @@ class LeaderElection extends Daemon {
   private int submitRequests(final long electionTerm, final TermIndex lastEntry) {
     int submitted = 0;
     for (final RaftPeer peer : others) {
-      final RequestVoteRequest r = raftServer.createRequestVoteRequest(
+      final RequestVoteRequest r = server.createRequestVoteRequest(
           peer.getId(), electionTerm, lastEntry);
       service.submit(new Callable<RaftServerReply>() {
         @Override
         public RaftServerReply call() throws IOException {
-          return raftServer.sendRequestVote(r);
+          return server.sendRequestVote(r);
         }
       });
       submitted++;
@@ -158,7 +160,7 @@ class LeaderElection extends Daemon {
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;
     Collection<String> votedPeers = new ArrayList<>();
-    while (waitForNum > 0 && running && raftServer.isCandidate()) {
+    while (waitForNum > 0 && running && server.isCandidate()) {
       final long waitTime = timeout - Time.monotonicNow();
       if (waitTime <= 0) {
         return logAndReturn(Result.TIMEOUT, responses, exceptions);
@@ -178,7 +180,7 @@ class LeaderElection extends Daemon {
         responses.add(r);
         if (r.isSuccess()) {
           votedPeers.add(r.getReplierId());
-          if (conf.hasMajorities(votedPeers, raftServer.getId())) {
+          if (conf.hasMajorities(votedPeers, server.getId())) {
             return logAndReturn(Result.PASSED, responses, exceptions);
           }
         }
