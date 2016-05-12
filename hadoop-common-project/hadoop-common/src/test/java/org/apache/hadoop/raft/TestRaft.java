@@ -22,6 +22,7 @@ import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftLog;
 import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.server.RequestHandler;
 import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
@@ -34,6 +35,7 @@ public class TestRaft {
   {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
   static final PrintStream out = System.out;
@@ -75,11 +77,13 @@ public class TestRaft {
     final MiniRaftCluster cluster = new MiniRaftCluster(5);
     cluster.start();
     RaftServer leader = waitForLeader(cluster);
-    final String killed = cluster.getFollowers().get(0).getId();
+    final long term = leader.getState().getCurrentTerm();
+    final String killed = cluster.getFollowers().get(3).getId();
     cluster.killServer(killed);
+    cluster.printServers(out);
 
     final SimpleMessage[] messages = new SimpleMessage[10];
-    final RaftClient client = cluster.createClient("client", leader.getId());
+    final RaftClient client = cluster.createClient("client", null);
     for(int i = 0; i < messages.length; i++) {
       messages[i] = new SimpleMessage("m" + i);
       client.send(messages[i]);
@@ -90,7 +94,7 @@ public class TestRaft {
 
     for(RaftServer s : cluster.getServers()) {
       if (s.isRunning()) {
-        assertLogEntries(s.getState().getLog().getEntries(1), 1, 1, messages);
+        assertLogEntries(s.getState().getLog().getEntries(1), 1, term, messages);
       }
     }
   }
@@ -102,20 +106,8 @@ public class TestRaft {
       final Entry e = entries[i];
       Assert.assertEquals(expertedTerm, e.getTerm());
       Assert.assertEquals(startIndex + i, e.getIndex());
-      assertMessage(expectedMessages[i], (SimpleMessage)e.getMessage());
+      Assert.assertEquals(expectedMessages[i], e.getMessage());
     }
-  }
-
-  static void assertMessage(SimpleMessage message, SimpleMessage expected) {
-    final boolean equal;
-    if (message == expected) {
-      equal = true;
-    } else if (message == null || expected == null) {
-      equal = false;
-    } else {
-      equal = message.messageId.equals(expected.messageId);
-    }
-    Assert.assertTrue(equal);
   }
 
   static class SimpleMessage implements Message {
@@ -128,6 +120,18 @@ public class TestRaft {
     @Override
     public String toString() {
       return messageId;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == this) {
+        return true;
+      } else if (obj == null || !(obj instanceof SimpleMessage)) {
+        return false;
+      } else {
+        final SimpleMessage that = (SimpleMessage)obj;
+        return this.messageId.equals(that.messageId);
+      }
     }
   }
 }

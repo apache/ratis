@@ -27,5 +27,6 @@ public interface RaftRpc<REQUEST extends RaftRpcMessage,
 
   public REQUEST takeRequest(String qid) throws IOException;
 
-  public void sendReply(REQUEST request, REPLY reply) throws IOException;
+  public void sendReply(REQUEST request, REPLY reply, IOException ioe)
+      throws IOException;
 }

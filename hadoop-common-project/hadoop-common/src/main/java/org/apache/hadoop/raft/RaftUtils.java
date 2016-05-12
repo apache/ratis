@@ -15,10 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.protocol;
+package org.apache.hadoop.raft;
 
-public class RaftClientReply extends RaftRpcMessage.Reply {
-  public RaftClientReply(RaftRpcMessage m) {
-    super(m.getRequestorId(), m.getReplierId());
+import java.io.InterruptedIOException;
+
+public abstract class RaftUtils {
+  public static InterruptedIOException toInterruptedIOException(
+      String message, InterruptedException e) {
+    final InterruptedIOException iioe = new InterruptedIOException(message);
+    iioe.initCause(e);
+    return iioe;
   }
 }

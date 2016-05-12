@@ -20,7 +20,9 @@ package org.apache.hadoop.raft.server;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
 import org.apache.hadoop.raft.server.protocol.Entry;
@@ -35,7 +37,7 @@ public class RaftLog {
 
   private final ServerState state;
   private final List<Entry> entries = new ArrayList<>();
-  private long lastCommitted = 0;
+  private final AtomicLong lastCommitted = new AtomicLong();
 
   RaftLog(ServerState state) {
     this.state = state;
@@ -44,14 +46,14 @@ public class RaftLog {
   }
 
   synchronized TermIndex getLastCommitted() {
-    return get(lastCommitted);
+    return get(lastCommitted.get());
   }
 
   /**
    * @return whether there is a configuration log entry between the index range
    */
   synchronized boolean committedConfEntry(long oldCommitted) {
-    for (long i = oldCommitted + 1; i <= lastCommitted; i++) {
+    for (long i = oldCommitted + 1; i <= lastCommitted.get(); i++) {
       if (get(i).isConfigurationEntry()) {
         return true;
       }
@@ -60,14 +62,24 @@ public class RaftLog {
   }
 
   synchronized void updateLastCommitted(long majority, long currentTerm) {
-    if (lastCommitted < majority) {
+    if (lastCommitted.get() < majority) {
       // Only update last committed index for current term.
       final TermIndex ti = get(majority);
       if (ti != null && ti.getTerm() == currentTerm) {
         LOG.debug("{}: Updating lastCommitted to {}", state, majority);
-        this.lastCommitted = majority;
+        lastCommitted.set(majority);
+        synchronized (lastCommitted) {
+          lastCommitted.notifyAll();
+        }
       }
     }
+  }
+
+  long waitLastCommitted() throws InterruptedException {
+    synchronized (lastCommitted) {
+      lastCommitted.wait();
+    }
+    return lastCommitted.get();
   }
 
   private int findIndex(long index) {

@@ -18,6 +18,7 @@
 package org.apache.hadoop.raft.server;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 
 /**
@@ -77,7 +78,7 @@ public class ServerState {
     return this.selfId;
   }
 
-  long getCurrentTerm() {
+  public long getCurrentTerm() {
     return currentTerm;
   }
 
@@ -111,6 +112,11 @@ public class ServerState {
   public RaftLog getLog() {
     return log;
   }
+
+  long applyLog(Message message) {
+    return log.apply(currentTerm, message);
+  }
+
 
   /**
    * Check if accept the leader selfId and term from the incoming AppendEntries rpc.

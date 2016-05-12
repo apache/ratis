@@ -18,10 +18,12 @@
 package org.apache.hadoop.raft.server.simulation;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.RaftUtils;
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftRpc;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 
+import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,32 +35,47 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> implements RaftRpc<REQUEST, REPLY> {
+  private static class ReplyOrException<REPLY> {
+    private final REPLY reply;
+    private final IOException ioe;
+
+    ReplyOrException(REPLY reply, IOException ioe) {
+      Preconditions.checkArgument(reply == null ^ ioe == null);
+      this.reply = reply;
+      this.ioe = ioe;
+    }
+  }
+
   static class EventQueue<REQUEST, REPLY> {
     private final BlockingQueue<REQUEST> requestQueue;
-    private final Map<REQUEST, REPLY> replyMap;
+    private final Map<REQUEST, ReplyOrException<REPLY>> replyMap;
 
     EventQueue() {
       this.requestQueue = new LinkedBlockingQueue<>();
       this.replyMap = new ConcurrentHashMap<>();
     }
 
-    REPLY request(REQUEST request)
-        throws InterruptedException {
+    REPLY request(REQUEST request) throws InterruptedException, IOException {
       requestQueue.put(request);
       synchronized (this) {
         while (!replyMap.containsKey(request)) {
           this.wait();
         }
       }
-      return replyMap.remove(request);
+
+      final ReplyOrException<REPLY> re = replyMap.remove(request);
+      if (re.ioe != null) {
+        throw re.ioe;
+      }
+      return re.reply;
     }
 
     REQUEST takeRequest() throws InterruptedException {
       return requestQueue.take();
     }
 
-    void reply(REQUEST request, REPLY reply) {
-      replyMap.put(request, reply);
+    void reply(REQUEST request, REPLY reply, IOException ioe) {
+      replyMap.put(request, new ReplyOrException<>(reply, ioe));
       synchronized (this) {
         this.notifyAll();
       }
@@ -76,13 +93,13 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   }
 
   @Override
-  public REPLY sendRequest(REQUEST request) throws InterruptedIOException {
+  public REPLY sendRequest(REQUEST request) throws IOException {
     final String qid = request.getReplierId();
     final EventQueue<REQUEST, REPLY> q = queues.get(qid);
     try {
       return q.request(request);
     } catch (InterruptedException e) {
-      throw toInterruptedIOException("", e);
+      throw RaftUtils.toInterruptedIOException("", e);
     }
   }
 
@@ -91,25 +108,20 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     try {
       return queues.get(qid).takeRequest();
     } catch (InterruptedException e) {
-      throw toInterruptedIOException("", e);
+      throw RaftUtils.toInterruptedIOException("", e);
     }
   }
 
   @Override
-  public void sendReply(REQUEST request, REPLY reply) {
-    Preconditions.checkArgument(
-        request.getRequestorId().equals(reply.getRequestorId()));
-    Preconditions.checkArgument(
-        request.getReplierId().equals(reply.getReplierId()));
+  public void sendReply(REQUEST request, REPLY reply, IOException ioe) {
+    if (reply != null) {
+      Preconditions.checkArgument(
+          request.getRequestorId().equals(reply.getRequestorId()));
+      Preconditions.checkArgument(
+          request.getReplierId().equals(reply.getReplierId()));
+    }
 
     final String qid = request.getReplierId();
-    queues.get(qid).reply(request, reply);
-  }
-
-  static InterruptedIOException toInterruptedIOException(
-      String message, InterruptedException e) {
-    final InterruptedIOException iioe = new InterruptedIOException(message);
-    iioe.initCause(e);
-    return iioe;
+    queues.get(qid).reply(request, reply, ioe);
   }
 }

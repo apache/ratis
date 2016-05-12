@@ -27,67 +27,96 @@ import java.io.InterruptedIOException;
 
 import static org.apache.hadoop.util.ExitUtil.terminate;
 
-public interface RequestHandler<REQUEST extends RaftRpcMessage,
+public class RequestHandler<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> {
-  Logger LOG = LoggerFactory.getLogger(RequestHandler.class);
+  public static final Logger LOG = LoggerFactory.getLogger(RequestHandler.class);
 
-  boolean isRunning();
+  interface HandlerInterface<REQUEST extends RaftRpcMessage,
+      REPLY extends RaftRpcMessage> {
 
-  REPLY handleRequest(REQUEST r) throws IOException;
+    boolean isRunning();
+
+    REPLY handleRequest(REQUEST r) throws IOException;
+  }
+
+  private final String serverId;
+  private final String name;
+  private final RaftRpc<REQUEST, REPLY> rpc;
+  private final HandlerInterface<REQUEST, REPLY> handlerImpl;
+  private final HandlerDaemon daemon;
+
+  RequestHandler(String serverId, String name,
+                 RaftRpc<REQUEST, REPLY> rpc,
+                 HandlerInterface<REQUEST, REPLY> handlerImpl) {
+    this.serverId = serverId;
+    this.name = name;
+    this.rpc = rpc;
+    this.handlerImpl = handlerImpl;
+    this.daemon = new HandlerDaemon();
+  }
+
+  void startDaemon() {
+    daemon.start();
+  }
+
+  void interruptAndJoinDaemon() throws InterruptedException {
+    daemon.interrupt();
+    daemon.join();
+  }
+
+  RaftRpc<REQUEST, REPLY> getRpc() {
+    return rpc;
+  }
+
+  void sendReply(REQUEST request, REPLY reply, IOException ioe)
+      throws IOException {
+    rpc.sendReply(request, reply, ioe);
+  }
+
+  REPLY handleRequest(REQUEST request) throws IOException {
+    try {
+      return handlerImpl.handleRequest(request);
+    } catch (IOException ioe) {
+      LOG.debug("IOException for " + request, ioe);
+      sendReply(request, null, ioe);
+      return null;
+    }
+  }
 
   /**
    * A thread keep polling requests from the request queue. Used for simulation.
    */
-  class HandlerDaemon<REQUEST extends RaftRpcMessage,
-      REPLY extends RaftRpcMessage> extends Daemon {
-    private final String id;
-    private final RaftRpc<REQUEST, REPLY> serverRpc;
-    private final RequestHandler<REQUEST, REPLY> handler;
-
-    HandlerDaemon(String id, RequestHandler<REQUEST, REPLY> handler,
-                  RaftRpc<REQUEST, REPLY> serverRpc) {
-      this.id = id;
-      this.serverRpc = serverRpc;
-      this.handler = handler;
-    }
-
+  class HandlerDaemon extends Daemon {
     @Override
     public String toString() {
-      return getClass().getSimpleName() + "-" + id;
+      return serverId + "." + name;
     }
 
     @Override
     public void run() {
-      while (handler.isRunning()) {
+      while (handlerImpl.isRunning()) {
         try {
-          final REQUEST request = serverRpc.takeRequest(id);
-          final REPLY reply = handler.handleRequest(request);
+          final REQUEST request = rpc.takeRequest(serverId);
+          final REPLY reply = handleRequest(request);
           if (reply != null) {
-            serverRpc.sendReply(request, reply);
-          } else {
-            //TODO
+            sendReply(request, reply, null);
           }
-        } catch (Throwable t) {
-          if (!handler.isRunning()) {
+        } catch (InterruptedIOException e) {
+          LOG.info(this + " is interrupted by " + e);
+          LOG.trace("TRACE", e);
+          break;
+        } catch (IOException e) {
+          LOG.error(this + " has " + e);
+          LOG.trace("TRACE", e);
+        } catch(Throwable t) {
+          if (!handlerImpl.isRunning()) {
             LOG.info(this + " is stopped.");
             break;
-          } else if (t instanceof InterruptedIOException) {
-            LOG.info(this + " is interrupted.");
-            break;
           }
-          LOG.error(this + " caught " + t, t);
+          LOG.error(this + " is terminating due to", t);
           terminate(1, t);
         }
       }
-    }
-  }
-
-  static class ReplierDaemon<REQUEST extends RaftRpcMessage,
-                             REPLY   extends RaftRpcMessage> extends Daemon {
-
-    @Override
-    public void run() {
-      // TODO: based on committed index, send back response to client
     }
   }
 }
