@@ -194,10 +194,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     if (election != null) {
       election.stopRunning();
       election.interrupt();
-      try {
-        election.join();
-      } catch (InterruptedException ignored) {
-      }
     }
     electionDaemon = null;
   }
@@ -216,10 +212,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     if (hm != null) {
       hm.stopRunning();
       hm.interrupt();
-      try {
-        hm.join();
-      } catch (InterruptedException ignored) {
-      }
     }
     heartbeatMonitor = null;
   }
@@ -309,18 +301,46 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     // back the client.
   }
 
+  private boolean shouldWithholdVotes(long now) {
+    return isLeader() ||
+        (isFollower() && heartbeatMonitor.shouldWithholdVotes(now));
+  }
+
+  /**
+   * check if the remote peer is not included in the current conf
+   * and should shutdown. should shutdown if all the following stands:
+   * 1. this is a leader
+   * 2. current conf is stable and has been committed
+   * 3. candidate id is not included in conf
+   * 4. candidate's last entry's index < conf's index
+   */
+  private boolean shouldSendShutdown(String candidateId,
+      TermIndex candidateLastEntry) {
+    return isLeader()
+        && getRaftConf().inStableState()
+        && getState().isConfCommitted()
+        && !getRaftConf().containsInConf(candidateId)
+        && candidateLastEntry.getIndex() < getRaftConf().getLogEntryIndex();
+  }
+
   @Override
-  public RaftServerReply requestVote(String candidateId, long candidateTerm,
-                                     TermIndex candidateLastEntry) throws IOException {
+  public RequestVoteReply requestVote(String candidateId, long candidateTerm,
+      TermIndex candidateLastEntry) throws IOException {
     LOG.debug("{}: receive requestVote({}, {}, {})",
         getId(), candidateId, candidateTerm, candidateLastEntry);
     assertRunningState();
 
     final long startTime = Time.monotonicNow();
     boolean voteGranted = false;
-    final RaftServerReply reply;
+    boolean shouldShutdown = false;
+    final RequestVoteReply reply;
     synchronized (this) {
-      if (state.recognizeCandidate(candidateId, candidateTerm)) {
+      if (shouldWithholdVotes(startTime)) {
+        LOG.info("Withhold vote for term {} from server {}. " +
+            "This server:{}, last rpc time from leader {} is {}",
+            candidateTerm, candidateId, this, this.getState().getLeaderId(),
+            (isFollower() ? heartbeatMonitor.getLastRpcTime() : -1));
+      } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
         changeToFollower();
 
         // see Section 5.4.1 Election restriction
@@ -330,8 +350,11 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
           voteGranted = true;
         }
       }
-      reply = new RaftServerReply(candidateId, getId(),
-          state.getCurrentTerm(), voteGranted);
+      if (!voteGranted && shouldSendShutdown(candidateId, candidateLastEntry)) {
+        shouldShutdown = true;
+      }
+      reply = new RequestVoteReply(candidateId, getId(),
+          state.getCurrentTerm(), voteGranted, shouldShutdown);
     }
     // TODO persist the votedFor/currentTerm information
     state.getLog().logSync();
@@ -349,7 +372,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     assertRunningState();
     Entry.assertEntries(leaderTerm, entries);
 
-    final long startTime = Time.monotonicNow();
     final long currentTerm;
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
@@ -360,7 +382,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       changeToFollower();
 
       Preconditions.checkState(currentTerm == leaderTerm);
-      heartbeatMonitor.updateLastRpcTime(startTime);
+      heartbeatMonitor.updateLastRpcTime(Time.monotonicNow());
       state.getLog().updateLastCommitted(leaderCommit, currentTerm);
 
       if (previous != null && !state.getLog().contains(previous)) {
@@ -373,7 +395,10 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       }
     }
 
-    state.getLog().logSync();
+    state.getLog().logSync(); // TODO logSync should be called in an async way
+    // reset election timer to avoid punishing the leader for our own
+    // long disk writes
+    heartbeatMonitor.updateLastRpcTime(Time.monotonicNow());
     return new RaftServerReply(leaderId, getId(), currentTerm, true);
   }
 

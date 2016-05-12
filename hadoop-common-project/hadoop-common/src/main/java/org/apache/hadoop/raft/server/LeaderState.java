@@ -219,7 +219,7 @@ class LeaderState extends Daemon {
         // TODO: send back response to client
         // if the leader is not included in the current configuration, step down
         if (!conf.containsInConf(server.getId())) {
-          // TODO: make sure all the responses have been sent
+          // TODO: make sure all the responses have been sent then shutdown
           server.kill();
         }
       }

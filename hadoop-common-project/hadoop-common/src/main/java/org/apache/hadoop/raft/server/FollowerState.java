@@ -40,6 +40,14 @@ class FollowerState extends Daemon {
     lastRpcTime = now;
   }
 
+  long getLastRpcTime() {
+    return lastRpcTime;
+  }
+
+  boolean shouldWithholdVotes(long now) {
+    return lastRpcTime + RaftConstants.ELECTION_TIMEOUT_MIN_MS > now;
+  }
+
   void stopRunning() {
     this.monitorRunning = false;
   }

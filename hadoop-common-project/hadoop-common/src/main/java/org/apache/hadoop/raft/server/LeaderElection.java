@@ -20,6 +20,7 @@ package org.apache.hadoop.raft.server;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
+import org.apache.hadoop.raft.server.protocol.RequestVoteReply;
 import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.util.Daemon;
@@ -47,10 +48,10 @@ class LeaderElection extends Daemon {
     return r;
   }
 
-  enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM}
+  enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN}
 
   private final RaftServer server;
-  private ExecutorCompletionService<RaftServerReply> service;
+  private ExecutorCompletionService<RequestVoteReply> service;
   private ExecutorService executor;
   private volatile boolean running;
   /**
@@ -125,6 +126,11 @@ class LeaderElection extends Daemon {
           case PASSED:
             server.changeToLeader();
             return;
+          case SHUTDOWN:
+            LOG.info("{} received shutdown response when requesting votes.",
+                server);
+            server.kill();
+            return;
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:
             server.changeToFollower();
@@ -141,10 +147,10 @@ class LeaderElection extends Daemon {
     for (final RaftPeer peer : others) {
       final RequestVoteRequest r = server.createRequestVoteRequest(
           peer.getId(), electionTerm, lastEntry);
-      service.submit(new Callable<RaftServerReply>() {
+      service.submit(new Callable<RequestVoteReply>() {
         @Override
-        public RaftServerReply call() throws IOException {
-          return server.sendRequestVote(r);
+        public RequestVoteReply call() throws IOException {
+          return (RequestVoteReply) server.sendRequestVote(r);
         }
       });
       submitted++;
@@ -167,13 +173,16 @@ class LeaderElection extends Daemon {
       }
 
       try {
-        final Future<RaftServerReply> future = service.poll(
+        final Future<RequestVoteReply> future = service.poll(
             waitTime, TimeUnit.MILLISECONDS);
         if (future == null) {
           continue; // poll timeout, continue to return Result.TIMEOUT
         }
 
-        final RaftServerReply r = future.get();
+        final RequestVoteReply r = future.get();
+        if (r.shouldShutdown()) {
+          return logAndReturn(Result.SHUTDOWN, responses, exceptions);
+        }
         if (r.getTerm() > electionTerm) {
           return logAndReturn(Result.DISCOVERED_A_NEW_TERM, responses, exceptions);
         }
