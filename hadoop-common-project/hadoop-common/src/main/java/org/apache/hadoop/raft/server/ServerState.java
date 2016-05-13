@@ -163,10 +163,10 @@ public class ServerState {
   @Override
   public String toString() {
     return selfId + ": term=" + currentTerm + ", leader=" + leaderId
-        + ", voted=" + votedFor + ", raftlog: " + log;
+        + ", voted=" + votedFor + ", raftlog: " + log + ", conf: " + raftConf;
   }
 
   boolean isConfCommitted() {
-    return getLog().getLastCommitted().getIndex() < raftConf.getLogEntryIndex();
+    return getLog().getLastCommitted().getIndex() >= raftConf.getLogEntryIndex();
   }
 }

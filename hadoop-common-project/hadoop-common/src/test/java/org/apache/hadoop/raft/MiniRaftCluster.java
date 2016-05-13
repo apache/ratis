@@ -32,7 +32,15 @@ import java.io.PrintStream;
 import java.util.*;
 
 public class MiniRaftCluster {
-  private final RaftConfiguration conf;
+  private static RaftConfiguration initConfiguration(int num) {
+    RaftPeer[] peers = new RaftPeer[num];
+    for (int i = 0; i < num; i++) {
+      peers[i] = new RaftPeer("s" + i);
+    }
+    return new RaftConfiguration(peers, 0);
+  }
+
+  private RaftConfiguration conf;
   private final SimulatedRpc<RaftServerRequest, RaftServerReply> serverRpc;
   private final SimulatedRpc<RaftClientRequest, RaftClientReply> client2serverRpc;
   private final Map<String, RaftServer> servers = new LinkedHashMap<>();
@@ -54,12 +62,46 @@ public class MiniRaftCluster {
     }
   }
 
-  private static RaftConfiguration initConfiguration(int num) {
-    RaftPeer[] peers = new RaftPeer[num];
-    for (int i = 0; i < num; i++) {
-      peers[i] = new RaftPeer("s" + i);
+  public RaftPeer[] addNewPeers(int number) {
+    List<RaftPeer> newPeers = new ArrayList<>(number);
+    final int oldSize = conf.getPeers().size();
+    for (int i = oldSize; i < oldSize + number; i++) {
+      newPeers.add(new RaftPeer("s" + i));
     }
-    return new RaftConfiguration(peers, 0);
+
+    serverRpc.addPeers(newPeers);
+    client2serverRpc.addPeers(newPeers);
+
+    // create and add new RaftServers. Still assign old conf to new peers.
+    for (RaftPeer p : newPeers) {
+      RaftServer newServer = new RaftServer(p.getId(), conf, serverRpc,
+          client2serverRpc);
+      servers.put(p.getId(), newServer);
+      newServer.start();
+    }
+
+    newPeers.addAll(conf.getPeers());
+    RaftPeer[] p = newPeers.toArray(new RaftPeer[newPeers.size()]);
+    conf = new RaftConfiguration(p, 0);
+    return p;
+  }
+
+  /**
+   * prepare the peer list when removing some peers from the conf
+   */
+  public RaftPeer[] removePeers(int number, boolean removeLeader) {
+    Collection<RaftPeer> peers = new ArrayList<>(conf.getPeers());
+    if (removeLeader) {
+      peers.remove(new RaftPeer(getLeader().getId()));
+    }
+    List<RaftServer> followers = getFollowers();
+    for (int i = 0; i < (removeLeader ? number - 1 : number); i++) {
+      // remove old peers first
+      peers.remove(new RaftPeer(followers.get(i).getId()));
+    }
+    RaftPeer[] p = peers.toArray(new RaftPeer[peers.size()]);
+    conf = new RaftConfiguration(p, 0);
+    return p;
   }
 
   void killServer(String id) {
@@ -76,7 +118,7 @@ public class MiniRaftCluster {
 
   void printAllLogs(PrintStream out) {
     out.println("#servers = " + servers.size());
-    for(RaftServer s : servers.values()) {
+    for (RaftServer s : servers.values()) {
       out.print("  ");
       out.println(s);
       out.print("    ");
@@ -86,7 +128,7 @@ public class MiniRaftCluster {
 
   RaftServer getLeader() {
     final List<RaftServer> leaders = new ArrayList<>();
-    for(RaftServer s : servers.values()) {
+    for (RaftServer s : servers.values()) {
       if (s.isRunning() && s.isLeader()) {
         leaders.add(s);
       }
@@ -115,5 +157,11 @@ public class MiniRaftCluster {
 
   RaftClient createClient(String clientId, String leaderId) {
     return new RaftClient(clientId, conf.getPeers(), client2serverRpc, leaderId);
+  }
+
+  public void shutdown() {
+    for (RaftServer server : servers.values()) {
+      server.kill();
+    }
   }
 }

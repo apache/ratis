@@ -39,7 +39,7 @@ class SimpleConfiguration {
   }
 
   Collection<RaftPeer> getPeers() {
-    return peers.values();
+    return new ArrayList<>(peers.values());
   }
 
   int size() {
@@ -48,7 +48,7 @@ class SimpleConfiguration {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + ": " + peers.values();
+    return "conf:" + peers.values();
   }
 
   RaftPeer getPeer(String id) {
@@ -66,7 +66,7 @@ class SimpleConfiguration {
         others.add(entry.getValue());
       }
     }
-    return Collections.unmodifiableList(others);
+    return others;
   }
 
   boolean hasMajority(Collection<String> others, String selfId) {

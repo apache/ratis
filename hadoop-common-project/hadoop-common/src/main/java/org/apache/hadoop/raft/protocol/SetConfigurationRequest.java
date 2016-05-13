@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.raft.protocol;
 
+import java.util.Arrays;
+
 public class SetConfigurationRequest extends RaftClientRequest {
   public SetConfigurationRequest(String requestorId, String replierId,
       RaftPeer[] newMembers) {
@@ -25,5 +27,10 @@ public class SetConfigurationRequest extends RaftClientRequest {
 
   public RaftPeer[] getNewMembers() {
     return ((ConfigurationMessage) getMessage()).getNewMembers();
+  }
+
+  @Override
+  public String toString() {
+    return super.toString() + ", new members: " + Arrays.asList(getNewMembers());
   }
 }

@@ -28,7 +28,7 @@ public class Entry extends TermIndex {
       final long index0 = entries[0].getIndex();
       for (int i = 0; i < entries.length; i++) {
         final long t = entries[i].getTerm();
-        Preconditions.checkArgument(expectedTerm == t,
+        Preconditions.checkArgument(expectedTerm >= t,
             "Unexpected Term: entries[%s].getTerm()=%s but expectedTerm=%s",
             i, t, expectedTerm);
 

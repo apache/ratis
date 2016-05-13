@@ -28,7 +28,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
@@ -392,8 +391,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     final RequestVoteReply reply;
     synchronized (this) {
       if (shouldWithholdVotes(startTime)) {
-        LOG.info("Withhold vote for term {} from server {}. " +
-            "This server:{}, last rpc time from leader {} is {}",
+        LOG.info("{} Withhold vote for term {} from server {}. " +
+            "This server:{}, last rpc time from leader {} is {}", getId(),
             candidateTerm, candidateId, this, this.getState().getLeaderId(),
             (isFollower() ? heartbeatMonitor.getLastRpcTime() : -1));
       } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
@@ -411,6 +410,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       }
       reply = new RequestVoteReply(candidateId, getId(),
           state.getCurrentTerm(), voteGranted, shouldShutdown);
+      LOG.debug("{} reply to vote request: {}", getId(), reply);
     }
     // TODO persist the votedFor/currentTerm information
     state.getLog().logSync();

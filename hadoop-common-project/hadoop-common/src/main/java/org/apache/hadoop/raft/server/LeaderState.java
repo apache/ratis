@@ -220,6 +220,12 @@ class LeaderState extends Daemon {
         // if the leader is not included in the current configuration, step down
         if (!conf.containsInConf(server.getId())) {
           // TODO: make sure all the responses have been sent then shutdown
+          LOG.info("{} is not included in the new configuration {}. Step down.",
+              server.getId(), conf);
+          try {
+            Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
+          } catch (InterruptedException ignored) {
+          }
           server.kill();
         }
       }

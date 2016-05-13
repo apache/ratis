@@ -85,11 +85,10 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   private final Map<String, EventQueue<REQUEST, REPLY>> queues;
 
   public SimulatedRpc(Collection<RaftPeer> allPeers) {
-    Map<String, EventQueue<REQUEST, REPLY>> map = new HashMap<>();
+    queues = new ConcurrentHashMap<>();
     for (RaftPeer peer : allPeers) {
-      map.put(peer.getId(), new EventQueue<REQUEST, REPLY>());
+      queues.put(peer.getId(), new EventQueue<REQUEST, REPLY>());
     }
-    queues = Collections.unmodifiableMap(map);
   }
 
   @Override
@@ -123,5 +122,11 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
 
     final String qid = request.getReplierId();
     queues.get(qid).reply(request, reply, ioe);
+  }
+
+  public void addPeers(Collection<RaftPeer> newPeers) {
+    for (RaftPeer peer : newPeers) {
+      queues.put(peer.getId(), new EventQueue<REQUEST, REPLY>());
+    }
   }
 }

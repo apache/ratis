@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 
@@ -145,11 +146,12 @@ public class RaftConfiguration {
 
   @Override
   public String toString() {
-    return conf.toString() + ", old:"
-        + (oldConf != null ? oldConf : "[]");
+    return "RaftConfiguration:{" + conf.toString() + ", old:"
+        + (oldConf != null ? oldConf : "[]") + "}";
   }
 
-  boolean hasNoChange(RaftPeer[] newMembers) {
+  @VisibleForTesting
+  public boolean hasNoChange(RaftPeer[] newMembers) {
     if (!inStableState() || conf.size() != newMembers.length) {
       return false;
     }

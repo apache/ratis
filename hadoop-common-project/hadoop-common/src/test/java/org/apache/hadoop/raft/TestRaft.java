@@ -17,19 +17,22 @@
  */
 package org.apache.hadoop.raft;
 
+import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.client.RaftClient;
-import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftLog;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RequestHandler;
-import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.PrintStream;
+
+import static org.apache.hadoop.raft.RaftTestUtil.assertLogEntries;
+import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
+import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
 
 public class TestRaft {
   {
@@ -50,26 +53,6 @@ public class TestRaft {
     waitAndKillLeader(cluster, true);
     waitAndKillLeader(cluster, true);
     waitAndKillLeader(cluster, false);
-  }
-
-  static RaftServer waitForLeader(MiniRaftCluster cluster)
-      throws InterruptedException {
-    cluster.printServers(out);
-    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-    cluster.printServers(out);
-    return cluster.getLeader();
-  }
-
-  static void waitAndKillLeader(MiniRaftCluster cluster, boolean expectLeader)
-      throws InterruptedException {
-    final RaftServer leader = waitForLeader(cluster);
-    if (!expectLeader) {
-      Assert.assertNull(leader);
-    } else {
-      Assert.assertNotNull(leader);
-      out.println("killing leader = " + leader);
-      cluster.killServer(leader.getId());
-    }
   }
 
   @Test
@@ -95,42 +78,6 @@ public class TestRaft {
     for(RaftServer s : cluster.getServers()) {
       if (s.isRunning()) {
         assertLogEntries(s.getState().getLog().getEntries(1), 1, term, messages);
-      }
-    }
-  }
-
-  static void assertLogEntries(Entry[] entries, long startIndex,
-      long expertedTerm, SimpleMessage... expectedMessages) {
-    Assert.assertEquals(expectedMessages.length, entries.length);
-    for(int i = 0; i < entries.length; i++) {
-      final Entry e = entries[i];
-      Assert.assertEquals(expertedTerm, e.getTerm());
-      Assert.assertEquals(startIndex + i, e.getIndex());
-      Assert.assertEquals(expectedMessages[i], e.getMessage());
-    }
-  }
-
-  static class SimpleMessage implements Message {
-    final String messageId;
-
-    SimpleMessage(final String messageId) {
-      this.messageId = messageId;
-    }
-
-    @Override
-    public String toString() {
-      return messageId;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (obj == this) {
-        return true;
-      } else if (obj == null || !(obj instanceof SimpleMessage)) {
-        return false;
-      } else {
-        final SimpleMessage that = (SimpleMessage)obj;
-        return this.messageId.equals(that.messageId);
       }
     }
   }

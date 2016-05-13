@@ -40,7 +40,7 @@ class LeaderElection extends Daemon {
                               List<Exception> exceptions) {
     LOG.info(server.getId() + ": Election " + r + "; received "
         + responses.size() + " response(s) " + responses + " and "
-        + exceptions.size() + " exception(s)");
+        + exceptions.size() + " exception(s); " + conf);
     int i = 0;
     for(Exception e : exceptions) {
       LOG.info("  " + i++ + ": " + e);
@@ -128,7 +128,7 @@ class LeaderElection extends Daemon {
             return;
           case SHUTDOWN:
             LOG.info("{} received shutdown response when requesting votes.",
-                server);
+                server.getId());
             server.kill();
             return;
           case REJECTED:
@@ -180,13 +180,13 @@ class LeaderElection extends Daemon {
         }
 
         final RequestVoteReply r = future.get();
+        responses.add(r);
         if (r.shouldShutdown()) {
           return logAndReturn(Result.SHUTDOWN, responses, exceptions);
         }
         if (r.getTerm() > electionTerm) {
           return logAndReturn(Result.DISCOVERED_A_NEW_TERM, responses, exceptions);
         }
-        responses.add(r);
         if (r.isSuccess()) {
           votedPeers.add(r.getReplierId());
           if (conf.hasMajorities(votedPeers, server.getId())) {

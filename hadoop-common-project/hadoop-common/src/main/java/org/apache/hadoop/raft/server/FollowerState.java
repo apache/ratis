@@ -36,7 +36,7 @@ class FollowerState extends Daemon {
   }
 
   void updateLastRpcTime(long now) {
-    LOG.trace("{} update last rpc time to {}", getId(), now);
+    LOG.trace("{} update last rpc time to {}", server.getId(), now);
     lastRpcTime = now;
   }
 
@@ -59,17 +59,19 @@ class FollowerState extends Daemon {
       try {
         Thread.sleep(electionTimeout);
         if (!monitorRunning || !server.isFollower()) {
-          LOG.info("{} heartbeat monitor quit", getId());
+          LOG.info("{} heartbeat monitor quit", server.getId());
           break;
         }
-        final long now = Time.monotonicNow();
-        if (now >= lastRpcTime + electionTimeout) {
-          LOG.info("{} changing to " + Role.CANDIDATE +
-                  " now:{}, last rpc time:{}, electionTimeout:{}",
-              getId(), now, lastRpcTime, electionTimeout);
-          // election timeout, should become a candidate
-          server.changeToCandidate();
-          break;
+        synchronized (server) {
+          final long now = Time.monotonicNow();
+          if (now >= lastRpcTime + electionTimeout) {
+            LOG.info("{} changes to {} at {}, LastRpcTime:{}, electionTimeout:{}",
+                server.getId(), Role.CANDIDATE, now, lastRpcTime,
+                electionTimeout);
+            // election timeout, should become a candidate
+            server.changeToCandidate();
+            break;
+          }
         }
       } catch (InterruptedException e) {
         LOG.info(this + " was interrupted: " + e);
