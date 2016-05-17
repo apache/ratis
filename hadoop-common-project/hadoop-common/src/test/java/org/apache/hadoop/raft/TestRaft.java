@@ -35,7 +35,7 @@ import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
 
 public class TestRaft {
-  {
+  static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
@@ -77,7 +77,7 @@ public class TestRaft {
 
     for(RaftServer s : cluster.getServers()) {
       if (s.isRunning()) {
-        assertLogEntries(s.getState().getLog().getEntries(1), 1, term, messages);
+        assertLogEntries(s.getState().getLog().getEntries(2), 2, term, messages);
       }
     }
   }

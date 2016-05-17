@@ -24,7 +24,7 @@ import org.apache.hadoop.raft.server.protocol.Entry;
 import org.junit.Assert;
 
 public class RaftTestUtil {
-  static RaftServer waitForLeader(MiniRaftCluster cluster)
+  public static RaftServer waitForLeader(MiniRaftCluster cluster)
       throws InterruptedException {
     cluster.printServers(TestRaft.out);
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
@@ -32,8 +32,8 @@ public class RaftTestUtil {
     return cluster.getLeader();
   }
 
-  static void waitAndKillLeader(MiniRaftCluster cluster, boolean expectLeader)
-      throws InterruptedException {
+  public static String waitAndKillLeader(MiniRaftCluster cluster,
+      boolean expectLeader) throws InterruptedException {
     final RaftServer leader = waitForLeader(cluster);
     if (!expectLeader) {
       Assert.assertNull(leader);
@@ -42,6 +42,7 @@ public class RaftTestUtil {
       TestRaft.out.println("killing leader = " + leader);
       cluster.killServer(leader.getId());
     }
+    return leader != null ? leader.getId() : null;
   }
 
   static void assertLogEntries(Entry[] entries, long startIndex,
@@ -55,10 +56,10 @@ public class RaftTestUtil {
     }
   }
 
-  static class SimpleMessage implements Message {
+  public static class SimpleMessage implements Message {
     final String messageId;
 
-    SimpleMessage(final String messageId) {
+    public SimpleMessage(final String messageId) {
       this.messageId = messageId;
     }
 

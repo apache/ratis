@@ -31,9 +31,11 @@ import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.hadoop.raft.protocol.Message.EMPTY_MESSAGE;
+
 public class RaftLog {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
-  static final Entry DUMMY_ENTRY = new Entry(-1, 0, null);
+  static final Entry DUMMY_ENTRY = new Entry(-1, 0, EMPTY_MESSAGE);
 
   private final ServerState state;
   private final List<Entry> entries = new ArrayList<>();

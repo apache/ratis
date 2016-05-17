@@ -21,4 +21,13 @@ package org.apache.hadoop.raft.protocol;
  * The information clients append to the raft ring.
  */
 public interface Message {
+  /** Empty message */
+  class EmptyMessage implements Message {
+    @Override
+    public String toString() {
+      return "";
+    }
+  }
+
+  EmptyMessage EMPTY_MESSAGE = new EmptyMessage();
 }

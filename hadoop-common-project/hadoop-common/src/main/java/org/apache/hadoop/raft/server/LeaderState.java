@@ -38,6 +38,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.apache.hadoop.raft.protocol.Message.EMPTY_MESSAGE;
+
 /**
  * States for leader only
  */
@@ -84,6 +86,10 @@ class LeaderState extends Daemon {
       FollowerInfo f = new FollowerInfo(p, t, nextIndex);
       senders.add(new RpcSender(f));
     }
+
+    // In the beginning of the new term, replicate an empty entry in order
+    // to finally commit entries in the previous term
+    raftLog.apply(server.getState().getCurrentTerm(), EMPTY_MESSAGE);
 
     startSenders();
   }
@@ -146,13 +152,7 @@ class LeaderState extends Daemon {
     eventQ.offer(e);
   }
 
-  /**
-   * The LeaderState thread itself takes the responsibility to update
-   * the raft server's state, such as changing to follower, or updating the
-   * committed index.
-   */
-  @Override
-  public void run() {
+  private void prepare() {
     synchronized (server) {
       if (running) {
         final RaftConfiguration conf = server.getRaftConf();
@@ -163,6 +163,18 @@ class LeaderState extends Daemon {
         }
       }
     }
+  }
+
+  /**
+   * The LeaderState thread itself takes the responsibility to update
+   * the raft server's state, such as changing to follower, or updating the
+   * committed index.
+   */
+  @Override
+  public void run() {
+    // apply an empty message; check if necessary to replicate (new) conf
+    prepare();
+
     while (running) {
       try {
         StateUpdateEvent event = eventQ.take();
