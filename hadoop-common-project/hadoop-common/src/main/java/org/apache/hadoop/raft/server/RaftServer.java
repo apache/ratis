@@ -21,97 +21,22 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.raft.protocol.*;
+import org.apache.hadoop.raft.server.RequestHandler.HandlerInterface;
 import org.apache.hadoop.raft.server.protocol.*;
-import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.hadoop.raft.server.RaftConfiguration.computeNewPeers;
-import static org.apache.hadoop.util.ExitUtil.terminate;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServer.class);
-
-  private static class PendingRequestElement implements Comparable<PendingRequestElement> {
-    private final long index;
-    private final RaftClientRequest request;
-    private final RaftClientReply reply;
-
-    PendingRequestElement(long index, RaftClientRequest request, RaftClientReply reply) {
-      this.index = index;
-      this.request = request;
-      this.reply = reply;
-    }
-
-    @Override
-    public int compareTo(PendingRequestElement that) {
-      return Long.compare(this.index, that.index);
-    }
-  }
-
-  class PendingRequests {
-    private final PriorityBlockingQueue<PendingRequestElement> queue
-        = new PriorityBlockingQueue<>();
-    private final PendingRequestDaemon daemon = new PendingRequestDaemon();
-
-    void startDaemon() {
-      daemon.start();
-    }
-
-    void put(long index, RaftClientRequest request) {
-      put(index, request, new RaftClientReply(request));
-    }
-
-    void put(long index, RaftClientRequest request, RaftClientReply reply) {
-      final boolean b = queue.offer(new PendingRequestElement(index, request, reply));
-      Preconditions.checkState(b);
-    }
-
-    class PendingRequestDaemon extends Daemon {
-      @Override
-      public String toString() {
-        return getClass().getSimpleName();
-      }
-
-      @Override
-      public void run() {
-        for(; isRunning();) {
-          try {
-            final long lastCommitted = state.getLog().waitLastCommitted();
-            for (PendingRequestElement pre;
-                 (pre = queue.peek()) != null && pre.index <= lastCommitted; ) {
-              pre = queue.poll();
-              try {
-                clientHandler.sendReply(pre.request, pre.reply, null);
-              } catch (IOException ioe) {
-                LOG.error(this + " has " + ioe);
-                LOG.trace("TRACE", ioe);
-              }
-            }
-          } catch (InterruptedException e) {
-            LOG.info(this + " is interrupted by " + e);
-            LOG.trace("TRACE", e);
-            break;
-          } catch(Throwable t) {
-            if (!isRunning()) {
-              LOG.info(this + " is stopped.");
-              break;
-            }
-            LOG.error(this + " is terminating due to", t);
-            terminate(1, t);
-          }
-        }
-      }
-    }
-  }
 
   enum RunningState {INITIALIZED, RUNNING, STOPPED}
 
@@ -119,8 +44,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   private volatile Role role;
   private final AtomicReference<RunningState> runningState
       = new AtomicReference<>(RunningState.INITIALIZED);
-
-  private final PendingRequests pendingRequests = new PendingRequests();
 
   /** used when the peer is follower, to monitor election timeout */
   private volatile FollowerState heartbeatMonitor;
@@ -132,7 +55,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   private volatile LeaderState leaderState;
 
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
-  private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
+  final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
 
   public RaftServer(String id, RaftConfiguration raftConf,
         RaftRpc<RaftServerRequest, RaftServerReply> serverRpc,
@@ -156,7 +79,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     heartbeatMonitor = new FollowerState(this);
     heartbeatMonitor.start();
 
-    pendingRequests.startDaemon();
     serverHandler.startDaemon();
     clientHandler.startDaemon();
   }
@@ -213,15 +135,16 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     return role;
   }
 
-  synchronized void changeToFollower() {
+  synchronized void changeToFollower(long newTerm) {
+    if (newTerm > state.getCurrentTerm()) {
+      state.setCurrentTerm(newTerm);
+      state.resetLeaderAndVotedFor();
+    }
     if (isFollower()) {
       return;
-    }
-    if (isLeader()) {
+    } else if (isLeader()) {
       assert leaderState != null;
       shutdownLeaderState();
-      // TODO: handle pending requests: we can send back
-      // NotLeaderException and let the client retry
     } else if (isCandidate()) {
       shutdownElectionDaemon();
     }
@@ -233,8 +156,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   private synchronized void shutdownLeaderState() {
     final LeaderState leader = leaderState;
     if (leader != null) {
-      leader.stopRunning();
-      leader.interrupt();
+      leader.stop();
     }
     leaderState = null;
   }
@@ -252,6 +174,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     Preconditions.checkState(isCandidate());
     shutdownElectionDaemon();
     role = Role.LEADER;
+    state.becomeLeader();
     // start sending AppendEntries RPC to followers
     leaderState = new LeaderState(this);
     leaderState.start();
@@ -275,10 +198,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     electionDaemon.start();
   }
 
-  synchronized long initElection() {
-    return state.initElection();
-  }
-
   @Override
   public String toString() {
     return role + " " + state + " " + runningState;
@@ -286,9 +205,13 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   private void checkLeaderState() throws NotLeaderException {
     if (!isLeader()) {
-      throw new NotLeaderException(getId(),
-          getRaftConf().getPeer(state.getLeaderId()));
+      throw generateNotLeaderException();
     }
+  }
+
+  NotLeaderException generateNotLeaderException() {
+    return new NotLeaderException(getId(),
+        getRaftConf().getPeer(state.getLeaderId()));
   }
 
   /**
@@ -304,11 +227,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       // append the message to its local log
       final long entryIndex = state.applyLog(request.getMessage());
 
-      // TODO: process the request and generate the reply here.
-      final RaftClientReply reply = new RaftClientReply(request);
-
       // put the request into the pending queue
-      pendingRequests.put(entryIndex, request, reply);
+      leaderState.addPendingRequest(entryIndex, request);
       leaderState.notifySenders();
     }
     state.getLog().logSync();
@@ -347,7 +267,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       leaderState.addSenders(computeNewPeers(newMembers, current));
 
       // start replicating the configuration change
-      pendingRequests.put(entryIndex, request);
+      leaderState.addPendingRequest(entryIndex, request);
       leaderState.notifySenders();
     }
     state.getLog().logSync();
@@ -357,8 +277,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   private boolean shouldWithholdVotes(long now) {
-    return isLeader() ||
-        (isFollower() && heartbeatMonitor.shouldWithholdVotes(now));
+    return isLeader() || (isFollower() && state.hasLeader()
+        && heartbeatMonitor.shouldWithholdVotes(now));
   }
 
   /**
@@ -391,17 +311,17 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     final RequestVoteReply reply;
     synchronized (this) {
       if (shouldWithholdVotes(startTime)) {
-        LOG.info("{} Withhold vote for term {} from server {}. " +
+        LOG.info("{} Withhold vote from server {} with term {}. " +
             "This server:{}, last rpc time from leader {} is {}", getId(),
-            candidateTerm, candidateId, this, this.getState().getLeaderId(),
+            candidateId, candidateTerm, this, this.getState().getLeaderId(),
             (isFollower() ? heartbeatMonitor.getLastRpcTime() : -1));
       } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
-        changeToFollower();
+        changeToFollower(candidateTerm);
 
         // see Section 5.4.1 Election restriction
         if (state.isLogUpToDate(candidateLastEntry)) {
           heartbeatMonitor.updateLastRpcTime(startTime);
-          state.grantVote(candidateId, candidateTerm);
+          state.grantVote(candidateId);
           voteGranted = true;
         }
       }
@@ -410,9 +330,9 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       }
       reply = new RequestVoteReply(candidateId, getId(),
           state.getCurrentTerm(), voteGranted, shouldShutdown);
-      LOG.debug("{} reply to vote request: {}", getId(), reply);
+      LOG.debug("{} replies to vote request: {}. Peer's state: {}",
+          getId(), reply, state);
     }
-    // TODO persist the votedFor/currentTerm information
     state.getLog().logSync();
     return reply;
   }
@@ -435,9 +355,9 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       if (!recognized) {
         return new RaftServerReply(leaderId, getId(), currentTerm, false);
       }
-      changeToFollower();
+      changeToFollower(leaderTerm);
+      state.setLeader(leaderId);
 
-      Preconditions.checkState(currentTerm == leaderTerm);
       heartbeatMonitor.updateLastRpcTime(Time.monotonicNow());
       state.getLog().updateLastCommitted(leaderCommit, currentTerm);
 
@@ -451,7 +371,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       }
     }
 
-    state.getLog().logSync(); // TODO logSync should be called in an async way
+    state.getLog().logSync();
     // reset election timer to avoid punishing the leader for our own
     // long disk writes
     heartbeatMonitor.updateLastRpcTime(Time.monotonicNow());
@@ -480,8 +400,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     return serverHandler.getRpc().sendRequest(request);
   }
 
-  final RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply> serverHandlerImpl
-      = new RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply>() {
+  final HandlerInterface<RaftServerRequest, RaftServerReply> serverHandlerImpl
+      = new HandlerInterface<RaftServerRequest, RaftServerReply>() {
     @Override
     public boolean isRunning() {
       return RaftServer.this.isRunning();
@@ -506,8 +426,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     }
   };
 
-  final RequestHandler.HandlerInterface<RaftClientRequest, RaftClientReply> clientHandlerImpl
-      = new RequestHandler.HandlerInterface<RaftClientRequest, RaftClientReply>() {
+  final HandlerInterface<RaftClientRequest, RaftClientReply> clientHandlerImpl
+      = new HandlerInterface<RaftClientRequest, RaftClientReply>() {
     @Override
     public boolean isRunning() {
       return RaftServer.this.isRunning();

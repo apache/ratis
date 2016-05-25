@@ -25,30 +25,45 @@ import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RequestHandler;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
-
-import java.io.PrintStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.hadoop.raft.RaftTestUtil.assertLogEntries;
 import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
 
 public class TestRaft {
+  static final Logger LOG = LoggerFactory.getLogger(TestRaft.class);
+
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
-  static final PrintStream out = System.out;
+
+  private MiniRaftCluster cluster;
+
+  @Before
+  public void setup() {
+    cluster = new MiniRaftCluster(5);
+    Assert.assertNull(cluster.getLeader());
+    cluster.start();
+  }
+
+  @After
+  public void tearDown() {
+    if (cluster != null) {
+      cluster.shutdown();
+    }
+  }
 
   @Test
   public void testBasicLeaderElection() throws Exception {
-    final MiniRaftCluster cluster = new MiniRaftCluster(5);
-    Assert.assertNull(cluster.getLeader());
-    cluster.start();
-
     waitAndKillLeader(cluster, true);
     waitAndKillLeader(cluster, true);
     waitAndKillLeader(cluster, true);
@@ -57,13 +72,11 @@ public class TestRaft {
 
   @Test
   public void testBasicAppendEntries() throws Exception {
-    final MiniRaftCluster cluster = new MiniRaftCluster(5);
-    cluster.start();
     RaftServer leader = waitForLeader(cluster);
     final long term = leader.getState().getCurrentTerm();
     final String killed = cluster.getFollowers().get(3).getId();
     cluster.killServer(killed);
-    cluster.printServers(out);
+    LOG.info(cluster.printServers());
 
     final SimpleMessage[] messages = new SimpleMessage[10];
     final RaftClient client = cluster.createClient("client", null);
@@ -73,7 +86,7 @@ public class TestRaft {
     }
 
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-    cluster.printAllLogs(out);
+    LOG.info(cluster.printAllLogs());
 
     for(RaftServer s : cluster.getServers()) {
       if (s.isRunning()) {

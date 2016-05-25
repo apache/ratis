@@ -27,17 +27,18 @@ import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.*;
 
+import static org.apache.hadoop.raft.server.LeaderElection.Result.PASSED;
+
 class LeaderElection extends Daemon {
   static final Logger LOG = RaftServer.LOG;
 
-  private Result logAndReturn(Result r, List<RaftServerReply> responses,
-                              List<Exception> exceptions) {
+  private ResultAndTerm logAndReturn(Result r, List<RaftServerReply> responses,
+      List<Exception> exceptions, long newTerm) {
     LOG.info(server.getId() + ": Election " + r + "; received "
         + responses.size() + " response(s) " + responses + " and "
         + exceptions.size() + " exception(s); " + conf);
@@ -45,10 +46,20 @@ class LeaderElection extends Daemon {
     for(Exception e : exceptions) {
       LOG.info("  " + i++ + ": " + e);
     }
-    return r;
+    return new ResultAndTerm(r, newTerm);
   }
 
   enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN}
+
+  private static class ResultAndTerm {
+    final Result result;
+    final long term;
+
+    ResultAndTerm(Result result, long term) {
+      this.result = result;
+      this.term = term;
+    }
+  }
 
   private final RaftServer server;
   private ExecutorCompletionService<RequestVoteReply> service;
@@ -99,15 +110,17 @@ class LeaderElection extends Daemon {
     final ServerState state = server.getState();
     while (running && server.isCandidate()) {
       // one round of requestVotes
-      final long electionTerm = server.initElection();
-      // TODO: persist term/votedFor/leaderId
+      final long electionTerm;
+      synchronized (server) {
+        electionTerm = state.initElection();
+      }
       server.getState().getLog().logSync();
       LOG.info(state.getSelfId() + ": begin an election in Term "
           + electionTerm);
 
       final TermIndex lastEntry = state.getLog().getLastEntry();
 
-      final Result r;
+      final ResultAndTerm r;
       try {
         initExecutor();
         int submitted = submitRequests(electionTerm, lastEntry);
@@ -116,16 +129,18 @@ class LeaderElection extends Daemon {
         executor.shutdown();
       }
 
+      boolean changeRole = false;
       synchronized (server) {
         if (electionTerm != state.getCurrentTerm() || !running ||
             !server.isCandidate()) {
           return; // term already passed or no longer a candidate.
         }
 
-        switch (r) {
+        switch (r.result) {
           case PASSED:
             server.changeToLeader();
-            return;
+            changeRole = true;
+            break;
           case SHUTDOWN:
             LOG.info("{} received shutdown response when requesting votes.",
                 server.getId());
@@ -133,11 +148,18 @@ class LeaderElection extends Daemon {
             return;
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:
-            server.changeToFollower();
-            return;
+            final long term = r.term > server.getState().getCurrentTerm() ?
+                r.term : server.getState().getCurrentTerm();
+            server.changeToFollower(term);
+            changeRole = true;
+            break;
           case TIMEOUT:
             // should start another election
         }
+      }
+      if (changeRole) {
+        server.getState().getLog().logSync();
+        return;
       }
     }
   }
@@ -147,19 +169,14 @@ class LeaderElection extends Daemon {
     for (final RaftPeer peer : others) {
       final RequestVoteRequest r = server.createRequestVoteRequest(
           peer.getId(), electionTerm, lastEntry);
-      service.submit(new Callable<RequestVoteReply>() {
-        @Override
-        public RequestVoteReply call() throws IOException {
-          return (RequestVoteReply) server.sendRequestVote(r);
-        }
-      });
+      service.submit(() -> (RequestVoteReply) server.sendRequestVote(r));
       submitted++;
     }
     return submitted;
   }
 
-  private Result waitForResults(final long electionTerm, final int submitted)
-      throws InterruptedException {
+  private ResultAndTerm waitForResults(final long electionTerm,
+      final int submitted) throws InterruptedException {
     final long startTime = Time.monotonicNow();
     final long timeout = startTime + RaftConstants.getRandomElectionWaitTime();
     final List<RaftServerReply> responses = new ArrayList<>();
@@ -169,7 +186,7 @@ class LeaderElection extends Daemon {
     while (waitForNum > 0 && running && server.isCandidate()) {
       final long waitTime = timeout - Time.monotonicNow();
       if (waitTime <= 0) {
-        return logAndReturn(Result.TIMEOUT, responses, exceptions);
+        return logAndReturn(Result.TIMEOUT, responses, exceptions, -1);
       }
 
       try {
@@ -182,15 +199,16 @@ class LeaderElection extends Daemon {
         final RequestVoteReply r = future.get();
         responses.add(r);
         if (r.shouldShutdown()) {
-          return logAndReturn(Result.SHUTDOWN, responses, exceptions);
+          return logAndReturn(Result.SHUTDOWN, responses, exceptions, -1);
         }
         if (r.getTerm() > electionTerm) {
-          return logAndReturn(Result.DISCOVERED_A_NEW_TERM, responses, exceptions);
+          return logAndReturn(Result.DISCOVERED_A_NEW_TERM, responses,
+              exceptions, r.getTerm());
         }
         if (r.isSuccess()) {
           votedPeers.add(r.getReplierId());
           if (conf.hasMajorities(votedPeers, server.getId())) {
-            return logAndReturn(Result.PASSED, responses, exceptions);
+            return logAndReturn(PASSED, responses, exceptions, -1);
           }
         }
       } catch(ExecutionException e) {
@@ -200,6 +218,6 @@ class LeaderElection extends Daemon {
       waitForNum--;
     }
     // received all the responses
-    return logAndReturn(Result.REJECTED, responses, exceptions);
+    return logAndReturn(Result.REJECTED, responses, exceptions, -1);
   }
 }

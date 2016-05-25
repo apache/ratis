@@ -30,7 +30,6 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,34 +42,38 @@ public class TestRaftReconfiguration {
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
   static final Logger LOG = LoggerFactory.getLogger(TestRaftReconfiguration.class);
-  static final PrintStream out = System.out;
 
   /**
    * add 2 new peers (3 peers -> 5 peers), no leader change
    */
   @Test
   public void testAddPeers() throws Exception {
+    LOG.info("Start testAddPeers");
     MiniRaftCluster cluster =  new MiniRaftCluster(3);
     cluster.start();
-    RaftTestUtil.waitForLeader(cluster);
+    try {
+      RaftTestUtil.waitForLeader(cluster);
 
-    // add new peers
-    RaftPeer[] allPeers = cluster.addNewPeers(2, true).allPeersInNewConf;
+      // add new peers
+      RaftPeer[] allPeers = cluster.addNewPeers(2, true).allPeersInNewConf;
 
-    // trigger setConfiguration
-    SetConfigurationRequest request = new SetConfigurationRequest("client",
-        cluster.getLeader().getId(), allPeers);
-    LOG.info("Start changing the configuration: {}", request);
-    cluster.getLeader().setConfiguration(request);
+      // trigger setConfiguration
+      SetConfigurationRequest request = new SetConfigurationRequest("client",
+          cluster.getLeader().getId(), allPeers);
+      LOG.info("Start changing the configuration: {}", request);
+      cluster.getLeader().setConfiguration(request);
 
-    // wait for the new configuration to take effect
-    waitAndCheckNewConf(cluster, allPeers, 0, null);
+      // wait for the new configuration to take effect
+      waitAndCheckNewConf(cluster, allPeers, 0, null);
+    } finally {
+      cluster.shutdown();
+    }
   }
 
   static void waitAndCheckNewConf(MiniRaftCluster cluster, RaftPeer[] peers,
       int numOfRemovedPeers, Collection<String> deadPeers) throws Exception {
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS * (numOfRemovedPeers + 2));
-    cluster.printServers(out);
+    LOG.info(cluster.printServers());
     Assert.assertNotNull(cluster.getLeader());
 
     int numIncluded = 0;
@@ -100,22 +103,27 @@ public class TestRaftReconfiguration {
    */
   @Test
   public void testRemovePeers() throws Exception {
+    LOG.info("Start testRemovePeers");
     MiniRaftCluster cluster =  new MiniRaftCluster(5);
     cluster.start();
-    RaftTestUtil.waitForLeader(cluster);
+    try {
+      RaftTestUtil.waitForLeader(cluster);
 
-    // remove peers, leader still included in the new conf
-    RaftPeer[] allPeers = cluster.removePeers(2, false,
-        Collections.<RaftPeer>emptyList()).allPeersInNewConf;
+      // remove peers, leader still included in the new conf
+      RaftPeer[] allPeers = cluster
+          .removePeers(2, false, Collections.emptyList()).allPeersInNewConf;
 
-    // trigger setConfiguration
-    SetConfigurationRequest request = new SetConfigurationRequest("client",
-        cluster.getLeader().getId(), allPeers);
-    LOG.info("Start changing the configuration: {}", request);
-    cluster.getLeader().setConfiguration(request);
+      // trigger setConfiguration
+      SetConfigurationRequest request = new SetConfigurationRequest("client",
+          cluster.getLeader().getId(), allPeers);
+      LOG.info("Start changing the configuration: {}", request);
+      cluster.getLeader().setConfiguration(request);
 
-    // wait for the new configuration to take effect
-    waitAndCheckNewConf(cluster, allPeers, 2, null);
+      // wait for the new configuration to take effect
+      waitAndCheckNewConf(cluster, allPeers, 2, null);
+    } finally {
+      cluster.shutdown();
+    }
   }
 
   /**
@@ -123,64 +131,77 @@ public class TestRaftReconfiguration {
    */
   @Test
   public void testAddRemovePeers() throws Exception {
+    LOG.info("Start testAddRemovePeers");
     testAddRemovePeers(false);
   }
 
   @Test
   public void testLeaderStepDown() throws Exception {
+    LOG.info("Start testLeaderStepDown");
     testAddRemovePeers(true);
   }
 
   private void testAddRemovePeers(boolean leaderStepdown) throws Exception {
     MiniRaftCluster cluster =  new MiniRaftCluster(5);
     cluster.start();
-    RaftTestUtil.waitForLeader(cluster);
+    try {
+      RaftTestUtil.waitForLeader(cluster);
 
-    PeerChanges change = cluster.addNewPeers(2, true);
-    RaftPeer[] allPeers = cluster.removePeers(2, leaderStepdown,
-        Arrays.asList(change.newPeers)).allPeersInNewConf;
+      PeerChanges change = cluster.addNewPeers(2, true);
+      RaftPeer[] allPeers = cluster.removePeers(2, leaderStepdown,
+          Arrays.asList(change.newPeers)).allPeersInNewConf;
 
-    // trigger setConfiguration
-    SetConfigurationRequest request = new SetConfigurationRequest("client",
-        cluster.getLeader().getId(), allPeers);
-    LOG.info("Start changing the configuration: {}", request);
-    cluster.getLeader().setConfiguration(request);
+      // trigger setConfiguration
+      SetConfigurationRequest request = new SetConfigurationRequest("client",
+          cluster.getLeader().getId(), allPeers);
+      LOG.info("Start changing the configuration: {}", request);
+      cluster.getLeader().setConfiguration(request);
 
-    // wait for the new configuration to take effect
-    waitAndCheckNewConf(cluster, allPeers, 2, null);
+      // wait for the new configuration to take effect
+      waitAndCheckNewConf(cluster, allPeers, 2, null);
+    } finally {
+      cluster.shutdown();
+    }
   }
 
   @Test
   public void testKillLeaderDuringReconf() throws Exception {
+    LOG.info("Start testKillLeaderDuringReconf");
     // originally 3 peers
     MiniRaftCluster cluster =  new MiniRaftCluster(3);
     cluster.start();
-    RaftTestUtil.waitForLeader(cluster);
+    try {
+      RaftTestUtil.waitForLeader(cluster);
 
-    PeerChanges c1 = cluster.addNewPeers(2, false);
-    PeerChanges c2 = cluster.removePeers(2, false, Arrays.asList(c1.newPeers));
+      PeerChanges c1 = cluster.addNewPeers(2, false);
+      PeerChanges c2 = cluster.removePeers(2, false, Arrays.asList(c1.newPeers));
 
-    SetConfigurationRequest request = new SetConfigurationRequest("client",
-        cluster.getLeader().getId(), c2.allPeersInNewConf);
-    LOG.info("Start changing the configuration: {}", request);
-    cluster.getLeader().setConfiguration(request);
+      SetConfigurationRequest request = new SetConfigurationRequest("client",
+          cluster.getLeader().getId(), c2.allPeersInNewConf);
+      LOG.info("Start changing the configuration: {}", request);
+      cluster.getLeader().setConfiguration(request);
 
-    // the leader cannot commit the (old, new) conf since the two 2 peers have
-    // not started yet
-    cluster.printServers(out);
-    Assert.assertTrue(cluster.getLeader().getRaftConf().inTransitionState());
-    // only the first empty entry got committed
-    Assert.assertTrue(cluster.getLeader().getState().getLog()
-        .getLastCommitted().getIndex() <= 1);
+      // the leader cannot commit the (old, new) conf since the two 2 peers have
+      // not started yet
+      LOG.info(cluster.printServers());
+      Assert.assertTrue(cluster.getLeader().getRaftConf().inTransitionState());
+      // only the first empty entry got committed
+      final long committedIndex = cluster.getLeader().getState().getLog()
+          .getLastCommitted().getIndex();
+      Assert.assertTrue("committedIndex is " + committedIndex,
+          committedIndex <= 1);
 
-    // kill the current leader
-    final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster, true);
-    // start the two new peers
-    for (RaftPeer np : c1.newPeers) {
-      cluster.startServer(np.getId());
+      // kill the current leader
+      final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster, true);
+      // start the two new peers
+      for (RaftPeer np : c1.newPeers) {
+        cluster.startServer(np.getId());
+      }
+
+      waitAndCheckNewConf(cluster, c2.allPeersInNewConf, 2,
+          Collections.singletonList(oldLeaderId));
+    } finally {
+      cluster.shutdown();
     }
-
-    waitAndCheckNewConf(cluster, c2.allPeersInNewConf, 2,
-        Collections.singletonList(oldLeaderId));
   }
 }

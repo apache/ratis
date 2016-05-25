@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
 import org.apache.hadoop.raft.server.protocol.Entry;
@@ -51,6 +50,10 @@ public class RaftLog {
     return get(lastCommitted.get());
   }
 
+  long getLastCommittedIndex() {
+    return lastCommitted.get();
+  }
+
   /**
    * @return whether there is a configuration log entry between the index range
    */
@@ -77,7 +80,10 @@ public class RaftLog {
     }
   }
 
-  long waitLastCommitted() throws InterruptedException {
+  long waitLastCommitted(long previous) throws InterruptedException {
+    if (lastCommitted.get() > previous) {
+      return lastCommitted.get();
+    }
     synchronized (lastCommitted) {
       lastCommitted.wait();
     }
@@ -169,8 +175,8 @@ public class RaftLog {
     return "last=" + getLastEntry() + ", committed=" + getLastCommitted();
   }
 
-  public synchronized void printEntries(PrintStream out) {
-    out.println("entries=" + entries);
+  public synchronized String getEntryString() {
+    return "entries=" + entries;
   }
 
   /**

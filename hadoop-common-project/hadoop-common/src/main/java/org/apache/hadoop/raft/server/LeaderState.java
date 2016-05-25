@@ -18,6 +18,7 @@
 package org.apache.hadoop.raft.server;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.protocol.RaftPeer;
@@ -36,14 +37,22 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.hadoop.raft.protocol.Message.EMPTY_MESSAGE;
+import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.STEPDOWN;
+import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.UPDATECOMMIT;
 
 /**
- * States for leader only
+ * States for leader only. It contains three different types of processors:
+ * 1. RPC senders: each thread is appending log to a follower
+ * 2. EventProcessor: a single thread updating the raft server's state based on
+ *                    status of log appending response
+ * 3. PendingRequestHandler: a handler sending back responses to clients when
+ *                           corresponding log entries are committed
  */
-class LeaderState extends Daemon {
+class LeaderState {
   private static final Logger LOG = RaftServer.LOG;
 
   /**
@@ -53,9 +62,22 @@ class LeaderState extends Daemon {
     return lastTime + RaftConstants.RPC_TIMEOUT_MIN_MS / 2 - Time.monotonicNow();
   }
 
-  enum StateUpdateEvent {
+  enum StateUpdateEventType {
     STEPDOWN, UPDATECOMMIT
   }
+
+  private static class StateUpdateEvent {
+    final StateUpdateEventType type;
+    final long newTerm;
+
+    StateUpdateEvent(StateUpdateEventType type, long newTerm) {
+      this.type = type;
+      this.newTerm = newTerm;
+    }
+  }
+
+  private static final StateUpdateEvent UPDATE_COMMIT_EVENT =
+      new StateUpdateEvent(StateUpdateEventType.UPDATECOMMIT, -1);
 
   private final RaftServer server;
   private final RaftLog raftLog;
@@ -67,6 +89,8 @@ class LeaderState extends Daemon {
    */
   private final List<RpcSender> senders;
   private final BlockingQueue<StateUpdateEvent> eventQ;
+  private final EventProcessor processor;
+  private final PendingRequestsHandler pendingRequests;
   private volatile boolean running = true;
 
   LeaderState(RaftServer server) {
@@ -76,6 +100,8 @@ class LeaderState extends Daemon {
     this.raftLog = state.getLog();
     this.currentTerm = state.getCurrentTerm();
     eventQ = new LinkedBlockingQueue<>();
+    processor = new EventProcessor();
+    pendingRequests = new PendingRequestsHandler(server);
 
     Collection<RaftPeer> others = server.getRaftConf()
         .getOtherPeers(state.getSelfId());
@@ -90,8 +116,12 @@ class LeaderState extends Daemon {
     // In the beginning of the new term, replicate an empty entry in order
     // to finally commit entries in the previous term
     raftLog.apply(server.getState().getCurrentTerm(), EMPTY_MESSAGE);
+  }
 
+  void start() {
+    processor.start();
     startSenders();
+    pendingRequests.start();
   }
 
   private void startSenders() {
@@ -100,12 +130,14 @@ class LeaderState extends Daemon {
     }
   }
 
-  void stopRunning() {
+  void stop() {
     this.running = false;
+    // do not interrupt event processor since it may be in the middle of logSync
     for (RpcSender sender : senders) {
       sender.stopSender();
       sender.interrupt();
     }
+    pendingRequests.stop();
   }
 
   void notifySenders() {
@@ -114,6 +146,10 @@ class LeaderState extends Daemon {
         sender.notify();
       }
     }
+  }
+
+  void addPendingRequest(long index, RaftClientRequest request) {
+    pendingRequests.put(index, request);
   }
 
   /**
@@ -166,40 +202,44 @@ class LeaderState extends Daemon {
   }
 
   /**
-   * The LeaderState thread itself takes the responsibility to update
-   * the raft server's state, such as changing to follower, or updating the
-   * committed index.
+   * The processor thread takes the responsibility to update the raft server's
+   * state, such as changing to follower, or updating the committed index.
    */
-  @Override
-  public void run() {
-    // apply an empty message; check if necessary to replicate (new) conf
-    prepare();
+  private class EventProcessor extends Daemon {
+    @Override
+    public void run() {
+      // apply an empty message; check if necessary to replicate (new) conf
+      prepare();
 
-    while (running) {
-      try {
-        StateUpdateEvent event = eventQ.take();
-        synchronized (server) {
-          if (running) {
-            handleEvent(event);
+      while (running) {
+        try {
+          StateUpdateEvent event = eventQ.poll(
+              RaftConstants.ELECTION_TIMEOUT_MIN_MS, TimeUnit.MILLISECONDS);
+          if (event != null) {
+            synchronized (server) {
+              if (running) {
+                handleEvent(event);
+              }
+            }
+            raftLog.logSync();
           }
-        }
-        raftLog.logSync();
-      } catch (InterruptedException e) {
-        if (!running) {
-          LOG.info("The LeaderState gets is stopped");
-        } else {
-          LOG.warn("The leader election thread of peer {} is interrupted. "
-              + "Currently role: {}.", server.getId(), server.getRole());
-          throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+          if (!running) {
+            LOG.info("The LeaderState gets is stopped");
+          } else {
+            LOG.warn("The leader election thread of peer {} is interrupted. "
+                + "Currently role: {}.", server.getId(), server.getRole());
+            throw new RuntimeException(e);
+          }
         }
       }
     }
   }
 
-  void handleEvent(StateUpdateEvent e) {
-    if (e == StateUpdateEvent.STEPDOWN) {
-      server.changeToFollower();
-    } else if (e == StateUpdateEvent.UPDATECOMMIT) {
+  private void handleEvent(StateUpdateEvent e) {
+    if (e.type == STEPDOWN) {
+      server.changeToFollower(e.newTerm);
+    } else if (e.type == UPDATECOMMIT) {
       updateLastCommitted();
     }
   }
@@ -210,7 +250,7 @@ class LeaderState extends Daemon {
     List<List<FollowerInfo>> followerLists = divideFollowers(conf);
     long majorityInNewConf = computeLastCommitted(followerLists.get(0),
         conf.containsInConf(selfId));
-    final long oldLastCommitted = raftLog.getLastCommitted().getIndex();
+    final long oldLastCommitted = raftLog.getLastCommittedIndex();
     if (!conf.inTransitionState()) {
       raftLog.updateLastCommitted(majorityInNewConf, currentTerm);
     } else { // configuration is in transitional state
@@ -228,16 +268,17 @@ class LeaderState extends Daemon {
       if (conf.inTransitionState()) {
         replicateNewConf();
       } else { // the (new) log entry has been committed
-        // TODO: send back response to client
         // if the leader is not included in the current configuration, step down
         if (!conf.containsInConf(server.getId())) {
-          // TODO: make sure all the responses have been sent then shutdown
           LOG.info("{} is not included in the new configuration {}. Step down.",
               server.getId(), conf);
           try {
-            Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
+            // leave some time for all RPC senders to send out new conf entry
+            Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MIN_MS);
           } catch (InterruptedException ignored) {
           }
+          // the pending request handler will send NotLeaderException for
+          // pending client requests when it stops
           server.kill();
         }
       }
@@ -306,7 +347,7 @@ class LeaderState extends Daemon {
       this.peer = peer;
       this.lastRpcTime = new AtomicLong(lastRpcTime);
       this.nextIndex = nextIndex;
-      this.matchIndex = new AtomicLong(nextIndex - 1);
+      this.matchIndex = new AtomicLong(0);
     }
 
     void updateMatchIndex(final long matchIndex) {
@@ -380,7 +421,7 @@ class LeaderState extends Daemon {
             final long mi = entries[entries.length - 1].getIndex();
             follower.updateMatchIndex(mi);
             follower.updateNextIndex(mi + 1);
-            submitUpdateStateEvent(StateUpdateEvent.UPDATECOMMIT);
+            submitUpdateStateEvent(UPDATE_COMMIT_EVENT);
           }
           return r;
         } catch (InterruptedIOException iioe) {
@@ -432,7 +473,8 @@ class LeaderState extends Daemon {
     private void checkResponseTerm(long responseTerm) {
       synchronized (server) {
         if (isSenderRunning() && responseTerm > currentTerm) {
-          submitUpdateStateEvent(StateUpdateEvent.STEPDOWN);
+          submitUpdateStateEvent(
+              new StateUpdateEvent(StateUpdateEventType.STEPDOWN, responseTerm));
         }
       }
     }

@@ -28,10 +28,7 @@ import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.simulation.SimulatedRpc;
 import org.junit.Assert;
 
-import java.io.PrintStream;
 import java.util.*;
-
-import static javafx.scene.input.KeyCode.R;
 
 public class MiniRaftCluster {
   public static class PeerChanges {
@@ -71,9 +68,7 @@ public class MiniRaftCluster {
   }
 
   public void start() {
-    for (RaftServer server : servers.values()) {
-      server.start();
-    }
+    servers.values().forEach(RaftServer::start);
   }
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer) {
@@ -142,22 +137,24 @@ public class MiniRaftCluster {
     servers.get(id).kill();
   }
 
-  public void printServers(PrintStream out) {
-    out.println("#servers = " + servers.size());
+  public String printServers() {
+    StringBuilder b = new StringBuilder("\n#servers = " + servers.size() + "\n");
     for (RaftServer s : servers.values()) {
-      out.print("  ");
-      out.println(s);
+      b.append("  ");
+      b.append(s).append("\n");
     }
+    return b.toString();
   }
 
-  void printAllLogs(PrintStream out) {
-    out.println("#servers = " + servers.size());
+  String printAllLogs() {
+    StringBuilder b = new StringBuilder("\n#servers = " + servers.size() + "\n");
     for (RaftServer s : servers.values()) {
-      out.print("  ");
-      out.println(s);
-      out.print("    ");
-      s.getState().getLog().printEntries(out);
+      b.append("  ");
+      b.append(s).append("\n");
+      b.append("    ");
+      b.append(s.getState().getLog().getEntryString());
     }
+    return b.toString();
   }
 
   public RaftServer getLeader() {
@@ -194,8 +191,7 @@ public class MiniRaftCluster {
   }
 
   public void shutdown() {
-    for (RaftServer server : servers.values()) {
-      server.kill();
-    }
+    servers.values().stream().filter(RaftServer::isRunning)
+        .forEach(RaftServer::kill);
   }
 }

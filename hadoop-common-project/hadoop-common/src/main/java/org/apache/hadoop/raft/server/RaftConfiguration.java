@@ -103,6 +103,9 @@ public class RaftConfiguration {
   }
 
   public RaftPeer getPeer(String id) {
+    if (id == null) {
+      return null;
+    }
     RaftPeer peer = conf.getPeer(id);
     if (peer != null) {
       return peer;
@@ -146,7 +149,7 @@ public class RaftConfiguration {
 
   @Override
   public String toString() {
-    return "RaftConfiguration:{" + conf.toString() + ", old:"
+    return "{" + conf.toString() + ", old:"
         + (oldConf != null ? oldConf : "[]") + "}";
   }
 

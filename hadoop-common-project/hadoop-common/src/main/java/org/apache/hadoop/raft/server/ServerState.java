@@ -82,8 +82,16 @@ public class ServerState {
     return currentTerm;
   }
 
+  void setCurrentTerm(long term) {
+    currentTerm = term;
+  }
+
   String getLeaderId() {
     return leaderId;
+  }
+
+  boolean hasLeader() {
+    return leaderId != null;
   }
 
   /**
@@ -95,18 +103,25 @@ public class ServerState {
     return ++currentTerm;
   }
 
+  void resetLeaderAndVotedFor() {
+    votedFor = null;
+    leaderId = null;
+  }
+
   /**
    * Vote for a candidate and update the local state.
    */
-  void grantVote(String candidateId, long candidateTerm) {
-    currentTerm = candidateTerm;
+  void grantVote(String candidateId) {
     votedFor = candidateId;
     leaderId = null;
   }
 
-  void setLeader(String leaderId, long leaderTerm) {
-    currentTerm = leaderTerm;
+  void setLeader(String leaderId) {
     this.leaderId = leaderId;
+  }
+
+  void becomeLeader() {
+    leaderId = selfId;
   }
 
   public RaftLog getLog() {
@@ -116,7 +131,6 @@ public class ServerState {
   long applyLog(Message message) {
     return log.apply(currentTerm, message);
   }
-
 
   /**
    * Check if accept the leader selfId and term from the incoming AppendEntries rpc.
@@ -128,9 +142,8 @@ public class ServerState {
       return false;
     } else if (leaderTerm > currentTerm || this.leaderId == null) {
       // If the request indicates a term that is greater than the current term
-      // or no leader has been set for the current term,
-      // update leader and term.
-      setLeader(leaderId, leaderTerm);
+      // or no leader has been set for the current term, make sure to update
+      // leader and term later
       return true;
     }
     Preconditions.checkArgument(this.leaderId.equals(leaderId),

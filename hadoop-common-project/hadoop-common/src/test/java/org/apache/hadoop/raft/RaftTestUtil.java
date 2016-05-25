@@ -22,13 +22,17 @@ import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.protocol.Entry;
 import org.junit.Assert;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RaftTestUtil {
+  static final Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
+
   public static RaftServer waitForLeader(MiniRaftCluster cluster)
       throws InterruptedException {
-    cluster.printServers(TestRaft.out);
+    LOG.info(cluster.printServers());
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-    cluster.printServers(TestRaft.out);
+    LOG.info(cluster.printServers());
     return cluster.getLeader();
   }
 
@@ -39,7 +43,7 @@ public class RaftTestUtil {
       Assert.assertNull(leader);
     } else {
       Assert.assertNotNull(leader);
-      TestRaft.out.println("killing leader = " + leader);
+      LOG.info("killing leader = " + leader);
       cluster.killServer(leader.getId());
     }
     return leader != null ? leader.getId() : null;
