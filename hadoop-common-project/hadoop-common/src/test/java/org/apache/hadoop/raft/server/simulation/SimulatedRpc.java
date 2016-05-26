@@ -19,15 +19,13 @@ package org.apache.hadoop.raft.server.simulation;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.RaftUtils;
+import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftRpc;
-import org.apache.hadoop.raft.protocol.RaftPeer;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
