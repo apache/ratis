@@ -21,16 +21,16 @@ import java.util.Arrays;
 
 public class SetConfigurationRequest extends RaftClientRequest {
   public SetConfigurationRequest(String requestorId, String replierId,
-      RaftPeer[] newMembers) {
-    super(requestorId, replierId, new ConfigurationMessage(newMembers));
+      RaftPeer[] members) {
+    super(requestorId, replierId, new ConfigurationMessage(members));
   }
 
-  public RaftPeer[] getNewMembers() {
-    return ((ConfigurationMessage) getMessage()).getNewMembers();
+  public RaftPeer[] getPeersInNewConf() {
+    return ((ConfigurationMessage) getMessage()).getMembers();
   }
 
   @Override
   public String toString() {
-    return super.toString() + ", new members: " + Arrays.asList(getNewMembers());
+    return super.toString() + ", peers:" + Arrays.asList(getPeersInNewConf());
   }
 }

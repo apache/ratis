@@ -240,7 +240,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     LOG.debug("{}: receive setConfiguration({})", getId(), request);
     assertRunningState();
 
-    final RaftPeer[] newMembers = request.getNewMembers();
+    final RaftPeer[] peersInNewConf = request.getPeersInNewConf();
     synchronized (this) {
       checkLeaderState();
       final RaftConfiguration current = getRaftConf();
@@ -252,11 +252,11 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       // todo: wait for staging peers to catch up
 
       // return true if the new configuration is the same with the current one
-      if (current.hasNoChange(newMembers)) {
+      if (current.hasNoChange(peersInNewConf)) {
         return;
       }
 
-      final RaftConfiguration newConf= current.generateOldNewConf(newMembers,
+      final RaftConfiguration newConf= current.generateOldNewConf(peersInNewConf,
           state.getLog().getNextIndex());
       // apply the new configuration to log, and use it as the current conf
       final long entryIndex = state.getLog().apply(state.getCurrentTerm(),
@@ -264,7 +264,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       state.setRaftConf(newConf);
 
       // update the LeaderState's sender list
-      leaderState.addSenders(computeNewPeers(newMembers, current));
+      leaderState.addSenders(computeNewPeers(peersInNewConf, current));
 
       // start replicating the configuration change
       leaderState.addPendingRequest(entryIndex, request);

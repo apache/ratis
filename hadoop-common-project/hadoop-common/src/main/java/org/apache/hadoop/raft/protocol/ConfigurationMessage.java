@@ -18,13 +18,13 @@
 package org.apache.hadoop.raft.protocol;
 
 public class ConfigurationMessage implements Message {
-  private final RaftPeer[] newMembers;
+  private final RaftPeer[] members;
 
-  public ConfigurationMessage(RaftPeer[] newMembers) {
-    this.newMembers = newMembers;
+  public ConfigurationMessage(RaftPeer[] members) {
+    this.members = members;
   }
 
-  public RaftPeer[] getNewMembers() {
-    return newMembers;
+  public RaftPeer[] getMembers() {
+    return members;
   }
 }

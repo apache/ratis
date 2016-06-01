@@ -50,8 +50,6 @@ public class RaftConfiguration {
   /** the index of the corresponding log entry */
   private final long logEntryIndex;
 
-  // TODO private Map<String, RaftPeer> stagingNewPeers;
-
   public RaftConfiguration(RaftPeer[] peers, long index) {
     Preconditions.checkArgument(peers != null && peers.length > 0);
     this.conf = new SimpleConfiguration(peers);
@@ -60,26 +58,27 @@ public class RaftConfiguration {
     this.logEntryIndex = index;
   }
 
-  private RaftConfiguration(RaftPeer[] newPeers, SimpleConfiguration old,
+  private RaftConfiguration(RaftPeer[] peersInNewConf, SimpleConfiguration old,
       long index) {
-    Preconditions.checkArgument(newPeers != null && newPeers.length > 0);
-    Preconditions.checkArgument(old != null && old.size() > 0);
-    this.conf = new SimpleConfiguration(newPeers);
+    Preconditions.checkArgument(peersInNewConf != null
+        && peersInNewConf.length > 0);
+    this.conf = new SimpleConfiguration(peersInNewConf);
     this.oldConf = old;
     this.state = State.TRANSITIONAL;
     this.logEntryIndex = index;
   }
 
-  public RaftConfiguration generateOldNewConf(RaftPeer[] newMembers, long index) {
+  public RaftConfiguration generateOldNewConf(RaftPeer[] peersInNewConf,
+      long index) {
     Preconditions.checkState(inStableState());
-    return new RaftConfiguration(newMembers, this.conf, index);
+    return new RaftConfiguration(peersInNewConf, this.conf, index);
   }
 
   public RaftConfiguration generateNewConf(long index) {
     Preconditions.checkState(inTransitionState());
-    RaftPeer[] newPeers = conf.getPeers()
+    RaftPeer[] peersInNewConf = conf.getPeers()
         .toArray(new RaftPeer[conf.getPeers().size()]);
-    return new RaftConfiguration(newPeers, index);
+    return new RaftConfiguration(peersInNewConf, index);
   }
 
   public State getState() {
@@ -118,11 +117,8 @@ public class RaftConfiguration {
   public Collection<RaftPeer> getPeers() {
     Collection<RaftPeer> peers = conf.getPeers();
     if (oldConf != null) {
-      for (RaftPeer p : oldConf.getPeers()) {
-        if (!peers.contains(p)) {
-          peers.add(p);
-        }
-      }
+      oldConf.getPeers().stream().filter(p -> !peers.contains(p))
+          .forEach(peers::add);
     }
     return peers;
   }
@@ -131,11 +127,7 @@ public class RaftConfiguration {
     Collection<RaftPeer> others = conf.getOtherPeers(selfId);
     if (oldConf != null) {
       Collection<RaftPeer> oldOthers = oldConf.getOtherPeers(selfId);
-      for (RaftPeer p : oldOthers) {
-        if (!others.contains(p)) {
-          others.add(p);
-        }
-      }
+      oldOthers.stream().filter(p -> !others.contains(p)).forEach(others::add);
     }
     return others;
   }
