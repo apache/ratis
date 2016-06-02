@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.RaftUtils;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftRpc;
 
 import java.io.IOException;
@@ -47,6 +48,8 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   static class EventQueue<REQUEST, REPLY> {
     private final BlockingQueue<REQUEST> requestQueue;
     private final Map<REQUEST, ReplyOrException<REPLY>> replyMap;
+    private volatile boolean enabled = true;
+    private volatile int takeRequestDelayMs = 0;
 
     EventQueue() {
       this.requestQueue = new LinkedBlockingQueue<>();
@@ -54,6 +57,9 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
 
     REPLY request(REQUEST request) throws InterruptedException, IOException {
+      while (!enabled) {
+        Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
+      }
       requestQueue.put(request);
       synchronized (this) {
         while (!replyMap.containsKey(request)) {
@@ -69,6 +75,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
 
     REQUEST takeRequest() throws InterruptedException {
+      Thread.sleep(takeRequestDelayMs);
       return requestQueue.take();
     }
 
@@ -77,6 +84,22 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
       synchronized (this) {
         this.notifyAll();
       }
+    }
+
+    void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    boolean getEnabled() {
+      return enabled;
+    }
+
+    int getTakeRequestDelayMs() {
+      return takeRequestDelayMs;
+    }
+
+    void setTakeRequestDelayMs(int takeRequestDelayMs) {
+      this.takeRequestDelayMs = takeRequestDelayMs;
     }
   }
 
@@ -120,6 +143,22 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
 
     final String qid = request.getReplierId();
     queues.get(qid).reply(request, reply, ioe);
+  }
+
+  public boolean isQueueEnabled(String qid) {
+    return queues.get(qid).getEnabled();
+  }
+
+  public void setQueueEnabled(String qid, boolean enabled) {
+    queues.get(qid).setEnabled(enabled);
+  }
+
+  public int getTakeRequestDelayMs(String qid) {
+    return queues.get(qid).getTakeRequestDelayMs();
+  }
+
+  public void setTakeRequestDelayMs(String qid, int delayMs) {
+    queues.get(qid).setTakeRequestDelayMs(delayMs);
   }
 
   public void addPeers(Collection<RaftPeer> newPeers) {

@@ -20,17 +20,25 @@ package org.apache.hadoop.raft;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
+import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftConfiguration;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.simulation.SimulatedRpc;
 import org.junit.Assert;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.*;
 
 public class MiniRaftCluster {
+
+  static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
+
   public static class PeerChanges {
     public final RaftPeer[] allPeersInNewConf;
     public final RaftPeer[] newPeers;
@@ -193,5 +201,48 @@ public class MiniRaftCluster {
   public void shutdown() {
     servers.values().stream().filter(RaftServer::isRunning)
         .forEach(RaftServer::kill);
+  }
+
+  /**
+   * Try to enforce the leader of the cluster.
+   * @param leaderId ID of the targeted leader server.
+   * @return true if server has been successfully enforced to the leader, false
+   *         otherwise.
+   * @throws InterruptedException
+   */
+  public boolean tryEnforceLeader(String leaderId)
+      throws InterruptedException {
+    if (getLeader().getId().equals(leaderId)) {
+      return true;
+    }
+    // Blocking all other server's RPC read process to make sure a read takes at
+    // least ELECTION_TIMEOUT_MIN. In this way when the target leader request a
+    // vote, all non-leader servers can grant the vote.
+    LOG.debug("begin blocking queue for target leader");
+    for (Map.Entry<String, RaftServer> e : servers.entrySet()) {
+      if (!e.getKey().equals(leaderId)) {
+        serverRpc.setTakeRequestDelayMs(e.getKey(),
+            RaftConstants.ELECTION_TIMEOUT_MIN_MS);
+      }
+    }
+    // Disable the RPC queue for the target leader server so that it can request
+    // a vote.
+    serverRpc.setQueueEnabled(leaderId, false);
+    LOG.debug("Closed queue for target leader");
+
+    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+    LOG.debug("target leader should have became candidate. open queue");
+
+    // Reopen queues so that the vote can make progress.
+    for (Map.Entry<String, RaftServer> e : servers.entrySet()) {
+      if (!e.getKey().equals(leaderId)) {
+        serverRpc.setTakeRequestDelayMs(e.getKey(), 0);
+      }
+    }
+    serverRpc.setQueueEnabled(leaderId, true);
+    // Wait for a quiescence.
+    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+
+    return servers.get(leaderId).isLeader();
   }
 }

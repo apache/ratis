@@ -36,6 +36,23 @@ public class RaftTestUtil {
     return cluster.getLeader();
   }
 
+  public static RaftServer waitForLeader(MiniRaftCluster cluster,
+      String leaderId) throws InterruptedException {
+    LOG.info(cluster.printServers());
+    LOG.info("target leader = " + leaderId);
+    while (!cluster.tryEnforceLeader(leaderId)) {
+      RaftServer currLeader = cluster.getLeader();
+      if (currLeader != null) {
+        LOG.debug("try enforce leader, new leader = {}", currLeader.getId());
+      } else {
+        LOG.debug("no leader for this round");
+      }
+    }
+    RaftServer leader = cluster.getLeader();
+    LOG.info(cluster.printServers());
+    return leader;
+  }
+
   public static String waitAndKillLeader(MiniRaftCluster cluster,
       boolean expectLeader) throws InterruptedException {
     final RaftServer leader = waitForLeader(cluster);

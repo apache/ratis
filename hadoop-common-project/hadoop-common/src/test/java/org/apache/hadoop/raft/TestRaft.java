@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 import static org.apache.hadoop.raft.RaftTestUtil.assertLogEntries;
 import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
+import static org.junit.Assert.assertEquals;
 
 public class TestRaft {
   static final Logger LOG = LoggerFactory.getLogger(TestRaft.class);
@@ -93,5 +94,12 @@ public class TestRaft {
         assertLogEntries(s.getState().getLog().getEntries(2), 2, term, messages);
       }
     }
+  }
+
+  @Test
+  public void testEnforceLeader() throws Exception {
+    waitForLeader(cluster);
+    waitForLeader(cluster, "s0");
+    assertEquals("s0", cluster.getLeader().getId());
   }
 }
