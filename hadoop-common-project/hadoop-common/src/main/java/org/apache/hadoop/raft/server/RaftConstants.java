@@ -25,7 +25,6 @@ public abstract class RaftConstants {
   @VisibleForTesting
   public static final int ELECTION_TIMEOUT_MIN_MS = 150;
   public static final int ELECTION_TIMEOUT_MAX_MS = 300;
-  static final int ELECTION_SLEEP_TIME_MS = 50;
 
   static final int RPC_TIMEOUT_MIN_MS = 150;
   static final int RPC_TIMEOUT_MAX_MS = 300;
@@ -33,6 +32,13 @@ public abstract class RaftConstants {
 
   static final int ELECTION_TIMEOUT_MS_WIDTH
       = ELECTION_TIMEOUT_MAX_MS - ELECTION_TIMEOUT_MIN_MS;
+
+  /**
+   * When bootstrapping a new peer, If the gap between the match index of the
+   * peer and the leader's latest committed index is less than this gap, we
+   * treat the peer as caught-up.
+   */
+  static final int STAGING_CATCHUP_GAP = 1000;
 
   static final Random RANDOM = new Random();
 

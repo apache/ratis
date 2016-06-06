@@ -245,30 +245,17 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       checkLeaderState();
       final RaftConfiguration current = getRaftConf();
       // make sure there is no other raft reconfiguration in progress
-      if (!current.inStableState()) {
+      if (!current.inStableState() || leaderState.inStagingState()) {
         throw new ReconfigurationInProgressException(current,
             "Reconfiguration in progress");
       }
-      // todo: wait for staging peers to catch up
 
       // return true if the new configuration is the same with the current one
       if (current.hasNoChange(peersInNewConf)) {
         return;
       }
-
-      final RaftConfiguration newConf= current.generateOldNewConf(peersInNewConf,
-          state.getLog().getNextIndex());
-      // apply the new configuration to log, and use it as the current conf
-      final long entryIndex = state.getLog().apply(state.getCurrentTerm(),
-          current, newConf);
-      state.setRaftConf(newConf);
-
-      // update the LeaderState's sender list
-      leaderState.addSenders(computeNewPeers(peersInNewConf, current));
-
-      // start replicating the configuration change
-      leaderState.addPendingRequest(entryIndex, request);
-      leaderState.notifySenders();
+      // add staging state into the leaderState
+      leaderState.startSetConfiguration(request);
     }
     state.getLog().logSync();
     // release the handler and the LeaderState thread will trigger the next step
@@ -295,7 +282,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         && getRaftConf().inStableState()
         && getState().isConfCommitted()
         && !getRaftConf().containsInConf(candidateId)
-        && candidateLastEntry.getIndex() < getRaftConf().getLogEntryIndex();
+        && candidateLastEntry.getIndex() < getRaftConf().getLogEntryIndex()
+        && !leaderState.isBootStrappingPeer(candidateId);
   }
 
   @Override
@@ -436,7 +424,11 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     @Override
     public RaftClientReply handleRequest(RaftClientRequest request)
         throws IOException {
-      submit(request);
+      if (request instanceof SetConfigurationRequest) {
+        setConfiguration((SetConfigurationRequest) request);
+      } else {
+        submit(request);
+      }
       return null;
     }
   };

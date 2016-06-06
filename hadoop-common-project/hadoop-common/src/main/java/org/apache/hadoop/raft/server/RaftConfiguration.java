@@ -58,20 +58,18 @@ public class RaftConfiguration {
     this.logEntryIndex = index;
   }
 
-  private RaftConfiguration(RaftPeer[] peersInNewConf, SimpleConfiguration old,
+  private RaftConfiguration(SimpleConfiguration newConf, SimpleConfiguration old,
       long index) {
-    Preconditions.checkArgument(peersInNewConf != null
-        && peersInNewConf.length > 0);
-    this.conf = new SimpleConfiguration(peersInNewConf);
+    this.conf = newConf;
     this.oldConf = old;
     this.state = State.TRANSITIONAL;
     this.logEntryIndex = index;
   }
 
-  public RaftConfiguration generateOldNewConf(RaftPeer[] peersInNewConf,
+  public RaftConfiguration generateOldNewConf(SimpleConfiguration newConf,
       long index) {
     Preconditions.checkState(inStableState());
-    return new RaftConfiguration(peersInNewConf, this.conf, index);
+    return new RaftConfiguration(newConf, this.conf, index);
   }
 
   public RaftConfiguration generateNewConf(long index) {
@@ -166,7 +164,7 @@ public class RaftConfiguration {
       RaftConfiguration old) {
     List<RaftPeer> peers = new ArrayList<>();
     for (RaftPeer p : newMembers) {
-      if (!old.conf.contains(p.getId())) {
+      if (!old.containsInConf(p.getId())) {
         peers.add(p);
       }
     }

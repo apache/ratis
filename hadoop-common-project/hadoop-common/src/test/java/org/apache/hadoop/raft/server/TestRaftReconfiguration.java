@@ -21,6 +21,7 @@ import org.apache.hadoop.raft.MiniRaftCluster;
 import org.apache.hadoop.raft.MiniRaftCluster.PeerChanges;
 import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.client.RaftClient;
+import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
 import org.apache.hadoop.test.GenericTestUtils;
@@ -30,9 +31,12 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TestRaftReconfiguration {
   static {
@@ -164,11 +168,14 @@ public class TestRaftReconfiguration {
     }
   }
 
+  /**
+   * kill the leader before bootstrapping staging finishes.
+   */
   @Test
   public void testKillLeaderDuringReconf() throws Exception {
     LOG.info("Start testKillLeaderDuringReconf");
     // originally 3 peers
-    MiniRaftCluster cluster =  new MiniRaftCluster(3);
+    final MiniRaftCluster cluster =  new MiniRaftCluster(3);
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -176,21 +183,36 @@ public class TestRaftReconfiguration {
       PeerChanges c1 = cluster.addNewPeers(2, false);
       PeerChanges c2 = cluster.removePeers(2, false, Arrays.asList(c1.newPeers));
 
-      SetConfigurationRequest request = new SetConfigurationRequest("client",
-          cluster.getLeader().getId(), c2.allPeersInNewConf);
-      LOG.info("Start changing the configuration: {}", request);
-      cluster.getLeader().setConfiguration(request);
+      LOG.info("Start changing the configuration: {}",
+          Arrays.asList(c2.allPeersInNewConf));
 
-      // the leader cannot commit the (old, new) conf since the two 2 peers have
-      // not started yet
+      final AtomicBoolean success = new AtomicBoolean(false);
+      final String leaderId = cluster.getLeader().getId();
+      CountDownLatch latch = new CountDownLatch(1);
+      Thread clientThread = new Thread(() -> {
+        try {
+          latch.countDown();
+          RaftClientReply reply = cluster.createClient("client", leaderId)
+              .setConfiguration(c2.allPeersInNewConf);
+          success.set(reply.isSuccess());
+        } catch (IOException ignored) {
+        }
+      });
+      clientThread.start();
+
+      // the leader cannot generate the (old, new) conf, and it will be in the
+      // bootstrapping stage since the two 2 peers have not started yet
       LOG.info(cluster.printServers());
-      Assert.assertTrue(cluster.getLeader().getRaftConf().inTransitionState());
+      Assert.assertFalse(cluster.getLeader().getRaftConf().inTransitionState());
+
       // only the first empty entry got committed
       final long committedIndex = cluster.getLeader().getState().getLog()
           .getLastCommitted().getIndex();
       Assert.assertTrue("committedIndex is " + committedIndex,
           committedIndex <= 1);
 
+      latch.await();
+      Thread.sleep(500);
       // kill the current leader
       final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster, true);
       // start the two new peers
@@ -198,8 +220,11 @@ public class TestRaftReconfiguration {
         cluster.startServer(np.getId());
       }
 
+      // the client should get the NotLeaderException from the first leader, and
+      // will retry the same setConfiguration request
       waitAndCheckNewConf(cluster, c2.allPeersInNewConf, 2,
           Collections.singletonList(oldLeaderId));
+//    TODO Assert.assertTrue(success.get());
     } finally {
       cluster.shutdown();
     }

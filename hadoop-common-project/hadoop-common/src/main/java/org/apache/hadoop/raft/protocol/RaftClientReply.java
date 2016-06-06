@@ -18,7 +18,7 @@
 package org.apache.hadoop.raft.protocol;
 
 public class RaftClientReply extends RaftRpcMessage.Reply {
-  public RaftClientReply(RaftRpcMessage m) {
-    super(m.getRequestorId(), m.getReplierId());
+  public RaftClientReply(RaftRpcMessage m, boolean success) {
+    super(m.getRequestorId(), m.getReplierId(), success);
   }
 }

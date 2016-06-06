@@ -54,13 +54,20 @@ public abstract class RaftRpcMessage {
   }
 
   public static class Reply extends RaftRpcMessage {
-    public Reply(String requestorId, String replierId) {
+    private final boolean success;
+
+    public Reply(String requestorId, String replierId, boolean success) {
       super(requestorId, replierId);
+      this.success = success;
     }
 
     @Override
     public final boolean isRequest() {
       return false;
+    }
+
+    public boolean isSuccess() {
+      return success;
     }
   }
 }

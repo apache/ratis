@@ -21,26 +21,20 @@ import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 
 public class RaftServerReply extends RaftRpcMessage.Reply {
   private final long term;
-  private final boolean success;
   // final long lastIndexInTerm; TODO
 
   public RaftServerReply(String requestorId, String replierId,
                          long term, boolean success) {
-    super(requestorId, replierId);
+    super(requestorId, replierId, success);
     this.term = term;
-    this.success = success;
   }
 
   @Override
   public String toString() {
-    return super.toString() + ", term: " + term + ", success=" + success;
+    return super.toString() + ", term: " + term + ", success=" + isSuccess();
   }
 
   public long getTerm() {
     return term;
-  }
-
-  public boolean isSuccess() {
-    return success;
   }
 }

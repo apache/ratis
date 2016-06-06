@@ -21,12 +21,14 @@ import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.protocol.NotLeaderException;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
+import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
 import org.apache.hadoop.raft.server.RaftRpc;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -70,18 +72,42 @@ public class RaftClient {
       final String lid = leaderId;
       LOG.debug("{} sends {} to {}", clientId, message, lid);
       final RaftClientRequest r = new RaftClientRequest(clientId, lid, message);
-      try {
-        return client2serverRpc.sendRequest(r);
-      } catch (NotLeaderException nle) {
-        final String newLeader = nle.getLeader().getId();
-        LOG.debug("{}: Leader changed from {} to {}", clientId, lid, newLeader);
-        leaderId = newLeader;
-      } catch (IOException ioe) {
-        final String newLeader = nextLeader(lid, servers.keySet().iterator());
-        LOG.debug("{}: Failed with {}, change Leader from {} to {}",
-            clientId, ioe, lid, newLeader);
-        leaderId = newLeader;
+      RaftClientReply reply = sendRequest(r, lid);
+      if (reply != null) {
+        return reply;
       }
     }
+  }
+
+  public RaftClientReply setConfiguration(RaftPeer[] peersInNewConf)
+      throws IOException {
+    for(;;) {
+      final String lid = leaderId;
+      LOG.debug("{} sends new configuration to {}: {}", clientId, lid,
+          Arrays.asList(peersInNewConf));
+      final SetConfigurationRequest r = new SetConfigurationRequest(clientId,
+          lid, peersInNewConf);
+      RaftClientReply reply = sendRequest(r, lid);
+      if (reply != null) {
+        return reply;
+      }
+    }
+  }
+
+  private RaftClientReply sendRequest(RaftClientRequest r,
+      final String leader) {
+    try {
+      return client2serverRpc.sendRequest(r);
+    } catch (NotLeaderException nle) {
+      final String newLeader = nle.getLeader().getId();
+      LOG.debug("{}: Leader changed from {} to {}", clientId, leader, newLeader);
+      this.leaderId = newLeader;
+    } catch (IOException ioe) {
+      final String newLeader = nextLeader(leader, servers.keySet().iterator());
+      LOG.debug("{}: Failed with {}, change Leader from {} to {}",
+          clientId, ioe, leader, newLeader);
+      this.leaderId = newLeader;
+    }
+    return null;
   }
 }

@@ -20,10 +20,14 @@ package org.apache.hadoop.raft.server;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
+import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
 import org.apache.hadoop.util.Daemon;
 import org.slf4j.Logger;
 
 import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
 
 class PendingRequestsHandler {
@@ -45,9 +49,31 @@ class PendingRequestsHandler {
     }
   }
 
+  private static class ConfigurationRequests {
+    private final Map<SetConfigurationRequest, Boolean> resultMap =
+        new ConcurrentHashMap<>();
+    private SetConfigurationRequest pendingRequest;
+
+    synchronized void setPendingRequest(SetConfigurationRequest request) {
+      Preconditions.checkState(pendingRequest == null);
+      this.pendingRequest = request;
+    }
+
+    synchronized void finishSetConfiguration(boolean success) {
+      // we allow the pendingRequest to be null in case that the new leader
+      // commits the new configuration while it has not received the retry
+      // request from the client
+      if (pendingRequest != null) {
+        resultMap.put(pendingRequest, success);
+        pendingRequest = null;
+      }
+    }
+  }
+
   private final RaftServer server;
   private final PriorityBlockingQueue<PendingRequestElement> queue =
       new PriorityBlockingQueue<>();
+  private final ConfigurationRequests confRequests = new ConfigurationRequests();
   private final PendingRequestDaemon daemon = new PendingRequestDaemon();
   private volatile boolean running = true;
 
@@ -74,6 +100,34 @@ class PendingRequestsHandler {
     Preconditions.checkState(b);
   }
 
+  void addConfRequest(SetConfigurationRequest request) {
+    confRequests.setPendingRequest(request);
+  }
+
+  void finishSetConfiguration(boolean success) {
+    confRequests.finishSetConfiguration(success);
+  }
+
+  private void sendReply(RaftClientRequest request, boolean success) {
+    try {
+      server.clientHandler.sendReply(request,
+          new RaftClientReply(request, success), null);
+    } catch (IOException ioe) {
+      RaftServer.LOG.error(this + " has " + ioe);
+      RaftServer.LOG.trace("TRACE", ioe);
+    }
+  }
+
+  private void sendNotLeaderException(RaftClientRequest request) {
+    try {
+      server.clientHandler.sendReply(request, null,
+          server.generateNotLeaderException());
+    } catch (IOException ioe) {
+      RaftServer.LOG.error(this + " has " + ioe);
+      RaftServer.LOG.trace("TRACE", ioe);
+    }
+  }
+
   class PendingRequestDaemon extends Daemon {
     @Override
     public String toString() {
@@ -90,13 +144,14 @@ class PendingRequestsHandler {
           for (PendingRequestElement pre;
                (pre = queue.peek()) != null && pre.index <= lastCommitted; ) {
             pre = queue.poll();
-            try {
-              server.clientHandler.sendReply(pre.request,
-                  new RaftClientReply(pre.request), null);
-            } catch (IOException ioe) {
-              RaftServer.LOG.error(this + " has " + ioe);
-              RaftServer.LOG.trace("TRACE", ioe);
-            }
+            sendReply(pre.request, true);
+          }
+          Iterator<Map.Entry<SetConfigurationRequest, Boolean>> iter =
+              confRequests.resultMap.entrySet().iterator();
+          while (iter.hasNext()) {
+            Map.Entry<SetConfigurationRequest, Boolean> entry = iter.next();
+            sendReply(entry.getKey(), entry.getValue());
+            iter.remove();
           }
         } catch (InterruptedException e) {
           RaftServer.LOG.info(this + " is interrupted by " + e);
@@ -119,19 +174,18 @@ class PendingRequestsHandler {
   private void sendResponses(long lastCommitted) {
     while (!queue.isEmpty()) {
       final PendingRequestElement req = queue.poll();
-      try {
-        if (req.index <= lastCommitted) {
-          server.clientHandler.sendReply(req.request,
-              new RaftClientReply(req.request), null);
-        } else {
-          server.clientHandler.sendReply(req.request,
-              null, server.generateNotLeaderException());
-        }
-      } catch (IOException e) {
-        RaftServer.LOG.error("{} hit exception {} when sending" +
-            " NotLeaderException to client request {}", this, e, req.request);
-        RaftServer.LOG.trace("TRACE", e);
+      if (req.index <= lastCommitted) {
+        sendReply(req.request, true);
+      } else {
+        sendNotLeaderException(req.request);
       }
+    }
+    for (Map.Entry<SetConfigurationRequest, Boolean> entry :
+        confRequests.resultMap.entrySet()) {
+      sendReply(entry.getKey(), entry.getValue());
+    }
+    if (confRequests.pendingRequest != null) {
+      sendNotLeaderException(confRequests.pendingRequest);
     }
   }
 }
