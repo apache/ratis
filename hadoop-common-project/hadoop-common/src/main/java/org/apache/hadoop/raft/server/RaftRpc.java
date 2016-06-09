@@ -23,10 +23,10 @@ import java.io.IOException;
 
 public interface RaftRpc<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> {
-  public REPLY sendRequest(REQUEST request) throws IOException;
+  REPLY sendRequest(REQUEST request) throws IOException;
 
-  public REQUEST takeRequest(String qid) throws IOException;
+  REQUEST takeRequest(String qid) throws IOException;
 
-  public void sendReply(REQUEST request, REPLY reply, IOException ioe)
+  void sendReply(REQUEST request, REPLY reply, IOException ioe)
       throws IOException;
 }

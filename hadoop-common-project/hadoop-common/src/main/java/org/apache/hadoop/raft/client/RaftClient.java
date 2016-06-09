@@ -22,12 +22,14 @@ import org.apache.hadoop.raft.protocol.NotLeaderException;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftRpc;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -95,13 +97,11 @@ public class RaftClient {
   }
 
   private RaftClientReply sendRequest(RaftClientRequest r,
-      final String leader) {
+      final String leader) throws InterruptedIOException {
     try {
       return client2serverRpc.sendRequest(r);
     } catch (NotLeaderException nle) {
-      final String newLeader = nle.getLeader().getId();
-      LOG.debug("{}: Leader changed from {} to {}", clientId, leader, newLeader);
-      this.leaderId = newLeader;
+      handleNotLeaderException(nle);
     } catch (IOException ioe) {
       final String newLeader = nextLeader(leader, servers.keySet().iterator());
       LOG.debug("{}: Failed with {}, change Leader from {} to {}",
@@ -109,5 +109,24 @@ public class RaftClient {
       this.leaderId = newLeader;
     }
     return null;
+  }
+
+  private void handleNotLeaderException(NotLeaderException e)
+      throws InterruptedIOException {
+    LOG.debug("{}: got NotLeaderException", clientId, e);
+    String newLeader = e.getSuggestedLeader() != null ?
+        e.getSuggestedLeader().getId() : null;
+    if (newLeader == null) { // usually this should not happen
+      newLeader = nextLeader(leaderId, servers.keySet().iterator());
+    }
+    LOG.debug("{}: use {} as new leader to replace {}", clientId, newLeader,
+        leaderId);
+    this.leaderId = newLeader;
+    try {
+      Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
+    } catch (InterruptedException ie) {
+      Thread.currentThread().interrupt();
+      throw new InterruptedIOException("Interrupted while waiting for the next retry");
+    }
   }
 }

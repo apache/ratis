@@ -37,6 +37,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> implements RaftRpc<REQUEST, REPLY> {
+  public static final long TIMEOUT = 3000L;
+
   private static class ReplyOrException<REPLY> {
     private final REPLY reply;
     private final IOException ioe;
@@ -65,11 +67,15 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
       }
       requestQueue.put(request);
       synchronized (this) {
-        while (!replyMap.containsKey(request)) {
-          this.wait();
+        if (!replyMap.containsKey(request)) {
+          this.wait(TIMEOUT);
         }
       }
 
+      if (!replyMap.containsKey(request)) {
+        throw new IOException("Timeout while waiting for reply of request "
+            + request);
+      }
       final ReplyOrException<REPLY> re = replyMap.remove(request);
       if (re.ioe != null) {
         throw re.ioe;
@@ -78,7 +84,9 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
 
     REQUEST takeRequest() throws InterruptedException {
-      Thread.sleep(takeRequestDelayMs);
+      if (takeRequestDelayMs > 0) {
+        Thread.sleep(takeRequestDelayMs);
+      }
       return requestQueue.take();
     }
 
@@ -114,7 +122,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   public SimulatedRpc(Collection<RaftPeer> allPeers) {
     queues = new ConcurrentHashMap<>();
     for (RaftPeer peer : allPeers) {
-      queues.put(peer.getId(), new EventQueue<REQUEST, REPLY>());
+      queues.put(peer.getId(), new EventQueue<>());
     }
     blacklist = new ConcurrentHashSet<>();
   }
@@ -162,7 +170,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
 
   public void addPeers(Collection<RaftPeer> newPeers) {
     for (RaftPeer peer : newPeers) {
-      queues.put(peer.getId(), new EventQueue<REQUEST, REPLY>());
+      queues.put(peer.getId(), new EventQueue<>());
     }
   }
 

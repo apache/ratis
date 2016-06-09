@@ -32,8 +32,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.apache.hadoop.raft.server.RaftConfiguration.computeNewPeers;
-
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
@@ -223,8 +221,15 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   NotLeaderException generateNotLeaderException() {
-    return new NotLeaderException(getId(),
-        getRaftConf().getPeer(state.getLeaderId()));
+    String leaderId = state.getLeaderId();
+    if (leaderId == null || leaderId.equals(state.getSelfId())) {
+      // No idea about who is the current leader. Or the peer is the current
+      // leader, but it is about to step down
+      RaftPeer suggestedLeader = state.getRaftConf()
+          .getRandomPeer(state.getSelfId());
+      leaderId = suggestedLeader == null ? null : suggestedLeader.getId();
+    }
+    return new NotLeaderException(getId(), getRaftConf().getPeer(leaderId));
   }
 
   /**
@@ -265,6 +270,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
       // return true if the new configuration is the same with the current one
       if (current.hasNoChange(peersInNewConf)) {
+        leaderState.returnNoConfChange(request);
         return;
       }
       // add staging state into the leaderState

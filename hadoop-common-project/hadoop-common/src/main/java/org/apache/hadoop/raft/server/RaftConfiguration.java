@@ -170,4 +170,13 @@ public class RaftConfiguration {
     }
     return peers;
   }
+
+  RaftPeer getRandomPeer(String exclusiveId) {
+    Collection<RaftPeer> peers = conf.getOtherPeers(exclusiveId);
+    if (peers.isEmpty()) {
+      return null;
+    }
+    int index = RaftConstants.RANDOM.nextInt(peers.size());
+    return peers.toArray(new RaftPeer[peers.size()])[index];
+  }
 }

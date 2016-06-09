@@ -48,6 +48,7 @@ import static org.apache.hadoop.raft.protocol.Message.EMPTY_MESSAGE;
 import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.STAGINGPROGRESS;
 import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.STEPDOWN;
 import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.UPDATECOMMIT;
+import static org.apache.hadoop.raft.server.RaftConstants.RPC_TIMEOUT_MAX_MS;
 
 /**
  * States for leader only. It contains three different types of processors:
@@ -114,7 +115,7 @@ class LeaderState {
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
-    final long t = Time.monotonicNow() - RaftConstants.RPC_TIMEOUT_MAX_MS;
+    final long t = Time.monotonicNow() - RPC_TIMEOUT_MAX_MS;
     final long nextIndex = raftLog.getNextIndex();
     senders = new ArrayList<>(others.size());
     for (RaftPeer p : others) {
@@ -214,7 +215,7 @@ class LeaderState {
    * RpcSender list.
    */
   void addSenders(Collection<RaftPeer> newMembers) {
-    final long t = Time.monotonicNow() - RaftConstants.RPC_TIMEOUT_MAX_MS;
+    final long t = Time.monotonicNow() - RPC_TIMEOUT_MAX_MS;
     final long nextIndex = raftLog.getNextIndex();
     for (RaftPeer peer : newMembers) {
       FollowerInfo f = new FollowerInfo(peer, t, nextIndex, false);
@@ -311,17 +312,19 @@ class LeaderState {
    * A simple implementation for catchup checking.
    * TODO: later we can add more advanced checking algorithm
    */
-  private boolean isCaughtup(FollowerInfo follower, long committed) {
+  private boolean isCaughtup(FollowerInfo follower, long committed,
+      long expectedLastRpcTime) {
     Preconditions.checkArgument(!follower.attendVote);
     return follower.matchIndex.get() + RaftConstants.STAGING_CATCHUP_GAP >
-        committed;
+        committed && follower.lastRpcTime.get() > expectedLastRpcTime;
   }
 
   private boolean allCaughtup(long committed) {
     Preconditions.checkState(inStagingState());
+    final long expectedLastRpcTime = Time.monotonicNow() - RPC_TIMEOUT_MAX_MS;
     for (RpcSender sender : senders) {
       if (!sender.follower.attendVote) { // follower in bootstrapping stage
-        if (!isCaughtup(sender.follower, committed)) {
+        if (!isCaughtup(sender.follower, committed, expectedLastRpcTime)) {
           return false;
         }
       }
@@ -439,6 +442,11 @@ class LeaderState {
       lists.add(listForOld);
     }
     return lists;
+  }
+
+  void returnNoConfChange(SetConfigurationRequest r) {
+    pendingRequests.addConfRequest(r);
+    pendingRequests.finishSetConfiguration(true);
   }
 
   private class FollowerInfo {
