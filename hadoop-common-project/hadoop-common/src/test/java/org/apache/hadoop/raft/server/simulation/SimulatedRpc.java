@@ -24,6 +24,7 @@ import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftRpc;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
+import org.apache.hadoop.util.Time;
 import org.apache.mina.util.ConcurrentHashSet;
 
 import java.io.IOException;
@@ -66,8 +67,10 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
       }
       requestQueue.put(request);
       synchronized (this) {
-        if (!replyMap.containsKey(request)) {
-          this.wait(TIMEOUT);
+        final long startTime = Time.monotonicNow();
+        while (Time.monotonicNow() - startTime < TIMEOUT &&
+            !replyMap.containsKey(request)) {
+          this.wait(TIMEOUT); // no need to be precise here
         }
       }
 

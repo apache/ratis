@@ -171,7 +171,7 @@ public class TestRaftReconfiguration {
   /**
    * kill the leader before bootstrapping staging finishes.
    */
-  //@Test
+  @Test
   public void testKillLeaderDuringReconf() throws Exception {
     LOG.info("Start testKillLeaderDuringReconf");
     // originally 3 peers
@@ -179,21 +179,21 @@ public class TestRaftReconfiguration {
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
+      final String leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient("client", leaderId);
 
       PeerChanges c1 = cluster.addNewPeers(2, false);
       PeerChanges c2 = cluster.removePeers(2, false, Arrays.asList(c1.newPeers));
 
       LOG.info("Start changing the configuration: {}",
           Arrays.asList(c2.allPeersInNewConf));
-
       final AtomicBoolean success = new AtomicBoolean(false);
-      final String leaderId = cluster.getLeader().getId();
+
       CountDownLatch latch = new CountDownLatch(1);
       Thread clientThread = new Thread(() -> {
         try {
           latch.countDown();
-          RaftClientReply reply = cluster.createClient("client", leaderId)
-              .setConfiguration(c2.allPeersInNewConf);
+          RaftClientReply reply = client.setConfiguration(c2.allPeersInNewConf);
           success.set(reply.isSuccess());
         } catch (IOException ignored) {
         }
@@ -224,7 +224,7 @@ public class TestRaftReconfiguration {
       // will retry the same setConfiguration request
       waitAndCheckNewConf(cluster, c2.allPeersInNewConf, 2,
           Collections.singletonList(oldLeaderId));
-//    TODO Assert.assertTrue(success.get());
+      Assert.assertTrue(success.get());
     } finally {
       cluster.shutdown();
     }

@@ -557,7 +557,7 @@ class LeaderState {
         } catch (InterruptedIOException iioe) {
           throw iioe;
         } catch (IOException ioe) {
-          LOG.warn(this + ": failed to send appendEntries; retry " + retry++,
+          LOG.debug(this + ": failed to send appendEntries; retry " + retry++,
               ioe);
         }
         if (isSenderRunning()) {

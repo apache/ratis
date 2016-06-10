@@ -229,7 +229,8 @@ public class MiniRaftCluster {
    */
   public boolean tryEnforceLeader(String leaderId)
       throws InterruptedException {
-    if (getLeader().getId().equals(leaderId)) {
+    final RaftServer leader = getLeader();
+    if (leader != null && leader.getId().equals(leaderId)) {
       return true;
     }
     // Blocking all other server's RPC read process to make sure a read takes at
