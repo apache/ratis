@@ -58,7 +58,7 @@ public class ServerState {
     this.selfId = id;
     this.raftConf = conf;
     // TODO load log/currentTerm/votedFor/leaderId from persistent storage
-    log = new RaftLog(this);
+    log = new RaftLog(id);
     currentTerm = 0;
     votedFor = null;
     leaderId = null;
@@ -100,11 +100,9 @@ public class ServerState {
   @VisibleForTesting
   public static ServerState buildServerState(ServerState oldState,
       List<Entry> logEntries) {
-    RaftLog newLog = new RaftLog(logEntries, 0);
-    ServerState newState = new ServerState(oldState.selfId, oldState.raftConf,
+    RaftLog newLog = new RaftLog(oldState.getSelfId(), logEntries, 0);
+    return new ServerState(oldState.selfId, oldState.raftConf,
         newLog);
-    newLog.setServerState(newState);
-    return newState;
   }
 
   void setCurrentTerm(long term) {

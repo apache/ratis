@@ -36,23 +36,20 @@ public class RaftLog {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
   static final Entry DUMMY_ENTRY = new Entry(-1, 0, EMPTY_MESSAGE);
 
-  private ServerState state;
+  private final String selfId;
   private final List<Entry> entries = new ArrayList<>();
   private final AtomicLong lastCommitted = new AtomicLong();
 
-  RaftLog(ServerState state) {
-    this.state = state;
+  RaftLog(String selfId) {
+    this.selfId = selfId;
     //add a dummy entry so that the first log index is 1.
     entries.add(DUMMY_ENTRY);
   }
 
-  RaftLog(List<Entry> newEntries, long lastCommitted) {
+  RaftLog(String selfId, List<Entry> newEntries, long lastCommitted) {
+    this.selfId = selfId;
     entries.addAll(newEntries);
     this.lastCommitted.set(lastCommitted);
-  }
-
-  void setServerState(ServerState state) {
-    this.state = state;
   }
 
   synchronized TermIndex getLastCommitted() {
@@ -80,7 +77,7 @@ public class RaftLog {
       // Only update last committed index for current term.
       final TermIndex ti = get(majority);
       if (ti != null && ti.getTerm() == currentTerm) {
-        LOG.debug("{}: Updating lastCommitted to {}", state, majority);
+        LOG.debug("{}: Updating lastCommitted to {}", selfId, majority);
         lastCommitted.set(majority);
         synchronized (lastCommitted) {
           lastCommitted.notifyAll();
