@@ -40,10 +40,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TestRaftReconfiguration {
   static {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.ALL);
-    GenericTestUtils.setLogLevel(RaftLog.LOG, Level.ALL);
-    GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.ALL);
-    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.ALL);
+    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
   static final Logger LOG = LoggerFactory.getLogger(TestRaftReconfiguration.class);
 
@@ -200,8 +200,8 @@ public class TestRaftReconfiguration {
       });
       clientThread.start();
 
-      // the leader cannot generate the (old, new) conf, and it will be in the
-      // bootstrapping stage since the two 2 peers have not started yet
+      // the leader cannot generate the (old, new) conf, and it will keep
+      // bootstrapping the 2 new peers since they have not started yet
       LOG.info(cluster.printServers());
       Assert.assertFalse(cluster.getLeader().getRaftConf().inTransitionState());
 

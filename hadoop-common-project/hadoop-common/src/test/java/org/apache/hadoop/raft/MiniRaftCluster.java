@@ -116,7 +116,8 @@ public class MiniRaftCluster {
     server.start(conf);
   }
 
-  public void enforceServerLog(String id, List<Entry> newLogEntries) {
+  public void enforceServerLog(String id, List<Entry> newLogEntries,
+      RaftConfiguration conf) {
     RaftServer server = servers.get(id);
     assert server != null;
     ServerState newServerState = ServerState.buildServerState(server.getState(),
@@ -125,7 +126,7 @@ public class MiniRaftCluster {
     RaftServer newServer = new RaftServer(id, newServerState, serverRpc,
         client2serverRpc);
     servers.put(id, newServer);
-    newServer.start();
+    newServer.start(conf);
   }
 
   /**

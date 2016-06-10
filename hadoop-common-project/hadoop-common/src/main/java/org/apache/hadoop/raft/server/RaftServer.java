@@ -105,6 +105,10 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     Preconditions.checkState(changed);
   }
 
+  private void changeRunningState(RunningState newState) {
+    runningState.set(newState);
+  }
+
   /**
    * The peer belongs to the current configuration, should start as a follower
    */
@@ -146,7 +150,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   public void kill() {
-    changeRunningState(RunningState.RUNNING, RunningState.STOPPED);
+    changeRunningState(RunningState.STOPPED);
 
     try {
       clientHandler.interruptAndJoinDaemon();
