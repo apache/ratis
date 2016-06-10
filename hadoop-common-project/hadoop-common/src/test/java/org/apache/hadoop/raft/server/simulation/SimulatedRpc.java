@@ -23,11 +23,14 @@ import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftRpc;
+import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
+import org.apache.mina.util.ConcurrentHashSet;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -103,13 +106,17 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
   }
 
+  static final String BLACKLIST_SEPARATOR = ":";
+
   private final Map<String, EventQueue<REQUEST, REPLY>> queues;
+  private final Set<String> blacklist;
 
   public SimulatedRpc(Collection<RaftPeer> allPeers) {
     queues = new ConcurrentHashMap<>();
     for (RaftPeer peer : allPeers) {
       queues.put(peer.getId(), new EventQueue<REQUEST, REPLY>());
     }
+    blacklist = new ConcurrentHashSet<>();
   }
 
   @Override
@@ -126,7 +133,15 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   @Override
   public REQUEST takeRequest(String qid) throws InterruptedIOException {
     try {
-      return queues.get(qid).takeRequest();
+      REQUEST request = queues.get(qid).takeRequest();
+      final String rid = request.getRequestorId();
+      if (!(request instanceof AppendEntriesRequest)
+          || ((AppendEntriesRequest) request).getEntries() != null) {
+        while (isBlacklisted(rid, qid)) {
+          Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+        }
+      }
+      return request;
     } catch (InterruptedException e) {
       throw RaftUtils.toInterruptedIOException("", e);
     }
@@ -145,6 +160,13 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     queues.get(qid).reply(request, reply, ioe);
   }
 
+  public void addPeers(Collection<RaftPeer> newPeers) {
+    for (RaftPeer peer : newPeers) {
+      queues.put(peer.getId(), new EventQueue<REQUEST, REPLY>());
+    }
+  }
+
+  // Utility methods for testing
   public boolean isQueueEnabled(String qid) {
     return queues.get(qid).getEnabled();
   }
@@ -161,9 +183,23 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     queues.get(qid).setTakeRequestDelayMs(delayMs);
   }
 
-  public void addPeers(Collection<RaftPeer> newPeers) {
-    for (RaftPeer peer : newPeers) {
-      queues.put(peer.getId(), new EventQueue<REQUEST, REPLY>());
+  public void addBlacklist(String src, String[] dsts) {
+    for (String dst : dsts) {
+      blacklist.add(src + BLACKLIST_SEPARATOR + dst);
     }
+  }
+
+  public void removeBlacklist(String src, String dst) {
+    blacklist.remove(src + BLACKLIST_SEPARATOR + dst);
+  }
+
+  public void removeBlacklist(String src, String[] dsts) {
+    for (String dst : dsts) {
+      removeBlacklist(src, dsts);
+    }
+  }
+
+  public boolean isBlacklisted(String src, String dst) {
+    return blacklist.contains(src + BLACKLIST_SEPARATOR + dst);
   }
 }

@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
@@ -25,6 +26,8 @@ import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.protocol.RaftPeer;
+import org.apache.hadoop.raft.server.ServerState;
+import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.simulation.SimulatedRpc;
@@ -110,6 +113,18 @@ public class MiniRaftCluster {
     RaftServer server = servers.get(id);
     assert server != null;
     server.start();
+  }
+
+  public void enforceServerLog(String id, List<Entry> newLogEntries) {
+    RaftServer server = servers.get(id);
+    assert server != null;
+    ServerState newServerState = ServerState.buildServerState(server.getState(),
+        newLogEntries);
+    server.kill();
+    RaftServer newServer = new RaftServer(id, newServerState, serverRpc,
+        client2serverRpc);
+    servers.put(id, newServer);
+    newServer.start();
   }
 
   /**
@@ -244,5 +259,10 @@ public class MiniRaftCluster {
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
 
     return servers.get(leaderId).isLeader();
+  }
+
+  @VisibleForTesting
+  SimulatedRpc<RaftServerRequest, RaftServerReply> getServerRpc() {
+    return serverRpc;
   }
 }

@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -61,6 +62,18 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         RaftRpc<RaftServerRequest, RaftServerReply> serverRpc,
         RaftRpc<RaftClientRequest, RaftClientReply> clientRpc) {
     this.state = new ServerState(id, raftConf);
+    this.serverHandler = new RequestHandler<>(id, "serverHandler", serverRpc,
+        serverHandlerImpl);
+    this.clientHandler = new RequestHandler<>(id, "clientHandler", clientRpc,
+        clientHandlerImpl);
+  }
+
+  @VisibleForTesting
+  @InterfaceAudience.Private
+  public RaftServer(String id, ServerState initialState,
+        RaftRpc<RaftServerRequest, RaftServerReply> serverRpc,
+        RaftRpc<RaftClientRequest, RaftClientReply> clientRpc) {
+    this.state = initialState;
     this.serverHandler = new RequestHandler<>(id, "serverHandler", serverRpc,
         serverHandlerImpl);
     this.clientHandler = new RequestHandler<>(id, "clientHandler", clientRpc,

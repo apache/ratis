@@ -36,7 +36,7 @@ public class RaftLog {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
   static final Entry DUMMY_ENTRY = new Entry(-1, 0, EMPTY_MESSAGE);
 
-  private final ServerState state;
+  private ServerState state;
   private final List<Entry> entries = new ArrayList<>();
   private final AtomicLong lastCommitted = new AtomicLong();
 
@@ -44,6 +44,15 @@ public class RaftLog {
     this.state = state;
     //add a dummy entry so that the first log index is 1.
     entries.add(DUMMY_ENTRY);
+  }
+
+  RaftLog(List<Entry> newEntries, long lastCommitted) {
+    entries.addAll(newEntries);
+    this.lastCommitted.set(lastCommitted);
+  }
+
+  void setServerState(ServerState state) {
+    this.state = state;
   }
 
   synchronized TermIndex getLastCommitted() {

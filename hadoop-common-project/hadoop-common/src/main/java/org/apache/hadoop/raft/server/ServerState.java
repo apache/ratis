@@ -17,9 +17,14 @@
  */
 package org.apache.hadoop.raft.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.raft.protocol.Message;
+import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+
+import java.util.List;
 
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
@@ -60,6 +65,15 @@ public class ServerState {
     loadConfFromLog();
   }
 
+  private ServerState(String id, RaftConfiguration conf, RaftLog newLog) {
+    this.selfId = id;
+    this.raftConf = conf;
+    currentTerm = 0;
+    votedFor = null;
+    leaderId = null;
+    log = newLog;
+  }
+
   private void loadConfFromLog() {
     // TODO apply raftlog and update its RaftConfiguration
   }
@@ -80,6 +94,17 @@ public class ServerState {
 
   public long getCurrentTerm() {
     return currentTerm;
+  }
+
+  @InterfaceAudience.Private
+  @VisibleForTesting
+  public static ServerState buildServerState(ServerState oldState,
+      List<Entry> logEntries) {
+    RaftLog newLog = new RaftLog(logEntries, 0);
+    ServerState newState = new ServerState(oldState.selfId, oldState.raftConf,
+        newLog);
+    newLog.setServerState(newState);
+    return newState;
   }
 
   void setCurrentTerm(long term) {
