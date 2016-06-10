@@ -40,21 +40,21 @@ public class RaftClient {
   public static final Logger LOG = LoggerFactory.getLogger(RaftClient.class);
 
   final String clientId;
-  final Map<String, RaftPeer> servers = new HashMap<>();
+  final Map<String, RaftPeer> peers = new HashMap<>();
   final RaftRpc<RaftClientRequest, RaftClientReply> client2serverRpc;
 
   private volatile String leaderId;
 
-  public RaftClient(String clientId, Collection<RaftPeer> servers,
+  public RaftClient(String clientId, Collection<RaftPeer> peers,
       RaftRpc<RaftClientRequest, RaftClientReply> client2serverRpc,
       String leaderId) {
     this.clientId = clientId;
     this.client2serverRpc = client2serverRpc;
-    for(RaftPeer p : servers) {
-      this.servers.put(p.getId(), p);
+    for(RaftPeer p : peers) {
+      this.peers.put(p.getId(), p);
     }
 
-    this.leaderId = leaderId != null? leaderId : servers.iterator().next().getId();
+    this.leaderId = leaderId != null? leaderId : peers.iterator().next().getId();
   }
 
   static String nextLeader(final String leaderId, final Iterator<String> i) {
@@ -67,6 +67,15 @@ public class RaftClient {
       previous = current;
     }
     return first;
+  }
+
+  private void refreshPeers(RaftPeer[] newPeers) {
+    if (newPeers != null && newPeers.length > 0) {
+      peers.clear();
+      for (RaftPeer p : newPeers) {
+        peers.put(p.getId(), p);
+      }
+    }
   }
 
   public RaftClientReply send(Message message) throws IOException {
@@ -103,7 +112,7 @@ public class RaftClient {
     } catch (NotLeaderException nle) {
       handleNotLeaderException(nle);
     } catch (IOException ioe) {
-      final String newLeader = nextLeader(leader, servers.keySet().iterator());
+      final String newLeader = nextLeader(leader, peers.keySet().iterator());
       LOG.debug("{}: Failed with {}, change Leader from {} to {}",
           clientId, ioe, leader, newLeader);
       this.leaderId = newLeader;
@@ -114,10 +123,11 @@ public class RaftClient {
   private void handleNotLeaderException(NotLeaderException e)
       throws InterruptedIOException {
     LOG.debug("{}: got NotLeaderException", clientId, e);
+    refreshPeers(e.getPeers());
     String newLeader = e.getSuggestedLeader() != null ?
         e.getSuggestedLeader().getId() : null;
     if (newLeader == null) { // usually this should not happen
-      newLeader = nextLeader(leaderId, servers.keySet().iterator());
+      newLeader = nextLeader(leaderId, peers.keySet().iterator());
     }
     LOG.debug("{}: use {} as new leader to replace {}", clientId, newLeader,
         leaderId);
@@ -126,7 +136,8 @@ public class RaftClient {
       Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
     } catch (InterruptedException ie) {
       Thread.currentThread().interrupt();
-      throw new InterruptedIOException("Interrupted while waiting for the next retry");
+      throw new InterruptedIOException(
+          "Interrupted while waiting for the next retry");
     }
   }
 }

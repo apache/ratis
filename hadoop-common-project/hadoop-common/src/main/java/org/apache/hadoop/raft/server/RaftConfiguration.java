@@ -99,6 +99,10 @@ public class RaftConfiguration {
     return oldConf != null && oldConf.contains(peerId);
   }
 
+  public boolean contains(String peerId) {
+    return conf.contains(peerId) && (oldConf == null || containsInOldConf(peerId));
+  }
+
   public RaftPeer getPeer(String id) {
     if (id == null) {
       return null;

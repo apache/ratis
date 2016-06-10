@@ -17,23 +17,37 @@
  */
 package org.apache.hadoop.raft.server.protocol;
 
-import org.apache.hadoop.raft.protocol.RaftRpcMessage;
+/**
+ * Reply to an {@link AppendEntriesRequest}.
+ */
+public class AppendEntriesReply extends RaftServerReply {
+  public enum AppendResult {
+    SUCCESS,
+    FAIL_TERM,  // fail because the requester's term is not large enough
+    FAIL_INDEX  // fail because of gap between the local log and the entries
+  }
 
-public class RaftServerReply extends RaftRpcMessage.Reply {
-  private final long term;
+  /** the expected next index for appending */
+  private final long nextIndex;
+  private final AppendResult result;
 
-  public RaftServerReply(String requestorId, String replierId,
-                         long term, boolean success) {
-    super(requestorId, replierId, success);
-    this.term = term;
+  public AppendEntriesReply(String requestorId, String replierId, long term,
+      long nextIndex, AppendResult result) {
+    super(requestorId, replierId, term, result == AppendResult.SUCCESS);
+    this.nextIndex = nextIndex;
+    this.result = result;
   }
 
   @Override
   public String toString() {
-    return super.toString() + ", term: " + term + ", success: " + isSuccess();
+    return super.toString() + ", nextIndex: " + nextIndex;
   }
 
-  public long getTerm() {
-    return term;
+  public long getNextIndex() {
+    return nextIndex;
+  }
+
+  public AppendResult getResult() {
+    return result;
   }
 }

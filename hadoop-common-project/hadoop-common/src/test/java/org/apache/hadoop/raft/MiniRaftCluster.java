@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
-import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
@@ -35,7 +34,6 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.*;
 
 public class MiniRaftCluster {
@@ -79,7 +77,9 @@ public class MiniRaftCluster {
   }
 
   public void start() {
-    servers.values().forEach(RaftServer::start);
+    for (RaftServer server : servers.values()) {
+      server.start(conf);
+    }
   }
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer) {
@@ -93,13 +93,14 @@ public class MiniRaftCluster {
     serverRpc.addPeers(newPeers);
     client2serverRpc.addPeers(newPeers);
 
-    // create and add new RaftServers. Still assign old conf to new peers.
+    // create and add new RaftServers
     for (RaftPeer p : newPeers) {
       RaftServer newServer = new RaftServer(p.getId(), conf, serverRpc,
           client2serverRpc);
       servers.put(p.getId(), newServer);
       if (startNewPeer) {
-        newServer.start();
+        // start new peers as initializing state
+        newServer.start(null);
       }
     }
 
@@ -109,10 +110,10 @@ public class MiniRaftCluster {
     return new PeerChanges(p, np, new RaftPeer[0]);
   }
 
-  public void startServer(String id) {
+  public void startServer(String id, RaftConfiguration conf) {
     RaftServer server = servers.get(id);
     assert server != null;
-    server.start();
+    server.start(conf);
   }
 
   public void enforceServerLog(String id, List<Entry> newLogEntries) {

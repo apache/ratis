@@ -20,10 +20,11 @@ package org.apache.hadoop.raft.server;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
+import org.apache.hadoop.raft.server.protocol.AppendEntriesReply;
+import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.raft.server.protocol.Entry;
 import org.apache.hadoop.raft.protocol.RaftPeer;
-import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
@@ -474,7 +475,9 @@ class LeaderState {
     }
 
     void decreaseNextIndex() {
-      nextIndex--;
+      if (nextIndex > 0) {
+        nextIndex--;
+      }
     }
 
     @Override
@@ -520,7 +523,7 @@ class LeaderState {
     }
 
     /** Send an appendEntries RPC; retry indefinitely. */
-    private RaftServerReply sendAppendEntriesWithRetries()
+    private AppendEntriesReply sendAppendEntriesWithRetries()
         throws InterruptedException, InterruptedIOException {
       Entry[] entries = null;
       int retry = 0;
@@ -534,8 +537,8 @@ class LeaderState {
             LOG.trace("follower {}, log {}", follower, raftLog);
           }
           AppendEntriesRequest request = server.createAppendEntriesRequest(
-              follower.peer.getId(), previous, entries);
-          final RaftServerReply r = server.sendAppendEntries(request);
+              follower.peer.getId(), previous, entries, !follower.attendVote);
+          final AppendEntriesReply r = server.sendAppendEntries(request);
           follower.lastRpcTime.set(Time.monotonicNow());
           if (r.isSuccess()) {
             if (!follower.attendVote) {
@@ -569,15 +572,17 @@ class LeaderState {
         InterruptedIOException {
       while (isSenderRunning()) {
         if (shouldSend()) {
-          final RaftServerReply r = sendAppendEntriesWithRetries();
+          final AppendEntriesReply r = sendAppendEntriesWithRetries();
           if (r == null) {
             break;
           }
 
           // check if should step down
-          checkResponseTerm(r.getTerm());
+          if (r.getResult() == AppendResult.FAIL_TERM) {
+            checkResponseTerm(r.getTerm());
+          }
 
-          if (!r.isSuccess()) {
+          if (r.getResult() == AppendResult.FAIL_INDEX) {
             // TODO implement the optimization in Section 5.3. (this + snapshot)
             // is useful for bootstrapping new peers. Also need to handle other
             // failure cases (e.g., a new peer has not been correctly formatted)

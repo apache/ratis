@@ -59,6 +59,10 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
     daemon.start();
   }
 
+  void shutdown() throws InterruptedException, IOException {
+    rpc.shutdown(serverId);
+  }
+
   void interruptAndJoinDaemon() throws InterruptedException {
     daemon.interrupt();
     daemon.join();

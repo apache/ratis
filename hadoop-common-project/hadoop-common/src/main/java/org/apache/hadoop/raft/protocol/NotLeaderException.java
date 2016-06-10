@@ -18,15 +18,25 @@
 package org.apache.hadoop.raft.protocol;
 
 public class NotLeaderException extends RaftException {
-  private final RaftPeer suggestedLeader;
+  public static final RaftPeer[] EMPTY_PEERS = new RaftPeer[0];
 
-  public NotLeaderException(String id, RaftPeer suggestedLeader) {
+  private final RaftPeer suggestedLeader;
+  /** the client may need to update its RaftPeer list */
+  private final RaftPeer[] peers;
+
+  public NotLeaderException(String id, RaftPeer suggestedLeader,
+      RaftPeer[] peers) {
     super("Server " + id + " is not the leader (" + suggestedLeader
         + "). Request must be sent to leader.");
     this.suggestedLeader = suggestedLeader;
+    this.peers = peers;
   }
 
   public RaftPeer getSuggestedLeader() {
-    return this.suggestedLeader;
+    return suggestedLeader;
+  }
+
+  public RaftPeer[] getPeers() {
+    return peers;
   }
 }

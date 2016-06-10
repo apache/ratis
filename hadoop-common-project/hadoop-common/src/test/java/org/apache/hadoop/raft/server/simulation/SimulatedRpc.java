@@ -27,7 +27,6 @@ import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.mina.util.ConcurrentHashSet;
 
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -131,6 +130,9 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   public REPLY sendRequest(REQUEST request) throws IOException {
     final String qid = request.getReplierId();
     final EventQueue<REQUEST, REPLY> q = queues.get(qid);
+    if (q == null) {
+      throw new IOException("The peer " + qid + " is not alive.");
+    }
     try {
       return q.request(request);
     } catch (InterruptedException e) {
@@ -139,9 +141,13 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   }
 
   @Override
-  public REQUEST takeRequest(String qid) throws InterruptedIOException {
+  public REQUEST takeRequest(String qid) throws IOException {
     try {
-      REQUEST request = queues.get(qid).takeRequest();
+      final EventQueue<REQUEST, REPLY> q = queues.get(qid);
+      if (q == null) {
+        throw new IOException("The RPC of " + qid + " has already shutdown.");
+      }
+      REQUEST request = q.takeRequest();
       final String rid = request.getRequestorId();
       if (!(request instanceof AppendEntriesRequest)
           || ((AppendEntriesRequest) request).getEntries() != null) {
@@ -156,7 +162,8 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   }
 
   @Override
-  public void sendReply(REQUEST request, REPLY reply, IOException ioe) {
+  public void sendReply(REQUEST request, REPLY reply, IOException ioe)
+      throws IOException {
     if (reply != null) {
       Preconditions.checkArgument(
           request.getRequestorId().equals(reply.getRequestorId()));
@@ -165,7 +172,15 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
 
     final String qid = request.getReplierId();
-    queues.get(qid).reply(request, reply, ioe);
+    EventQueue<REQUEST, REPLY> q = queues.get(qid);
+    if (q != null) {
+      q.reply(request, reply, ioe);
+    }
+  }
+
+  @Override
+  public void shutdown(String id) throws IOException {
+    queues.remove(id);
   }
 
   public void addPeers(Collection<RaftPeer> newPeers) {

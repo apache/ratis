@@ -23,13 +23,22 @@ public class AppendEntriesRequest extends RaftServerRequest {
   private final Entry[] entries;
   private final long leaderCommit;
 
+  /**
+   * Set to true if the receiver of the request should still be in INITIALIZING
+   * state. When the first time a peer receives a request with this field set
+   * to false, the peer knows it joins the vote and starts heartbeat monitor.
+   */
+  private final boolean initializing;
+
   public AppendEntriesRequest(String from, String to, long leaderTerm,
-      TermIndex previousLog, Entry[] entries, long leaderCommit) {
+      TermIndex previousLog, Entry[] entries, long leaderCommit,
+      boolean initializing) {
     super(from, to);
     this.leaderTerm = leaderTerm;
     this.previousLog = previousLog;
     this.entries = entries;
     this.leaderCommit = leaderCommit;
+    this.initializing = initializing;
   }
 
   public long getLeaderTerm() {
@@ -48,10 +57,15 @@ public class AppendEntriesRequest extends RaftServerRequest {
     return leaderCommit;
   }
 
+  public boolean isInitializing() {
+    return initializing;
+  }
+
   @Override
   public String toString() {
     return super.toString() + ", leaderTerm: " + getLeaderTerm()
         + ", previous: " + getPreviousLog()
-        + ", leaderCommit: " + getLeaderCommit();
+        + ", leaderCommit: " + getLeaderCommit()
+        + ", initializing: " + isInitializing();
   }
 }

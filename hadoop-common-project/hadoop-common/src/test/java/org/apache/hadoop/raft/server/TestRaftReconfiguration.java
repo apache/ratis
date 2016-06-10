@@ -217,7 +217,7 @@ public class TestRaftReconfiguration {
       final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster, true);
       // start the two new peers
       for (RaftPeer np : c1.newPeers) {
-        cluster.startServer(np.getId());
+        cluster.startServer(np.getId(), null);
       }
 
       // the client should get the NotLeaderException from the first leader, and
