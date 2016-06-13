@@ -38,7 +38,8 @@ public abstract class RaftConstants {
    * peer and the leader's latest committed index is less than this gap, we
    * treat the peer as caught-up.
    */
-  static final int STAGING_CATCHUP_GAP = 1000;
+  static final int STAGING_CATCHUP_GAP = 10; // TODO: a small number for test
+  static final long STAGING_NOPROGRESS_TIMEOUT = 2 * RPC_TIMEOUT_MAX_MS;
 
   static final Random RANDOM = new Random();
 

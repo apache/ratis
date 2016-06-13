@@ -411,8 +411,10 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       currentTerm = state.getCurrentTerm();
       nextIndex = state.getLog().getNextIndex();
       if (!recognized) {
-        return new AppendEntriesReply(leaderId, getId(), currentTerm,
-            nextIndex, AppendResult.FAIL_TERM);
+        final AppendEntriesReply reply = new AppendEntriesReply(leaderId,
+            getId(), currentTerm, nextIndex, AppendResult.NOT_LEADER);
+        LOG.debug("{}: do not recognize leader. Reply: {}", getId(), reply);
+        return reply;
       }
       changeToFollower(leaderTerm);
       state.setLeader(leaderId);
@@ -429,8 +431,10 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       state.getLog().updateLastCommitted(leaderCommit, currentTerm);
 
       if (previous != null && !state.getLog().contains(previous)) {
-        return new AppendEntriesReply(leaderId, getId(), currentTerm,
-            nextIndex, AppendResult.FAIL_INDEX);
+        final AppendEntriesReply reply =  new AppendEntriesReply(leaderId,
+            getId(), currentTerm, nextIndex, AppendResult.INCONSISTENCY);
+        LOG.debug("{}: inconsistency entries. Reply: {}", getId(), reply);
+        return reply;
       }
 
       RaftConfiguration newConf = state.getLog().apply(entries);
@@ -445,8 +449,10 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       // long disk writes
       heartbeatMonitor.updateLastRpcTime(Time.monotonicNow());
     }
-    return new AppendEntriesReply(leaderId, getId(), currentTerm, nextIndex,
-        AppendResult.SUCCESS);
+    final AppendEntriesReply reply = new AppendEntriesReply(leaderId, getId(),
+        currentTerm, nextIndex, AppendResult.SUCCESS);
+    LOG.debug("{}: succeeded to append entries. Reply: {}", getId(), reply);
+    return reply;
   }
 
   synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,

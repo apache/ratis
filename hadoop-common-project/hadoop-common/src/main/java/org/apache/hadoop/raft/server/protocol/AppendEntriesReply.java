@@ -23,8 +23,8 @@ package org.apache.hadoop.raft.server.protocol;
 public class AppendEntriesReply extends RaftServerReply {
   public enum AppendResult {
     SUCCESS,
-    FAIL_TERM,  // fail because the requester's term is not large enough
-    FAIL_INDEX  // fail because of gap between the local log and the entries
+    NOT_LEADER,  // fail because the requester's term is not large enough
+    INCONSISTENCY  // fail because of gap between the local log and the entries
   }
 
   /** the expected next index for appending */

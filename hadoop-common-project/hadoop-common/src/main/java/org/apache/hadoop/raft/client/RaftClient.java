@@ -100,6 +100,8 @@ public class RaftClient {
           lid, peersInNewConf);
       RaftClientReply reply = sendRequest(r, lid);
       if (reply != null) {
+        LOG.debug("{} gets reply of setConfiguration: {}", clientId,
+            reply.toString());
         return reply;
       }
     }

@@ -66,6 +66,11 @@ public abstract class RaftRpcMessage {
       return false;
     }
 
+    @Override
+    public String toString() {
+      return super.toString() + ", success: " + isSuccess();
+    }
+
     public boolean isSuccess() {
       return success;
     }

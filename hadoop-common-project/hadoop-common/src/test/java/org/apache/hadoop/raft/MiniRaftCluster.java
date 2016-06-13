@@ -35,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class MiniRaftCluster {
 
@@ -77,9 +78,7 @@ public class MiniRaftCluster {
   }
 
   public void start() {
-    for (RaftServer server : servers.values()) {
-      server.start(conf);
-    }
+    servers.values().forEach((server) -> server.start(conf));
   }
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer) {
@@ -183,12 +182,9 @@ public class MiniRaftCluster {
   }
 
   public RaftServer getLeader() {
-    final List<RaftServer> leaders = new ArrayList<>();
-    for (RaftServer s : servers.values()) {
-      if (s.isRunning() && s.isLeader()) {
-        leaders.add(s);
-      }
-    }
+    final List<RaftServer> leaders = servers.values().stream()
+        .filter(s -> s.isRunning() && s.isLeader())
+        .collect(Collectors.toList());
     if (leaders.isEmpty()) {
       return null;
     } else {
@@ -198,13 +194,9 @@ public class MiniRaftCluster {
   }
 
   List<RaftServer> getFollowers() {
-    final List<RaftServer> followers = new ArrayList<>();
-    for (RaftServer s : servers.values()) {
-      if (s.isRunning() && s.isFollower()) {
-        followers.add(s);
-      }
-    }
-    return followers;
+    return servers.values().stream()
+        .filter(s -> s.isRunning() && s.isFollower())
+        .collect(Collectors.toList());
   }
 
   public Collection<RaftServer> getServers() {

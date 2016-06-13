@@ -20,6 +20,7 @@ package org.apache.hadoop.raft.server;
 import org.apache.hadoop.raft.MiniRaftCluster;
 import org.apache.hadoop.raft.MiniRaftCluster.PeerChanges;
 import org.apache.hadoop.raft.RaftTestUtil;
+import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftPeer;
@@ -168,10 +169,89 @@ public class TestRaftReconfiguration {
     }
   }
 
+  @Test
+  public void testReconfTimeout() throws Exception {
+    LOG.info("Start testReconfTimeout");
+    // originally 3 peers
+    final MiniRaftCluster cluster =  new MiniRaftCluster(3);
+    cluster.start();
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+      final String leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient("client", leaderId);
+
+      PeerChanges c1 = cluster.addNewPeers(2, false);
+
+      LOG.info("Start changing the configuration: {}",
+          Arrays.asList(c1.allPeersInNewConf));
+      final AtomicBoolean success = new AtomicBoolean(false);
+
+      CountDownLatch latch = new CountDownLatch(1);
+      Thread clientThread = new Thread(() -> {
+        try {
+          latch.countDown();
+          RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
+          success.set(reply.isSuccess());
+        } catch (IOException ignored) {
+        }
+      });
+      clientThread.start();
+
+      Assert.assertFalse(cluster.getLeader().getRaftConf().inTransitionState());
+      latch.await();
+      Thread.sleep(RaftConstants.STAGING_NOPROGRESS_TIMEOUT + 200);
+
+      // the two new peers have not started yet, the bootstrapping must timeout
+      Assert.assertFalse(success.get());
+      LOG.info(cluster.printServers());
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testBootstrapReconf() throws Exception {
+    LOG.info("Start testBootstrapReconf");
+    // originally 3 peers
+    final MiniRaftCluster cluster =  new MiniRaftCluster(3);
+    cluster.start();
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+      final String leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient("client", leaderId);
+
+      // submit some msgs before reconf
+      for (int i = 0; i < RaftConstants.STAGING_CATCHUP_GAP * 2; i++) {
+        RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+        Assert.assertTrue(reply.isSuccess());
+      }
+
+      PeerChanges c1 = cluster.addNewPeers(2, true);
+      LOG.info("Start changing the configuration: {}",
+          Arrays.asList(c1.allPeersInNewConf));
+      final AtomicBoolean success = new AtomicBoolean(false);
+
+      Thread clientThread = new Thread(() -> {
+        try {
+          RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
+          success.set(reply.isSuccess());
+        } catch (IOException ignored) {
+        }
+      });
+      clientThread.start();
+
+      Thread.sleep(5000);
+      LOG.info(cluster.printServers());
+      Assert.assertTrue(success.get());
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
   /**
    * kill the leader before bootstrapping staging finishes.
    */
-  @Test
+  //@Test
   public void testKillLeaderDuringReconf() throws Exception {
     LOG.info("Start testKillLeaderDuringReconf");
     // originally 3 peers

@@ -44,12 +44,14 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static org.apache.hadoop.raft.protocol.Message.EMPTY_MESSAGE;
 import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.STAGINGPROGRESS;
 import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.STEPDOWN;
 import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.UPDATECOMMIT;
 import static org.apache.hadoop.raft.server.RaftConstants.RPC_TIMEOUT_MAX_MS;
+import static org.apache.hadoop.raft.server.RaftConstants.STAGING_NOPROGRESS_TIMEOUT;
 
 /**
  * States for leader only. It contains three different types of processors:
@@ -71,6 +73,10 @@ class LeaderState {
 
   enum StateUpdateEventType {
     STEPDOWN, UPDATECOMMIT, STAGINGPROGRESS
+  }
+
+  enum BootStrapProgress {
+    NOPROGRESS, PROGRESSING, CAUGHTUP
   }
 
   private static class StateUpdateEvent {
@@ -310,27 +316,38 @@ class LeaderState {
   }
 
   /**
-   * A simple implementation for catchup checking.
-   * TODO: later we can add more advanced checking algorithm
+   * So far we use a simple implementation for catchup checking:
+   * 1. If the latest rpc time of the remote peer is before 2 * max_timeout,
+   *    the peer made no progress for that long. We should fail the whole
+   *    setConfiguration request.
+   * 2. If the peer's matching index is just behind for a small gap, and the
+   *    peer was updated recently (within max_timeout), declare the peer as
+   *    caught-up.
+   * 3. Otherwise the peer is making progressing. Keep waiting.
    */
-  private boolean isCaughtup(FollowerInfo follower, long committed,
-      long expectedLastRpcTime) {
+  private BootStrapProgress checkProgress(FollowerInfo follower,
+      long committed) {
     Preconditions.checkArgument(!follower.attendVote);
-    return follower.matchIndex.get() + RaftConstants.STAGING_CATCHUP_GAP >
-        committed && follower.lastRpcTime.get() > expectedLastRpcTime;
+    final long progressTime = Time.monotonicNow() - RPC_TIMEOUT_MAX_MS;
+    final long timeoutTime = Time.monotonicNow() - STAGING_NOPROGRESS_TIMEOUT;
+    if (follower.lastRpcTime.get() < timeoutTime) {
+      LOG.debug("{} detects a follower {} timeout for bootstrapping",
+          server.getId(), follower);
+      return BootStrapProgress.NOPROGRESS;
+    } else if (follower.matchIndex.get() + RaftConstants.STAGING_CATCHUP_GAP >
+        committed && follower.lastRpcTime.get() > progressTime) {
+      return BootStrapProgress.CAUGHTUP;
+    } else {
+      return BootStrapProgress.PROGRESSING;
+    }
   }
 
-  private boolean allCaughtup(long committed) {
+  private Collection<BootStrapProgress> checkAllProgress(long committed) {
     Preconditions.checkState(inStagingState());
-    final long expectedLastRpcTime = Time.monotonicNow() - RPC_TIMEOUT_MAX_MS;
-    for (RpcSender sender : senders) {
-      if (!sender.follower.attendVote) { // follower in bootstrapping stage
-        if (!isCaughtup(sender.follower, committed, expectedLastRpcTime)) {
-          return false;
-        }
-      }
-    }
-    return true;
+    return senders.stream()
+        .filter(sender -> !sender.follower.attendVote)
+        .map(sender -> checkProgress(sender.follower, committed))
+        .collect(Collectors.toCollection(ArrayList::new));
   }
 
   private void checkNewPeers() {
@@ -339,7 +356,14 @@ class LeaderState {
       // remaining STAGINGPROGRESS event to handle.
       updateLastCommitted();
     } else {
-      if (allCaughtup(server.getState().getLog().getLastCommittedIndex())) {
+      final long committedIndex = server.getState().getLog()
+          .getLastCommittedIndex();
+      Collection<BootStrapProgress> reports = checkAllProgress(committedIndex);
+      if (reports.contains(BootStrapProgress.NOPROGRESS)) {
+        LOG.debug("{} fails the setConfiguration request", server.getId());
+        stagingState.fail();
+      } else if (!reports.contains(BootStrapProgress.PROGRESSING)) {
+        // all caught up!
         applyOldNewConf();
         for (RpcSender sender : senders) {
           sender.follower.startAttendVote();
@@ -426,20 +450,16 @@ class LeaderState {
 
   private List<List<FollowerInfo>> divideFollowers(RaftConfiguration conf) {
     List<List<FollowerInfo>> lists = new ArrayList<>(2);
-    List<FollowerInfo> listForNew = new ArrayList<>();
-    for (RpcSender sender : senders) {
-      if (conf.containsInConf(sender.follower.peer.getId())) {
-        listForNew.add(sender.follower);
-      }
-    }
+    List<FollowerInfo> listForNew = senders.stream()
+        .filter(sender -> conf.containsInConf(sender.follower.peer.getId()))
+        .map(sender -> sender.follower)
+        .collect(Collectors.toList());
     lists.add(listForNew);
     if (conf.inTransitionState()) {
-      List<FollowerInfo> listForOld = new ArrayList<>();
-      for (RpcSender sender : senders) {
-        if (conf.containsInOldConf(sender.follower.peer.getId())) {
-          listForOld.add(sender.follower);
-        }
-      }
+      List<FollowerInfo> listForOld = senders.stream()
+          .filter(sender -> conf.containsInOldConf(sender.follower.peer.getId()))
+          .map(sender -> sender.follower)
+          .collect(Collectors.toList());
       lists.add(listForOld);
     }
     return lists;
@@ -474,15 +494,17 @@ class LeaderState {
       nextIndex = i;
     }
 
-    void decreaseNextIndex() {
+    void decreaseNextIndex(long targetIndex) {
       if (nextIndex > 0) {
-        nextIndex--;
+        nextIndex = Math.min(nextIndex - 1, targetIndex);
       }
     }
 
     @Override
     public String toString() {
-      return peer.getId() + "(next=" + nextIndex + ", match=" + matchIndex + ")";
+      return peer.getId() + "(next=" + nextIndex + ", match=" + matchIndex
+          + ", attendVote=" + attendVote + ", lastRpcTime="
+          + lastRpcTime.get() + ")";
     }
 
     void startAttendVote() {
@@ -530,6 +552,8 @@ class LeaderState {
       while (isSenderRunning()) {
         try {
           if (entries == null || entries.length == 0) {
+            // TODO: handle the scenario that the gap is too large and we need
+            // to send snapshot or split the entries
             entries = raftLog.getEntries(follower.nextIndex);
           }
           final TermIndex previous = raftLog.get(follower.nextIndex - 1);
@@ -541,16 +565,14 @@ class LeaderState {
           final AppendEntriesReply r = server.sendAppendEntries(request);
           follower.lastRpcTime.set(Time.monotonicNow());
           if (r.isSuccess()) {
-            if (!follower.attendVote) {
-              // if there is progress, submit STAGING_PROGRESS_EVENT.
-              // even if already caught up, still submit an event to trigger the
-              // progress check
-              submitUpdateStateEvent(STAGING_PROGRESS_EVENT);
-            } else if (entries != null && entries.length > 0) {
+            if (entries != null && entries.length > 0) {
               final long mi = entries[entries.length - 1].getIndex();
               follower.updateMatchIndex(mi);
               follower.updateNextIndex(mi + 1);
-              submitUpdateStateEvent(UPDATE_COMMIT_EVENT);
+
+              StateUpdateEvent e = follower.attendVote ?
+                  UPDATE_COMMIT_EVENT : STAGING_PROGRESS_EVENT;
+              submitUpdateStateEvent(e);
             }
           }
           return r;
@@ -578,16 +600,15 @@ class LeaderState {
           }
 
           // check if should step down
-          if (r.getResult() == AppendResult.FAIL_TERM) {
+          if (r.getResult() == AppendResult.NOT_LEADER) {
             checkResponseTerm(r.getTerm());
           }
 
-          if (r.getResult() == AppendResult.FAIL_INDEX) {
-            // TODO implement the optimization in Section 5.3. (this + snapshot)
-            // is useful for bootstrapping new peers. Also need to handle other
-            // failure cases (e.g., a new peer has not been correctly formatted)
-            follower.decreaseNextIndex();
+          if (r.getResult() == AppendResult.INCONSISTENCY) {
+            follower.decreaseNextIndex(r.getNextIndex());
           }
+          // TODO need to handle other failure cases (e.g., a new peer
+          // has not been correctly formatted)
         }
         if (isSenderRunning()) {
           synchronized (this) {
@@ -618,7 +639,7 @@ class LeaderState {
     }
   }
 
-  static class ConfigurationStagingState {
+  private class ConfigurationStagingState {
     private final Map<String, RaftPeer> newPeers;
     private final SimpleConfiguration newConf;
 
@@ -643,6 +664,21 @@ class LeaderState {
 
     boolean contains(String peerId) {
       return newPeers.containsKey(peerId);
+    }
+
+    void fail() {
+      Iterator<RpcSender> iterator = senders.iterator();
+      while (iterator.hasNext()) {
+        RpcSender sender = iterator.next();
+        if (!sender.follower.attendVote) {
+          iterator.remove();
+          sender.stopSender();
+          sender.interrupt();
+        }
+      }
+      LeaderState.this.stagingState = null;
+      // send back failure response to client's request
+      pendingRequests.finishSetConfiguration(false);
     }
   }
 }
