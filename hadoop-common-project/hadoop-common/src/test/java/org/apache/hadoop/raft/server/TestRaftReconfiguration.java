@@ -243,15 +243,22 @@ public class TestRaftReconfiguration {
       Thread.sleep(5000);
       LOG.info(cluster.printServers());
       Assert.assertTrue(success.get());
+
+      final RaftLog leaderLog = cluster.getLeader().getState().getLog();
+      for (RaftPeer newPeer : c1.newPeers) {
+        Assert.assertArrayEquals(leaderLog.getEntries(0),
+            cluster.getRaftServer(newPeer.getId()).getState().getLog().getEntries(0));
+      }
     } finally {
       cluster.shutdown();
     }
   }
 
   /**
-   * kill the leader before bootstrapping staging finishes.
+   * kill the leader before reconfiguration finishes. Make sure the client keeps
+   * retrying.
    */
-  //@Test
+  @Test
   public void testKillLeaderDuringReconf() throws Exception {
     LOG.info("Start testKillLeaderDuringReconf");
     // originally 3 peers
@@ -268,13 +275,14 @@ public class TestRaftReconfiguration {
       LOG.info("Start changing the configuration: {}",
           Arrays.asList(c2.allPeersInNewConf));
       final AtomicBoolean success = new AtomicBoolean(false);
-
-      CountDownLatch latch = new CountDownLatch(1);
+      final AtomicBoolean clientRunning = new AtomicBoolean(true);
       Thread clientThread = new Thread(() -> {
         try {
-          latch.countDown();
-          RaftClientReply reply = client.setConfiguration(c2.allPeersInNewConf);
-          success.set(reply.isSuccess());
+          boolean r = false;
+          while (clientRunning.get() && !r) {
+            r = client.setConfiguration(c2.allPeersInNewConf).isSuccess();
+          }
+          success.set(r);
         } catch (IOException ignored) {
         }
       });
@@ -291,8 +299,6 @@ public class TestRaftReconfiguration {
       Assert.assertTrue("committedIndex is " + committedIndex,
           committedIndex <= 1);
 
-      latch.await();
-      Thread.sleep(500);
       // kill the current leader
       final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster, true);
       // start the two new peers
@@ -300,10 +306,12 @@ public class TestRaftReconfiguration {
         cluster.startServer(np.getId(), null);
       }
 
+      Thread.sleep(3000);
       // the client should get the NotLeaderException from the first leader, and
       // will retry the same setConfiguration request
       waitAndCheckNewConf(cluster, c2.allPeersInNewConf, 2,
           Collections.singletonList(oldLeaderId));
+      clientRunning.set(false);
       Assert.assertTrue(success.get());
     } finally {
       cluster.shutdown();

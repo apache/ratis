@@ -256,8 +256,11 @@ public class MiniRaftCluster {
     return servers.get(leaderId).isLeader();
   }
 
-  @VisibleForTesting
   SimulatedRpc<RaftServerRequest, RaftServerReply> getServerRpc() {
     return serverRpc;
+  }
+
+  public RaftServer getRaftServer(String id) {
+    return servers.get(id);
   }
 }

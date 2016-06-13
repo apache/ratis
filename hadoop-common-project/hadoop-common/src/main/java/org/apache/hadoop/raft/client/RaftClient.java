@@ -118,6 +118,13 @@ public class RaftClient {
       LOG.debug("{}: Failed with {}, change Leader from {} to {}",
           clientId, ioe, leader, newLeader);
       this.leaderId = newLeader;
+      try {
+        Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
+      } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
+        throw new InterruptedIOException(
+            "Interrupted while waiting for the next retry");
+      }
     }
     return null;
   }

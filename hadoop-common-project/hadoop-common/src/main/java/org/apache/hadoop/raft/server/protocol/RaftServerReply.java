@@ -30,7 +30,7 @@ public class RaftServerReply extends RaftRpcMessage.Reply {
 
   @Override
   public String toString() {
-    return super.toString() + ", term: " + term + ", success: " + isSuccess();
+    return super.toString() + ", term: " + term;
   }
 
   public long getTerm() {

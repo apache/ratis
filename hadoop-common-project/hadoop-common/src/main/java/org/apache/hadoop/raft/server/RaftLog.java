@@ -90,7 +90,7 @@ public class RaftLog {
       return lastCommitted.get();
     }
     synchronized (lastCommitted) {
-      lastCommitted.wait();
+      lastCommitted.wait(RaftConstants.RPC_TIMEOUT_MIN_MS);
     }
     return lastCommitted.get();
   }

@@ -52,7 +52,7 @@ class PendingRequestsHandler {
   private static class ConfigurationRequests {
     private final Map<SetConfigurationRequest, Boolean> resultMap =
         new ConcurrentHashMap<>();
-    private SetConfigurationRequest pendingRequest;
+    private volatile SetConfigurationRequest pendingRequest;
 
     synchronized void setPendingRequest(SetConfigurationRequest request) {
       Preconditions.checkState(pendingRequest == null);

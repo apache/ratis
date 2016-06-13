@@ -40,7 +40,8 @@ public class AppendEntriesReply extends RaftServerReply {
 
   @Override
   public String toString() {
-    return super.toString() + ", nextIndex: " + nextIndex;
+    return super.toString() + ", result: " + result
+        + ", nextIndex: " + nextIndex;
   }
 
   public long getNextIndex() {
