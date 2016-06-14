@@ -30,6 +30,7 @@ import org.apache.mina.util.ConcurrentHashSet;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,7 +54,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   static class EventQueue<REQUEST, REPLY> {
     private final BlockingQueue<REQUEST> requestQueue;
     private final Map<REQUEST, ReplyOrException<REPLY>> replyMap;
-    private volatile boolean enabled = true;
+    private volatile boolean openForMessage = true;
     private volatile int takeRequestDelayMs = 0;
 
     EventQueue() {
@@ -62,9 +63,6 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
 
     REPLY request(REQUEST request) throws InterruptedException, IOException {
-      while (!enabled) {
-        Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
-      }
       requestQueue.put(request);
       synchronized (this) {
         final long startTime = Time.monotonicNow();
@@ -86,33 +84,15 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
 
     REQUEST takeRequest() throws InterruptedException {
-      if (takeRequestDelayMs > 0) {
-        Thread.sleep(takeRequestDelayMs);
-      }
       return requestQueue.take();
     }
 
-    void reply(REQUEST request, REPLY reply, IOException ioe) {
+    void reply(REQUEST request, REPLY reply, IOException ioe)
+        throws IOException {
       replyMap.put(request, new ReplyOrException<>(reply, ioe));
       synchronized (this) {
         this.notifyAll();
       }
-    }
-
-    void setEnabled(boolean enabled) {
-      this.enabled = enabled;
-    }
-
-    boolean getEnabled() {
-      return enabled;
-    }
-
-    int getTakeRequestDelayMs() {
-      return takeRequestDelayMs;
-    }
-
-    void setTakeRequestDelayMs(int takeRequestDelayMs) {
-      this.takeRequestDelayMs = takeRequestDelayMs;
     }
   }
 
@@ -137,6 +117,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
       throw new IOException("The peer " + qid + " is not alive.");
     }
     try {
+      blockForReceiverQueue(qid);
       return q.request(request);
     } catch (InterruptedException e) {
       throw RaftUtils.toInterruptedIOException("", e);
@@ -150,14 +131,9 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
       if (q == null) {
         throw new IOException("The RPC of " + qid + " has already shutdown.");
       }
+      delayBeforeTake(qid);
       REQUEST request = q.takeRequest();
-      final String rid = request.getRequestorId();
-      if (!(request instanceof AppendEntriesRequest)
-          || ((AppendEntriesRequest) request).getEntries() != null) {
-        while (isBlacklisted(rid, qid)) {
-          Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-        }
-      }
+      blockForBlacklist(request, qid);
       return request;
     } catch (InterruptedException e) {
       throw RaftUtils.toInterruptedIOException("", e);
@@ -173,7 +149,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
       Preconditions.checkArgument(
           request.getReplierId().equals(reply.getReplierId()));
     }
-
+    simulateLatency();
     final String qid = request.getReplierId();
     EventQueue<REQUEST, REPLY> q = queues.get(qid);
     if (q != null) {
@@ -192,21 +168,72 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
   }
 
-  // Utility methods for testing
-  public boolean isQueueEnabled(String qid) {
-    return queues.get(qid).getEnabled();
+  protected void blockForReceiverQueue(String qid)
+      throws IOException {
+    EventQueue queue = queues.get(qid);
+    try {
+      while (!queue.openForMessage) {
+        Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
+      }
+    } catch (InterruptedException ie) {
+      throw new IOException(ie);
+    }
   }
 
-  public void setQueueEnabled(String qid, boolean enabled) {
-    queues.get(qid).setEnabled(enabled);
+  protected void blockForBlacklist(REQUEST request, String dstId)
+      throws IOException {
+    final String rid = request.getRequestorId();
+    if (!(request instanceof AppendEntriesRequest)
+        || ((AppendEntriesRequest) request).getEntries() != null) {
+      try {
+        while (isBlacklisted(rid, dstId)) {
+          Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+        }
+      } catch (InterruptedException ie) {
+        throw new IOException(ie);
+      }
+    }
+  }
+
+  protected void simulateLatency() throws IOException {
+    int waitExpetation = RaftConstants.ELECTION_TIMEOUT_MIN_MS / 10;
+    int waitHalfRange = waitExpetation / 3;
+    Random rand = new Random();
+    int randomSleepMs = rand.nextInt(2 * waitHalfRange)
+        + waitExpetation - waitHalfRange;
+    try {
+      Thread.sleep(randomSleepMs);
+    } catch (InterruptedException ie) {
+      throw new IOException(ie);
+    }
+  }
+
+  protected void delayBeforeTake(String qid) throws IOException {
+    EventQueue queue = queues.get(qid);
+    if (queue.takeRequestDelayMs > 0) {
+      try {
+        Thread.sleep(queue.takeRequestDelayMs);
+      } catch (InterruptedException ie) {
+        throw new IOException(ie);
+      }
+    }
+  }
+
+  // Utility methods for testing
+  public boolean isOpenForMessage(String qid) {
+    return queues.get(qid).openForMessage;
+  }
+
+  public void setIsOpenForMessage(String qid, boolean enabled) {
+    queues.get(qid).openForMessage = enabled;
   }
 
   public int getTakeRequestDelayMs(String qid) {
-    return queues.get(qid).getTakeRequestDelayMs();
+    return queues.get(qid).takeRequestDelayMs;
   }
 
   public void setTakeRequestDelayMs(String qid, int delayMs) {
-    queues.get(qid).setTakeRequestDelayMs(delayMs);
+    queues.get(qid).takeRequestDelayMs = delayMs;
   }
 
   public void addBlacklist(String src, String[] dsts) {
@@ -221,7 +248,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
 
   public void removeBlacklist(String src, String[] dsts) {
     for (String dst : dsts) {
-      removeBlacklist(src, dsts);
+      removeBlacklist(src, dst);
     }
   }
 

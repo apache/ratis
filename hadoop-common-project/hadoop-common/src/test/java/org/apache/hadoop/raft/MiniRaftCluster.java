@@ -17,7 +17,6 @@
  */
 package org.apache.hadoop.raft;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
@@ -237,7 +236,7 @@ public class MiniRaftCluster {
     }
     // Disable the RPC queue for the target leader server so that it can request
     // a vote.
-    serverRpc.setQueueEnabled(leaderId, false);
+    serverRpc.setIsOpenForMessage(leaderId, false);
     LOG.debug("Closed queue for target leader");
 
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
@@ -249,7 +248,7 @@ public class MiniRaftCluster {
         serverRpc.setTakeRequestDelayMs(e.getKey(), 0);
       }
     }
-    serverRpc.setQueueEnabled(leaderId, true);
+    serverRpc.setIsOpenForMessage(leaderId, true);
     // Wait for a quiescence.
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
 

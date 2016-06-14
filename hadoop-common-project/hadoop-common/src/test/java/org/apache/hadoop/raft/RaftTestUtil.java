@@ -25,6 +25,9 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.hadoop.test.MoreAsserts.assertEquals;
+import static org.junit.Assert.assertTrue;
+
 public class RaftTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
 
@@ -64,6 +67,22 @@ public class RaftTestUtil {
       cluster.killServer(leader.getId());
     }
     return leader != null ? leader.getId() : null;
+  }
+
+  static void assertLogEntriesContains(Entry[] entries,
+      SimpleMessage... expectedMessages) {
+    int idxEntries = 0;
+    int idxExpected = 0;
+    while (idxEntries < entries.length
+        && idxExpected < expectedMessages.length) {
+      if (expectedMessages[idxExpected].equals(
+          entries[idxEntries].getMessage())) {
+        ++idxExpected;
+      }
+      ++idxEntries;
+    }
+    assertTrue("Total number of matched records: " + idxExpected,
+        expectedMessages.length == idxExpected);
   }
 
   static void assertLogEntries(Entry[] entries, long startIndex,
