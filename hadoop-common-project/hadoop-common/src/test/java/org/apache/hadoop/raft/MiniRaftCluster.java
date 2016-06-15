@@ -25,7 +25,7 @@ import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.ServerState;
-import org.apache.hadoop.raft.server.protocol.Entry;
+import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.simulation.SimulatedRpc;
@@ -114,7 +114,7 @@ public class MiniRaftCluster {
     server.start(conf);
   }
 
-  public void enforceServerLog(String id, List<Entry> newLogEntries,
+  public void enforceServerLog(String id, List<RaftLogEntry> newLogEntries,
       RaftConfiguration conf) {
     RaftServer server = servers.get(id);
     assert server != null;

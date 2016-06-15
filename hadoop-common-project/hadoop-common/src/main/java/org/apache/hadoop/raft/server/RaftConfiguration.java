@@ -30,7 +30,6 @@ public class RaftConfiguration {
   public enum State {
     STABLE,            // stable, no configuration change
     TRANSITIONAL,      // in the middle of a configuration change
-    STAGING            // in the process of bootstrapping new peers
   }
 
   /**

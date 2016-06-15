@@ -31,5 +31,5 @@ public interface RaftServerProtocol {
 
   AppendEntriesReply appendEntries(String leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
-      Entry... entries) throws IOException;
+      RaftLogEntry... entries) throws IOException;
 }

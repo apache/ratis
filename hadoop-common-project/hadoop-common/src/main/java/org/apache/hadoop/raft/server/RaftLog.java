@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
-import org.apache.hadoop.raft.server.protocol.Entry;
+import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.slf4j.Logger;
@@ -33,14 +33,14 @@ public class RaftLog {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
 
   private final String selfId;
-  private final List<Entry> entries = new ArrayList<>();
+  private final List<RaftLogEntry> entries = new ArrayList<>();
   private final AtomicLong lastCommitted = new AtomicLong();
 
   RaftLog(String selfId) {
     this.selfId = selfId;
   }
 
-  RaftLog(String selfId, List<Entry> newEntries, long lastCommitted) {
+  RaftLog(String selfId, List<RaftLogEntry> newEntries, long lastCommitted) {
     this.selfId = selfId;
     entries.addAll(newEntries);
     this.lastCommitted.set(lastCommitted);
@@ -84,15 +84,15 @@ public class RaftLog {
     return (int)index;
   }
 
-  synchronized Entry get(long index) {
+  synchronized RaftLogEntry get(long index) {
     final int i = findIndex(index);
     return i >= 0 && i < entries.size()? entries.get(i): null;
   }
 
-  public synchronized Entry[] getEntries(long startIndex) {
+  public synchronized RaftLogEntry[] getEntries(long startIndex) {
     final int i = findIndex(startIndex);
     final int size = entries.size();
-    return i < size? entries.subList(i, size).toArray(Entry.EMPTY_ARRAY): null;
+    return i < size? entries.subList(i, size).toArray(RaftLogEntry.EMPTY_ARRAY): null;
   }
 
   private RaftConfiguration truncate(long index) {
@@ -100,7 +100,7 @@ public class RaftLog {
     final int truncateIndex = findIndex(index);
     RaftConfiguration oldConf = null;
     for(int i = entries.size() - 1; i >= truncateIndex; i--) {
-      Entry removed = entries.remove(i);
+      RaftLogEntry removed = entries.remove(i);
       if (removed.isConfigurationEntry()) {
         oldConf = ((ConfigurationEntry) removed).getPrev();
       }
@@ -113,19 +113,19 @@ public class RaftLog {
     return ti != null && ti.equals(get(ti.getIndex()));
   }
 
-  synchronized Entry getLastEntry() {
+  synchronized RaftLogEntry getLastEntry() {
     final int size = entries.size();
     return size == 0? null: entries.get(size - 1);
   }
 
   long getNextIndex() {
-    final Entry last = getLastEntry();
+    final RaftLogEntry last = getLastEntry();
     return last == null ? 0 : last.getIndex() + 1;
   }
 
   synchronized long apply(long term, Message message) {
     final long nextIndex = getNextIndex();
-    final Entry e = new Entry(term, nextIndex, message);
+    final RaftLogEntry e = new RaftLogEntry(term, nextIndex, message);
     Preconditions.checkState(entries.add(e));
     return nextIndex;
   }
@@ -147,12 +147,12 @@ public class RaftLog {
    * do not guarantee the changes are persisted. Need to call {@link #logSync()}
    * to persist the changes.
    */
-  synchronized RaftConfiguration apply(Entry... entries) {
+  synchronized RaftConfiguration apply(RaftLogEntry... entries) {
     if (entries == null || entries.length == 0) {
       return null;
     }
     RaftConfiguration conf = truncate(entries[0].getIndex());
-    for (Entry entry : entries) {
+    for (RaftLogEntry entry : entries) {
       Preconditions.checkState(this.entries.add(entry));
       if (entry.isConfigurationEntry()) {
         conf = ((ConfigurationEntry) entry).getCurrent();

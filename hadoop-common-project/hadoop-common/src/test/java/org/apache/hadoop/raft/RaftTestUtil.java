@@ -20,10 +20,12 @@ package org.apache.hadoop.raft;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.raft.server.protocol.Entry;
+import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.nio.charset.Charset;
 
 import static org.apache.hadoop.test.MoreAsserts.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -69,7 +71,7 @@ public class RaftTestUtil {
     return leader != null ? leader.getId() : null;
   }
 
-  static void assertLogEntriesContains(Entry[] entries,
+  static void assertLogEntriesContains(RaftLogEntry[] entries,
       SimpleMessage... expectedMessages) {
     int idxEntries = 0;
     int idxExpected = 0;
@@ -85,11 +87,11 @@ public class RaftTestUtil {
         expectedMessages.length == idxExpected);
   }
 
-  static void assertLogEntries(Entry[] entries, long startIndex,
+  static void assertLogEntries(RaftLogEntry[] entries, long startIndex,
       long expertedTerm, SimpleMessage... expectedMessages) {
     Assert.assertEquals(expectedMessages.length, entries.length);
     for(int i = 0; i < entries.length; i++) {
-      final Entry e = entries[i];
+      final RaftLogEntry e = entries[i];
       Assert.assertEquals(expertedTerm, e.getTerm());
       Assert.assertEquals(startIndex + i, e.getIndex());
       Assert.assertEquals(expectedMessages[i], e.getMessage());
@@ -118,6 +120,16 @@ public class RaftTestUtil {
         final SimpleMessage that = (SimpleMessage)obj;
         return this.messageId.equals(that.messageId);
       }
+    }
+
+    @Override
+    public int hashCode() {
+      return messageId.hashCode();
+    }
+
+    @Override
+    public byte[] getInfo() {
+      return messageId.getBytes(Charset.forName("UTF-8"));
     }
   }
 }

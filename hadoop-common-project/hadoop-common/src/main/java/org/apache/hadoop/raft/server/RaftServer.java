@@ -396,7 +396,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   @Override
   public AppendEntriesReply appendEntries(String leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
-      Entry... entries) throws IOException {
+      RaftLogEntry... entries) throws IOException {
     LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {})",
         getId(), leaderId, leaderTerm, previous, leaderCommit,
         (entries == null || entries.length == 0) ? "HEARTBEAT"
@@ -404,7 +404,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     assertRunningState(RunningState.RUNNING, RunningState.INITIALIZING);
 
     try {
-      Entry.validateEntries(leaderTerm, previous, entries);
+      RaftLogEntry.validateEntries(leaderTerm, previous, entries);
     } catch (IllegalArgumentException e) {
       throw new IOException(e);
     }
@@ -461,7 +461,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,
-      TermIndex previous, Entry[] entries, boolean initializing) {
+      TermIndex previous, RaftLogEntry[] entries, boolean initializing) {
     return new AppendEntriesRequest(getId(), targetId,
         state.getCurrentTerm(), previous, entries,
         state.getLog().getLastCommitted().getIndex(), initializing);

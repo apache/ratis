@@ -21,7 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.raft.protocol.Message;
-import org.apache.hadoop.raft.server.protocol.Entry;
+import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 
 import java.util.List;
@@ -99,7 +99,7 @@ public class ServerState {
   @InterfaceAudience.Private
   @VisibleForTesting
   public static ServerState buildServerState(ServerState oldState,
-      List<Entry> logEntries) {
+      List<RaftLogEntry> logEntries) {
     RaftLog newLog = new RaftLog(oldState.getSelfId(), logEntries, 0);
     return new ServerState(oldState.selfId, oldState.raftConf,
         newLog);

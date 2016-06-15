@@ -17,6 +17,9 @@
  */
 package org.apache.hadoop.raft.protocol;
 
+import org.apache.hadoop.raft.proto.RaftProtos.ConfigurationMessageProto;
+import org.apache.hadoop.raft.proto.RaftProtos.RaftPeerProto;
+
 public class ConfigurationMessage implements Message {
   private final RaftPeer[] members;
 
@@ -26,5 +29,14 @@ public class ConfigurationMessage implements Message {
 
   public RaftPeer[] getMembers() {
     return members;
+  }
+
+  @Override
+  public byte[] getInfo() {
+    ConfigurationMessageProto.Builder b = ConfigurationMessageProto.newBuilder();
+    for (RaftPeer p : members) {
+      b.addPeers(RaftPeerProto.newBuilder().setId(p.getId()).build());
+    }
+    return b.build().toByteArray();
   }
 }

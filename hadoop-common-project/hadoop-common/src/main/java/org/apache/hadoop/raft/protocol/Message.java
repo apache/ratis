@@ -27,9 +27,17 @@ public interface Message {
     public String toString() {
       return "";
     }
+
+    @Override
+    public byte[] getInfo() {
+      return new byte[0];
+    }
   }
 
   EmptyMessage EMPTY_MESSAGE = new EmptyMessage();
 
-
+  /**
+   * @return the content of the message
+   */
+  byte[] getInfo();
 }

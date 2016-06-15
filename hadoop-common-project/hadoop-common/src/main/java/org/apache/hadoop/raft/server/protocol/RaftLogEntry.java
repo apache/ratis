@@ -20,11 +20,11 @@ package org.apache.hadoop.raft.server.protocol;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.protocol.Message;
 
-public class Entry extends TermIndex {
-  public static final Entry[] EMPTY_ARRAY = {};
+public class RaftLogEntry extends TermIndex {
+  public static final RaftLogEntry[] EMPTY_ARRAY = {};
 
   public static void validateEntries(long expectedTerm, TermIndex previous,
-      Entry... entries) {
+      RaftLogEntry... entries) {
     if (entries != null && entries.length > 0) {
       final long index0 = entries[0].getIndex();
 
@@ -54,7 +54,7 @@ public class Entry extends TermIndex {
 
   private final Message message;
 
-  public Entry(long term, long logIndex, Message message) {
+  public RaftLogEntry(long term, long logIndex, Message message) {
     super(term, logIndex);
     this.message = message;
   }

@@ -19,7 +19,7 @@ package org.apache.hadoop.raft.server.protocol;
 
 import org.apache.hadoop.raft.server.RaftConfiguration;
 
-public class ConfigurationEntry extends Entry {
+public class ConfigurationEntry extends RaftLogEntry {
   /**
    * the raft configuration before this entry. we need to use this to set back
    * the configuration in case that the new conf entry is truncated later.

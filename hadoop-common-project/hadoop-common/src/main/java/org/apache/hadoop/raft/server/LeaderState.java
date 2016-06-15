@@ -23,7 +23,7 @@ import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
-import org.apache.hadoop.raft.server.protocol.Entry;
+import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.util.Daemon;
@@ -549,7 +549,7 @@ class LeaderState {
     /** Send an appendEntries RPC; retry indefinitely. */
     private AppendEntriesReply sendAppendEntriesWithRetries()
         throws InterruptedException, InterruptedIOException {
-      Entry[] entries = null;
+      RaftLogEntry[] entries = null;
       int retry = 0;
       while (isSenderRunning()) {
         try {
