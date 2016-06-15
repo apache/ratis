@@ -391,6 +391,7 @@ class LeaderState {
       raftLog.updateLastCommitted(majority, currentTerm);
     }
     checkAndUpdateConfiguration(oldLastCommitted);
+    pendingRequests.notifySendingDaemon();
   }
 
   private void checkAndUpdateConfiguration(long oldLastCommitted) {
@@ -582,6 +583,7 @@ class LeaderState {
         } catch (IOException ioe) {
           LOG.debug(this + ": failed to send appendEntries; retry " + retry++,
               ioe);
+          // TODO: correctly handle IOException thrown from remote peers
         }
         if (isSenderRunning()) {
           Thread.sleep(RaftConstants.RPC_SLEEP_TIME_MS);

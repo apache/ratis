@@ -128,6 +128,10 @@ class PendingRequestsHandler {
     }
   }
 
+  synchronized void notifySendingDaemon() {
+    this.notifyAll();
+  }
+
   class PendingRequestDaemon extends Daemon {
     @Override
     public String toString() {
@@ -139,8 +143,7 @@ class PendingRequestsHandler {
       long lastCommitted = 0;
       while (running) {
         try {
-          lastCommitted = server.getState().getLog()
-              .waitLastCommitted(lastCommitted);
+          lastCommitted = server.getState().getLog().getLastCommittedIndex();
           for (PendingRequestElement pre;
                (pre = queue.peek()) != null && pre.index <= lastCommitted; ) {
             pre = queue.poll();
@@ -152,6 +155,9 @@ class PendingRequestsHandler {
             Map.Entry<SetConfigurationRequest, Boolean> entry = iter.next();
             sendReply(entry.getKey(), entry.getValue());
             iter.remove();
+          }
+          synchronized (PendingRequestsHandler.this) {
+            PendingRequestsHandler.this.wait(RaftConstants.RPC_TIMEOUT_MIN_MS);
           }
         } catch (InterruptedException e) {
           RaftServer.LOG.info(this + " is interrupted by " + e);

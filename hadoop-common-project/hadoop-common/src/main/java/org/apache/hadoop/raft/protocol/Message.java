@@ -30,4 +30,6 @@ public interface Message {
   }
 
   EmptyMessage EMPTY_MESSAGE = new EmptyMessage();
+
+
 }

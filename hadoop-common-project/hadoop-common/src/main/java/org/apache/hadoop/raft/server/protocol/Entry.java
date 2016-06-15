@@ -23,9 +23,21 @@ import org.apache.hadoop.raft.protocol.Message;
 public class Entry extends TermIndex {
   public static final Entry[] EMPTY_ARRAY = {};
 
-  public static void assertEntries(long expectedTerm, Entry... entries) {
+  public static void validateEntries(long expectedTerm, TermIndex previous,
+      Entry... entries) {
     if (entries != null && entries.length > 0) {
       final long index0 = entries[0].getIndex();
+
+      if (previous == null) {
+        Preconditions.checkArgument(index0 == 0,
+            "Unexpected Index: previous is null but entries[%s].getIndex()=%s",
+            0, index0);
+      } else {
+        Preconditions.checkArgument(previous.getIndex() == index0 - 1,
+            "Unexpected Index: previous is %s but entries[%s].getIndex()=%s",
+            previous, 0, index0);
+      }
+
       for (int i = 0; i < entries.length; i++) {
         final long t = entries[i].getTerm();
         Preconditions.checkArgument(expectedTerm >= t,

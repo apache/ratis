@@ -402,7 +402,12 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         (entries == null || entries.length == 0) ? "HEARTBEAT"
             : entries.length == 1? entries[0]: Arrays.asList(entries));
     assertRunningState(RunningState.RUNNING, RunningState.INITIALIZING);
-    Entry.assertEntries(leaderTerm, entries);
+
+    try {
+      Entry.validateEntries(leaderTerm, previous, entries);
+    } catch (IllegalArgumentException e) {
+      throw new IOException(e);
+    }
 
     final long currentTerm;
     final long nextIndex;

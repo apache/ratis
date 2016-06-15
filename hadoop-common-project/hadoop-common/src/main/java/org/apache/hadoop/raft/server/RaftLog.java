@@ -29,11 +29,8 @@ import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.hadoop.raft.protocol.Message.EMPTY_MESSAGE;
-
 public class RaftLog {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
-  static final Entry DUMMY_ENTRY = new Entry(-1, 0, EMPTY_MESSAGE);
 
   private final String selfId;
   private final List<Entry> entries = new ArrayList<>();
@@ -41,8 +38,6 @@ public class RaftLog {
 
   RaftLog(String selfId) {
     this.selfId = selfId;
-    //add a dummy entry so that the first log index is 1.
-    entries.add(DUMMY_ENTRY);
   }
 
   RaftLog(String selfId, List<Entry> newEntries, long lastCommitted) {
@@ -85,18 +80,7 @@ public class RaftLog {
     }
   }
 
-  long waitLastCommitted(long previous) throws InterruptedException {
-    if (lastCommitted.get() > previous) {
-      return lastCommitted.get();
-    }
-    synchronized (lastCommitted) {
-      lastCommitted.wait(RaftConstants.RPC_TIMEOUT_MIN_MS);
-    }
-    return lastCommitted.get();
-  }
-
   private int findIndex(long index) {
-    Preconditions.checkArgument(index >= 0);
     return (int)index;
   }
 
@@ -112,6 +96,7 @@ public class RaftLog {
   }
 
   private RaftConfiguration truncate(long index) {
+    Preconditions.checkArgument(index >= 0);
     final int truncateIndex = findIndex(index);
     RaftConfiguration oldConf = null;
     for(int i = entries.size() - 1; i >= truncateIndex; i--) {
@@ -134,7 +119,8 @@ public class RaftLog {
   }
 
   long getNextIndex() {
-    return getLastEntry().getIndex() + 1;
+    final Entry last = getLastEntry();
+    return last == null ? 0 : last.getIndex() + 1;
   }
 
   synchronized long apply(long term, Message message) {

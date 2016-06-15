@@ -96,7 +96,7 @@ public class TestRaft {
 
     for(RaftServer s : cluster.getServers()) {
       if (s.isRunning()) {
-        assertLogEntries(s.getState().getLog().getEntries(2), 2, term, messages);
+        assertLogEntries(s.getState().getLog().getEntries(1), 1, term, messages);
       }
     }
   }
