@@ -46,8 +46,7 @@ message LogEntryProto {
   }
 
   message ConfigurationEntryProto {
-    optional RaftConfigurationProto current = 1; // the current raft configuration
-    optional RaftConfigurationProto prev = 2; // the previous raft configuration
+    optional RaftConfigurationProto conf = 1;
   }
 
   optional uint64 term = 1;

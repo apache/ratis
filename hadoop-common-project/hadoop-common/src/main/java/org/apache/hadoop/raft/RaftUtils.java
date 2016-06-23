@@ -17,7 +17,16 @@
  */
 package org.apache.hadoop.raft;
 
+import com.google.protobuf.ByteString;
+import org.apache.hadoop.raft.proto.RaftProtos.RaftConfigurationProto;
+import org.apache.hadoop.raft.proto.RaftProtos.RaftPeerProto;
+import org.apache.hadoop.raft.protocol.RaftPeer;
+import org.apache.hadoop.raft.server.RaftConfiguration;
+
 import java.io.InterruptedIOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 public abstract class RaftUtils {
   public static InterruptedIOException toInterruptedIOException(
@@ -25,5 +34,26 @@ public abstract class RaftUtils {
     final InterruptedIOException iioe = new InterruptedIOException(message);
     iioe.initCause(e);
     return iioe;
+  }
+
+  public static ByteString getByteString(byte[] bytes) {
+    // return singleton to reduce object allocation
+    return (bytes.length == 0) ? ByteString.EMPTY : ByteString.copyFrom(bytes);
+  }
+
+  public static Iterable<RaftPeerProto> convertPeersToProtos(
+      Collection<RaftPeer> peers) {
+    List<RaftPeerProto> protos = new ArrayList<>(peers.size());
+    for (RaftPeer p : peers) {
+      protos.add(RaftPeerProto.newBuilder().setId(p.getId()).build());
+    }
+    return protos;
+  }
+
+  public static RaftConfigurationProto convertConfToProto(RaftConfiguration conf) {
+    return RaftConfigurationProto.newBuilder()
+        .addAllPeers(convertPeersToProtos(conf.getPeersInConf()))
+        .addAllOldPeers(convertPeersToProtos(conf.getPeersInOldConf()))
+        .build();
   }
 }

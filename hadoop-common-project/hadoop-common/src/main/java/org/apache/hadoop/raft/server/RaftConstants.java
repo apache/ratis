@@ -22,6 +22,16 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.Random;
 
 public abstract class RaftConstants {
+  public static final long INVALID_LOG_INDEX = -1;
+  public static final byte LOG_TERMINATE_BYTE = 0;
+
+  /**
+   * The max log segment size is 8MB. The real log segment size may not be
+   * exactly equal to this limit. If a log entry's size exceeds 8MB, this entry
+   * will be stored in a single segment.
+   */
+  public static final int LOG_SEGMENT_SIZE = 1024 * 1024 * 8;
+
   @VisibleForTesting
   public static final int ELECTION_TIMEOUT_MIN_MS = 150;
   public static final int ELECTION_TIMEOUT_MAX_MS = 300;

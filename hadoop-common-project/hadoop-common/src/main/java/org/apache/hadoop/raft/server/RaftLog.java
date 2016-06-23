@@ -73,9 +73,6 @@ public class RaftLog {
       if (ti != null && ti.getTerm() == currentTerm) {
         LOG.debug("{}: Updating lastCommitted to {}", selfId, majority);
         lastCommitted.set(majority);
-        synchronized (lastCommitted) {
-          lastCommitted.notifyAll();
-        }
       }
     }
   }
@@ -174,7 +171,7 @@ public class RaftLog {
    * TODO persist the log
    * TODO also need to persist leaderId/currentTerm in ServerState when logSync
    * is triggered by AppendEntries RPC request from the leader
-   * and also votedFor for requestVote or leaderelection
+   * and also votedFor for requestVote or leader election
    */
   public void logSync() {
   }

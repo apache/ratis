@@ -15,28 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.protocol;
+package org.apache.hadoop.raft.server;
 
-import org.apache.hadoop.raft.RaftUtils;
-import org.apache.hadoop.raft.proto.RaftProtos.ConfigurationMessageProto;
+import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 
-import java.util.Arrays;
+public interface StateMachine {
+  void applyLogEntry(RaftLogEntry entry);
 
-public class ConfigurationMessage implements Message {
-  private final RaftPeer[] members;
-
-  public ConfigurationMessage(RaftPeer[] members) {
-    this.members = members;
-  }
-
-  public RaftPeer[] getMembers() {
-    return members;
-  }
-
-  @Override
-  public byte[] getInfo() {
-    return ConfigurationMessageProto.newBuilder()
-        .addAllPeers(RaftUtils.convertPeersToProtos(Arrays.asList(members)))
-        .build().toByteArray();
-  }
+  void takeSnapshot();
 }

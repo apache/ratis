@@ -15,28 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.protocol;
+package org.apache.hadoop.raft.server.storage;
 
-import org.apache.hadoop.raft.RaftUtils;
-import org.apache.hadoop.raft.proto.RaftProtos.ConfigurationMessageProto;
+public class LogInputStream {
 
-import java.util.Arrays;
-
-public class ConfigurationMessage implements Message {
-  private final RaftPeer[] members;
-
-  public ConfigurationMessage(RaftPeer[] members) {
-    this.members = members;
-  }
-
-  public RaftPeer[] getMembers() {
-    return members;
-  }
-
-  @Override
-  public byte[] getInfo() {
-    return ConfigurationMessageProto.newBuilder()
-        .addAllPeers(RaftUtils.convertPeersToProtos(Arrays.asList(members)))
-        .build().toByteArray();
-  }
 }

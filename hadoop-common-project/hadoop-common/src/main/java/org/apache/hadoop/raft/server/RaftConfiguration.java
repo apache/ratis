@@ -182,4 +182,12 @@ public class RaftConfiguration {
     int index = RaftConstants.RANDOM.nextInt(peers.size());
     return peers.toArray(new RaftPeer[peers.size()])[index];
   }
+
+  public Collection<RaftPeer> getPeersInOldConf() {
+    return oldConf != null ? oldConf.getPeers() : new ArrayList<>(0);
+  }
+
+  public Collection<RaftPeer> getPeersInConf() {
+    return conf.getPeers();
+  }
 }
