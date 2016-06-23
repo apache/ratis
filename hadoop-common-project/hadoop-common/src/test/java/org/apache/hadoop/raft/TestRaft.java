@@ -20,7 +20,7 @@ package org.apache.hadoop.raft;
 import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.raft.server.RaftLog;
+import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RequestHandler;
 import org.apache.hadoop.test.GenericTestUtils;
@@ -47,7 +47,7 @@ public class TestRaft {
 
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(MemoryRaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }

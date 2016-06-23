@@ -23,6 +23,8 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
+import org.apache.hadoop.raft.server.storage.RaftLog;
 
 import java.util.List;
 
@@ -58,14 +60,14 @@ public class ServerState {
     this.selfId = id;
     this.raftConf = conf;
     // TODO load log/currentTerm/votedFor/leaderId from persistent storage
-    log = new RaftLog(id);
+    log = new MemoryRaftLog(id);
     currentTerm = 0;
     votedFor = null;
     leaderId = null;
     loadConfFromLog();
   }
 
-  private ServerState(String id, RaftConfiguration conf, RaftLog newLog) {
+  private ServerState(String id, RaftConfiguration conf, MemoryRaftLog newLog) {
     this.selfId = id;
     this.raftConf = conf;
     currentTerm = 0;
@@ -100,7 +102,7 @@ public class ServerState {
   @VisibleForTesting
   public static ServerState buildServerState(ServerState oldState,
       List<RaftLogEntry> logEntries) {
-    RaftLog newLog = new RaftLog(oldState.getSelfId(), logEntries, 0);
+    MemoryRaftLog newLog = new MemoryRaftLog(oldState.getSelfId(), logEntries);
     return new ServerState(oldState.selfId, oldState.raftConf,
         newLog);
   }
@@ -152,7 +154,7 @@ public class ServerState {
   }
 
   long applyLog(Message message) {
-    return log.apply(currentTerm, message);
+    return log.append(currentTerm, message);
   }
 
   /**

@@ -29,6 +29,8 @@ import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.simulation.SimulatedRpc;
+import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
+import org.apache.hadoop.raft.server.storage.RaftLog;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -174,8 +176,12 @@ public class MiniRaftCluster {
     for (RaftServer s : servers.values()) {
       b.append("  ");
       b.append(s).append("\n");
-      b.append("    ");
-      b.append(s.getState().getLog().getEntryString());
+
+      final RaftLog log = s.getState().getLog();
+      if (log instanceof MemoryRaftLog) {
+        b.append("    ");
+        b.append(((MemoryRaftLog) log).getEntryString());
+      }
     }
     return b.toString();
   }

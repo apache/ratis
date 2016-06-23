@@ -26,6 +26,7 @@ import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.apache.hadoop.raft.server.storage.RaftLog;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
@@ -133,7 +134,7 @@ class LeaderState {
 
     // In the beginning of the new term, replicate an empty entry in order
     // to finally commit entries in the previous term
-    raftLog.apply(server.getState().getCurrentTerm(), EMPTY_MESSAGE);
+    raftLog.append(server.getState().getCurrentTerm(), EMPTY_MESSAGE);
   }
 
   void start() {
@@ -205,7 +206,7 @@ class LeaderState {
     final RaftConfiguration oldNewConf= stagingState.generateOldNewConf(current,
         state.getLog().getNextIndex());
     // apply the (old, new) configuration to log, and use it as the current conf
-    state.getLog().apply(state.getCurrentTerm(), current, oldNewConf);
+    state.getLog().append(state.getCurrentTerm(), current, oldNewConf);
     updateConfiguration(oldNewConf);
 
     this.stagingState = null;
@@ -429,7 +430,7 @@ class LeaderState {
   private void replicateNewConf() {
     final RaftConfiguration conf = server.getRaftConf();
     RaftConfiguration newConf = conf.generateNewConf(raftLog.getNextIndex());
-    raftLog.apply(server.getState().getCurrentTerm(), conf, newConf);
+    raftLog.append(server.getState().getCurrentTerm(), conf, newConf);
     updateConfiguration(newConf);
     updateSenders();
     notifySenders();

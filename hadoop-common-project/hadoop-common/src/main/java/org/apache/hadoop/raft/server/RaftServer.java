@@ -442,7 +442,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         return reply;
       }
 
-      RaftConfiguration newConf = state.getLog().apply(entries);
+      RaftConfiguration newConf = state.getLog().append(entries);
       if (newConf != null) {
         state.setRaftConf(newConf);
       }

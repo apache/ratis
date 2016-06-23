@@ -25,6 +25,8 @@ import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
+import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
+import org.apache.hadoop.raft.server.storage.RaftLog;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.Assert;
@@ -42,7 +44,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class TestRaftReconfiguration {
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(MemoryRaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
