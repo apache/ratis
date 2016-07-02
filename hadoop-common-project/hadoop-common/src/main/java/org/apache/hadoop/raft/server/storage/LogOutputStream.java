@@ -18,7 +18,6 @@
 package org.apache.hadoop.raft.server.storage;
 
 import com.google.protobuf.CodedOutputStream;
-import org.apache.commons.io.Charsets;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.RaftConstants;
@@ -41,7 +40,6 @@ public class LogOutputStream implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(LogOutputStream.class);
   private static final ByteBuffer fill = ByteBuffer
       .allocateDirect(RaftConstants.LOG_SEGMENT_SIZE);
-  private static final byte[] HEADER = "RAFTLOG1".getBytes(Charsets.UTF_8);
 
   static {
     fill.position(0);
@@ -90,7 +88,7 @@ public class LogOutputStream implements Closeable {
     out.write((v >>> 24) & 0xFF);
     out.write((v >>> 16) & 0xFF);
     out.write((v >>>  8) & 0xFF);
-    out.write((v >>>  0) & 0xFF);
+    out.write((v) & 0xFF);
   }
 
   public void create() throws IOException {
@@ -98,7 +96,7 @@ public class LogOutputStream implements Closeable {
     fc.position(0);
 
     preallocate(); // preallocate file
-    out.write(HEADER);
+    out.write(SegmentedRaftLog.HEADER);
     flush();
   }
 

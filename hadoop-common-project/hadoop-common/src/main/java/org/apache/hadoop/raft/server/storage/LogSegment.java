@@ -19,9 +19,9 @@ package org.apache.hadoop.raft.server.storage;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.hadoop.raft.server.RaftConstants;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,8 +31,7 @@ import java.util.List;
  *
  * This class will be protected by the RaftServer's lock.
  */
-public class LogSegment {
-
+public class LogSegment implements Comparable<Long> {
   static class LogRecord {
     /** starting offset in the file */
     final int offset;
@@ -58,25 +57,48 @@ public class LogSegment {
     this.endIndex = end;
   }
 
-  public static LogSegment newOpenSegment(File file, long start) {
+  static LogSegment newOpenSegment(File file, long start) {
     Preconditions.checkArgument(start >= 0);
-    return new LogSegment(file, true, start, RaftConstants.INVALID_LOG_INDEX);
+    return new LogSegment(file, true, start, start);
   }
 
-  public static LogSegment newCloseSegment(File file, long start, long end) {
+  private static LogSegment newCloseSegment(File file, long start, long end) {
     Preconditions.checkArgument(start >= 0 && end >= start);
     return new LogSegment(file, false, start, end);
   }
 
-  public void load() {
-    // load records from a log segment file, update totalSize
+  static LogSegment loadSegment(File file, long start, long end, boolean isOpen)
+      throws IOException {
+    final LogSegment segment;
+    try (LogInputStream in = new LogInputStream(file, start, end, isOpen)) {
+      segment = isOpen ? LogSegment.newOpenSegment(file, start) :
+          LogSegment.newCloseSegment(file, start, end);
+      LogEntryProto next;
+      while ((next = in.nextEntry()) != null) {
+        segment.append(next);
+      }
+    }
+
+    Preconditions.checkState(start == segment.records.get(0).entry.getIndex());
+    if (!isOpen) {
+      Preconditions.checkState(segment.getEndIndex() == end);
+    }
+    return segment;
   }
 
-  public boolean isOpen() {
+  long getStartIndex() {
+    return startIndex;
+  }
+
+  long getEndIndex() {
+    return endIndex;
+  }
+
+  boolean isOpen() {
     return isOpen;
   }
 
-  public void append(LogEntryProto... entries) {
+  void append(LogEntryProto... entries) {
     Preconditions.checkState(isOpen(),
         "The log segment %s is not open for append", this.toString());
     Preconditions.checkArgument(entries != null && entries.length > 0);
@@ -85,21 +107,37 @@ public class LogSegment {
       // all these entries should be of the same term
       Preconditions.checkArgument(entry.getTerm() == term,
           "expected term:%s, term of the entry:%s", term, entry.getTerm());
+      Preconditions.checkArgument(records.isEmpty() ||
+          entry.getIndex() == getLastEntry().getIndex() + 1,
+          "gap between entries %s and %s", entry.getIndex(),
+          getLastEntry().getIndex());
+
       final LogRecord record = new LogRecord(totalSize, entry);
       records.add(record);
-      totalSize += entry.getSerializedSize();
+      totalSize += entry.getSerializedSize() + 4;
       endIndex = entry.getIndex();
     }
+  }
+
+  LogEntryProto getEntry(long index) {
+    if (index >= startIndex && index <= endIndex) {
+      return records.get((int) (index - startIndex)).entry;
+    }
+    return null;
+  }
+
+  LogEntryProto getLastEntry() {
+    return records.isEmpty() ? null : records.get(records.size() - 1).entry;
   }
 
   /**
    * Remove records from the given index (inclusive)
    */
-  public void truncate(long fromIndex) {
+  void truncate(long fromIndex) {
 
   }
 
-  public void close() {
+  void close() {
     Preconditions.checkState(isOpen());
     isOpen = false;
     // TODO: change file
@@ -109,5 +147,10 @@ public class LogSegment {
   public String toString() {
     return isOpen() ? "log-" + startIndex + "-inprogress" :
         "log-" + startIndex + "-" + endIndex;
+  }
+
+  @Override
+  public int compareTo(Long l) {
+    return this.getStartIndex() == l ? 0 : (this.getStartIndex() < l ? -1 : 1);
   }
 }

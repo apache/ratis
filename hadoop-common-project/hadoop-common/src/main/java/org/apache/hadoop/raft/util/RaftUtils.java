@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.util;
 
 import com.google.protobuf.ByteString;
 import org.apache.hadoop.raft.proto.RaftProtos.RaftConfigurationProto;

@@ -18,7 +18,7 @@
 package org.apache.hadoop.raft.server.simulation;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.raft.RaftUtils;
+import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftConstants;

@@ -20,20 +20,26 @@ package org.apache.hadoop.raft.server.storage;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
+import org.apache.commons.io.Charsets;
 import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.util.DataChecksum;
 
+import java.io.BufferedInputStream;
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.EOFException;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.Checksum;
 
-public class LogReader {
+public class LogReader implements Closeable {
   /**
    * InputStream wrapper that keeps track of the current stream position.
    *
@@ -129,10 +135,20 @@ public class LogReader {
   private byte[] temp = new byte[4096];
   private final Checksum checksum;
 
-  LogReader(LimitedInputStream limiter) {
-    this.limiter = limiter;
+  LogReader(File file) throws FileNotFoundException {
+    this.limiter = new LimitedInputStream(
+        new BufferedInputStream(new FileInputStream(file)));
     in = new DataInputStream(limiter);
     checksum = DataChecksum.newCrc32();
+  }
+
+  String readLogHeader() throws IOException {
+    byte[] header = new byte[SegmentedRaftLog.HEADER.length];
+    int num = in.read(header);
+    if (num < header.length) {
+      throw new EOFException("EOF before reading a complete log header");
+    }
+    return new String(header, Charsets.UTF_8);
   }
 
   /**
@@ -141,25 +157,25 @@ public class LogReader {
    * Note that the objects returned from this method may be re-used by future
    * calls to the same method.
    *
-   * @param skipBrokenEdits    If true, attempt to skip over damaged parts of
-   * the input stream, rather than throwing an IOException
+   * @param skipBrokenEntries If true, attempt to skip over damaged parts of the
+   *                          input stream, rather than throwing an IOException
    * @return the operation read from the stream, or null at the end of the
    *         file
    * @throws IOException on error.  This function should only throw an
    *         exception when skipBrokenEdits is false.
    */
-  public LogEntryProto read(boolean skipBrokenEdits) throws IOException {
+  LogEntryProto readEntry(boolean skipBrokenEntries) throws IOException {
     while (true) {
       try {
         return decodeEntry();
       } catch (IOException e) {
         in.reset();
-        if (!skipBrokenEdits) {
+        if (!skipBrokenEntries) {
           throw e;
         }
       } catch (Throwable e) {
         in.reset();
-        if (!skipBrokenEdits) {
+        if (!skipBrokenEntries) {
           throw new IOException("got unexpected exception " +
               e.getMessage(), e);
         }
@@ -169,6 +185,15 @@ public class LogReader {
         return null;
       }
     }
+  }
+
+  /**
+   * Scan and validate a log entry.
+   * @return the index of the log entry
+   */
+  long scanEntry() throws IOException {
+    LogEntryProto entry = decodeEntry();
+    return entry != null ? entry.getIndex() : RaftConstants.INVALID_LOG_INDEX;
   }
 
   void verifyTerminator() throws IOException {
@@ -274,4 +299,17 @@ public class LogReader {
     }
   }
 
+  long getPos() {
+    return limiter.getPos();
+  }
+
+  void skipFully(long length) throws IOException {
+    limiter.clearLimit();
+    IOUtils.skipFully(limiter, length);
+  }
+
+  @Override
+  public void close() throws IOException {
+    IOUtils.cleanup(null, in);
+  }
 }

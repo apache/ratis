@@ -17,7 +17,7 @@
  */
 package org.apache.hadoop.raft.protocol;
 
-import org.apache.hadoop.raft.RaftUtils;
+import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.raft.proto.RaftProtos.ConfigurationMessageProto;
 
 import java.util.Arrays;
