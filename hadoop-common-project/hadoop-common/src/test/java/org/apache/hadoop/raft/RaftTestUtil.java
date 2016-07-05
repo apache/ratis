@@ -26,8 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.Charset;
+import java.util.Arrays;
 
-import static org.apache.hadoop.test.MoreAsserts.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class RaftTestUtil {
@@ -77,8 +77,8 @@ public class RaftTestUtil {
     int idxExpected = 0;
     while (idxEntries < entries.length
         && idxExpected < expectedMessages.length) {
-      if (expectedMessages[idxExpected].equals(
-          entries[idxEntries].getMessage())) {
+      if (Arrays.equals(expectedMessages[idxExpected].getInfo(),
+          entries[idxEntries].getContent())) {
         ++idxExpected;
       }
       ++idxEntries;
@@ -94,7 +94,7 @@ public class RaftTestUtil {
       final RaftLogEntry e = entries[i];
       Assert.assertEquals(expertedTerm, e.getTerm());
       Assert.assertEquals(startIndex + i, e.getIndex());
-      Assert.assertEquals(expectedMessages[i], e.getMessage());
+      Assert.assertArrayEquals(expectedMessages[i].getInfo(), e.getContent());
     }
   }
 

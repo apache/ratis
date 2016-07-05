@@ -18,10 +18,15 @@
 package org.apache.hadoop.raft.util;
 
 import com.google.protobuf.ByteString;
+import org.apache.hadoop.raft.proto.RaftProtos;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto.ConfigurationEntryProto;
 import org.apache.hadoop.raft.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.hadoop.raft.proto.RaftProtos.RaftPeerProto;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.RaftConfiguration;
+import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
+import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
@@ -55,5 +60,39 @@ public abstract class RaftUtils {
         .addAllPeers(convertPeersToProtos(conf.getPeersInConf()))
         .addAllOldPeers(convertPeersToProtos(conf.getPeersInOldConf()))
         .build();
+  }
+
+  public static RaftPeer convertProtoToRaftPeer(RaftPeerProto proto) {
+    return new RaftPeer(proto.getId());
+  }
+
+  public static RaftPeer[] convertProtoToRaftPeerArray(List<RaftPeerProto> protos) {
+    RaftPeer[] peers = new RaftPeer[protos.size()];
+    for (int i = 0; i < peers.length; i++) {
+      peers[i] = convertProtoToRaftPeer(protos.get(i));
+    }
+    return peers;
+  }
+
+  public static RaftConfiguration convertProtoToConf(long index,
+      RaftConfigurationProto proto) {
+    RaftPeer[] peers = convertProtoToRaftPeerArray(proto.getPeersList());
+    if (proto.getOldPeersCount() > 0) {
+      RaftPeer[] oldPeers = convertProtoToRaftPeerArray(proto.getPeersList());
+      return RaftConfiguration.composeOldNewConf(peers, oldPeers, index);
+    } else {
+      return RaftConfiguration.composeConf(peers, index);
+    }
+  }
+
+  public static RaftLogEntry convertToRaftLogEntry(LogEntryProto proto) {
+    if (proto.hasConfigurationEntry()) {
+      RaftConfiguration conf = convertProtoToConf(proto.getIndex(),
+          proto.getConfigurationEntry().getConf());
+      return new ConfigurationEntry(proto.getTerm(), proto.getIndex(), conf);
+    } else {
+      return new RaftLogEntry(proto.getTerm(), proto.getIndex(),
+          proto.getClientMessageEntry().getContent().toByteArray());
+    }
   }
 }

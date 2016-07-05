@@ -59,7 +59,7 @@ public class MiniRaftCluster {
     for (int i = 0; i < num; i++) {
       peers[i] = new RaftPeer("s" + i);
     }
-    return new RaftConfiguration(peers, 0);
+    return RaftConfiguration.composeConf(peers, 0);
   }
 
   private RaftConfiguration conf;
@@ -106,7 +106,7 @@ public class MiniRaftCluster {
 
     newPeers.addAll(conf.getPeers());
     RaftPeer[] p = newPeers.toArray(new RaftPeer[newPeers.size()]);
-    conf = new RaftConfiguration(p, 0);
+    conf = RaftConfiguration.composeConf(p, 0);
     return new PeerChanges(p, np, new RaftPeer[0]);
   }
 
@@ -153,7 +153,7 @@ public class MiniRaftCluster {
       }
     }
     RaftPeer[] p = peers.toArray(new RaftPeer[peers.size()]);
-    conf = new RaftConfiguration(p, 0);
+    conf = RaftConfiguration.composeConf(p, 0);
     return new PeerChanges(p, new RaftPeer[0],
         removedPeers.toArray(new RaftPeer[removedPeers.size()]));
   }

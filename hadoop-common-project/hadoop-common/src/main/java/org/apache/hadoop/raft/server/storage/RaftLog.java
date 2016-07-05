@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server.storage;
 
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
@@ -127,11 +128,8 @@ public abstract class RaftLog {
   /**
    * Truncate the log entries till the given index. The log with the given index
    * will also be truncated (i.e., inclusive).
-   *
-   * @return The old RaftConfiguration the peer should use if a configuration
-   *         log entry is truncated. Null if no configuration entry is truncated.
    */
-  abstract RaftConfiguration truncate(long index);
+  abstract void truncate(long index);
 
   /**
    * Generate a log entry for the given term and message, and append the entry.
@@ -145,8 +143,7 @@ public abstract class RaftLog {
    * and append the entry. Used by the leader.
    * @return the index of the new log entry.
    */
-  public abstract long append(long term, RaftConfiguration old,
-      RaftConfiguration newConf);
+  public abstract long append(long term, RaftConfiguration newConf);
 
   /**
    * Append all the given log entries. Used by the followers.
@@ -155,14 +152,11 @@ public abstract class RaftLog {
    * terms), delete the existing entry and all entries that follow it (§5.3).
    *
    * This method, {@link #append(long, Message)},
-   * {@link #append(long, RaftConfiguration, RaftConfiguration)},
-   * and {@link #truncate(long)} do not guarantee the changes are persisted.
+   * {@link #append(long, RaftConfiguration)}, and {@link #truncate(long)},
+   * do not guarantee the changes are persisted.
    * Need to call {@link #logSync()} to persist the changes.
-   *
-   * @return the latest raft configuration the peer should use if configuration
-   *         entries are appended. Null if no configuration entry is appended.
    */
-  public abstract RaftConfiguration append(RaftLogEntry... entries);
+  public abstract void append(RaftLogEntry... entries);
 
   /**
    * TODO persist the log. also need to persist leaderId/currentTerm.

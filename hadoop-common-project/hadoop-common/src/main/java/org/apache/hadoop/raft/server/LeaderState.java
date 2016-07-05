@@ -206,16 +206,16 @@ class LeaderState {
     final RaftConfiguration oldNewConf= stagingState.generateOldNewConf(current,
         state.getLog().getNextIndex());
     // apply the (old, new) configuration to log, and use it as the current conf
-    state.getLog().append(state.getCurrentTerm(), current, oldNewConf);
-    updateConfiguration(oldNewConf);
+    long index = state.getLog().append(state.getCurrentTerm(), oldNewConf);
+    updateConfiguration(index, oldNewConf);
 
     this.stagingState = null;
     notifySenders();
   }
 
-  private void updateConfiguration(RaftConfiguration newConf) {
+  private void updateConfiguration(long logIndex, RaftConfiguration newConf) {
     voterLists = divideFollowers(newConf);
-    server.getState().setRaftConf(newConf);
+    server.getState().setRaftConf(logIndex, newConf);
   }
 
   /**
@@ -430,8 +430,8 @@ class LeaderState {
   private void replicateNewConf() {
     final RaftConfiguration conf = server.getRaftConf();
     RaftConfiguration newConf = conf.generateNewConf(raftLog.getNextIndex());
-    raftLog.append(server.getState().getCurrentTerm(), conf, newConf);
-    updateConfiguration(newConf);
+    long index = raftLog.append(server.getState().getCurrentTerm(), newConf);
+    updateConfiguration(index, newConf);
     updateSenders();
     notifySenders();
   }

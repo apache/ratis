@@ -31,15 +31,18 @@ import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.internal.util.reflection.Whitebox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static java.util.Arrays.asList;
 
 public class TestRaftReconfiguration {
   static {
@@ -85,7 +88,7 @@ public class TestRaftReconfiguration {
 
     int numIncluded = 0;
     int deadIncluded = 0;
-    RaftConfiguration current = new RaftConfiguration(peers, 0);
+    RaftConfiguration current = RaftConfiguration.composeConf(peers, 0);
     for (RaftServer server : cluster.getServers()) {
       if (deadPeers != null && deadPeers.contains(server.getId())) {
         if (current.containsInConf(server.getId())) {
@@ -156,7 +159,7 @@ public class TestRaftReconfiguration {
 
       PeerChanges change = cluster.addNewPeers(2, true);
       RaftPeer[] allPeers = cluster.removePeers(2, leaderStepdown,
-          Arrays.asList(change.newPeers)).allPeersInNewConf;
+          asList(change.newPeers)).allPeersInNewConf;
 
       // trigger setConfiguration
       SetConfigurationRequest request = new SetConfigurationRequest("client",
@@ -171,11 +174,74 @@ public class TestRaftReconfiguration {
     }
   }
 
+  @Test(timeout = 30000)
+  public void testReconfTwice() throws Exception {
+    LOG.info("Start testReconfTwice");
+    final MiniRaftCluster cluster = new MiniRaftCluster(3);
+    cluster.start();
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+      final String leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient("client", leaderId);
+
+      // submit some msgs before reconf
+      for (int i = 0; i < RaftConstants.STAGING_CATCHUP_GAP * 2; i++) {
+        RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+        Assert.assertTrue(reply.isSuccess());
+      }
+
+      final AtomicBoolean reconf1 = new AtomicBoolean(false);
+      final AtomicBoolean reconf2 = new AtomicBoolean(false);
+      final AtomicReference<RaftPeer[]> finalPeers = new AtomicReference<>(null);
+      final AtomicReference<RaftPeer[]> deadPeers = new AtomicReference<>(null);
+      CountDownLatch latch = new CountDownLatch(1);
+      Thread clientThread = new Thread(() -> {
+        PeerChanges c1 = cluster.addNewPeers(2, true);
+        LOG.info("Start changing the configuration: {}",
+            asList(c1.allPeersInNewConf));
+        try {
+          RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
+          reconf1.set(reply.isSuccess());
+
+          PeerChanges c2 = cluster.removePeers(2, true, asList(c1.newPeers));
+          finalPeers.set(c2.allPeersInNewConf);
+          deadPeers.set(c2.removedPeers);
+          LOG.info("Start changing the configuration again: {}",
+              asList(c2.allPeersInNewConf));
+          reply = client.setConfiguration(c2.allPeersInNewConf);
+          reconf2.set(reply.isSuccess());
+
+          latch.countDown();
+        } catch (IOException ignored) {
+        }
+      });
+      clientThread.start();
+
+      latch.await();
+      Assert.assertTrue(reconf1.get());
+      Assert.assertTrue(reconf2.get());
+      waitAndCheckNewConf(cluster, finalPeers.get(), 2, null);
+
+      // check configuration manager's internal state
+      // each reconf will generate two configurations: (old, new) and (new)
+      cluster.getServers().stream().filter(RaftServer::isRunning)
+          .forEach(server -> {
+        ConfigurationManager confManager =
+            (ConfigurationManager) Whitebox.getInternalState(server.getState(),
+                "configurationManager");
+        // each reconf will generate two configurations: (old, new) and (new)
+        Assert.assertEquals(5, confManager.numOfConf());
+      });
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
   @Test
   public void testReconfTimeout() throws Exception {
     LOG.info("Start testReconfTimeout");
     // originally 3 peers
-    final MiniRaftCluster cluster =  new MiniRaftCluster(3);
+    final MiniRaftCluster cluster = new MiniRaftCluster(3);
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -185,7 +251,7 @@ public class TestRaftReconfiguration {
       PeerChanges c1 = cluster.addNewPeers(2, false);
 
       LOG.info("Start changing the configuration: {}",
-          Arrays.asList(c1.allPeersInNewConf));
+          asList(c1.allPeersInNewConf));
       final AtomicBoolean success = new AtomicBoolean(false);
 
       CountDownLatch latch = new CountDownLatch(1);
@@ -230,7 +296,7 @@ public class TestRaftReconfiguration {
 
       PeerChanges c1 = cluster.addNewPeers(2, true);
       LOG.info("Start changing the configuration: {}",
-          Arrays.asList(c1.allPeersInNewConf));
+          asList(c1.allPeersInNewConf));
       final AtomicBoolean success = new AtomicBoolean(false);
 
       Thread clientThread = new Thread(() -> {
@@ -272,10 +338,10 @@ public class TestRaftReconfiguration {
       final RaftClient client = cluster.createClient("client", leaderId);
 
       PeerChanges c1 = cluster.addNewPeers(2, false);
-      PeerChanges c2 = cluster.removePeers(2, false, Arrays.asList(c1.newPeers));
+      PeerChanges c2 = cluster.removePeers(2, false, asList(c1.newPeers));
 
       LOG.info("Start changing the configuration: {}",
-          Arrays.asList(c2.allPeersInNewConf));
+          asList(c2.allPeersInNewConf));
       final AtomicBoolean success = new AtomicBoolean(false);
       final AtomicBoolean clientRunning = new AtomicBoolean(true);
       Thread clientThread = new Thread(() -> {
@@ -319,4 +385,8 @@ public class TestRaftReconfiguration {
       cluster.shutdown();
     }
   }
+
+  // TODO: raft log inconsistency between leader and follower
+
+  // TODO: follower truncates its log entries which causes configuration change
 }

@@ -32,6 +32,19 @@ public class RaftConfiguration {
     TRANSITIONAL,      // in the middle of a configuration change
   }
 
+  public static RaftConfiguration composeOldNewConf(RaftPeer[] peers,
+      RaftPeer[] old, long index) {
+    Preconditions.checkArgument(peers != null && peers.length > 0);
+    Preconditions.checkArgument(old != null && old.length > 0);
+    return new RaftConfiguration(new SimpleConfiguration(peers),
+        new SimpleConfiguration(old), index);
+  }
+
+  public static RaftConfiguration composeConf(RaftPeer[] peers, long index) {
+    Preconditions.checkArgument(peers != null && peers.length > 0);
+    return new RaftConfiguration(peers, index);
+  }
+
   /**
    * The state of the raft ring.
    */
@@ -49,7 +62,7 @@ public class RaftConfiguration {
   /** the index of the corresponding log entry */
   private final long logEntryIndex;
 
-  public RaftConfiguration(RaftPeer[] peers, long index) {
+  private RaftConfiguration(RaftPeer[] peers, long index) {
     Preconditions.checkArgument(peers != null && peers.length > 0);
     this.conf = new SimpleConfiguration(peers);
     this.oldConf = null;

@@ -20,19 +20,12 @@ package org.apache.hadoop.raft.server.protocol;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 
 public class ConfigurationEntry extends RaftLogEntry {
-  /**
-   * the raft configuration before this entry. we need to use this to set back
-   * the configuration in case that the new conf entry is truncated later.
-   */
-  private final RaftConfiguration prev;
-  /** the new configuration described by this entry */
-  private final RaftConfiguration current;
+  /** the configuration described by this entry */
+  private final RaftConfiguration conf;
 
-  public ConfigurationEntry(long term, long logIndex, RaftConfiguration prev,
-      RaftConfiguration current) {
+  public ConfigurationEntry(long term, long logIndex, RaftConfiguration conf) {
     super(term, logIndex, null);
-    this.prev = prev;
-    this.current = current;
+    this.conf = conf;
   }
 
   @Override
@@ -42,15 +35,10 @@ public class ConfigurationEntry extends RaftLogEntry {
 
   @Override
   public String toString() {
-    return super.toString() + " current conf:" + current
-        + ", previous conf: " + prev;
+    return super.toString() + " configuration:" + conf;
   }
 
-  public RaftConfiguration getCurrent() {
-    return this.current;
-  }
-
-  public RaftConfiguration getPrev() {
-    return this.prev;
+  public RaftConfiguration getConf() {
+    return this.conf;
   }
 }

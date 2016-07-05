@@ -19,8 +19,8 @@ package org.apache.hadoop.raft.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.raft.protocol.Message;
+import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
 import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
@@ -36,7 +36,7 @@ public class ServerState {
   /** Raft log */
   private final RaftLog log;
   /** Raft configuration */
-  private RaftConfiguration raftConf;
+  private ConfigurationManager configurationManager;
 
   /**
    * Latest term server has seen. initialized to 0 on first boot, increases
@@ -58,8 +58,8 @@ public class ServerState {
 
   ServerState(String id, RaftConfiguration conf) {
     this.selfId = id;
-    this.raftConf = conf;
-    // TODO load log/currentTerm/votedFor/leaderId from persistent storage
+    configurationManager = new ConfigurationManager(conf);
+    // TODO load log/currentTerm/votedFor from persistent storage
     log = new MemoryRaftLog(id);
     currentTerm = 0;
     votedFor = null;
@@ -69,7 +69,7 @@ public class ServerState {
 
   private ServerState(String id, RaftConfiguration conf, MemoryRaftLog newLog) {
     this.selfId = id;
-    this.raftConf = conf;
+    this.configurationManager = new ConfigurationManager(conf);
     currentTerm = 0;
     votedFor = null;
     leaderId = null;
@@ -81,13 +81,7 @@ public class ServerState {
   }
 
   public RaftConfiguration getRaftConf() {
-    return raftConf;
-  }
-
-  public void setRaftConf(RaftConfiguration conf) {
-    this.raftConf = conf;
-    RaftServer.LOG.info("{}: successfully update the configuration {}",
-        getSelfId(), conf);
+    return configurationManager.getCurrent();
   }
 
   public String getSelfId() {
@@ -98,12 +92,11 @@ public class ServerState {
     return currentTerm;
   }
 
-  @InterfaceAudience.Private
   @VisibleForTesting
   public static ServerState buildServerState(ServerState oldState,
       List<RaftLogEntry> logEntries) {
     MemoryRaftLog newLog = new MemoryRaftLog(oldState.getSelfId(), logEntries);
-    return new ServerState(oldState.selfId, oldState.raftConf,
+    return new ServerState(oldState.selfId, oldState.getRaftConf(),
         newLog);
   }
 
@@ -201,10 +194,31 @@ public class ServerState {
   @Override
   public String toString() {
     return selfId + ": term=" + currentTerm + ", leader=" + leaderId
-        + ", voted=" + votedFor + ", raftlog: " + log + ", conf: " + raftConf;
+        + ", voted=" + votedFor + ", raftlog: " + log + ", conf: "
+        + getRaftConf();
   }
 
   boolean isConfCommitted() {
-    return getLog().getLastCommitted().getIndex() >= raftConf.getLogEntryIndex();
+    return getLog().getLastCommitted().getIndex() >=
+        getRaftConf().getLogEntryIndex();
+  }
+
+  public void setRaftConf(long logIndex, RaftConfiguration conf) {
+    configurationManager.addConfiguration(logIndex, conf);
+    RaftServer.LOG.info("{}: successfully update the configuration {}",
+        getSelfId(), conf);
+  }
+
+  void updateConfiguration(RaftLogEntry[] entries) {
+    if (entries != null && entries.length > 0) {
+      configurationManager.removeConfigurations(entries[0].getIndex());
+      for (RaftLogEntry entry : entries) {
+        if (entry.isConfigurationEntry()) {
+          ConfigurationEntry confEntry = (ConfigurationEntry) entry;
+          configurationManager.addConfiguration(entry.getIndex(),
+              confEntry.getConf());
+        }
+      }
+    }
   }
 }

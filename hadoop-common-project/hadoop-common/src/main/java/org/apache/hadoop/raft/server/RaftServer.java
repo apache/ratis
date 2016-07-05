@@ -436,16 +436,15 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       state.getLog().updateLastCommitted(leaderCommit, currentTerm);
 
       if (previous != null && !state.getLog().contains(previous)) {
+        // TODO add more unit tests for inconsistency scenarios
         final AppendEntriesReply reply =  new AppendEntriesReply(leaderId,
             getId(), currentTerm, nextIndex, AppendResult.INCONSISTENCY);
         LOG.debug("{}: inconsistency entries. Reply: {}", getId(), reply);
         return reply;
       }
 
-      RaftConfiguration newConf = state.getLog().append(entries);
-      if (newConf != null) {
-        state.setRaftConf(newConf);
-      }
+      state.getLog().append(entries);
+      state.updateConfiguration(entries);
     }
 
     state.getLog().logSync();

@@ -24,6 +24,7 @@ import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
 import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -56,17 +57,12 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  RaftConfiguration truncate(long index) {
+  void truncate(long index) {
     Preconditions.checkArgument(index >= 0);
     final int truncateIndex = (int) index;
-    RaftConfiguration oldConf = null;
     for(int i = entries.size() - 1; i >= truncateIndex; i--) {
-      RaftLogEntry removed = entries.remove(i);
-      if (removed.isConfigurationEntry()) {
-        oldConf = ((ConfigurationEntry) removed).getPrev();
-      }
+      entries.remove(i);
     }
-    return oldConf;
   }
 
   @Override
@@ -78,34 +74,24 @@ public class MemoryRaftLog extends RaftLog {
   @Override
   public synchronized long append(long term, Message message) {
     final long nextIndex = getNextIndex();
-    final RaftLogEntry e = new RaftLogEntry(term, nextIndex, message);
+    final RaftLogEntry e = new RaftLogEntry(term, nextIndex, message.getInfo());
     entries.add(e);
     return nextIndex;
   }
 
   @Override
-  public synchronized long append(long term, RaftConfiguration old,
-      RaftConfiguration newConf) {
+  public synchronized long append(long term, RaftConfiguration newConf) {
     final long nextIndex = getNextIndex();
-    ConfigurationEntry entry = new ConfigurationEntry(term, nextIndex, old,
-        newConf);
-    entries.add(entry);
+    entries.add(new ConfigurationEntry(term, nextIndex, newConf));
     return nextIndex;
   }
 
   @Override
-  public synchronized RaftConfiguration append(RaftLogEntry... entries) {
-    if (entries == null || entries.length == 0) {
-      return null;
+  public synchronized void append(RaftLogEntry... entries) {
+    if (entries != null && entries.length > 0) {
+      truncate(entries[0].getIndex());
+      Collections.addAll(this.entries, entries);
     }
-    RaftConfiguration conf = truncate(entries[0].getIndex());
-    for (RaftLogEntry entry : entries) {
-      Preconditions.checkState(this.entries.add(entry));
-      if (entry.isConfigurationEntry()) {
-        conf = ((ConfigurationEntry) entry).getCurrent();
-      }
-    }
-    return conf;
   }
 
   @Override

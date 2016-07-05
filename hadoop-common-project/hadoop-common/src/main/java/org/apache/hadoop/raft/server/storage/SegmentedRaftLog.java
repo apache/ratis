@@ -18,7 +18,6 @@
 package org.apache.hadoop.raft.server.storage;
 
 import org.apache.commons.io.Charsets;
-import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.RaftConstants;
@@ -92,8 +91,7 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  RaftConfiguration truncate(long index) {
-    return null;
+  void truncate(long index) {
   }
 
   @Override
@@ -102,13 +100,12 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public long append(long term, RaftConfiguration old, RaftConfiguration newConf) {
+  public long append(long term, RaftConfiguration newConf) {
     return 0;
   }
 
   @Override
-  public RaftConfiguration append(RaftLogEntry... entries) {
-    return null;
+  public void append(RaftLogEntry... entries) {
   }
 
   @Override

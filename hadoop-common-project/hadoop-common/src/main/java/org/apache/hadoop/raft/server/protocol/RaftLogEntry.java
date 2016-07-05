@@ -18,7 +18,6 @@
 package org.apache.hadoop.raft.server.protocol;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.raft.protocol.Message;
 
 public class RaftLogEntry extends TermIndex {
   public static final RaftLogEntry[] EMPTY_ARRAY = {};
@@ -52,15 +51,15 @@ public class RaftLogEntry extends TermIndex {
     }
   }
 
-  private final Message message;
+  private final byte[] content;
 
-  public RaftLogEntry(long term, long logIndex, Message message) {
+  public RaftLogEntry(long term, long logIndex, byte[] content) {
     super(term, logIndex);
-    this.message = message;
+    this.content = content;
   }
 
-  public Message getMessage() {
-    return message;
+  public byte[] getContent() {
+    return content;
   }
 
   public boolean isConfigurationEntry() {
