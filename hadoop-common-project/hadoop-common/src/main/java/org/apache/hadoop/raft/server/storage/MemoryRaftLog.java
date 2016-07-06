@@ -18,10 +18,10 @@
 package org.apache.hadoop.raft.server.storage;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConfiguration;
-import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
-import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
+import org.apache.hadoop.raft.util.RaftUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,29 +31,29 @@ import java.util.List;
  * A simple RaftLog implementation in memory. Used only for testing.
  */
 public class MemoryRaftLog extends RaftLog {
-  private final List<RaftLogEntry> entries = new ArrayList<>();
+  private final List<LogEntryProto> entries = new ArrayList<>();
 
   public MemoryRaftLog(String selfId) {
     super(selfId);
   }
 
-  public MemoryRaftLog(String selfId, List<RaftLogEntry> newEntries) {
+  public MemoryRaftLog(String selfId, List<LogEntryProto> newEntries) {
     super(selfId);
     entries.addAll(newEntries);
   }
 
   @Override
-  public synchronized RaftLogEntry get(long index) {
+  public synchronized LogEntryProto get(long index) {
     final int i = (int) index;
     return i >= 0 && i < entries.size()? entries.get(i): null;
   }
 
   @Override
-  public synchronized RaftLogEntry[] getEntries(long startIndex) {
+  public synchronized LogEntryProto[] getEntries(long startIndex) {
     final int i = (int) startIndex;
     final int size = entries.size();
     return i < size ?
-        entries.subList(i, size).toArray(RaftLogEntry.EMPTY_ARRAY) : null;
+        entries.subList(i, size).toArray(EMPTY_LOGENTRY_ARRAY) : null;
   }
 
   @Override
@@ -66,7 +66,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public synchronized RaftLogEntry getLastEntry() {
+  public synchronized LogEntryProto getLastEntry() {
     final int size = entries.size();
     return size == 0? null: entries.get(size - 1);
   }
@@ -74,7 +74,8 @@ public class MemoryRaftLog extends RaftLog {
   @Override
   public synchronized long append(long term, Message message) {
     final long nextIndex = getNextIndex();
-    final RaftLogEntry e = new RaftLogEntry(term, nextIndex, message.getInfo());
+    final LogEntryProto e = RaftUtils.convertRequestToLogEntryProto(message,
+        term, nextIndex);
     entries.add(e);
     return nextIndex;
   }
@@ -82,12 +83,14 @@ public class MemoryRaftLog extends RaftLog {
   @Override
   public synchronized long append(long term, RaftConfiguration newConf) {
     final long nextIndex = getNextIndex();
-    entries.add(new ConfigurationEntry(term, nextIndex, newConf));
+    final LogEntryProto e = RaftUtils.convertConfToLogEntryProto(newConf, term,
+        nextIndex);
+    entries.add(e);
     return nextIndex;
   }
 
   @Override
-  public synchronized void append(RaftLogEntry... entries) {
+  public synchronized void append(LogEntryProto... entries) {
     if (entries != null && entries.length > 0) {
       truncate(entries[0].getIndex());
       Collections.addAll(this.entries, entries);

@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.*;
 import org.apache.hadoop.raft.server.RequestHandler.HandlerInterface;
 import org.apache.hadoop.raft.server.protocol.*;
@@ -393,10 +394,39 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     return reply;
   }
 
+  private void validateEntries(long expectedTerm, TermIndex previous,
+      LogEntryProto... entries) {
+    if (entries != null && entries.length > 0) {
+      final long index0 = entries[0].getIndex();
+
+      if (previous == null) {
+        Preconditions.checkArgument(index0 == 0,
+            "Unexpected Index: previous is null but entries[%s].getIndex()=%s",
+            0, index0);
+      } else {
+        Preconditions.checkArgument(previous.getIndex() == index0 - 1,
+            "Unexpected Index: previous is %s but entries[%s].getIndex()=%s",
+            previous, 0, index0);
+      }
+
+      for (int i = 0; i < entries.length; i++) {
+        final long t = entries[i].getTerm();
+        Preconditions.checkArgument(expectedTerm >= t,
+            "Unexpected Term: entries[%s].getTerm()=%s but expectedTerm=%s",
+            i, t, expectedTerm);
+
+        final long indexi = entries[i].getIndex();
+        Preconditions.checkArgument(indexi == index0 + i,
+            "Unexpected Index: entries[%s].getIndex()=%s but entries[0].getIndex()=%s",
+            i, indexi, index0);
+      }
+    }
+  }
+
   @Override
   public AppendEntriesReply appendEntries(String leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
-      RaftLogEntry... entries) throws IOException {
+      LogEntryProto... entries) throws IOException {
     LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {})",
         getId(), leaderId, leaderTerm, previous, leaderCommit,
         (entries == null || entries.length == 0) ? "HEARTBEAT"
@@ -404,7 +434,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     assertRunningState(RunningState.RUNNING, RunningState.INITIALIZING);
 
     try {
-      RaftLogEntry.validateEntries(leaderTerm, previous, entries);
+      validateEntries(leaderTerm, previous, entries);
     } catch (IllegalArgumentException e) {
       throw new IOException(e);
     }
@@ -460,7 +490,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,
-      TermIndex previous, RaftLogEntry[] entries, boolean initializing) {
+      TermIndex previous, LogEntryProto[] entries, boolean initializing) {
     return new AppendEntriesRequest(getId(), targetId,
         state.getCurrentTerm(), previous, entries,
         state.getLog().getLastCommitted().getIndex(), initializing);

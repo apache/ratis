@@ -20,8 +20,8 @@ package org.apache.hadoop.raft.server.storage;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConfiguration;
-import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.apache.hadoop.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public abstract class RaftLog {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
+  public static final LogEntryProto[] EMPTY_LOGENTRY_ARRAY = new LogEntryProto[0];
 
   /**
    * The largest committed index.
@@ -51,7 +52,7 @@ public abstract class RaftLog {
   /**
    * @return The last committed log entry.
    */
-  public synchronized TermIndex getLastCommitted() {
+  public synchronized LogEntryProto getLastCommitted() {
     return get(lastCommitted.get());
   }
 
@@ -69,8 +70,8 @@ public abstract class RaftLog {
     if (lastCommitted.get() < majorityIndex) {
       // Only update last committed index for current term. See §5.4.2 in paper
       // for details.
-      final TermIndex ti = get(majorityIndex);
-      if (ti != null && ti.getTerm() == currentTerm) {
+      final LogEntryProto entry = get(majorityIndex);
+      if (entry != null && entry.getTerm() == currentTerm) {
         LOG.debug("{}: Updating lastCommitted to {}", selfId, majorityIndex);
         lastCommitted.set(majorityIndex);
       }
@@ -82,7 +83,7 @@ public abstract class RaftLog {
    */
   public synchronized boolean committedConfEntry(long oldCommitted) {
     for (long i = oldCommitted + 1; i <= lastCommitted.get(); i++) {
-      if (get(i).isConfigurationEntry()) {
+      if (RaftUtils.isConfigurationLogEntry(get(i))) {
         return true;
       }
     }
@@ -95,14 +96,20 @@ public abstract class RaftLog {
    * by the leader.
    */
   public boolean contains(TermIndex ti) {
-    return ti != null && ti.equals(get(ti.getIndex()));
+    if (ti == null) {
+      return false;
+    }
+    LogEntryProto entry = get(ti.getIndex());
+    TermIndex local = entry == null ? null :
+        new TermIndex(entry.getTerm(), entry.getIndex());
+    return ti.equals(local);
   }
 
   /**
    * @return the index of the next log entry to append.
    */
   public long getNextIndex() {
-    final RaftLogEntry last = getLastEntry();
+    final LogEntryProto last = getLastEntry();
     return last == null ? 0 : last.getIndex() + 1;
   }
 
@@ -113,17 +120,17 @@ public abstract class RaftLog {
    * @return The log entry associated with the given index.
    *         Null if there is no log entry with the index.
    */
-  public abstract RaftLogEntry get(long index);
+  public abstract LogEntryProto get(long index);
 
   /**
    * @return all log entries starting from the given index.
    */
-  public abstract RaftLogEntry[] getEntries(long startIndex);
+  public abstract LogEntryProto[] getEntries(long startIndex);
 
   /**
    * @return the last log entry.
    */
-  public abstract RaftLogEntry getLastEntry();
+  public abstract LogEntryProto getLastEntry();
 
   /**
    * Truncate the log entries till the given index. The log with the given index
@@ -156,7 +163,7 @@ public abstract class RaftLog {
    * do not guarantee the changes are persisted.
    * Need to call {@link #logSync()} to persist the changes.
    */
-  public abstract void append(RaftLogEntry... entries);
+  public abstract void append(LogEntryProto... entries);
 
   /**
    * TODO persist the log. also need to persist leaderId/currentTerm.

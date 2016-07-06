@@ -18,15 +18,14 @@
 package org.apache.hadoop.raft.util;
 
 import com.google.protobuf.ByteString;
-import org.apache.hadoop.raft.proto.RaftProtos;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto.ConfigurationEntryProto;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto.ClientMessageEntryProto;
 import org.apache.hadoop.raft.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.hadoop.raft.proto.RaftProtos.RaftPeerProto;
+import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.RaftConfiguration;
-import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
-import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
+import org.apache.hadoop.raft.server.protocol.TermIndex;
 
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
@@ -74,6 +73,23 @@ public abstract class RaftUtils {
     return peers;
   }
 
+  public static LogEntryProto convertConfToLogEntryProto(RaftConfiguration conf,
+      long term, long index) {
+    RaftConfigurationProto confProto = convertConfToProto(conf);
+    return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
+        .setType(LogEntryProto.Type.CONFIGURATION)
+        .setConfigurationEntry(confProto).build();
+  }
+
+  public static LogEntryProto convertRequestToLogEntryProto(Message message,
+      long term, long index) {
+    ClientMessageEntryProto m = ClientMessageEntryProto.newBuilder()
+        .setContent(getByteString(message.getInfo())).build();
+    return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
+        .setType(LogEntryProto.Type.CLIENT_MESSAGE)
+        .setClientMessageEntry(m).build();
+  }
+
   public static RaftConfiguration convertProtoToConf(long index,
       RaftConfigurationProto proto) {
     RaftPeer[] peers = convertProtoToRaftPeerArray(proto.getPeersList());
@@ -85,14 +101,12 @@ public abstract class RaftUtils {
     }
   }
 
-  public static RaftLogEntry convertToRaftLogEntry(LogEntryProto proto) {
-    if (proto.hasConfigurationEntry()) {
-      RaftConfiguration conf = convertProtoToConf(proto.getIndex(),
-          proto.getConfigurationEntry().getConf());
-      return new ConfigurationEntry(proto.getTerm(), proto.getIndex(), conf);
-    } else {
-      return new RaftLogEntry(proto.getTerm(), proto.getIndex(),
-          proto.getClientMessageEntry().getContent().toByteArray());
-    }
+  public static boolean isConfigurationLogEntry(LogEntryProto entry) {
+    return entry.getType() == LogEntryProto.Type.CONFIGURATION;
+  }
+
+  public static TermIndex getTermIndex(LogEntryProto entry) {
+    return entry == null ? null :
+        new TermIndex(entry.getTerm(), entry.getIndex());
   }
 }

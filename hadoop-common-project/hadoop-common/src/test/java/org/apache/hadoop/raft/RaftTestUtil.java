@@ -17,10 +17,10 @@
  */
 package org.apache.hadoop.raft;
 
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,14 +71,14 @@ public class RaftTestUtil {
     return leader != null ? leader.getId() : null;
   }
 
-  static void assertLogEntriesContains(RaftLogEntry[] entries,
+  static void assertLogEntriesContains(LogEntryProto[] entries,
       SimpleMessage... expectedMessages) {
     int idxEntries = 0;
     int idxExpected = 0;
     while (idxEntries < entries.length
         && idxExpected < expectedMessages.length) {
       if (Arrays.equals(expectedMessages[idxExpected].getInfo(),
-          entries[idxEntries].getContent())) {
+          entries[idxEntries].getClientMessageEntry().getContent().toByteArray())) {
         ++idxExpected;
       }
       ++idxEntries;
@@ -87,14 +87,15 @@ public class RaftTestUtil {
         expectedMessages.length == idxExpected);
   }
 
-  static void assertLogEntries(RaftLogEntry[] entries, long startIndex,
+  static void assertLogEntries(LogEntryProto[] entries, long startIndex,
       long expertedTerm, SimpleMessage... expectedMessages) {
     Assert.assertEquals(expectedMessages.length, entries.length);
     for(int i = 0; i < entries.length; i++) {
-      final RaftLogEntry e = entries[i];
+      final LogEntryProto e = entries[i];
       Assert.assertEquals(expertedTerm, e.getTerm());
       Assert.assertEquals(startIndex + i, e.getIndex());
-      Assert.assertArrayEquals(expectedMessages[i].getInfo(), e.getContent());
+      Assert.assertArrayEquals(expectedMessages[i].getInfo(),
+          e.getClientMessageEntry().getContent().toByteArray());
     }
   }
 

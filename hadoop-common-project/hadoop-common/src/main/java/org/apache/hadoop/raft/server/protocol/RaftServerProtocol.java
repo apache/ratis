@@ -21,6 +21,8 @@ import java.io.IOException;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.raft.proto.RaftProtos;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -31,5 +33,5 @@ public interface RaftServerProtocol {
 
   AppendEntriesReply appendEntries(String leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
-      RaftLogEntry... entries) throws IOException;
+      LogEntryProto... entries) throws IOException;
 }

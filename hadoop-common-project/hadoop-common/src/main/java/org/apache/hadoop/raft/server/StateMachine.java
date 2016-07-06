@@ -17,10 +17,10 @@
  */
 package org.apache.hadoop.raft.server;
 
-import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
+import org.apache.hadoop.raft.proto.RaftProtos;
 
 public interface StateMachine {
-  void applyLogEntry(RaftLogEntry entry);
+  void applyLogEntry(RaftProtos.LogEntryProto entry);
 
   void takeSnapshot();
 }

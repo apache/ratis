@@ -18,6 +18,7 @@
 package org.apache.hadoop.raft;
 
 import org.apache.hadoop.raft.client.RaftClient;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.server.RaftConfiguration;
@@ -25,7 +26,6 @@ import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.ServerState;
-import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.simulation.SimulatedRpc;
@@ -116,7 +116,7 @@ public class MiniRaftCluster {
     server.start(conf);
   }
 
-  public void enforceServerLog(String id, List<RaftLogEntry> newLogEntries,
+  public void enforceServerLog(String id, List<LogEntryProto> newLogEntries,
       RaftConfiguration conf) {
     RaftServer server = servers.get(id);
     assert server != null;
@@ -249,11 +249,8 @@ public class MiniRaftCluster {
     LOG.debug("target leader should have became candidate. open queue");
 
     // Reopen queues so that the vote can make progress.
-    for (Map.Entry<String, RaftServer> e : servers.entrySet()) {
-      if (!e.getKey().equals(leaderId)) {
-        serverRpc.setTakeRequestDelayMs(e.getKey(), 0);
-      }
-    }
+    servers.entrySet().stream().filter(e -> !e.getKey().equals(leaderId))
+        .forEach(e -> serverRpc.setTakeRequestDelayMs(e.getKey(), 0));
     serverRpc.setIsOpenForMessage(leaderId, true);
     // Wait for a quiescence.
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);

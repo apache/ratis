@@ -18,15 +18,16 @@
 package org.apache.hadoop.raft.server;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
-import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.storage.RaftLog;
+import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
@@ -550,7 +551,7 @@ class LeaderState {
     /** Send an appendEntries RPC; retry indefinitely. */
     private AppendEntriesReply sendAppendEntriesWithRetries()
         throws InterruptedException, InterruptedIOException {
-      RaftLogEntry[] entries = null;
+      LogEntryProto[] entries = null;
       int retry = 0;
       while (isSenderRunning()) {
         try {
@@ -559,7 +560,8 @@ class LeaderState {
             // to send snapshot or split the entries
             entries = raftLog.getEntries(follower.nextIndex);
           }
-          final TermIndex previous = raftLog.get(follower.nextIndex - 1);
+          final TermIndex previous = RaftUtils.getTermIndex(
+              raftLog.get(follower.nextIndex - 1));
           if (entries != null || previous != null) {
             LOG.trace("follower {}, log {}", follower, raftLog);
           }

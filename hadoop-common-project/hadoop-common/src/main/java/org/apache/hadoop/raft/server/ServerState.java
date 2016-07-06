@@ -19,12 +19,12 @@ package org.apache.hadoop.raft.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
-import org.apache.hadoop.raft.server.protocol.ConfigurationEntry;
-import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.storage.RaftLog;
+import org.apache.hadoop.raft.util.RaftUtils;
 
 import java.util.List;
 
@@ -94,7 +94,7 @@ public class ServerState {
 
   @VisibleForTesting
   public static ServerState buildServerState(ServerState oldState,
-      List<RaftLogEntry> logEntries) {
+      List<LogEntryProto> logEntries) {
     MemoryRaftLog newLog = new MemoryRaftLog(oldState.getSelfId(), logEntries);
     return new ServerState(oldState.selfId, oldState.getRaftConf(),
         newLog);
@@ -185,10 +185,10 @@ public class ServerState {
   }
 
   boolean isLogUpToDate(TermIndex candidateLastEntry) {
-    TermIndex lastEntry = log.getLastEntry();
+    LogEntryProto lastEntry = log.getLastEntry();
+    TermIndex ti = lastEntry == null ? null : RaftUtils.getTermIndex(lastEntry);
     return lastEntry == null ||
-        (candidateLastEntry != null &&
-            lastEntry.compareTo(candidateLastEntry) <= 0);
+        (candidateLastEntry != null && ti.compareTo(candidateLastEntry) <= 0);
   }
 
   @Override
@@ -209,14 +209,14 @@ public class ServerState {
         getSelfId(), conf);
   }
 
-  void updateConfiguration(RaftLogEntry[] entries) {
+  void updateConfiguration(LogEntryProto[] entries) {
     if (entries != null && entries.length > 0) {
       configurationManager.removeConfigurations(entries[0].getIndex());
-      for (RaftLogEntry entry : entries) {
-        if (entry.isConfigurationEntry()) {
-          ConfigurationEntry confEntry = (ConfigurationEntry) entry;
+      for (LogEntryProto entry : entries) {
+        if (RaftUtils.isConfigurationLogEntry(entry)) {
           configurationManager.addConfiguration(entry.getIndex(),
-              confEntry.getConf());
+              RaftUtils.convertProtoToConf(entry.getIndex(),
+                  entry.getConfigurationEntry()));
         }
       }
     }

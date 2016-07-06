@@ -17,10 +17,12 @@
  */
 package org.apache.hadoop.raft.server.protocol;
 
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
+
 public class AppendEntriesRequest extends RaftServerRequest {
   private final long leaderTerm;
   private final TermIndex previousLog;
-  private final RaftLogEntry[] entries;
+  private final LogEntryProto[] entries;
   private final long leaderCommit;
 
   /**
@@ -31,7 +33,7 @@ public class AppendEntriesRequest extends RaftServerRequest {
   private final boolean initializing;
 
   public AppendEntriesRequest(String from, String to, long leaderTerm,
-      TermIndex previousLog, RaftLogEntry[] entries, long leaderCommit,
+      TermIndex previousLog, LogEntryProto[] entries, long leaderCommit,
       boolean initializing) {
     super(from, to);
     this.leaderTerm = leaderTerm;
@@ -49,7 +51,7 @@ public class AppendEntriesRequest extends RaftServerRequest {
     return previousLog;
   }
 
-  public RaftLogEntry[] getEntries() {
+  public LogEntryProto[] getEntries() {
     return entries;
   }
 

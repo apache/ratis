@@ -45,14 +45,10 @@ message LogEntryProto {
     optional bytes content = 1;
   }
 
-  message ConfigurationEntryProto {
-    optional RaftConfigurationProto conf = 1;
-  }
-
   optional uint64 term = 1;
   optional uint64 index = 2;
   optional Type type = 3; // the type of the log entry
 
   optional ClientMessageEntryProto clientMessageEntry = 4;
-  optional ConfigurationEntryProto configurationEntry = 5;
+  optional RaftConfigurationProto configurationEntry = 5;
 }

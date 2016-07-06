@@ -18,10 +18,10 @@
 package org.apache.hadoop.raft.server.storage;
 
 import org.apache.commons.io.Charsets;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.raft.server.protocol.RaftLogEntry;
 import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.PathAndIndex;
 
 import java.io.File;
@@ -76,17 +76,17 @@ public class SegmentedRaftLog extends RaftLog {
 
   @Override
   // TODO: change RaftLogEntry to LogEntryProto
-  public RaftLogEntry get(long index) {
+  public LogEntryProto get(long index) {
     return null;
   }
 
   @Override
-  public RaftLogEntry[] getEntries(long startIndex) {
-    return new RaftLogEntry[0];
+  public LogEntryProto[] getEntries(long startIndex) {
+    return null;
   }
 
   @Override
-  public RaftLogEntry getLastEntry() {
+  public LogEntryProto getLastEntry() {
     return null;
   }
 
@@ -105,7 +105,7 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public void append(RaftLogEntry... entries) {
+  public void append(LogEntryProto... entries) {
   }
 
   @Override
