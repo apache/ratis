@@ -133,9 +133,13 @@ class LogSegment implements Comparable<Long> {
     return totalSize >= RaftConstants.LOG_SEGMENT_MAX_SIZE;
   }
 
-  void append(LogEntryProto... entries) {
+  void appendToOpenSegment(LogEntryProto... entries) {
     Preconditions.checkState(isOpen(),
         "The log segment %s is not open for append", this.toString());
+    append(entries);
+  }
+
+  private void append(LogEntryProto... entries) {
     Preconditions.checkArgument(entries != null && entries.length > 0);
     final long term = entries[0].getTerm();
     if (records.isEmpty()) {
@@ -147,10 +151,13 @@ class LogSegment implements Comparable<Long> {
       // all these entries should be of the same term
       Preconditions.checkArgument(entry.getTerm() == term,
           "expected term:%s, term of the entry:%s", term, entry.getTerm());
-      Preconditions.checkArgument(records.isEmpty() ||
-          entry.getIndex() == getLastRecord().entry.getIndex() + 1,
-          "gap between entries %s and %s", entry.getIndex(),
-          getLastRecord().entry.getIndex());
+      final LogRecord currentLast = getLastRecord();
+      if (currentLast != null) {
+        Preconditions.checkArgument(
+            entry.getIndex() == currentLast.entry.getIndex() + 1,
+            "gap between entries %s and %s", entry.getIndex(),
+            currentLast.entry.getIndex());
+      }
 
       final LogRecord record = new LogRecord(totalSize, entry);
       records.add(record);
@@ -182,7 +189,7 @@ class LogSegment implements Comparable<Long> {
   void truncate(long fromIndex) {
     Preconditions.checkArgument(fromIndex >= startIndex && fromIndex <= endIndex);
     LogRecord record = records.get((int) (fromIndex - startIndex));
-    for (long index = fromIndex; index <= endIndex; index++) {
+    for (long index = endIndex; index >= fromIndex; index--) {
       records.remove((int)(index - startIndex));
     }
     totalSize = record.offset;

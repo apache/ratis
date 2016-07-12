@@ -166,7 +166,7 @@ class RaftLogCache {
     // SegmentedRaftLog does the segment creation/rolling work. Here we just
     // simply append the entry into the open segment.
     Preconditions.checkState(openSegment != null && !openSegment.isFull());
-    openSegment.append(entry);
+    openSegment.appendToOpenSegment(entry);
   }
 
   /**
