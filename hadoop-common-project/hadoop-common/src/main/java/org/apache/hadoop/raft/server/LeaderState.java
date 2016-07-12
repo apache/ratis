@@ -555,10 +555,11 @@ class LeaderState {
       int retry = 0;
       while (isSenderRunning()) {
         try {
+          final long endIndex = raftLog.getNextIndex();
           if (entries == null || entries.length == 0) {
             // TODO: handle the scenario that the gap is too large and we need
             // to send snapshot or split the entries
-            entries = raftLog.getEntries(follower.nextIndex);
+            entries = raftLog.getEntries(follower.nextIndex, endIndex);
           }
           final TermIndex previous = RaftUtils.getTermIndex(
               raftLog.get(follower.nextIndex - 1));

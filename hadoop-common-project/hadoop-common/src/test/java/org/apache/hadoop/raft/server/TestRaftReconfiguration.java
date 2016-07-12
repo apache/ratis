@@ -314,8 +314,9 @@ public class TestRaftReconfiguration {
 
       final RaftLog leaderLog = cluster.getLeader().getState().getLog();
       for (RaftPeer newPeer : c1.newPeers) {
-        Assert.assertArrayEquals(leaderLog.getEntries(0),
-            cluster.getRaftServer(newPeer.getId()).getState().getLog().getEntries(0));
+        Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
+            cluster.getRaftServer(newPeer.getId()).getState().getLog()
+                .getEntries(0, Long.MAX_VALUE));
       }
     } finally {
       cluster.shutdown();

@@ -50,6 +50,8 @@ class RaftStorageDirectory {
   static final String STORAGE_DIR_CURRENT = "current";
   static final String STORAGE_FILE_LOCK = "in_use.lock";
   static final String META_FILE_NAME = "raft-meta";
+  static final String LOG_FILE_INPROGRESS = "inprogress";
+  static final String LOG_FILE_PREFIX = "log";
   static final Pattern CLOSED_SEGMENT_REGEX = Pattern.compile("log_(\\d+)-(\\d+)");
   static final Pattern OPEN_SEGMENT_REGEX = Pattern.compile("log_inprogress_(\\d+)(?:\\..*)?");
 
@@ -137,6 +139,22 @@ class RaftStorageDirectory {
         + AtomicFileOutputStream.TMP_EXTENSION);
   }
 
+  File getOpenLogFile(long startIndex) {
+    return new File(getCurrentDir(), getOpenLogFileName(startIndex));
+  }
+
+  static String getOpenLogFileName(long startIndex) {
+    return LOG_FILE_PREFIX + "_" + LOG_FILE_INPROGRESS + "_" + startIndex;
+  }
+
+  File getClosedLogFile(long startIndex, long endIndex) {
+    return new File(getCurrentDir(), getClosedLogFileName(startIndex, endIndex));
+  }
+
+  static String getClosedLogFileName(long startIndex, long endIndex) {
+    return LOG_FILE_PREFIX + "_" + startIndex + "-" + endIndex;
+  }
+
   /**
    * @return log segment files sorted based on their index.
    */
@@ -186,7 +204,7 @@ class RaftStorageDirectory {
    * @return state {@link StorageState} of the storage directory
    * @throws IOException
    */
-  StorageState analyzeStorage() throws IOException {
+  StorageState analyzeStorage(boolean toLock) throws IOException {
     Preconditions.checkState(root != null, "root directory is null");
 
     String rootPath = root.getCanonicalPath();
@@ -211,7 +229,9 @@ class RaftStorageDirectory {
       return StorageState.NON_EXISTENT;
     }
 
-    this.lock(); // lock storage if it exists
+    if (toLock) {
+      this.lock(); // lock storage if it exists
+    }
 
     // check whether current directory is valid
     if (hasMetaFile()) {

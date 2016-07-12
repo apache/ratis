@@ -18,10 +18,19 @@
 package org.apache.hadoop.raft.server.storage;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.io.nativeio.NativeIO;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.hadoop.raft.server.storage.LogSegment.SegmentFileInfo;
+import org.apache.hadoop.raft.server.storage.RaftLogCache.TruncationSegments;
+import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.util.ExitUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -31,7 +40,7 @@ import java.util.concurrent.TimeUnit;
  * raft peer. It provides both the synchronous (for follower) and asynchronous
  * (for leader) WRITE APIs.
  */
-public class RaftLogWorker implements Runnable {
+class RaftLogWorker implements Runnable {
   private static final Logger LOG = LoggerFactory.getLogger(RaftLogWorker.class);
   /**
    * The task queue accessed by rpc handler threads and the io worker thread.
@@ -40,7 +49,11 @@ public class RaftLogWorker implements Runnable {
   private volatile boolean running = true;
   private final Thread workerThread;
 
-  public RaftLogWorker() {
+  private final RaftStorage storage;
+  private LogOutputStream out;
+
+  RaftLogWorker(RaftStorage storage) {
+    this.storage = storage;
     workerThread = new Thread(this, this.getClass().getSimpleName());
   }
 
@@ -74,7 +87,7 @@ public class RaftLogWorker implements Runnable {
   }
 
   private void terminate(Throwable t) {
-    String message = "Exception while logging: " + t.getMessage();
+    String message = "Exception while handling raft log: " + t.getMessage();
     LOG.error(message, t);
     ExitUtil.terminate(1, message);
   }
@@ -90,88 +103,137 @@ public class RaftLogWorker implements Runnable {
       } catch (InterruptedException e) {
         LOG.info(Thread.currentThread().getName() + " was interrupted, exiting");
       } catch (Throwable t) {
+        // TODO avoid terminating the jvm by supporting multiple log directories
         terminate(t);
       }
     }
   }
 
+  void startLogSegment(long startIndex) {
+    addIOTask(new StartLogSegment(startIndex));
+  }
+
+  void rollLogSegment(LogSegment segmentToClose) {
+    addIOTask(new FinalizeLogSegment(segmentToClose));
+    addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
+  }
+
+  void writeLogEntry(LogEntryProto entry) {
+    addIOTask(new WriteLog(entry));
+  }
+
+  void truncate(TruncationSegments ts) {
+    addIOTask(new TruncateLog(ts));
+  }
+
   /**
    * I/O task definitions.
    */
-  private static abstract class Task {
-    private final long sequenceNum;
+  private interface Task {
+    void execute() throws IOException;
+  }
 
-    Task(long seqNum) {
-      this.sequenceNum = seqNum;
-    }
+  private class WriteLog implements Task {
+    private final LogEntryProto entry;
 
-    abstract void execute();
-
-    long getSequenceNum() {
-      return sequenceNum;
+    WriteLog(LogEntryProto entry) {
+      this.entry = entry;
     }
 
     @Override
-    public String toString() {
-      return this.getClass().getSimpleName() + "-" + getSequenceNum();
+    public void execute() throws IOException {
+      Preconditions.checkState(out != null);
+      out.write(entry);
+      // TODO when to flush?
     }
   }
 
-  private class WriteLog extends Task {
-    private final LogSegment.LogRecord[] records;
+  private class FinalizeLogSegment implements Task {
+    private final LogSegment segmentToClose;
 
-    WriteLog(long seqNum, LogSegment.LogRecord[] records) {
-      super(seqNum);
-      this.records = records;
+    FinalizeLogSegment(LogSegment segmentToClose) {
+      this.segmentToClose = segmentToClose;
     }
 
     @Override
-    void execute() {
+    public void execute() throws IOException {
+      IOUtils.cleanup(null, out);
+      out = null;
+      Preconditions.checkState(segmentToClose != null);
 
+      File openFile = storage.getStorageDir()
+          .getOpenLogFile(segmentToClose.getStartIndex());
+      Preconditions.checkState(openFile.exists());
+      if (segmentToClose.numOfEntries() > 0) {
+        // finalize the current open segment
+        File dstFile = storage.getStorageDir().getClosedLogFile(
+            segmentToClose.getStartIndex(), segmentToClose.getEndIndex());
+        Preconditions.checkState(!dstFile.exists());
+
+        NativeIO.renameTo(openFile, dstFile);
+      } else { // delete the file of the empty segment
+        deleteFile(openFile);
+      }
     }
   }
 
-  private class RollLogSegment extends Task {
-    RollLogSegment(long seqNum) {
-      super(seqNum);
-    }
-
-    @Override
-    void execute() {
-
+  private void deleteFile(File f) throws IOException {
+    try {
+      Files.delete(f.toPath());
+    } catch (IOException e) {
+      LOG.warn("Could not delete " + f);
+      throw e;
     }
   }
 
-  private class TruncateLog extends Task {
-    TruncateLog(long seqNum) {
-      super(seqNum);
+  private class StartLogSegment implements Task {
+    private final long newStartIndex;
+
+    StartLogSegment(long newStartIndex) {
+      this.newStartIndex = newStartIndex;
     }
 
     @Override
-    void execute() {
-
+    public void execute() throws IOException {
+      File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
+      Preconditions.checkState(!openFile.exists());
+      Preconditions.checkState(out == null);
+      out = new LogOutputStream(openFile, false);
     }
   }
 
-  private class DeleteLogSegment extends Task {
-    DeleteLogSegment(long seqNum) {
-      super(seqNum);
+  private class TruncateLog implements Task {
+    private final TruncationSegments segments;
+
+    TruncateLog(TruncationSegments ts) {
+      this.segments = ts;
     }
 
     @Override
-    void execute() {
-
-    }
-  }
-
-  private class UpdateMetadata extends Task {
-    UpdateMetadata(long seqNum) {
-      super(seqNum);
-    }
-
-    @Override
-    void execute() {
-
+    public void execute() throws IOException {
+      IOUtils.cleanup(null, out);
+      out = null;
+      if (segments.toTruncate != null) {
+        File fileToTruncate = segments.toTruncate.isOpen ?
+            storage.getStorageDir().getOpenLogFile(
+                segments.toTruncate.startIndex) :
+            storage.getStorageDir().getClosedLogFile(
+                segments.toTruncate.startIndex,
+                segments.toTruncate.endIndex);
+        RaftUtils.truncateFile(fileToTruncate, segments.toTruncate.targetLength);
+      }
+      if (segments.toDelete != null) {
+        for (SegmentFileInfo del : segments.toDelete) {
+          final File delFile;
+          if (del.isOpen) {
+            delFile = storage.getStorageDir().getOpenLogFile(del.startIndex);
+          } else {
+            delFile = storage.getStorageDir()
+                .getClosedLogFile(del.startIndex, del.endIndex);
+          }
+          deleteFile(delFile);
+        }
+      }
     }
   }
 }

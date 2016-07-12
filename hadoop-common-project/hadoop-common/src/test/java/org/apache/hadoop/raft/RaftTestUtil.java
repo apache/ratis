@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft;
 
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConstants;
@@ -25,9 +26,12 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
+import static org.apache.zookeeper.ZooDefs.OpCode.create;
 import static org.junit.Assert.assertTrue;
 
 public class RaftTestUtil {
@@ -132,5 +136,17 @@ public class RaftTestUtil {
     public byte[] getInfo() {
       return messageId.getBytes(Charset.forName("UTF-8"));
     }
+  }
+
+  public static File getTestDir(Class<?> caller) throws IOException {
+    File dir = new File(System.getProperty("test.build.data", "target/test/data")
+            + "/" + RandomStringUtils.randomAlphanumeric(10),
+            caller.getSimpleName());
+    if (dir.exists() && !dir.isDirectory()) {
+      throw new IOException(dir + " already exists and is not a directory");
+    } else if (!dir.exists() && !dir.mkdirs()) {
+      throw new IOException("Cannot create directory " + dir);
+    }
+    return dir;
   }
 }

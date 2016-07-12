@@ -36,10 +36,10 @@ import java.util.zip.Checksum;
 
 import static org.apache.hadoop.raft.server.RaftConstants.LOG_TERMINATE_BYTE;
 
-public class LogOutputStream implements Closeable {
+class LogOutputStream implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(LogOutputStream.class);
   private static final ByteBuffer fill = ByteBuffer
-      .allocateDirect(RaftConstants.LOG_SEGMENT_SIZE);
+      .allocateDirect(RaftConstants.LOG_SEGMENT_MAX_SIZE);
 
   static {
     fill.position(0);
@@ -53,13 +53,17 @@ public class LogOutputStream implements Closeable {
   private FileChannel fc; // channel of the file stream for sync
   private final Checksum checksum;
 
-  public LogOutputStream(File file) throws IOException {
+  LogOutputStream(File file, boolean append) throws IOException {
     this.file = file;
     this.checksum = DataChecksum.newCrc32();
     RandomAccessFile rp = new RandomAccessFile(file, "rw");
     out = new FileOutputStream(rp.getFD());
     fc = rp.getChannel();
     fc.position(fc.size());
+
+    if (!append) {
+      create();
+    }
   }
 
   /**
@@ -91,7 +95,7 @@ public class LogOutputStream implements Closeable {
     out.write((v) & 0xFF);
   }
 
-  public void create() throws IOException {
+  private void create() throws IOException {
     fc.truncate(0);
     fc.position(0);
 
@@ -117,7 +121,7 @@ public class LogOutputStream implements Closeable {
    * Flush data to persistent store.
    * Collect sync metrics.
    */
-  public void flush() throws IOException {
+  void flush() throws IOException {
     flushAndSync(true);
   }
 

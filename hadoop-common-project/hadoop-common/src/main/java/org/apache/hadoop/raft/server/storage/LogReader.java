@@ -154,36 +154,23 @@ public class LogReader implements Closeable {
   /**
    * Read a log entry from the input stream.
    *
-   * Note that the objects returned from this method may be re-used by future
-   * calls to the same method.
-   *
-   * @param skipBrokenEntries If true, attempt to skip over damaged parts of the
-   *                          input stream, rather than throwing an IOException
    * @return the operation read from the stream, or null at the end of the
    *         file
    * @throws IOException on error.  This function should only throw an
    *         exception when skipBrokenEdits is false.
    */
-  LogEntryProto readEntry(boolean skipBrokenEntries) throws IOException {
-    while (true) {
-      try {
-        return decodeEntry();
-      } catch (IOException e) {
-        in.reset();
-        if (!skipBrokenEntries) {
-          throw e;
-        }
-      } catch (Throwable e) {
-        in.reset();
-        if (!skipBrokenEntries) {
-          throw new IOException("got unexpected exception " +
-              e.getMessage(), e);
-        }
-      }
-      // Move ahead one byte and re-try the decode process.
-      if (in.skip(1) < 1) {
-        return null;
-      }
+  LogEntryProto readEntry() throws IOException {
+    try {
+      return decodeEntry();
+    } catch (IOException e) {
+      in.reset();
+
+      throw e;
+    } catch (Throwable e) {
+      // raft log requires no gap between any two entries. thus if an entry is
+      // broken, throw the exception instead of skipping broken entries
+      in.reset();
+      throw new IOException("got unexpected exception " + e.getMessage(), e);
     }
   }
 
@@ -210,8 +197,7 @@ public class LogReader implements Closeable {
         }
         for (idx = 0; idx < numRead; idx++) {
           if (temp[idx] != RaftConstants.LOG_TERMINATE_BYTE) {
-            throw new IOException("Read extra bytes after " +
-                "the terminator!");
+            throw new IOException("Read extra bytes after the terminator!");
           }
         }
       } finally {
@@ -248,7 +234,7 @@ public class LogReader implements Closeable {
       // EOF at an opcode boundary is expected.
       return null;
     }
-    // Each log entry starts with a varint. Thus a valid entry's first byte
+    // Each log entry starts with a var-int. Thus a valid entry's first byte
     // should not be 0. So if the terminate byte is 0, we should hit the end
     // of the segment.
     if (nextByte == RaftConstants.LOG_TERMINATE_BYTE) {

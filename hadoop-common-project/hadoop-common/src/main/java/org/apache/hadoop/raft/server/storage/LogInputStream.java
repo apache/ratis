@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.hadoop.raft.server.storage.FileLogManager.LogValidation;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,8 +32,32 @@ import java.io.IOException;
 
 import static org.apache.hadoop.raft.server.RaftConstants.INVALID_LOG_INDEX;
 
-public class LogInputStream implements Closeable {
+class LogInputStream implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(LogInputStream.class);
+
+  static class LogValidation {
+    private final long validLength;
+    private final long endIndex;
+    private final boolean hasCorruptHeader;
+
+    LogValidation(long validLength, long endIndex, boolean hasCorruptHeader) {
+      this.validLength = validLength;
+      this.endIndex = endIndex;
+      this.hasCorruptHeader = hasCorruptHeader;
+    }
+
+    long getValidLength() {
+      return validLength;
+    }
+
+    long getEndIndex() {
+      return endIndex;
+    }
+
+    boolean hasCorruptHeader() {
+      return hasCorruptHeader;
+    }
+  }
 
   private enum State {
     UNINIT,
@@ -44,16 +68,22 @@ public class LogInputStream implements Closeable {
   private final File logFile;
   private final long startIndex;
   private final long endIndex;
-  private final boolean isInProgress;
+  private final boolean isOpen;
   private State state = State.UNINIT;
   private LogReader reader;
 
-  public LogInputStream(File log, long startIndex, long endIndex,
-      boolean isInProgress) {
+  LogInputStream(File log, long startIndex, long endIndex,
+      boolean isOpen) {
+    if (isOpen) {
+      Preconditions.checkArgument(endIndex == RaftConstants.INVALID_LOG_INDEX);
+    } else {
+      Preconditions.checkArgument(endIndex >= startIndex);
+    }
+
     this.logFile = log;
     this.startIndex = startIndex;
     this.endIndex = endIndex;
-    this.isInProgress = isInProgress;
+    this.isOpen = isOpen;
   }
 
   private void init() throws IOException {
@@ -70,19 +100,19 @@ public class LogInputStream implements Closeable {
     }
   }
 
-  public long getStartIndex() {
+  long getStartIndex() {
     return startIndex;
   }
 
-  public long getEndIndex() {
+  long getEndIndex() {
     return endIndex;
   }
 
-  public String getName() {
+  String getName() {
     return logFile.getName();
   }
 
-  private LogEntryProto nextEntry(boolean skipBrokenEntries) throws IOException {
+  LogEntryProto nextEntry() throws IOException {
     LogEntryProto entry = null;
     switch (state) {
       case UNINIT:
@@ -90,20 +120,17 @@ public class LogInputStream implements Closeable {
           init();
         } catch (Throwable e) {
           LOG.error("caught exception initializing " + this, e);
-          if (skipBrokenEntries) {
-            return null;
-          }
           Throwables.propagateIfPossible(e, IOException.class);
         }
         Preconditions.checkState(state != State.UNINIT);
-        return nextEntry(skipBrokenEntries);
+        return nextEntry();
       case OPEN:
-        entry = reader.readEntry(skipBrokenEntries);
+        entry = reader.readEntry();
         if (entry != null) {
           long index = entry.getIndex();
-          if ((index >= endIndex) && (endIndex != INVALID_LOG_INDEX)) {
+          if (!isOpen() && index >= endIndex) {
             /**
-             * The end index may be derived from the recoverUnfinalizedSegments
+             * The end index may be derived from the segment recovery
              * process. It is possible that we still have some uncleaned garbage
              * in the end. We should skip them.
              */
@@ -127,19 +154,6 @@ public class LogInputStream implements Closeable {
     return reader.scanEntry();
   }
 
-  LogEntryProto nextEntry() throws IOException {
-    return nextEntry(false);
-  }
-
-  protected LogEntryProto nextValidEntry() {
-    try {
-      return nextEntry(true);
-    } catch (Throwable e) {
-      LOG.error("nextValidEntry: got exception while reading " + this, e);
-      return null;
-    }
-  }
-
   long getPosition() {
     if (state == State.OPEN) {
       return reader.getPos();
@@ -148,6 +162,7 @@ public class LogInputStream implements Closeable {
     }
   }
 
+  @Override
   public void close() throws IOException {
     if (state == State.OPEN) {
       reader.close();
@@ -155,13 +170,8 @@ public class LogInputStream implements Closeable {
     state = State.CLOSED;
   }
 
-  public long length() throws IOException {
-    // file size + size of both buffers
-    return logFile.length();
-  }
-
-  public boolean isInProgress() {
-    return isInProgress;
+  boolean isOpen() {
+    return isOpen;
   }
 
   @Override
@@ -219,7 +229,7 @@ public class LogInputStream implements Closeable {
       lastPos = in.getPosition();
       try {
         if (hitError) {
-          LogEntryProto entry = in.nextValidEntry();
+          LogEntryProto entry = in.nextEntry();
           index = entry != null ? entry.getIndex() : INVALID_LOG_INDEX;
           LOG.warn("After resync, position is " + in.getPosition());
         } else {

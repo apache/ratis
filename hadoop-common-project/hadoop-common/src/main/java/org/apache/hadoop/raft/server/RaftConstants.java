@@ -25,7 +25,7 @@ public abstract class RaftConstants {
   public static final long INVALID_LOG_INDEX = -1;
   public static final byte LOG_TERMINATE_BYTE = 0;
 
-  public static final int LOG_SEGMENT_SIZE = 1024 * 1024 * 8;
+  public static final int LOG_SEGMENT_MAX_SIZE = 1024 * 1024 * 8;
 
   @VisibleForTesting
   public static final int ELECTION_TIMEOUT_MIN_MS = 150;
@@ -54,8 +54,7 @@ public abstract class RaftConstants {
 
   public enum StartupOption {
     FORMAT("format"),
-    REGULAR("regular"),
-    BOOTSTRAPSTANDBY("bootstrap");
+    REGULAR("regular");
 
     private final String option;
 

@@ -19,7 +19,6 @@ package org.apache.hadoop.raft.server.storage;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.util.RaftUtils;
 
@@ -49,11 +48,13 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public synchronized LogEntryProto[] getEntries(long startIndex) {
+  public synchronized LogEntryProto[] getEntries(long startIndex, long endIndex) {
     final int i = (int) startIndex;
-    final int size = entries.size();
-    return i < size ?
-        entries.subList(i, size).toArray(EMPTY_LOGENTRY_ARRAY) : null;
+    if (startIndex >= entries.size()) {
+      return null;
+    }
+    final int toIndex = (int) Math.min(entries.size(), endIndex);
+    return entries.subList(i, toIndex).toArray(EMPTY_LOGENTRY_ARRAY);
   }
 
   @Override
@@ -72,12 +73,8 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public synchronized long append(long term, Message message) {
-    final long nextIndex = getNextIndex();
-    final LogEntryProto e = RaftUtils.convertRequestToLogEntryProto(message,
-        term, nextIndex);
-    entries.add(e);
-    return nextIndex;
+  synchronized void appendEntry(LogEntryProto entry) {
+    entries.add(entry);
   }
 
   @Override
@@ -91,9 +88,33 @@ public class MemoryRaftLog extends RaftLog {
 
   @Override
   public synchronized void append(LogEntryProto... entries) {
-    if (entries != null && entries.length > 0) {
-      truncate(entries[0].getIndex());
-      Collections.addAll(this.entries, entries);
+    if (entries == null || entries.length == 0) {
+      return;
+    }
+    // Before truncating the entries, we first need to check if some
+    // entries are duplicated. If the leader sends entry 6, entry 7, then
+    // entry 6 again, without this check the follower may truncate entry 7
+    // when receiving entry 6 again. Then before the leader detects this
+    // truncation in the next appendEntries RPC, leader may think entry 7 has
+    // been committed but in the system the entry has not been committed to the
+    // quorum of peers' disks.
+    // TODO add a unit test for this
+    boolean toTruncate = false;
+    int truncateIndex = (int) entries[0].getIndex();
+    int index = 0;
+    for (; truncateIndex < getNextIndex() && index < entries.length;
+         index++, truncateIndex++) {
+      if (this.entries.get(truncateIndex).getTerm() != entries[index].getTerm()) {
+        toTruncate = true;
+        break;
+      }
+    }
+    if (toTruncate) {
+      truncate(truncateIndex);
+    }
+    //  Collections.addAll(this.entries, entries);
+    for (int i = index; i < entries.length; i++) {
+      this.entries.add(entries[i]);
     }
   }
 

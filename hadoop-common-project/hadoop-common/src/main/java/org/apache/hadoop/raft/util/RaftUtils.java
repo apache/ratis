@@ -27,6 +27,9 @@ import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -108,5 +111,11 @@ public abstract class RaftUtils {
   public static TermIndex getTermIndex(LogEntryProto entry) {
     return entry == null ? null :
         new TermIndex(entry.getTerm(), entry.getIndex());
+  }
+
+  public static void truncateFile(File f, long target) throws IOException {
+    try (FileOutputStream out = new FileOutputStream(f, true)) {
+      out.getChannel().truncate(target);
+    }
   }
 }

@@ -17,15 +17,15 @@
  */
 package org.apache.hadoop.raft.server.storage;
 
+import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.hadoop.raft.protocol.Message;
-import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.PathAndIndex;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -45,18 +45,24 @@ import java.util.List;
  * close the open segment and start a new open segment. A closed segment cannot
  * be appended anymore, but it can be truncated in case that a follower's log is
  * inconsistent with the current leader.
+ *
+ * Every closed segment should be non-empty, i.e., it should contain at least
+ * one entry.
  */
 public class SegmentedRaftLog extends RaftLog {
   static final byte[] HEADER = "RAFTLOG1".getBytes(Charsets.UTF_8);
 
   private final RaftStorage storage;
   private final RaftLogCache cache;
+  private final RaftLogWorker fileLogWorker;
 
   public SegmentedRaftLog(String selfId, File rootDir) throws IOException {
     super(selfId);
-    storage = new RaftStorage(rootDir);
+    storage = new RaftStorage(rootDir, RaftConstants.StartupOption.REGULAR);
     cache = new RaftLogCache();
+    fileLogWorker = new RaftLogWorker(storage);
     loadLogSegments();
+    fileLogWorker.start();
   }
 
   private void loadLogSegments() throws IOException {
@@ -75,37 +81,86 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  // TODO: change RaftLogEntry to LogEntryProto
   public LogEntryProto get(long index) {
-    return null;
+    return cache.getEntry(index);
   }
 
   @Override
-  public LogEntryProto[] getEntries(long startIndex) {
-    return null;
+  public LogEntryProto[] getEntries(long startIndex, long endIndex) {
+    return cache.getEntries(startIndex, endIndex);
   }
 
   @Override
   public LogEntryProto getLastEntry() {
-    return null;
+    return cache.getLastEntry();
   }
 
+  /**
+   * The method, along with {@link #appendEntry} and
+   * {@link #append(LogEntryProto...)} need protection of RaftServer's lock.
+   */
   @Override
   void truncate(long index) {
+    RaftLogCache.TruncationSegments ts = cache.truncate(index);
+    if (ts != null) {
+      fileLogWorker.truncate(ts);
+    }
   }
 
   @Override
-  public long append(long term, Message message) {
-    return 0;
-  }
+  void appendEntry(LogEntryProto entry) {
+    final LogSegment currentOpenSegment = cache.getOpenSegment();
+    if (currentOpenSegment == null) {
+      cache.addSegment(LogSegment.newOpenSegment(entry.getIndex()));
+      fileLogWorker.startLogSegment(getNextIndex());
+    } else if (currentOpenSegment.isFull()) {
+      cache.rollOpenSegment();
+      fileLogWorker.rollLogSegment(currentOpenSegment);
+    } else if (currentOpenSegment.numOfEntries() > 0 &&
+        currentOpenSegment.getLastRecord().entry.getTerm() != entry.getTerm()) {
+      // the term changes
+      final long currentTerm = currentOpenSegment.getLastRecord().entry.getTerm();
+      Preconditions.checkState(currentTerm < entry.getTerm(),
+          "open segment's term %s is larger than the new entry's term %s",
+          currentTerm, entry.getTerm());
+      cache.rollOpenSegment();
+      fileLogWorker.rollLogSegment(currentOpenSegment);
+    }
 
-  @Override
-  public long append(long term, RaftConfiguration newConf) {
-    return 0;
+    cache.appendEntry(entry);
+    fileLogWorker.writeLogEntry(entry);
   }
 
   @Override
   public void append(LogEntryProto... entries) {
+    if (entries == null || entries.length == 0) {
+      return;
+    }
+    Iterator<LogEntryProto> iter = cache.iterator(entries[0].getIndex());
+    int index = 0;
+    long truncateIndex = -1;
+    for (;iter.hasNext() && index < entries.length; index++) {
+      LogEntryProto storedEntry = iter.next();
+      Preconditions.checkState(
+          storedEntry.getIndex() == entries[index].getIndex(),
+          "The stored entry's index %s is not consistent with" +
+              " the received entries[%s]'s index %s",
+          storedEntry.getIndex(), index, entries[index].getIndex());
+
+      if (storedEntry.getTerm() != entries[index].getTerm()) {
+        // we should truncate from the storedEntry's index
+        truncateIndex = storedEntry.getIndex();
+        break;
+      }
+    }
+    if (truncateIndex != -1) {
+      // truncate from truncateIndex
+      truncate(truncateIndex);
+    }
+    // append from entries[index]
+    for (int i = index; i < entries.length; i++) {
+      appendEntry(entries[i]);
+    }
   }
 
   @Override

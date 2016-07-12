@@ -114,6 +114,32 @@ public abstract class RaftLog {
   }
 
   /**
+   * Generate a log entry for the given term and message, and append the entry.
+   * Used by the leader.
+   * @return the index of the new log entry.
+   */
+  public long append(long term, Message message) {
+    final long nextIndex = getNextIndex();
+    final LogEntryProto e = RaftUtils.convertRequestToLogEntryProto(message,
+        term, nextIndex);
+    appendEntry(e);
+    return nextIndex;
+  }
+
+  /**
+   * Generate a log entry for the given term and configurations,
+   * and append the entry. Used by the leader.
+   * @return the index of the new log entry.
+   */
+  public long append(long term, RaftConfiguration newConf) {
+    final long nextIndex = getNextIndex();
+    final LogEntryProto e = RaftUtils.convertConfToLogEntryProto(newConf, term,
+        nextIndex);
+    appendEntry(e);
+    return nextIndex;
+  }
+
+  /**
    * Get the log entry of the given index.
    *
    * @param index The given index.
@@ -123,9 +149,12 @@ public abstract class RaftLog {
   public abstract LogEntryProto get(long index);
 
   /**
-   * @return all log entries starting from the given index.
+   * @param startIndex the starting log index (inclusive)
+   * @param endIndex the ending log index (exclusive)
+   * @return all log entries within the given index range. Null if startIndex
+   *         is greater than the smallest available index.
    */
-  public abstract LogEntryProto[] getEntries(long startIndex);
+  public abstract LogEntryProto[] getEntries(long startIndex, long endIndex);
 
   /**
    * @return the last log entry.
@@ -139,18 +168,11 @@ public abstract class RaftLog {
   abstract void truncate(long index);
 
   /**
-   * Generate a log entry for the given term and message, and append the entry.
-   * Used by the leader.
+   * Used by the leader when appending a new entry based on client's request
+   * or configuration change.
    * @return the index of the new log entry.
    */
-  public abstract long append(long term, Message message);
-
-  /**
-   * Generate a log entry for the given term and configurations,
-   * and append the entry. Used by the leader.
-   * @return the index of the new log entry.
-   */
-  public abstract long append(long term, RaftConfiguration newConf);
+  abstract void appendEntry(LogEntryProto entry);
 
   /**
    * Append all the given log entries. Used by the followers.

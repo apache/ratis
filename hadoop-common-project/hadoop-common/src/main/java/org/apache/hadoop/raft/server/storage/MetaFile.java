@@ -102,10 +102,11 @@ class MetaFile {
         properties.load(br);
         if (properties.containsKey(TERM_KEY) &&
             properties.containsKey(VOTEDFOR_KEY)) {
-          term = (Long) properties.get(TERM_KEY);
+          term = Long.parseLong((String) properties.get(TERM_KEY));
           votedFor = (String) properties.get(VOTEDFOR_KEY);
         } else {
-          LOG.warn("Corrupted term/votedFor properties: " + file);
+          throw new IOException("Corrupted term/votedFor properties: "
+              + properties);
         }
       } catch(IOException e) {
         LOG.warn("Cannot load term/votedFor properties from {}", file, e);

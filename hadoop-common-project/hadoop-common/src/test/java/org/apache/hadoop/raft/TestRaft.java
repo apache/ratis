@@ -96,7 +96,8 @@ public class TestRaft {
 
     for(RaftServer s : cluster.getServers()) {
       if (s.isRunning()) {
-        assertLogEntries(s.getState().getLog().getEntries(1), 1, term, messages);
+        assertLogEntries(s.getState().getLog().getEntries(1, Long.MAX_VALUE),
+            1, term, messages);
       }
     }
   }
@@ -158,6 +159,6 @@ public class TestRaft {
 
     cluster.getServers().stream().filter(RaftServer::isRunning).forEach(
         s -> assertLogEntriesContains(
-            s.getState().getLog().getEntries(0), messages));
+            s.getState().getLog().getEntries(0, Long.MAX_VALUE), messages));
   }
 }

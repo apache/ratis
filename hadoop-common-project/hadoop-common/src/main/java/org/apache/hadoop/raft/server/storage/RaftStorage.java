@@ -18,35 +18,48 @@
 package org.apache.hadoop.raft.server.storage;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.StorageState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
-class RaftStorage {
+class RaftStorage implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(RaftStorage.class);
 
+  // TODO support multiple storage directories
   private final RaftStorageDirectory storageDir;
   private final StorageState state;
   private MetaFile metaFile;
 
-  RaftStorage(File dir) throws IOException {
+  RaftStorage(File dir, RaftConstants.StartupOption option) throws IOException {
     storageDir = new RaftStorageDirectory(dir);
-    analyzeAndRecoverStorage(); // metaFile is initialized here
-    state = StorageState.NORMAL;
+    if (option == RaftConstants.StartupOption.FORMAT) {
+      storageDir.lock();
+      format();
+      Preconditions.checkState((state = storageDir.analyzeStorage(false)) ==
+          StorageState.NORMAL);
+    } else {
+      state = analyzeAndRecoverStorage(true); // metaFile is initialized here
+      if (state != StorageState.NORMAL) {
+        storageDir.unlock();
+        throw new IOException("Cannot load " + storageDir
+            + ". Its state: " + state);
+      }
+    }
   }
 
   StorageState getState() {
     return state;
   }
 
-  void format() throws IOException {
+  private void format() throws IOException {
     storageDir.clearDirectory();
     metaFile = writeMetaFile(MetaFile.DEFAULT_TERM, MetaFile.EMPTY_VOTEFOR);
-    Preconditions.checkState(storageDir.analyzeStorage() == StorageState.NORMAL);
     LOG.info("Storage directory " + storageDir.getRoot()
         + " has been successfully formatted.");
   }
@@ -61,24 +74,32 @@ class RaftStorage {
     Files.deleteIfExists(storageDir.getMetaTmpFile().toPath());
   }
 
-  void analyzeAndRecoverStorage() throws IOException {
-    StorageState storageState = storageDir.analyzeStorage();
+  private StorageState analyzeAndRecoverStorage(boolean toLock)
+      throws IOException {
+    StorageState storageState = storageDir.analyzeStorage(toLock);
     if (storageState == StorageState.NORMAL) {
       metaFile = new MetaFile(storageDir.getMetaFile());
       assert metaFile.exists();
       metaFile.readFile();
-      // Existence of raft-meta.tmp means the change of votedFor/term has been
-      // committed. Thus we should delete the tmp file.
+      // Existence of raft-meta.tmp means the change of votedFor/term has not
+      // been committed. Thus we should delete the tmp file.
       cleanMetaTmpFile();
+      return StorageState.NORMAL;
     } else if (storageState == StorageState.NOT_FORMATTED &&
         storageDir.isCurrentEmpty()) {
       format();
+      return StorageState.NORMAL;
+    } else {
+      return storageState;
     }
-    throw new IOException("Cannot load " + storageDir
-        + ". Its state: " + storageState);
   }
 
   RaftStorageDirectory getStorageDir() {
     return storageDir;
+  }
+
+  @Override
+  public void close() throws IOException {
+    storageDir.unlock();
   }
 }
