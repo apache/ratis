@@ -23,7 +23,6 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.*;
-import org.apache.hadoop.raft.server.RequestHandler.HandlerInterface;
 import org.apache.hadoop.raft.server.protocol.*;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.hadoop.util.Time;
@@ -63,29 +62,21 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   /** used when the peer is leader */
   private volatile LeaderState leaderState;
 
-  private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
-  final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
+  final RaftRequestHandlers handlers;
 
   public RaftServer(String id, RaftConfiguration raftConf,
         RaftRpc<RaftServerRequest, RaftServerReply> serverRpc,
         RaftRpc<RaftClientRequest, RaftClientReply> clientRpc) {
-    this.state = new ServerState(id, raftConf);
-    this.serverHandler = new RequestHandler<>(id, "serverHandler", serverRpc,
-        serverHandlerImpl);
-    this.clientHandler = new RequestHandler<>(id, "clientHandler", clientRpc,
-        clientHandlerImpl);
+    this(new ServerState(id, raftConf), serverRpc, clientRpc);
   }
 
   @VisibleForTesting
   @InterfaceAudience.Private
-  public RaftServer(String id, ServerState initialState,
-        RaftRpc<RaftServerRequest, RaftServerReply> serverRpc,
-        RaftRpc<RaftClientRequest, RaftClientReply> clientRpc) {
+  public RaftServer(ServerState initialState,
+    RaftRpc<RaftServerRequest, RaftServerReply> serverRpc,
+    RaftRpc<RaftClientRequest, RaftClientReply> clientRpc) {
     this.state = initialState;
-    this.serverHandler = new RequestHandler<>(id, "serverHandler", serverRpc,
-        serverHandlerImpl);
-    this.clientHandler = new RequestHandler<>(id, "clientHandler", clientRpc,
-        clientHandlerImpl);
+    this.handlers = new RaftRequestHandlers(this, serverRpc, clientRpc);
   }
 
   public void start(RaftConfiguration conf) {
@@ -96,10 +87,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     }
   }
 
-  private void startRpcHandlers() {
-    serverHandler.startDaemon();
-    clientHandler.startDaemon();
-  }
 
   private void changeRunningState(RunningState oldState, RunningState newState) {
     final boolean changed = runningState.compareAndSet(oldState, newState);
@@ -120,7 +107,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     heartbeatMonitor = new FollowerState(this);
     heartbeatMonitor.start();
 
-    startRpcHandlers();
+    handlers.start();
   }
 
   /**
@@ -131,7 +118,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   private void startInitializing() {
     role = Role.FOLLOWER;
     // do not start heartbeatMonitoring
-    startRpcHandlers();
+    handlers.start();
   }
 
   public ServerState getState() {
@@ -154,15 +141,13 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     changeRunningState(RunningState.STOPPED);
 
     try {
-      clientHandler.interruptAndJoinDaemon();
-      serverHandler.interruptAndJoinDaemon();
+      handlers.interruptAndJoinDaemon();
 
       shutdownHeartbeatMonitor();
       shutdownElectionDaemon();
       shutdownLeaderState();
 
-      clientHandler.shutdown();
-      serverHandler.shutdown();
+      handlers.shutdown();
     } catch (InterruptedException | IOException ignored) {
     }
   }
@@ -503,57 +488,12 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   RequestVoteReply sendRequestVote(RequestVoteRequest request)
       throws IOException {
-    return (RequestVoteReply) serverHandler.getRpc().sendRequest(request);
+    return (RequestVoteReply) handlers.sendServerRequest(request);
   }
 
   AppendEntriesReply sendAppendEntries(AppendEntriesRequest request)
       throws IOException {
-    return (AppendEntriesReply) serverHandler.getRpc().sendRequest(request);
+    return (AppendEntriesReply) handlers.sendServerRequest(request);
   }
 
-  final HandlerInterface<RaftServerRequest, RaftServerReply> serverHandlerImpl
-      = new HandlerInterface<RaftServerRequest, RaftServerReply>() {
-    @Override
-    public boolean isRunning() {
-      return RaftServer.this.isRunning();
-    }
-
-    @Override
-    public RaftServerReply handleRequest(RaftServerRequest r)
-        throws IOException {
-      if (r instanceof AppendEntriesRequest) {
-        final AppendEntriesRequest ap = (AppendEntriesRequest) r;
-        return appendEntries(ap.getRequestorId(), ap.getLeaderTerm(),
-            ap.getPreviousLog(), ap.getLeaderCommit(), ap.isInitializing(),
-            ap.getEntries());
-      } else if (r instanceof RequestVoteRequest) {
-        final RequestVoteRequest rr = (RequestVoteRequest) r;
-        return requestVote(rr.getCandidateId(), rr.getCandidateTerm(),
-            rr.getLastLogIndex());
-      } else { // TODO support other requests later
-        // should not come here now
-        return new RaftServerReply(r.getRequestorId(), getId(),
-            state.getCurrentTerm(), false);
-      }
-    }
-  };
-
-  final HandlerInterface<RaftClientRequest, RaftClientReply> clientHandlerImpl
-      = new HandlerInterface<RaftClientRequest, RaftClientReply>() {
-    @Override
-    public boolean isRunning() {
-      return RaftServer.this.isRunning();
-    }
-
-    @Override
-    public RaftClientReply handleRequest(RaftClientRequest request)
-        throws IOException {
-      if (request instanceof SetConfigurationRequest) {
-        setConfiguration((SetConfigurationRequest) request);
-      } else {
-        submit(request);
-      }
-      return null;
-    }
-  };
 }

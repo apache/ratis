@@ -59,7 +59,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
     daemon.start();
   }
 
-  void shutdown() throws InterruptedException, IOException {
+  void shutdown() throws IOException {
     rpc.shutdown(serverId);
   }
 
@@ -72,18 +72,17 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
     return rpc;
   }
 
-  void sendReply(REQUEST request, REPLY reply, IOException ioe)
-      throws IOException {
-    rpc.sendReply(request, reply, ioe);
-  }
-
-  REPLY handleRequest(REQUEST request) throws IOException {
+  void handleRequest(REQUEST request) throws IOException {
+    final REPLY reply;
     try {
-      return handlerImpl.handleRequest(request);
+      reply = handlerImpl.handleRequest(request);
     } catch (IOException ioe) {
       LOG.debug("IOException for " + request, ioe);
-      sendReply(request, null, ioe);
-      return null;
+      rpc.sendReply(request, null, ioe);
+      return;
+    }
+    if (reply != null) {
+      rpc.sendReply(request, reply, null);
     }
   }
 
@@ -100,11 +99,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
     public void run() {
       while (handlerImpl.isRunning()) {
         try {
-          final REQUEST request = rpc.takeRequest(serverId);
-          final REPLY reply = handleRequest(request);
-          if (reply != null) {
-            sendReply(request, reply, null);
-          }
+          handleRequest(rpc.takeRequest(serverId));
         } catch (InterruptedIOException e) {
           LOG.info(this + " is interrupted by " + e);
           LOG.trace("TRACE", e);

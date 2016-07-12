@@ -123,7 +123,7 @@ public class MiniRaftCluster {
     ServerState newServerState = ServerState.buildServerState(server.getState(),
         newLogEntries);
     server.kill();
-    RaftServer newServer = new RaftServer(id, newServerState, serverRpc,
+    RaftServer newServer = new RaftServer(newServerState, serverRpc,
         client2serverRpc);
     servers.put(id, newServer);
     newServer.start(conf);
