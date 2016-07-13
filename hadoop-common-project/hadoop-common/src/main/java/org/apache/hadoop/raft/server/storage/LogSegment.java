@@ -47,16 +47,19 @@ class LogSegment implements Comparable<Long> {
   }
 
   static class SegmentFileInfo {
-    final long startIndex;
-    final long endIndex;
+    final long startIndex; // start index of the
+    final long endIndex; // original end index
     final boolean isOpen;
-    final long targetLength;
+    final long targetLength; // position for truncation
+    final long newEndIndex; // new end index after the truncation
 
-    SegmentFileInfo(long start, long end, boolean isOpen, long targetLength) {
+    SegmentFileInfo(long start, long end, boolean isOpen, long targetLength,
+        long newEndIndex) {
       this.startIndex = start;
       this.endIndex = end;
       this.isOpen = isOpen;
       this.targetLength = targetLength;
+      this.newEndIndex = newEndIndex;
     }
   }
 
@@ -210,6 +213,12 @@ class LogSegment implements Comparable<Long> {
 
   @Override
   public int compareTo(Long l) {
-    return this.getStartIndex() == l ? 0 : (this.getStartIndex() < l ? -1 : 1);
+    return (l >= getStartIndex() && l <= getEndIndex()) ? 0 :
+        (this.getEndIndex() < l ? -1 : 1);
+  }
+
+  void clear() {
+    records.clear();
+    endIndex = startIndex - 1;
   }
 }

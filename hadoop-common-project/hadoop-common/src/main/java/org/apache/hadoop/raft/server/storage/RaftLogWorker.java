@@ -221,6 +221,12 @@ class RaftLogWorker implements Runnable {
                 segments.toTruncate.startIndex,
                 segments.toTruncate.endIndex);
         RaftUtils.truncateFile(fileToTruncate, segments.toTruncate.targetLength);
+
+        // rename the file
+        File dstFile = storage.getStorageDir().getClosedLogFile(
+            segments.toTruncate.startIndex, segments.toTruncate.newEndIndex);
+        Preconditions.checkState(!dstFile.exists());
+        NativeIO.renameTo(fileToTruncate, dstFile);
       }
       if (segments.toDelete != null) {
         for (SegmentFileInfo del : segments.toDelete) {

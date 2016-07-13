@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server.storage;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.RaftConstants;
@@ -33,7 +34,8 @@ import static org.apache.hadoop.raft.server.RaftConstants.INVALID_LOG_INDEX;
 
 /**
  * In-memory RaftLog Cache. Currently we provide a simple implementation that
- * caches all the segments in the memory.
+ * caches all the segments in the memory. The cache is protected by the
+ * RaftServer's lock.
  */
 class RaftLogCache {
   private LogSegment openSegment;
@@ -112,7 +114,8 @@ class RaftLogCache {
       long index = startIndex;
       for (int i = segmentIndex; i < closedSegments.size() && index < realEnd; i++) {
         LogSegment s = closedSegments.get(i);
-        int numberFromSegment = (int) Math.min(s.numOfEntries(), realEnd - index);
+        int numberFromSegment = (int) Math.min(realEnd - index,
+            s.getEndIndex() - index + 1);
         getEntriesFromSegment(s, index, entries, (int) (index - startIndex),
             numberFromSegment);
         index += numberFromSegment;
@@ -135,7 +138,8 @@ class RaftLogCache {
     }
   }
 
-  private long getStartIndex() {
+  @VisibleForTesting
+  long getStartIndex() {
     if (closedSegments.isEmpty()) {
       return openSegment != null ? openSegment.getStartIndex() :
           RaftConstants.INVALID_LOG_INDEX;
@@ -144,7 +148,8 @@ class RaftLogCache {
     }
   }
 
-  private long getEndIndex() {
+  @VisibleForTesting
+  long getEndIndex() {
     return openSegment != null ? openSegment.getEndIndex() :
         (closedSegments.isEmpty() ?
             INVALID_LOG_INDEX :
@@ -172,13 +177,26 @@ class RaftLogCache {
   /**
    * finalize the current open segment, and start a new open segment
    */
-  void rollOpenSegment() {
+  void rollOpenSegment(boolean createNewOpen) {
     Preconditions.checkState(openSegment != null
         && openSegment.numOfEntries() > 0);
-    final long nextIndex = openSegment.getEndIndex();
+    final long nextIndex = openSegment.getEndIndex() + 1;
     openSegment.close();
     closedSegments.add(openSegment);
-    openSegment = LogSegment.newOpenSegment(nextIndex);
+    if (createNewOpen) {
+      openSegment = LogSegment.newOpenSegment(nextIndex);
+    } else {
+      openSegment = null;
+    }
+  }
+
+  private SegmentFileInfo deleteOpenSegment() {
+    final long oldEnd = openSegment.getEndIndex();
+    openSegment.clear();
+    SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
+        oldEnd, true, 0, openSegment.getEndIndex());
+    openSegment = null;
+    return info;
   }
 
   /**
@@ -188,20 +206,20 @@ class RaftLogCache {
     int segmentIndex = Collections.binarySearch(closedSegments, index);
     if (segmentIndex == -closedSegments.size() - 1) {
       if (openSegment != null && openSegment.getEndIndex() >= index) {
-        // need to truncate the open segment
         final long oldEnd = openSegment.getEndIndex();
-        openSegment.truncate(index);
-        Preconditions.checkState(!openSegment.isOpen());
-        SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
-            oldEnd, true, openSegment.getTotalSize());
-        if (openSegment.numOfEntries() > 0) {
+        if (index == openSegment.getStartIndex()) {
+          // the open segment should be deleted
+          return new TruncationSegments(null,
+              Collections.singletonList(deleteOpenSegment()));
+        } else {
+          openSegment.truncate(index);
+          Preconditions.checkState(!openSegment.isOpen());
+          SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
+              oldEnd, true, openSegment.getTotalSize(),
+              openSegment.getEndIndex());
           closedSegments.add(openSegment);
           openSegment = null;
-          return new TruncationSegments(info, null);
-        } else {
-          openSegment = null;
-          // the open segment should be deleted
-          return new TruncationSegments(null, Collections.singletonList(info));
+          return new TruncationSegments(info, Collections.emptyList());
         }
       }
     } else if (segmentIndex >= 0) {
@@ -214,16 +232,17 @@ class RaftLogCache {
            i >= (ts.numOfEntries() == 0 ? segmentIndex : segmentIndex + 1);
            i-- ) {
         LogSegment s = closedSegments.remove(i);
-        list.add(new SegmentFileInfo(s.getStartIndex(), s.getEndIndex(),
-            false, 0));
+        final long endOfS = i == segmentIndex ? oldEnd : s.getEndIndex();
+        s.clear();
+        list.add(new SegmentFileInfo(s.getStartIndex(), endOfS, false, 0,
+            s.getEndIndex()));
       }
       if (openSegment != null) {
-        list.add(new SegmentFileInfo(openSegment.getStartIndex(),
-            openSegment.getEndIndex(), true, 0));
-        openSegment = null;
+        list.add(deleteOpenSegment());
       }
       SegmentFileInfo t = ts.numOfEntries() == 0 ? null :
-          new SegmentFileInfo(ts.getStartIndex(), oldEnd, false, ts.getTotalSize());
+          new SegmentFileInfo(ts.getStartIndex(), oldEnd, false,
+              ts.getTotalSize(), ts.getEndIndex());
       return new TruncationSegments(t, list);
     }
     return null;

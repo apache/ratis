@@ -114,7 +114,7 @@ public class SegmentedRaftLog extends RaftLog {
       cache.addSegment(LogSegment.newOpenSegment(entry.getIndex()));
       fileLogWorker.startLogSegment(getNextIndex());
     } else if (currentOpenSegment.isFull()) {
-      cache.rollOpenSegment();
+      cache.rollOpenSegment(true);
       fileLogWorker.rollLogSegment(currentOpenSegment);
     } else if (currentOpenSegment.numOfEntries() > 0 &&
         currentOpenSegment.getLastRecord().entry.getTerm() != entry.getTerm()) {
@@ -123,7 +123,7 @@ public class SegmentedRaftLog extends RaftLog {
       Preconditions.checkState(currentTerm < entry.getTerm(),
           "open segment's term %s is larger than the new entry's term %s",
           currentTerm, entry.getTerm());
-      cache.rollOpenSegment();
+      cache.rollOpenSegment(true);
       fileLogWorker.rollLogSegment(currentOpenSegment);
     }
 
