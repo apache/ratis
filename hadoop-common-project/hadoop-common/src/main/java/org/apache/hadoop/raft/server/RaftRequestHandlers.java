@@ -20,14 +20,11 @@ package org.apache.hadoop.raft.server;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
-import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
-import org.apache.hadoop.raft.server.protocol.RaftServerReply;
-import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
-import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
+import org.apache.hadoop.raft.server.protocol.*;
 
 import java.io.IOException;
 
-public class RaftRequestHandlers {
+class RaftRequestHandlers {
   private final RaftServer server;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
@@ -77,14 +74,9 @@ public class RaftRequestHandlers {
     public RaftServerReply handleRequest(RaftServerRequest r)
         throws IOException {
       if (r instanceof AppendEntriesRequest) {
-        final AppendEntriesRequest ap = (AppendEntriesRequest) r;
-        return server.appendEntries(ap.getRequestorId(), ap.getLeaderTerm(),
-            ap.getPreviousLog(), ap.getLeaderCommit(), ap.isInitializing(),
-            ap.getEntries());
+        return server.appendEntries((AppendEntriesRequest) r);
       } else if (r instanceof RequestVoteRequest) {
-        final RequestVoteRequest rr = (RequestVoteRequest) r;
-        return server.requestVote(rr.getCandidateId(), rr.getCandidateTerm(),
-            rr.getLastLogIndex());
+        return server.requestVote((RequestVoteRequest) r);
       } else { // TODO support other requests later
         // should not come here now
         return new RaftServerReply(r.getRequestorId(), server.getId(),
@@ -106,8 +98,9 @@ public class RaftRequestHandlers {
       if (request instanceof SetConfigurationRequest) {
         server.setConfiguration((SetConfigurationRequest) request);
       } else {
-        server.submit(request);
+        server.submitClientRequest(request);
       }
+      // Client reply is asynchronous since it needs to wait for log commit.
       return null;
     }
   };

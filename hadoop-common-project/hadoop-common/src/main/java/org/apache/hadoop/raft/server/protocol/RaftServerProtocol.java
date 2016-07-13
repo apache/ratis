@@ -28,10 +28,7 @@ import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 @InterfaceStability.Unstable
 public interface RaftServerProtocol {
 
-  RequestVoteReply requestVote(String candidateId, long candidateTerm,
-      TermIndex candidateLastEntry) throws IOException;
+  RequestVoteReply requestVote(RequestVoteRequest request) throws IOException;
 
-  AppendEntriesReply appendEntries(String leaderId, long leaderTerm,
-      TermIndex previous, long leaderCommit, boolean initializing,
-      LogEntryProto... entries) throws IOException;
+  AppendEntriesReply appendEntries(AppendEntriesRequest request) throws IOException;
 }

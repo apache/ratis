@@ -43,6 +43,10 @@ public class AppendEntriesRequest extends RaftServerRequest {
     this.initializing = initializing;
   }
 
+  public String getLeaderId() {
+    return getRequestorId(); //requestor is the leader
+  }
+
   public long getLeaderTerm() {
     return leaderTerm;
   }

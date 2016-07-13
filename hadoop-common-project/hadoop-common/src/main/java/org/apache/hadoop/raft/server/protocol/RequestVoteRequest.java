@@ -36,7 +36,7 @@ public class RequestVoteRequest extends RaftServerRequest {
     return getRequestorId(); //requestor is the candidate
   }
 
-  public TermIndex getLastLogIndex() {
+  public TermIndex getCandidateLastEntry() {
     return candidateLastEntry;
   }
 
@@ -44,6 +44,6 @@ public class RequestVoteRequest extends RaftServerRequest {
   public String toString() {
     return super.toString() + ", candidateTerm: " + getCandidateTerm()
         + ", candidateId: " + getCandidateId()
-        + ", lastEntry: " + getLastLogIndex();
+        + ", lastEntry: " + getCandidateLastEntry();
   }
 }

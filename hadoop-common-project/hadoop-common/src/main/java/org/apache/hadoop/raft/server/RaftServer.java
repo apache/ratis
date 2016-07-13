@@ -271,7 +271,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
    * Handle a request from client.
    */
   @Override
-  public void submit(RaftClientRequest request) throws IOException {
+  public void submitClientRequest(RaftClientRequest request) throws IOException {
     LOG.debug("{}: receive submit({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
 
@@ -341,7 +341,11 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   @Override
-  public RequestVoteReply requestVote(String candidateId, long candidateTerm,
+  public RequestVoteReply requestVote(RequestVoteRequest r) throws IOException {
+    return requestVote(r.getCandidateId(), r.getCandidateTerm(), r.getCandidateLastEntry());
+  }
+
+  private RequestVoteReply requestVote(String candidateId, long candidateTerm,
       TermIndex candidateLastEntry) throws IOException {
     LOG.debug("{}: receive requestVote({}, {}, {})",
         getId(), candidateId, candidateTerm, candidateLastEntry);
@@ -409,7 +413,13 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   @Override
-  public AppendEntriesReply appendEntries(String leaderId, long leaderTerm,
+  public AppendEntriesReply appendEntries(AppendEntriesRequest r) throws IOException {
+    return appendEntries(r.getLeaderId(), r.getLeaderTerm(),
+        r.getPreviousLog(), r.getLeaderCommit(), r.isInitializing(),
+        r.getEntries());
+  }
+
+  private AppendEntriesReply appendEntries(String leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
       LogEntryProto... entries) throws IOException {
     LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {})",
@@ -473,27 +483,4 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     LOG.debug("{}: succeeded to append entries. Reply: {}", getId(), reply);
     return reply;
   }
-
-  synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,
-      TermIndex previous, LogEntryProto[] entries, boolean initializing) {
-    return new AppendEntriesRequest(getId(), targetId,
-        state.getCurrentTerm(), previous, entries,
-        state.getLog().getLastCommitted().getIndex(), initializing);
-  }
-
-  synchronized RequestVoteRequest createRequestVoteRequest(String targetId,
-      long term, TermIndex lastEntry) {
-    return new RequestVoteRequest(getId(), targetId, term, lastEntry);
-  }
-
-  RequestVoteReply sendRequestVote(RequestVoteRequest request)
-      throws IOException {
-    return (RequestVoteReply) handlers.sendServerRequest(request);
-  }
-
-  AppendEntriesReply sendAppendEntries(AppendEntriesRequest request)
-      throws IOException {
-    return (AppendEntriesReply) handlers.sendServerRequest(request);
-  }
-
 }
