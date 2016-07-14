@@ -22,7 +22,7 @@ import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.raft.server.RaftRpc;
+import org.apache.hadoop.raft.server.RequestReply;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.util.Time;
 import org.apache.mina.util.ConcurrentHashSet;
@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class SimulatedRpc<REQUEST extends RaftRpcMessage,
-    REPLY extends RaftRpcMessage> implements RaftRpc<REQUEST, REPLY> {
+    REPLY extends RaftRpcMessage> implements RequestReply<REQUEST, REPLY> {
   public static final long TIMEOUT = 3000L;
 
   private static class ReplyOrException<REPLY> {
