@@ -36,7 +36,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class SimulatedRpc<REQUEST extends RaftRpcMessage,
+public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> implements RequestReply<REQUEST, REPLY> {
   public static final long TIMEOUT = 3000L;
 
@@ -101,7 +101,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   private final Map<String, EventQueue<REQUEST, REPLY>> queues;
   private final Set<String> blacklist;
 
-  public SimulatedRpc(Collection<RaftPeer> allPeers) {
+  public SimulatedRequestReply(Collection<RaftPeer> allPeers) {
     queues = new ConcurrentHashMap<>();
     for (RaftPeer peer : allPeers) {
       queues.put(peer.getId(), new EventQueue<>());
@@ -158,7 +158,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
   }
 
   @Override
-  public void shutdown(String id) throws IOException {
+  public void shutdown(String id) {
     queues.remove(id);
   }
 
@@ -168,7 +168,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
   }
 
-  protected void blockForReceiverQueue(String qid)
+  private void blockForReceiverQueue(String qid)
       throws IOException {
     EventQueue queue = queues.get(qid);
     try {
@@ -180,7 +180,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
   }
 
-  protected void blockForBlacklist(REQUEST request, String dstId)
+  private void blockForBlacklist(REQUEST request, String dstId)
       throws IOException {
     final String rid = request.getRequestorId();
     if (!(request instanceof AppendEntriesRequest)
@@ -195,7 +195,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
   }
 
-  protected void simulateLatency() throws IOException {
+  private void simulateLatency() throws IOException {
     int waitExpetation = RaftConstants.ELECTION_TIMEOUT_MIN_MS / 10;
     int waitHalfRange = waitExpetation / 3;
     Random rand = new Random();
@@ -208,7 +208,7 @@ public class SimulatedRpc<REQUEST extends RaftRpcMessage,
     }
   }
 
-  protected void delayBeforeTake(String qid) throws IOException {
+  private void delayBeforeTake(String qid) throws IOException {
     EventQueue queue = queues.get(qid);
     if (queue.takeRequestDelayMs > 0) {
       try {

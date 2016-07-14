@@ -171,7 +171,7 @@ class LeaderElection extends Daemon {
     for (final RaftPeer peer : others) {
       final RequestVoteRequest r = new RequestVoteRequest(
           server.getId(), peer.getId(), electionTerm, lastEntry);
-      service.submit(() -> (RequestVoteReply)server.handlers.sendServerRequest(r));
+      service.submit(() -> (RequestVoteReply)server.getCommunicationSystem().sendServerRequest(r));
       submitted++;
     }
     return submitted;

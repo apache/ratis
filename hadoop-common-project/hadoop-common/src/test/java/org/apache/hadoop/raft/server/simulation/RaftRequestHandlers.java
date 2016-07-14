@@ -15,50 +15,58 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.server;
+package org.apache.hadoop.raft.server.simulation;
 
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
+import org.apache.hadoop.raft.server.RaftCommunicationSystem;
+import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.server.RequestReply;
 import org.apache.hadoop.raft.server.protocol.*;
 
 import java.io.IOException;
 
-class RaftRequestHandlers {
+public class RaftRequestHandlers implements RaftCommunicationSystem {
   private final RaftServer server;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
 
-  RaftRequestHandlers(RaftServer server,
-                      RaftRpc<RaftServerRequest, RaftServerReply> serverRpc,
-                      RaftRpc<RaftClientRequest, RaftClientReply> clientRpc) {
+  public RaftRequestHandlers(RaftServer server,
+      RequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
+      RequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
     this.server = server;
     this.serverHandler = new RequestHandler<>(server.getId(), "serverHandler",
-        serverRpc, serverHandlerImpl);
+        serverRequestReply, serverHandlerImpl);
     this.clientHandler = new RequestHandler<>(server.getId(), "clientHandler",
-        clientRpc, clientHandlerImpl);
+        clientRequestReply, clientHandlerImpl);
   }
 
-  void start() {
+  @Override
+  public void start() {
     serverHandler.startDaemon();
     clientHandler.startDaemon();
   }
 
-  void interruptAndJoinDaemon() throws InterruptedException {
+  @Override
+  public void interruptAndJoin() throws InterruptedException {
     clientHandler.interruptAndJoinDaemon();
     serverHandler.interruptAndJoinDaemon();
   }
 
-  void shutdown() throws IOException {
+  @Override
+  public void shutdown() {
     clientHandler.shutdown();
     serverHandler.shutdown();
   }
 
-  RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException {
+  @Override
+  public RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException {
     return serverHandler.getRpc().sendRequest(request);
   }
 
-  void sendClientReply(RaftClientRequest request, RaftClientReply reply, IOException ioe)
+  @Override
+  public void sendClientReply(RaftClientRequest request, RaftClientReply reply, IOException ioe)
       throws IOException {
     clientHandler.getRpc().sendReply(request, reply, ioe);
   }

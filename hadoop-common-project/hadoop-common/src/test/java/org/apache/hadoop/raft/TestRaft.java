@@ -22,7 +22,7 @@ import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.raft.server.RequestHandler;
+import org.apache.hadoop.raft.server.simulation.RequestHandler;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.After;
@@ -144,9 +144,9 @@ public class TestRaft {
         for (int i = 0; i < followers.size(); i++) {
           followerIds[i] = followers.get(i).getId();
         }
-        cluster.getServerRpc().addBlacklist(leaderId, followerIds);
+        cluster.getServerRequestReply().addBlacklist(leaderId, followerIds);
         Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 10);
-        cluster.getServerRpc().removeBlacklist(leaderId, followerIds);
+        cluster.getServerRequestReply().removeBlacklist(leaderId, followerIds);
       }
       LOG.info("Changed leader");
       LOG.info(cluster.printServers());

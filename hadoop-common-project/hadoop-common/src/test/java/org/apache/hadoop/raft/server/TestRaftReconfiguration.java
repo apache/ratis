@@ -25,6 +25,7 @@ import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
+import org.apache.hadoop.raft.server.simulation.RequestHandler;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.storage.RaftLog;
 import org.apache.hadoop.test.GenericTestUtils;

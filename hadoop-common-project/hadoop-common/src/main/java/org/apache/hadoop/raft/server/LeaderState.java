@@ -570,7 +570,7 @@ class LeaderState {
               server.getId(), follower.peer.getId(),
               server.getState().getCurrentTerm(), previous, entries,
               raftLog.getLastCommitted().getIndex(), !follower.attendVote);
-          final AppendEntriesReply r = (AppendEntriesReply)server.handlers.sendServerRequest(request);
+          final AppendEntriesReply r = (AppendEntriesReply)server.getCommunicationSystem().sendServerRequest(request);
           follower.lastRpcTime.set(Time.monotonicNow());
           if (r.isSuccess()) {
             if (entries != null && entries.length > 0) {

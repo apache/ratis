@@ -110,7 +110,7 @@ class PendingRequestsHandler {
 
   private void sendReply(RaftClientRequest request, boolean success) {
     try {
-      server.handlers.sendClientReply(request,
+      server.getCommunicationSystem().sendClientReply(request,
           new RaftClientReply(request, success), null);
     } catch (IOException ioe) {
       RaftServer.LOG.error(this + " has " + ioe);
@@ -120,7 +120,7 @@ class PendingRequestsHandler {
 
   private void sendNotLeaderException(RaftClientRequest request) {
     try {
-      server.handlers.sendClientReply(request, null,
+      server.getCommunicationSystem().sendClientReply(request, null,
           server.generateNotLeaderException());
     } catch (IOException ioe) {
       RaftServer.LOG.error(this + " has " + ioe);

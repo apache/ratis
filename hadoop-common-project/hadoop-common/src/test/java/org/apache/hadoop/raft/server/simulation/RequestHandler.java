@@ -15,9 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.server;
+package org.apache.hadoop.raft.server.simulation;
 
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
+import org.apache.hadoop.raft.server.RequestReply;
 import org.apache.hadoop.util.Daemon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,12 +42,12 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
 
   private final String serverId;
   private final String name;
-  private final RaftRpc<REQUEST, REPLY> rpc;
+  private final RequestReply<REQUEST, REPLY> rpc;
   private final HandlerInterface<REQUEST, REPLY> handlerImpl;
   private final HandlerDaemon daemon;
 
   RequestHandler(String serverId, String name,
-                 RaftRpc<REQUEST, REPLY> rpc,
+                 RequestReply<REQUEST, REPLY> rpc,
                  HandlerInterface<REQUEST, REPLY> handlerImpl) {
     this.serverId = serverId;
     this.name = name;
@@ -59,7 +60,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
     daemon.start();
   }
 
-  void shutdown() throws IOException {
+  void shutdown() {
     rpc.shutdown(serverId);
   }
 
@@ -68,7 +69,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
     daemon.join();
   }
 
-  RaftRpc<REQUEST, REPLY> getRpc() {
+  RequestReply<REQUEST, REPLY> getRpc() {
     return rpc;
   }
 

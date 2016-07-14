@@ -62,21 +62,24 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   /** used when the peer is leader */
   private volatile LeaderState leaderState;
 
-  final RaftRequestHandlers handlers;
+  private RaftCommunicationSystem communicationSystem;
 
-  public RaftServer(String id, RaftConfiguration raftConf,
-        RaftRpc<RaftServerRequest, RaftServerReply> serverRpc,
-        RaftRpc<RaftClientRequest, RaftClientReply> clientRpc) {
-    this(new ServerState(id, raftConf), serverRpc, clientRpc);
+  public RaftServer(String id, RaftConfiguration raftConf) {
+    this(new ServerState(id, raftConf));
   }
 
   @VisibleForTesting
   @InterfaceAudience.Private
-  public RaftServer(ServerState initialState,
-    RaftRpc<RaftServerRequest, RaftServerReply> serverRpc,
-    RaftRpc<RaftClientRequest, RaftClientReply> clientRpc) {
+  public RaftServer(ServerState initialState) {
     this.state = initialState;
-    this.handlers = new RaftRequestHandlers(this, serverRpc, clientRpc);
+  }
+
+  public void setCommunicationSystem(RaftCommunicationSystem communicationSystem) {
+    this.communicationSystem = communicationSystem;
+  }
+
+  RaftCommunicationSystem getCommunicationSystem() {
+    return communicationSystem;
   }
 
   public void start(RaftConfiguration conf) {
@@ -107,7 +110,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     heartbeatMonitor = new FollowerState(this);
     heartbeatMonitor.start();
 
-    handlers.start();
+    communicationSystem.start();
   }
 
   /**
@@ -118,7 +121,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   private void startInitializing() {
     role = Role.FOLLOWER;
     // do not start heartbeatMonitoring
-    handlers.start();
+    communicationSystem.start();
   }
 
   public ServerState getState() {
@@ -141,14 +144,14 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     changeRunningState(RunningState.STOPPED);
 
     try {
-      handlers.interruptAndJoinDaemon();
+      communicationSystem.interruptAndJoin();
 
       shutdownHeartbeatMonitor();
       shutdownElectionDaemon();
       shutdownLeaderState();
 
-      handlers.shutdown();
-    } catch (InterruptedException | IOException ignored) {
+      communicationSystem.shutdown();
+    } catch (InterruptedException ignored) {
     }
   }
 
