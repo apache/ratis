@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
-import static org.apache.zookeeper.ZooDefs.OpCode.create;
 import static org.junit.Assert.assertTrue;
 
 public class RaftTestUtil {

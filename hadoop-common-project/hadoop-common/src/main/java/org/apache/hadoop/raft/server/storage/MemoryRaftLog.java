@@ -23,7 +23,6 @@ import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.util.RaftUtils;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -128,6 +127,12 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public void logSync() {
+  public void logSync(long index) {
+    // do nothing
+  }
+
+  @Override
+  public long getLatestFlushedIndex() {
+    return getNextIndex() - 1;
   }
 }

@@ -23,6 +23,7 @@ import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.PathAndIndex;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
@@ -49,7 +50,7 @@ import java.util.List;
  * Every closed segment should be non-empty, i.e., it should contain at least
  * one entry.
  */
-public class SegmentedRaftLog extends RaftLog {
+public class SegmentedRaftLog extends RaftLog implements Closeable {
   static final byte[] HEADER = "RAFTLOG1".getBytes(Charsets.UTF_8);
 
   private final RaftStorage storage;
@@ -164,7 +165,18 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public void logSync() {
+  public void logSync(long index) throws InterruptedException {
+    fileLogWorker.waitForFlush(index);
+  }
 
+  @Override
+  public long getLatestFlushedIndex() {
+    return fileLogWorker.getFlushedIndex();
+  }
+
+  @Override
+  public void close() throws IOException {
+    fileLogWorker.close();
+    storage.close();
   }
 }

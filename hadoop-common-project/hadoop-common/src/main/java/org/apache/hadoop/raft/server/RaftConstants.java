@@ -38,6 +38,8 @@ public abstract class RaftConstants {
   static final int ELECTION_TIMEOUT_MS_WIDTH
       = ELECTION_TIMEOUT_MAX_MS - ELECTION_TIMEOUT_MIN_MS;
 
+  public static final int LOG_FORCE_SYNC_NUM = 128;
+
   /**
    * When bootstrapping a new peer, If the gap between the match index of the
    * peer and the leader's latest committed index is less than this gap, we

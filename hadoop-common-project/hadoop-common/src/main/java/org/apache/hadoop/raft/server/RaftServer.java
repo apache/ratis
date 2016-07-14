@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicReference;
@@ -287,7 +288,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       leaderState.addPendingRequest(entryIndex, request);
       leaderState.notifySenders();
     }
-    state.getLog().logSync();
   }
 
   @Override
@@ -314,7 +314,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       // add staging state into the leaderState
       leaderState.startSetConfiguration(request);
     }
-    state.getLog().logSync();
     // release the handler and the LeaderState thread will trigger the next step
     // once the (old, new) entry is committed, and finally send the response
     // back the client.
@@ -382,7 +381,11 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       LOG.debug("{} replies to vote request: {}. Peer's state: {}",
           getId(), reply, state);
     }
-    state.getLog().logSync();
+    try {
+      state.getLog().logSync(0); // TODO sync metafile instead
+    } catch (InterruptedException e) {
+      throw new InterruptedIOException("logSync got interrupted");
+    }
     return reply;
   }
 
@@ -474,8 +477,13 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       state.getLog().append(entries);
       state.updateConfiguration(entries);
     }
-
-    state.getLog().logSync();
+    if (entries != null && entries.length > 0) {
+      try {
+        state.getLog().logSync(entries[entries.length - 1].getIndex());
+      } catch (InterruptedException e) {
+        throw new InterruptedIOException("logSync got interrupted");
+      }
+    }
     if (runningState.get() == RunningState.RUNNING) {
       // reset election timer to avoid punishing the leader for our own
       // long disk writes

@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.storage.LogSegment.SegmentFileInfo;
 import org.apache.hadoop.raft.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.hadoop.raft.util.RaftUtils;
@@ -37,11 +38,10 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * This class takes the responsibility of all the raft log related I/O ops for a
- * raft peer. It provides both the synchronous (for follower) and asynchronous
- * (for leader) WRITE APIs.
+ * raft peer.
  */
 class RaftLogWorker implements Runnable {
-  private static final Logger LOG = LoggerFactory.getLogger(RaftLogWorker.class);
+  static final Logger LOG = LoggerFactory.getLogger(RaftLogWorker.class);
   /**
    * The task queue accessed by rpc handler threads and the io worker thread.
    */
@@ -52,28 +52,42 @@ class RaftLogWorker implements Runnable {
   private final RaftStorage storage;
   private LogOutputStream out;
 
+  /**
+   * The number of entries that have been written into the LogOutputStream but
+   * has not been flushed.
+   */
+  private int pendingFlushNum = 0;
+  /** the index of the last entry that has been written */
+  private long lastWrittenIndex = -1;
+  /** the largest index of the entry that has been flushed */
+  private volatile long flushedIndex;
+
   RaftLogWorker(RaftStorage storage) {
     this.storage = storage;
     workerThread = new Thread(this, this.getClass().getSimpleName());
   }
 
-  public void start() {
+  void start() {
     workerThread.start();
   }
 
-  public void close() {
+  void close() {
     this.running = false;
     workerThread.interrupt();
+    try {
+      workerThread.join();
+    } catch (InterruptedException ignored) {
+    }
   }
 
   /**
-   * should be protected by the RaftServer's lock
+   * This is protected by the RaftServer's lock.
    */
   private void addIOTask(Task task) {
     LOG.debug("add task {}", task);
     try {
       if (!queue.offer(task, 1, TimeUnit.SECONDS)) {
-        Preconditions.checkState(isThreadAlive(),
+        Preconditions.checkState(isAlive(),
             "the worker thread is not alive");
         queue.put(task);
       }
@@ -82,7 +96,7 @@ class RaftLogWorker implements Runnable {
     }
   }
 
-  private boolean isThreadAlive() {
+  boolean isAlive() {
     return running && workerThread.isAlive();
   }
 
@@ -109,6 +123,34 @@ class RaftLogWorker implements Runnable {
     }
   }
 
+  private boolean shouldFlush() {
+    return pendingFlushNum >= RaftConstants.LOG_FORCE_SYNC_NUM ||
+        (pendingFlushNum > 0 && queue.isEmpty());
+  }
+
+  private void flushWrites() throws IOException {
+    if (out != null) {
+      LOG.debug("flush data to " + out + ", reset pending_sync_number to 0");
+      out.flush();
+      updateFlushedIndex();
+    }
+  }
+
+  private void updateFlushedIndex() {
+    flushedIndex = lastWrittenIndex;
+    pendingFlushNum = 0;
+    synchronized (this) {
+      notifyAll();
+    }
+  }
+
+  /**
+   * The following several methods (startLogSegment, rollLogSegment,
+   * writeLogEntry, and truncate) are only called by SegmentedRaftLog which is
+   * protected by RaftServer's lock.
+   *
+   * Thus all the tasks are created and added sequentially.
+   */
   void startLogSegment(long startIndex) {
     addIOTask(new StartLogSegment(startIndex));
   }
@@ -133,6 +175,7 @@ class RaftLogWorker implements Runnable {
     void execute() throws IOException;
   }
 
+  // TODO we can add another level of buffer for writing here
   private class WriteLog implements Task {
     private final LogEntryProto entry;
 
@@ -143,8 +186,15 @@ class RaftLogWorker implements Runnable {
     @Override
     public void execute() throws IOException {
       Preconditions.checkState(out != null);
+      Preconditions.checkState(
+          lastWrittenIndex == -1 || lastWrittenIndex + 1 == entry.getIndex(),
+          "lastWrittenIndex == %s, entry == %s", lastWrittenIndex, entry);
       out.write(entry);
-      // TODO when to flush?
+      lastWrittenIndex = entry.getIndex();
+      pendingFlushNum++;
+      if (shouldFlush()) {
+        flushWrites();
+      }
     }
   }
 
@@ -174,6 +224,7 @@ class RaftLogWorker implements Runnable {
       } else { // delete the file of the empty segment
         deleteFile(openFile);
       }
+      updateFlushedIndex();
     }
   }
 
@@ -197,7 +248,7 @@ class RaftLogWorker implements Runnable {
     public void execute() throws IOException {
       File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
       Preconditions.checkState(!openFile.exists());
-      Preconditions.checkState(out == null);
+      Preconditions.checkState(out == null && pendingFlushNum == 0);
       out = new LogOutputStream(openFile, false);
     }
   }
@@ -227,8 +278,12 @@ class RaftLogWorker implements Runnable {
             segments.toTruncate.startIndex, segments.toTruncate.newEndIndex);
         Preconditions.checkState(!dstFile.exists());
         NativeIO.renameTo(fileToTruncate, dstFile);
+
+        // update lastWrittenIndex
+        lastWrittenIndex = segments.toTruncate.newEndIndex;
       }
-      if (segments.toDelete != null) {
+      if (segments.toDelete != null && segments.toDelete.length > 0) {
+        long minStart = segments.toDelete[0].startIndex;
         for (SegmentFileInfo del : segments.toDelete) {
           final File delFile;
           if (del.isOpen) {
@@ -238,8 +293,28 @@ class RaftLogWorker implements Runnable {
                 .getClosedLogFile(del.startIndex, del.endIndex);
           }
           deleteFile(delFile);
+          minStart = Math.min(minStart, del.startIndex);
+        }
+        if (segments.toTruncate == null) {
+          lastWrittenIndex = minStart - 1;
         }
       }
+      updateFlushedIndex();
     }
+  }
+
+  void waitForFlush(long targetIndex) throws InterruptedException {
+    if (targetIndex <= flushedIndex) {
+      return;
+    }
+    synchronized (this) {
+      while (targetIndex > flushedIndex) {
+        wait();
+      }
+    }
+  }
+
+  long getFlushedIndex() {
+    return flushedIndex;
   }
 }

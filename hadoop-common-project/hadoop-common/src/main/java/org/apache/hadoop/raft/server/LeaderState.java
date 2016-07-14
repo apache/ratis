@@ -287,7 +287,8 @@ class LeaderState {
               handleEvent(event);
             }
           }
-          raftLog.logSync();
+          raftLog.logSync(0); // TODO sync metafile instead
+          // the updated configuration does not need to be sync'ed here
         } catch (InterruptedException e) {
           if (!running) {
             LOG.info("The LeaderState gets is stopped");
@@ -445,7 +446,8 @@ class LeaderState {
       indices[i] = followers.get(i).matchIndex.get();
     }
     if (includeSelf) {
-      indices[length - 1] = raftLog.getNextIndex() - 1;
+      // note that we also need to wait for the local disk I/O
+      indices[length - 1] = raftLog.getLatestFlushedIndex();
     }
 
     Arrays.sort(indices);

@@ -45,7 +45,7 @@ public class TestRaftLogReadWrite {
 
   @Before
   public void setup() throws Exception {
-    storageDir = RaftTestUtil.getTestDir(TestRaftStorage.class);
+    storageDir = RaftTestUtil.getTestDir(TestRaftLogReadWrite.class);
   }
 
   @After
