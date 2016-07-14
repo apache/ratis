@@ -18,14 +18,13 @@
 package org.apache.hadoop.raft;
 
 import org.apache.hadoop.raft.client.RaftClient;
-import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.server.*;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
-import org.apache.hadoop.raft.server.simulation.RaftRequestHandlers;
+import org.apache.hadoop.raft.server.simulation.SimulatedCommunicationSystem;
 import org.apache.hadoop.raft.server.simulation.SimulatedRequestReply;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.storage.RaftLog;
@@ -62,7 +61,7 @@ public class MiniRaftCluster {
 
   RaftServer newRaftServer(String id, RaftConfiguration conf) {
     final RaftServer s = new RaftServer(id, conf);
-    s.setCommunicationSystem(new RaftRequestHandlers(s, serverRequestReply,
+    s.setCommunicationSystem(new SimulatedCommunicationSystem(s, serverRequestReply,
         client2serverRequestReply));
     return s;
   }

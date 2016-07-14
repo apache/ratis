@@ -27,14 +27,14 @@ import org.apache.hadoop.raft.server.protocol.*;
 
 import java.io.IOException;
 
-public class RaftRequestHandlers implements RaftCommunicationSystem {
+public class SimulatedCommunicationSystem implements RaftCommunicationSystem {
   private final RaftServer server;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
 
-  public RaftRequestHandlers(RaftServer server,
-      RequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
-      RequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
+  public SimulatedCommunicationSystem(RaftServer server,
+       RequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
+       RequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
     this.server = server;
     this.serverHandler = new RequestHandler<>(server.getId(), "serverHandler",
         serverRequestReply, serverHandlerImpl);
@@ -86,9 +86,7 @@ public class RaftRequestHandlers implements RaftCommunicationSystem {
       } else if (r instanceof RequestVoteRequest) {
         return server.requestVote((RequestVoteRequest) r);
       } else { // TODO support other requests later
-        // should not come here now
-        return new RaftServerReply(r.getRequestorId(), server.getId(),
-            server.getState().getCurrentTerm(), false);
+        throw new IllegalStateException("unexpected state");
       }
     }
   };
