@@ -33,6 +33,7 @@ import org.junit.Test;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -147,15 +148,67 @@ public class TestSegmentedRaftLog {
     try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, storageDir)) {
       // append entries to the raftlog
       entries.forEach(raftLog::appendEntry);
-      raftLog.logSync(entries.get(entries.size() - 1).getIndex());
+      raftLog.logSync();
     }
 
     try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, storageDir)) {
       // check if the raft log is correct
-      for (LogEntryProto e : entries) {
-        LogEntryProto entry = raftLog.get(e.getIndex());
-        Assert.assertEquals(e, entry);
+      checkEntries(raftLog, entries, 0, entries.size());
+    }
+  }
+
+  @Test
+  public void testTruncate() throws Exception {
+    // prepare the log for truncation
+    List<SegmentRange> ranges = prepareRanges(5, 200, 0);
+    List<LogEntryProto> entries = prepareLogEntries(ranges);
+
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, storageDir)) {
+      // append entries to the raftlog
+      entries.forEach(raftLog::appendEntry);
+      raftLog.logSync();
+    }
+
+    for (long fromIndex = 900; fromIndex >= 0; fromIndex -= 150) {
+      testTruncate(entries, fromIndex);
+    }
+  }
+
+  private void testTruncate(List<LogEntryProto> entries, long fromIndex)
+      throws Exception {
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, storageDir)) {
+      // truncate the log
+      raftLog.truncate(fromIndex);
+      raftLog.logSync();
+
+      checkEntries(raftLog, entries, 0, (int) fromIndex);
+    }
+
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, storageDir)) {
+      // check if the raft log is correct
+      if (fromIndex > 0) {
+        Assert.assertEquals(entries.get((int) (fromIndex - 1)),
+            raftLog.getLastEntry());
+      } else {
+        Assert.assertNull(raftLog.getLastEntry());
       }
+      checkEntries(raftLog, entries, 0, (int) fromIndex);
+    }
+  }
+
+  private void checkEntries(RaftLog raftLog, List<LogEntryProto> expected,
+      int offset, int size) {
+    if (size > 0) {
+      for (int i = offset; i < size + offset; i++) {
+        LogEntryProto entry = raftLog.get(expected.get(i).getIndex());
+        Assert.assertEquals(expected.get(i), entry);
+      }
+      LogEntryProto[] entriesFromLog = raftLog.getEntries(
+          expected.get(offset).getIndex(),
+          expected.get(offset + size - 1).getIndex() + 1);
+      LogEntryProto[] expectedArray = expected.subList(offset, offset + size)
+          .toArray(SegmentedRaftLog.EMPTY_LOGENTRY_ARRAY);
+      Assert.assertArrayEquals(expectedArray, entriesFromLog);
     }
   }
 
@@ -164,7 +217,46 @@ public class TestSegmentedRaftLog {
    */
   @Test
   public void testAppendEntriesWithInconsistency() throws Exception {
+    // prepare the log for truncation
+    List<SegmentRange> ranges = prepareRanges(5, 200, 0);
+    List<LogEntryProto> entries = prepareLogEntries(ranges);
 
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, storageDir)) {
+      // append entries to the raftlog
+      entries.forEach(raftLog::appendEntry);
+      raftLog.logSync();
+    }
+
+    // append entries whose first 100 entries are the same with existing log,
+    // and the next 100 are with different term
+    SegmentRange r1 = new SegmentRange(550, 599, 2, false);
+    SegmentRange r2 = new SegmentRange(600, 649, 3, false);
+    SegmentRange r3 = new SegmentRange(650, 749, 10, false);
+    List<LogEntryProto> newEntries = prepareLogEntries(Arrays.asList(r1, r2, r3));
+
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, storageDir)) {
+      raftLog.append(newEntries.toArray(new LogEntryProto[newEntries.size()]));
+      raftLog.logSync();
+
+      checkEntries(raftLog, entries, 0, 650);
+      checkEntries(raftLog, newEntries, 100, 100);
+      Assert.assertEquals(newEntries.get(newEntries.size() - 1),
+          raftLog.getLastEntry());
+      Assert.assertEquals(newEntries.get(newEntries.size() - 1).getIndex(),
+          raftLog.getLatestFlushedIndex());
+    }
+
+    // load the raftlog again and check
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, storageDir)) {
+      checkEntries(raftLog, entries, 0, 650);
+      checkEntries(raftLog, newEntries, 100, 100);
+      Assert.assertEquals(newEntries.get(newEntries.size() - 1),
+          raftLog.getLastEntry());
+      Assert.assertEquals(newEntries.get(newEntries.size() - 1).getIndex(),
+          raftLog.getLatestFlushedIndex());
+
+      RaftLogCache cache = raftLog.getRaftLogCache();
+      Assert.assertEquals(5, cache.getNumOfSegments());
+    }
   }
-
 }

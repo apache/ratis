@@ -127,7 +127,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public void logSync(long index) {
+  public void logSync() {
     // do nothing
   }
 

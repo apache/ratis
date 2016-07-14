@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server.storage;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
@@ -53,6 +54,31 @@ import java.util.List;
 public class SegmentedRaftLog extends RaftLog implements Closeable {
   static final byte[] HEADER = "RAFTLOG1".getBytes(Charsets.UTF_8);
 
+  /**
+   * I/O task definitions.
+   */
+  static abstract class Task {
+    private boolean done = false;
+
+    boolean isDone() {
+      return done;
+    }
+
+    synchronized void done() {
+      done = true;
+      notifyAll();
+    }
+
+    synchronized void waitForDone() throws InterruptedException {
+      while (!done) {
+        wait();
+      }
+    }
+
+    abstract void execute() throws IOException;
+  }
+  private static final ThreadLocal<Task> myTask = new ThreadLocal<>();
+
   private final RaftStorage storage;
   private final RaftLogCache cache;
   private final RaftLogWorker fileLogWorker;
@@ -61,8 +87,9 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
     super(selfId);
     storage = new RaftStorage(rootDir, RaftConstants.StartupOption.REGULAR);
     cache = new RaftLogCache();
-    fileLogWorker = new RaftLogWorker(storage);
     loadLogSegments();
+
+    fileLogWorker = new RaftLogWorker(storage, cache.getEndIndex());
     fileLogWorker.start();
   }
 
@@ -104,7 +131,8 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
   void truncate(long index) {
     RaftLogCache.TruncationSegments ts = cache.truncate(index);
     if (ts != null) {
-      fileLogWorker.truncate(ts);
+      Task task = fileLogWorker.truncate(ts);
+      myTask.set(task);
     }
   }
 
@@ -129,7 +157,7 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
     }
 
     cache.appendEntry(entry);
-    fileLogWorker.writeLogEntry(entry);
+    myTask.set(fileLogWorker.writeLogEntry(entry));
   }
 
   @Override
@@ -165,8 +193,8 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
   }
 
   @Override
-  public void logSync(long index) throws InterruptedException {
-    fileLogWorker.waitForFlush(index);
+  public void logSync() throws InterruptedException {
+    myTask.get().waitForDone();
   }
 
   @Override
@@ -178,5 +206,10 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
   public void close() throws IOException {
     fileLogWorker.close();
     storage.close();
+  }
+
+  @VisibleForTesting
+  RaftLogCache getRaftLogCache() {
+    return cache;
   }
 }

@@ -183,7 +183,7 @@ public abstract class RaftLog {
    * This method, {@link #append(long, Message)},
    * {@link #append(long, RaftConfiguration)}, and {@link #truncate(long)},
    * do not guarantee the changes are persisted.
-   * Need to call {@link #logSync(long)} to persist the changes.
+   * Need to call {@link #logSync()} to persist the changes.
    */
   public abstract void append(LogEntryProto... entries);
 
@@ -191,9 +191,8 @@ public abstract class RaftLog {
    * TODO persist the log. also need to persist leaderId/currentTerm.
    * is triggered by AppendEntries RPC request from the leader
    * and also votedFor for requestVote or leader election
-   * @param index the index of the entry that needs to be sync'ed
    */
-  public abstract void logSync(long index) throws InterruptedException;
+  public abstract void logSync() throws InterruptedException;
 
   /**
    * @return the index of the latest entry that has been flushed to the local

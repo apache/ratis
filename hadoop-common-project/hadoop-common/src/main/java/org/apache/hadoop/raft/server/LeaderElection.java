@@ -115,7 +115,7 @@ class LeaderElection extends Daemon {
       synchronized (server) {
         electionTerm = state.initElection();
       }
-      server.getState().getLog().logSync(0); // TODO sync metafile instead
+      server.getState().getLog().logSync(); // TODO sync metafile instead
       LOG.info(state.getSelfId() + ": begin an election in Term "
           + electionTerm);
 
@@ -160,7 +160,7 @@ class LeaderElection extends Daemon {
         }
       }
       if (changeRole) {
-        server.getState().getLog().logSync(0); // TODO sync metafile instead
+        server.getState().getLog().logSync(); // TODO sync metafile instead
         return;
       }
     }

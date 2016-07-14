@@ -24,6 +24,7 @@ import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.storage.LogSegment.SegmentFileInfo;
 import org.apache.hadoop.raft.server.storage.RaftLogCache.TruncationSegments;
+import org.apache.hadoop.raft.server.storage.SegmentedRaftLog.Task;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.util.ExitUtil;
 import org.slf4j.Logger;
@@ -58,13 +59,15 @@ class RaftLogWorker implements Runnable {
    */
   private int pendingFlushNum = 0;
   /** the index of the last entry that has been written */
-  private long lastWrittenIndex = -1;
+  private long lastWrittenIndex;
   /** the largest index of the entry that has been flushed */
   private volatile long flushedIndex;
 
-  RaftLogWorker(RaftStorage storage) {
+  RaftLogWorker(RaftStorage storage, long latestIndex) {
     this.storage = storage;
     workerThread = new Thread(this, this.getClass().getSimpleName());
+    lastWrittenIndex = latestIndex;
+    flushedIndex = latestIndex;
   }
 
   void start() {
@@ -83,7 +86,7 @@ class RaftLogWorker implements Runnable {
   /**
    * This is protected by the RaftServer's lock.
    */
-  private void addIOTask(Task task) {
+  private Task addIOTask(Task task) {
     LOG.debug("add task {}", task);
     try {
       if (!queue.offer(task, 1, TimeUnit.SECONDS)) {
@@ -94,6 +97,7 @@ class RaftLogWorker implements Runnable {
     } catch (Throwable t) {
       terminate(t);
     }
+    return task;
   }
 
   boolean isAlive() {
@@ -113,9 +117,12 @@ class RaftLogWorker implements Runnable {
         Task task = queue.poll(1, TimeUnit.SECONDS);
         if (task != null) {
           task.execute();
+          task.done();
         }
       } catch (InterruptedException e) {
-        LOG.info(Thread.currentThread().getName() + " was interrupted, exiting");
+        LOG.info(Thread.currentThread().getName()
+            + " was interrupted, exiting. There are " + queue.size()
+            + " tasks remaining in the queue.");
       } catch (Throwable t) {
         // TODO avoid terminating the jvm by supporting multiple log directories
         terminate(t);
@@ -151,32 +158,25 @@ class RaftLogWorker implements Runnable {
    *
    * Thus all the tasks are created and added sequentially.
    */
-  void startLogSegment(long startIndex) {
-    addIOTask(new StartLogSegment(startIndex));
+  Task startLogSegment(long startIndex) {
+    return addIOTask(new StartLogSegment(startIndex));
   }
 
-  void rollLogSegment(LogSegment segmentToClose) {
+  Task rollLogSegment(LogSegment segmentToClose) {
     addIOTask(new FinalizeLogSegment(segmentToClose));
-    addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
+    return addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
   }
 
-  void writeLogEntry(LogEntryProto entry) {
-    addIOTask(new WriteLog(entry));
+  Task writeLogEntry(LogEntryProto entry) {
+    return addIOTask(new WriteLog(entry));
   }
 
-  void truncate(TruncationSegments ts) {
-    addIOTask(new TruncateLog(ts));
-  }
-
-  /**
-   * I/O task definitions.
-   */
-  private interface Task {
-    void execute() throws IOException;
+  Task truncate(TruncationSegments ts) {
+    return addIOTask(new TruncateLog(ts));
   }
 
   // TODO we can add another level of buffer for writing here
-  private class WriteLog implements Task {
+  private class WriteLog extends Task {
     private final LogEntryProto entry;
 
     WriteLog(LogEntryProto entry) {
@@ -186,8 +186,7 @@ class RaftLogWorker implements Runnable {
     @Override
     public void execute() throws IOException {
       Preconditions.checkState(out != null);
-      Preconditions.checkState(
-          lastWrittenIndex == -1 || lastWrittenIndex + 1 == entry.getIndex(),
+      Preconditions.checkState(lastWrittenIndex + 1 == entry.getIndex(),
           "lastWrittenIndex == %s, entry == %s", lastWrittenIndex, entry);
       out.write(entry);
       lastWrittenIndex = entry.getIndex();
@@ -198,7 +197,7 @@ class RaftLogWorker implements Runnable {
     }
   }
 
-  private class FinalizeLogSegment implements Task {
+  private class FinalizeLogSegment extends Task {
     private final LogSegment segmentToClose;
 
     FinalizeLogSegment(LogSegment segmentToClose) {
@@ -237,7 +236,7 @@ class RaftLogWorker implements Runnable {
     }
   }
 
-  private class StartLogSegment implements Task {
+  private class StartLogSegment extends Task {
     private final long newStartIndex;
 
     StartLogSegment(long newStartIndex) {
@@ -245,7 +244,7 @@ class RaftLogWorker implements Runnable {
     }
 
     @Override
-    public void execute() throws IOException {
+    void execute() throws IOException {
       File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
       Preconditions.checkState(!openFile.exists());
       Preconditions.checkState(out == null && pendingFlushNum == 0);
@@ -253,7 +252,7 @@ class RaftLogWorker implements Runnable {
     }
   }
 
-  private class TruncateLog implements Task {
+  private class TruncateLog extends Task {
     private final TruncationSegments segments;
 
     TruncateLog(TruncationSegments ts) {
@@ -261,7 +260,7 @@ class RaftLogWorker implements Runnable {
     }
 
     @Override
-    public void execute() throws IOException {
+    void execute() throws IOException {
       IOUtils.cleanup(null, out);
       out = null;
       if (segments.toTruncate != null) {
@@ -300,17 +299,6 @@ class RaftLogWorker implements Runnable {
         }
       }
       updateFlushedIndex();
-    }
-  }
-
-  void waitForFlush(long targetIndex) throws InterruptedException {
-    if (targetIndex <= flushedIndex) {
-      return;
-    }
-    synchronized (this) {
-      while (targetIndex > flushedIndex) {
-        wait();
-      }
     }
   }
 

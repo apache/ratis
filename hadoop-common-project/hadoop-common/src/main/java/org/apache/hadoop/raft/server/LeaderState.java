@@ -287,7 +287,7 @@ class LeaderState {
               handleEvent(event);
             }
           }
-          raftLog.logSync(0); // TODO sync metafile instead
+          raftLog.logSync(); // TODO sync metafile instead
           // the updated configuration does not need to be sync'ed here
         } catch (InterruptedException e) {
           if (!running) {

@@ -311,4 +311,9 @@ class RaftLogCache {
       return record.entry;
     }
   }
+
+  @VisibleForTesting
+  int getNumOfSegments() {
+    return closedSegments.size() + (openSegment == null ? 0 : 1);
+  }
 }

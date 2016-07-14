@@ -382,7 +382,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
           getId(), reply, state);
     }
     try {
-      state.getLog().logSync(0); // TODO sync metafile instead
+      state.getLog().logSync(); // TODO sync metafile instead
     } catch (InterruptedException e) {
       throw new InterruptedIOException("logSync got interrupted");
     }
@@ -479,7 +479,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     }
     if (entries != null && entries.length > 0) {
       try {
-        state.getLog().logSync(entries[entries.length - 1].getIndex());
+        state.getLog().logSync();
       } catch (InterruptedException e) {
         throw new InterruptedIOException("logSync got interrupted");
       }
