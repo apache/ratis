@@ -15,27 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.server;
-
-import org.apache.hadoop.raft.protocol.RaftClientReply;
-import org.apache.hadoop.raft.protocol.RaftClientRequest;
-import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
-import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
-import org.apache.hadoop.raft.server.protocol.RaftServerReply;
-import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
-import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
+package org.apache.hadoop.raft.server.simulation;
 
 import java.io.IOException;
 
-public interface RaftCommunicationSystem {
-  void start();
+public interface RequestReply<REQUEST, REPLY> {
+  REPLY sendRequest(REQUEST request) throws IOException;
 
-  void interruptAndJoin() throws InterruptedException;
+  REQUEST takeRequest(String id) throws IOException;
 
-  void shutdown();
-
-  RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException;
-
-  void sendClientReply(RaftClientRequest request, RaftClientReply reply, IOException ioe)
+  void sendReply(REQUEST request, REPLY reply, IOException ioe)
       throws IOException;
+
+  void shutdown(String id);
 }

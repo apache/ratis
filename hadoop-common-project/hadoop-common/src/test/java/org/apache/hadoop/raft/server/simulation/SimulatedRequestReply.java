@@ -22,7 +22,6 @@ import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.raft.server.RequestReply;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.util.Time;
 import org.apache.mina.util.ConcurrentHashSet;

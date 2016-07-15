@@ -18,13 +18,12 @@
 package org.apache.hadoop.raft;
 
 import org.apache.hadoop.raft.client.RaftClient;
-import org.apache.hadoop.raft.protocol.RaftClientReply;
-import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.server.*;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
-import org.apache.hadoop.raft.server.simulation.SimulatedCommunicationSystem;
+import org.apache.hadoop.raft.server.simulation.SimulatedClientRequestReply;
+import org.apache.hadoop.raft.server.simulation.SimulatedServerRpc;
 import org.apache.hadoop.raft.server.simulation.SimulatedRequestReply;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.storage.RaftLog;
@@ -61,20 +60,20 @@ public class MiniRaftCluster {
 
   RaftServer newRaftServer(String id, RaftConfiguration conf) {
     final RaftServer s = new RaftServer(id, conf);
-    s.setCommunicationSystem(new SimulatedCommunicationSystem(s, serverRequestReply,
+    s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
         client2serverRequestReply));
     return s;
   }
 
   private RaftConfiguration conf;
   private final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
-  private final SimulatedRequestReply<RaftClientRequest, RaftClientReply> client2serverRequestReply;
+  private final SimulatedClientRequestReply client2serverRequestReply;
   private final Map<String, RaftServer> servers = new LinkedHashMap<>();
 
   public MiniRaftCluster(int numServers) {
     this.conf = initConfiguration(numServers);
     serverRequestReply = new SimulatedRequestReply<>(conf.getPeers());
-    client2serverRequestReply = new SimulatedRequestReply<>(conf.getPeers());
+    client2serverRequestReply = new SimulatedClientRequestReply(conf.getPeers());
 
     for (RaftPeer p : conf.getPeers()) {
       final RaftServer s = newRaftServer(p.getId(), conf);

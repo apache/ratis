@@ -15,17 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.server;
+package org.apache.hadoop.raft.server.simulation;
 
-import java.io.IOException;
+import org.apache.hadoop.raft.client.RaftClientRequestSender;
+import org.apache.hadoop.raft.protocol.RaftClientReply;
+import org.apache.hadoop.raft.protocol.RaftClientRequest;
+import org.apache.hadoop.raft.protocol.RaftPeer;
 
-public interface RequestReply<REQUEST, REPLY> {
-  REPLY sendRequest(REQUEST request) throws IOException;
+import java.util.Collection;
 
-  REQUEST takeRequest(String id) throws IOException;
-
-  void sendReply(REQUEST request, REPLY reply, IOException ioe)
-      throws IOException;
-
-  void shutdown(String id);
+public class SimulatedClientRequestReply
+    extends SimulatedRequestReply<RaftClientRequest, RaftClientReply>
+    implements RaftClientRequestSender {
+  public SimulatedClientRequestReply(Collection<RaftPeer> allPeers) {
+    super(allPeers);
+  }
 }

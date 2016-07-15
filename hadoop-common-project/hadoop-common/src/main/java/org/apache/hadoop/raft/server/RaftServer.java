@@ -63,7 +63,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   /** used when the peer is leader */
   private volatile LeaderState leaderState;
 
-  private RaftCommunicationSystem communicationSystem;
+  private RaftServerRpc serverRpc;
 
   public RaftServer(String id, RaftConfiguration raftConf) {
     this(new ServerState(id, raftConf));
@@ -75,12 +75,12 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     this.state = initialState;
   }
 
-  public void setCommunicationSystem(RaftCommunicationSystem communicationSystem) {
-    this.communicationSystem = communicationSystem;
+  public void setServerRpc(RaftServerRpc serverRpc) {
+    this.serverRpc = serverRpc;
   }
 
-  RaftCommunicationSystem getCommunicationSystem() {
-    return communicationSystem;
+  RaftServerRpc getServerRpc() {
+    return serverRpc;
   }
 
   public void start(RaftConfiguration conf) {
@@ -111,7 +111,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     heartbeatMonitor = new FollowerState(this);
     heartbeatMonitor.start();
 
-    communicationSystem.start();
+    serverRpc.start();
   }
 
   /**
@@ -122,7 +122,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   private void startInitializing() {
     role = Role.FOLLOWER;
     // do not start heartbeatMonitoring
-    communicationSystem.start();
+    serverRpc.start();
   }
 
   public ServerState getState() {
@@ -145,13 +145,13 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     changeRunningState(RunningState.STOPPED);
 
     try {
-      communicationSystem.interruptAndJoin();
+      serverRpc.interruptAndJoin();
 
       shutdownHeartbeatMonitor();
       shutdownElectionDaemon();
       shutdownLeaderState();
 
-      communicationSystem.shutdown();
+      serverRpc.shutdown();
     } catch (InterruptedException ignored) {
     }
   }

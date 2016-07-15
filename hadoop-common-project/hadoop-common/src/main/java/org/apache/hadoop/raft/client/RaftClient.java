@@ -23,7 +23,6 @@ import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
 import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.raft.server.RequestReply;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,12 +40,12 @@ public class RaftClient {
 
   final String clientId;
   final Map<String, RaftPeer> peers = new HashMap<>();
-  final RequestReply<RaftClientRequest, RaftClientReply> client2serverRpc;
+  final RaftClientRequestSender client2serverRpc;
 
   private volatile String leaderId;
 
   public RaftClient(String clientId, Collection<RaftPeer> peers,
-      RequestReply<RaftClientRequest, RaftClientReply> client2serverRpc,
+                    RaftClientRequestSender client2serverRpc,
       String leaderId) {
     this.clientId = clientId;
     this.client2serverRpc = client2serverRpc;

@@ -20,21 +20,20 @@ package org.apache.hadoop.raft.server.simulation;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
-import org.apache.hadoop.raft.server.RaftCommunicationSystem;
+import org.apache.hadoop.raft.server.RaftServerRpc;
 import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.raft.server.RequestReply;
 import org.apache.hadoop.raft.server.protocol.*;
 
 import java.io.IOException;
 
-public class SimulatedCommunicationSystem implements RaftCommunicationSystem {
+public class SimulatedServerRpc implements RaftServerRpc {
   private final RaftServer server;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
 
-  public SimulatedCommunicationSystem(RaftServer server,
-       RequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
-       RequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
+  public SimulatedServerRpc(RaftServer server,
+                            RequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
+                            RequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
     this.server = server;
     this.serverHandler = new RequestHandler<>(server.getId(), "serverHandler",
         serverRequestReply, serverHandlerImpl);

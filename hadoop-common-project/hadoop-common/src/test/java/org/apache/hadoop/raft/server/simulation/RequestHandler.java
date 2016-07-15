@@ -18,7 +18,6 @@
 package org.apache.hadoop.raft.server.simulation;
 
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
-import org.apache.hadoop.raft.server.RequestReply;
 import org.apache.hadoop.util.Daemon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
