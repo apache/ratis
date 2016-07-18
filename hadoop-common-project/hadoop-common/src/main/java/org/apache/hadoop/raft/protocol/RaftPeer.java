@@ -17,16 +17,23 @@
  */
 package org.apache.hadoop.raft.protocol;
 
+import java.net.InetSocketAddress;
+
 public class RaftPeer {
   private final String id;
-  // TODO other information including host name, port etc.
+  private final InetSocketAddress address;
 
   public RaftPeer(String id) {
     this.id = id;
+    this.address = null; // TODO
   }
 
   public String getId() {
     return id;
+  }
+
+  public InetSocketAddress getAddress() {
+    return address;
   }
 
   @Override

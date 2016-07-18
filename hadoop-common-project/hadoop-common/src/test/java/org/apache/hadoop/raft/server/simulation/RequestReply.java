@@ -19,7 +19,7 @@ package org.apache.hadoop.raft.server.simulation;
 
 import java.io.IOException;
 
-public interface RequestReply<REQUEST, REPLY> {
+interface RequestReply<REQUEST, REPLY> {
   REPLY sendRequest(REQUEST request) throws IOException;
 
   REQUEST takeRequest(String id) throws IOException;

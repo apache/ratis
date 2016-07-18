@@ -15,18 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.server.protocol;
+package org.apache.hadoop.raft.server;
 
-import java.io.IOException;
+public interface RaftServerConfigKeys {
+  String PREFIX = "raft.server";
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
+  String IPC_ADDRESS_KEY = PREFIX + ".ipc.address";
+  int    IPC_DEFAULT_PORT = 10718;
+  String IPC_ADDRESS_DEFAULT = "0.0.0.0:" + IPC_DEFAULT_PORT;
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
-public interface RaftServerProtocol {
-
-  RequestVoteReply requestVote(RequestVoteRequest request) throws IOException;
-
-  AppendEntriesReply appendEntries(AppendEntriesRequest request) throws IOException;
+  String  HANDLER_COUNT_KEY = PREFIX + ".handler.count";
+  int     HANDLER_COUNT_DEFAULT = 10;
 }

@@ -15,18 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.server.protocol;
-
-import java.io.IOException;
+package org.apache.hadoop.raft.server.protocol.pb;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.ipc.ProtocolInfo;
+import org.apache.hadoop.raft.proto.RaftServerProtocolProtos;
+import org.apache.hadoop.raft.server.RaftConstants;
+import org.apache.hadoop.security.KerberosInfo;
 
 @InterfaceAudience.Private
-@InterfaceStability.Unstable
-public interface RaftServerProtocol {
-
-  RequestVoteReply requestVote(RequestVoteRequest request) throws IOException;
-
-  AppendEntriesReply appendEntries(AppendEntriesRequest request) throws IOException;
+@InterfaceStability.Stable
+@KerberosInfo(
+    serverPrincipal = RaftConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY)
+@ProtocolInfo(
+    protocolName = RaftConstants.RAFT_SERVER_PROTOCOL_NAME,
+    protocolVersion = 1)
+public interface RaftServerProtocolPB extends
+    RaftServerProtocolProtos.RaftServerProtocolService.BlockingInterface {
 }
