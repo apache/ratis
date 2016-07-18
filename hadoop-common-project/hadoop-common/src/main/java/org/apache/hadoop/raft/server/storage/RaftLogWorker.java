@@ -106,8 +106,7 @@ class RaftLogWorker implements Runnable {
 
   private void terminate(Throwable t) {
     String message = "Exception while handling raft log: " + t.getMessage();
-    LOG.error(message, t);
-    ExitUtil.terminate(1, message);
+    RaftUtils.terminate(t, message, LOG);
   }
 
   @Override

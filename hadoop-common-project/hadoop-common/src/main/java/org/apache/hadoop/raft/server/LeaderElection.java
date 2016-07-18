@@ -28,6 +28,7 @@ import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -100,6 +101,9 @@ class LeaderElection extends Daemon {
       // down to a follower. The leader election should skip.
       LOG.info("The leader election thread of peer {} is interrupted. " +
           "Currently role: {}.", server.getId(), server.getRole());
+    } catch (IOException e) {
+      LOG.warn("Failed to persist votedFor/term. Exit the leader election.", e);
+      stopRunning();
     }
   }
 
@@ -107,15 +111,15 @@ class LeaderElection extends Daemon {
    * After a peer changes its role to candidate, it invokes this method to
    * send out requestVote rpc to all other peers.
    */
-  private void askForVotes() throws InterruptedException {
+  private void askForVotes() throws InterruptedException, IOException {
     final ServerState state = server.getState();
     while (running && server.isCandidate()) {
       // one round of requestVotes
       final long electionTerm;
       synchronized (server) {
         electionTerm = state.initElection();
+        server.getState().persistMetadata(); // TODO add tests for failure here
       }
-      server.getState().getLog().logSync(); // TODO sync metafile instead
       LOG.info(state.getSelfId() + ": begin an election in Term "
           + electionTerm);
 
@@ -131,7 +135,6 @@ class LeaderElection extends Daemon {
         executor.shutdown();
       }
 
-      boolean changeRole = false;
       synchronized (server) {
         if (electionTerm != state.getCurrentTerm() || !running ||
             !server.isCandidate()) {
@@ -141,8 +144,7 @@ class LeaderElection extends Daemon {
         switch (r.result) {
           case PASSED:
             server.changeToLeader();
-            changeRole = true;
-            break;
+            return;
           case SHUTDOWN:
             LOG.info("{} received shutdown response when requesting votes.",
                 server.getId());
@@ -152,16 +154,11 @@ class LeaderElection extends Daemon {
           case DISCOVERED_A_NEW_TERM:
             final long term = r.term > server.getState().getCurrentTerm() ?
                 r.term : server.getState().getCurrentTerm();
-            server.changeToFollower(term);
-            changeRole = true;
-            break;
+            server.changeToFollower(term, true);
+            return;
           case TIMEOUT:
             // should start another election
         }
-      }
-      if (changeRole) {
-        server.getState().getLog().logSync(); // TODO sync metafile instead
-        return;
       }
     }
   }

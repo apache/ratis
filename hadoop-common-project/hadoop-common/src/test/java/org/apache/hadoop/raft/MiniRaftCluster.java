@@ -18,6 +18,7 @@
 package org.apache.hadoop.raft;
 
 import org.apache.hadoop.raft.client.RaftClient;
+import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.server.*;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
@@ -31,6 +32,7 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -50,7 +52,7 @@ public class MiniRaftCluster {
     }
   }
 
-  private static RaftConfiguration initConfiguration(int num) {
+  public static RaftConfiguration initConfiguration(int num) {
     RaftPeer[] peers = new RaftPeer[num];
     for (int i = 0; i < num; i++) {
       peers[i] = new RaftPeer("s" + i);
@@ -58,25 +60,33 @@ public class MiniRaftCluster {
     return RaftConfiguration.composeConf(peers, 0);
   }
 
-  RaftServer newRaftServer(String id, RaftConfiguration conf) {
-    final RaftServer s = new RaftServer(id, conf);
+  RaftServer newRaftServer(String id, RaftConfiguration conf,
+      RaftProperties properties) {
+    final RaftServer s;
+    try {
+      s = new RaftServer(id, conf, properties);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
     s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
         client2serverRequestReply));
     return s;
   }
 
   private RaftConfiguration conf;
+  private final RaftProperties properties;
   private final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
   private final SimulatedClientRequestReply client2serverRequestReply;
   private final Map<String, RaftServer> servers = new LinkedHashMap<>();
 
-  public MiniRaftCluster(int numServers) {
+  public MiniRaftCluster(int numServers, RaftProperties properties) {
     this.conf = initConfiguration(numServers);
+    this.properties = properties;
     serverRequestReply = new SimulatedRequestReply<>(conf.getPeers());
     client2serverRequestReply = new SimulatedClientRequestReply(conf.getPeers());
 
     for (RaftPeer p : conf.getPeers()) {
-      final RaftServer s = newRaftServer(p.getId(), conf);
+      final RaftServer s = newRaftServer(p.getId(), conf, this.properties);
       servers.put(p.getId(), s);
     }
   }
@@ -98,7 +108,7 @@ public class MiniRaftCluster {
 
     // create and add new RaftServers
     for (RaftPeer p : newPeers) {
-      RaftServer newServer = newRaftServer(p.getId(), conf);
+      RaftServer newServer = newRaftServer(p.getId(), conf, properties);
       servers.put(p.getId(), newServer);
       if (startNewPeer) {
         // start new peers as initializing state
@@ -211,7 +221,6 @@ public class MiniRaftCluster {
    * @param leaderId ID of the targeted leader server.
    * @return true if server has been successfully enforced to the leader, false
    *         otherwise.
-   * @throws InterruptedException
    */
   public boolean tryEnforceLeader(String leaderId)
       throws InterruptedException {

@@ -21,8 +21,10 @@ import com.google.protobuf.CodedOutputStream;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
+import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
+import org.apache.hadoop.raft.server.RaftConfKeys;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftConstants.StartupOption;
 import org.apache.hadoop.raft.util.RaftUtils;
@@ -41,10 +43,13 @@ import java.util.List;
  */
 public class TestRaftLogSegment {
   private File storageDir;
+  private final RaftProperties properties = new RaftProperties();
 
   @Before
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftLogSegment.class);
+    properties.set(RaftConfKeys.RAFT_SERVER_STORAGE_DIR_KEY,
+        storageDir.getCanonicalPath());
   }
 
   @After
@@ -56,7 +61,7 @@ public class TestRaftLogSegment {
 
   private File prepareLog(boolean isOpen, long start, int size, long term)
       throws IOException {
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     File file = isOpen ? storage.getStorageDir().getOpenLogFile(start) :
         storage.getStorageDir().getClosedLogFile(start, start + size - 1);
 
@@ -100,13 +105,13 @@ public class TestRaftLogSegment {
     // load an open segment
     File openSegmentFile = prepareLog(true, 0, 100, 0);
     LogSegment openSegment = LogSegment.loadSegment(openSegmentFile, 0,
-        RaftConstants.INVALID_LOG_INDEX, true);
+        RaftConstants.INVALID_LOG_INDEX, true, null);
     checkLogSegment(openSegment, 0, 99, true, openSegmentFile.length(), 0);
 
     // load a closed segment (1000-1099)
     File closedSegmentFile = prepareLog(false, 1000, 100, 1);
     LogSegment closedSegment = LogSegment.loadSegment(closedSegmentFile, 1000,
-        1099, false);
+        1099, false, null);
     checkLogSegment(closedSegment, 1000, 1099, false,
         closedSegment.getTotalSize(), 1);
   }

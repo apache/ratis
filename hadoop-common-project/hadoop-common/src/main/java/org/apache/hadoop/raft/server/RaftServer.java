@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.*;
 import org.apache.hadoop.raft.server.protocol.*;
@@ -65,8 +66,9 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   private RaftServerRpc serverRpc;
 
-  public RaftServer(String id, RaftConfiguration raftConf) {
-    this(new ServerState(id, raftConf));
+  public RaftServer(String id, RaftConfiguration raftConf,
+      RaftProperties properties) throws IOException {
+    this(new ServerState(id, raftConf, properties));
   }
 
   @VisibleForTesting
@@ -178,22 +180,40 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     return role;
   }
 
-  synchronized void changeToFollower(long newTerm) {
+  /**
+   * Change the server state to Follower if necessary
+   * @param newTerm The new term.
+   * @param sync We will call {@link ServerState#persistMetadata()} if this is
+   *             set to true and term/votedFor get updated.
+   * @return if the term/votedFor should be updated to the new term
+   * @throws IOException if term/votedFor persistence failed.
+   */
+  synchronized boolean changeToFollower(long newTerm, boolean sync)
+      throws IOException {
+    boolean metadataUpdated = false;
     if (newTerm > state.getCurrentTerm()) {
       state.setCurrentTerm(newTerm);
       state.resetLeaderAndVotedFor();
+      metadataUpdated = true;
     }
-    if (isFollower()) {
-      return;
-    } else if (isLeader()) {
+
+    if (isLeader()) {
       assert leaderState != null;
       shutdownLeaderState();
     } else if (isCandidate()) {
       shutdownElectionDaemon();
     }
-    role = Role.FOLLOWER;
-    heartbeatMonitor = new FollowerState(this);
-    heartbeatMonitor.start();
+
+    if (!isFollower()) {
+      role = Role.FOLLOWER;
+      heartbeatMonitor = new FollowerState(this);
+      heartbeatMonitor.start();
+    }
+
+    if (metadataUpdated && sync) {
+      state.persistMetadata();
+    }
+    return metadataUpdated;
   }
 
   private synchronized void shutdownLeaderState() {
@@ -344,7 +364,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   @Override
   public RequestVoteReply requestVote(RequestVoteRequest r) throws IOException {
-    return requestVote(r.getCandidateId(), r.getCandidateTerm(), r.getCandidateLastEntry());
+    return requestVote(r.getCandidateId(), r.getCandidateTerm(),
+        r.getCandidateLastEntry());
   }
 
   private RequestVoteReply requestVote(String candidateId, long candidateTerm,
@@ -364,13 +385,15 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
             candidateId, candidateTerm, this, this.getState().getLeaderId(),
             (isFollower() ? heartbeatMonitor.getLastRpcTime() : -1));
       } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
-        changeToFollower(candidateTerm);
-
+        boolean termUpdated = changeToFollower(candidateTerm, false);
         // see Section 5.4.1 Election restriction
         if (state.isLogUpToDate(candidateLastEntry)) {
           heartbeatMonitor.updateLastRpcTime(startTime);
           state.grantVote(candidateId);
           voteGranted = true;
+        }
+        if (termUpdated || voteGranted) {
+          state.persistMetadata(); // sync metafile
         }
       }
       if (!voteGranted && shouldSendShutdown(candidateId, candidateLastEntry)) {
@@ -380,11 +403,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
           state.getCurrentTerm(), voteGranted, shouldShutdown);
       LOG.debug("{} replies to vote request: {}. Peer's state: {}",
           getId(), reply, state);
-    }
-    try {
-      state.getLog().logSync(); // TODO sync metafile instead
-    } catch (InterruptedException e) {
-      throw new InterruptedIOException("logSync got interrupted");
     }
     return reply;
   }
@@ -452,7 +470,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         LOG.debug("{}: do not recognize leader. Reply: {}", getId(), reply);
         return reply;
       }
-      changeToFollower(leaderTerm);
+      changeToFollower(leaderTerm, true);
       state.setLeader(leaderId);
 
       if (runningState.get() == RunningState.INITIALIZING && !initializing) {

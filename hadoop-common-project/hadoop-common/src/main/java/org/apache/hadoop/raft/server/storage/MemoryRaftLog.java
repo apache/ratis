@@ -35,11 +35,6 @@ public class MemoryRaftLog extends RaftLog {
     super(selfId);
   }
 
-  public MemoryRaftLog(String selfId, List<LogEntryProto> newEntries) {
-    super(selfId);
-    entries.addAll(newEntries);
-  }
-
   @Override
   public synchronized LogEntryProto get(long index) {
     final int i = (int) index;
@@ -134,5 +129,15 @@ public class MemoryRaftLog extends RaftLog {
   @Override
   public long getLatestFlushedIndex() {
     return getNextIndex() - 1;
+  }
+
+  @Override
+  public void writeMetadata(long term, String votedFor) {
+    // do nothing
+  }
+
+  @Override
+  public Metadata loadMetadata() {
+    return new Metadata(null, 0);
   }
 }

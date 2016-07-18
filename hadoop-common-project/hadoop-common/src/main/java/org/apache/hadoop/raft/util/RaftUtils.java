@@ -26,6 +26,8 @@ import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.apache.hadoop.util.ExitUtil;
+import org.slf4j.Logger;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -117,5 +119,10 @@ public abstract class RaftUtils {
     try (FileOutputStream out = new FileOutputStream(f, true)) {
       out.getChannel().truncate(target);
     }
+  }
+
+  public static void terminate(Throwable t, String message, Logger LOG) {
+    LOG.error(message, t);
+    ExitUtil.terminate(1, message);
   }
 }

@@ -20,6 +20,8 @@ package org.apache.hadoop.raft.server.storage;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.CodedOutputStream;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto.Type;
+import org.apache.hadoop.raft.server.ConfigurationManager;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.util.RaftUtils;
 
@@ -86,8 +88,8 @@ class LogSegment implements Comparable<Long> {
     return new LogSegment(false, start, end);
   }
 
-  static LogSegment loadSegment(File file, long start, long end, boolean isOpen)
-      throws IOException {
+  static LogSegment loadSegment(File file, long start, long end, boolean isOpen,
+      ConfigurationManager confManager) throws IOException {
     final LogSegment segment;
     try (LogInputStream in = new LogInputStream(file, start, end, isOpen)) {
       segment = isOpen ? LogSegment.newOpenSegment(start) :
@@ -100,6 +102,11 @@ class LogSegment implements Comparable<Long> {
               "gap between entry %s and entry %s", prev, next);
         }
         segment.append(next);
+        if (confManager != null && next.getType() == Type.CONFIGURATION) {
+          confManager.addConfiguration(next.getIndex(),
+              RaftUtils.convertProtoToConf(next.getIndex(),
+                  next.getConfigurationEntry()));
+        }
         prev = next;
       }
     }

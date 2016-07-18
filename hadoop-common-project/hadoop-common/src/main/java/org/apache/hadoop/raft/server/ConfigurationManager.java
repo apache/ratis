@@ -32,7 +32,7 @@ import java.util.TreeMap;
  * raft log, and updated while appending/truncating configuration related log
  * entries.
  */
-class ConfigurationManager {
+public class ConfigurationManager {
   private final RaftConfiguration initialConf;
   private final NavigableMap<Long, RaftConfiguration> configurations =
       new TreeMap<>();
@@ -42,12 +42,13 @@ class ConfigurationManager {
    */
   private RaftConfiguration currentConf;
 
-  ConfigurationManager(RaftConfiguration initialConf) {
+  public ConfigurationManager(RaftConfiguration initialConf) {
     this.initialConf = initialConf;
     this.currentConf = initialConf;
   }
 
-  synchronized void addConfiguration(long logIndex, RaftConfiguration conf) {
+  public synchronized void addConfiguration(long logIndex,
+      RaftConfiguration conf) {
     Preconditions.checkArgument(configurations.isEmpty() ||
         configurations.lastEntry().getKey() < logIndex);
     configurations.put(logIndex, conf);

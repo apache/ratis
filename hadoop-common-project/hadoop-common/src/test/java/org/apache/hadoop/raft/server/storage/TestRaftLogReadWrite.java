@@ -21,7 +21,9 @@ import com.google.protobuf.CodedOutputStream;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
+import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.hadoop.raft.server.RaftConfKeys;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftConstants.StartupOption;
 import org.apache.hadoop.raft.util.RaftUtils;
@@ -42,10 +44,13 @@ import java.util.List;
  */
 public class TestRaftLogReadWrite {
   private File storageDir;
+  private final RaftProperties properties = new RaftProperties();
 
   @Before
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftLogReadWrite.class);
+    properties.set(RaftConfKeys.RAFT_SERVER_STORAGE_DIR_KEY,
+        storageDir.getCanonicalPath());
   }
 
   @After
@@ -73,7 +78,7 @@ public class TestRaftLogReadWrite {
    */
   @Test
   public void testReadWriteLog() throws IOException {
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
     long size = SegmentedRaftLog.HEADER.length;
     LogEntryProto[] entries = new LogEntryProto[100];
@@ -98,7 +103,7 @@ public class TestRaftLogReadWrite {
 
   @Test
   public void testAppendLog() throws IOException {
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
     LogEntryProto[] entries = new LogEntryProto[200];
     try (LogOutputStream out = new LogOutputStream(openSegment, false)) {
@@ -130,7 +135,7 @@ public class TestRaftLogReadWrite {
    */
   @Test
   public void testReadWithPadding() throws IOException {
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
     long size = SegmentedRaftLog.HEADER.length;
 
@@ -163,7 +168,7 @@ public class TestRaftLogReadWrite {
    */
   @Test
   public void testReadWithCorruptPadding() throws IOException {
-    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
 
     LogEntryProto[] entries = new LogEntryProto[10];

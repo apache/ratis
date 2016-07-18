@@ -17,16 +17,20 @@
  */
 package org.apache.hadoop.raft.server;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.storage.RaftLog;
+import org.apache.hadoop.raft.server.storage.SegmentedRaftLog;
 import org.apache.hadoop.raft.util.RaftUtils;
 
-import java.util.List;
+import java.io.IOException;
+
+import static org.apache.hadoop.raft.server.RaftConfKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
+import static org.apache.hadoop.raft.server.RaftConfKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY;
 
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
@@ -36,7 +40,7 @@ public class ServerState {
   /** Raft log */
   private final RaftLog log;
   /** Raft configuration */
-  private ConfigurationManager configurationManager;
+  private final ConfigurationManager configurationManager;
 
   /**
    * Latest term server has seen. initialized to 0 on first boot, increases
@@ -56,28 +60,26 @@ public class ServerState {
   /** Index of highest log entry applied to state machine */
   private long lastApplied;
 
-  ServerState(String id, RaftConfiguration conf) {
+  ServerState(String id, RaftConfiguration conf, RaftProperties prop)
+      throws IOException {
     this.selfId = id;
     configurationManager = new ConfigurationManager(conf);
-    // TODO load log/currentTerm/votedFor from persistent storage
-    log = new MemoryRaftLog(id);
-    currentTerm = 0;
-    votedFor = null;
     leaderId = null;
-    loadConfFromLog();
+
+    log = initLog(id, prop);
+    RaftLog.Metadata metadata = log.loadMetadata();
+    currentTerm = metadata.getTerm();
+    votedFor = metadata.getVotedFor();
   }
 
-  private ServerState(String id, RaftConfiguration conf, MemoryRaftLog newLog) {
-    this.selfId = id;
-    this.configurationManager = new ConfigurationManager(conf);
-    currentTerm = 0;
-    votedFor = null;
-    leaderId = null;
-    log = newLog;
-  }
-
-  private void loadConfFromLog() {
-    // TODO apply raftlog and update its RaftConfiguration
+  private RaftLog initLog(String id, RaftProperties prop)
+      throws IOException {
+    if (prop.getBoolean(RAFT_SERVER_USE_MEMORY_LOG_KEY,
+        RAFT_SERVER_USE_MEMORY_LOG_DEFAULT)) {
+      return new MemoryRaftLog(id);
+    } else {
+      return new SegmentedRaftLog(id, prop, configurationManager);
+    }
   }
 
   public RaftConfiguration getRaftConf() {
@@ -90,14 +92,6 @@ public class ServerState {
 
   public long getCurrentTerm() {
     return currentTerm;
-  }
-
-  @VisibleForTesting
-  public static ServerState buildServerState(ServerState oldState,
-      List<LogEntryProto> logEntries) {
-    MemoryRaftLog newLog = new MemoryRaftLog(oldState.getSelfId(), logEntries);
-    return new ServerState(oldState.selfId, oldState.getRaftConf(),
-        newLog);
   }
 
   void setCurrentTerm(long term) {
@@ -119,6 +113,10 @@ public class ServerState {
     votedFor = selfId;
     leaderId = null;
     return ++currentTerm;
+  }
+
+  void persistMetadata() throws IOException {
+    this.log.writeMetadata(currentTerm, votedFor);
   }
 
   void resetLeaderAndVotedFor() {

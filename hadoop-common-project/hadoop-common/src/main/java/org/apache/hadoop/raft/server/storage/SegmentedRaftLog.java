@@ -20,12 +20,13 @@ package org.apache.hadoop.raft.server.storage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
+import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.hadoop.raft.server.ConfigurationManager;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.PathAndIndex;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
@@ -83,29 +84,32 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
   private final RaftLogCache cache;
   private final RaftLogWorker fileLogWorker;
 
-  public SegmentedRaftLog(String selfId, File rootDir) throws IOException {
+  public SegmentedRaftLog(String selfId, RaftProperties prop,
+      ConfigurationManager confManager) throws IOException {
     super(selfId);
-    storage = new RaftStorage(rootDir, RaftConstants.StartupOption.REGULAR);
+    storage = new RaftStorage(prop, RaftConstants.StartupOption.REGULAR);
     cache = new RaftLogCache();
-    loadLogSegments();
+    loadLogSegments(confManager);
 
     fileLogWorker = new RaftLogWorker(storage, cache.getEndIndex());
     fileLogWorker.start();
   }
 
-  private void loadLogSegments() throws IOException {
+  private void loadLogSegments(ConfigurationManager confManager)
+      throws IOException {
     List<PathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
     for (PathAndIndex pi : paths) {
-      final LogSegment logSegment = parseLogSegment(pi);
+      final LogSegment logSegment = parseLogSegment(pi, confManager);
       cache.addSegment(logSegment);
     }
   }
 
-  // TODO: update state machine and configuration based on a passed-in callback
-  private LogSegment parseLogSegment(PathAndIndex pi) throws IOException {
+  // TODO: update state machine
+  private LogSegment parseLogSegment(PathAndIndex pi,
+      ConfigurationManager confManager) throws IOException {
     final boolean isOpen = pi.endIndex == RaftConstants.INVALID_LOG_INDEX;
     return LogSegment.loadSegment(pi.path.toFile(), pi.startIndex, pi.endIndex,
-        isOpen);
+        isOpen, confManager);
   }
 
   @Override
@@ -200,6 +204,17 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
   @Override
   public long getLatestFlushedIndex() {
     return fileLogWorker.getFlushedIndex();
+  }
+
+  @Override
+  public void writeMetadata(long term, String votedFor) throws IOException {
+    storage.getMetaFile().set(term, votedFor);
+  }
+
+  @Override
+  public Metadata loadMetadata() throws IOException {
+    return new Metadata(storage.getMetaFile().getVotedFor(),
+        storage.getMetaFile().getTerm());
   }
 
   @Override

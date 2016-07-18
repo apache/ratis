@@ -18,6 +18,7 @@
 package org.apache.hadoop.raft.server.storage;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.StorageState;
 import org.slf4j.Logger;
@@ -28,6 +29,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
+import static org.apache.hadoop.raft.server.RaftConfKeys.RAFT_SERVER_STORAGE_DIR_DEFAULT;
+import static org.apache.hadoop.raft.server.RaftConfKeys.RAFT_SERVER_STORAGE_DIR_KEY;
+
 class RaftStorage implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(RaftStorage.class);
 
@@ -36,9 +40,15 @@ class RaftStorage implements Closeable {
   private final StorageState state;
   private MetaFile metaFile;
 
-  RaftStorage(File dir, RaftConstants.StartupOption option) throws IOException {
-    storageDir = new RaftStorageDirectory(dir);
+  RaftStorage(RaftProperties prop, RaftConstants.StartupOption option)
+      throws IOException {
+    final String dir = prop.get(RAFT_SERVER_STORAGE_DIR_KEY,
+        RAFT_SERVER_STORAGE_DIR_DEFAULT);
+    storageDir = new RaftStorageDirectory(new File(dir));
     if (option == RaftConstants.StartupOption.FORMAT) {
+      if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
+        throw new IOException("Cannot format " + storageDir);
+      }
       storageDir.lock();
       format();
       Preconditions.checkState((state = storageDir.analyzeStorage(false)) ==
@@ -101,5 +111,9 @@ class RaftStorage implements Closeable {
   @Override
   public void close() throws IOException {
     storageDir.unlock();
+  }
+
+  MetaFile getMetaFile() {
+    return metaFile;
   }
 }

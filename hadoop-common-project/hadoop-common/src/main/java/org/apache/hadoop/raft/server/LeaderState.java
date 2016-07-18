@@ -287,7 +287,6 @@ class LeaderState {
               handleEvent(event);
             }
           }
-          raftLog.logSync(); // TODO sync metafile instead
           // the updated configuration does not need to be sync'ed here
         } catch (InterruptedException e) {
           if (!running) {
@@ -297,19 +296,24 @@ class LeaderState {
                 + "Currently role: {}.", server.getId(), server.getRole());
             throw new RuntimeException(e);
           }
+        } catch (IOException e) {
+          LOG.warn("Failed to persist new votedFor/term.", e);
+          // the failure should happen while changing the state to follower
+          // thus the in-memory state should have been updated
+          Preconditions.checkState(!running);
         }
       }
     }
   }
 
-  private void handleEvent(StateUpdateEvent e) {
+  private void handleEvent(StateUpdateEvent e) throws IOException {
     if (e == null) {
       if (inStagingState()) {
         checkNewPeers();
       }
     } else {
       if (e.type == STEPDOWN) {
-        server.changeToFollower(e.newTerm);
+        server.changeToFollower(e.newTerm, true);
       } else if (e.type == UPDATECOMMIT) {
         updateLastCommitted();
       } else if (e.type == STAGINGPROGRESS) {

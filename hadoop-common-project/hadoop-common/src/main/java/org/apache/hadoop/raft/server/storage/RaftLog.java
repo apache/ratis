@@ -25,6 +25,7 @@ import org.apache.hadoop.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -188,9 +189,8 @@ public abstract class RaftLog {
   public abstract void append(LogEntryProto... entries);
 
   /**
-   * TODO persist the log. also need to persist leaderId/currentTerm.
-   * is triggered by AppendEntries RPC request from the leader
-   * and also votedFor for requestVote or leader election
+   * Flush and sync the log.
+   * It is triggered by AppendEntries RPC request from the leader.
    */
   public abstract void logSync() throws InterruptedException;
 
@@ -199,4 +199,38 @@ public abstract class RaftLog {
    *         storage.
    */
   public abstract long getLatestFlushedIndex();
+
+  /**
+   * Write and flush the metadata (votedFor and term) into the meta file.
+   *
+   * We need to guarantee that the order of writeMetadata calls is the same with
+   * that when we change the in-memory term/votedFor. Otherwise we may persist
+   * stale term/votedFor in file.
+   *
+   * Since the leader change is not frequent, currently we simply put this call
+   * in the RaftPeer's lock. Later we can use an IO task queue to enforce the
+   * order.
+   */
+  public abstract void writeMetadata(long term, String votedFor)
+      throws IOException;
+
+  public abstract Metadata loadMetadata() throws IOException;
+
+  public static class Metadata {
+    private final String votedFor;
+    private final long term;
+
+    public Metadata(String votedFor, long term) {
+      this.votedFor = votedFor;
+      this.term = term;
+    }
+
+    public String getVotedFor() {
+      return votedFor;
+    }
+
+    public long getTerm() {
+      return term;
+    }
+  }
 }

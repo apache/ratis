@@ -22,6 +22,7 @@ import org.apache.hadoop.raft.MiniRaftCluster.PeerChanges;
 import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.client.RaftClient;
+import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
@@ -31,6 +32,7 @@ import org.apache.hadoop.raft.server.storage.RaftLog;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.slf4j.Logger;
@@ -54,13 +56,20 @@ public class TestRaftReconfiguration {
   }
   static final Logger LOG = LoggerFactory.getLogger(TestRaftReconfiguration.class);
 
+  private final RaftProperties prop = new RaftProperties();
+
+  @Before
+  public void setup() {
+    prop.setBoolean(RaftConfKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY, true);
+  }
+
   /**
    * add 2 new peers (3 peers -> 5 peers), no leader change
    */
   @Test
   public void testAddPeers() throws Exception {
     LOG.info("Start testAddPeers");
-    MiniRaftCluster cluster =  new MiniRaftCluster(3);
+    MiniRaftCluster cluster =  new MiniRaftCluster(3, prop);
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -115,7 +124,7 @@ public class TestRaftReconfiguration {
   @Test
   public void testRemovePeers() throws Exception {
     LOG.info("Start testRemovePeers");
-    MiniRaftCluster cluster =  new MiniRaftCluster(5);
+    MiniRaftCluster cluster =  new MiniRaftCluster(5, prop);
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -153,7 +162,7 @@ public class TestRaftReconfiguration {
   }
 
   private void testAddRemovePeers(boolean leaderStepdown) throws Exception {
-    MiniRaftCluster cluster =  new MiniRaftCluster(5);
+    MiniRaftCluster cluster =  new MiniRaftCluster(5, prop);
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -178,7 +187,7 @@ public class TestRaftReconfiguration {
   @Test(timeout = 30000)
   public void testReconfTwice() throws Exception {
     LOG.info("Start testReconfTwice");
-    final MiniRaftCluster cluster = new MiniRaftCluster(3);
+    final MiniRaftCluster cluster = new MiniRaftCluster(3, prop);
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -242,7 +251,7 @@ public class TestRaftReconfiguration {
   public void testReconfTimeout() throws Exception {
     LOG.info("Start testReconfTimeout");
     // originally 3 peers
-    final MiniRaftCluster cluster = new MiniRaftCluster(3);
+    final MiniRaftCluster cluster = new MiniRaftCluster(3, prop);
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -282,7 +291,7 @@ public class TestRaftReconfiguration {
   public void testBootstrapReconf() throws Exception {
     LOG.info("Start testBootstrapReconf");
     // originally 3 peers
-    final MiniRaftCluster cluster =  new MiniRaftCluster(3);
+    final MiniRaftCluster cluster =  new MiniRaftCluster(3, prop);
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
@@ -332,7 +341,7 @@ public class TestRaftReconfiguration {
   public void testKillLeaderDuringReconf() throws Exception {
     LOG.info("Start testKillLeaderDuringReconf");
     // originally 3 peers
-    final MiniRaftCluster cluster =  new MiniRaftCluster(3);
+    final MiniRaftCluster cluster =  new MiniRaftCluster(3, prop);
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);

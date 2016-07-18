@@ -19,6 +19,8 @@ package org.apache.hadoop.raft;
 
 import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.client.RaftClient;
+import org.apache.hadoop.raft.conf.RaftProperties;
+import org.apache.hadoop.raft.server.RaftConfKeys;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.RaftServer;
@@ -56,7 +58,9 @@ public class TestRaft {
 
   @Before
   public void setup() {
-    cluster = new MiniRaftCluster(5);
+    RaftProperties prop = new RaftProperties();
+    prop.setBoolean(RaftConfKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY, true);
+    cluster = new MiniRaftCluster(5, prop);
     assertNull(cluster.getLeader());
     cluster.start();
   }
