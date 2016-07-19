@@ -100,7 +100,7 @@ class LogOutputStream implements Closeable {
     fc.position(0);
 
     preallocate(); // preallocate file
-    out.write(SegmentedRaftLog.HEADER);
+    out.write(SegmentedRaftLog.HEADER_BYTES);
     flush();
   }
 

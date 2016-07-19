@@ -24,9 +24,9 @@ import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
-import org.apache.hadoop.raft.server.RaftConfKeys;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftConstants.StartupOption;
+import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -48,7 +48,7 @@ public class TestRaftLogSegment {
   @Before
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftLogSegment.class);
-    properties.set(RaftConfKeys.RAFT_SERVER_STORAGE_DIR_KEY,
+    properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY,
         storageDir.getCanonicalPath());
   }
 
@@ -89,7 +89,7 @@ public class TestRaftLogSegment {
     Assert.assertEquals(isOpen, segment.isOpen());
     Assert.assertEquals(totalSize, segment.getTotalSize());
 
-    long offset = SegmentedRaftLog.HEADER.length;
+    long offset = SegmentedRaftLog.HEADER_BYTES.length;
     for (long i = start; i <= end; i++) {
       LogSegment.LogRecord record = segment.getLogRecord(i);
       Assert.assertEquals(i, record.entry.getIndex());
@@ -120,7 +120,7 @@ public class TestRaftLogSegment {
   public void testAppendEntries() throws Exception {
     final long start = 1000;
     LogSegment segment = LogSegment.newOpenSegment(start);
-    long size = SegmentedRaftLog.HEADER.length;
+    long size = SegmentedRaftLog.HEADER_BYTES.length;
     checkLogSegment(segment, start, start - 1, true, size, 0);
 
     // append till full
@@ -202,6 +202,6 @@ public class TestRaftLogSegment {
     segment.truncate(start);
     Assert.assertEquals(0, segment.numOfEntries());
     checkLogSegment(segment, start, start - 1, false,
-        SegmentedRaftLog.HEADER.length, term);
+        SegmentedRaftLog.HEADER_BYTES.length, term);
   }
 }

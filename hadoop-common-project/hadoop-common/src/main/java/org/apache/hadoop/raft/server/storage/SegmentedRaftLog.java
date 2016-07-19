@@ -53,7 +53,8 @@ import java.util.List;
  * one entry.
  */
 public class SegmentedRaftLog extends RaftLog implements Closeable {
-  static final byte[] HEADER = "RAFTLOG1".getBytes(Charsets.UTF_8);
+  static final String HEADER_STR = "RAFTLOG1";
+  static final byte[] HEADER_BYTES = HEADER_STR.getBytes(Charsets.UTF_8);
 
   /**
    * I/O task definitions.

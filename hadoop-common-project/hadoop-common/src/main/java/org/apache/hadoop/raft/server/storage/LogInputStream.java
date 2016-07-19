@@ -91,7 +91,9 @@ class LogInputStream implements Closeable {
     try {
       reader = new LogReader(logFile);
       // read the log header
-      reader.readLogHeader();
+      String header = reader.readLogHeader();
+      Preconditions.checkState(SegmentedRaftLog.HEADER_STR.equals(header),
+          "Corrupted log header: %s", header);
       state = State.OPEN;
     } finally {
       if (reader == null) {

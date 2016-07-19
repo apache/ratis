@@ -75,7 +75,7 @@ class LogSegment implements Comparable<Long> {
     this.isOpen = isOpen;
     this.startIndex = start;
     this.endIndex = end;
-    totalSize = SegmentedRaftLog.HEADER.length;
+    totalSize = SegmentedRaftLog.HEADER_BYTES.length;
   }
 
   static LogSegment newOpenSegment(long start) {

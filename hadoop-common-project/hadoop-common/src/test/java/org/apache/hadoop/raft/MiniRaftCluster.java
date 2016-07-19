@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft;
 
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.server.*;
@@ -32,6 +33,7 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -60,21 +62,13 @@ public class MiniRaftCluster {
     return RaftConfiguration.composeConf(peers, 0);
   }
 
-  RaftServer newRaftServer(String id, RaftConfiguration conf,
-      RaftProperties properties) {
-    final RaftServer s;
-    try {
-      s = new RaftServer(id, conf, properties);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-    s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
-        client2serverRequestReply));
-    return s;
+  private static String getBaseDirectory() {
+    return System.getProperty("test.build.data", "target/test/data") + "/raft/";
   }
 
   private RaftConfiguration conf;
   private final RaftProperties properties;
+  private final String testBaseDir;
   private final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
   private final SimulatedClientRequestReply client2serverRequestReply;
   private final Map<String, RaftServer> servers = new LinkedHashMap<>();
@@ -84,15 +78,39 @@ public class MiniRaftCluster {
     this.properties = properties;
     serverRequestReply = new SimulatedRequestReply<>(conf.getPeers());
     client2serverRequestReply = new SimulatedClientRequestReply(conf.getPeers());
+    this.testBaseDir = getBaseDirectory();
 
     for (RaftPeer p : conf.getPeers()) {
-      final RaftServer s = newRaftServer(p.getId(), conf, this.properties);
+      final RaftServer s = newRaftServer(p.getId(), conf, true);
       servers.put(p.getId(), s);
     }
   }
 
   public void start() {
     servers.values().forEach((server) -> server.start(conf));
+  }
+
+  private void formatDir(String dirStr) {
+    final File serverDir = new File(dirStr);
+    FileUtil.fullyDelete(serverDir);
+  }
+
+  private RaftServer newRaftServer(String id, RaftConfiguration conf,
+      boolean format) {
+    final RaftServer s;
+    try {
+      final String dirStr = testBaseDir + id;
+      if (format) {
+        formatDir(dirStr);
+      }
+      properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY, dirStr);
+      s = new RaftServer(id, conf, properties);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
+        client2serverRequestReply));
+    return s;
   }
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer) {
@@ -108,7 +126,7 @@ public class MiniRaftCluster {
 
     // create and add new RaftServers
     for (RaftPeer p : newPeers) {
-      RaftServer newServer = newRaftServer(p.getId(), conf, properties);
+      RaftServer newServer = newRaftServer(p.getId(), conf, true);
       servers.put(p.getId(), newServer);
       if (startNewPeer) {
         // start new peers as initializing state

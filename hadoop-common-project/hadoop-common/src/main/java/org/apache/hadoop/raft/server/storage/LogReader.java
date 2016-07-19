@@ -143,7 +143,7 @@ public class LogReader implements Closeable {
   }
 
   String readLogHeader() throws IOException {
-    byte[] header = new byte[SegmentedRaftLog.HEADER.length];
+    byte[] header = new byte[SegmentedRaftLog.HEADER_BYTES.length];
     int num = in.read(header);
     if (num < header.length) {
       throw new EOFException("EOF before reading a complete log header");

@@ -175,7 +175,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
         Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
       }
     } catch (InterruptedException ie) {
-      throw new IOException(ie);
+      throw RaftUtils.toInterruptedIOException("", ie);
     }
   }
 
@@ -189,7 +189,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
           Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
         }
       } catch (InterruptedException ie) {
-        throw new IOException(ie);
+        throw RaftUtils.toInterruptedIOException("", ie);
       }
     }
   }
@@ -203,7 +203,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     try {
       Thread.sleep(randomSleepMs);
     } catch (InterruptedException ie) {
-      throw new IOException(ie);
+      throw RaftUtils.toInterruptedIOException("", ie);
     }
   }
 
@@ -213,7 +213,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
       try {
         Thread.sleep(queue.takeRequestDelayMs);
       } catch (InterruptedException ie) {
-        throw new IOException(ie);
+        throw RaftUtils.toInterruptedIOException("", ie);
       }
     }
   }

@@ -29,8 +29,8 @@ import org.apache.hadoop.raft.util.RaftUtils;
 
 import java.io.IOException;
 
-import static org.apache.hadoop.raft.server.RaftConfKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
-import static org.apache.hadoop.raft.server.RaftConfKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY;
+import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
+import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY;
 
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.

@@ -24,8 +24,8 @@ import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.ConfigurationManager;
-import org.apache.hadoop.raft.server.RaftConfKeys;
 import org.apache.hadoop.raft.server.RaftConstants.StartupOption;
+import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
@@ -70,7 +70,7 @@ public class TestSegmentedRaftLog {
   @Before
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestSegmentedRaftLog.class);
-    properties.set(RaftConfKeys.RAFT_SERVER_STORAGE_DIR_KEY,
+    properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY,
         storageDir.getCanonicalPath());
   }
 

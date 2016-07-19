@@ -28,16 +28,21 @@ import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.util.ExitUtil;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
 public abstract class RaftUtils {
+  private static final Logger LOG = LoggerFactory.getLogger(RaftUtils.class);
+
   public static InterruptedIOException toInterruptedIOException(
       String message, InterruptedException e) {
     final InterruptedIOException iioe = new InterruptedIOException(message);
@@ -124,5 +129,55 @@ public abstract class RaftUtils {
   public static void terminate(Throwable t, String message, Logger LOG) {
     LOG.error(message, t);
     ExitUtil.terminate(1, message);
+  }
+
+  /**
+   * Interprets the passed string as a URI. In case of error it
+   * assumes the specified string is a file.
+   *
+   * @param s the string to interpret
+   * @return the resulting URI
+   */
+  public static URI stringAsURI(String s) throws IOException {
+    URI u = null;
+    // try to make a URI
+    try {
+      u = new URI(s);
+    } catch (URISyntaxException e){
+      LOG.error("Syntax error in URI " + s
+          + ". Please check hdfs configuration.", e);
+    }
+
+    // if URI is null or scheme is undefined, then assume it's file://
+    if(u == null || u.getScheme() == null){
+      LOG.warn("Path " + s + " should be specified as a URI "
+          + "in configuration files. Please update configuration.");
+      u = fileAsURI(new File(s));
+    }
+    return u;
+  }
+
+  /**
+   * Converts the passed File to a URI. This method trims the trailing slash if
+   * one is appended because the underlying file is in fact a directory that
+   * exists.
+   *
+   * @param f the file to convert
+   * @return the resulting URI
+   */
+  public static URI fileAsURI(File f) throws IOException {
+    URI u = f.getCanonicalFile().toURI();
+
+    // trim the trailing slash, if it's present
+    if (u.getPath().endsWith("/")) {
+      String uriAsString = u.toString();
+      try {
+        u = new URI(uriAsString.substring(0, uriAsString.length() - 1));
+      } catch (URISyntaxException e) {
+        throw new IOException(e);
+      }
+    }
+
+    return u;
   }
 }

@@ -26,4 +26,10 @@ public interface RaftServerConfigKeys {
 
   String  HANDLER_COUNT_KEY = PREFIX + ".handler.count";
   int     HANDLER_COUNT_DEFAULT = 10;
+
+  String RAFT_SERVER_USE_MEMORY_LOG_KEY = "raft.server.use.memory.log";
+  boolean RAFT_SERVER_USE_MEMORY_LOG_DEFAULT = false;
+
+  String RAFT_SERVER_STORAGE_DIR_KEY = "raft.server.storage.dir";
+  String RAFT_SERVER_STORAGE_DIR_DEFAULT = "file:///tmp/raft-server/";
 }

@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.file.Files;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -95,7 +96,12 @@ class RaftLogWorker implements Runnable {
         queue.put(task);
       }
     } catch (Throwable t) {
-      terminate(t);
+      if (t instanceof InterruptedException && !running) {
+        LOG.info("Got InterruptedException when adding task " + task
+            + ". The RaftLogWorker already stopped.");
+      } else {
+        terminate(t);
+      }
     }
     return task;
   }

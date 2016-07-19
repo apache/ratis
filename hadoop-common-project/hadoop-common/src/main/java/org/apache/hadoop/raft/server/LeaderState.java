@@ -132,13 +132,13 @@ class LeaderState {
       senders.add(new RpcSender(f));
     }
     voterLists = divideFollowers(conf);
-
-    // In the beginning of the new term, replicate an empty entry in order
-    // to finally commit entries in the previous term
-    raftLog.append(server.getState().getCurrentTerm(), EMPTY_MESSAGE);
   }
 
   void start() {
+    // In the beginning of the new term, replicate an empty entry in order
+    // to finally commit entries in the previous term
+    raftLog.append(server.getState().getCurrentTerm(), EMPTY_MESSAGE);
+
     processor.start();
     startSenders();
     pendingRequests.start();

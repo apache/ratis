@@ -95,6 +95,11 @@ class PendingRequestsHandler {
     }
   }
 
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName() + "-" + server.getId();
+  }
+
   void put(long index, RaftClientRequest request) {
     final boolean b = queue.offer(new PendingRequestElement(index, request));
     Preconditions.checkState(b);
@@ -108,23 +113,27 @@ class PendingRequestsHandler {
     confRequests.finishSetConfiguration(success);
   }
 
-  private void sendReply(RaftClientRequest request, boolean success) {
+  private boolean sendReply(RaftClientRequest request, boolean success) {
     try {
       server.getServerRpc().sendClientReply(request,
           new RaftClientReply(request, success), null);
+      return true;
     } catch (IOException ioe) {
       RaftServer.LOG.error(this + " has " + ioe);
       RaftServer.LOG.trace("TRACE", ioe);
+      return false;
     }
   }
 
-  private void sendNotLeaderException(RaftClientRequest request) {
+  private boolean sendNotLeaderException(RaftClientRequest request) {
     try {
       server.getServerRpc().sendClientReply(request, null,
           server.generateNotLeaderException());
+      return true;
     } catch (IOException ioe) {
       RaftServer.LOG.error(this + " has " + ioe);
       RaftServer.LOG.trace("TRACE", ioe);
+      return false;
     }
   }
 
@@ -140,7 +149,7 @@ class PendingRequestsHandler {
 
     @Override
     public void run() {
-      long lastCommitted = 0;
+      long lastCommitted;
       while (running) {
         try {
           lastCommitted = server.getState().getLog().getLastCommittedIndex();
@@ -160,8 +169,7 @@ class PendingRequestsHandler {
             PendingRequestsHandler.this.wait(RaftConstants.RPC_TIMEOUT_MIN_MS);
           }
         } catch (InterruptedException e) {
-          RaftServer.LOG.info(this + " is interrupted by " + e);
-          RaftServer.LOG.trace("TRACE", e);
+          RaftServer.LOG.info(this + " is interrupted by ", e);
           break;
         } catch (Throwable t) {
           if (!running) {
@@ -178,6 +186,8 @@ class PendingRequestsHandler {
   }
 
   private void sendResponses(long lastCommitted) {
+    LOG.info(server.getId() +
+        " sends responses before shutting down PendingRequestsHandler");
     while (!queue.isEmpty()) {
       final PendingRequestElement req = queue.poll();
       if (req.index <= lastCommitted) {

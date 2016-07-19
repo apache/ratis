@@ -18,23 +18,27 @@
 package org.apache.hadoop.raft.server.storage;
 
 import com.google.protobuf.CodedOutputStream;
+import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.hadoop.raft.server.RaftConfKeys;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftConstants.StartupOption;
+import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,14 +47,16 @@ import java.util.List;
  * Test basic functionality of LogReader, LogInputStream, and LogOutputStream.
  */
 public class TestRaftLogReadWrite {
+  private static final Logger LOG = LoggerFactory.getLogger(TestRaftLogReadWrite.class);
+
   private File storageDir;
   private final RaftProperties properties = new RaftProperties();
 
   @Before
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftLogReadWrite.class);
-    properties.set(RaftConfKeys.RAFT_SERVER_STORAGE_DIR_KEY,
-        storageDir.getCanonicalPath());
+    properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY,
+        RaftUtils.fileAsURI(storageDir).toString());
   }
 
   @After
@@ -80,7 +86,7 @@ public class TestRaftLogReadWrite {
   public void testReadWriteLog() throws IOException {
     RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
-    long size = SegmentedRaftLog.HEADER.length;
+    long size = SegmentedRaftLog.HEADER_BYTES.length;
     LogEntryProto[] entries = new LogEntryProto[100];
     try (LogOutputStream out = new LogOutputStream(openSegment, false)) {
       for (int i = 0; i < 100; i++) {
@@ -137,7 +143,7 @@ public class TestRaftLogReadWrite {
   public void testReadWithPadding() throws IOException {
     RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
-    long size = SegmentedRaftLog.HEADER.length;
+    long size = SegmentedRaftLog.HEADER_BYTES.length;
 
     LogEntryProto[] entries = new LogEntryProto[100];
     LogOutputStream out = new LogOutputStream(openSegment, false);
@@ -210,5 +216,39 @@ public class TestRaftLogReadWrite {
     }
     Assert.assertArrayEquals(entries,
         list.toArray(new LogEntryProto[list.size()]));
+  }
+
+  /**
+   * Test the log reader to make sure it can detect the checksum mismatch.
+   */
+  @Test
+  public void testReadWithEntryCorruption() throws IOException {
+    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
+    File openSegment = storage.getStorageDir().getOpenLogFile(0);
+    try (LogOutputStream out = new LogOutputStream(openSegment, false)) {
+      for (int i = 0; i < 100; i++) {
+        LogEntryProto entry = RaftUtils.convertRequestToLogEntryProto(
+            new SimpleMessage("m" + i), 0, i);
+        out.write(entry);
+      }
+    } finally {
+      storage.close();
+    }
+
+    // corrupt the log file
+    try (RandomAccessFile raf = new RandomAccessFile(openSegment.getCanonicalFile(),
+        "rw")) {
+      raf.seek(100);
+      int correctValue = raf.read();
+      raf.seek(100);
+      raf.write(correctValue + 1);
+    }
+
+    try {
+      readLog(openSegment, 0, RaftConstants.INVALID_LOG_INDEX, true);
+      Assert.fail("The read of corrupted log file should fail");
+    } catch (ChecksumException e) {
+      LOG.info("Caught ChecksumException as expected", e);
+    }
   }
 }

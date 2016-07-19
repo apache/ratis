@@ -21,8 +21,8 @@ import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.conf.RaftProperties;
-import org.apache.hadoop.raft.server.RaftConfKeys;
 import org.apache.hadoop.raft.server.RaftConstants.StartupOption;
+import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.StorageState;
 import org.junit.After;
 import org.junit.Assert;
@@ -43,7 +43,7 @@ public class TestRaftStorage {
   @Before
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftStorage.class);
-    properties.set(RaftConfKeys.RAFT_SERVER_STORAGE_DIR_KEY,
+    properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY,
         storageDir.getCanonicalPath());
   }
 

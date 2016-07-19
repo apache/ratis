@@ -228,7 +228,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     final LeaderElection election = electionDaemon;
     if (election != null) {
       election.stopRunning();
-      election.interrupt();
+      // no need to interrupt the election thread
     }
     electionDaemon = null;
   }
