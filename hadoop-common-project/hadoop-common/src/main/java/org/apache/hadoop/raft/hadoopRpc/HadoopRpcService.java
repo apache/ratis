@@ -52,8 +52,7 @@ public class HadoopRpcService implements RaftServerRpc {
   private final Map<String, RaftServerProtocolClientSideTranslatorPB> peers
       = new HashMap<>();
 
-  public HadoopRpcService(
-      RaftServer server, List<RaftPeer> peers, Configuration conf)
+  public HadoopRpcService(RaftServer server, Configuration conf)
       throws IOException {
     this.server = server;
     this.ipcServerAddress = NetUtils.createSocketAddr(
@@ -62,7 +61,9 @@ public class HadoopRpcService implements RaftServerRpc {
 
     LOG.info(getClass().getSimpleName() + " created RPC.Server at "
         + ipcServer.getListenerAddress());
+  }
 
+  void addPeers(List<RaftPeer> peers, Configuration conf) throws IOException {
     for(RaftPeer p : peers) {
       this.peers.put(p.getId(),
           new RaftServerProtocolClientSideTranslatorPB(p.getAddress(), conf));

@@ -173,7 +173,7 @@ class LeaderState {
   /**
    * Start bootstrapping new peers
    */
-  void startSetConfiguration(SetConfigurationRequest request) {
+  PendingRequest startSetConfiguration(SetConfigurationRequest request) {
     Preconditions.checkState(running && !inStagingState());
 
     RaftPeer[] peersInNewConf = request.getPeersInNewConf();
@@ -181,7 +181,7 @@ class LeaderState {
         .computeNewPeers(peersInNewConf, server.getRaftConf());
 
     // add the request to the pending queue
-    pendingRequests.addConfRequest(request);
+    final PendingRequest pending = pendingRequests.addConfRequest(request);
 
     ConfigurationStagingState stagingState = new ConfigurationStagingState(
         peersToBootStrap, new SimpleConfiguration(peersInNewConf));
@@ -195,10 +195,11 @@ class LeaderState {
       // update the LeaderState's sender list
       addSenders(newPeers);
     }
+    return pending;
   }
 
-  void addPendingRequest(long index, RaftClientRequest request) {
-    pendingRequests.put(index, request);
+  PendingRequest addPendingRequest(long index, RaftClientRequest request) {
+    return pendingRequests.addPendingRequest(index, request);
   }
 
   private void applyOldNewConf() {
@@ -408,7 +409,7 @@ class LeaderState {
         replicateNewConf();
       } else { // the (new) log entry has been committed
         LOG.debug("{} sends success to setConfiguration request", server.getId());
-        pendingRequests.finishSetConfiguration(true);
+        pendingRequests.finishSetConfiguration(null);
         // if the leader is not included in the current configuration, step down
         if (!conf.containsInConf(server.getId())) {
           LOG.info("{} is not included in the new configuration {}. Step down.",
@@ -477,7 +478,7 @@ class LeaderState {
 
   void returnNoConfChange(SetConfigurationRequest r) {
     pendingRequests.addConfRequest(r);
-    pendingRequests.finishSetConfiguration(true);
+    pendingRequests.finishSetConfiguration(null);
   }
 
   private class FollowerInfo {
@@ -693,7 +694,8 @@ class LeaderState {
       }
       LeaderState.this.stagingState = null;
       // send back failure response to client's request
-      pendingRequests.finishSetConfiguration(false);
+      pendingRequests.finishSetConfiguration(
+          new IOException("Failed to setConfiguration"));
     }
   }
 }

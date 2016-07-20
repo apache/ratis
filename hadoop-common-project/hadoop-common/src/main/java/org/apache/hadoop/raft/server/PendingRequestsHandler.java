@@ -18,60 +18,48 @@
 package org.apache.hadoop.raft.server;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
 import org.apache.hadoop.util.Daemon;
 import org.slf4j.Logger;
 
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.PriorityBlockingQueue;
 
 class PendingRequestsHandler {
   private static final Logger LOG = RaftServer.LOG;
 
-  private static class PendingRequestElement
-      implements Comparable<PendingRequestElement> {
-    private final long index;
-    private final RaftClientRequest request;
-
-    PendingRequestElement(long index, RaftClientRequest request) {
-      this.index = index;
-      this.request = request;
-    }
-
-    @Override
-    public int compareTo(PendingRequestElement that) {
-      return Long.compare(this.index, that.index);
-    }
-  }
-
   private static class ConfigurationRequests {
-    private final Map<SetConfigurationRequest, Boolean> resultMap =
-        new ConcurrentHashMap<>();
-    private volatile SetConfigurationRequest pendingRequest;
+    private final Queue<PendingRequest> results = new ConcurrentLinkedDeque<>();
+    private volatile PendingRequest pendingRequest;
 
-    synchronized void setPendingRequest(SetConfigurationRequest request) {
+    synchronized void setPendingRequest(PendingRequest request) {
       Preconditions.checkState(pendingRequest == null);
       this.pendingRequest = request;
     }
 
-    synchronized void finishSetConfiguration(boolean success) {
+    synchronized void finishSetConfiguration(IOException exception) {
       // we allow the pendingRequest to be null in case that the new leader
       // commits the new configuration while it has not received the retry
       // request from the client
       if (pendingRequest != null) {
-        resultMap.put(pendingRequest, success);
+        pendingRequest.setReply(exception);
+        results.offer(pendingRequest);
         pendingRequest = null;
+      }
+    }
+
+    void sendResults(RaftServerRpc rpc) {
+      for(; !results.isEmpty();) {
+        results.poll().sendReply(rpc);
       }
     }
   }
 
   private final RaftServer server;
-  private final PriorityBlockingQueue<PendingRequestElement> queue =
+  private final PriorityBlockingQueue<PendingRequest> queue =
       new PriorityBlockingQueue<>();
   private final ConfigurationRequests confRequests = new ConfigurationRequests();
   private final PendingRequestDaemon daemon = new PendingRequestDaemon();
@@ -100,41 +88,30 @@ class PendingRequestsHandler {
     return this.getClass().getSimpleName() + "-" + server.getId();
   }
 
-  void put(long index, RaftClientRequest request) {
-    final boolean b = queue.offer(new PendingRequestElement(index, request));
+  PendingRequest addPendingRequest(long index, RaftClientRequest request) {
+    final PendingRequest pending = new PendingRequest(index, request);
+    final boolean b = queue.offer(pending);
     Preconditions.checkState(b);
+    return pending;
   }
 
-  void addConfRequest(SetConfigurationRequest request) {
-    confRequests.setPendingRequest(request);
+  PendingRequest addConfRequest(SetConfigurationRequest request) {
+    final PendingRequest pending = new PendingRequest(null, request);
+    confRequests.setPendingRequest(pending);
+    return pending;
   }
 
-  void finishSetConfiguration(boolean success) {
-    confRequests.finishSetConfiguration(success);
+  void finishSetConfiguration(IOException exception) {
+    confRequests.finishSetConfiguration(exception);
   }
 
-  private boolean sendReply(RaftClientRequest request, boolean success) {
-    try {
-      server.getServerRpc().sendClientReply(request,
-          new RaftClientReply(request, success), null);
-      return true;
-    } catch (IOException ioe) {
-      RaftServer.LOG.error(this + " has " + ioe);
-      RaftServer.LOG.trace("TRACE", ioe);
-      return false;
-    }
+  private boolean sendReply(PendingRequest pending, IOException e) {
+    pending.setReply(e);
+    return pending.sendReply(server.getServerRpc());
   }
 
-  private boolean sendNotLeaderException(RaftClientRequest request) {
-    try {
-      server.getServerRpc().sendClientReply(request, null,
-          server.generateNotLeaderException());
-      return true;
-    } catch (IOException ioe) {
-      RaftServer.LOG.error(this + " has " + ioe);
-      RaftServer.LOG.trace("TRACE", ioe);
-      return false;
-    }
+  private boolean sendNotLeaderException(PendingRequest pending) {
+    return sendReply(pending, server.generateNotLeaderException());
   }
 
   synchronized void notifySendingDaemon() {
@@ -153,18 +130,13 @@ class PendingRequestsHandler {
       while (running) {
         try {
           lastCommitted = server.getState().getLog().getLastCommittedIndex();
-          for (PendingRequestElement pre;
-               (pre = queue.peek()) != null && pre.index <= lastCommitted; ) {
+          for (PendingRequest pre;
+               (pre = queue.peek()) != null && pre.getIndex() <= lastCommitted;
+              ) {
             pre = queue.poll();
-            sendReply(pre.request, true);
+            sendReply(pre, null);
           }
-          Iterator<Map.Entry<SetConfigurationRequest, Boolean>> iter =
-              confRequests.resultMap.entrySet().iterator();
-          while (iter.hasNext()) {
-            Map.Entry<SetConfigurationRequest, Boolean> entry = iter.next();
-            sendReply(entry.getKey(), entry.getValue());
-            iter.remove();
-          }
+          confRequests.sendResults(server.getServerRpc());
           synchronized (PendingRequestsHandler.this) {
             PendingRequestsHandler.this.wait(RaftConstants.RPC_TIMEOUT_MIN_MS);
           }
@@ -189,17 +161,14 @@ class PendingRequestsHandler {
     LOG.info(server.getId() +
         " sends responses before shutting down PendingRequestsHandler");
     while (!queue.isEmpty()) {
-      final PendingRequestElement req = queue.poll();
-      if (req.index <= lastCommitted) {
-        sendReply(req.request, true);
+      final PendingRequest req = queue.poll();
+      if (req.getIndex() <= lastCommitted) {
+        sendReply(req, null);
       } else {
-        sendNotLeaderException(req.request);
+        sendNotLeaderException(req);
       }
     }
-    for (Map.Entry<SetConfigurationRequest, Boolean> entry :
-        confRequests.resultMap.entrySet()) {
-      sendReply(entry.getKey(), entry.getValue());
-    }
+    confRequests.sendResults(server.getServerRpc());
     if (confRequests.pendingRequest != null) {
       sendNotLeaderException(confRequests.pendingRequest);
     }

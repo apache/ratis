@@ -17,6 +17,8 @@
  */
 package org.apache.hadoop.raft.protocol;
 
+import org.apache.hadoop.raft.util.RaftUtils;
+
 import java.net.InetSocketAddress;
 
 public class RaftPeer {
@@ -25,7 +27,7 @@ public class RaftPeer {
 
   public RaftPeer(String id) {
     this.id = id;
-    this.address = null; // TODO
+    this.address = RaftUtils.newInetSocketAddress(id);
   }
 
   public String getId() {

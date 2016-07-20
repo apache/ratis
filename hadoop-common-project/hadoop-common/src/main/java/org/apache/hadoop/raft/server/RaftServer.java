@@ -299,15 +299,18 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     LOG.debug("{}: receive submit({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
 
+    final PendingRequest pending;
     synchronized (this) {
       checkLeaderState();
       // append the message to its local log
       final long entryIndex = state.applyLog(request.getMessage());
 
       // put the request into the pending queue
-      leaderState.addPendingRequest(entryIndex, request);
+      pending = leaderState.addPendingRequest(entryIndex, request);
       leaderState.notifySenders();
     }
+
+    pending.waitForReply();
   }
 
   @Override
@@ -317,6 +320,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     assertRunningState(RunningState.RUNNING);
 
     final RaftPeer[] peersInNewConf = request.getPeersInNewConf();
+    final PendingRequest pending;
     synchronized (this) {
       checkLeaderState();
       final RaftConfiguration current = getRaftConf();
@@ -332,11 +336,12 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         return;
       }
       // add staging state into the leaderState
-      leaderState.startSetConfiguration(request);
+      pending = leaderState.startSetConfiguration(request);
     }
     // release the handler and the LeaderState thread will trigger the next step
     // once the (old, new) entry is committed, and finally send the response
     // back the client.
+    pending.waitForReply();
   }
 
   private boolean shouldWithholdVotes(long now) {

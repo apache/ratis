@@ -45,8 +45,7 @@ public class RaftClient {
   private volatile String leaderId;
 
   public RaftClient(String clientId, Collection<RaftPeer> peers,
-                    RaftClientRequestSender client2serverRpc,
-      String leaderId) {
+                    RaftClientRequestSender client2serverRpc, String leaderId) {
     this.clientId = clientId;
     this.client2serverRpc = client2serverRpc;
     for(RaftPeer p : peers) {
@@ -99,8 +98,7 @@ public class RaftClient {
           lid, peersInNewConf);
       RaftClientReply reply = sendRequest(r, lid);
       if (reply != null) {
-        LOG.debug("{} gets reply of setConfiguration: {}", clientId,
-            reply.toString());
+        LOG.debug("{} gets reply of setConfiguration: {}", clientId, reply);
         return reply;
       }
     }

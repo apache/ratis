@@ -18,6 +18,7 @@
 package org.apache.hadoop.raft.util;
 
 import com.google.protobuf.ByteString;
+import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto.ClientMessageEntryProto;
 import org.apache.hadoop.raft.proto.RaftProtos.RaftConfigurationProto;
@@ -36,6 +37,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -48,6 +50,14 @@ public abstract class RaftUtils {
     final InterruptedIOException iioe = new InterruptedIOException(message);
     iioe.initCause(e);
     return iioe;
+  }
+
+  public static InetSocketAddress newInetSocketAddress(String address) {
+    try {
+      return NetUtils.createSocketAddr(address);
+    } catch (Exception e) {
+      return null;
+    }
   }
 
   public static ByteString getByteString(byte[] bytes) {

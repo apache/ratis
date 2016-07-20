@@ -307,20 +307,21 @@ public class TestRaftReconfiguration {
       PeerChanges c1 = cluster.addNewPeers(2, true);
       LOG.info("Start changing the configuration: {}",
           asList(c1.allPeersInNewConf));
-      final AtomicBoolean success = new AtomicBoolean(false);
+      final AtomicReference<Boolean> success = new AtomicReference<>();
 
       Thread clientThread = new Thread(() -> {
         try {
           RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
           success.set(reply.isSuccess());
-        } catch (IOException ignored) {
+        } catch (IOException ioe) {
+          LOG.error("FAILED", ioe);
         }
       });
       clientThread.start();
 
       Thread.sleep(5000);
       LOG.info(cluster.printServers());
-      Assert.assertTrue(success.get());
+      assertSuccess(success);
 
       final RaftLog leaderLog = cluster.getLeader().getState().getLog();
       for (RaftPeer newPeer : c1.newPeers) {
@@ -353,7 +354,7 @@ public class TestRaftReconfiguration {
 
       LOG.info("Start changing the configuration: {}",
           asList(c2.allPeersInNewConf));
-      final AtomicBoolean success = new AtomicBoolean(false);
+      final AtomicReference<Boolean> success = new AtomicReference<>();
       final AtomicBoolean clientRunning = new AtomicBoolean(true);
       Thread clientThread = new Thread(() -> {
         try {
@@ -395,6 +396,12 @@ public class TestRaftReconfiguration {
     } finally {
       cluster.shutdown();
     }
+  }
+
+  static void assertSuccess(final AtomicReference<Boolean> success) {
+    final String s = "success=" + success;
+    Assert.assertNotNull(s, success.get());
+    Assert.assertTrue(s, success.get());
   }
 
   // TODO: raft log inconsistency between leader and follower
