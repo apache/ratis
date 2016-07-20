@@ -24,7 +24,7 @@ import org.apache.hadoop.raft.util.RaftUtils;
 
 import java.io.IOException;
 
-class PendingRequest implements Comparable<PendingRequest> {
+public class PendingRequest implements Comparable<PendingRequest> {
   private final Long index;
   private final RaftClientRequest request;
 
@@ -59,7 +59,7 @@ class PendingRequest implements Comparable<PendingRequest> {
     return reply;
   }
 
-  synchronized RaftClientReply waitForReply() throws IOException {
+  public synchronized RaftClientReply waitForReply() throws IOException {
     final RaftClientReply r = getReply();
     if (r != null) {
       return r;

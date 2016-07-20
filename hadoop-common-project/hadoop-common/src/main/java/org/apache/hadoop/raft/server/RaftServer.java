@@ -310,7 +310,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       leaderState.notifySenders();
     }
 
-    pending.waitForReply();
+    getServerRpc().saveCallInfo(pending);
   }
 
   @Override
@@ -341,7 +341,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     // release the handler and the LeaderState thread will trigger the next step
     // once the (old, new) entry is committed, and finally send the response
     // back the client.
-    pending.waitForReply();
+    getServerRpc().saveCallInfo(pending);
   }
 
   private boolean shouldWithholdVotes(long now) {

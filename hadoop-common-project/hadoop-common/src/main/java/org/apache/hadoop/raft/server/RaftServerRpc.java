@@ -36,6 +36,9 @@ public interface RaftServerRpc {
 
   RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException;
 
+  /** Save call info so that it can reply asynchronously. */
+  void saveCallInfo(PendingRequest pending) throws IOException;
+
   void sendClientReply(RaftClientRequest request, RaftClientReply reply, IOException ioe)
       throws IOException;
 }

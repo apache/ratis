@@ -20,6 +20,7 @@ package org.apache.hadoop.raft.server.simulation;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
+import org.apache.hadoop.raft.server.PendingRequest;
 import org.apache.hadoop.raft.server.RaftServerRpc;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.protocol.*;
@@ -62,6 +63,11 @@ public class SimulatedServerRpc implements RaftServerRpc {
   @Override
   public RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException {
     return serverHandler.getRpc().sendRequest(request);
+  }
+
+  @Override
+  public void saveCallInfo(PendingRequest pending) throws IOException {
+    // nothing to do
   }
 
   @Override

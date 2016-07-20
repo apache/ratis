@@ -105,15 +105,6 @@ class PendingRequestsHandler {
     confRequests.finishSetConfiguration(exception);
   }
 
-  private boolean sendReply(PendingRequest pending, IOException e) {
-    pending.setReply(e);
-    return pending.sendReply(server.getServerRpc());
-  }
-
-  private boolean sendNotLeaderException(PendingRequest pending) {
-    return sendReply(pending, server.generateNotLeaderException());
-  }
-
   synchronized void notifySendingDaemon() {
     this.notifyAll();
   }
@@ -141,36 +132,45 @@ class PendingRequestsHandler {
             PendingRequestsHandler.this.wait(RaftConstants.RPC_TIMEOUT_MIN_MS);
           }
         } catch (InterruptedException e) {
-          RaftServer.LOG.info(this + " is interrupted by ", e);
+          LOG.info(this + " is interrupted by ", e);
           break;
         } catch (Throwable t) {
           if (!running) {
-            RaftServer.LOG.info(this + " is stopped.");
+            LOG.info(this + " is stopped.");
             break;
           }
-          RaftServer.LOG.error(this + " is terminating due to", t);
+          LOG.error(this + " is terminating due to", t);
         }
       }
       // The server has stepped down. Send a success response if the log
       // entry has been committed, or NotLeaderException
       sendResponses(server.getState().getLog().getLastCommittedIndex());
     }
-  }
 
-  private void sendResponses(long lastCommitted) {
-    LOG.info(server.getId() +
-        " sends responses before shutting down PendingRequestsHandler");
-    while (!queue.isEmpty()) {
-      final PendingRequest req = queue.poll();
-      if (req.getIndex() <= lastCommitted) {
-        sendReply(req, null);
-      } else {
-        sendNotLeaderException(req);
+    private void sendResponses(final long lastCommitted) {
+      LOG.info(server.getId() +
+          " sends responses before shutting down PendingRequestsHandler");
+      while (!queue.isEmpty()) {
+        final PendingRequest req = queue.poll();
+        if (req.getIndex() <= lastCommitted) {
+          sendReply(req, null);
+        } else {
+          sendNotLeaderException(req);
+        }
+      }
+      confRequests.sendResults(server.getServerRpc());
+      if (confRequests.pendingRequest != null) {
+        sendNotLeaderException(confRequests.pendingRequest);
       }
     }
-    confRequests.sendResults(server.getServerRpc());
-    if (confRequests.pendingRequest != null) {
-      sendNotLeaderException(confRequests.pendingRequest);
+
+    private void sendReply(PendingRequest pending, IOException e) {
+      pending.setReply(e);
+      pending.sendReply(server.getServerRpc());
+    }
+
+    private void sendNotLeaderException(PendingRequest pending) {
+      sendReply(pending, server.generateNotLeaderException());
     }
   }
 }

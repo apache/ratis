@@ -26,6 +26,7 @@ import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RaftServerProtocolS
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.RaftPeer;
+import org.apache.hadoop.raft.server.PendingRequest;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.apache.hadoop.raft.server.RaftServerRpc;
@@ -120,6 +121,12 @@ public class HadoopRpcService implements RaftServerRpc {
       throw new UnsupportedOperationException("Unsupported request "
           + request.getClass() + ", " + request);
     }
+  }
+
+  @Override
+  public void saveCallInfo(PendingRequest pending) throws IOException {
+    // TODO do not wait and release handler immediately
+    pending.waitForReply();
   }
 
   @Override
