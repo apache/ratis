@@ -17,14 +17,17 @@
  */
 package org.apache.hadoop.raft;
 
-import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
+import org.apache.hadoop.raft.RaftTestUtil.*;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.raft.server.RaftServerConfigKeys;
-import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.server.RaftServerConfigKeys;
+import org.apache.hadoop.raft.server.protocol.RaftServerReply;
+import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.simulation.RequestHandler;
+import org.apache.hadoop.raft.server.simulation.SimulatedRequestReply;
+import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.After;
@@ -37,10 +40,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.apache.hadoop.raft.RaftTestUtil.assertLogEntries;
-import static org.apache.hadoop.raft.RaftTestUtil.assertLogEntriesContains;
-import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
-import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
+import static org.apache.hadoop.raft.RaftTestUtil.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -60,7 +60,7 @@ public class TestRaft {
   public void setup() {
     RaftProperties prop = new RaftProperties();
     prop.setBoolean(RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY, false);
-    cluster = new MiniRaftCluster(5, prop);
+    cluster = new MiniRaftClusterWithSimulatedRpc(5, prop);
     assertNull(cluster.getLeader());
     cluster.start();
   }
@@ -138,6 +138,8 @@ public class TestRaft {
     });
     clientThread.start();
 
+    final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply
+        = ((MiniRaftClusterWithSimulatedRpc)cluster).getServerRequestReply();
     while (!done.get()) {
       Thread.sleep(2000);
       RaftServer leader = cluster.getLeader();
@@ -148,9 +150,9 @@ public class TestRaft {
         for (int i = 0; i < followers.size(); i++) {
           followerIds[i] = followers.get(i).getId();
         }
-        cluster.getServerRequestReply().addBlacklist(leaderId, followerIds);
+        serverRequestReply.addBlacklist(leaderId, followerIds);
         Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 10);
-        cluster.getServerRequestReply().removeBlacklist(leaderId, followerIds);
+        serverRequestReply.removeBlacklist(leaderId, followerIds);
       }
       LOG.info("Changed leader");
       LOG.info(cluster.printServers());

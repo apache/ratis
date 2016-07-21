@@ -19,14 +19,12 @@ package org.apache.hadoop.raft;
 
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.raft.client.RaftClient;
+import org.apache.hadoop.raft.client.RaftClientRequestSender;
 import org.apache.hadoop.raft.conf.RaftProperties;
-import org.apache.hadoop.raft.server.*;
 import org.apache.hadoop.raft.protocol.RaftPeer;
-import org.apache.hadoop.raft.server.protocol.RaftServerReply;
-import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
-import org.apache.hadoop.raft.server.simulation.SimulatedClientRequestReply;
-import org.apache.hadoop.raft.server.simulation.SimulatedServerRpc;
-import org.apache.hadoop.raft.server.simulation.SimulatedRequestReply;
+import org.apache.hadoop.raft.server.RaftConfiguration;
+import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.storage.RaftLog;
 import org.junit.Assert;
@@ -38,7 +36,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-public class MiniRaftCluster {
+public abstract class MiniRaftCluster {
 
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
 
@@ -66,18 +64,19 @@ public class MiniRaftCluster {
     return System.getProperty("test.build.data", "target/test/data") + "/raft/";
   }
 
+  private static void formatDir(String dirStr) {
+    final File serverDir = new File(dirStr);
+    FileUtil.fullyDelete(serverDir);
+  }
+
   private RaftConfiguration conf;
   private final RaftProperties properties;
   private final String testBaseDir;
-  private final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
-  private final SimulatedClientRequestReply client2serverRequestReply;
   private final Map<String, RaftServer> servers = new LinkedHashMap<>();
 
   public MiniRaftCluster(int numServers, RaftProperties properties) {
     this.conf = initConfiguration(numServers);
     this.properties = properties;
-    serverRequestReply = new SimulatedRequestReply<>(conf.getPeers());
-    client2serverRequestReply = new SimulatedClientRequestReply(conf.getPeers());
     this.testBaseDir = getBaseDirectory();
 
     for (RaftPeer p : conf.getPeers()) {
@@ -90,9 +89,8 @@ public class MiniRaftCluster {
     servers.values().forEach((server) -> server.start(conf));
   }
 
-  private void formatDir(String dirStr) {
-    final File serverDir = new File(dirStr);
-    FileUtil.fullyDelete(serverDir);
+  RaftConfiguration getConf() {
+    return conf;
   }
 
   private RaftServer newRaftServer(String id, RaftConfiguration conf,
@@ -108,10 +106,13 @@ public class MiniRaftCluster {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
-        client2serverRequestReply));
     return s;
   }
+
+  abstract RaftClientRequestSender getRaftClientRequestSender();
+
+  abstract void addNewPeers(Collection<RaftPeer> newPeers,
+                            Collection<RaftServer> newServers);
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer) {
     List<RaftPeer> newPeers = new ArrayList<>(number);
@@ -119,21 +120,23 @@ public class MiniRaftCluster {
     for (int i = oldSize; i < oldSize + number; i++) {
       newPeers.add(new RaftPeer("s" + i));
     }
-    final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
 
-    serverRequestReply.addPeers(newPeers);
-    client2serverRequestReply.addPeers(newPeers);
 
     // create and add new RaftServers
+    final List<RaftServer> newServers = new ArrayList<>(number);
     for (RaftPeer p : newPeers) {
       RaftServer newServer = newRaftServer(p.getId(), conf, true);
       servers.put(p.getId(), newServer);
-      if (startNewPeer) {
-        // start new peers as initializing state
-        newServer.start(null);
-      }
+      newServers.add(newServer);
     }
 
+    addNewPeers(newPeers, newServers);
+
+    if (startNewPeer) {
+      newServers.forEach(s -> s.start(null));
+    }
+
+    final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
     newPeers.addAll(conf.getPeers());
     RaftPeer[] p = newPeers.toArray(new RaftPeer[newPeers.size()]);
     conf = RaftConfiguration.composeConf(p, 0);
@@ -225,8 +228,13 @@ public class MiniRaftCluster {
     return servers.values();
   }
 
+  public RaftServer getServer(String id) {
+    return servers.get(id);
+  }
+
   public RaftClient createClient(String clientId, String leaderId) {
-    return new RaftClient(clientId, conf.getPeers(), client2serverRequestReply, leaderId);
+    return new RaftClient(clientId, conf.getPeers(),
+        getRaftClientRequestSender(), leaderId);
   }
 
   public void shutdown() {
@@ -240,45 +248,6 @@ public class MiniRaftCluster {
    * @return true if server has been successfully enforced to the leader, false
    *         otherwise.
    */
-  public boolean tryEnforceLeader(String leaderId)
-      throws InterruptedException {
-    final RaftServer leader = getLeader();
-    if (leader != null && leader.getId().equals(leaderId)) {
-      return true;
-    }
-    // Blocking all other server's RPC read process to make sure a read takes at
-    // least ELECTION_TIMEOUT_MIN. In this way when the target leader request a
-    // vote, all non-leader servers can grant the vote.
-    LOG.debug("begin blocking queue for target leader");
-    for (Map.Entry<String, RaftServer> e : servers.entrySet()) {
-      if (!e.getKey().equals(leaderId)) {
-        serverRequestReply.setTakeRequestDelayMs(e.getKey(),
-            RaftConstants.ELECTION_TIMEOUT_MIN_MS);
-      }
-    }
-    // Disable the RPC queue for the target leader server so that it can request
-    // a vote.
-    serverRequestReply.setIsOpenForMessage(leaderId, false);
-    LOG.debug("Closed queue for target leader");
-
-    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-    LOG.debug("target leader should have became candidate. open queue");
-
-    // Reopen queues so that the vote can make progress.
-    servers.entrySet().stream().filter(e -> !e.getKey().equals(leaderId))
-        .forEach(e -> serverRequestReply.setTakeRequestDelayMs(e.getKey(), 0));
-    serverRequestReply.setIsOpenForMessage(leaderId, true);
-    // Wait for a quiescence.
-    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-
-    return servers.get(leaderId).isLeader();
-  }
-
-  SimulatedRequestReply<RaftServerRequest, RaftServerReply> getServerRequestReply() {
-    return serverRequestReply;
-  }
-
-  public RaftServer getRaftServer(String id) {
-    return servers.get(id);
-  }
+  abstract boolean tryEnforceLeader(String leaderId)
+      throws InterruptedException;
 }
