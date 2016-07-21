@@ -19,8 +19,12 @@ package org.apache.hadoop.raft.server;
 
 import org.apache.hadoop.raft.proto.RaftProtos;
 
-public interface StateMachine {
-  void applyLogEntry(RaftProtos.LogEntryProto entry);
+import java.io.IOException;
 
-  void takeSnapshot();
+public interface StateMachine {
+  void applyLogEntry(RaftProtos.LogEntryProto entry) throws  IOException;
+
+  void takeSnapshot() throws IOException;
+
+  void loadSnapshot() throws IOException;
 }

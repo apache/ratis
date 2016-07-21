@@ -53,7 +53,7 @@ public abstract class RaftLog {
   /**
    * @return The last committed log entry.
    */
-  public synchronized LogEntryProto getLastCommitted() {
+  public LogEntryProto getLastCommitted() {
     return get(lastCommitted.get());
   }
 
@@ -66,8 +66,7 @@ public abstract class RaftLog {
    * @param majorityIndex the index that has achieved majority.
    * @param currentTerm the current term.
    */
-  public synchronized void updateLastCommitted(long majorityIndex,
-      long currentTerm) {
+  public void updateLastCommitted(long majorityIndex, long currentTerm) {
     if (lastCommitted.get() < majorityIndex) {
       // Only update last committed index for current term. See §5.4.2 in paper
       // for details.
@@ -171,7 +170,6 @@ public abstract class RaftLog {
   /**
    * Used by the leader when appending a new entry based on client's request
    * or configuration change.
-   * @return the index of the new log entry.
    */
   abstract void appendEntry(LogEntryProto entry);
 

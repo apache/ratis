@@ -517,4 +517,16 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     LOG.debug("{}: succeeded to append entries. Reply: {}", getId(), reply);
     return reply;
   }
+
+  synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,
+      TermIndex previous, LogEntryProto[] entries, boolean initializing) {
+    return new AppendEntriesRequest(getId(), targetId,
+        state.getCurrentTerm(), previous, entries,
+        state.getLog().getLastCommitted().getIndex(), initializing);
+  }
+
+  synchronized RequestVoteRequest createRequestVoteRequest(String targetId,
+      long term, TermIndex lastEntry) {
+    return new RequestVoteRequest(getId(), targetId, term, lastEntry);
+  }
 }
