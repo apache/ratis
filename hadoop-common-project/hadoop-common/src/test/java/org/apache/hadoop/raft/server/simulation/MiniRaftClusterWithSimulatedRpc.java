@@ -15,8 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.server.simulation;
 
+import org.apache.hadoop.raft.MiniRaftCluster;
 import org.apache.hadoop.raft.client.RaftClientRequestSender;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.protocol.RaftPeer;
@@ -27,10 +28,14 @@ import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.simulation.SimulatedClientRequestReply;
 import org.apache.hadoop.raft.server.simulation.SimulatedRequestReply;
 import org.apache.hadoop.raft.server.simulation.SimulatedServerRpc;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
+  static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithSimulatedRpc.class);
+
   private final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
   private final SimulatedClientRequestReply client2serverRequestReply;
 
@@ -49,12 +54,13 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     ));
   }
 
-  SimulatedRequestReply<RaftServerRequest, RaftServerReply> getServerRequestReply() {
+  public SimulatedRequestReply<RaftServerRequest, RaftServerReply>
+      getServerRequestReply() {
     return serverRequestReply;
   }
 
   @Override
-  void addNewPeers(Collection<RaftPeer> newPeers,
+  public void addNewPeers(Collection<RaftPeer> newPeers,
                           Collection<RaftServer> newServers) {
     serverRequestReply.addPeers(newPeers);
     client2serverRequestReply.addPeers(newPeers);
@@ -63,7 +69,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   }
 
   @Override
-  RaftClientRequestSender getRaftClientRequestSender() {
+  public RaftClientRequestSender getRaftClientRequestSender() {
     return client2serverRequestReply;
   }
 
@@ -73,7 +79,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   }
 
   @Override
-  boolean tryEnforceLeader(String leaderId) throws InterruptedException {
+  public boolean tryEnforceLeader(String leaderId) throws InterruptedException {
     final RaftServer leader = getLeader();
     if (leader != null && leader.getId().equals(leaderId)) {
       return true;

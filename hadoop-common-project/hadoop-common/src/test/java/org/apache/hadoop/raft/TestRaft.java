@@ -25,6 +25,7 @@ import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
+import org.apache.hadoop.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.hadoop.raft.server.simulation.RequestHandler;
 import org.apache.hadoop.raft.server.simulation.SimulatedRequestReply;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;

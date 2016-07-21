@@ -19,7 +19,7 @@ package org.apache.hadoop.raft.server;
 
 import org.apache.hadoop.raft.MiniRaftCluster;
 import org.apache.hadoop.raft.MiniRaftCluster.PeerChanges;
-import org.apache.hadoop.raft.MiniRaftClusterWithSimulatedRpc;
+import org.apache.hadoop.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.client.RaftClient;

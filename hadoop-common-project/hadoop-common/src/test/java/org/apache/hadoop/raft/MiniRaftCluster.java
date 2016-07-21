@@ -89,7 +89,7 @@ public abstract class MiniRaftCluster {
     servers.values().forEach((server) -> server.start(conf));
   }
 
-  RaftConfiguration getConf() {
+  public RaftConfiguration getConf() {
     return conf;
   }
 
@@ -109,9 +109,9 @@ public abstract class MiniRaftCluster {
     return s;
   }
 
-  abstract RaftClientRequestSender getRaftClientRequestSender();
+  public abstract RaftClientRequestSender getRaftClientRequestSender();
 
-  abstract void addNewPeers(Collection<RaftPeer> newPeers,
+  public abstract void addNewPeers(Collection<RaftPeer> newPeers,
                             Collection<RaftServer> newServers);
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer) {
@@ -248,6 +248,8 @@ public abstract class MiniRaftCluster {
    * @return true if server has been successfully enforced to the leader, false
    *         otherwise.
    */
-  abstract boolean tryEnforceLeader(String leaderId)
-      throws InterruptedException;
+  public boolean tryEnforceLeader(String leaderId) throws InterruptedException {
+    // do nothing and see if the given id is already a leader.
+    return getServer(leaderId).isLeader();
+  }
 }
