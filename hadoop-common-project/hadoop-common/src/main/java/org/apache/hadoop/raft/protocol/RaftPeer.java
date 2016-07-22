@@ -26,8 +26,12 @@ public class RaftPeer {
   private final InetSocketAddress address;
 
   public RaftPeer(String id) {
+    this(id, RaftUtils.newInetSocketAddress(id));
+  }
+
+  public RaftPeer(String id, InetSocketAddress address) {
     this.id = id;
-    this.address = RaftUtils.newInetSocketAddress(id);
+    this.address = address;
   }
 
   public String getId() {
@@ -40,7 +44,7 @@ public class RaftPeer {
 
   @Override
   public String toString() {
-    return id;
+    return id + ":" + address;
   }
 
   @Override

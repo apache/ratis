@@ -112,9 +112,10 @@ public abstract class MiniRaftCluster {
   public abstract RaftClientRequestSender getRaftClientRequestSender();
 
   public abstract void addNewPeers(Collection<RaftPeer> newPeers,
-                            Collection<RaftServer> newServers);
+                            Collection<RaftServer> newServers) throws IOException;
 
-  public PeerChanges addNewPeers(int number, boolean startNewPeer) {
+  public PeerChanges addNewPeers(int number, boolean startNewPeer)
+      throws IOException {
     List<RaftPeer> newPeers = new ArrayList<>(number);
     final int oldSize = conf.getPeers().size();
     for (int i = oldSize; i < oldSize + number; i++) {
@@ -207,13 +208,27 @@ public abstract class MiniRaftCluster {
   }
 
   public RaftServer getLeader() {
-    final List<RaftServer> leaders = servers.values().stream()
-        .filter(s -> s.isRunning() && s.isLeader())
-        .collect(Collectors.toList());
+    final List<RaftServer> leaders = new ArrayList<>();
+    for(RaftServer s : servers.values()) {
+      if (s.isRunning() && s.isLeader()) {
+        if (leaders.isEmpty()) {
+          leaders.add(s);
+        } else {
+          final long leaderTerm = leaders.get(0).getState().getCurrentTerm();
+          final long term = s.getState().getCurrentTerm();
+          if (term >= leaderTerm) {
+            if (term > leaderTerm) {
+              leaders.clear();
+            }
+            leaders.add(s);
+          }
+        }
+      }
+    }
     if (leaders.isEmpty()) {
       return null;
     } else {
-      Assert.assertEquals(1, leaders.size());
+      Assert.assertEquals(leaders.toString(), 1, leaders.size());
       return leaders.get(0);
     }
   }

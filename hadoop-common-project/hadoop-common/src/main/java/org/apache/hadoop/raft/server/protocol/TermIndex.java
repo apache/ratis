@@ -19,6 +19,8 @@ package org.apache.hadoop.raft.server.protocol;
 
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
+import java.util.Comparator;
+
 public class TermIndex implements Comparable<TermIndex> {
   private final long term;
   private final long index; //log index; first index is 1.

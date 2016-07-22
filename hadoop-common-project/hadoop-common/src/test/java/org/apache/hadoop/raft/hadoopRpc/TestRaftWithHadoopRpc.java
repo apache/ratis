@@ -17,5 +17,58 @@
  */
 package org.apache.hadoop.raft.hadoopRpc;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.raft.MiniRaftCluster;
+import org.apache.hadoop.raft.conf.RaftProperties;
+import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.server.RaftServerConfigKeys;
+import org.apache.hadoop.test.GenericTestUtils;
+import org.apache.log4j.Level;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+
+import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
+
 public class TestRaftWithHadoopRpc {
+  static final Logger LOG = LoggerFactory.getLogger(TestRaftWithHadoopRpc.class);
+
+  static {
+    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+  }
+
+  private final Configuration conf = new Configuration();
+  private MiniRaftCluster cluster;
+
+  @Before
+  public void setup() throws IOException {
+    final RaftProperties prop = new RaftProperties();
+    prop.setBoolean(RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY, true);
+
+    conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
+
+    cluster = new MiniRaftClusterWithHadoopRpc(5, prop, conf);
+    Assert.assertNull(cluster.getLeader());
+    cluster.start();
+  }
+
+  @After
+  public void tearDown() {
+    if (cluster != null) {
+      cluster.shutdown();
+    }
+  }
+
+  @Test
+  public void testBasicLeaderElection() throws Exception {
+    waitAndKillLeader(cluster, true);
+    waitAndKillLeader(cluster, true);
+    waitAndKillLeader(cluster, true);
+    waitAndKillLeader(cluster, false);
+  }
 }

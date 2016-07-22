@@ -125,11 +125,6 @@ public abstract class RaftUtils {
     return entry.getType() == LogEntryProto.Type.CONFIGURATION;
   }
 
-  public static TermIndex getTermIndex(LogEntryProto entry) {
-    return entry == null ? null :
-        new TermIndex(entry.getTerm(), entry.getIndex());
-  }
-
   public static void truncateFile(File f, long target) throws IOException {
     try (FileOutputStream out = new FileOutputStream(f, true)) {
       out.getChannel().truncate(target);

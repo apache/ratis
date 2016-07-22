@@ -25,9 +25,10 @@ import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.security.KerberosInfo;
 
 @InterfaceAudience.Private
-@InterfaceStability.Stable
+@InterfaceStability.Unstable
 @KerberosInfo(
-    serverPrincipal = RaftConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY)
+    serverPrincipal = RaftConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY,
+    clientPrincipal = RaftConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY)
 @ProtocolInfo(
     protocolName = RaftConstants.RAFT_SERVER_PROTOCOL_NAME,
     protocolVersion = 1)

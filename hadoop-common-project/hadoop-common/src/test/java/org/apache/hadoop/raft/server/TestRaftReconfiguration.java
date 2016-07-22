@@ -207,10 +207,11 @@ public class TestRaftReconfiguration {
       final AtomicReference<RaftPeer[]> deadPeers = new AtomicReference<>(null);
       CountDownLatch latch = new CountDownLatch(1);
       Thread clientThread = new Thread(() -> {
-        PeerChanges c1 = cluster.addNewPeers(2, true);
-        LOG.info("Start changing the configuration: {}",
-            asList(c1.allPeersInNewConf));
         try {
+          PeerChanges c1 = cluster.addNewPeers(2, true);
+          LOG.info("Start changing the configuration: {}",
+              asList(c1.allPeersInNewConf));
+
           RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
           reconf1.set(reply.isSuccess());
 

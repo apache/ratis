@@ -26,7 +26,7 @@ import "Raft.proto";
 message RequestVoteRequestProto {
   required RaftServerRequestProto serverRequest = 1;
   required uint64 candidateTerm = 2;
-  required TermIndexProto candidateLastEntry = 3;
+  optional TermIndexProto candidateLastEntry = 3;
 }
 
 message RequestVoteReplyProto {
@@ -37,7 +37,7 @@ message RequestVoteReplyProto {
 message AppendEntriesRequestProto {
   required RaftServerRequestProto serverRequest = 1;
   required uint64 leaderTerm = 2;
-  required TermIndexProto previousLog = 3;
+  optional TermIndexProto previousLog = 3;
   repeated LogEntryProto entries = 4;
   required uint64 leaderCommit = 5;
   required bool initializing = 6;

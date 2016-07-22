@@ -26,6 +26,8 @@ import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.*;
 import org.apache.hadoop.raft.server.protocol.*;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
+import org.apache.hadoop.raft.server.protocol.pb.ProtoUtils;
+import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +37,7 @@ import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -417,7 +420,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     if (entries != null && entries.length > 0) {
       final long index0 = entries[0].getIndex();
 
-      if (previous == null) {
+      if (previous == null || previous.getTerm() == 0) {
         Preconditions.checkArgument(index0 == 0,
             "Unexpected Index: previous is null but entries[%s].getIndex()=%s",
             0, index0);
@@ -451,10 +454,11 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   private AppendEntriesReply appendEntries(String leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
       LogEntryProto... entries) throws IOException {
-    LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {})",
-        getId(), leaderId, leaderTerm, previous, leaderCommit,
-        (entries == null || entries.length == 0) ? "HEARTBEAT"
-            : entries.length == 1? entries[0]: Arrays.asList(entries));
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {})", getId(),
+          leaderId, leaderTerm, previous, leaderCommit,
+          ProtoUtils.toString(entries));
+    }
     assertRunningState(RunningState.RUNNING, RunningState.INITIALIZING);
 
     try {

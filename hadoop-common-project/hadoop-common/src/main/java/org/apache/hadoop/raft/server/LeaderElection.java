@@ -23,6 +23,7 @@ import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RequestVoteReply;
 import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.apache.hadoop.raft.server.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
@@ -123,7 +124,7 @@ class LeaderElection extends Daemon {
       LOG.info(state.getSelfId() + ": begin an election in Term "
           + electionTerm);
 
-      final TermIndex lastEntry = RaftUtils.getTermIndex(
+      final TermIndex lastEntry = ProtoUtils.toTermIndex(
           state.getLog().getLastEntry());
 
       final ResultAndTerm r;

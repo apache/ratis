@@ -22,6 +22,7 @@ import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.apache.hadoop.raft.server.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.storage.RaftLog;
 import org.apache.hadoop.raft.server.storage.SegmentedRaftLog;
@@ -184,9 +185,12 @@ public class ServerState {
 
   boolean isLogUpToDate(TermIndex candidateLastEntry) {
     LogEntryProto lastEntry = log.getLastEntry();
-    TermIndex ti = lastEntry == null ? null : RaftUtils.getTermIndex(lastEntry);
-    return lastEntry == null ||
-        (candidateLastEntry != null && ti.compareTo(candidateLastEntry) <= 0);
+    if (lastEntry == null) {
+      return true;
+    } else if (candidateLastEntry == null) {
+      return false;
+    }
+    return ProtoUtils.toTermIndex(lastEntry).compareTo(candidateLastEntry) <= 0;
   }
 
   @Override

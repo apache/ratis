@@ -29,17 +29,31 @@ import org.apache.hadoop.raft.server.storage.RaftLog;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 public class ProtoUtils {
   static TermIndex toTermIndex(TermIndexProto p) {
-    return new TermIndex(p.getTerm(), p.getIndex());
+    return p == null? null: new TermIndex(p.getTerm(), p.getIndex());
   }
 
   static TermIndexProto toTermIndexProto(TermIndex ti) {
-    return TermIndexProto.newBuilder()
+    return ti == null? null: TermIndexProto.newBuilder()
         .setTerm(ti.getTerm())
         .setIndex(ti.getIndex())
         .build();
+  }
+
+  public static TermIndex toTermIndex(LogEntryProto entry) {
+    return entry == null ? null :
+        new TermIndex(entry.getTerm(), entry.getIndex());
+  }
+
+  public static String toString(LogEntryProto... entries) {
+    return entries == null? "null"
+        : entries.length == 0 ? "[]"
+        : entries.length == 1? "" + toTermIndex(entries[0])
+        : "" + Arrays.asList(entries).stream().map(ProtoUtils::toTermIndex)
+            .collect(Collectors.toList());
   }
 
   static RaftRpcMessageProto.Builder toRaftRpcMessageProtoBuilder(RaftRpcMessage m) {
@@ -82,11 +96,14 @@ public class ProtoUtils {
 
   static RequestVoteRequestProto toRequestVoteRequestProto(
       RequestVoteRequest request) {
-    return RequestVoteRequestProto.newBuilder()
+    final RequestVoteRequestProto.Builder b = RequestVoteRequestProto.newBuilder()
         .setServerRequest(toRaftServerRequestProtoBuilder(request))
-        .setCandidateTerm(request.getCandidateTerm())
-        .setCandidateLastEntry(toTermIndexProto(request.getCandidateLastEntry()))
-        .build();
+        .setCandidateTerm(request.getCandidateTerm());
+    final TermIndex candidateLastEntry = request.getCandidateLastEntry();
+    if (candidateLastEntry != null) {
+      b.setCandidateLastEntry(toTermIndexProto(candidateLastEntry));
+    }
+    return b.build();
   }
 
   static RequestVoteReply toRequestVoteReply(RequestVoteReplyProto p) {
@@ -119,14 +136,18 @@ public class ProtoUtils {
 
   static AppendEntriesRequestProto toAppendEntriesRequestProto(
       AppendEntriesRequest request) {
-    return AppendEntriesRequestProto.newBuilder()
+    final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto.newBuilder()
         .setServerRequest(toRaftServerRequestProtoBuilder(request))
         .setLeaderTerm(request.getLeaderTerm())
-        .setPreviousLog(toTermIndexProto(request.getPreviousLog()))
         .addAllEntries(Arrays.asList(request.getEntries()))
         .setLeaderCommit(request.getLeaderCommit())
-        .setInitializing(request.isInitializing())
-        .build();
+        .setInitializing(request.isInitializing());
+
+    final TermIndex previousLog = request.getPreviousLog();
+    if (previousLog != null) {
+      b.setPreviousLog(toTermIndexProto(previousLog));
+    }
+    return b.build();
   }
 
   static AppendEntriesReply toAppendEntriesReply(AppendEntriesReplyProto p) {

@@ -21,6 +21,7 @@ import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
+import org.apache.hadoop.raft.server.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -213,6 +214,11 @@ public abstract class RaftLog {
       throws IOException;
 
   public abstract Metadata loadMetadata() throws IOException;
+
+  @Override
+  public String toString() {
+    return ProtoUtils.toString(getLastEntry());
+  }
 
   public static class Metadata {
     private final String votedFor;

@@ -21,7 +21,6 @@ import com.google.protobuf.BlockingService;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.RPC;
-import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RaftServerProtocolService;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
@@ -56,12 +55,15 @@ public class HadoopRpcService implements RaftServerRpc {
   public HadoopRpcService(RaftServer server, Configuration conf)
       throws IOException {
     this.server = server;
-    this.ipcServerAddress = NetUtils.createSocketAddr(
-        conf.getTrimmed(RaftServerConfigKeys.IPC_ADDRESS_KEY));
     this.ipcServer = newRpcServer(conf);
+    this.ipcServerAddress = ipcServer.getListenerAddress();
 
     LOG.info(getClass().getSimpleName() + " created RPC.Server at "
-        + ipcServer.getListenerAddress());
+        + ipcServerAddress);
+  }
+
+  InetSocketAddress getIpcServerAddress() {
+    return ipcServerAddress;
   }
 
   void addPeers(List<RaftPeer> peers, Configuration conf) throws IOException {
@@ -74,17 +76,19 @@ public class HadoopRpcService implements RaftServerRpc {
   RPC.Server newRpcServer(Configuration conf) throws IOException {
     RPC.setProtocolEngine(conf, RaftServerProtocolPB.class,
         ProtobufRpcEngine.class);
-    final int handlerCount = conf.getInt(
-        RaftServerConfigKeys.HANDLER_COUNT_KEY,
-        RaftServerConfigKeys.HANDLER_COUNT_DEFAULT);
+
+    final RaftServerConfigKeys.Get get = new RaftServerConfigKeys.Get(conf);
+    final int handlerCount = get.ipc().handlers();
+    final InetSocketAddress address = get.ipc().address();
+
     final BlockingService service
         = RaftServerProtocolService.newReflectiveBlockingService(
-        new RaftServerProtocolServerSideTranslatorPB(server));
+            new RaftServerProtocolServerSideTranslatorPB(server));
     return new RPC.Builder(conf)
         .setProtocol(RaftServerProtocolPB.class)
         .setInstance(service)
-        .setBindAddress(ipcServerAddress.getHostName())
-        .setPort(ipcServerAddress.getPort())
+        .setBindAddress(address.getHostName())
+        .setPort(address.getPort())
         .setNumHandlers(handlerCount)
         .setVerbose(false)
         .build();
@@ -111,7 +115,8 @@ public class HadoopRpcService implements RaftServerRpc {
     final String id = request.getReplierId();
     final RaftServerProtocolClientSideTranslatorPB proxy = peers.get(id);
     if (proxy == null) {
-      throw new IllegalStateException("Raft server " + id + " not found.");
+      throw new IllegalStateException("Raft server " + id + " not found; peers="
+          + peers);
     }
     if (request instanceof AppendEntriesRequest) {
       return proxy.appendEntries((AppendEntriesRequest)request);

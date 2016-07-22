@@ -38,10 +38,15 @@ public class RaftTestUtil {
 
   public static RaftServer waitForLeader(MiniRaftCluster cluster)
       throws InterruptedException {
+    final long sleepTime = (RaftConstants.ELECTION_TIMEOUT_MAX_MS * 3) >> 1;
     LOG.info(cluster.printServers());
-    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+    RaftServer leader = null;
+    for(int i = 0; leader == null && i < 10; i++) {
+      Thread.sleep(sleepTime);
+      leader = cluster.getLeader();
+    }
     LOG.info(cluster.printServers());
-    return cluster.getLeader();
+    return leader;
   }
 
   public static RaftServer waitForLeader(MiniRaftCluster cluster,
