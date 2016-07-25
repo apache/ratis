@@ -27,6 +27,7 @@ import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.AppendEntriesReplyP
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.AppendEntriesRequestProto;
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RequestVoteReplyProto;
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RequestVoteRequestProto;
+import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.protocol.*;
 import org.apache.hadoop.security.UserGroupInformation;
 
@@ -64,25 +65,25 @@ public class RaftServerProtocolClientSideTranslatorPB
 
   @Override
   public RequestVoteReply requestVote(RequestVoteRequest request) throws IOException {
-    final RequestVoteRequestProto p = ProtoUtils.toRequestVoteRequestProto(request);
+    final RequestVoteRequestProto p = ServerProtoUtils.toRequestVoteRequestProto(request);
     final RequestVoteReplyProto reply;
     try {
       reply = rpcProxy.requestVote(null, p);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
-    return ProtoUtils.toRequestVoteReply(reply);
+    return ServerProtoUtils.toRequestVoteReply(reply);
   }
 
   @Override
   public AppendEntriesReply appendEntries(AppendEntriesRequest request) throws IOException {
-    final AppendEntriesRequestProto p = ProtoUtils.toAppendEntriesRequestProto(request);
+    final AppendEntriesRequestProto p = ServerProtoUtils.toAppendEntriesRequestProto(request);
     final AppendEntriesReplyProto reply;
     try {
       reply = rpcProxy.appendEntries(null, p);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
-    return ProtoUtils.toAppendEntriesReply(reply);
+    return ServerProtoUtils.toAppendEntriesReply(reply);
   }
 }

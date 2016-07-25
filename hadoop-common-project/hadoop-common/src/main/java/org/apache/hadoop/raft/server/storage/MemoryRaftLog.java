@@ -20,7 +20,7 @@ package org.apache.hadoop.raft.server.storage;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.RaftConfiguration;
-import org.apache.hadoop.raft.server.protocol.pb.ProtoUtils;
+import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
 import org.apache.hadoop.raft.util.RaftUtils;
 
 import java.util.ArrayList;
@@ -115,8 +115,8 @@ public class MemoryRaftLog extends RaftLog {
 
   @Override
   public synchronized String toString() {
-    return "last=" + ProtoUtils.toString(getLastEntry())
-        + ", committed=" + ProtoUtils.toString(getLastCommitted());
+    return "last=" + ServerProtoUtils.toString(getLastEntry())
+        + ", committed=" + ServerProtoUtils.toString(getLastCommitted());
   }
 
   public synchronized String getEntryString() {

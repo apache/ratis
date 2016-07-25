@@ -26,9 +26,8 @@ import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
-import org.apache.hadoop.raft.server.protocol.pb.ProtoUtils;
+import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
 import org.apache.hadoop.raft.server.storage.RaftLog;
-import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
@@ -569,7 +568,7 @@ class LeaderState {
             // to send snapshot or split the entries
             entries = raftLog.getEntries(follower.nextIndex, endIndex);
           }
-          final TermIndex previous = ProtoUtils.toTermIndex(
+          final TermIndex previous = ServerProtoUtils.toTermIndex(
               raftLog.get(follower.nextIndex - 1));
           if (entries != null || previous != null) {
             LOG.trace("follower {}, log {}", follower, raftLog);

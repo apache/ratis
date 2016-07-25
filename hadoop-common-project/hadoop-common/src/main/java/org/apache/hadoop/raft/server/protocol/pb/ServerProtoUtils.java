@@ -23,7 +23,7 @@ import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.AppendEntriesReplyP
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.AppendEntriesRequestProto;
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RequestVoteReplyProto;
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RequestVoteRequestProto;
-import org.apache.hadoop.raft.protocol.RaftRpcMessage;
+import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.protocol.*;
 import org.apache.hadoop.raft.server.storage.RaftLog;
 
@@ -31,7 +31,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-public class ProtoUtils {
+public class ServerProtoUtils {
   static TermIndex toTermIndex(TermIndexProto p) {
     return p == null? null: new TermIndex(p.getTerm(), p.getIndex());
   }
@@ -52,39 +52,21 @@ public class ProtoUtils {
     return entries == null? "null"
         : entries.length == 0 ? "[]"
         : entries.length == 1? "" + toTermIndex(entries[0])
-        : "" + Arrays.asList(entries).stream().map(ProtoUtils::toTermIndex)
+        : "" + Arrays.asList(entries).stream().map(ServerProtoUtils::toTermIndex)
             .collect(Collectors.toList());
-  }
-
-  static RaftRpcMessageProto.Builder toRaftRpcMessageProtoBuilder(RaftRpcMessage m) {
-    return RaftRpcMessageProto.newBuilder()
-        .setRequestorId(m.getRequestorId())
-        .setReplyId(m.getReplierId());
-  }
-
-  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      RaftRpcMessage.Request request) {
-    return RaftRpcRequestProto.newBuilder().setRpcMessage(
-        toRaftRpcMessageProtoBuilder(request));
-  }
-
-  static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
-      RaftRpcRequestProto request, RaftRpcMessage.Reply reply) {
-    return RaftRpcReplyProto.newBuilder()
-        .setRpcMessage(request.getRpcMessage())
-        .setSuccess(reply.isSuccess());
   }
 
   static RaftServerRequestProto.Builder toRaftServerRequestProtoBuilder(
       RaftServerRequest request) {
     return RaftServerRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+        .setRpcRequest(ProtoUtils.toRaftRpcRequestProtoBuilder(request));
   }
 
   static RaftServerReplyProto.Builder toRaftServerReplyProtoBuilder(
       RaftServerRequestProto request, RaftServerReply reply) {
     return RaftServerReplyProto.newBuilder()
-        .setRpcReply(toRaftRpcReplyProtoBuilder(request.getRpcRequest(), reply))
+        .setRpcReply(ProtoUtils.toRaftRpcReplyProtoBuilder(
+            request.getRpcRequest(), reply))
         .setTerm(reply.getTerm());
   }
 
@@ -196,13 +178,5 @@ public class ProtoUtils {
       default:
         throw new IllegalStateException("Unexpected value " + result);
     }
-  }
-
-  static IOException toIOException(ServiceException se) {
-    final Throwable t = se.getCause();
-    if (t == null) {
-      return new IOException(se);
-    }
-    return t instanceof IOException? (IOException)t : new IOException(se);
   }
 }

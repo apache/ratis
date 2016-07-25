@@ -40,11 +40,11 @@ public class RaftServerProtocolServerSideTranslatorPB
       throws ServiceException {
     final RequestVoteReply reply;
     try {
-      reply = impl.requestVote(ProtoUtils.toRequestVoteRequest(request));
+      reply = impl.requestVote(ServerProtoUtils.toRequestVoteRequest(request));
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }
-    return ProtoUtils.toRequestVoteReplyProto(request, reply);
+    return ServerProtoUtils.toRequestVoteReplyProto(request, reply);
   }
 
   @Override
@@ -53,10 +53,10 @@ public class RaftServerProtocolServerSideTranslatorPB
       throws ServiceException {
     final AppendEntriesReply reply;
     try {
-      reply = impl.appendEntries(ProtoUtils.toAppendEntriesRequest(request));
+      reply = impl.appendEntries(ServerProtoUtils.toAppendEntriesRequest(request));
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }
-    return ProtoUtils.toAppendEntriesReplyProto(request, reply);
+    return ServerProtoUtils.toAppendEntriesReplyProto(request, reply);
   }
 }

@@ -26,8 +26,7 @@ import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.*;
 import org.apache.hadoop.raft.server.protocol.*;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
-import org.apache.hadoop.raft.server.protocol.pb.ProtoUtils;
-import org.apache.hadoop.raft.util.RaftUtils;
+import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +36,6 @@ import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -457,7 +455,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     if (LOG.isDebugEnabled()) {
       LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {})", getId(),
           leaderId, leaderTerm, previous, leaderCommit,
-          ProtoUtils.toString(entries));
+          ServerProtoUtils.toString(entries));
     }
     assertRunningState(RunningState.RUNNING, RunningState.INITIALIZING);
 
