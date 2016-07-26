@@ -19,10 +19,10 @@ package org.apache.hadoop.raft.server.storage;
 
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
+import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
-import org.apache.hadoop.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,7 +84,7 @@ public abstract class RaftLog {
    */
   public synchronized boolean committedConfEntry(long oldCommitted) {
     for (long i = oldCommitted + 1; i <= lastCommitted.get(); i++) {
-      if (RaftUtils.isConfigurationLogEntry(get(i))) {
+      if (ProtoUtils.isConfigurationLogEntry(get(i))) {
         return true;
       }
     }
@@ -121,7 +121,7 @@ public abstract class RaftLog {
    */
   public long append(long term, Message message) {
     final long nextIndex = getNextIndex();
-    final LogEntryProto e = RaftUtils.convertRequestToLogEntryProto(message,
+    final LogEntryProto e = ProtoUtils.toLogEntryProto(message,
         term, nextIndex);
     appendEntry(e);
     return nextIndex;
@@ -134,7 +134,7 @@ public abstract class RaftLog {
    */
   public long append(long term, RaftConfiguration newConf) {
     final long nextIndex = getNextIndex();
-    final LogEntryProto e = RaftUtils.convertConfToLogEntryProto(newConf, term,
+    final LogEntryProto e = ProtoUtils.toLogEntryProto(newConf, term,
         nextIndex);
     appendEntry(e);
     return nextIndex;

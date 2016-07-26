@@ -24,6 +24,7 @@ import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftConstants.StartupOption;
 import org.apache.hadoop.raft.server.RaftServerConfigKeys;
@@ -91,7 +92,7 @@ public class TestRaftLogReadWrite {
     try (LogOutputStream out = new LogOutputStream(openSegment, false)) {
       for (int i = 0; i < 100; i++) {
         SimpleMessage m = new SimpleMessage("m" + i);
-        entries[i] = RaftUtils.convertRequestToLogEntryProto(m, 0, i);
+        entries[i] = ProtoUtils.toLogEntryProto(m, 0, i);
         final int s = entries[i].getSerializedSize();
         size += CodedOutputStream.computeRawVarint32Size(s) + s + 4;
         out.write(entries[i]);
@@ -115,7 +116,7 @@ public class TestRaftLogReadWrite {
     try (LogOutputStream out = new LogOutputStream(openSegment, false)) {
       for (int i = 0; i < 100; i++) {
         SimpleMessage m = new SimpleMessage("m" + i);
-        entries[i] = RaftUtils.convertRequestToLogEntryProto(m, 0, i);
+        entries[i] = ProtoUtils.toLogEntryProto(m, 0, i);
         out.write(entries[i]);
       }
     }
@@ -123,7 +124,7 @@ public class TestRaftLogReadWrite {
     try (LogOutputStream out = new LogOutputStream(openSegment, true)) {
       for (int i = 100; i < 200; i++) {
         SimpleMessage m = new SimpleMessage("m" + i);
-        entries[i] = RaftUtils.convertRequestToLogEntryProto(m, 0, i);
+        entries[i] = ProtoUtils.toLogEntryProto(m, 0, i);
         out.write(entries[i]);
       }
     }
@@ -149,7 +150,7 @@ public class TestRaftLogReadWrite {
     LogOutputStream out = new LogOutputStream(openSegment, false);
     for (int i = 0; i < 100; i++) {
       SimpleMessage m = new SimpleMessage("m" + i);
-      entries[i] = RaftUtils.convertRequestToLogEntryProto(m, 0, i);
+      entries[i] = ProtoUtils.toLogEntryProto(m, 0, i);
       final int s = entries[i].getSerializedSize();
       size += CodedOutputStream.computeRawVarint32Size(s) + s + 4;
       out.write(entries[i]);
@@ -181,7 +182,7 @@ public class TestRaftLogReadWrite {
     LogOutputStream out = new LogOutputStream(openSegment, false);
     for (int i = 0; i < 10; i++) {
       SimpleMessage m = new SimpleMessage("m" + i);
-      entries[i] = RaftUtils.convertRequestToLogEntryProto(m, 0, i);
+      entries[i] = ProtoUtils.toLogEntryProto(m, 0, i);
       out.write(entries[i]);
     }
     out.flush();
@@ -227,7 +228,7 @@ public class TestRaftLogReadWrite {
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
     try (LogOutputStream out = new LogOutputStream(openSegment, false)) {
       for (int i = 0; i < 100; i++) {
-        LogEntryProto entry = RaftUtils.convertRequestToLogEntryProto(
+        LogEntryProto entry = ProtoUtils.toLogEntryProto(
             new SimpleMessage("m" + i), 0, i);
         out.write(entry);
       }

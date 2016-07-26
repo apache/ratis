@@ -17,15 +17,7 @@
  */
 package org.apache.hadoop.raft.util;
 
-import com.google.protobuf.ByteString;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.raft.proto.RaftProtos.ClientMessageEntryProto;
-import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.hadoop.raft.proto.RaftProtos.RaftConfigurationProto;
-import org.apache.hadoop.raft.proto.RaftProtos.RaftPeerProto;
-import org.apache.hadoop.raft.protocol.Message;
-import org.apache.hadoop.raft.protocol.RaftPeer;
-import org.apache.hadoop.raft.server.RaftConfiguration;
 import org.apache.hadoop.util.ExitUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,12 +29,9 @@ import java.io.InterruptedIOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 
 public abstract class RaftUtils {
-  private static final Logger LOG = LoggerFactory.getLogger(RaftUtils.class);
+  public static final Logger LOG = LoggerFactory.getLogger(RaftUtils.class);
 
   public static InterruptedIOException toInterruptedIOException(
       String message, InterruptedException e) {
@@ -52,76 +41,15 @@ public abstract class RaftUtils {
   }
 
   public static InetSocketAddress newInetSocketAddress(String address) {
+    if (address.charAt(0) == '/') {
+      address = address.substring(1);
+    }
     try {
       return NetUtils.createSocketAddr(address);
     } catch (Exception e) {
+      LOG.trace("", e);
       return null;
     }
-  }
-
-  public static ByteString getByteString(byte[] bytes) {
-    // return singleton to reduce object allocation
-    return (bytes.length == 0) ? ByteString.EMPTY : ByteString.copyFrom(bytes);
-  }
-
-  public static Iterable<RaftPeerProto> convertPeersToProtos(
-      Collection<RaftPeer> peers) {
-    List<RaftPeerProto> protos = new ArrayList<>(peers.size());
-    for (RaftPeer p : peers) {
-      protos.add(RaftPeerProto.newBuilder().setId(p.getId()).build());
-    }
-    return protos;
-  }
-
-  public static RaftConfigurationProto convertConfToProto(RaftConfiguration conf) {
-    return RaftConfigurationProto.newBuilder()
-        .addAllPeers(convertPeersToProtos(conf.getPeersInConf()))
-        .addAllOldPeers(convertPeersToProtos(conf.getPeersInOldConf()))
-        .build();
-  }
-
-  public static RaftPeer convertProtoToRaftPeer(RaftPeerProto proto) {
-    return new RaftPeer(proto.getId());
-  }
-
-  public static RaftPeer[] convertProtoToRaftPeerArray(List<RaftPeerProto> protos) {
-    RaftPeer[] peers = new RaftPeer[protos.size()];
-    for (int i = 0; i < peers.length; i++) {
-      peers[i] = convertProtoToRaftPeer(protos.get(i));
-    }
-    return peers;
-  }
-
-  public static LogEntryProto convertConfToLogEntryProto(RaftConfiguration conf,
-      long term, long index) {
-    RaftConfigurationProto confProto = convertConfToProto(conf);
-    return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
-        .setType(LogEntryProto.Type.CONFIGURATION)
-        .setConfigurationEntry(confProto).build();
-  }
-
-  public static LogEntryProto convertRequestToLogEntryProto(Message message,
-      long term, long index) {
-    ClientMessageEntryProto m = ClientMessageEntryProto.newBuilder()
-        .setContent(getByteString(message.getContent())).build();
-    return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
-        .setType(LogEntryProto.Type.CLIENT_MESSAGE)
-        .setClientMessageEntry(m).build();
-  }
-
-  public static RaftConfiguration convertProtoToConf(long index,
-      RaftConfigurationProto proto) {
-    RaftPeer[] peers = convertProtoToRaftPeerArray(proto.getPeersList());
-    if (proto.getOldPeersCount() > 0) {
-      RaftPeer[] oldPeers = convertProtoToRaftPeerArray(proto.getPeersList());
-      return RaftConfiguration.composeOldNewConf(peers, oldPeers, index);
-    } else {
-      return RaftConfiguration.composeConf(peers, index);
-    }
-  }
-
-  public static boolean isConfigurationLogEntry(LogEntryProto entry) {
-    return entry.getType() == LogEntryProto.Type.CONFIGURATION;
   }
 
   public static void truncateFile(File f, long target) throws IOException {

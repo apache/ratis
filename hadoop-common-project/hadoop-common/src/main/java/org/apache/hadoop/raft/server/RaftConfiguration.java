@@ -41,7 +41,8 @@ public class RaftConfiguration {
   }
 
   public static RaftConfiguration composeConf(RaftPeer[] peers, long index) {
-    Preconditions.checkArgument(peers != null && peers.length > 0);
+    Preconditions.checkArgument(peers != null);
+    Preconditions.checkArgument(peers.length > 0);
     return new RaftConfiguration(peers, index);
   }
 

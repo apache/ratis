@@ -29,6 +29,7 @@ import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RequestVoteReplyPro
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RequestVoteRequestProto;
 import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.protocol.*;
+import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.Closeable;
@@ -45,12 +46,13 @@ public class RaftServerProtocolClientSideTranslatorPB
   }
 
   public RaftServerProtocolClientSideTranslatorPB(
-      InetSocketAddress address, Configuration conf) throws IOException {
+      String address, Configuration conf) throws IOException {
     this(newRaftServerProtocolPB(address, conf));
   }
 
   private static RaftServerProtocolPB newRaftServerProtocolPB(
-      InetSocketAddress address, Configuration conf) throws IOException {
+      String addressStr, Configuration conf) throws IOException {
+    final InetSocketAddress address = RaftUtils.newInetSocketAddress(addressStr);
     final Class<RaftServerProtocolPB> clazz = RaftServerProtocolPB.class;
     RPC.setProtocolEngine(conf, clazz, ProtobufRpcEngine.class);
     final UserGroupInformation ugi = UserGroupInformation.getCurrentUser();

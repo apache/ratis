@@ -20,8 +20,8 @@ package org.apache.hadoop.raft.server.storage;
 import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
+import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.storage.RaftLogCache.TruncationSegments;
-import org.apache.hadoop.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -40,7 +40,7 @@ public class TestRaftLogCache {
     LogSegment s = LogSegment.newOpenSegment(start);
     for (long i = start; i <= end; i++) {
       Message m = new SimpleMessage("m" + i);
-      LogEntryProto entry = RaftUtils.convertRequestToLogEntryProto(m, 0, i);
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, i);
       s.appendToOpenSegment(entry);
     }
     if (!isOpen) {
@@ -129,7 +129,7 @@ public class TestRaftLogCache {
 
     final Message m = new SimpleMessage("m");
     try {
-      LogEntryProto entry = RaftUtils.convertRequestToLogEntryProto(m, 0, 0);
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 0);
       cache.appendEntry(entry);
       Assert.fail("the open segment is null");
     } catch (IllegalStateException ignored) {
@@ -138,7 +138,7 @@ public class TestRaftLogCache {
     LogSegment openSegment = prepareLogSegment(100, 100, true);
     cache.addSegment(openSegment);
     for (long index = 101; index < 200; index++) {
-      LogEntryProto entry = RaftUtils.convertRequestToLogEntryProto(m, 0, index);
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, index);
       cache.appendEntry(entry);
     }
 

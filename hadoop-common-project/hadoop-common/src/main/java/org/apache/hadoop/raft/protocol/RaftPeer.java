@@ -17,19 +17,21 @@
  */
 package org.apache.hadoop.raft.protocol;
 
-import org.apache.hadoop.raft.util.RaftUtils;
-
 import java.net.InetSocketAddress;
 
 public class RaftPeer {
   private final String id;
-  private final InetSocketAddress address;
+  private final String address;
 
   public RaftPeer(String id) {
-    this(id, RaftUtils.newInetSocketAddress(id));
+    this(id, id);
   }
 
   public RaftPeer(String id, InetSocketAddress address) {
+    this(id, address == null? null: address.toString());
+  }
+
+  public RaftPeer(String id, String address) {
     this.id = id;
     this.address = address;
   }
@@ -38,7 +40,7 @@ public class RaftPeer {
     return id;
   }
 
-  public InetSocketAddress getAddress() {
+  public String getAddress() {
     return address;
   }
 

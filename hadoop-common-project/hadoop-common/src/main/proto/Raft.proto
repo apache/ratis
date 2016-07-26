@@ -22,8 +22,8 @@ option java_generate_equals_and_hash = true;
 package hadoop.common.raft;
 
 message RaftPeerProto {
-  optional string id = 1; // id of the peer
-  // hostname etc.
+  required string id = 1;      // id of the peer
+  required string address = 2; // e.g. IP address, hostname etc.
 }
 
 message ConfigurationMessageProto {

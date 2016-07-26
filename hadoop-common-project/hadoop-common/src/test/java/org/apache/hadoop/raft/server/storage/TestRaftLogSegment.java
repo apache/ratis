@@ -24,10 +24,10 @@ import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
+import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftConstants.StartupOption;
 import org.apache.hadoop.raft.server.RaftServerConfigKeys;
-import org.apache.hadoop.raft.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -69,7 +69,7 @@ public class TestRaftLogSegment {
     try (LogOutputStream out = new LogOutputStream(file, false)) {
       for (int i = 0; i < size; i++) {
         SimpleMessage m = new SimpleMessage("m" + i);
-        entries[i] = RaftUtils.convertRequestToLogEntryProto(m, term, i + start);
+        entries[i] = ProtoUtils.toLogEntryProto(m, term, i + start);
         out.write(entries[i]);
       }
     }
@@ -129,7 +129,7 @@ public class TestRaftLogSegment {
     List<LogEntryProto> list = new ArrayList<>();
     while (size < RaftConstants.LOG_SEGMENT_MAX_SIZE) {
       SimpleMessage m = new SimpleMessage("m" + i);
-      LogEntryProto entry = RaftUtils.convertRequestToLogEntryProto(m, term,
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, term,
           i++ + start);
       size += getEntrySize(entry);
       list.add(entry);
@@ -145,18 +145,18 @@ public class TestRaftLogSegment {
     LogSegment segment = LogSegment.newOpenSegment(1000);
     final Message m = new SimpleMessage("m");
     try {
-      LogEntryProto entry = RaftUtils.convertRequestToLogEntryProto(m, 0, 1001);
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1001);
       segment.appendToOpenSegment(entry);
       Assert.fail("should fail since the entry's index needs to be 1000");
     } catch (Exception e) {
       Assert.assertTrue(e instanceof IllegalArgumentException);
     }
 
-    LogEntryProto entry = RaftUtils.convertRequestToLogEntryProto(m, 0, 1000);
+    LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1000);
     segment.appendToOpenSegment(entry);
 
     try {
-      entry = RaftUtils.convertRequestToLogEntryProto(m, 0, 1002);
+      entry = ProtoUtils.toLogEntryProto(m, 0, 1002);
       segment.appendToOpenSegment(entry);
       Assert.fail("should fail since the entry's index needs to be 1001");
     } catch (Exception e) {
@@ -165,7 +165,7 @@ public class TestRaftLogSegment {
 
     LogEntryProto[] entries = new LogEntryProto[2];
     for (int i = 0; i < 2; i++) {
-      entries[i] = RaftUtils.convertRequestToLogEntryProto(m, 0, 1001 + i * 2);
+      entries[i] = ProtoUtils.toLogEntryProto(m, 0, 1001 + i * 2);
     }
     try {
       segment.appendToOpenSegment(entries);
@@ -181,7 +181,7 @@ public class TestRaftLogSegment {
     final long start = 1000;
     LogSegment segment = LogSegment.newOpenSegment(start);
     for (int i = 0; i < 100; i++) {
-      LogEntryProto entry = RaftUtils.convertRequestToLogEntryProto(
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(
           new SimpleMessage("m" + i), term, i + start);
       segment.appendToOpenSegment(entry);
     }

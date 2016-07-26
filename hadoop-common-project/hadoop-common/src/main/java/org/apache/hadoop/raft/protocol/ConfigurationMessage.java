@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.protocol;
 
+import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.raft.proto.RaftProtos.ConfigurationMessageProto;
 
@@ -35,8 +36,6 @@ public class ConfigurationMessage implements Message {
 
   @Override
   public byte[] getContent() {
-    return ConfigurationMessageProto.newBuilder()
-        .addAllPeers(RaftUtils.convertPeersToProtos(Arrays.asList(members)))
-        .build().toByteArray();
+    return ProtoUtils.toConfigurationMessageProto(this).toByteArray();
   }
 }

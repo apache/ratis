@@ -21,12 +21,12 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
+import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.storage.RaftLog;
 import org.apache.hadoop.raft.server.storage.SegmentedRaftLog;
-import org.apache.hadoop.raft.util.RaftUtils;
 
 import java.io.IOException;
 
@@ -215,9 +215,9 @@ public class ServerState {
     if (entries != null && entries.length > 0) {
       configurationManager.removeConfigurations(entries[0].getIndex());
       for (LogEntryProto entry : entries) {
-        if (RaftUtils.isConfigurationLogEntry(entry)) {
+        if (ProtoUtils.isConfigurationLogEntry(entry)) {
           configurationManager.addConfiguration(entry.getIndex(),
-              RaftUtils.convertProtoToConf(entry.getIndex(),
+              ProtoUtils.toRaftConfiguration(entry.getIndex(),
                   entry.getConfigurationEntry()));
         }
       }
