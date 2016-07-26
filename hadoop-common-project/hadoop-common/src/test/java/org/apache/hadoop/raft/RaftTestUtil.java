@@ -85,7 +85,7 @@ public class RaftTestUtil {
     int idxExpected = 0;
     while (idxEntries < entries.length
         && idxExpected < expectedMessages.length) {
-      if (Arrays.equals(expectedMessages[idxExpected].getInfo(),
+      if (Arrays.equals(expectedMessages[idxExpected].getContent(),
           entries[idxEntries].getClientMessageEntry().getContent().toByteArray())) {
         ++idxExpected;
       }
@@ -102,7 +102,7 @@ public class RaftTestUtil {
       final LogEntryProto e = entries[i];
       Assert.assertEquals(expertedTerm, e.getTerm());
       Assert.assertEquals(startIndex + i, e.getIndex());
-      Assert.assertArrayEquals(expectedMessages[i].getInfo(),
+      Assert.assertArrayEquals(expectedMessages[i].getContent(),
           e.getClientMessageEntry().getContent().toByteArray());
     }
   }
@@ -137,7 +137,7 @@ public class RaftTestUtil {
     }
 
     @Override
-    public byte[] getInfo() {
+    public byte[] getContent() {
       return messageId.getBytes(Charset.forName("UTF-8"));
     }
   }

@@ -34,7 +34,7 @@ public class ConfigurationMessage implements Message {
   }
 
   @Override
-  public byte[] getInfo() {
+  public byte[] getContent() {
     return ConfigurationMessageProto.newBuilder()
         .addAllPeers(RaftUtils.convertPeersToProtos(Arrays.asList(members)))
         .build().toByteArray();

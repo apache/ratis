@@ -17,17 +17,12 @@
  */
 package org.apache.hadoop.raft.server.protocol.pb;
 
-import com.google.protobuf.ServiceException;
 import org.apache.hadoop.raft.proto.RaftProtos.*;
-import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.AppendEntriesReplyProto;
-import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.AppendEntriesRequestProto;
-import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RequestVoteReplyProto;
-import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RequestVoteRequestProto;
+import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.*;
 import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.protocol.*;
 import org.apache.hadoop.raft.server.storage.RaftLog;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 

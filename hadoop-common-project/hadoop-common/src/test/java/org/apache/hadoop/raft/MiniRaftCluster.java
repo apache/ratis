@@ -247,6 +247,12 @@ public abstract class MiniRaftCluster {
     return servers.get(id);
   }
 
+  public Collection<RaftPeer> getPeers() {
+    return getServers().stream().map(s ->
+        new RaftPeer(s.getId(), s.getServerRpc().getInetSocketAddress()))
+        .collect(Collectors.toList());
+  }
+
   public RaftClient createClient(String clientId, String leaderId) {
     return new RaftClient(clientId, conf.getPeers(),
         getRaftClientRequestSender(), leaderId);

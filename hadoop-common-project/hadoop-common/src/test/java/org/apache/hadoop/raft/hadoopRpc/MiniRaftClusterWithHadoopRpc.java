@@ -51,7 +51,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
       final HadoopRpcService rpc = new HadoopRpcService(s, conf);
       rpcServices.add(rpc);
       s.setServerRpc(rpc);
-      peers.add(new RaftPeer(s.getId(), rpc.getIpcServerAddress()));
+      peers.add(new RaftPeer(s.getId(), rpc.getInetSocketAddress()));
     }
 
     LOG.info("peers = " + peers);

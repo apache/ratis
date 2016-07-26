@@ -82,7 +82,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     this.serverRpc = serverRpc;
   }
 
-  RaftServerRpc getServerRpc() {
+  public RaftServerRpc getServerRpc() {
     return serverRpc;
   }
 

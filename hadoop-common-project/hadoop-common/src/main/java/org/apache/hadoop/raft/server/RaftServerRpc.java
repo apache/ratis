@@ -26,6 +26,7 @@ import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 
 public interface RaftServerRpc {
   void start();
@@ -33,6 +34,8 @@ public interface RaftServerRpc {
   void interruptAndJoin() throws InterruptedException;
 
   void shutdown();
+
+  InetSocketAddress getInetSocketAddress();
 
   RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException;
 

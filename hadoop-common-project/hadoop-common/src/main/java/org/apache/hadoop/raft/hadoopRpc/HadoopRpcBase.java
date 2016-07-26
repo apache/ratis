@@ -15,29 +15,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.protocol;
+package org.apache.hadoop.raft.hadoopRpc;
 
-/**
- * The information clients append to the raft ring.
- */
-public interface Message {
-  byte[] EMPTY_BYTE_ARRAY = {};
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.raft.protocol.RaftPeer;
 
-  /** Empty message */
-  Message EMPTY_MESSAGE = new Message() {
-    @Override
-    public String toString() {
-      return "";
+import java.io.IOException;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+abstract class HadoopRpcBase<PROXY> {
+  private final Map<String, PROXY> peers = new HashMap<>();
+
+  Collection<String> getServerIds() {
+    return peers.keySet();
+  }
+
+  PROXY getServerProxy(String id) {
+    return peers.get(id);
+  }
+
+  void addPeers(List<RaftPeer> newPeers, Configuration conf)
+      throws IOException {
+    for(RaftPeer p : newPeers) {
+      peers.put(p.getId(), createProxy(p, conf));
     }
+  }
 
-    @Override
-    public byte[] getContent() {
-      return EMPTY_BYTE_ARRAY;
-    }
-  };
-
-  /**
-   * @return the content of the message
-   */
-  byte[] getContent();
+  abstract PROXY createProxy(RaftPeer peer, Configuration conf)
+      throws IOException;
 }

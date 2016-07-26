@@ -19,14 +19,13 @@ package org.apache.hadoop.raft.util;
 
 import com.google.protobuf.ByteString;
 import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.raft.proto.RaftProtos.ClientMessageEntryProto;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto.ClientMessageEntryProto;
 import org.apache.hadoop.raft.proto.RaftProtos.RaftConfigurationProto;
 import org.apache.hadoop.raft.proto.RaftProtos.RaftPeerProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.RaftConfiguration;
-import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.util.ExitUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,9 +34,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -104,7 +103,7 @@ public abstract class RaftUtils {
   public static LogEntryProto convertRequestToLogEntryProto(Message message,
       long term, long index) {
     ClientMessageEntryProto m = ClientMessageEntryProto.newBuilder()
-        .setContent(getByteString(message.getInfo())).build();
+        .setContent(getByteString(message.getContent())).build();
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
         .setType(LogEntryProto.Type.CLIENT_MESSAGE)
         .setClientMessageEntry(m).build();

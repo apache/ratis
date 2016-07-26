@@ -26,6 +26,7 @@ import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.protocol.*;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 
 public class SimulatedServerRpc implements RaftServerRpc {
   private final RaftServer server;
@@ -58,6 +59,11 @@ public class SimulatedServerRpc implements RaftServerRpc {
   public void shutdown() {
     clientHandler.shutdown();
     serverHandler.shutdown();
+  }
+
+  @Override
+  public InetSocketAddress getInetSocketAddress() {
+    return null;
   }
 
   @Override

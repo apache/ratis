@@ -35,14 +35,14 @@ message RaftConfigurationProto {
   repeated RaftPeerProto oldPeers = 2; // the peers in the old conf
 }
 
+message ClientMessageEntryProto {
+  optional bytes content = 1;
+}
+
 message LogEntryProto {
   enum Type {
     CLIENT_MESSAGE = 1;
     CONFIGURATION = 2;
-  }
-
-  message ClientMessageEntryProto {
-    optional bytes content = 1;
   }
 
   optional uint64 term = 1;
@@ -70,13 +70,4 @@ message RaftRpcRequestProto {
 message RaftRpcReplyProto {
   required RaftRpcMessageProto rpcMessage = 1;
   required bool success = 2;
-}
-
-message RaftServerRequestProto {
-  required RaftRpcRequestProto rpcRequest = 1;
-}
-
-message RaftServerReplyProto {
-  required RaftRpcReplyProto rpcReply = 1;
-  required uint64 term = 2;
 }
