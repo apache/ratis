@@ -79,7 +79,7 @@ public class RaftTestUtil {
     return leader != null ? leader.getId() : null;
   }
 
-  static void assertLogEntriesContains(LogEntryProto[] entries,
+  public static void assertLogEntriesContains(LogEntryProto[] entries,
       SimpleMessage... expectedMessages) {
     int idxEntries = 0;
     int idxExpected = 0;
@@ -95,7 +95,7 @@ public class RaftTestUtil {
         expectedMessages.length == idxExpected);
   }
 
-  static void assertLogEntries(LogEntryProto[] entries, long startIndex,
+  public static void assertLogEntries(LogEntryProto[] entries, long startIndex,
       long expertedTerm, SimpleMessage... expectedMessages) {
     Assert.assertEquals(expectedMessages.length, entries.length);
     for(int i = 0; i < entries.length; i++) {

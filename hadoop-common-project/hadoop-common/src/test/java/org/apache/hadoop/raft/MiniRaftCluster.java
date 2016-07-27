@@ -181,7 +181,7 @@ public abstract class MiniRaftCluster {
         removedPeers.toArray(new RaftPeer[removedPeers.size()]));
   }
 
-  void killServer(String id) {
+  public void killServer(String id) {
     servers.get(id).kill();
   }
 
@@ -194,7 +194,7 @@ public abstract class MiniRaftCluster {
     return b.toString();
   }
 
-  String printAllLogs() {
+  public String printAllLogs() {
     StringBuilder b = new StringBuilder("\n#servers = " + servers.size() + "\n");
     for (RaftServer s : servers.values()) {
       b.append("  ");
@@ -235,7 +235,7 @@ public abstract class MiniRaftCluster {
     }
   }
 
-  List<RaftServer> getFollowers() {
+  public List<RaftServer> getFollowers() {
     return servers.values().stream()
         .filter(s -> s.isRunning() && s.isFollower())
         .collect(Collectors.toList());

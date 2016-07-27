@@ -15,24 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft;
+package org.apache.hadoop.raft.server.simulation;
 
+import org.apache.hadoop.raft.RaftBasicTests;
 import org.apache.hadoop.raft.RaftTestUtil.*;
 import org.apache.hadoop.raft.client.RaftClient;
-import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
-import org.apache.hadoop.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.hadoop.raft.server.simulation.RequestHandler;
-import org.apache.hadoop.raft.server.simulation.SimulatedRequestReply;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,8 +39,8 @@ import static org.apache.hadoop.raft.RaftTestUtil.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-public class TestRaft {
-  static final Logger LOG = LoggerFactory.getLogger(TestRaft.class);
+public class TestRaftWithSimulatedRpc extends RaftBasicTests {
+  static final Logger LOG = LoggerFactory.getLogger(TestRaftWithSimulatedRpc.class);
 
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
@@ -55,30 +49,15 @@ public class TestRaft {
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  private MiniRaftCluster cluster;
+  private final MiniRaftClusterWithSimulatedRpc cluster;
 
-  @Before
-  public void setup() {
-    RaftProperties prop = new RaftProperties();
-    prop.setBoolean(RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY, false);
-    cluster = new MiniRaftClusterWithSimulatedRpc(5, prop);
-    assertNull(cluster.getLeader());
-    cluster.start();
+  public TestRaftWithSimulatedRpc() throws IOException {
+    cluster = new MiniRaftClusterWithSimulatedRpc(NUM_SERVERS, getProperties());
   }
 
-  @After
-  public void tearDown() {
-    if (cluster != null) {
-      cluster.shutdown();
-    }
-  }
-
-  @Test
-  public void testBasicLeaderElection() throws Exception {
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, false);
+  @Override
+  public MiniRaftClusterWithSimulatedRpc getCluster() {
+    return cluster;
   }
 
   @Test
@@ -99,12 +78,9 @@ public class TestRaft {
     Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
     LOG.info(cluster.printAllLogs());
 
-    for(RaftServer s : cluster.getServers()) {
-      if (s.isRunning()) {
-        assertLogEntries(s.getState().getLog().getEntries(1, Long.MAX_VALUE),
-            1, term, messages);
-      }
-    }
+    cluster.getServers().stream().filter(RaftServer::isRunning)
+        .map(s -> s.getState().getLog().getEntries(1, Long.MAX_VALUE))
+        .forEach(e -> assertLogEntries(e , 1, term, messages));
   }
 
   @Test
