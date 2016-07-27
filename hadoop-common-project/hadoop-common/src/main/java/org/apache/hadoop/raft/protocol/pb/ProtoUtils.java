@@ -18,15 +18,15 @@
 package org.apache.hadoop.raft.protocol.pb;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ServiceException;
+import org.apache.hadoop.raft.proto.RaftClientProtocolProtos.RaftClientReplyProto;
+import org.apache.hadoop.raft.proto.RaftClientProtocolProtos.RaftClientRequestProto;
+import org.apache.hadoop.raft.proto.RaftClientProtocolProtos.SetConfigurationReplyProto;
+import org.apache.hadoop.raft.proto.RaftClientProtocolProtos.SetConfigurationRequestProto;
 import org.apache.hadoop.raft.proto.RaftProtos.*;
-import org.apache.hadoop.raft.protocol.ConfigurationMessage;
-import org.apache.hadoop.raft.protocol.Message;
-import org.apache.hadoop.raft.protocol.RaftPeer;
-import org.apache.hadoop.raft.protocol.RaftRpcMessage;
+import org.apache.hadoop.raft.protocol.*;
 import org.apache.hadoop.raft.server.RaftConfiguration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -83,6 +83,11 @@ public class ProtoUtils {
         .build();
   }
 
+  static ConfigurationMessage toConfigurationMessage(
+      ConfigurationMessageProto p) {
+    return new ConfigurationMessage(toRaftPeerArray(p.getPeersList()));
+  }
+
   public static RaftConfigurationProto toRaftConfigurationProto(
       RaftConfiguration conf) {
     return RaftConfigurationProto.newBuilder()
@@ -116,13 +121,17 @@ public class ProtoUtils {
         .build();
   }
 
+  static ClientMessageEntryProto toClientMessageEntryProto(Message message) {
+    return ClientMessageEntryProto.newBuilder()
+        .setContent(toByteString(message.getContent())).build();
+  }
+
   public static LogEntryProto toLogEntryProto(
       Message message, long term, long index) {
-    ClientMessageEntryProto m = ClientMessageEntryProto.newBuilder()
-        .setContent(toByteString(message.getContent())).build();
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
         .setType(LogEntryProto.Type.CLIENT_MESSAGE)
-        .setClientMessageEntry(m).build();
+        .setClientMessageEntry(toClientMessageEntryProto(message))
+        .build();
   }
 
   static RaftRpcMessageProto.Builder toRaftRpcMessageProtoBuilder(
@@ -143,6 +152,56 @@ public class ProtoUtils {
     return RaftRpcReplyProto.newBuilder()
         .setRpcMessage(request.getRpcMessage())
         .setSuccess(reply.isSuccess());
+  }
+
+  static Message toMessage(final ClientMessageEntryProto p) {
+    return () -> p.getContent().toByteArray();
+  }
+
+  static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
+    final RaftRpcMessageProto m = p.getRpcRequest().getRpcMessage();
+    return new RaftClientRequest(m.getRequestorId(), m.getReplyId(),
+        toMessage(p.getMessage()));
+  }
+
+  static RaftClientRequestProto toRaftClientRequestProto(
+      RaftClientRequest request) {
+    return RaftClientRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
+        .setMessage(toClientMessageEntryProto(request.getMessage()))
+        .build();
+  }
+
+  static RaftClientReplyProto toRaftClientReplyProto(
+      RaftClientRequestProto request, RaftClientReply reply) {
+    final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
+    if (reply != null) {
+      b.setRpcReply(toRaftRpcReplyProtoBuilder(request.getRpcRequest(), reply));
+    }
+    return b.build();
+  }
+
+  static SetConfigurationRequest toSetConfigurationRequest(
+      SetConfigurationRequestProto p) throws InvalidProtocolBufferException {
+    final RaftRpcMessageProto m = p.getClientRequest().getRpcRequest().getRpcMessage();
+    final ConfigurationMessageProto conf = ConfigurationMessageProto.parseFrom(
+        p.getClientRequest().getMessage().getContent().toByteArray());
+    return new SetConfigurationRequest(m.getRequestorId(), m.getReplyId(),
+        toRaftPeerArray(conf.getPeersList()));
+  }
+
+  static SetConfigurationRequestProto toSetConfigurationRequestProto(
+      SetConfigurationRequest request) {
+    return SetConfigurationRequestProto.newBuilder()
+        .setClientRequest(toRaftClientRequestProto(request))
+        .build();
+  }
+
+  static SetConfigurationReplyProto toSetConfigurationReplyProto(
+      SetConfigurationRequestProto request, RaftClientReply reply) {
+    return SetConfigurationReplyProto.newBuilder()
+        .setClientReply(toRaftClientReplyProto(request.getClientRequest(), reply))
+        .build();
   }
 
   public static IOException toIOException(ServiceException se) {

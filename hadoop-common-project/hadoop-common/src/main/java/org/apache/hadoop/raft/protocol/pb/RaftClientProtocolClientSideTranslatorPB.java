@@ -15,35 +15,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.server.protocol.pb;
+package org.apache.hadoop.raft.protocol.pb;
 
+import com.google.common.base.Preconditions;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.raft.hadoopRpc.HadoopUtils;
-import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.AppendEntriesReplyProto;
-import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.AppendEntriesRequestProto;
-import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RequestVoteReplyProto;
-import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RequestVoteRequestProto;
-import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
-import org.apache.hadoop.raft.server.protocol.*;
+import org.apache.hadoop.raft.proto.RaftClientProtocolProtos.*;
+import org.apache.hadoop.raft.protocol.RaftClientProtocol;
+import org.apache.hadoop.raft.protocol.RaftClientReply;
+import org.apache.hadoop.raft.protocol.RaftClientRequest;
+import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
 
 import java.io.Closeable;
 import java.io.IOException;
 
 @InterfaceAudience.Private
-public class RaftServerProtocolClientSideTranslatorPB
-    implements RaftServerProtocol, Closeable {
-  private final RaftServerProtocolPB rpcProxy;
+public class RaftClientProtocolClientSideTranslatorPB
+    implements RaftClientProtocol, Closeable {
+  private final RaftClientProtocolPB rpcProxy;
 
-  public RaftServerProtocolClientSideTranslatorPB(RaftServerProtocolPB rpcProxy) {
+  public RaftClientProtocolClientSideTranslatorPB(RaftClientProtocolPB rpcProxy) {
     this.rpcProxy = rpcProxy;
   }
 
-  public RaftServerProtocolClientSideTranslatorPB(
+  public RaftClientProtocolClientSideTranslatorPB(
       String address, Configuration conf) throws IOException {
-    this(HadoopUtils.getProxy(RaftServerProtocolPB.class, address, conf));
+    this(HadoopUtils.getProxy(RaftClientProtocolPB.class, address, conf));
   }
 
   @Override
@@ -52,26 +52,25 @@ public class RaftServerProtocolClientSideTranslatorPB
   }
 
   @Override
-  public RequestVoteReply requestVote(RequestVoteRequest request) throws IOException {
-    final RequestVoteRequestProto p = ServerProtoUtils.toRequestVoteRequestProto(request);
-    final RequestVoteReplyProto reply;
+  public void submitClientRequest(RaftClientRequest request)
+      throws IOException {
+    final RaftClientRequestProto p = ProtoUtils.toRaftClientRequestProto(request);
     try {
-      reply = rpcProxy.requestVote(null, p);
+      final RaftClientReplyProto proto = rpcProxy.submitClientRequest(null, p);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
-    return ServerProtoUtils.toRequestVoteReply(reply);
   }
 
   @Override
-  public AppendEntriesReply appendEntries(AppendEntriesRequest request) throws IOException {
-    final AppendEntriesRequestProto p = ServerProtoUtils.toAppendEntriesRequestProto(request);
-    final AppendEntriesReplyProto reply;
+  public void setConfiguration(SetConfigurationRequest request)
+      throws IOException {
+    final SetConfigurationRequestProto p
+        = ProtoUtils.toSetConfigurationRequestProto(request);
     try {
-      reply = rpcProxy.appendEntries(null, p);
+      final SetConfigurationReplyProto proto = rpcProxy.setConfiguration(null, p);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
-    return ServerProtoUtils.toAppendEntriesReply(reply);
   }
 }

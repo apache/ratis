@@ -21,10 +21,13 @@ import com.google.protobuf.BlockingService;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.RPC;
+import org.apache.hadoop.raft.proto.RaftClientProtocolProtos.RaftClientProtocolService;
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RaftServerProtocolService;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
 import org.apache.hadoop.raft.protocol.RaftPeer;
+import org.apache.hadoop.raft.protocol.pb.RaftClientProtocolPB;
+import org.apache.hadoop.raft.protocol.pb.RaftClientProtocolServerSideTranslatorPB;
 import org.apache.hadoop.raft.server.PendingRequest;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RaftServerConfigKeys;
@@ -58,6 +61,8 @@ public class HadoopRpcService
     this.ipcServer = newRpcServer(conf);
     this.ipcServerAddress = ipcServer.getListenerAddress();
 
+    addRaftClientProtocol(conf);
+
     LOG.info(getClass().getSimpleName() + " created RPC.Server at "
         + ipcServerAddress);
   }
@@ -74,9 +79,6 @@ public class HadoopRpcService
   }
 
   RPC.Server newRpcServer(Configuration conf) throws IOException {
-    RPC.setProtocolEngine(conf, RaftServerProtocolPB.class,
-        ProtobufRpcEngine.class);
-
     final RaftServerConfigKeys.Get get = new RaftServerConfigKeys.Get(conf);
     final int handlerCount = get.ipc().handlers();
     final InetSocketAddress address = get.ipc().address();
@@ -84,6 +86,7 @@ public class HadoopRpcService
     final BlockingService service
         = RaftServerProtocolService.newReflectiveBlockingService(
             new RaftServerProtocolServerSideTranslatorPB(server));
+    HadoopUtils.setProtobufRpcEngine(RaftServerProtocolPB.class, conf);
     return new RPC.Builder(conf)
         .setProtocol(RaftServerProtocolPB.class)
         .setInstance(service)
@@ -92,6 +95,16 @@ public class HadoopRpcService
         .setNumHandlers(handlerCount)
         .setVerbose(false)
         .build();
+  }
+
+  private void addRaftClientProtocol(Configuration conf) {
+    final Class<?> protocol = RaftClientProtocolPB.class;
+    HadoopUtils.setProtobufRpcEngine(protocol, conf);
+
+    final BlockingService service
+        = RaftClientProtocolService.newReflectiveBlockingService(
+        new RaftClientProtocolServerSideTranslatorPB(server));
+    ipcServer.addProtocol(RPC.RpcKind.RPC_PROTOCOL_BUFFER, protocol, service);
   }
 
   @Override

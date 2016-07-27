@@ -22,7 +22,12 @@ import java.util.Arrays;
 public class SetConfigurationRequest extends RaftClientRequest {
   public SetConfigurationRequest(String requestorId, String replierId,
       RaftPeer[] members) {
-    super(requestorId, replierId, new ConfigurationMessage(members));
+    this(requestorId, replierId, new ConfigurationMessage(members));
+  }
+
+  public SetConfigurationRequest(String requestorId, String replierId,
+      ConfigurationMessage members) {
+    super(requestorId, replierId, members);
   }
 
   public RaftPeer[] getPeersInNewConf() {

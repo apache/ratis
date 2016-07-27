@@ -25,8 +25,12 @@ import java.util.Random;
 public interface RaftConstants {
   String RAFT_SERVER_KERBEROS_PRINCIPAL_KEY
       = "raft.server.kerberos.principal";
+  String RAFT_CLIENT_KERBEROS_PRINCIPAL_KEY
+      = "raft.client.kerberos.principal";
   String RAFT_SERVER_PROTOCOL_NAME
       = "org.apache.hadoop.raft.server.protocol.RaftServerProtocol";
+  String RAFT_CLIENT_PROTOCOL_NAME
+      = "org.apache.hadoop.raft.protocol.RaftClientProtocol";
 
   public static final long INVALID_LOG_INDEX = -1;
   public static final byte LOG_TERMINATE_BYTE = 0;

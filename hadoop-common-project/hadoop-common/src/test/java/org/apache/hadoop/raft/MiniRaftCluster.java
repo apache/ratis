@@ -109,10 +109,12 @@ public abstract class MiniRaftCluster {
     return s;
   }
 
-  public abstract RaftClientRequestSender getRaftClientRequestSender();
+  public abstract RaftClientRequestSender getRaftClientRequestSender()
+      throws IOException;
 
   public abstract void addNewPeers(Collection<RaftPeer> newPeers,
-                            Collection<RaftServer> newServers) throws IOException;
+                                   Collection<RaftServer> newServers)
+      throws IOException;
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer)
       throws IOException {
@@ -253,7 +255,8 @@ public abstract class MiniRaftCluster {
         .collect(Collectors.toList());
   }
 
-  public RaftClient createClient(String clientId, String leaderId) {
+  public RaftClient createClient(String clientId, String leaderId)
+      throws IOException {
     return new RaftClient(clientId, conf.getPeers(),
         getRaftClientRequestSender(), leaderId);
   }

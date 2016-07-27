@@ -18,31 +18,27 @@
 package org.apache.hadoop.raft.hadoopRpc;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.raft.protocol.RaftPeer;
+import org.apache.hadoop.ipc.ProtobufRpcEngine;
+import org.apache.hadoop.ipc.RPC;
+import org.apache.hadoop.net.NetUtils;
+import org.apache.hadoop.raft.util.RaftUtils;
+import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
-abstract class HadoopRpcBase<PROXY> {
-  private final Map<String, PROXY> peers = new HashMap<>();
-
-  Collection<String> getServerIds() {
-    return peers.keySet();
+public class HadoopUtils {
+  public static void setProtobufRpcEngine(
+      Class<?> protocol, Configuration conf) {
+    RPC.setProtocolEngine(conf, protocol, ProtobufRpcEngine.class);
   }
 
-  PROXY getServerProxy(String id) {
-    return peers.get(id);
-  }
-
-  void addPeers(Iterable<RaftPeer> newPeers, Configuration conf)
+  public static <PROTOCOL> PROTOCOL getProxy(
+      Class<PROTOCOL> clazz, String addressStr, Configuration conf)
       throws IOException {
-    for(RaftPeer p : newPeers) {
-      peers.put(p.getId(), createProxy(p, conf));
-    }
+    setProtobufRpcEngine(clazz, conf);
+    return RPC.getProxy(clazz, RPC.getProtocolVersion(clazz),
+        RaftUtils.newInetSocketAddress(addressStr),
+        UserGroupInformation.getCurrentUser(),
+        conf, NetUtils.getSocketFactory(conf, clazz));
   }
-
-  abstract PROXY createProxy(RaftPeer peer, Configuration conf)
-      throws IOException;
 }

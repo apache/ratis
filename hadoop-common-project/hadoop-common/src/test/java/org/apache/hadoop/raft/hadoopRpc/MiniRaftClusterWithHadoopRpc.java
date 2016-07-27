@@ -63,13 +63,14 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
 
   @Override
   public void addNewPeers(Collection<RaftPeer> newPeers,
-                          Collection<RaftServer> newServers) throws IOException {
+                          Collection<RaftServer> newServers)
+      throws IOException {
     setServers(newServers);
   }
 
   @Override
-  public RaftClientRequestSender getRaftClientRequestSender() {
-    // TODO
-    return null;
+  public RaftClientRequestSender getRaftClientRequestSender()
+      throws IOException {
+    return new HadoopClientRequestSender(getPeers(), conf);
   }
 }
