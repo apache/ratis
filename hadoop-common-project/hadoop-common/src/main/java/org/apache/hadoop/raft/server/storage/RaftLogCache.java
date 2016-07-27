@@ -103,7 +103,7 @@ class RaftLogCache {
     }
     final long realEnd = Math.min(getEndIndex() + 1, endIndex);
     if (startIndex >= realEnd) {
-      return null;
+      return RaftLog.EMPTY_LOGENTRY_ARRAY;
     }
 
     LogEntryProto[] entries = new LogEntryProto[(int) (realEnd - startIndex)];

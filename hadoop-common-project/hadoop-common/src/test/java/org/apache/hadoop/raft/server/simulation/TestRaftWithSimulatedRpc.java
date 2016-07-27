@@ -18,6 +18,7 @@
 package org.apache.hadoop.raft.server.simulation;
 
 import org.apache.hadoop.raft.RaftBasicTests;
+import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.RaftTestUtil.*;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.server.RaftConstants;
@@ -61,29 +62,6 @@ public class TestRaftWithSimulatedRpc extends RaftBasicTests {
   }
 
   @Test
-  public void testBasicAppendEntries() throws Exception {
-    RaftServer leader = waitForLeader(cluster);
-    final long term = leader.getState().getCurrentTerm();
-    final String killed = cluster.getFollowers().get(3).getId();
-    cluster.killServer(killed);
-    LOG.info(cluster.printServers());
-
-    final SimpleMessage[] messages = new SimpleMessage[10];
-    final RaftClient client = cluster.createClient("client", null);
-    for(int i = 0; i < messages.length; i++) {
-      messages[i] = new SimpleMessage("m" + i);
-      client.send(messages[i]);
-    }
-
-    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-    LOG.info(cluster.printAllLogs());
-
-    cluster.getServers().stream().filter(RaftServer::isRunning)
-        .map(s -> s.getState().getLog().getEntries(1, Long.MAX_VALUE))
-        .forEach(e -> assertLogEntries(e , 1, term, messages));
-  }
-
-  @Test
   public void testEnforceLeader() throws Exception {
     waitForLeader(cluster);
     waitForLeader(cluster, "s0");
@@ -115,8 +93,8 @@ public class TestRaftWithSimulatedRpc extends RaftBasicTests {
     });
     clientThread.start();
 
-    final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply
-        = ((MiniRaftClusterWithSimulatedRpc)cluster).getServerRequestReply();
+    final SimulatedRequestReply<RaftServerRequest, RaftServerReply>
+        serverRequestReply = cluster.getServerRequestReply();
     while (!done.get()) {
       Thread.sleep(2000);
       RaftServer leader = cluster.getLeader();
@@ -140,8 +118,8 @@ public class TestRaftWithSimulatedRpc extends RaftBasicTests {
     assertNull("Exception: " + exceptionInClientThread[0],
         exceptionInClientThread[0]);
 
-    cluster.getServers().stream().filter(RaftServer::isRunning).forEach(
-        s -> assertLogEntriesContains(
-            s.getState().getLog().getEntries(0, Long.MAX_VALUE), messages));
+    cluster.getServers().stream().filter(RaftServer::isRunning)
+        .map(s -> s.getState().getLog().getEntries(0, Long.MAX_VALUE))
+        .forEach(e -> RaftTestUtil.assertLogEntriesContains(e, messages));
   }
 }

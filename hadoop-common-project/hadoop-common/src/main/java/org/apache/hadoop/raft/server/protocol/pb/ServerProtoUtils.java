@@ -105,8 +105,10 @@ public class ServerProtoUtils {
 
   static AppendEntriesRequest toAppendEntriesRequest(AppendEntriesRequestProto p) {
     final RaftRpcMessageProto m = p.getServerRequest().getRpcRequest().getRpcMessage();
+    final TermIndex previousLog = !p.hasPreviousLog()? null
+        : toTermIndex(p.getPreviousLog());
     return new AppendEntriesRequest(m.getRequestorId(), m.getReplyId(),
-        p.getLeaderTerm(), toTermIndex(p.getPreviousLog()),
+        p.getLeaderTerm(), previousLog,
         p.getEntriesList().toArray(RaftLog.EMPTY_LOGENTRY_ARRAY),
         p.getLeaderCommit(), p.getInitializing());
   }

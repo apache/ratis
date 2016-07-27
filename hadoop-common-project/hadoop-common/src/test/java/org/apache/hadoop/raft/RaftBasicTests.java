@@ -17,18 +17,26 @@
  */
 package org.apache.hadoop.raft;
 
+import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.conf.RaftProperties;
+import org.apache.hadoop.raft.server.RaftConstants;
+import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
 import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
+import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
 
 public abstract class RaftBasicTests {
+  static final Logger LOG = LoggerFactory.getLogger(RaftBasicTests.class);
+
   public static final int NUM_SERVERS = 5;
 
   private final RaftProperties properties = new RaftProperties();
@@ -65,4 +73,29 @@ public abstract class RaftBasicTests {
     waitAndKillLeader(cluster, true);
     waitAndKillLeader(cluster, false);
   }
+
+  @Test
+  public void testBasicAppendEntries() throws Exception {
+    final MiniRaftCluster cluster = getCluster();
+    RaftServer leader = waitForLeader(cluster);
+    final long term = leader.getState().getCurrentTerm();
+    final String killed = cluster.getFollowers().get(3).getId();
+    cluster.killServer(killed);
+    LOG.info(cluster.printServers());
+
+    final RaftTestUtil.SimpleMessage[] messages = new RaftTestUtil.SimpleMessage[10];
+    final RaftClient client = cluster.createClient("client", null);
+    for (int i = 0; i < messages.length; i++) {
+      messages[i] = new RaftTestUtil.SimpleMessage("m" + i);
+      client.send(messages[i]);
+    }
+
+    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+    LOG.info(cluster.printAllLogs());
+
+    cluster.getServers().stream().filter(RaftServer::isRunning)
+        .map(s -> s.getState().getLog().getEntries(1, Long.MAX_VALUE))
+        .forEach(e -> RaftTestUtil.assertLogEntries(e, 1, term, messages));
+  }
 }
+
