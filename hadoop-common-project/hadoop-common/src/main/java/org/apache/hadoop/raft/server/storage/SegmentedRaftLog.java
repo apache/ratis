@@ -24,6 +24,7 @@ import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.ConfigurationManager;
 import org.apache.hadoop.raft.server.RaftConstants;
+import org.apache.hadoop.raft.server.StateMachine;
 import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.PathAndIndex;
 
 import java.io.Closeable;
@@ -85,10 +86,10 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
   private final RaftLogCache cache;
   private final RaftLogWorker fileLogWorker;
 
-  public SegmentedRaftLog(String selfId, RaftProperties prop,
+  public SegmentedRaftLog(String selfId, RaftStorage storage,
       ConfigurationManager confManager) throws IOException {
     super(selfId);
-    storage = new RaftStorage(prop, RaftConstants.StartupOption.REGULAR);
+    this.storage = storage;
     cache = new RaftLogCache();
     loadLogSegments(confManager);
 
@@ -100,12 +101,11 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
       throws IOException {
     List<PathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
     for (PathAndIndex pi : paths) {
-      final LogSegment logSegment = parseLogSegment(pi, confManager);
+      LogSegment logSegment = parseLogSegment(pi, confManager);
       cache.addSegment(logSegment);
     }
   }
 
-  // TODO: update state machine
   private LogSegment parseLogSegment(PathAndIndex pi,
       ConfigurationManager confManager) throws IOException {
     final boolean isOpen = pi.endIndex == RaftConstants.INVALID_LOG_INDEX;

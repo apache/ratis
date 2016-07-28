@@ -25,7 +25,7 @@ import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
-import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
+import org.apache.hadoop.raft.server.storage.SegmentedRaftLog;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.Test;
@@ -45,7 +45,7 @@ public class TestRaftWithSimulatedRpc extends RaftBasicTests {
 
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(MemoryRaftLog.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(SegmentedRaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }

@@ -34,8 +34,8 @@ import static org.apache.hadoop.raft.server.RaftConstants.INVALID_LOG_INDEX;
 
 /**
  * In-memory RaftLog Cache. Currently we provide a simple implementation that
- * caches all the segments in the memory. The cache is protected by the
- * RaftServer's lock.
+ * caches all the segments in the memory. The cache is not thread-safe and
+ * requires external lock protection.
  */
 class RaftLogCache {
   private LogSegment openSegment;

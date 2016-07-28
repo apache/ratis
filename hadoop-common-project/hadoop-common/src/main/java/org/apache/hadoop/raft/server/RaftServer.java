@@ -17,7 +17,6 @@
  */
 package org.apache.hadoop.raft.server;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -27,6 +26,7 @@ import org.apache.hadoop.raft.protocol.*;
 import org.apache.hadoop.raft.server.protocol.*;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
+import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +36,9 @@ import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT;
+import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -69,13 +72,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   public RaftServer(String id, RaftConfiguration raftConf,
       RaftProperties properties) throws IOException {
-    this(new ServerState(id, raftConf, properties));
-  }
-
-  @VisibleForTesting
-  @InterfaceAudience.Private
-  public RaftServer(ServerState initialState) {
-    this.state = initialState;
+    this.state = new ServerState(id, raftConf, properties,
+        getStateMachine(properties));
   }
 
   public void setServerRpc(RaftServerRpc serverRpc) {
@@ -87,6 +85,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   public void start(RaftConfiguration conf) {
+    state.start();
     if (conf != null && conf.contains(getId())) {
       startAsFollower();
     } else {
@@ -94,6 +93,12 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     }
   }
 
+  private StateMachine getStateMachine(RaftProperties properties) {
+    final Class<? extends StateMachine> smClass = properties.getClass(
+        RAFT_SERVER_STATEMACHINE_CLASS_KEY,
+        RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT, StateMachine.class);
+    return RaftUtils.newInstance(smClass);
+  }
 
   private void changeRunningState(RunningState oldState, RunningState newState) {
     final boolean changed = runningState.compareAndSet(oldState, newState);
@@ -489,7 +494,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       if (runningState.get() == RunningState.RUNNING) {
         heartbeatMonitor.updateLastRpcTime(Time.monotonicNow());
       }
-      state.getLog().updateLastCommitted(leaderCommit, currentTerm);
+      state.updateStatemachine(leaderCommit, currentTerm);
 
       if (previous != null && !state.getLog().contains(previous)) {
         // TODO add more unit tests for inconsistency scenarios

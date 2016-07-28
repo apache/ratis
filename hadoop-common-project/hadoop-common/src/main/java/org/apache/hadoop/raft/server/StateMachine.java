@@ -17,14 +17,80 @@
  */
 package org.apache.hadoop.raft.server;
 
+import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos;
+import org.apache.hadoop.raft.server.storage.RaftStorage;
 
+import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 
-public interface StateMachine {
-  void applyLogEntry(RaftProtos.LogEntryProto entry) throws  IOException;
+public interface StateMachine extends Closeable {
+  /**
+   * Pass in the RaftProperties and RaftStorage for later usage.
+   */
+  void initialize(RaftProperties properties, RaftStorage storage);
 
-  void takeSnapshot() throws IOException;
+  /**
+   * Apply a committed log entry to the state machine
+   * @param entry the log entry that has been committed to a quorum of the raft
+   *              peers
+   */
+  void applyLogEntry(RaftProtos.LogEntryProto entry);
 
-  void loadSnapshot() throws IOException;
+  /**
+   * Dump the in-memory state into a snapshot file in the RaftStorage. The
+   * StateMachine implementation can decide 1) its own snapshot format, 2) when
+   * a snapshot is taken, and 3) how the snapshot is taken (e.g., whether the
+   * snapshot blocks the state machine, and whether to purge log entries after
+   * a snapshot is done).
+   *
+   * In the meanwhile, when the size of raft log outside of the latest snapshot
+   * exceeds certain threshold, the RaftServer may choose to trigger a snapshot
+   * if {@link RaftServerConfigKeys#RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY} is
+   * enabled.
+   *
+   * @param snapshotFile the file where the snapshot is written
+   * @param storage the RaftStorage where the snapshot file is stored
+   * @return the largest index of the log entry that has been applied to the
+   *         state machine and also included in the snapshot. It's safe to purge
+   *         all the log entries before this index from the raft storage later.
+   */
+  long takeSnapshot(File snapshotFile, RaftStorage storage);
+
+  /**
+   * Load states from the given snapshot file.
+   * @param snapshotFile the snapshot file
+   * @return the largest log entry index that is applied to the state machine
+   *         while loading the snapshot.
+   */
+  long loadSnapshot(File snapshotFile) throws IOException;
+
+  class DummyStateMachine implements StateMachine {
+    @Override
+    public void initialize(RaftProperties properties, RaftStorage storage) {
+      // do nothing
+    }
+
+    @Override
+    public void applyLogEntry(RaftProtos.LogEntryProto entry) {
+      // do nothing
+    }
+
+    @Override
+    public long takeSnapshot(File snapshotFile, RaftStorage storage) {
+      return RaftConstants.INVALID_LOG_INDEX;
+    }
+
+    @Override
+    public long loadSnapshot(File snapshotFile) throws IOException {
+      return RaftConstants.INVALID_LOG_INDEX;
+    }
+
+    @Override
+    public void close() throws IOException {
+      // do nothing
+    }
+  }
+
 }

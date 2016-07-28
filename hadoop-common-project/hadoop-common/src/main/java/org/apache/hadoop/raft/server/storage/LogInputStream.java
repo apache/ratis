@@ -32,7 +32,7 @@ import java.io.IOException;
 
 import static org.apache.hadoop.raft.server.RaftConstants.INVALID_LOG_INDEX;
 
-class LogInputStream implements Closeable {
+public class LogInputStream implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(LogInputStream.class);
 
   static class LogValidation {
@@ -72,7 +72,7 @@ class LogInputStream implements Closeable {
   private State state = State.UNINIT;
   private LogReader reader;
 
-  LogInputStream(File log, long startIndex, long endIndex,
+  public LogInputStream(File log, long startIndex, long endIndex,
       boolean isOpen) {
     if (isOpen) {
       Preconditions.checkArgument(endIndex == RaftConstants.INVALID_LOG_INDEX);
@@ -114,7 +114,7 @@ class LogInputStream implements Closeable {
     return logFile.getName();
   }
 
-  LogEntryProto nextEntry() throws IOException {
+  public LogEntryProto nextEntry() throws IOException {
     LogEntryProto entry = null;
     switch (state) {
       case UNINIT:

@@ -44,7 +44,7 @@ import java.util.regex.Pattern;
 import static java.nio.file.Files.newDirectoryStream;
 import static org.apache.hadoop.raft.server.RaftConstants.INVALID_LOG_INDEX;
 
-class RaftStorageDirectory {
+public class RaftStorageDirectory {
   static final Logger LOG = LoggerFactory.getLogger(RaftStorageDirectory.class);
 
   static final String STORAGE_DIR_CURRENT = "current";
@@ -52,8 +52,10 @@ class RaftStorageDirectory {
   static final String META_FILE_NAME = "raft-meta";
   static final String LOG_FILE_INPROGRESS = "inprogress";
   static final String LOG_FILE_PREFIX = "log";
+  static final String SNAPSHOT_FILE_PREFIX = "snapshot";
   static final Pattern CLOSED_SEGMENT_REGEX = Pattern.compile("log_(\\d+)-(\\d+)");
   static final Pattern OPEN_SEGMENT_REGEX = Pattern.compile("log_inprogress_(\\d+)(?:\\..*)?");
+  static final Pattern SNAPSHOT_REGEX = Pattern.compile(SNAPSHOT_FILE_PREFIX + "_(\\d+)");
 
   private static final List<Pattern> LOGSEGMENTS_REGEXES =
       ImmutableList.of(CLOSED_SEGMENT_REGEX, OPEN_SEGMENT_REGEX);
@@ -64,10 +66,10 @@ class RaftStorageDirectory {
     NORMAL
   }
 
-  static class PathAndIndex {
-    final Path path;
-    final long startIndex;
-    final long endIndex;
+  public static class PathAndIndex {
+    public final Path path;
+    public final long startIndex;
+    public final long endIndex;
 
     PathAndIndex(Path path, long startIndex, long endIndex) {
       this.path = path;
@@ -105,8 +107,6 @@ class RaftStorageDirectory {
    * all other storage type dependent files are written.
    * Derived storage is responsible for setting specific storage values and
    * writing the version file to disk.
-   *
-   * @throws IOException
    */
   void clearDirectory() throws IOException {
     File curDir = this.getCurrentDir();
@@ -153,6 +153,31 @@ class RaftStorageDirectory {
 
   static String getClosedLogFileName(long startIndex, long endIndex) {
     return LOG_FILE_PREFIX + "_" + startIndex + "-" + endIndex;
+  }
+
+  static String getSnapshotFileName(long endIndex) {
+    return SNAPSHOT_FILE_PREFIX + "_" + endIndex;
+  }
+
+  public File getSnapshotFile(long endIndex) {
+    return new File(getCurrentDir(), getSnapshotFileName(endIndex));
+  }
+
+  PathAndIndex getLatestSnapshot() throws IOException {
+    PathAndIndex latest = null;
+    try (DirectoryStream<Path> stream =
+             Files.newDirectoryStream(getCurrentDir().toPath())) {
+      for (Path path : stream) {
+          Matcher matcher = SNAPSHOT_REGEX.matcher(path.getFileName().toString());
+          if (matcher.matches()) {
+            final long endIndex = Long.parseLong(matcher.group(1));
+            if (latest == null || endIndex > latest.endIndex) {
+              latest = new PathAndIndex(path, 0, endIndex);
+          }
+        }
+      }
+    }
+    return latest;
   }
 
   /**
@@ -202,7 +227,6 @@ class RaftStorageDirectory {
    * Check consistency of the storage directory.
    *
    * @return state {@link StorageState} of the storage directory
-   * @throws IOException
    */
   StorageState analyzeStorage(boolean toLock) throws IOException {
     Preconditions.checkState(root != null, "root directory is null");
@@ -319,8 +343,6 @@ class RaftStorageDirectory {
 
   /**
    * Unlock storage.
-   *
-   * @throws IOException
    */
   public void unlock() throws IOException {
     if (this.lock == null)

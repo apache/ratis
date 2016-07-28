@@ -42,8 +42,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -118,7 +118,7 @@ class LeaderState {
     final ServerState state = server.getState();
     this.raftLog = state.getLog();
     this.currentTerm = state.getCurrentTerm();
-    eventQ = new LinkedBlockingQueue<>();
+    eventQ = new ArrayBlockingQueue<>(4096);
     processor = new EventProcessor();
     pendingRequests = new PendingRequestsHandler(server);
 
@@ -136,7 +136,9 @@ class LeaderState {
 
   void start() {
     // In the beginning of the new term, replicate an empty entry in order
-    // to finally commit entries in the previous term
+    // to finally commit entries in the previous term.
+    // Also this message can help identify the last committed index when
+    // the leader peer is just started.
     raftLog.append(server.getState().getCurrentTerm(), EMPTY_MESSAGE);
 
     processor.start();
@@ -252,8 +254,12 @@ class LeaderState {
     }
   }
 
-  void submitUpdateStateEvent(StateUpdateEvent e) {
-    eventQ.offer(e);
+  void submitUpdateStateEvent(StateUpdateEvent event) {
+    try {
+      eventQ.put(event);
+    } catch (InterruptedException e) {
+      LOG.info("Interrupted when adding event {} into the queue", event);
+    }
   }
 
   private void prepare() {
@@ -391,12 +397,12 @@ class LeaderState {
         conf.containsInConf(selfId));
     final long oldLastCommitted = raftLog.getLastCommittedIndex();
     if (!conf.inTransitionState()) {
-      raftLog.updateLastCommitted(majorityInNewConf, currentTerm);
+      server.getState().updateStatemachine(majorityInNewConf, currentTerm);
     } else { // configuration is in transitional state
       long majorityInOldConf = computeLastCommitted(voterLists.get(1),
           conf.containsInOldConf(selfId));
       final long majority = Math.min(majorityInNewConf, majorityInOldConf);
-      raftLog.updateLastCommitted(majority, currentTerm);
+      server.getState().updateStatemachine(majority, currentTerm);
     }
     checkAndUpdateConfiguration(oldLastCommitted);
     pendingRequests.notifySendingDaemon();
@@ -597,7 +603,6 @@ class LeaderState {
         } catch (IOException ioe) {
           LOG.debug(this + ": failed to send appendEntries; retry " + retry++,
               ioe);
-          // TODO: correctly handle IOException thrown from remote peers
         }
         if (isSenderRunning()) {
           Thread.sleep(RaftConstants.RPC_SLEEP_TIME_MS);

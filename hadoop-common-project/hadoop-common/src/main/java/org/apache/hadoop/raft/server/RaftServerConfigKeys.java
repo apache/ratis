@@ -24,6 +24,8 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 
+import org.apache.hadoop.raft.server.StateMachine.DummyStateMachine;
+
 public interface RaftServerConfigKeys {
 
   String PREFIX = "raft.server";
@@ -61,6 +63,17 @@ public interface RaftServerConfigKeys {
 
   String RAFT_SERVER_STORAGE_DIR_KEY = "raft.server.storage.dir";
   String RAFT_SERVER_STORAGE_DIR_DEFAULT = "file:///tmp/raft-server/";
+
+  String RAFT_SERVER_STATEMACHINE_CLASS_KEY = "raft.server.statemachine.class";
+  Class<DummyStateMachine> RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT = DummyStateMachine.class;
+
+  /** whether trigger snapshot when log size exceeds limit */
+  String RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY = "raft.server.auto.snapshot.enabled";
+  boolean RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_DEFAULT = true;
+
+  /** log size limit (in number of log entries) that triggers the snapshot */
+  String RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY = "raft.server.snapshot.trigger.threshold";
+  long RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_DEFAULT = 100000;
 
   /** An utility class to get conf values. */
   class Get {

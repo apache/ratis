@@ -26,8 +26,11 @@ import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.storage.RaftLog;
+import org.apache.hadoop.raft.server.storage.RaftStorage;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory;
 import org.apache.hadoop.raft.server.storage.SegmentedRaftLog;
 
+import java.io.Closeable;
 import java.io.IOException;
 
 import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
@@ -36,12 +39,16 @@ import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
  */
-public class ServerState {
+public class ServerState implements Closeable {
   private final String selfId;
   /** Raft log */
   private final RaftLog log;
   /** Raft configuration */
   private final ConfigurationManager configurationManager;
+  /** The thread that applies committed log entries to the state machine */
+  private final StateMachineUpdater stateMachineUpdater;
+  /** local storage for log and snapshot */
+  private final RaftStorage storage;
 
   /**
    * Latest term server has seen. initialized to 0 on first boot, increases
@@ -58,28 +65,48 @@ public class ServerState {
    */
   private String votedFor;
 
-  /** Index of highest log entry applied to state machine */
-  private long lastApplied;
-
-  ServerState(String id, RaftConfiguration conf, RaftProperties prop)
-      throws IOException {
+  ServerState(String id, RaftConfiguration conf, RaftProperties prop,
+      StateMachine stateMachine) throws IOException {
     this.selfId = id;
     configurationManager = new ConfigurationManager(conf);
-    leaderId = null;
+    storage = new RaftStorage(prop, RaftConstants.StartupOption.REGULAR);
+    long lastApplied = initStatemachine(stateMachine, prop);
 
+    leaderId = null;
     log = initLog(id, prop);
     RaftLog.Metadata metadata = log.loadMetadata();
     currentTerm = metadata.getTerm();
     votedFor = metadata.getVotedFor();
+
+    stateMachineUpdater = new StateMachineUpdater(stateMachine, log, storage,
+        lastApplied, prop);
   }
 
+  private long initStatemachine(StateMachine sm, RaftProperties properties)
+      throws IOException {
+    sm.initialize(properties, storage);
+    RaftStorageDirectory.PathAndIndex pi = storage.getLastestSnapshotPath();
+    if (pi == null || pi.endIndex < 0) {
+      return RaftConstants.INVALID_LOG_INDEX;
+    }
+    return sm.loadSnapshot(pi.path.toFile());
+  }
+
+  void start() {
+    stateMachineUpdater.start();
+  }
+
+  /**
+   * note we do not apply log entries to the state machine here since we do not
+   * know whether they have been committed.
+   */
   private RaftLog initLog(String id, RaftProperties prop)
       throws IOException {
     if (prop.getBoolean(RAFT_SERVER_USE_MEMORY_LOG_KEY,
         RAFT_SERVER_USE_MEMORY_LOG_DEFAULT)) {
       return new MemoryRaftLog(id);
     } else {
-      return new SegmentedRaftLog(id, prop, configurationManager);
+      return new SegmentedRaftLog(id, this.storage, configurationManager);
     }
   }
 
@@ -222,5 +249,17 @@ public class ServerState {
         }
       }
     }
+  }
+
+  void updateStatemachine(long majorityIndex, long currentTerm) {
+    log.updateLastCommitted(majorityIndex, currentTerm);
+    synchronized (stateMachineUpdater) {
+      stateMachineUpdater.notifyAll();
+    }
+  }
+
+  @Override
+  public void close() throws IOException {
+    stateMachineUpdater.stop();
   }
 }

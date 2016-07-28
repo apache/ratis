@@ -82,7 +82,7 @@ public abstract class RaftLog {
   /**
    * @return whether there is a configuration log entry between the index range
    */
-  public synchronized boolean committedConfEntry(long oldCommitted) {
+  public boolean committedConfEntry(long oldCommitted) {
     for (long i = oldCommitted + 1; i <= lastCommitted.get(); i++) {
       if (ProtoUtils.isConfigurationLogEntry(get(i))) {
         return true;
@@ -119,7 +119,7 @@ public abstract class RaftLog {
    * Used by the leader.
    * @return the index of the new log entry.
    */
-  public long append(long term, Message message) {
+  public synchronized long append(long term, Message message) {
     final long nextIndex = getNextIndex();
     final LogEntryProto e = ProtoUtils.toLogEntryProto(message,
         term, nextIndex);
@@ -132,7 +132,7 @@ public abstract class RaftLog {
    * and append the entry. Used by the leader.
    * @return the index of the new log entry.
    */
-  public long append(long term, RaftConfiguration newConf) {
+  public synchronized long append(long term, RaftConfiguration newConf) {
     final long nextIndex = getNextIndex();
     final LogEntryProto e = ProtoUtils.toLogEntryProto(newConf, term,
         nextIndex);
