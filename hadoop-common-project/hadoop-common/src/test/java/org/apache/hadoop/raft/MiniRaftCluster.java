@@ -23,6 +23,7 @@ import org.apache.hadoop.raft.client.RaftClientRequestSender;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.RaftConfiguration;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
@@ -229,10 +230,16 @@ public abstract class MiniRaftCluster {
     }
     if (leaders.isEmpty()) {
       return null;
-    } else {
-      Assert.assertEquals(leaders.toString(), 1, leaders.size());
-      return leaders.get(0);
+    } else if (leaders.size() != 1) {
+      Assert.fail(printServers() + leaders.toString()
+          + "leaders.size() = " + leaders.size() + " != 1");
     }
+    return leaders.get(0);
+  }
+
+  public boolean isLeader(String leaderId) throws InterruptedException {
+    final RaftServer leader = getLeader();
+    return leader != null && leader.getId().equals(leaderId);
   }
 
   public List<RaftServer> getFollowers() {
@@ -266,6 +273,9 @@ public abstract class MiniRaftCluster {
         .forEach(RaftServer::kill);
   }
 
+  public abstract void blockQueueAndSetDelay(String leaderId, int delayMs)
+      throws InterruptedException;
+
   /**
    * Try to enforce the leader of the cluster.
    * @param leaderId ID of the targeted leader server.
@@ -274,6 +284,19 @@ public abstract class MiniRaftCluster {
    */
   public boolean tryEnforceLeader(String leaderId) throws InterruptedException {
     // do nothing and see if the given id is already a leader.
-    return getServer(leaderId).isLeader();
+    if (isLeader(leaderId)) {
+      return true;
+    }
+
+    // Blocking all other server's RPC read process to make sure a read takes at
+    // least ELECTION_TIMEOUT_MIN. In this way when the target leader request a
+    // vote, all non-leader servers can grant the vote.
+    // Disable the target leader server RPC so that it can request a vote.
+    blockQueueAndSetDelay(leaderId, RaftConstants.ELECTION_TIMEOUT_MIN_MS);
+
+    // Reopen queues so that the vote can make progress.
+    blockQueueAndSetDelay(leaderId, 0);
+
+    return isLeader(leaderId);
   }
 }

@@ -50,19 +50,20 @@ public class RaftTestUtil {
   }
 
   public static RaftServer waitForLeader(MiniRaftCluster cluster,
-      String leaderId) throws InterruptedException {
+      final String leaderId) throws InterruptedException {
     LOG.info(cluster.printServers());
-    LOG.info("target leader = " + leaderId);
-    while (!cluster.tryEnforceLeader(leaderId)) {
+    for(int i = 0; !cluster.tryEnforceLeader(leaderId) && i < 10; i++) {
       RaftServer currLeader = cluster.getLeader();
-      if (currLeader != null) {
-        LOG.debug("try enforce leader, new leader = {}", currLeader.getId());
-      } else {
-        LOG.debug("no leader for this round");
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("try enforcing leader to " + leaderId + " but "
+            + (currLeader == null? "no leader for this round"
+                : "new leader is " + currLeader.getId()));
       }
     }
-    RaftServer leader = cluster.getLeader();
     LOG.info(cluster.printServers());
+
+    final RaftServer leader = cluster.getLeader();
+    Assert.assertEquals(leaderId, leader.getId());
     return leader;
   }
 

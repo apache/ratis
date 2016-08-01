@@ -17,9 +17,9 @@
  */
 package org.apache.hadoop.raft.hadoopRpc;
 
+import com.google.common.base.Preconditions;
 import com.google.protobuf.BlockingService;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.raft.proto.RaftClientProtocolProtos.RaftClientProtocolService;
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.RaftServerProtocolService;
@@ -39,6 +39,7 @@ import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
 import org.apache.hadoop.raft.server.protocol.pb.RaftServerProtocolClientSideTranslatorPB;
 import org.apache.hadoop.raft.server.protocol.pb.RaftServerProtocolPB;
 import org.apache.hadoop.raft.server.protocol.pb.RaftServerProtocolServerSideTranslatorPB;
+import org.apache.hadoop.raft.util.CodeInjectionForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,6 +51,8 @@ public class HadoopRpcService
     extends HadoopRpcBase<RaftServerProtocolClientSideTranslatorPB>
     implements RaftServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(HadoopRpcService.class);
+  static final String CLASS_NAME = HadoopRpcService.class.getSimpleName();
+  public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
   private final RaftServer server;
   private final RPC.Server ipcServer;
@@ -125,6 +128,9 @@ public class HadoopRpcService
   @Override
   public RaftServerReply sendServerRequest(RaftServerRequest request)
       throws IOException {
+    Preconditions.checkArgument(server.getId().equals(request.getRequestorId()));
+    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, server.getId(), request);
+
     final String id = request.getReplierId();
     final RaftServerProtocolClientSideTranslatorPB proxy = getServerProxy(id);
     if (proxy == null) {

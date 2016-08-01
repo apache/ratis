@@ -56,7 +56,7 @@ public class RaftClientProtocolClientSideTranslatorPB
       throws IOException {
     final RaftClientRequestProto p = ProtoUtils.toRaftClientRequestProto(request);
     try {
-      final RaftClientReplyProto proto = rpcProxy.submitClientRequest(null, p);
+      rpcProxy.submitClientRequest(null, p);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
@@ -68,7 +68,7 @@ public class RaftClientProtocolClientSideTranslatorPB
     final SetConfigurationRequestProto p
         = ProtoUtils.toSetConfigurationRequestProto(request);
     try {
-      final SetConfigurationReplyProto proto = rpcProxy.setConfiguration(null, p);
+      rpcProxy.setConfiguration(null, p);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }

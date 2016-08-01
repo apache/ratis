@@ -25,9 +25,6 @@ import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
-import org.apache.hadoop.raft.server.simulation.SimulatedClientRequestReply;
-import org.apache.hadoop.raft.server.simulation.SimulatedRequestReply;
-import org.apache.hadoop.raft.server.simulation.SimulatedServerRpc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,35 +70,21 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     return client2serverRequestReply;
   }
 
-  private void setTakeRequestDelayMs(String leaderId, int delayMs) {
-    getServers().stream().filter(s -> !s.getId().equals(leaderId)).forEach(
-        s -> serverRequestReply.setTakeRequestDelayMs(s.getId(), delayMs));
-  }
-
   @Override
-  public boolean tryEnforceLeader(String leaderId) throws InterruptedException {
-    final RaftServer leader = getLeader();
-    if (leader != null && leader.getId().equals(leaderId)) {
-      return true;
-    }
-    // Blocking all other server's RPC read process to make sure a read takes at
-    // least ELECTION_TIMEOUT_MIN. In this way when the target leader request a
-    // vote, all non-leader servers can grant the vote.
-    LOG.debug("begin blocking queue for target leader");
-    setTakeRequestDelayMs(leaderId, RaftConstants.ELECTION_TIMEOUT_MIN_MS);
-    // Disable the target leader server RPC so that it can request a vote.
-    serverRequestReply.setIsOpenForMessage(leaderId, false);
-    LOG.debug("Closed queue for target leader");
+  public void blockQueueAndSetDelay(String leaderId, int delayMs)
+      throws InterruptedException {
+    // block leader sendRequest if delayMs > 0
+    final boolean block = delayMs > 0;
+    LOG.debug("{} leader queue {} and set {}ms delay for the other queues",
+        block? "Block": "Unblock", leaderId, delayMs);
+    serverRequestReply.getQueue(leaderId).blockSendRequest.setBlocked(block);
 
-    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-    LOG.debug("target leader should have became candidate. open queue");
+    // set delay takeRequest for the other queues
+    getServers().stream().filter(s -> !s.getId().equals(leaderId))
+        .map(s -> serverRequestReply.getQueue(s.getId()))
+        .forEach(q -> q.delayTakeRequest.setDelayMs(delayMs));
 
-    // Reopen queues so that the vote can make progress.
-    setTakeRequestDelayMs(leaderId, 0);
-    serverRequestReply.setIsOpenForMessage(leaderId, true);
-    // Wait for a quiescence.
-    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-
-    return getServer(leaderId).isLeader();
+    final long sleepMs = 3 * RaftConstants.ELECTION_TIMEOUT_MAX_MS / 2;
+    Thread.sleep(sleepMs);
   }
 }

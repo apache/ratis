@@ -21,18 +21,17 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.raft.RaftBasicTests;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RaftServerConfigKeys;
+import org.apache.hadoop.raft.util.BlockReceiveServerRequest;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.junit.Test;
 
 import java.io.IOException;
 
 public class TestRaftWithHadoopRpc extends RaftBasicTests {
-  static final Logger LOG = LoggerFactory.getLogger(TestRaftWithHadoopRpc.class);
-
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
   }
 
   private final Configuration conf = new Configuration();
@@ -46,5 +45,14 @@ public class TestRaftWithHadoopRpc extends RaftBasicTests {
   @Override
   public MiniRaftClusterWithHadoopRpc getCluster() {
     return cluster;
+  }
+
+  @Override
+  @Test
+  public void testEnforceLeader() throws Exception {
+    super.testEnforceLeader();
+
+    DelaySendServerRequest.clear();
+    BlockReceiveServerRequest.clear();
   }
 }

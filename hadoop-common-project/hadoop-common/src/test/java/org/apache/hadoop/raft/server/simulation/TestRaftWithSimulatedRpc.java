@@ -19,13 +19,14 @@ package org.apache.hadoop.raft.server.simulation;
 
 import org.apache.hadoop.raft.RaftBasicTests;
 import org.apache.hadoop.raft.RaftTestUtil;
-import org.apache.hadoop.raft.RaftTestUtil.*;
+import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
 import org.apache.hadoop.raft.server.protocol.RaftServerRequest;
 import org.apache.hadoop.raft.server.storage.SegmentedRaftLog;
+import org.apache.hadoop.raft.util.SrcDstPairs;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.Test;
@@ -36,8 +37,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.apache.hadoop.raft.RaftTestUtil.*;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 public class TestRaftWithSimulatedRpc extends RaftBasicTests {
@@ -59,13 +58,6 @@ public class TestRaftWithSimulatedRpc extends RaftBasicTests {
   @Override
   public MiniRaftClusterWithSimulatedRpc getCluster() {
     return cluster;
-  }
-
-  @Test
-  public void testEnforceLeader() throws Exception {
-    waitForLeader(cluster);
-    waitForLeader(cluster, "s0");
-    assertEquals("s0", cluster.getLeader().getId());
   }
 
   @Test
@@ -105,9 +97,10 @@ public class TestRaftWithSimulatedRpc extends RaftBasicTests {
         for (int i = 0; i < followers.size(); i++) {
           followerIds[i] = followers.get(i).getId();
         }
-        serverRequestReply.addBlacklist(leaderId, followerIds);
+        final SrcDstPairs blackList = serverRequestReply.getBlacklist();
+        blackList.add(leaderId, followerIds);
         Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 10);
-        serverRequestReply.removeBlacklist(leaderId, followerIds);
+        blackList.remove(leaderId, followerIds);
       }
       LOG.info("Changed leader");
       LOG.info(cluster.printServers());

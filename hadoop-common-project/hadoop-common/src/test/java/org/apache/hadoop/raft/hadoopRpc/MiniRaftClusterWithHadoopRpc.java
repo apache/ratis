@@ -22,7 +22,9 @@ import org.apache.hadoop.raft.MiniRaftCluster;
 import org.apache.hadoop.raft.client.RaftClientRequestSender;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.protocol.RaftPeer;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.util.BlockReceiveServerRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +53,9 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
       final HadoopRpcService rpc = new HadoopRpcService(s, conf);
       rpcServices.add(rpc);
       s.setServerRpc(rpc);
-      peers.add(new RaftPeer(s.getId(), rpc.getInetSocketAddress()));
+
+      final String id = s.getId();
+      peers.add(new RaftPeer(id, rpc.getInetSocketAddress()));
     }
 
     LOG.info("peers = " + peers);
@@ -72,5 +76,22 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   public RaftClientRequestSender getRaftClientRequestSender()
       throws IOException {
     return new HadoopClientRequestSender(getPeers(), conf);
+  }
+
+  @Override
+  public void blockQueueAndSetDelay(String leaderId, int delayMs)
+      throws InterruptedException {
+    // block leader sendRequest if delayMs > 0
+    final boolean block = delayMs > 0;
+    LOG.debug("{} sendRequest for leader {} and set {}ms delay for the others",
+        block? "Block": "Unblock", leaderId, delayMs);
+    BlockReceiveServerRequest.setBlocked(leaderId, block);
+
+    // delay RaftServerRequest for other servers
+    getServers().stream().filter(s -> !s.getId().equals(leaderId))
+        .forEach(s -> DelaySendServerRequest.setDelayMs(s.getId(), delayMs));
+
+    final long sleepMs = 3 * RaftConstants.ELECTION_TIMEOUT_MAX_MS;
+    Thread.sleep(sleepMs);
   }
 }

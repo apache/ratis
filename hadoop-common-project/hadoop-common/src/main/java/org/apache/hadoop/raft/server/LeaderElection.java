@@ -43,7 +43,7 @@ class LeaderElection extends Daemon {
       List<Exception> exceptions, long newTerm) {
     LOG.info(server.getId() + ": Election " + r + "; received "
         + responses.size() + " response(s) " + responses + " and "
-        + exceptions.size() + " exception(s); " + conf);
+        + exceptions.size() + " exception(s); " + server.getState());
     int i = 0;
     for(Exception e : exceptions) {
       LOG.info("  " + i++ + ": " + e);

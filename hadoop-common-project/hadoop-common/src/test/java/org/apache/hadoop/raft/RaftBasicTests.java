@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Random;
 
 import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
@@ -96,6 +97,15 @@ public abstract class RaftBasicTests {
     cluster.getServers().stream().filter(RaftServer::isRunning)
         .map(s -> s.getState().getLog().getEntries(1, Long.MAX_VALUE))
         .forEach(e -> RaftTestUtil.assertLogEntries(e, 1, term, messages));
+  }
+
+  @Test
+  public void testEnforceLeader() throws Exception {
+    final String leader = "s" + new Random().nextInt(NUM_SERVERS);
+    LOG.info("enforce leader to " + leader);
+    final MiniRaftCluster cluster = getCluster();
+    waitForLeader(cluster);
+    waitForLeader(cluster, leader);
   }
 }
 

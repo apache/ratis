@@ -26,6 +26,7 @@ import org.apache.hadoop.raft.protocol.*;
 import org.apache.hadoop.raft.server.protocol.*;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
+import org.apache.hadoop.raft.util.CodeInjectionForTesting;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
@@ -44,6 +45,10 @@ import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_STA
 @InterfaceStability.Unstable
 public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServer.class);
+
+  static final String CLASS_NAME = RaftServer.class.getSimpleName();
+  public static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
+  public static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
 
   enum RunningState {
     /**
@@ -196,6 +201,9 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
    */
   synchronized boolean changeToFollower(long newTerm, boolean sync)
       throws IOException {
+    final Role old = role;
+    role = Role.FOLLOWER;
+
     boolean metadataUpdated = false;
     if (newTerm > state.getCurrentTerm()) {
       state.setCurrentTerm(newTerm);
@@ -203,15 +211,14 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       metadataUpdated = true;
     }
 
-    if (isLeader()) {
+    if (old == Role.LEADER) {
       assert leaderState != null;
       shutdownLeaderState();
-    } else if (isCandidate()) {
+    } else if (old == Role.CANDIDATE) {
       shutdownElectionDaemon();
     }
 
-    if (!isFollower()) {
-      role = Role.FOLLOWER;
+    if (old != Role.FOLLOWER) {
       heartbeatMonitor = new FollowerState(this);
       heartbeatMonitor.start();
     }
@@ -381,6 +388,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   private RequestVoteReply requestVote(String candidateId, long candidateTerm,
       TermIndex candidateLastEntry) throws IOException {
+    CodeInjectionForTesting.execute(REQUEST_VOTE, getId(),
+        candidateId, candidateTerm, candidateLastEntry);
     LOG.debug("{}: receive requestVote({}, {}, {})",
         getId(), candidateId, candidateTerm, candidateLastEntry);
     assertRunningState(RunningState.RUNNING);
@@ -457,6 +466,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   private AppendEntriesReply appendEntries(String leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
       LogEntryProto... entries) throws IOException {
+    CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(),
+        leaderId, leaderTerm, previous, leaderCommit, initializing, entries);
     if (LOG.isDebugEnabled()) {
       LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {})", getId(),
           leaderId, leaderTerm, previous, leaderCommit,
