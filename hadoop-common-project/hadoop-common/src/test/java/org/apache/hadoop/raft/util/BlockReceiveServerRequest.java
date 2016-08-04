@@ -17,50 +17,51 @@
  */
 package org.apache.hadoop.raft.util;
 
+import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.server.RaftServer;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Inject code to block particular servers receiving server requests. */
-public class BlockReceiveServerRequest implements CodeInjectionForTesting.Code {
+public class BlockReceiveServerRequest
+    implements CodeInjectionForTesting.Code {
   private static final BlockReceiveServerRequest INSTANCE = new BlockReceiveServerRequest();
+
   static {
     CodeInjectionForTesting.put(RaftServer.REQUEST_VOTE, INSTANCE);
     CodeInjectionForTesting.put(RaftServer.APPEND_ENTRIES, INSTANCE);
   }
 
-  private static final Map<String, BlockForTesting> blocks = new ConcurrentHashMap<>();
-
-  public static void clear() {
-    blocks.clear();
-  }
-
-  public static void setBlocked(String id, boolean block) {
-    BlockForTesting b = blocks.get(id);
+  static void block(final Boolean b) {
     if (b == null) {
-      blocks.put(id, b = new BlockForTesting());
+      return;
     }
-    b.setBlocked(block);
-  }
-
-  private BlockReceiveServerRequest() {}
-
-  @Override
-  public Object execute(Object... args) throws IOException {
-    final Object id = args[0];
-    final BlockForTesting b = blocks.get(id);
-    if (b == null) {
-      return null;
-    }
-    LOG.info(id + ": " + b + ", args=" + Arrays.toString(args));
     try {
-      b.blockForTesting();
+      RaftTestUtil.block(() -> b);
     } catch (InterruptedException e) {
       RaftUtils.toInterruptedIOException("", e);
     }
+  }
+
+  public static Map<String, Boolean> getSources() {
+    return INSTANCE.sources;
+  }
+
+  public static Map<String, Boolean> getDestinations() {
+    return INSTANCE.destinations;
+  }
+
+  private final Map<String, Boolean> sources = new ConcurrentHashMap<>();
+  private final Map<String, Boolean> destinations = new ConcurrentHashMap<>();
+
+  @Override
+  public Object execute(Object... args) throws IOException {
+    block(destinations.get(args[0]));
+    block(sources.get(args[1]));
     return null;
   }
+
+  private BlockReceiveServerRequest() {}
 }

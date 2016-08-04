@@ -38,9 +38,9 @@ public class SimulatedServerRpc implements RaftServerRpc {
                             RequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
     this.server = server;
     this.serverHandler = new RequestHandler<>(server.getId(), "serverHandler",
-        serverRequestReply, serverHandlerImpl);
+        serverRequestReply, serverHandlerImpl, 3);
     this.clientHandler = new RequestHandler<>(server.getId(), "clientHandler",
-        clientRequestReply, clientHandlerImpl);
+        clientRequestReply, clientHandlerImpl, 3);
   }
 
   @Override

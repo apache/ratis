@@ -17,14 +17,15 @@
  */
 package org.apache.hadoop.raft.hadoopRpc;
 
+import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.util.CodeInjectionForTesting;
-import org.apache.hadoop.raft.util.DelayForTesting;
 import org.apache.hadoop.raft.util.RaftUtils;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Inject code to delay particular servers sending out server requests. */
 public class DelaySendServerRequest
@@ -34,18 +35,18 @@ public class DelaySendServerRequest
     CodeInjectionForTesting.put(HadoopRpcService.SEND_SERVER_REQUEST, INSTANCE);
   }
 
-  private static final Map<String, DelayForTesting> delays = new ConcurrentHashMap<>();
+  private static final Map<String, AtomicInteger> delays = new ConcurrentHashMap<>();
 
   public static void clear() {
     delays.clear();
   }
 
   public static void setDelayMs(String id, int delayMs) {
-    DelayForTesting d = delays.get(id);
+    AtomicInteger d = delays.get(id);
     if (d == null) {
-      delays.put(id, d = new DelayForTesting());
+      delays.put(id, d = new AtomicInteger());
     }
-    d.setDelayMs(delayMs);
+    d.set(delayMs);
   }
 
   private DelaySendServerRequest() {}
@@ -53,13 +54,13 @@ public class DelaySendServerRequest
   @Override
   public Object execute(Object... args) throws IOException {
     final Object id = args[0];
-    final DelayForTesting d = delays.get(id);
+    final AtomicInteger d = delays.get(id);
     if (d == null) {
       return null;
     }
     LOG.info(id + ": " + d + ", args=" + Arrays.toString(args));
     try {
-      d.delayForTesting();
+      RaftTestUtil.delay(() -> d.get());
     } catch (InterruptedException e) {
       RaftUtils.toInterruptedIOException("", e);
     }

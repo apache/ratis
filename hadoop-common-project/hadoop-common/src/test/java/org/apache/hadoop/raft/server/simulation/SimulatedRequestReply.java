@@ -18,14 +18,11 @@
 package org.apache.hadoop.raft.server.simulation;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.RaftRpcMessage;
 import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
-import org.apache.hadoop.raft.util.BlockForTesting;
-import org.apache.hadoop.raft.util.DelayForTesting;
 import org.apache.hadoop.raft.util.RaftUtils;
-import org.apache.hadoop.raft.util.SrcDstPairs;
 import org.apache.hadoop.util.Time;
 
 import java.io.IOException;
@@ -35,6 +32,8 @@ import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> implements RequestReply<REQUEST, REPLY> {
@@ -52,16 +51,17 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   }
 
   static class EventQueue<REQUEST, REPLY> {
-    private final BlockingQueue<REQUEST> requestQueue;
-    private final Map<REQUEST, ReplyOrException<REPLY>> replyMap;
+    private final BlockingQueue<REQUEST> requestQueue
+        = new LinkedBlockingQueue<>();
+    private final Map<REQUEST, ReplyOrException<REPLY>> replyMap
+        = new ConcurrentHashMap<>();
 
-    final BlockForTesting blockSendRequest = new BlockForTesting();
-    final DelayForTesting delayTakeRequest = new DelayForTesting();
-
-    EventQueue() {
-      this.requestQueue = new LinkedBlockingQueue<>();
-      this.replyMap = new ConcurrentHashMap<>();
-    }
+    /** Block takeRequest for the requests sent from this server. */
+    final AtomicBoolean blockTakeRequestFrom = new AtomicBoolean();
+    /** Block sendRequest for the requests sent to this server. */
+    final AtomicBoolean blockSendRequestTo = new AtomicBoolean();
+    /** Delay takeRequest for the requests sent to this server. */
+    final AtomicInteger delayTakeRequestTo = new AtomicInteger();
 
     REPLY request(REQUEST request) throws InterruptedException, IOException {
       requestQueue.put(request);
@@ -98,7 +98,6 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   }
 
   private final Map<String, EventQueue<REQUEST, REPLY>> queues;
-  private final SrcDstPairs blacklist = new SrcDstPairs();
 
   public SimulatedRequestReply(Collection<RaftPeer> allPeers) {
     queues = new ConcurrentHashMap<>();
@@ -111,10 +110,6 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     return queues.get(qid);
   }
 
-  SrcDstPairs getBlacklist() {
-    return blacklist;
-  }
-
   @Override
   public REPLY sendRequest(REQUEST request) throws IOException {
     final String qid = request.getReplierId();
@@ -123,7 +118,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
       throw new IOException("The peer " + qid + " is not alive.");
     }
     try {
-      q.blockSendRequest.blockForTesting();
+      RaftTestUtil.block(() -> q.blockSendRequestTo.get());
       return q.request(request);
     } catch (InterruptedException e) {
       throw RaftUtils.toInterruptedIOException("", e);
@@ -132,18 +127,28 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
 
   @Override
   public REQUEST takeRequest(String qid) throws IOException {
+    final EventQueue<REQUEST, REPLY> q = queues.get(qid);
+    if (q == null) {
+      throw new IOException("The RPC of " + qid + " has already shutdown.");
+    }
+
+    final REQUEST request;
     try {
-      final EventQueue<REQUEST, REPLY> q = queues.get(qid);
-      if (q == null) {
-        throw new IOException("The RPC of " + qid + " has already shutdown.");
+      // delay request for testing
+      RaftTestUtil.delay(() -> q.delayTakeRequestTo.get());
+
+      request = q.takeRequest();
+      Preconditions.checkState(qid.equals(request.getReplierId()));
+
+      // block request for testing
+      final EventQueue<REQUEST, REPLY> reqQ = queues.get(request.getRequestorId());
+      if (reqQ != null) {
+        RaftTestUtil.block(() -> reqQ.blockTakeRequestFrom.get());
       }
-      q.delayTakeRequest.delayForTesting();
-      REQUEST request = q.takeRequest();
-      blockForBlacklist(request, qid);
-      return request;
     } catch (InterruptedException e) {
       throw RaftUtils.toInterruptedIOException("", e);
     }
+    return request;
   }
 
   @Override
@@ -171,21 +176,6 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   public void addPeers(Collection<RaftPeer> newPeers) {
     for (RaftPeer peer : newPeers) {
       queues.put(peer.getId(), new EventQueue<>());
-    }
-  }
-
-  private void blockForBlacklist(REQUEST request, String dstId)
-      throws IOException {
-    final String rid = request.getRequestorId();
-    if (!(request instanceof AppendEntriesRequest)
-        || ((AppendEntriesRequest) request).getEntries() != null) {
-      try {
-        while (blacklist.contains(rid, dstId)) {
-          Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
-        }
-      } catch (InterruptedException ie) {
-        throw RaftUtils.toInterruptedIOException("", ie);
-      }
     }
   }
 

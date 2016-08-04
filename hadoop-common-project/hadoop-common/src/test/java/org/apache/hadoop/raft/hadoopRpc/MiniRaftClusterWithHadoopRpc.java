@@ -91,7 +91,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
     final boolean block = delayMs > 0;
     LOG.debug("{} sendRequest for leader {} and set {}ms delay for the others",
         block? "Block": "Unblock", leaderId, delayMs);
-    BlockReceiveServerRequest.setBlocked(leaderId, block);
+    BlockReceiveServerRequest.getDestinations().put(leaderId, block);
 
     // delay RaftServerRequest for other servers
     getServers().stream().filter(s -> !s.getId().equals(leaderId))
@@ -99,5 +99,10 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
 
     final long sleepMs = 3 * RaftConstants.ELECTION_TIMEOUT_MAX_MS;
     Thread.sleep(sleepMs);
+  }
+
+  @Override
+  public void setBlockRequestsFrom(String src, boolean block) {
+    BlockReceiveServerRequest.getSources().put(src, block);
   }
 }

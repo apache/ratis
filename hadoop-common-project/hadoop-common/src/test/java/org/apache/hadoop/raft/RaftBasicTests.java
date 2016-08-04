@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft;
 
+import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.server.RaftConstants;
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
@@ -84,10 +86,9 @@ public abstract class RaftBasicTests {
     cluster.killServer(killed);
     LOG.info(cluster.printServers());
 
-    final RaftTestUtil.SimpleMessage[] messages = new RaftTestUtil.SimpleMessage[10];
     final RaftClient client = cluster.createClient("client", null);
+    final SimpleMessage[] messages = SimpleMessage.create(10);
     for (int i = 0; i < messages.length; i++) {
-      messages[i] = new RaftTestUtil.SimpleMessage("m" + i);
       client.send(messages[i]);
     }
 
@@ -106,6 +107,54 @@ public abstract class RaftBasicTests {
     final MiniRaftCluster cluster = getCluster();
     waitForLeader(cluster);
     waitForLeader(cluster, leader);
+  }
+
+  @Test
+  public void testWithLoad() throws Exception {
+    final MiniRaftCluster cluster = getCluster();
+    LOG.info(cluster.printServers());
+
+    final SimpleMessage[] messages = SimpleMessage.create(500);
+    final RaftClient client = cluster.createClient("client", null);
+
+    final Exception[] exceptionInClientThread = new Exception[1];
+    final Thread clientThread = new Thread(() -> {
+      try {
+        for (SimpleMessage message : messages) {
+          client.send(message);
+        }
+      } catch (IOException ioe) {
+        exceptionInClientThread[0] = ioe;
+      }
+    });
+    clientThread.start();
+
+    while (clientThread.isAlive()) {
+      Thread.sleep(2000);
+      RaftServer leader = cluster.getLeader();
+      if (leader != null) {
+        final String oldLeader = leader.getId();
+        LOG.info("Block all requests sent by leader " + oldLeader);
+        cluster.setBlockRequestsFrom(oldLeader, true);
+        String newLeader = oldLeader;
+        for(int i = 0; i < 10 && newLeader.equals(oldLeader); i++) {
+          newLeader = RaftTestUtil.waitForLeader(cluster).getId();
+        }
+        cluster.setBlockRequestsFrom(oldLeader, false);
+        LOG.info("Changed leader from " + oldLeader + " to " + newLeader
+            + cluster.printServers());
+        Assert.assertFalse(newLeader.equals(oldLeader));
+      }
+    }
+    clientThread.join();
+    if (exceptionInClientThread[0] != null) {
+      throw new AssertionError(exceptionInClientThread[0]);
+    }
+
+    LOG.info(cluster.printAllLogs());
+    cluster.getServers().stream().filter(RaftServer::isRunning)
+        .map(s -> s.getState().getLog().getEntries(0, Long.MAX_VALUE))
+        .forEach(e -> RaftTestUtil.assertLogEntriesContains(e, messages));
   }
 }
 

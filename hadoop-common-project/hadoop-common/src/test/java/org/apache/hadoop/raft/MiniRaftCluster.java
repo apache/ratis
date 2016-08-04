@@ -300,4 +300,7 @@ public abstract class MiniRaftCluster {
 
     return isLeader(leaderId);
   }
+
+  /** Block/unblock the requests sent from the given source. */
+  public abstract void setBlockRequestsFrom(String src, boolean block);
 }

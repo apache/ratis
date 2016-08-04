@@ -112,7 +112,7 @@ class PendingRequestsHandler {
   class PendingRequestDaemon extends Daemon {
     @Override
     public String toString() {
-      return getClass().getSimpleName();
+      return server.getId() + ": " + getClass().getSimpleName();
     }
 
     @Override
@@ -132,7 +132,7 @@ class PendingRequestsHandler {
             PendingRequestsHandler.this.wait(RaftConstants.RPC_TIMEOUT_MIN_MS);
           }
         } catch (InterruptedException e) {
-          LOG.info(this + " is interrupted by ", e);
+          LOG.info(this + " is interrupted.", e);
           break;
         } catch (Throwable t) {
           if (!running) {

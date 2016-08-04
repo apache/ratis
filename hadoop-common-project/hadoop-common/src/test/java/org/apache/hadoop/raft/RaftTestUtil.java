@@ -109,6 +109,14 @@ public class RaftTestUtil {
   }
 
   public static class SimpleMessage implements Message {
+    public static SimpleMessage[] create(int numMessages) {
+      final SimpleMessage[] messages = new SimpleMessage[numMessages];
+      for (int i = 0; i < messages.length; i++) {
+        messages[i] = new SimpleMessage("m" + i);
+      }
+      return messages;
+    }
+
     final String messageId;
 
     public SimpleMessage(final String messageId) {
@@ -153,5 +161,26 @@ public class RaftTestUtil {
       throw new IOException("Cannot create directory " + dir);
     }
     return dir;
+  }
+
+  public interface IsBlocked {
+    boolean isBlocked();
+  }
+
+  public static void block(IsBlocked impl) throws InterruptedException {
+    for(; impl.isBlocked(); ) {
+      Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
+    }
+  }
+
+  public interface GetDelay {
+    int getDelayMs();
+  }
+
+  public static void delay(GetDelay impl) throws InterruptedException {
+    final int t = impl.getDelayMs();
+    if (t > 0) {
+      Thread.sleep(t);
+    }
   }
 }

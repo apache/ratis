@@ -53,6 +53,7 @@ public class TestRaftWithHadoopRpc extends RaftBasicTests {
     super.testEnforceLeader();
 
     DelaySendServerRequest.clear();
-    BlockReceiveServerRequest.clear();
+    BlockReceiveServerRequest.getDestinations().clear();
   }
+
 }

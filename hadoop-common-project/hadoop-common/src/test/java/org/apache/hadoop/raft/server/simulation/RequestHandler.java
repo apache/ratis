@@ -24,6 +24,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.apache.hadoop.util.ExitUtil.terminate;
 
@@ -43,20 +45,27 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
   private final String name;
   private final RequestReply<REQUEST, REPLY> rpc;
   private final HandlerInterface<REQUEST, REPLY> handlerImpl;
-  private final HandlerDaemon daemon;
+  private final List<HandlerDaemon> daemons;
 
   RequestHandler(String serverId, String name,
                  RequestReply<REQUEST, REPLY> rpc,
-                 HandlerInterface<REQUEST, REPLY> handlerImpl) {
+                 HandlerInterface<REQUEST, REPLY> handlerImpl,
+                 int numHandlers) {
     this.serverId = serverId;
     this.name = name;
     this.rpc = rpc;
     this.handlerImpl = handlerImpl;
-    this.daemon = new HandlerDaemon();
+
+    this.daemons = new ArrayList<>(numHandlers);
+    for(int i = 0; i < numHandlers; i++) {
+      daemons.add(new HandlerDaemon(i));
+    }
   }
 
   void startDaemon() {
-    daemon.start();
+    for(Daemon d : daemons) {
+      d.start();
+    }
   }
 
   void shutdown() {
@@ -64,8 +73,12 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
   }
 
   void interruptAndJoinDaemon() throws InterruptedException {
-    daemon.interrupt();
-    daemon.join();
+    for (Daemon d : daemons) {
+      d.interrupt();
+    }
+    for (Daemon d : daemons) {
+      d.join();
+    }
   }
 
   RequestReply<REQUEST, REPLY> getRpc() {
@@ -90,9 +103,15 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
    * A thread keep polling requests from the request queue. Used for simulation.
    */
   class HandlerDaemon extends Daemon {
+    private final int id;
+
+    HandlerDaemon(int id) {
+      this.id = id;
+    }
+
     @Override
     public String toString() {
-      return serverId + "." + name;
+      return serverId + "." + name + id;
     }
 
     @Override

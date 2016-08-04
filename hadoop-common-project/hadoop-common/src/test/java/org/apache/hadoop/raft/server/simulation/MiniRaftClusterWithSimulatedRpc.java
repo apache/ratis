@@ -57,11 +57,6 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     ));
   }
 
-  public SimulatedRequestReply<RaftServerRequest, RaftServerReply>
-      getServerRequestReply() {
-    return serverRequestReply;
-  }
-
   @Override
   public void addNewPeers(Collection<RaftPeer> newPeers,
                           Collection<RaftServer> newServers) {
@@ -83,14 +78,19 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     final boolean block = delayMs > 0;
     LOG.debug("{} leader queue {} and set {}ms delay for the other queues",
         block? "Block": "Unblock", leaderId, delayMs);
-    serverRequestReply.getQueue(leaderId).blockSendRequest.setBlocked(block);
+    serverRequestReply.getQueue(leaderId).blockSendRequestTo.set(block);
 
     // set delay takeRequest for the other queues
     getServers().stream().filter(s -> !s.getId().equals(leaderId))
         .map(s -> serverRequestReply.getQueue(s.getId()))
-        .forEach(q -> q.delayTakeRequest.setDelayMs(delayMs));
+        .forEach(q -> q.delayTakeRequestTo.set(delayMs));
 
     final long sleepMs = 3 * RaftConstants.ELECTION_TIMEOUT_MAX_MS / 2;
     Thread.sleep(sleepMs);
+  }
+
+  @Override
+  public void setBlockRequestsFrom(String src, boolean block) {
+    serverRequestReply.getQueue(src).blockTakeRequestFrom.set(block);
   }
 }
