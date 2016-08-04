@@ -22,17 +22,16 @@ import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.RaftConstants;
+import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.storage.LogSegment.SegmentFileInfo;
 import org.apache.hadoop.raft.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.hadoop.raft.server.storage.SegmentedRaftLog.Task;
 import org.apache.hadoop.raft.util.RaftUtils;
-import org.apache.hadoop.util.ExitUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.nio.file.Files;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -53,6 +52,7 @@ class RaftLogWorker implements Runnable {
 
   private final RaftStorage storage;
   private LogOutputStream out;
+  private final RaftServer raftServer;
 
   /**
    * The number of entries that have been written into the LogOutputStream but
@@ -64,14 +64,15 @@ class RaftLogWorker implements Runnable {
   /** the largest index of the entry that has been flushed */
   private volatile long flushedIndex;
 
-  RaftLogWorker(RaftStorage storage, long latestIndex) {
+  RaftLogWorker(RaftServer raftServer, RaftStorage storage) {
+    this.raftServer = raftServer;
     this.storage = storage;
     workerThread = new Thread(this, this.getClass().getSimpleName());
-    lastWrittenIndex = latestIndex;
-    flushedIndex = latestIndex;
   }
 
-  void start() {
+  void start(long latestIndex) {
+    lastWrittenIndex = latestIndex;
+    flushedIndex = latestIndex;
     workerThread.start();
   }
 
@@ -85,7 +86,7 @@ class RaftLogWorker implements Runnable {
   }
 
   /**
-   * This is protected by the RaftServer's lock.
+   * This is protected by the RaftServer and RaftLog's lock.
    */
   private Task addIOTask(Task task) {
     LOG.debug("add task {}", task);
@@ -151,8 +152,8 @@ class RaftLogWorker implements Runnable {
   private void updateFlushedIndex() {
     flushedIndex = lastWrittenIndex;
     pendingFlushNum = 0;
-    synchronized (this) {
-      notifyAll();
+    if (raftServer != null) {
+      raftServer.submitLocalSyncEvent();
     }
   }
 

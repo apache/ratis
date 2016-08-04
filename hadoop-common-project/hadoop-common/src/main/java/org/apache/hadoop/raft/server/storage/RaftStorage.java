@@ -30,7 +30,6 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_DEFAULT;
 import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY;
@@ -41,7 +40,7 @@ public class RaftStorage implements Closeable {
   // TODO support multiple storage directories
   private final RaftStorageDirectory storageDir;
   private final StorageState state;
-  private MetaFile metaFile;
+  private volatile MetaFile metaFile;
 
   public RaftStorage(RaftProperties prop, RaftConstants.StartupOption option)
       throws IOException {

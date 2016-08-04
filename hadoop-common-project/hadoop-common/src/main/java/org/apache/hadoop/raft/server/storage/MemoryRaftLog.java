@@ -37,89 +37,132 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public synchronized LogEntryProto get(long index) {
-    final int i = (int) index;
-    return i >= 0 && i < entries.size()? entries.get(i): null;
+  public LogEntryProto get(long index) {
+    checkLogState();
+    readLock();
+    try {
+      final int i = (int) index;
+      return i >= 0 && i < entries.size() ? entries.get(i) : null;
+    } finally {
+      readUnlock();
+    }
   }
 
   @Override
-  public synchronized LogEntryProto[] getEntries(long startIndex, long endIndex) {
-    final int i = (int) startIndex;
-    if (startIndex >= entries.size()) {
-      return null;
+  public LogEntryProto[] getEntries(long startIndex, long endIndex) {
+    checkLogState();
+    readLock();
+    try {
+      final int i = (int) startIndex;
+      if (startIndex >= entries.size()) {
+        return null;
+      }
+      final int toIndex = (int) Math.min(entries.size(), endIndex);
+      return entries.subList(i, toIndex).toArray(EMPTY_LOGENTRY_ARRAY);
+    } finally {
+      readUnlock();
     }
-    final int toIndex = (int) Math.min(entries.size(), endIndex);
-    return entries.subList(i, toIndex).toArray(EMPTY_LOGENTRY_ARRAY);
   }
 
   @Override
   void truncate(long index) {
-    Preconditions.checkArgument(index >= 0);
-    final int truncateIndex = (int) index;
-    for(int i = entries.size() - 1; i >= truncateIndex; i--) {
-      entries.remove(i);
-    }
-  }
-
-  @Override
-  public synchronized LogEntryProto getLastEntry() {
-    final int size = entries.size();
-    return size == 0? null: entries.get(size - 1);
-  }
-
-  @Override
-  synchronized void appendEntry(LogEntryProto entry) {
-    entries.add(entry);
-  }
-
-  @Override
-  public synchronized long append(long term, RaftConfiguration newConf) {
-    final long nextIndex = getNextIndex();
-    final LogEntryProto e = ProtoUtils.toLogEntryProto(newConf, term,
-        nextIndex);
-    entries.add(e);
-    return nextIndex;
-  }
-
-  @Override
-  public synchronized void append(LogEntryProto... entries) {
-    if (entries == null || entries.length == 0) {
-      return;
-    }
-    // Before truncating the entries, we first need to check if some
-    // entries are duplicated. If the leader sends entry 6, entry 7, then
-    // entry 6 again, without this check the follower may truncate entry 7
-    // when receiving entry 6 again. Then before the leader detects this
-    // truncation in the next appendEntries RPC, leader may think entry 7 has
-    // been committed but in the system the entry has not been committed to the
-    // quorum of peers' disks.
-    // TODO add a unit test for this
-    boolean toTruncate = false;
-    int truncateIndex = (int) entries[0].getIndex();
-    int index = 0;
-    for (; truncateIndex < getNextIndex() && index < entries.length;
-         index++, truncateIndex++) {
-      if (this.entries.get(truncateIndex).getTerm() != entries[index].getTerm()) {
-        toTruncate = true;
-        break;
+    checkLogState();
+    writeLock();
+    try {
+      Preconditions.checkArgument(index >= 0);
+      final int truncateIndex = (int) index;
+      for (int i = entries.size() - 1; i >= truncateIndex; i--) {
+        entries.remove(i);
       }
-    }
-    if (toTruncate) {
-      truncate(truncateIndex);
-    }
-    //  Collections.addAll(this.entries, entries);
-    for (int i = index; i < entries.length; i++) {
-      this.entries.add(entries[i]);
+    } finally {
+      writeUnlock();
     }
   }
 
   @Override
-  public synchronized String toString() {
+  public LogEntryProto getLastEntry() {
+    checkLogState();
+    readLock();
+    try {
+      final int size = entries.size();
+      return size == 0 ? null : entries.get(size - 1);
+    } finally {
+      readUnlock();
+    }
+  }
+
+  @Override
+  void appendEntry(LogEntryProto entry) {
+    checkLogState();
+    writeLock();
+    try {
+      entries.add(entry);
+    } finally {
+      writeUnlock();
+    }
+  }
+
+  @Override
+  public long append(long term, RaftConfiguration newConf) {
+    checkLogState();
+    writeLock();
+    try {
+      final long nextIndex = getNextIndex();
+      final LogEntryProto e = ProtoUtils.toLogEntryProto(newConf, term,
+          nextIndex);
+      entries.add(e);
+      return nextIndex;
+    } finally {
+      writeUnlock();
+    }
+  }
+
+  @Override
+  public void append(LogEntryProto... entries) {
+    checkLogState();
+    writeLock();
+    try {
+      if (entries == null || entries.length == 0) {
+        return;
+      }
+      // Before truncating the entries, we first need to check if some
+      // entries are duplicated. If the leader sends entry 6, entry 7, then
+      // entry 6 again, without this check the follower may truncate entry 7
+      // when receiving entry 6 again. Then before the leader detects this
+      // truncation in the next appendEntries RPC, leader may think entry 7 has
+      // been committed but in the system the entry has not been committed to
+      // the quorum of peers' disks.
+      // TODO add a unit test for this
+      boolean toTruncate = false;
+      int truncateIndex = (int) entries[0].getIndex();
+      int index = 0;
+      for (; truncateIndex < getNextIndex() && index < entries.length;
+           index++, truncateIndex++) {
+        if (this.entries.get(truncateIndex).getTerm() !=
+            entries[index].getTerm()) {
+          toTruncate = true;
+          break;
+        }
+      }
+      if (toTruncate) {
+        truncate(truncateIndex);
+      }
+      //  Collections.addAll(this.entries, entries);
+      for (int i = index; i < entries.length; i++) {
+        this.entries.add(entries[i]);
+      }
+    } finally {
+      writeUnlock();
+    }
+  }
+
+  @Override
+  public String toString() {
     return "last=" + ServerProtoUtils.toString(getLastEntry())
         + ", committed=" + ServerProtoUtils.toString(getLastCommitted());
   }
 
-  public synchronized String getEntryString() {
+  public String getEntryString() {
     return "entries=" + entries;
   }
 

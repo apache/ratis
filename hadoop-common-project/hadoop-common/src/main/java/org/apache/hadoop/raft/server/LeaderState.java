@@ -81,7 +81,7 @@ class LeaderState {
     NOPROGRESS, PROGRESSING, CAUGHTUP
   }
 
-  private static class StateUpdateEvent {
+  static class StateUpdateEvent {
     final StateUpdateEventType type;
     final long newTerm;
 
@@ -91,7 +91,7 @@ class LeaderState {
     }
   }
 
-  private static final StateUpdateEvent UPDATE_COMMIT_EVENT =
+  static final StateUpdateEvent UPDATE_COMMIT_EVENT =
       new StateUpdateEvent(StateUpdateEventType.UPDATECOMMIT, -1);
   private static final StateUpdateEvent STAGING_PROGRESS_EVENT =
       new StateUpdateEvent(StateUpdateEventType.STAGINGPROGRESS, -1);

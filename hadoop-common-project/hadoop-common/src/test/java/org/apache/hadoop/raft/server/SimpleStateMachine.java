@@ -17,9 +17,11 @@
  */
 package org.apache.hadoop.raft.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.storage.LogInputStream;
 import org.apache.hadoop.raft.server.storage.LogOutputStream;
 import org.apache.hadoop.raft.server.storage.RaftStorage;
@@ -45,7 +47,7 @@ public class SimpleStateMachine implements StateMachine {
   public static final String RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY = "raft.test.simple.state.machine.take.snapshot";
   public static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
 
-  private final List<RaftProtos.LogEntryProto> list =
+  private final List<LogEntryProto> list =
       Collections.synchronizedList(new ArrayList<>());
   private final Daemon checkpointer;
   private volatile boolean running = true;
@@ -79,7 +81,7 @@ public class SimpleStateMachine implements StateMachine {
   }
 
   @Override
-  public synchronized void applyLogEntry(RaftProtos.LogEntryProto entry) {
+  public synchronized void applyLogEntry(LogEntryProto entry) {
     Preconditions.checkArgument(list.isEmpty() ||
         entry.getIndex() - 1 == list.get(list.size() - 1).getIndex());
     list.add(entry);
@@ -89,7 +91,7 @@ public class SimpleStateMachine implements StateMachine {
   public long takeSnapshot(File snapshotFile, RaftStorage storage) {
     final long endIndex = getIndexFromSnapshotFileName(snapshotFile.getName());
     try (LogOutputStream out = new LogOutputStream(snapshotFile, false)) {
-      for (final RaftProtos.LogEntryProto entry : list) {
+      for (final LogEntryProto entry : list) {
         if (entry.getIndex() > endIndex) {
           break;
         } else {
@@ -116,7 +118,7 @@ public class SimpleStateMachine implements StateMachine {
       final long endIndex = getIndexFromSnapshotFileName(snapshotFile.getName());
       try (LogInputStream in =
                new LogInputStream(snapshotFile, 0, endIndex, false)) {
-        RaftProtos.LogEntryProto entry;
+        LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
           list.add(entry);
         }
@@ -131,5 +133,10 @@ public class SimpleStateMachine implements StateMachine {
   public void close() throws IOException {
     running = false;
     checkpointer.interrupt();
+  }
+
+  @VisibleForTesting
+  LogEntryProto[] getContent() {
+    return list.toArray(new LogEntryProto[list.size()]);
   }
 }

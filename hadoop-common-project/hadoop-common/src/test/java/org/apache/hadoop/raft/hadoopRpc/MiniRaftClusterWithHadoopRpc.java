@@ -39,8 +39,14 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   private final Configuration conf;
 
   public MiniRaftClusterWithHadoopRpc(int numServers, RaftProperties properties,
-                                      Configuration conf) throws IOException {
-    super(numServers, properties);
+      Configuration conf) throws IOException {
+    this(numServers, properties, conf, true);
+  }
+
+  public MiniRaftClusterWithHadoopRpc(int numServers, RaftProperties properties,
+                                      Configuration conf, boolean formatted)
+      throws IOException {
+    super(numServers, properties, formatted);
     this.conf = conf;
     setServers(getServers());
   }

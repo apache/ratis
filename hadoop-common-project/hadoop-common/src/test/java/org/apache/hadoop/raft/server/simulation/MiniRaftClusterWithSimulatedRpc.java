@@ -36,8 +36,14 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   private final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
   private final SimulatedClientRequestReply client2serverRequestReply;
 
-  public MiniRaftClusterWithSimulatedRpc(int numServers, RaftProperties properties) {
-    super(numServers, properties);
+  public MiniRaftClusterWithSimulatedRpc(int numServers,
+      RaftProperties properties) {
+    this(numServers, properties, true);
+  }
+
+  public MiniRaftClusterWithSimulatedRpc(int numServers,
+      RaftProperties properties, boolean formatted) {
+    super(numServers, properties, formatted);
     final Collection<RaftPeer> peers = getConf().getPeers();
     serverRequestReply = new SimulatedRequestReply<>(peers);
     client2serverRequestReply = new SimulatedClientRequestReply(peers);

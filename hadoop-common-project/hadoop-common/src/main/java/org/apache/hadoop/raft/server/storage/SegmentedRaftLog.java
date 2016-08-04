@@ -20,14 +20,12 @@ package org.apache.hadoop.raft.server.storage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
-import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.ConfigurationManager;
 import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.raft.server.StateMachine;
+import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.PathAndIndex;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
@@ -53,7 +51,7 @@ import java.util.List;
  * Every closed segment should be non-empty, i.e., it should contain at least
  * one entry.
  */
-public class SegmentedRaftLog extends RaftLog implements Closeable {
+public class SegmentedRaftLog extends RaftLog {
   static final String HEADER_STR = "RAFTLOG1";
   static final byte[] HEADER_BYTES = HEADER_STR.getBytes(Charsets.UTF_8);
 
@@ -86,23 +84,33 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
   private final RaftLogCache cache;
   private final RaftLogWorker fileLogWorker;
 
-  public SegmentedRaftLog(String selfId, RaftStorage storage,
-      ConfigurationManager confManager) throws IOException {
+  public SegmentedRaftLog(String selfId, RaftServer server, RaftStorage storage,
+      long lastApplied) throws IOException {
     super(selfId);
     this.storage = storage;
     cache = new RaftLogCache();
-    loadLogSegments(confManager);
+    fileLogWorker = new RaftLogWorker(server, storage);
+    lastCommitted.set(lastApplied);
+  }
 
-    fileLogWorker = new RaftLogWorker(storage, cache.getEndIndex());
-    fileLogWorker.start();
+  @Override
+  public void open(ConfigurationManager confManager) throws IOException {
+    loadLogSegments(confManager);
+    fileLogWorker.start(cache.getEndIndex());
+    super.open(confManager);
   }
 
   private void loadLogSegments(ConfigurationManager confManager)
       throws IOException {
-    List<PathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
-    for (PathAndIndex pi : paths) {
-      LogSegment logSegment = parseLogSegment(pi, confManager);
-      cache.addSegment(logSegment);
+    writeLock();
+    try {
+      List<PathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
+      for (PathAndIndex pi : paths) {
+        LogSegment logSegment = parseLogSegment(pi, confManager);
+        cache.addSegment(logSegment);
+      }
+    } finally {
+      writeUnlock();
     }
   }
 
@@ -115,17 +123,35 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
 
   @Override
   public LogEntryProto get(long index) {
-    return cache.getEntry(index);
+    checkLogState();
+    readLock();
+    try {
+      return cache.getEntry(index);
+    } finally {
+      readUnlock();
+    }
   }
 
   @Override
   public LogEntryProto[] getEntries(long startIndex, long endIndex) {
-    return cache.getEntries(startIndex, endIndex);
+    checkLogState();
+    readLock();
+    try {
+      return cache.getEntries(startIndex, endIndex);
+    } finally {
+      readUnlock();
+    }
   }
 
   @Override
   public LogEntryProto getLastEntry() {
-    return cache.getLastEntry();
+    checkLogState();
+    readLock();
+    try {
+      return cache.getLastEntry();
+    } finally {
+      readUnlock();
+    }
   }
 
   /**
@@ -134,72 +160,94 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
    */
   @Override
   void truncate(long index) {
-    RaftLogCache.TruncationSegments ts = cache.truncate(index);
-    if (ts != null) {
-      Task task = fileLogWorker.truncate(ts);
-      myTask.set(task);
+    checkLogState();
+    writeLock();
+    try {
+      RaftLogCache.TruncationSegments ts = cache.truncate(index);
+      if (ts != null) {
+        Task task = fileLogWorker.truncate(ts);
+        myTask.set(task);
+      }
+    } finally {
+      writeUnlock();
     }
   }
 
   @Override
   void appendEntry(LogEntryProto entry) {
-    final LogSegment currentOpenSegment = cache.getOpenSegment();
-    if (currentOpenSegment == null) {
-      cache.addSegment(LogSegment.newOpenSegment(entry.getIndex()));
-      fileLogWorker.startLogSegment(getNextIndex());
-    } else if (currentOpenSegment.isFull()) {
-      cache.rollOpenSegment(true);
-      fileLogWorker.rollLogSegment(currentOpenSegment);
-    } else if (currentOpenSegment.numOfEntries() > 0 &&
-        currentOpenSegment.getLastRecord().entry.getTerm() != entry.getTerm()) {
-      // the term changes
-      final long currentTerm = currentOpenSegment.getLastRecord().entry.getTerm();
-      Preconditions.checkState(currentTerm < entry.getTerm(),
-          "open segment's term %s is larger than the new entry's term %s",
-          currentTerm, entry.getTerm());
-      cache.rollOpenSegment(true);
-      fileLogWorker.rollLogSegment(currentOpenSegment);
-    }
+    checkLogState();
+    writeLock();
+    try {
+      final LogSegment currentOpenSegment = cache.getOpenSegment();
+      if (currentOpenSegment == null) {
+        cache.addSegment(LogSegment.newOpenSegment(entry.getIndex()));
+        fileLogWorker.startLogSegment(getNextIndex());
+      } else if (currentOpenSegment.isFull()) {
+        cache.rollOpenSegment(true);
+        fileLogWorker.rollLogSegment(currentOpenSegment);
+      } else if (currentOpenSegment.numOfEntries() > 0 &&
+          currentOpenSegment.getLastRecord().entry.getTerm() != entry.getTerm()) {
+        // the term changes
+        final long currentTerm = currentOpenSegment.getLastRecord().entry
+            .getTerm();
+        Preconditions.checkState(currentTerm < entry.getTerm(),
+            "open segment's term %s is larger than the new entry's term %s",
+            currentTerm, entry.getTerm());
+        cache.rollOpenSegment(true);
+        fileLogWorker.rollLogSegment(currentOpenSegment);
+      }
 
-    cache.appendEntry(entry);
-    myTask.set(fileLogWorker.writeLogEntry(entry));
+      cache.appendEntry(entry);
+      myTask.set(fileLogWorker.writeLogEntry(entry));
+    } finally {
+      writeUnlock();
+    }
   }
 
   @Override
   public void append(LogEntryProto... entries) {
-    if (entries == null || entries.length == 0) {
-      return;
-    }
-    Iterator<LogEntryProto> iter = cache.iterator(entries[0].getIndex());
-    int index = 0;
-    long truncateIndex = -1;
-    for (;iter.hasNext() && index < entries.length; index++) {
-      LogEntryProto storedEntry = iter.next();
-      Preconditions.checkState(
-          storedEntry.getIndex() == entries[index].getIndex(),
-          "The stored entry's index %s is not consistent with" +
-              " the received entries[%s]'s index %s",
-          storedEntry.getIndex(), index, entries[index].getIndex());
-
-      if (storedEntry.getTerm() != entries[index].getTerm()) {
-        // we should truncate from the storedEntry's index
-        truncateIndex = storedEntry.getIndex();
-        break;
+    checkLogState();
+    writeLock();
+    try {
+      if (entries == null || entries.length == 0) {
+        return;
       }
-    }
-    if (truncateIndex != -1) {
-      // truncate from truncateIndex
-      truncate(truncateIndex);
-    }
-    // append from entries[index]
-    for (int i = index; i < entries.length; i++) {
-      appendEntry(entries[i]);
+      Iterator<LogEntryProto> iter = cache.iterator(entries[0].getIndex());
+      int index = 0;
+      long truncateIndex = -1;
+      for (; iter.hasNext() && index < entries.length; index++) {
+        LogEntryProto storedEntry = iter.next();
+        Preconditions.checkState(
+            storedEntry.getIndex() == entries[index].getIndex(),
+            "The stored entry's index %s is not consistent with" +
+                " the received entries[%s]'s index %s", storedEntry.getIndex(),
+            index, entries[index].getIndex());
+
+        if (storedEntry.getTerm() != entries[index].getTerm()) {
+          // we should truncate from the storedEntry's index
+          truncateIndex = storedEntry.getIndex();
+          break;
+        }
+      }
+      if (truncateIndex != -1) {
+        // truncate from truncateIndex
+        truncate(truncateIndex);
+      }
+      // append from entries[index]
+      for (int i = index; i < entries.length; i++) {
+        appendEntry(entries[i]);
+      }
+    } finally {
+      writeUnlock();
     }
   }
 
   @Override
   public void logSync() throws InterruptedException {
-    myTask.get().waitForDone();
+    final Task task = myTask.get();
+    if (task != null) {
+      task.waitForDone();
+    }
   }
 
   @Override
@@ -207,6 +255,11 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
     return fileLogWorker.getFlushedIndex();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * This operation is protected by the RaftServer's lock
+   */
   @Override
   public void writeMetadata(long term, String votedFor) throws IOException {
     storage.getMetaFile().set(term, votedFor);
@@ -220,6 +273,7 @@ public class SegmentedRaftLog extends RaftLog implements Closeable {
 
   @Override
   public void close() throws IOException {
+    super.close();
     fileLogWorker.close();
     storage.close();
   }

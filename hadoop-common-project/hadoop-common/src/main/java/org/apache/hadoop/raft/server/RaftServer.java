@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.apache.hadoop.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
 import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT;
 import static org.apache.hadoop.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY;
 
@@ -78,7 +79,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   public RaftServer(String id, RaftConfiguration raftConf,
       RaftProperties properties) throws IOException {
     this.state = new ServerState(id, raftConf, properties,
-        getStateMachine(properties));
+        getStateMachine(properties), this);
   }
 
   public void setServerRpc(RaftServerRpc serverRpc) {
@@ -147,7 +148,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   public RaftConfiguration getRaftConf() {
-    return this.getState().getRaftConf();
+    return getState().getRaftConf();
   }
 
   public boolean isRunning() {
@@ -165,7 +166,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       shutdownLeaderState();
 
       serverRpc.shutdown();
-    } catch (InterruptedException ignored) {
+      state.close();
+    } catch (Exception ignored) {
     }
   }
 
@@ -353,7 +355,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     }
     // release the handler and the LeaderState thread will trigger the next step
     // once the (old, new) entry is committed, and finally send the response
-    // back the client.
+    // back to the client.
     getServerRpc().saveCallInfo(pending);
   }
 
@@ -525,10 +527,13 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         throw new InterruptedIOException("logSync got interrupted");
       }
     }
-    if (runningState.get() == RunningState.RUNNING) {
-      // reset election timer to avoid punishing the leader for our own
-      // long disk writes
-      heartbeatMonitor.updateLastRpcTime(Time.monotonicNow());
+    synchronized (this) {
+      if (runningState.get() == RunningState.RUNNING && isFollower()
+          && getState().getCurrentTerm() == currentTerm) {
+        // reset election timer to avoid punishing the leader for our own
+        // long disk writes
+        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow());
+      }
     }
     final AppendEntriesReply reply = new AppendEntriesReply(leaderId, getId(),
         currentTerm, nextIndex, AppendResult.SUCCESS);
@@ -540,11 +545,17 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       TermIndex previous, LogEntryProto[] entries, boolean initializing) {
     return new AppendEntriesRequest(getId(), targetId,
         state.getCurrentTerm(), previous, entries,
-        state.getLog().getLastCommitted().getIndex(), initializing);
+        state.getLog().getLastCommittedIndex(), initializing);
   }
 
   synchronized RequestVoteRequest createRequestVoteRequest(String targetId,
       long term, TermIndex lastEntry) {
     return new RequestVoteRequest(getId(), targetId, term, lastEntry);
+  }
+
+  public synchronized void submitLocalSyncEvent() {
+    if (isLeader()) {
+      leaderState.submitUpdateStateEvent(UPDATE_COMMIT_EVENT);
+    }
   }
 }

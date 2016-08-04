@@ -20,6 +20,7 @@ package org.apache.hadoop.raft.server;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.protocol.RaftClientReply;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
+import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
 import org.apache.hadoop.raft.util.RaftUtils;
 
 import java.io.IOException;
@@ -31,9 +32,13 @@ public class PendingRequest implements Comparable<PendingRequest> {
   private RaftClientReply reply = null;
   private IOException exception;
 
-  PendingRequest(Long index, RaftClientRequest request) {
+  PendingRequest(long index, RaftClientRequest request) {
     this.index = index;
     this.request = request;
+  }
+
+  PendingRequest(SetConfigurationRequest request) {
+    this(RaftConstants.INVALID_LOG_INDEX, request);
   }
 
   long getIndex() {

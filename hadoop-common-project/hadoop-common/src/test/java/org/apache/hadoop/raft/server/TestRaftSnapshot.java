@@ -17,23 +17,37 @@
  */
 package org.apache.hadoop.raft.server;
 
-import org.apache.hadoop.raft.MiniRaftCluster;
+import org.apache.hadoop.raft.RaftTestUtil;
+import org.apache.hadoop.raft.RaftTestUtil.SimpleMessage;
 import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.conf.RaftProperties;
+import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.hadoop.raft.protocol.RaftClientReply;
+import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.hadoop.raft.server.simulation.RequestHandler;
+import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
-import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
+import java.io.File;
 
 public class TestRaftSnapshot {
+  static {
+    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(MemoryRaftLog.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+  }
+
   static final Logger LOG = LoggerFactory.getLogger(TestRaftSnapshot.class);
+  private static final int SNAPSHOT_TRIGGER_THRESHOLD = 100;
 
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
@@ -41,23 +55,16 @@ public class TestRaftSnapshot {
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  private MiniRaftCluster cluster;
+  private RaftProperties prop;
 
   @Before
   public void setup() {
-    RaftProperties prop = new RaftProperties();
+    prop = new RaftProperties();
     prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
         SimpleStateMachine.class, StateMachine.class);
-    prop.setLong(RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY, 100);
-    cluster = new MiniRaftClusterWithSimulatedRpc(5, prop);
-    cluster.start();
-  }
-
-  @After
-  public void tearDown() {
-    if (cluster != null) {
-      cluster.shutdown();
-    }
+    prop.setLong(
+        RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY,
+        SNAPSHOT_TRIGGER_THRESHOLD);
   }
 
   /**
@@ -66,7 +73,55 @@ public class TestRaftSnapshot {
    * snapshots + raft log.
    */
   @Test
-  public void testRestart() throws IOException {
+  public void testRestartPeer() throws Exception {
+    MiniRaftClusterWithSimulatedRpc cluster =
+        new MiniRaftClusterWithSimulatedRpc(1, prop, true);
+    try {
+      cluster.start();
+      RaftTestUtil.waitForLeader(cluster);
+      final String leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient("client", leaderId);
 
+      int i = 0;
+      for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2; i++) {
+        RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+        Assert.assertTrue(reply.isSuccess());
+      }
+
+      // wait for the snapshot to be done
+      RaftStorageDirectory storageDirectory = cluster.getLeader().getState()
+          .getStorage().getStorageDir();
+      File snapshotFile = storageDirectory.getSnapshotFile(i - 1);
+
+      int retries = 0;
+      while (!snapshotFile.exists() && retries++ < 10) {
+        Thread.sleep(1000);
+      }
+
+      Assert.assertTrue(snapshotFile.exists());
+    } finally {
+      cluster.shutdown();
+    }
+
+    // restart the peer and check if it can correctly load snapshot
+    cluster = new MiniRaftClusterWithSimulatedRpc(1, prop, false);
+    try {
+      cluster.start();
+      RaftTestUtil.waitForLeader(cluster);
+
+      // 200 messages + two leader elections --> last committed = 201
+      Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2 + 1,
+          cluster.getLeader().getState().getLog().getLastCommittedIndex());
+      StateMachine sm = cluster.getLeader().getState().getStateMachine();
+      LogEntryProto[] entries = ((SimpleStateMachine) sm).getContent();
+      for (int i = 1; i <= SNAPSHOT_TRIGGER_THRESHOLD * 2; i++) {
+        Assert.assertEquals(i, entries[i].getIndex());
+        Assert.assertEquals(
+            ProtoUtils.toClientMessageEntryProto(new SimpleMessage("m" + (i-1))),
+            entries[i].getClientMessageEntry());
+      }
+    } finally {
+      cluster.shutdown();
+    }
   }
 }

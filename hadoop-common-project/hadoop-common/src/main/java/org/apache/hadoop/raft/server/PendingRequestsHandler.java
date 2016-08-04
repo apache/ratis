@@ -96,7 +96,7 @@ class PendingRequestsHandler {
   }
 
   PendingRequest addConfRequest(SetConfigurationRequest request) {
-    final PendingRequest pending = new PendingRequest(null, request);
+    final PendingRequest pending = new PendingRequest(request);
     confRequests.setPendingRequest(pending);
     return pending;
   }

@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server.storage;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -163,7 +164,8 @@ public class RaftStorageDirectory {
     return new File(getCurrentDir(), getSnapshotFileName(endIndex));
   }
 
-  PathAndIndex getLatestSnapshot() throws IOException {
+  @VisibleForTesting
+  public PathAndIndex getLatestSnapshot() throws IOException {
     PathAndIndex latest = null;
     try (DirectoryStream<Path> stream =
              Files.newDirectoryStream(getCurrentDir().toPath())) {

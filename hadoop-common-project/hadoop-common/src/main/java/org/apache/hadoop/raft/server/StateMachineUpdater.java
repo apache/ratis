@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
@@ -127,6 +128,9 @@ class StateMachineUpdater implements Runnable {
           RaftUtils.terminate(e,
               "The StateMachineUpdater is wrongly interrupted", LOG);
         }
+      } catch (Throwable t) {
+        RaftUtils.terminate(t,
+            "The StateMachineUpdater hits Throwable", LOG);
       }
     }
   }
@@ -134,5 +138,10 @@ class StateMachineUpdater implements Runnable {
   private boolean shouldTakeSnapshot(long currentAppliedIndex) {
     return autoSnapshotEnabled &&
         (currentAppliedIndex - lastSnapshotIndex >= snapshotThreshold);
+  }
+
+  @VisibleForTesting
+  StateMachine getStateMachine() {
+    return stateMachine;
   }
 }

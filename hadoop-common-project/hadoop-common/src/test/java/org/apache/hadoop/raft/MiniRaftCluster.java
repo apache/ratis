@@ -75,13 +75,14 @@ public abstract class MiniRaftCluster {
   private final String testBaseDir;
   private final Map<String, RaftServer> servers = new LinkedHashMap<>();
 
-  public MiniRaftCluster(int numServers, RaftProperties properties) {
+  public MiniRaftCluster(int numServers, RaftProperties properties,
+      boolean formatted) {
     this.conf = initConfiguration(numServers);
     this.properties = properties;
     this.testBaseDir = getBaseDirectory();
 
     for (RaftPeer p : conf.getPeers()) {
-      final RaftServer s = newRaftServer(p.getId(), conf, true);
+      final RaftServer s = newRaftServer(p.getId(), conf, formatted);
       servers.put(p.getId(), s);
     }
   }

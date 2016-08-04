@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
@@ -66,14 +67,14 @@ public class ServerState implements Closeable {
   private String votedFor;
 
   ServerState(String id, RaftConfiguration conf, RaftProperties prop,
-      StateMachine stateMachine) throws IOException {
+      StateMachine stateMachine, RaftServer server) throws IOException {
     this.selfId = id;
     configurationManager = new ConfigurationManager(conf);
     storage = new RaftStorage(prop, RaftConstants.StartupOption.REGULAR);
     long lastApplied = initStatemachine(stateMachine, prop);
 
     leaderId = null;
-    log = initLog(id, prop);
+    log = initLog(id, prop, server, lastApplied);
     RaftLog.Metadata metadata = log.loadMetadata();
     currentTerm = metadata.getTerm();
     votedFor = metadata.getVotedFor();
@@ -100,13 +101,15 @@ public class ServerState implements Closeable {
    * note we do not apply log entries to the state machine here since we do not
    * know whether they have been committed.
    */
-  private RaftLog initLog(String id, RaftProperties prop)
-      throws IOException {
+  private RaftLog initLog(String id, RaftProperties prop, RaftServer server,
+      long lastApplied) throws IOException {
     if (prop.getBoolean(RAFT_SERVER_USE_MEMORY_LOG_KEY,
         RAFT_SERVER_USE_MEMORY_LOG_DEFAULT)) {
       return new MemoryRaftLog(id);
     } else {
-      return new SegmentedRaftLog(id, this.storage, configurationManager);
+      RaftLog log = new SegmentedRaftLog(id, server, this.storage, lastApplied);
+      log.open(configurationManager);
+      return log;
     }
   }
 
@@ -228,7 +231,7 @@ public class ServerState implements Closeable {
   }
 
   boolean isConfCommitted() {
-    return getLog().getLastCommitted().getIndex() >=
+    return getLog().getLastCommittedIndex() >=
         getRaftConf().getLogEntryIndex();
   }
 
@@ -261,5 +264,16 @@ public class ServerState implements Closeable {
   @Override
   public void close() throws IOException {
     stateMachineUpdater.stop();
+    storage.close();
+  }
+
+  @VisibleForTesting
+  public RaftStorage getStorage() {
+    return storage;
+  }
+
+  @VisibleForTesting
+  StateMachine getStateMachine() {
+    return stateMachineUpdater.getStateMachine();
   }
 }

@@ -121,7 +121,7 @@ public class ProtoUtils {
         .build();
   }
 
-  static ClientMessageEntryProto toClientMessageEntryProto(Message message) {
+  public static ClientMessageEntryProto toClientMessageEntryProto(Message message) {
     return ClientMessageEntryProto.newBuilder()
         .setContent(toByteString(message.getContent())).build();
   }

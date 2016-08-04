@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server;
 
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.protocol.RaftServerReply;
@@ -87,6 +88,7 @@ class LeaderElection extends Daemon {
   }
 
   private void initExecutor() {
+    Preconditions.checkState(!others.isEmpty());
     executor = Executors.newFixedThreadPool(others.size(),
         new ThreadFactoryBuilder().setDaemon(true).build());
     service = new ExecutorCompletionService<>(executor);
@@ -127,12 +129,18 @@ class LeaderElection extends Daemon {
           state.getLog().getLastEntry());
 
       final ResultAndTerm r;
-      try {
-        initExecutor();
-        int submitted = submitRequests(electionTerm, lastEntry);
-        r = waitForResults(electionTerm, submitted);
-      } finally {
-        executor.shutdown();
+      if (others.isEmpty()) {
+        r = new ResultAndTerm(Result.PASSED, electionTerm);
+      } else {
+        try {
+          initExecutor();
+          int submitted = submitRequests(electionTerm, lastEntry);
+          r = waitForResults(electionTerm, submitted);
+        } finally {
+          if (executor != null) {
+            executor.shutdown();
+          }
+        }
       }
 
       synchronized (server) {

@@ -17,17 +17,22 @@
  */
 package org.apache.hadoop.raft.server.storage;
 
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
+import org.apache.hadoop.raft.server.ConfigurationManager;
 import org.apache.hadoop.raft.server.RaftConfiguration;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Base class of RaftLog. Currently we provide two types of RaftLog
@@ -37,15 +42,18 @@ import java.util.concurrent.atomic.AtomicLong;
  * 2. Segmented RaftLog: the log entries are persisted on disk, and are stored
  *    in segments.
  */
-public abstract class RaftLog {
+public abstract class RaftLog implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
   public static final LogEntryProto[] EMPTY_LOGENTRY_ARRAY = new LogEntryProto[0];
 
   /**
    * The largest committed index.
    */
-  private final AtomicLong lastCommitted = new AtomicLong();
+  protected final AtomicLong lastCommitted = new AtomicLong(RaftConstants.INVALID_LOG_INDEX);
   private final String selfId;
+
+  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
+  private volatile boolean isOpen = false;
 
   public RaftLog(String selfId) {
     this.selfId = selfId;
@@ -62,20 +70,30 @@ public abstract class RaftLog {
     return lastCommitted.get();
   }
 
+  public void checkLogState() {
+    Preconditions.checkState(isOpen,
+        "The RaftLog has not been opened or has been closed");
+  }
+
   /**
    * Update the last committed index.
    * @param majorityIndex the index that has achieved majority.
    * @param currentTerm the current term.
    */
   public void updateLastCommitted(long majorityIndex, long currentTerm) {
-    if (lastCommitted.get() < majorityIndex) {
-      // Only update last committed index for current term. See §5.4.2 in paper
-      // for details.
-      final LogEntryProto entry = get(majorityIndex);
-      if (entry != null && entry.getTerm() == currentTerm) {
-        LOG.debug("{}: Updating lastCommitted to {}", selfId, majorityIndex);
-        lastCommitted.set(majorityIndex);
+    writeLock();
+    try {
+      if (lastCommitted.get() < majorityIndex) {
+        // Only update last committed index for current term. See §5.4.2 in
+        // paper for details.
+        final LogEntryProto entry = get(majorityIndex);
+        if (entry != null && entry.getTerm() == currentTerm) {
+          LOG.debug("{}: Updating lastCommitted to {}", selfId, majorityIndex);
+          lastCommitted.set(majorityIndex);
+        }
       }
+    } finally {
+      writeUnlock();
     }
   }
 
@@ -119,12 +137,18 @@ public abstract class RaftLog {
    * Used by the leader.
    * @return the index of the new log entry.
    */
-  public synchronized long append(long term, Message message) {
-    final long nextIndex = getNextIndex();
-    final LogEntryProto e = ProtoUtils.toLogEntryProto(message,
-        term, nextIndex);
-    appendEntry(e);
-    return nextIndex;
+  public long append(long term, Message message) {
+    checkLogState();
+    writeLock();
+    try {
+      final long nextIndex = getNextIndex();
+      final LogEntryProto e = ProtoUtils.toLogEntryProto(message, term,
+          nextIndex);
+      appendEntry(e);
+      return nextIndex;
+    } finally {
+      writeUnlock();
+    }
   }
 
   /**
@@ -132,12 +156,22 @@ public abstract class RaftLog {
    * and append the entry. Used by the leader.
    * @return the index of the new log entry.
    */
-  public synchronized long append(long term, RaftConfiguration newConf) {
-    final long nextIndex = getNextIndex();
-    final LogEntryProto e = ProtoUtils.toLogEntryProto(newConf, term,
-        nextIndex);
-    appendEntry(e);
-    return nextIndex;
+  public long append(long term, RaftConfiguration newConf) {
+    checkLogState();
+    writeLock();
+    try {
+      final long nextIndex = getNextIndex();
+      final LogEntryProto e = ProtoUtils.toLogEntryProto(newConf, term,
+          nextIndex);
+      appendEntry(e);
+      return nextIndex;
+    } finally {
+      writeUnlock();
+    }
+  }
+
+  public void open(ConfigurationManager confManager) throws IOException {
+    isOpen = true;
   }
 
   /**
@@ -236,5 +270,34 @@ public abstract class RaftLog {
     public long getTerm() {
       return term;
     }
+  }
+
+  public void readLock() {
+    this.lock.readLock().lock();
+  }
+
+  public void readUnlock() {
+    this.lock.readLock().unlock();
+  }
+
+  public void writeLock() {
+    this.lock.writeLock().lock();
+  }
+
+  public void writeUnlock() {
+    this.lock.writeLock().unlock();
+  }
+
+  public boolean hasWriteLock() {
+    return this.lock.isWriteLockedByCurrentThread();
+  }
+
+  public boolean hasReadLock() {
+    return this.lock.getReadHoldCount() > 0 || hasWriteLock();
+  }
+
+  @Override
+  public void close() throws IOException {
+    isOpen = false;
   }
 }
