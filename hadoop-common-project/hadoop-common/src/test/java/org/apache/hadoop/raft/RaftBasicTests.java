@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
@@ -114,7 +113,7 @@ public abstract class RaftBasicTests {
     final MiniRaftCluster cluster = getCluster();
     LOG.info(cluster.printServers());
 
-    final SimpleMessage[] messages = SimpleMessage.create(500);
+    final SimpleMessage[] messages = SimpleMessage.create(1000);
     final RaftClient client = cluster.createClient("client", null);
 
     final Exception[] exceptionInClientThread = new Exception[1];
@@ -130,7 +129,7 @@ public abstract class RaftBasicTests {
     clientThread.start();
 
     while (clientThread.isAlive()) {
-      Thread.sleep(2000);
+      Thread.sleep(500);
       RaftServer leader = cluster.getLeader();
       if (leader != null) {
         final String oldLeader = leader.getId();

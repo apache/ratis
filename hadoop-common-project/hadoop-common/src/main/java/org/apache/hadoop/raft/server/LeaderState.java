@@ -404,8 +404,8 @@ class LeaderState {
       final long majority = Math.min(majorityInNewConf, majorityInOldConf);
       server.getState().updateStatemachine(majority, currentTerm);
     }
-    checkAndUpdateConfiguration(oldLastCommitted);
     pendingRequests.notifySendingDaemon();
+    checkAndUpdateConfiguration(oldLastCommitted);
   }
 
   private void checkAndUpdateConfiguration(long oldLastCommitted) {

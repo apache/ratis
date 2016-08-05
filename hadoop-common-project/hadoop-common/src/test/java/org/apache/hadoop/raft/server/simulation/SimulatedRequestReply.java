@@ -38,6 +38,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> implements RequestReply<REQUEST, REPLY> {
   public static final long TIMEOUT = 3000L;
+  /** Whether to simulate network latency. */
+  public static final AtomicBoolean simulatedLatencyEnabled = new AtomicBoolean();
+
+  public static void setSimulatedLatencyEnabled(boolean enabled) {
+    simulatedLatencyEnabled.set(enabled);
+  }
 
   private static class ReplyOrException<REPLY> {
     private final REPLY reply;
@@ -135,7 +141,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     final REQUEST request;
     try {
       // delay request for testing
-      RaftTestUtil.delay(() -> q.delayTakeRequestTo.get());
+      RaftTestUtil.delay(q.delayTakeRequestTo::get);
 
       request = q.takeRequest();
       Preconditions.checkState(qid.equals(request.getReplierId()));
@@ -143,7 +149,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
       // block request for testing
       final EventQueue<REQUEST, REPLY> reqQ = queues.get(request.getRequestorId());
       if (reqQ != null) {
-        RaftTestUtil.block(() -> reqQ.blockTakeRequestFrom.get());
+        RaftTestUtil.block(reqQ.blockTakeRequestFrom::get);
       }
     } catch (InterruptedException e) {
       throw RaftUtils.toInterruptedIOException("", e);
@@ -180,15 +186,17 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   }
 
   private void simulateLatency() throws IOException {
-    int waitExpetation = RaftConstants.ELECTION_TIMEOUT_MIN_MS / 10;
-    int waitHalfRange = waitExpetation / 3;
-    Random rand = new Random();
-    int randomSleepMs = rand.nextInt(2 * waitHalfRange)
-        + waitExpetation - waitHalfRange;
-    try {
-      Thread.sleep(randomSleepMs);
-    } catch (InterruptedException ie) {
-      throw RaftUtils.toInterruptedIOException("", ie);
+    if (simulatedLatencyEnabled.get()) {
+      int waitExpetation = RaftConstants.ELECTION_TIMEOUT_MIN_MS / 10;
+      int waitHalfRange = waitExpetation / 3;
+      Random rand = new Random();
+      int randomSleepMs = rand.nextInt(2 * waitHalfRange) + waitExpetation
+          - waitHalfRange;
+      try {
+        Thread.sleep(randomSleepMs);
+      } catch (InterruptedException ie) {
+        throw RaftUtils.toInterruptedIOException("", ie);
+      }
     }
   }
 }

@@ -117,10 +117,10 @@ class PendingRequestsHandler {
 
     @Override
     public void run() {
-      long lastCommitted;
+      long lastCommitted = server.getState().getLog().getLastCommittedIndex();
       while (running) {
         try {
-          lastCommitted = server.getState().getLog().getLastCommittedIndex();
+          final long oldLastCommitted = lastCommitted;
           for (PendingRequest pre;
                (pre = queue.peek()) != null && pre.getIndex() <= lastCommitted;
               ) {
@@ -128,8 +128,11 @@ class PendingRequestsHandler {
             sendReply(pre, null);
           }
           confRequests.sendResults(server.getServerRpc());
+          lastCommitted = server.getState().getLog().getLastCommittedIndex();
           synchronized (PendingRequestsHandler.this) {
-            PendingRequestsHandler.this.wait(RaftConstants.RPC_TIMEOUT_MIN_MS);
+            if (oldLastCommitted == lastCommitted) {
+              PendingRequestsHandler.this.wait(RaftConstants.RPC_TIMEOUT_MIN_MS);
+            }
           }
         } catch (InterruptedException e) {
           LOG.info(this + " is interrupted.", e);

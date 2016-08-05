@@ -19,6 +19,7 @@ package org.apache.hadoop.raft.hadoopRpc;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.raft.RaftBasicTests;
+import org.apache.hadoop.raft.client.RaftClient;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RaftServerConfigKeys;
 import org.apache.hadoop.raft.server.RaftServerCodeInjection;
@@ -32,6 +33,7 @@ public class TestRaftWithHadoopRpc extends RaftBasicTests {
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   private final Configuration conf = new Configuration();
