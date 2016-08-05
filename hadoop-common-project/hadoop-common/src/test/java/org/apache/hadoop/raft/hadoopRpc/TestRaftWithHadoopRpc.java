@@ -21,7 +21,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.raft.RaftBasicTests;
 import org.apache.hadoop.raft.server.RaftServer;
 import org.apache.hadoop.raft.server.RaftServerConfigKeys;
-import org.apache.hadoop.raft.util.BlockReceiveServerRequest;
+import org.apache.hadoop.raft.server.RaftServerCodeInjection;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.junit.Test;
@@ -53,7 +53,14 @@ public class TestRaftWithHadoopRpc extends RaftBasicTests {
     super.testEnforceLeader();
 
     DelaySendServerRequest.clear();
-    BlockReceiveServerRequest.getDestinations().clear();
+    RaftServerCodeInjection.getRepliers().clear();
   }
 
+  @Override
+  @Test
+  public void testWithLoad() throws Exception {
+    super.testWithLoad();
+
+    RaftServerCodeInjection.getRequestors().clear();
+  }
 }

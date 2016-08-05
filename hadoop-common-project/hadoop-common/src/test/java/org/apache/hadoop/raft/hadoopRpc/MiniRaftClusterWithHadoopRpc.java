@@ -24,7 +24,7 @@ import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.raft.util.BlockReceiveServerRequest;
+import org.apache.hadoop.raft.server.RaftServerCodeInjection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,11 +87,11 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   @Override
   public void blockQueueAndSetDelay(String leaderId, int delayMs)
       throws InterruptedException {
-    // block leader sendRequest if delayMs > 0
+    // block reqeusts sent to leader if delayMs > 0
     final boolean block = delayMs > 0;
-    LOG.debug("{} sendRequest for leader {} and set {}ms delay for the others",
+    LOG.debug("{} requests sent to leader {} and set {}ms delay for the others",
         block? "Block": "Unblock", leaderId, delayMs);
-    BlockReceiveServerRequest.getDestinations().put(leaderId, block);
+    RaftServerCodeInjection.getRepliers().put(leaderId, block);
 
     // delay RaftServerRequest for other servers
     getServers().stream().filter(s -> !s.getId().equals(leaderId))
@@ -103,6 +103,6 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
 
   @Override
   public void setBlockRequestsFrom(String src, boolean block) {
-    BlockReceiveServerRequest.getSources().put(src, block);
+    RaftServerCodeInjection.getRequestors().put(src, block);
   }
 }

@@ -22,12 +22,14 @@ import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
@@ -170,6 +172,17 @@ public class RaftTestUtil {
   public static void block(IsBlocked impl) throws InterruptedException {
     for(; impl.isBlocked(); ) {
       Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
+    }
+  }
+
+  public static void block(final Boolean b) throws InterruptedIOException {
+    if (b == null) {
+      return;
+    }
+    try {
+      block(() -> b);
+    } catch (InterruptedException e) {
+      throw RaftUtils.toInterruptedIOException("", e);
     }
   }
 

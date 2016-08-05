@@ -15,53 +15,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.raft.util;
+package org.apache.hadoop.raft.server;
 
 import org.apache.hadoop.raft.RaftTestUtil;
-import org.apache.hadoop.raft.server.RaftServer;
+import org.apache.hadoop.raft.util.CodeInjectionForTesting;
 
-import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Inject code to block particular servers receiving server requests. */
-public class BlockReceiveServerRequest
+/** Inject code to block server requests. */
+public class RaftServerCodeInjection
     implements CodeInjectionForTesting.Code {
-  private static final BlockReceiveServerRequest INSTANCE = new BlockReceiveServerRequest();
+  private static final RaftServerCodeInjection INSTANCE = new RaftServerCodeInjection();
 
   static {
     CodeInjectionForTesting.put(RaftServer.REQUEST_VOTE, INSTANCE);
     CodeInjectionForTesting.put(RaftServer.APPEND_ENTRIES, INSTANCE);
   }
 
-  static void block(final Boolean b) {
-    if (b == null) {
-      return;
-    }
-    try {
-      RaftTestUtil.block(() -> b);
-    } catch (InterruptedException e) {
-      RaftUtils.toInterruptedIOException("", e);
-    }
+  public static Map<String, Boolean> getRequestors() {
+    return INSTANCE.requestors;
   }
 
-  public static Map<String, Boolean> getSources() {
-    return INSTANCE.sources;
+  public static Map<String, Boolean> getRepliers() {
+    return INSTANCE.repliers;
   }
 
-  public static Map<String, Boolean> getDestinations() {
-    return INSTANCE.destinations;
-  }
+  private final Map<String, Boolean> requestors = new ConcurrentHashMap<>();
+  private final Map<String, Boolean> repliers = new ConcurrentHashMap<>();
 
-  private final Map<String, Boolean> sources = new ConcurrentHashMap<>();
-  private final Map<String, Boolean> destinations = new ConcurrentHashMap<>();
+  private RaftServerCodeInjection() {}
 
   @Override
-  public Object execute(Object... args) throws IOException {
-    block(destinations.get(args[0]));
-    block(sources.get(args[1]));
+  public Object execute(Object... args) throws InterruptedIOException {
+    final Object requestorId = args[1];
+    RaftTestUtil.block(requestors.get(requestorId));
+    final Object replierId = args[0];
+    RaftTestUtil.block(repliers.get(replierId));
     return null;
   }
-
-  private BlockReceiveServerRequest() {}
 }
