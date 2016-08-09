@@ -28,22 +28,20 @@ import org.apache.hadoop.util.Time;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> implements RequestReply<REQUEST, REPLY> {
+  public static final String SIMULATE_LATENCY_KEY
+      = SimulatedRequestReply.class.getName() + ".simulateLatencyMs";
+  public static final int SIMULATE_LATENCY_DEFAULT
+      = RaftConstants.ELECTION_TIMEOUT_MIN_MS;
   public static final long TIMEOUT = 3000L;
-  /** Whether to simulate network latency. */
-  public static final AtomicBoolean simulatedLatencyEnabled = new AtomicBoolean();
-
-  public static void setSimulatedLatencyEnabled(boolean enabled) {
-    simulatedLatencyEnabled.set(enabled);
-  }
 
   private static class ReplyOrException<REPLY> {
     private final REPLY reply;
@@ -104,12 +102,15 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   }
 
   private final Map<String, EventQueue<REQUEST, REPLY>> queues;
+  private final int simulateLatencyMs;
 
-  public SimulatedRequestReply(Collection<RaftPeer> allPeers) {
+  SimulatedRequestReply(Collection<RaftPeer> allPeers, int simulateLatencyMs) {
     queues = new ConcurrentHashMap<>();
     for (RaftPeer peer : allPeers) {
       queues.put(peer.getId(), new EventQueue<>());
     }
+
+    this.simulateLatencyMs = simulateLatencyMs;
   }
 
   EventQueue<REQUEST, REPLY> getQueue(String qid) {
@@ -186,12 +187,11 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   }
 
   private void simulateLatency() throws IOException {
-    if (simulatedLatencyEnabled.get()) {
-      int waitExpetation = RaftConstants.ELECTION_TIMEOUT_MIN_MS / 10;
+    if (simulateLatencyMs > 0) {
+      int waitExpetation = simulateLatencyMs / 10;
       int waitHalfRange = waitExpetation / 3;
-      Random rand = new Random();
-      int randomSleepMs = rand.nextInt(2 * waitHalfRange) + waitExpetation
-          - waitHalfRange;
+      int randomSleepMs = ThreadLocalRandom.current().nextInt(2 * waitHalfRange)
+          + waitExpetation - waitHalfRange;
       try {
         Thread.sleep(randomSleepMs);
       } catch (InterruptedException ie) {

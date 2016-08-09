@@ -45,8 +45,12 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
       RaftProperties properties, boolean formatted) {
     super(numServers, properties, formatted);
     final Collection<RaftPeer> peers = getConf().getPeers();
-    serverRequestReply = new SimulatedRequestReply<>(peers);
-    client2serverRequestReply = new SimulatedClientRequestReply(peers);
+    final int simulateLatencyMs = properties.getInt(
+        SimulatedRequestReply.SIMULATE_LATENCY_KEY,
+        SimulatedRequestReply.SIMULATE_LATENCY_DEFAULT);
+    LOG.info(SimulatedRequestReply.SIMULATE_LATENCY_KEY + " = " + simulateLatencyMs);
+    serverRequestReply = new SimulatedRequestReply<>(peers, simulateLatencyMs);
+    client2serverRequestReply = new SimulatedClientRequestReply(peers, simulateLatencyMs);
 
     setRpcServers(getServers());
   }

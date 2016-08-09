@@ -19,6 +19,7 @@ package org.apache.hadoop.raft.server;
 
 import org.apache.hadoop.raft.RaftTestUtil;
 import org.apache.hadoop.raft.util.CodeInjectionForTesting;
+import org.apache.hadoop.raft.util.RaftUtils;
 
 import java.io.InterruptedIOException;
 import java.util.Map;
@@ -50,9 +51,18 @@ public class RaftServerCodeInjection
   @Override
   public Object execute(Object... args) throws InterruptedIOException {
     final Object requestorId = args[1];
-    RaftTestUtil.block(requestors.get(requestorId));
     final Object replierId = args[0];
-    RaftTestUtil.block(repliers.get(replierId));
+    try {
+      RaftTestUtil.block(() -> nullAsFalse(requestors.get(requestorId))
+          || nullAsFalse(repliers.get(replierId)));
+    } catch (InterruptedException e) {
+      throw RaftUtils.toInterruptedIOException("", e);
+    }
     return null;
   }
+
+  static boolean nullAsFalse(Boolean b) {
+    return b != null && b;
+  }
+
 }

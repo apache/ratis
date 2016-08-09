@@ -31,7 +31,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
@@ -101,7 +103,7 @@ public abstract class RaftBasicTests {
 
   @Test
   public void testEnforceLeader() throws Exception {
-    final String leader = "s" + new Random().nextInt(NUM_SERVERS);
+    final String leader = "s" + ThreadLocalRandom.current().nextInt(NUM_SERVERS);
     LOG.info("enforce leader to " + leader);
     final MiniRaftCluster cluster = getCluster();
     waitForLeader(cluster);
@@ -117,10 +119,11 @@ public abstract class RaftBasicTests {
     final RaftClient client = cluster.createClient("client", null);
 
     final Exception[] exceptionInClientThread = new Exception[1];
+    final AtomicInteger step = new AtomicInteger();
     final Thread clientThread = new Thread(() -> {
       try {
-        for (SimpleMessage message : messages) {
-          client.send(message);
+        for (; step.get() < messages.length; step.incrementAndGet()) {
+          client.send(messages[step.get()]);
         }
       } catch (IOException ioe) {
         exceptionInClientThread[0] = ioe;
@@ -128,8 +131,18 @@ public abstract class RaftBasicTests {
     });
     clientThread.start();
 
-    while (clientThread.isAlive()) {
-      Thread.sleep(500);
+    int count = 0;
+    for(int lastStep = 0;; ) {
+      final int n = step.get();
+      if (n >= messages.length) {
+        break;
+      } else if (n - lastStep < 50) { // Change leader at least 50 steps.
+        Thread.sleep(10);
+        continue;
+      }
+      lastStep = n;
+      count++;
+
       RaftServer leader = cluster.getLeader();
       if (leader != null) {
         final String oldLeader = leader.getId();
@@ -140,8 +153,7 @@ public abstract class RaftBasicTests {
           newLeader = RaftTestUtil.waitForLeader(cluster).getId();
         }
         cluster.setBlockRequestsFrom(oldLeader, false);
-        LOG.info("Changed leader from " + oldLeader + " to " + newLeader
-            + cluster.printServers());
+        LOG.info("Changed leader from " + oldLeader + " to " + newLeader);
         Assert.assertFalse(newLeader.equals(oldLeader));
       }
     }
@@ -150,10 +162,9 @@ public abstract class RaftBasicTests {
       throw new AssertionError(exceptionInClientThread[0]);
     }
 
-    LOG.info(cluster.printAllLogs());
-    cluster.getServers().stream().filter(RaftServer::isRunning)
-        .map(s -> s.getState().getLog().getEntries(0, Long.MAX_VALUE))
-        .forEach(e -> RaftTestUtil.assertLogEntriesContains(e, messages));
+    LOG.info("Leader change count=" + count + cluster.printAllLogs());
+
+    RaftTestUtil.assertLogEntries(cluster.getServers(), messages);
   }
 }
 

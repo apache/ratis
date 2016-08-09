@@ -22,18 +22,15 @@ import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
-
-import static org.junit.Assert.assertTrue;
+import java.util.Collection;
 
 public class RaftTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
@@ -82,7 +79,7 @@ public class RaftTestUtil {
     return leader != null ? leader.getId() : null;
   }
 
-  public static void assertLogEntriesContains(LogEntryProto[] entries,
+  public static boolean logEntriesContains(LogEntryProto[] entries,
       SimpleMessage... expectedMessages) {
     int idxEntries = 0;
     int idxExpected = 0;
@@ -94,8 +91,21 @@ public class RaftTestUtil {
       }
       ++idxEntries;
     }
-    assertTrue("Total number of matched records: " + idxExpected,
-        expectedMessages.length == idxExpected);
+    return idxExpected == expectedMessages.length;
+  }
+
+  public static void assertLogEntries(Collection<RaftServer> servers,
+                                      SimpleMessage... expectedMessages) {
+    final int size = servers.size();
+    final long count = servers.stream()
+        .filter(RaftServer::isRunning)
+        .map(s -> s.getState().getLog().getEntries(0, Long.MAX_VALUE))
+        .filter(e -> logEntriesContains(e, expectedMessages))
+        .count();
+    if (2*count <= size) {
+      throw new AssertionError("Not in majority: size=" + size
+          + " but count=" + count);
+    }
   }
 
   public static void assertLogEntries(LogEntryProto[] entries, long startIndex,
@@ -172,17 +182,6 @@ public class RaftTestUtil {
   public static void block(IsBlocked impl) throws InterruptedException {
     for(; impl.isBlocked(); ) {
       Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
-    }
-  }
-
-  public static void block(final Boolean b) throws InterruptedIOException {
-    if (b == null) {
-      return;
-    }
-    try {
-      block(() -> b);
-    } catch (InterruptedException e) {
-      throw RaftUtils.toInterruptedIOException("", e);
     }
   }
 

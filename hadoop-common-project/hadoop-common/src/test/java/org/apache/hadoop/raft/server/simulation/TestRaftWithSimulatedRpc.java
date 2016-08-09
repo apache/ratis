@@ -19,25 +19,29 @@ package org.apache.hadoop.raft.server.simulation;
 
 import org.apache.hadoop.raft.RaftBasicTests;
 import org.apache.hadoop.raft.client.RaftClient;
+import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.raft.server.storage.SegmentedRaftLog;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 
 import java.io.IOException;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class TestRaftWithSimulatedRpc extends RaftBasicTests {
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(SegmentedRaftLog.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithSimulatedRpc cluster;
 
   public TestRaftWithSimulatedRpc() throws IOException {
-    cluster = new MiniRaftClusterWithSimulatedRpc(NUM_SERVERS, getProperties());
+    final RaftProperties properties = getProperties();
+    if (ThreadLocalRandom.current().nextBoolean()) {
+      // turn off simulate latency half of the times.
+      properties.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
+    }
+    cluster = new MiniRaftClusterWithSimulatedRpc(NUM_SERVERS, properties);
   }
 
   @Override

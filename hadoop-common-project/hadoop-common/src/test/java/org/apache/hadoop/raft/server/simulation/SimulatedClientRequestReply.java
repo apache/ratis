@@ -27,7 +27,8 @@ import java.util.Collection;
 public class SimulatedClientRequestReply
     extends SimulatedRequestReply<RaftClientRequest, RaftClientReply>
     implements RaftClientRequestSender {
-  public SimulatedClientRequestReply(Collection<RaftPeer> allPeers) {
-    super(allPeers);
+  SimulatedClientRequestReply(Collection<RaftPeer> allPeers,
+                              int simulateLatencyMs) {
+    super(allPeers, simulateLatencyMs);
   }
 }
