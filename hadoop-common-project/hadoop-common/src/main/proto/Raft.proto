@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 
-option java_package = "org.apache.hadoop.raft.proto";
+option java_package = "org.apache.raft.proto";
 option java_outer_classname = "RaftProtos";
 option java_generate_equals_and_hash = true;
-package hadoop.common.raft;
+package common.raft;
 
 message RaftPeerProto {
   required string id = 1;      // id of the peer
