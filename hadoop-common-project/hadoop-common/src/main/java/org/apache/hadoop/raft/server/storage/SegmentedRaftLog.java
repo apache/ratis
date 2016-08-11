@@ -24,7 +24,7 @@ import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.ConfigurationManager;
 import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.RaftServer;
-import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.PathAndIndex;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -50,6 +50,11 @@ import java.util.List;
  *
  * Every closed segment should be non-empty, i.e., it should contain at least
  * one entry.
+ *
+ * There should not be any gap between segments. The first segment may not start
+ * from index 0 since there may be snapshots as log compaction. The last index
+ * in segments should be no smaller than the last index of snapshot, otherwise
+ * we may have hole when append further log.
  */
 public class SegmentedRaftLog extends RaftLog {
   static final String HEADER_STR = "RAFTLOG1";
@@ -85,36 +90,48 @@ public class SegmentedRaftLog extends RaftLog {
   private final RaftLogWorker fileLogWorker;
 
   public SegmentedRaftLog(String selfId, RaftServer server, RaftStorage storage,
-      long lastApplied) throws IOException {
+      long lastIndexInSnapshot) throws IOException {
     super(selfId);
     this.storage = storage;
     cache = new RaftLogCache();
     fileLogWorker = new RaftLogWorker(server, storage);
-    lastCommitted.set(lastApplied);
+    lastCommitted.set(lastIndexInSnapshot);
   }
 
   @Override
-  public void open(ConfigurationManager confManager) throws IOException {
-    loadLogSegments(confManager);
+  public void open(ConfigurationManager confManager, long lastIndexInSnapshot)
+      throws IOException {
+    loadLogSegments(confManager, lastIndexInSnapshot);
     fileLogWorker.start(cache.getEndIndex());
-    super.open(confManager);
+    super.open(confManager, lastIndexInSnapshot);
   }
 
-  private void loadLogSegments(ConfigurationManager confManager)
-      throws IOException {
+  @Override
+  public long getStartIndex() {
+    return cache.getStartIndex();
+  }
+
+  private void loadLogSegments(ConfigurationManager confManager,
+      long lastIndexInSnapshot) throws IOException {
     writeLock();
     try {
-      List<PathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
-      for (PathAndIndex pi : paths) {
+      List<LogPathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
+      for (LogPathAndIndex pi : paths) {
         LogSegment logSegment = parseLogSegment(pi, confManager);
         cache.addSegment(logSegment);
       }
     } finally {
       writeUnlock();
     }
+    if (cache != null) {
+      // The last index in log should not be smaller than last index in snapshot,
+      // otherwise we will have holes between segments. We guarantee this when
+      // installing snapshot in followers.
+      Preconditions.checkState(cache.getEndIndex() >= lastIndexInSnapshot);
+    }
   }
 
-  private LogSegment parseLogSegment(PathAndIndex pi,
+  private LogSegment parseLogSegment(LogPathAndIndex pi,
       ConfigurationManager confManager) throws IOException {
     final boolean isOpen = pi.endIndex == RaftConstants.INVALID_LOG_INDEX;
     return LogSegment.loadSegment(pi.path.toFile(), pi.startIndex, pi.endIndex,

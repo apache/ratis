@@ -23,6 +23,7 @@ import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.storage.RaftLog;
 import org.apache.hadoop.raft.server.storage.RaftStorage;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.util.Daemon;
 import org.slf4j.Logger;
@@ -43,27 +44,32 @@ import java.io.IOException;
 class StateMachineUpdater implements Runnable {
   static final Logger LOG = LoggerFactory.getLogger(StateMachineUpdater.class);
 
+  enum State {
+    RUNNING, STOP, RELOAD
+  }
+
   private final StateMachine stateMachine;
   private final RaftStorage storage;
   private final RaftLog raftLog;
 
-  private long lastApplied;
+  private long lastAppliedIndex;
 
   private final boolean autoSnapshotEnabled;
   private final long snapshotThreshold;
   private long lastSnapshotIndex;
 
   private final Thread updater;
-  private volatile boolean running = true;
+  private volatile State state = State.RUNNING;
+  private volatile SnapshotPathAndTermIndex toLoadSnapshot;
 
   StateMachineUpdater(StateMachine stateMachine, RaftLog raftLog,
-      RaftStorage storage, long lastApplied, RaftProperties properties) {
+      RaftStorage storage, long lastAppliedIndex, RaftProperties properties) {
     this.stateMachine = stateMachine;
     this.storage = storage;
     this.raftLog = raftLog;
 
-    this.lastApplied = lastApplied;
-    lastSnapshotIndex = lastApplied;
+    this.lastAppliedIndex = lastAppliedIndex;
+    lastSnapshotIndex = lastAppliedIndex;
 
     autoSnapshotEnabled = properties.getBoolean(
         RaftServerConfigKeys.RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY,
@@ -79,7 +85,7 @@ class StateMachineUpdater implements Runnable {
   }
 
   void stop() {
-    running = false;
+    state = State.STOP;
     updater.interrupt();
     try {
       stateMachine.close();
@@ -87,42 +93,72 @@ class StateMachineUpdater implements Runnable {
     }
   }
 
+  void reloadStateMachine(SnapshotPathAndTermIndex snapshot) {
+    state = State.RELOAD;
+    this.toLoadSnapshot = snapshot;
+    notifyUpdater();
+  }
+
+  synchronized void notifyUpdater() {
+    notifyAll();
+  }
+
   @Override
   public String toString() {
-    return this.getClass().getSimpleName();
+    return this.getClass().getSimpleName() + "-" + raftLog.getSelfId();
   }
 
   @Override
   public void run() {
-    while (running) {
+    final StateMachine sm = this.stateMachine;
+    while (isRunning()) {
       try {
         synchronized (this) {
           // when the peers just start, the committedIndex is initialized as 0
           // and will be updated only after the leader contacts other peers.
-          // Thus initially lastApplied can be greater than lastCommitted.
-          while (lastApplied >= raftLog.getLastCommittedIndex()) {
+          // Thus initially lastAppliedIndex can be greater than lastCommitted.
+          while (lastAppliedIndex >= raftLog.getLastCommittedIndex()) {
             wait();
           }
         }
 
         final long committedIndex = raftLog.getLastCommittedIndex();
-        Preconditions.checkState(lastApplied < committedIndex);
+        Preconditions.checkState(lastAppliedIndex < committedIndex);
 
-        while (lastApplied < committedIndex) {
-          final LogEntryProto next = raftLog.get(lastApplied + 1);
-          stateMachine.applyLogEntry(next);
-          lastApplied++;
+        if (state == State.RELOAD) {
+          Preconditions.checkState(toLoadSnapshot != null &&
+              toLoadSnapshot.endIndex > lastAppliedIndex,
+              "toLoadSnapshot: %s, lastAppliedIndex: %s", toLoadSnapshot, lastAppliedIndex);
+
+          stateMachine.reloadSnapshot(toLoadSnapshot.path.toFile());
+          lastAppliedIndex = toLoadSnapshot.endIndex;
+          lastSnapshotIndex = toLoadSnapshot.endIndex;
+          state = State.RUNNING;
+        }
+
+        while (lastAppliedIndex < committedIndex) {
+          final LogEntryProto next = raftLog.get(lastAppliedIndex + 1);
+          if (next != null) {
+            sm.applyLogEntry(next);
+            lastAppliedIndex++;
+          } else {
+            LOG.debug("{}: logEntry {} is null. There may be snapshot to load."
+                    + " state:{}, toLoadSnapshot:{}",
+                this.toString(), lastAppliedIndex + 1, state, toLoadSnapshot);
+            break;
+          }
         }
 
         // check if need to trigger a snapshot
-        if (shouldTakeSnapshot(lastApplied)) {
+        if (shouldTakeSnapshot(lastAppliedIndex)) {
           File snapshotFile = storage.getStorageDir().getSnapshotFile(
-              lastApplied);
-          stateMachine.takeSnapshot(snapshotFile, storage);
-          lastSnapshotIndex = lastApplied;
+              raftLog.get(lastAppliedIndex).getTerm(), lastAppliedIndex);
+          sm.takeSnapshot(snapshotFile, storage);
+          // TODO purge logs, including log cache. but should keep log for leader's RPCSenders
+          lastSnapshotIndex = lastAppliedIndex;
         }
       } catch (InterruptedException e) {
-        if (!running) {
+        if (!isRunning()) {
           LOG.info("The StateMachineUpdater is interrupted and will exit.");
         } else {
           RaftUtils.terminate(e,
@@ -135,8 +171,12 @@ class StateMachineUpdater implements Runnable {
     }
   }
 
+  private boolean isRunning() {
+    return state != State.STOP;
+  }
+
   private boolean shouldTakeSnapshot(long currentAppliedIndex) {
-    return autoSnapshotEnabled &&
+    return autoSnapshotEnabled && (state != State.RELOAD) &&
         (currentAppliedIndex - lastSnapshotIndex >= snapshotThreshold);
   }
 

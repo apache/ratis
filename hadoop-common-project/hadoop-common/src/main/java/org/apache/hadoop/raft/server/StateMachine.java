@@ -53,8 +53,8 @@ public interface StateMachine extends Closeable {
    * @param snapshotFile the file where the snapshot is written
    * @param storage the RaftStorage where the snapshot file is stored
    * @return the largest index of the log entry that has been applied to the
-   *         state machine and also included in the snapshot. It's safe to purge
-   *         all the log entries before this index from the raft storage later.
+   *         state machine and also included in the snapshot. Note the log purge
+   *         should be handled separately.
    */
   long takeSnapshot(File snapshotFile, RaftStorage storage);
 
@@ -65,6 +65,11 @@ public interface StateMachine extends Closeable {
    *         while loading the snapshot.
    */
   long loadSnapshot(File snapshotFile) throws IOException;
+
+  /**
+   * Reset the whole state machine, and then load states from the snapshot file.
+   */
+  long reloadSnapshot(File snapshotFile) throws IOException;
 
   class DummyStateMachine implements StateMachine {
     @Override
@@ -84,6 +89,11 @@ public interface StateMachine extends Closeable {
 
     @Override
     public long loadSnapshot(File snapshotFile) throws IOException {
+      return RaftConstants.INVALID_LOG_INDEX;
+    }
+
+    @Override
+    public long reloadSnapshot(File snapshotFile) throws IOException {
       return RaftConstants.INVALID_LOG_INDEX;
     }
 

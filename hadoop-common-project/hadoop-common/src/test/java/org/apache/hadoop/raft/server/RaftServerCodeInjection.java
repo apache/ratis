@@ -33,6 +33,7 @@ public class RaftServerCodeInjection
   static {
     CodeInjectionForTesting.put(RaftServer.REQUEST_VOTE, INSTANCE);
     CodeInjectionForTesting.put(RaftServer.APPEND_ENTRIES, INSTANCE);
+    CodeInjectionForTesting.put(RaftServer.INSTALL_SNAPSHOT, INSTANCE);
   }
 
   public static Map<String, Boolean> getRequestors() {

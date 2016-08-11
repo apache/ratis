@@ -47,9 +47,11 @@ public abstract class RaftLog implements Closeable {
   public static final LogEntryProto[] EMPTY_LOGENTRY_ARRAY = new LogEntryProto[0];
 
   /**
-   * The largest committed index.
+   * The largest committed index. Note the last committed log may be included
+   * in the latest snapshot file.
    */
-  protected final AtomicLong lastCommitted = new AtomicLong(RaftConstants.INVALID_LOG_INDEX);
+  protected final AtomicLong lastCommitted =
+      new AtomicLong(RaftConstants.INVALID_LOG_INDEX);
   private final String selfId;
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
@@ -129,7 +131,12 @@ public abstract class RaftLog implements Closeable {
    */
   public long getNextIndex() {
     final LogEntryProto last = getLastEntry();
-    return last == null ? 0 : last.getIndex() + 1;
+    if (last == null) {
+      // the log is empty but we may have snapshot. the last committed index
+      // is consistent with the last index included in the latest snapshot.
+      return getLastCommittedIndex() + 1;
+    }
+    return last.getIndex() + 1;
   }
 
   /**
@@ -170,9 +177,12 @@ public abstract class RaftLog implements Closeable {
     }
   }
 
-  public void open(ConfigurationManager confManager) throws IOException {
+  public void open(ConfigurationManager confManager, long lastIndexInSnapshot)
+      throws IOException {
     isOpen = true;
   }
+
+  public abstract long getStartIndex();
 
   /**
    * Get the log entry of the given index.
@@ -299,5 +309,9 @@ public abstract class RaftLog implements Closeable {
   @Override
   public void close() throws IOException {
     isOpen = false;
+  }
+
+  public String getSelfId() {
+    return selfId;
   }
 }

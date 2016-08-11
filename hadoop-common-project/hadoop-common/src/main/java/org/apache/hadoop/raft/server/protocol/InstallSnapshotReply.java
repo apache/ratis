@@ -17,23 +17,18 @@
  */
 package org.apache.hadoop.raft.server.protocol;
 
-import java.io.IOException;
+import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.InstallSnapshotReplyProto.InstallSnapshotResult;
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.security.KerberosInfo;
+public class InstallSnapshotReply extends RaftServerReply {
+  private final InstallSnapshotResult result;
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
-@KerberosInfo(
-    serverPrincipal = RaftConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY,
-    clientPrincipal = RaftConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY)
-public interface RaftServerProtocol {
+  public InstallSnapshotReply(String requestorId, String replierId, long term,
+      InstallSnapshotResult result) {
+    super(requestorId, replierId, term, result == InstallSnapshotResult.SUCCESS);
+    this.result = result;
+  }
 
-  RequestVoteReply requestVote(RequestVoteRequest request) throws IOException;
-
-  AppendEntriesReply appendEntries(AppendEntriesRequest request) throws IOException;
-
-  InstallSnapshotReply installSnapshot(InstallSnapshotRequest request) throws IOException;
+  public InstallSnapshotResult getResult() {
+    return result;
+  }
 }

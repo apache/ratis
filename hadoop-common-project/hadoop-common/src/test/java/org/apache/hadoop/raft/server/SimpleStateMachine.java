@@ -20,7 +20,6 @@ package org.apache.hadoop.raft.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.conf.RaftProperties;
-import org.apache.hadoop.raft.proto.RaftProtos;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.server.storage.LogInputStream;
 import org.apache.hadoop.raft.server.storage.LogOutputStream;
@@ -44,7 +43,8 @@ import java.util.List;
 public class SimpleStateMachine implements StateMachine {
   static volatile int SNAPSHOT_THRESHOLD = 100;
   static final Logger LOG = LoggerFactory.getLogger(SimpleStateMachine.class);
-  public static final String RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY = "raft.test.simple.state.machine.take.snapshot";
+  public static final String RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY
+      = "raft.test.simple.state.machine.take.snapshot";
   public static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
 
   private final List<LogEntryProto> list =
@@ -59,8 +59,9 @@ public class SimpleStateMachine implements StateMachine {
       while (running) {
         if (list.get(list.size() - 1).getIndex() - endIndexLastCkpt >=
             SNAPSHOT_THRESHOLD) {
+          LogEntryProto entry = list.get(list.size() - 1);
           File snapshotFile = storage.getStorageDir()
-              .getSnapshotFile(list.get(list.size() - 1).getIndex());
+              .getSnapshotFile(entry.getTerm(), entry.getIndex());
           endIndexLastCkpt = takeSnapshot(snapshotFile, storage);
         }
         try {
@@ -121,6 +122,32 @@ public class SimpleStateMachine implements StateMachine {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
           list.add(entry);
+        }
+      }
+      Preconditions.checkState(endIndex == list.get(list.size() - 1).getIndex());
+      this.endIndexLastCkpt = endIndex;
+      return endIndex;
+    }
+  }
+
+  @Override
+  public synchronized long reloadSnapshot(File snapshotFile) throws IOException {
+    if (snapshotFile == null || !snapshotFile.exists()) {
+      LOG.warn("The snapshot file {} does not exist", snapshotFile);
+      return RaftConstants.INVALID_LOG_INDEX;
+    } else {
+      final long endIndex = getIndexFromSnapshotFileName(snapshotFile.getName());
+      final long lastIndexInList = list.isEmpty() ?
+          RaftConstants.INVALID_LOG_INDEX :
+          list.get(list.size() - 1).getIndex();
+      Preconditions.checkState(endIndex > lastIndexInList);
+      try (LogInputStream in =
+               new LogInputStream(snapshotFile, 0, endIndex, false)) {
+        LogEntryProto entry;
+        while ((entry = in.nextEntry()) != null) {
+          if (entry.getIndex() > lastIndexInList) {
+            list.add(entry);
+          }
         }
       }
       Preconditions.checkState(endIndex == list.get(list.size() - 1).getIndex());

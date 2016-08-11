@@ -32,10 +32,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.hadoop.raft.util.RaftUtils.deleteFile;
 
 /**
  * This class takes the responsibility of all the raft log related I/O ops for a
@@ -230,15 +231,6 @@ class RaftLogWorker implements Runnable {
         deleteFile(openFile);
       }
       updateFlushedIndex();
-    }
-  }
-
-  private void deleteFile(File f) throws IOException {
-    try {
-      Files.delete(f.toPath());
-    } catch (IOException e) {
-      LOG.warn("Could not delete " + f);
-      throw e;
     }
   }
 

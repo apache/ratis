@@ -18,20 +18,31 @@
 package org.apache.hadoop.raft.server;
 
 import com.google.common.base.Preconditions;
+import com.google.protobuf.ByteString;
+import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.InstallSnapshotReplyProto.InstallSnapshotResult;
+import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.SnapshotChunkProto;
 import org.apache.hadoop.raft.protocol.RaftClientRequest;
+import org.apache.hadoop.raft.protocol.RaftPeer;
 import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
-import org.apache.hadoop.raft.protocol.RaftPeer;
+import org.apache.hadoop.raft.server.protocol.InstallSnapshotReply;
+import org.apache.hadoop.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
 import org.apache.hadoop.raft.server.storage.RaftLog;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
+import org.apache.hadoop.raft.util.MD5FileUtil;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
@@ -52,7 +63,9 @@ import static org.apache.hadoop.raft.protocol.Message.EMPTY_MESSAGE;
 import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.STAGINGPROGRESS;
 import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.STEPDOWN;
 import static org.apache.hadoop.raft.server.LeaderState.StateUpdateEventType.UPDATECOMMIT;
+import static org.apache.hadoop.raft.server.RaftConstants.INVALID_LOG_INDEX;
 import static org.apache.hadoop.raft.server.RaftConstants.RPC_TIMEOUT_MAX_MS;
+import static org.apache.hadoop.raft.server.RaftConstants.SNAPSHOT_CHUNK_MAX_SIZE;
 import static org.apache.hadoop.raft.server.RaftConstants.STAGING_NOPROGRESS_TIMEOUT;
 
 /**
@@ -570,12 +583,15 @@ class LeaderState {
         try {
           final long endIndex = raftLog.getNextIndex();
           if (entries == null || entries.length == 0) {
-            // TODO: handle the scenario that the gap is too large and we need
-            // to send snapshot or split the entries
             entries = raftLog.getEntries(follower.nextIndex, endIndex);
           }
           final TermIndex previous = ServerProtoUtils.toTermIndex(
               raftLog.get(follower.nextIndex - 1));
+          if (previous == null) {
+            // if previous is null, nextIndex must be 0. otherwise we will
+            // install snapshot
+            Preconditions.checkState(follower.nextIndex == 0);
+          }
           if (entries != null || previous != null) {
             LOG.trace("follower {}, log {}", follower, raftLog);
           }
@@ -611,26 +627,104 @@ class LeaderState {
       return null;
     }
 
+    private SnapshotChunkProto readChunk(FileInputStream in, byte[] buf,
+        int length, long offset, int chunkIndex) throws IOException {
+      SnapshotChunkProto.Builder builder = SnapshotChunkProto.newBuilder()
+          .setOffset(offset).setChunkIndex(chunkIndex);
+      IOUtils.readFully(in, buf, 0, length);
+      builder.setData(ByteString.copyFrom(buf, 0, length));
+      return builder.build();
+    }
+
+    // TODO inefficient using RPC. need to change to zero-copy transfer
+    private InstallSnapshotReply installSnapshot(SnapshotPathAndTermIndex si)
+        throws InterruptedException, InterruptedIOException {
+      File snapshotFile = si.path.toFile();
+      final long totalSize = snapshotFile.length();
+      final int bufLength = (int) Math.min(SNAPSHOT_CHUNK_MAX_SIZE, totalSize);
+      final byte[] buf = new byte[bufLength];
+      long offset = 0;
+      int chunkIndex = 0;
+      try (FileInputStream in = new FileInputStream(snapshotFile)) {
+        MD5Hash fileDigest = MD5FileUtil.readStoredMd5ForFile(snapshotFile);
+        InstallSnapshotReply reply = null;
+        while (offset < totalSize) {
+          int targetLength = (int) Math.min(totalSize - offset,
+              SNAPSHOT_CHUNK_MAX_SIZE);
+          SnapshotChunkProto chunk = readChunk(in, buf, targetLength, offset,
+              chunkIndex);
+          InstallSnapshotRequest request = server.createInstallSnapshotRequest(
+              follower.peer.getId(), si, chunk, totalSize, fileDigest);
+
+          reply = (InstallSnapshotReply) server.getServerRpc()
+              .sendServerRequest(request);
+          follower.lastRpcTime.set(Time.monotonicNow());
+
+          if (!reply.isSuccess()) {
+            return reply;
+          }
+
+          offset += targetLength;
+          chunkIndex++;
+        }
+        if (reply != null) {
+          follower.updateMatchIndex(si.endIndex);
+          follower.updateNextIndex(si.endIndex + 1);
+          LOG.info("{}: install snapshot-{} successfully on follower {}",
+              server.getId(), si.endIndex, follower.peer);
+        }
+        return reply;
+      } catch (InterruptedIOException iioe) {
+          throw iioe;
+      } catch (IOException ioe) {
+        LOG.warn(this + ": failed to install Snapshot at offset " + offset, ioe);
+      }
+      return null;
+    }
+
     /** Check and send appendEntries RPC */
     private void checkAndSendAppendEntries() throws InterruptedException,
         InterruptedIOException {
       while (isSenderRunning()) {
         if (shouldSend()) {
-          final AppendEntriesReply r = sendAppendEntriesWithRetries();
-          if (r == null) {
-            break;
+          final long logStartIndex = raftLog.getStartIndex();
+          SnapshotPathAndTermIndex si = server.getState().getLatestSnapshot();
+          // we should install snapshot if:
+          // 1. the follower needs to catch up
+          // 2. there is no local log entry but there is snapshot
+          // 3. or the "previous" log entry has been covered by snapshot and
+          //       no longer exists in the raft log
+          boolean toInstallSnapshot = false;
+          if (follower.nextIndex < raftLog.getNextIndex()) {
+            toInstallSnapshot =
+                (logStartIndex == INVALID_LOG_INDEX && si != null) ||
+                    (follower.nextIndex - 1 >= 0 &&
+                        follower.nextIndex - 1 < logStartIndex);
           }
 
-          // check if should step down
-          if (r.getResult() == AppendResult.NOT_LEADER) {
-            checkResponseTerm(r.getTerm());
-          }
+          if (toInstallSnapshot) {
+            LOG.info("{}: follower {}'s next index is {}," +
+                " log's start index is {}, need to install snapshot",
+                server.getId(), follower.peer, follower.nextIndex, logStartIndex);
+            Preconditions.checkState(si != null);
 
-          if (r.getResult() == AppendResult.INCONSISTENCY) {
-            follower.decreaseNextIndex(r.getNextIndex());
+            final InstallSnapshotReply r = installSnapshot(si);
+            if (r != null && r.getResult() == InstallSnapshotResult.NOT_LEADER) {
+              checkResponseTerm(r.getTerm());
+            } // otherwise if r is null, retry the snapshot installation
+          } else {
+            final AppendEntriesReply r = sendAppendEntriesWithRetries();
+            if (r == null) {
+              break;
+            }
+
+            // check if should step down
+            if (r.getResult() == AppendResult.NOT_LEADER) {
+              checkResponseTerm(r.getTerm());
+            } else if (r.getResult() == AppendResult.INCONSISTENCY) {
+              follower.decreaseNextIndex(r.getNextIndex());
+            }
           }
-          // TODO need to handle other failure cases (e.g., a new peer
-          // has not been correctly formatted)
         }
         if (isSenderRunning()) {
           synchronized (this) {

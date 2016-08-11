@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import static org.apache.hadoop.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.hadoop.raft.RaftTestUtil.waitForLeader;
@@ -167,4 +166,3 @@ public abstract class RaftBasicTests {
     RaftTestUtil.assertLogEntries(cluster.getServers(), messages);
   }
 }
-

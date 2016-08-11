@@ -73,7 +73,7 @@ public interface RaftServerConfigKeys {
 
   /** log size limit (in number of log entries) that triggers the snapshot */
   String RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY = "raft.server.snapshot.trigger.threshold";
-  long RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_DEFAULT = 100000;
+  long RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_DEFAULT = 400000;
 
   /** An utility class to get conf values. */
   class Get {

@@ -35,6 +35,7 @@ public interface RaftConstants {
   byte LOG_TERMINATE_BYTE = 0;
 
   int LOG_SEGMENT_MAX_SIZE = 1024 * 1024 * 8;
+  int SNAPSHOT_CHUNK_MAX_SIZE = 1024 * 1024 * 16;
 
   @VisibleForTesting
   int ELECTION_TIMEOUT_MIN_MS = 150;

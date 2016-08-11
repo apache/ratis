@@ -20,12 +20,30 @@ package org.apache.hadoop.raft.server;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.hadoop.raft.protocol.*;
-import org.apache.hadoop.raft.server.protocol.*;
+import org.apache.hadoop.raft.proto.RaftServerProtocolProtos;
+import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.InstallSnapshotReplyProto.InstallSnapshotResult;
+import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.SnapshotChunkProto;
+import org.apache.hadoop.raft.protocol.NotLeaderException;
+import org.apache.hadoop.raft.protocol.RaftClientProtocol;
+import org.apache.hadoop.raft.protocol.RaftClientRequest;
+import org.apache.hadoop.raft.protocol.RaftPeer;
+import org.apache.hadoop.raft.protocol.ReconfigurationInProgressException;
+import org.apache.hadoop.raft.protocol.SetConfigurationRequest;
+import org.apache.hadoop.raft.server.protocol.AppendEntriesReply;
 import org.apache.hadoop.raft.server.protocol.AppendEntriesReply.AppendResult;
+import org.apache.hadoop.raft.server.protocol.AppendEntriesRequest;
+import org.apache.hadoop.raft.server.protocol.InstallSnapshotReply;
+import org.apache.hadoop.raft.server.protocol.InstallSnapshotRequest;
+import org.apache.hadoop.raft.server.protocol.RaftServerProtocol;
+import org.apache.hadoop.raft.server.protocol.RequestVoteReply;
+import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
+import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.hadoop.raft.util.CodeInjectionForTesting;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.apache.hadoop.util.Time;
@@ -50,6 +68,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   static final String CLASS_NAME = RaftServer.class.getSimpleName();
   public static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   public static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
+  public static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
 
   enum RunningState {
     /**
@@ -313,6 +332,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   public void submitClientRequest(RaftClientRequest request) throws IOException {
     LOG.debug("{}: receive submit({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
+    checkLeaderState();
 
     final PendingRequest pending;
     synchronized (this) {
@@ -333,6 +353,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       throws IOException {
     LOG.debug("{}: receive setConfiguration({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
+    checkLeaderState();
 
     final RaftPeer[] peersInNewConf = request.getPeersInNewConf();
     final PendingRequest pending;
@@ -410,7 +431,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         boolean termUpdated = changeToFollower(candidateTerm, false);
         // see Section 5.4.1 Election restriction
         if (state.isLogUpToDate(candidateLastEntry)) {
-          heartbeatMonitor.updateLastRpcTime(startTime);
+          heartbeatMonitor.updateLastRpcTime(startTime, false);
           state.grantVote(candidateId);
           voteGranted = true;
         }
@@ -503,11 +524,9 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         heartbeatMonitor = new FollowerState(this);
         heartbeatMonitor.start();
       }
-
       if (runningState.get() == RunningState.RUNNING) {
-        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow());
+        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), true);
       }
-      state.updateStatemachine(leaderCommit, currentTerm);
 
       if (previous != null && !state.getLog().contains(previous)) {
         // TODO add more unit tests for inconsistency scenarios
@@ -519,6 +538,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
       state.getLog().append(entries);
       state.updateConfiguration(entries);
+      state.updateStatemachine(leaderCommit, currentTerm);
     }
     if (entries != null && entries.length > 0) {
       try {
@@ -532,7 +552,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
           && getState().getCurrentTerm() == currentTerm) {
         // reset election timer to avoid punishing the leader for our own
         // long disk writes
-        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow());
+        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
       }
     }
     final AppendEntriesReply reply = new AppendEntriesReply(leaderId, getId(),
@@ -541,11 +561,70 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     return reply;
   }
 
+  @Override
+  public InstallSnapshotReply installSnapshot(InstallSnapshotRequest request)
+      throws IOException {
+    CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(),
+        request.getRequestorId(), request);
+    LOG.debug("{}: receive installSnapshot({})", getId(), request);
+
+    assertRunningState(RunningState.RUNNING, RunningState.INITIALIZING);
+
+    final long currentTerm;
+    final String leaderId = request.getRequestorId();
+    final long leaderTerm = request.getLeaderTerm();
+    final long lastIncludedIndex = request.getLastIncludedIndex();
+    synchronized (this) {
+      final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
+      currentTerm = state.getCurrentTerm();
+      if (!recognized) {
+        final InstallSnapshotReply reply = new InstallSnapshotReply(leaderId,
+            getId(), currentTerm, InstallSnapshotResult.NOT_LEADER);
+        LOG.debug("{}: do not recognize leader for installing snapshot." +
+            " Reply: {}", getId(), reply);
+        return reply;
+      }
+      changeToFollower(leaderTerm, true);
+      state.setLeader(leaderId);
+
+      if (runningState.get() == RunningState.RUNNING) {
+        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), true);
+      }
+
+      // Check and append the snapshot chunk. We simply put this in lock
+      // considering a follower peer requiring a snapshot installation does not
+      // have a lot of requests
+      Preconditions.checkState(
+          state.getLog().getNextIndex() <= lastIncludedIndex,
+          "%s log's next id is %s, last included index in snapshot is %s",
+          getId(),  state.getLog().getNextIndex(), lastIncludedIndex);
+      state.installSnapshot(request);
+
+      // update the committed index
+      // re-load the state machine if this is the last chunk
+      state.reloadStateMachine(lastIncludedIndex, leaderTerm);
+      heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
+    }
+    if (request.isDone()) {
+      LOG.info("{}: successfully install the whole snapshot-{}", getId(),
+          lastIncludedIndex);
+    }
+    return new InstallSnapshotReply(leaderId, getId(), currentTerm,
+        InstallSnapshotResult.SUCCESS);
+  }
+
   synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,
       TermIndex previous, LogEntryProto[] entries, boolean initializing) {
     return new AppendEntriesRequest(getId(), targetId,
         state.getCurrentTerm(), previous, entries,
         state.getLog().getLastCommittedIndex(), initializing);
+  }
+
+  synchronized InstallSnapshotRequest createInstallSnapshotRequest(
+      String targetId, SnapshotPathAndTermIndex snapshot,
+      SnapshotChunkProto chunk, long totalSize, MD5Hash digest) {
+    return new InstallSnapshotRequest(getId(), targetId, state.getCurrentTerm(),
+        snapshot.endIndex, snapshot.term, chunk, totalSize, digest);
   }
 
   synchronized RequestVoteRequest createRequestVoteRequest(String targetId,

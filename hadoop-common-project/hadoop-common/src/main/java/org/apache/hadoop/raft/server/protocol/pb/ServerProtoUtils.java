@@ -17,6 +17,7 @@
  */
 package org.apache.hadoop.raft.server.protocol.pb;
 
+import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.raft.proto.RaftProtos.*;
 import org.apache.hadoop.raft.proto.RaftServerProtocolProtos.*;
 import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
@@ -47,7 +48,7 @@ public class ServerProtoUtils {
     return entries == null? "null"
         : entries.length == 0 ? "[]"
         : entries.length == 1? "" + toTermIndex(entries[0])
-        : "" + Arrays.asList(entries).stream().map(ServerProtoUtils::toTermIndex)
+        : "" + Arrays.stream(entries).map(ServerProtoUtils::toTermIndex)
             .collect(Collectors.toList());
   }
 
@@ -175,5 +176,47 @@ public class ServerProtoUtils {
       default:
         throw new IllegalStateException("Unexpected value " + result);
     }
+  }
+
+  static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
+      InstallSnapshotRequest request) {
+    InstallSnapshotRequestProto.Builder builder = InstallSnapshotRequestProto
+        .newBuilder()
+        .setServerRequest(toRaftServerRequestProtoBuilder(request))
+        .setLeaderTerm(request.getLeaderTerm())
+        .setLastIncludedIndex(request.getLastIncludedIndex())
+        .setLastIncludedTerm(request.getLastIncludedTerm())
+        .setChunk(request.getChunk())
+        .setTotalSize(request.getTotalSize());
+    return builder.build();
+  }
+
+  static InstallSnapshotRequest toInstallSnapshotRequest(
+      InstallSnapshotRequestProto requestProto) {
+    RaftRpcMessageProto rpcMessage = requestProto.getServerRequest()
+        .getRpcRequest().getRpcMessage();
+    MD5Hash digest = new MD5Hash(requestProto.getFileDigest().toByteArray());
+    return new InstallSnapshotRequest(rpcMessage.getRequestorId(),
+        rpcMessage.getReplyId(), requestProto.getLeaderTerm(),
+        requestProto.getLastIncludedIndex(), requestProto.getLastIncludedTerm(),
+        requestProto.getChunk(), requestProto.getTotalSize(), digest);
+  }
+
+  static InstallSnapshotReply toInstallSnapshotReply(
+      InstallSnapshotReplyProto replyProto) {
+    final RaftServerReplyProto serverReply = replyProto.getServerReply();
+    final RaftRpcReplyProto rpcReply = serverReply.getRpcReply();
+    final RaftRpcMessageProto m = rpcReply.getRpcMessage();
+    return new InstallSnapshotReply(m.getRequestorId(), m.getReplyId(),
+        serverReply.getTerm(), replyProto.getResult());
+  }
+
+  static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
+      InstallSnapshotRequestProto request, InstallSnapshotReply reply) {
+    final RaftServerReplyProto.Builder serverReplyBuilder
+        = toRaftServerReplyProtoBuilder(request.getServerRequest(), reply);
+    final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
+        .newBuilder().setServerReply(serverReplyBuilder);
+    return builder.build();
   }
 }

@@ -91,7 +91,8 @@ public class TestRaftSnapshot {
       // wait for the snapshot to be done
       RaftStorageDirectory storageDirectory = cluster.getLeader().getState()
           .getStorage().getStorageDir();
-      File snapshotFile = storageDirectory.getSnapshotFile(i - 1);
+      File snapshotFile = storageDirectory.getSnapshotFile(
+          cluster.getLeader().getState().getCurrentTerm(), i - 1);
 
       int retries = 0;
       while (!snapshotFile.exists() && retries++ < 10) {

@@ -30,6 +30,7 @@ import java.lang.reflect.Constructor;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -65,6 +66,15 @@ public abstract class RaftUtils {
   public static void truncateFile(File f, long target) throws IOException {
     try (FileOutputStream out = new FileOutputStream(f, true)) {
       out.getChannel().truncate(target);
+    }
+  }
+
+  public static void deleteFile(File f) throws IOException {
+    try {
+      Files.delete(f.toPath());
+    } catch (IOException e) {
+      LOG.warn("Could not delete " + f);
+      throw e;
     }
   }
 

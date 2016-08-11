@@ -23,13 +23,15 @@ import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.Message;
 import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
+import org.apache.hadoop.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
 import org.apache.hadoop.raft.server.storage.MemoryRaftLog;
 import org.apache.hadoop.raft.server.storage.RaftLog;
 import org.apache.hadoop.raft.server.storage.RaftStorage;
-import org.apache.hadoop.raft.server.storage.RaftStorageDirectory;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.hadoop.raft.server.storage.SegmentedRaftLog;
+import org.apache.hadoop.raft.server.storage.SnapshotManager;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -50,6 +52,7 @@ public class ServerState implements Closeable {
   private final StateMachineUpdater stateMachineUpdater;
   /** local storage for log and snapshot */
   private final RaftStorage storage;
+  private final SnapshotManager snapshotManager;
 
   /**
    * Latest term server has seen. initialized to 0 on first boot, increases
@@ -71,6 +74,7 @@ public class ServerState implements Closeable {
     this.selfId = id;
     configurationManager = new ConfigurationManager(conf);
     storage = new RaftStorage(prop, RaftConstants.StartupOption.REGULAR);
+    snapshotManager = new SnapshotManager(storage, id);
     long lastApplied = initStatemachine(stateMachine, prop);
 
     leaderId = null;
@@ -86,7 +90,7 @@ public class ServerState implements Closeable {
   private long initStatemachine(StateMachine sm, RaftProperties properties)
       throws IOException {
     sm.initialize(properties, storage);
-    RaftStorageDirectory.PathAndIndex pi = storage.getLastestSnapshotPath();
+    SnapshotPathAndTermIndex pi = snapshotManager.getLatestSnapshot();
     if (pi == null || pi.endIndex < 0) {
       return RaftConstants.INVALID_LOG_INDEX;
     }
@@ -102,13 +106,14 @@ public class ServerState implements Closeable {
    * know whether they have been committed.
    */
   private RaftLog initLog(String id, RaftProperties prop, RaftServer server,
-      long lastApplied) throws IOException {
+      long lastIndexInSnapshot) throws IOException {
     if (prop.getBoolean(RAFT_SERVER_USE_MEMORY_LOG_KEY,
         RAFT_SERVER_USE_MEMORY_LOG_DEFAULT)) {
       return new MemoryRaftLog(id);
     } else {
-      RaftLog log = new SegmentedRaftLog(id, server, this.storage, lastApplied);
-      log.open(configurationManager);
+      RaftLog log = new SegmentedRaftLog(id, server, this.storage,
+          lastIndexInSnapshot);
+      log.open(configurationManager, lastIndexInSnapshot);
       return log;
     }
   }
@@ -215,12 +220,18 @@ public class ServerState implements Closeable {
 
   boolean isLogUpToDate(TermIndex candidateLastEntry) {
     LogEntryProto lastEntry = log.getLastEntry();
-    if (lastEntry == null) {
+    // need to take into account snapshot
+    SnapshotPathAndTermIndex si = snapshotManager.getLatestSnapshot();
+    if (lastEntry == null && si == null) {
       return true;
     } else if (candidateLastEntry == null) {
       return false;
     }
-    return ServerProtoUtils.toTermIndex(lastEntry).compareTo(candidateLastEntry) <= 0;
+    TermIndex local = ServerProtoUtils.toTermIndex(lastEntry);
+    if (local == null || (si != null && si.endIndex > lastEntry.getIndex())) {
+      local = new TermIndex(si.term, si.endIndex);
+    }
+    return local.compareTo(candidateLastEntry) <= 0;
   }
 
   @Override
@@ -256,9 +267,20 @@ public class ServerState implements Closeable {
 
   void updateStatemachine(long majorityIndex, long currentTerm) {
     log.updateLastCommitted(majorityIndex, currentTerm);
-    synchronized (stateMachineUpdater) {
-      stateMachineUpdater.notifyAll();
-    }
+    stateMachineUpdater.notifyUpdater();
+  }
+
+  void reloadStateMachine(long lastIndexInSnapshot, long currentTerm)
+      throws IOException {
+    log.updateLastCommitted(lastIndexInSnapshot, currentTerm);
+
+    SnapshotPathAndTermIndex pi = storage.getLastestSnapshotPath();
+    Preconditions.checkState(pi.endIndex == lastIndexInSnapshot,
+        "latest snapshot path: {}, lastIndex in snapshot just installed: {}",
+        pi, lastIndexInSnapshot);
+    snapshotManager.setLatestSnapshot(pi);
+
+    stateMachineUpdater.reloadStateMachine(pi);
   }
 
   @Override
@@ -275,5 +297,13 @@ public class ServerState implements Closeable {
   @VisibleForTesting
   StateMachine getStateMachine() {
     return stateMachineUpdater.getStateMachine();
+  }
+
+  void installSnapshot(InstallSnapshotRequest request) throws IOException {
+    snapshotManager.installSnapshot(request);
+  }
+
+  SnapshotPathAndTermIndex getLatestSnapshot() {
+    return snapshotManager.getLatestSnapshot();
   }
 }

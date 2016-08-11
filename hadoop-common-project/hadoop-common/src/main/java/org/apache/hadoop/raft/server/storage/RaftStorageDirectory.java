@@ -54,9 +54,12 @@ public class RaftStorageDirectory {
   static final String LOG_FILE_INPROGRESS = "inprogress";
   static final String LOG_FILE_PREFIX = "log";
   static final String SNAPSHOT_FILE_PREFIX = "snapshot";
+  static final String CORRUPT_SNAPSHOT_FILE_SUFFIX = ".corrupt";
   static final Pattern CLOSED_SEGMENT_REGEX = Pattern.compile("log_(\\d+)-(\\d+)");
   static final Pattern OPEN_SEGMENT_REGEX = Pattern.compile("log_inprogress_(\\d+)(?:\\..*)?");
-  static final Pattern SNAPSHOT_REGEX = Pattern.compile(SNAPSHOT_FILE_PREFIX + "_(\\d+)");
+  /** snapshot.term_index */
+  static final Pattern SNAPSHOT_REGEX =
+      Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)");
 
   private static final List<Pattern> LOGSEGMENTS_REGEXES =
       ImmutableList.of(CLOSED_SEGMENT_REGEX, OPEN_SEGMENT_REGEX);
@@ -67,15 +70,37 @@ public class RaftStorageDirectory {
     NORMAL
   }
 
-  public static class PathAndIndex {
+  public static class LogPathAndIndex {
     public final Path path;
     public final long startIndex;
     public final long endIndex;
 
-    PathAndIndex(Path path, long startIndex, long endIndex) {
+    LogPathAndIndex(Path path, long startIndex, long endIndex) {
       this.path = path;
       this.startIndex = startIndex;
       this.endIndex = endIndex;
+    }
+
+    @Override
+    public String toString() {
+      return path + "-" + startIndex + "-" + endIndex;
+    }
+  }
+
+  public static class SnapshotPathAndTermIndex {
+    public final Path path;
+    public final long term;
+    public final long endIndex;
+
+    SnapshotPathAndTermIndex(Path path, long term, long endIndex) {
+      this.path = path;
+      this.term = term;
+      this.endIndex = endIndex;
+    }
+
+    @Override
+    public String toString() {
+      return path + "." + term + "-" + endIndex;
     }
   }
 
@@ -156,25 +181,44 @@ public class RaftStorageDirectory {
     return LOG_FILE_PREFIX + "_" + startIndex + "-" + endIndex;
   }
 
-  static String getSnapshotFileName(long endIndex) {
-    return SNAPSHOT_FILE_PREFIX + "_" + endIndex;
+  static String getSnapshotFileName(long term, long endIndex) {
+    return SNAPSHOT_FILE_PREFIX + "." + term + "_" + endIndex;
   }
 
-  public File getSnapshotFile(long endIndex) {
-    return new File(getCurrentDir(), getSnapshotFileName(endIndex));
+  static String getTmpSnapshotFileName(long term, long endIndex) {
+    return SNAPSHOT_FILE_PREFIX + "." + term + "_" + endIndex
+        + AtomicFileOutputStream.TMP_EXTENSION;
+  }
+
+  static String getCorruptSnapshotFileName(long term, long endIndex) {
+    return SNAPSHOT_FILE_PREFIX + "." + term + "_" + endIndex +
+        CORRUPT_SNAPSHOT_FILE_SUFFIX;
+  }
+
+  public File getSnapshotFile(long term, long endIndex) {
+    return new File(getCurrentDir(), getSnapshotFileName(term, endIndex));
+  }
+
+  public File getTmpSnapshotFile(long term, long endIndex) {
+    return new File(getCurrentDir(), getTmpSnapshotFileName(term, endIndex));
+  }
+
+  public File getCorruptSnapshotFile(long term, long endIndex) {
+    return new File(getCurrentDir(), getCorruptSnapshotFileName(term, endIndex));
   }
 
   @VisibleForTesting
-  public PathAndIndex getLatestSnapshot() throws IOException {
-    PathAndIndex latest = null;
+  public SnapshotPathAndTermIndex getLatestSnapshot() throws IOException {
+    SnapshotPathAndTermIndex latest = null;
     try (DirectoryStream<Path> stream =
              Files.newDirectoryStream(getCurrentDir().toPath())) {
       for (Path path : stream) {
           Matcher matcher = SNAPSHOT_REGEX.matcher(path.getFileName().toString());
           if (matcher.matches()) {
-            final long endIndex = Long.parseLong(matcher.group(1));
+            final long endIndex = Long.parseLong(matcher.group(2));
             if (latest == null || endIndex > latest.endIndex) {
-              latest = new PathAndIndex(path, 0, endIndex);
+              final long term = Long.parseLong(matcher.group(1));
+              latest = new SnapshotPathAndTermIndex(path, term, endIndex);
           }
         }
       }
@@ -185,8 +229,8 @@ public class RaftStorageDirectory {
   /**
    * @return log segment files sorted based on their index.
    */
-  List<PathAndIndex> getLogSegmentFiles() throws IOException {
-    List<PathAndIndex> list = new ArrayList<>();
+  List<LogPathAndIndex> getLogSegmentFiles() throws IOException {
+    List<LogPathAndIndex> list = new ArrayList<>();
     try (DirectoryStream<Path> stream =
              Files.newDirectoryStream(getCurrentDir().toPath())) {
       for (Path path : stream) {
@@ -196,7 +240,7 @@ public class RaftStorageDirectory {
             final long startIndex = Long.parseLong(matcher.group(1));
             final long endIndex = matcher.groupCount() == 2 ?
                 Long.parseLong(matcher.group(2)) : INVALID_LOG_INDEX;
-            list.add(new PathAndIndex(path, startIndex, endIndex));
+            list.add(new LogPathAndIndex(path, startIndex, endIndex));
           }
         }
       }

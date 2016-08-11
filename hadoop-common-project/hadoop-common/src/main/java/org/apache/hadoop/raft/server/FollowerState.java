@@ -30,14 +30,16 @@ class FollowerState extends Daemon {
   private final RaftServer server;
   private volatile long lastRpcTime = Time.monotonicNow();
   private volatile boolean monitorRunning = true;
+  private volatile boolean inLogSync = false;
 
   FollowerState(RaftServer server) {
     this.server = server;
   }
 
-  void updateLastRpcTime(long now) {
+  void updateLastRpcTime(long now, boolean inLogSync) {
     LOG.trace("{} update last rpc time to {}", server.getId(), now);
     lastRpcTime = now;
+    this.inLogSync = inLogSync;
   }
 
   long getLastRpcTime() {
@@ -64,7 +66,7 @@ class FollowerState extends Daemon {
         }
         synchronized (server) {
           final long now = Time.monotonicNow();
-          if (now >= lastRpcTime + electionTimeout) {
+          if (!inLogSync && now >= lastRpcTime + electionTimeout) {
             LOG.info("{} changes to {} at {}, LastRpcTime:{}, electionTimeout:{}",
                 server.getId(), Role.CANDIDATE, now, lastRpcTime,
                 electionTimeout);

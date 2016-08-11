@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.hadoop.raft.protocol.pb.ProtoUtils;
 import org.apache.hadoop.raft.server.RaftConfiguration;
+import org.apache.hadoop.raft.server.RaftConstants;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
 
 import java.util.ArrayList;
@@ -115,6 +116,12 @@ public class MemoryRaftLog extends RaftLog {
     } finally {
       writeUnlock();
     }
+  }
+
+  @Override
+  public long getStartIndex() {
+    return entries.isEmpty() ? RaftConstants.INVALID_LOG_INDEX :
+        entries.get(0).getIndex();
   }
 
   @Override

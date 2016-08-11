@@ -59,4 +59,17 @@ public class RaftServerProtocolServerSideTranslatorPB
     }
     return ServerProtoUtils.toAppendEntriesReplyProto(request, reply);
   }
+
+  @Override
+  public InstallSnapshotReplyProto installSnapshot(RpcController controller,
+      InstallSnapshotRequestProto request) throws ServiceException {
+    final InstallSnapshotReply reply;
+    try {
+      reply = impl.installSnapshot(
+          ServerProtoUtils.toInstallSnapshotRequest(request));
+      return ServerProtoUtils.toInstallSnapshotReplyProto(request, reply);
+    } catch(IOException ioe) {
+      throw new ServiceException(ioe);
+    }
+  }
 }

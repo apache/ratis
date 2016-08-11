@@ -138,7 +138,6 @@ class RaftLogCache {
     }
   }
 
-  @VisibleForTesting
   long getStartIndex() {
     if (closedSegments.isEmpty()) {
       return openSegment != null ? openSegment.getStartIndex() :
@@ -315,5 +314,9 @@ class RaftLogCache {
   @VisibleForTesting
   int getNumOfSegments() {
     return closedSegments.size() + (openSegment == null ? 0 : 1);
+  }
+
+  boolean isEmpty() {
+    return closedSegments.isEmpty() && openSegment == null;
   }
 }

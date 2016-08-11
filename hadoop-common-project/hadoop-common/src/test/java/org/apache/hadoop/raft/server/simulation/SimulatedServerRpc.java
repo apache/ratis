@@ -96,7 +96,9 @@ public class SimulatedServerRpc implements RaftServerRpc {
         return server.appendEntries((AppendEntriesRequest) r);
       } else if (r instanceof RequestVoteRequest) {
         return server.requestVote((RequestVoteRequest) r);
-      } else { // TODO support other requests later
+      } else if (r instanceof InstallSnapshotRequest) {
+        return server.installSnapshot((InstallSnapshotRequest) r);
+      } else {
         throw new IllegalStateException("unexpected state");
       }
     }

@@ -20,7 +20,8 @@ package org.apache.hadoop.raft.server.storage;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.raft.conf.RaftProperties;
 import org.apache.hadoop.raft.server.RaftConstants;
-import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.PathAndIndex;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.hadoop.raft.util.RaftUtils;
 import org.slf4j.Logger;
@@ -120,7 +121,7 @@ public class RaftStorage implements Closeable {
     return metaFile;
   }
 
-  public PathAndIndex getLastestSnapshotPath() throws IOException {
+  public SnapshotPathAndTermIndex getLastestSnapshotPath() throws IOException {
     return storageDir.getLatestSnapshot();
   }
 }

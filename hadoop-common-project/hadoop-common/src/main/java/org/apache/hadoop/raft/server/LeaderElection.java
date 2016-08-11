@@ -25,6 +25,8 @@ import org.apache.hadoop.raft.server.protocol.RequestVoteReply;
 import org.apache.hadoop.raft.server.protocol.RequestVoteRequest;
 import org.apache.hadoop.raft.server.protocol.TermIndex;
 import org.apache.hadoop.raft.server.protocol.pb.ServerProtoUtils;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory;
+import org.apache.hadoop.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.slf4j.Logger;
@@ -125,8 +127,15 @@ class LeaderElection extends Daemon {
       LOG.info(state.getSelfId() + ": begin an election in Term "
           + electionTerm);
 
-      final TermIndex lastEntry = ServerProtoUtils.toTermIndex(
+      TermIndex lastEntry = ServerProtoUtils.toTermIndex(
           state.getLog().getLastEntry());
+      if (lastEntry == null) {
+        // lastEntry may need to be derived from snapshot
+        SnapshotPathAndTermIndex si = state.getLatestSnapshot();
+        if (si != null) {
+          lastEntry = new TermIndex(si.term, si.endIndex);
+        }
+      }
 
       final ResultAndTerm r;
       if (others.isEmpty()) {
