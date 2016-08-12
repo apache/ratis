@@ -26,8 +26,8 @@ import org.apache.raft.proto.RaftServerProtocolProtos.RaftServerProtocolService;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.protocol.pb.RaftClientProtocolPB;
-import org.apache.raft.protocol.pb.RaftClientProtocolServerSideTranslatorPB;
+import org.apache.raft.hadoopRpc.client.RaftClientProtocolPB;
+import org.apache.raft.hadoopRpc.client.RaftClientProtocolServerSideTranslatorPB;
 import org.apache.raft.server.PendingRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
@@ -76,7 +76,7 @@ public class HadoopRpcService
   }
 
   @Override
-  RaftServerProtocolClientSideTranslatorPB createProxy(
+  public RaftServerProtocolClientSideTranslatorPB createProxy(
       RaftPeer p, Configuration conf) throws IOException {
     final RaftServerProtocolPB proxy = HadoopUtils.getProxy(
         RaftServerProtocolPB.class, p.getAddress(), conf);

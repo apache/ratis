@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.protocol.pb;
+package org.apache.raft.hadoopRpc.client;
 
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
@@ -28,6 +28,7 @@ import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.protocol.pb.ProtoUtils;
 
 import java.io.IOException;
 

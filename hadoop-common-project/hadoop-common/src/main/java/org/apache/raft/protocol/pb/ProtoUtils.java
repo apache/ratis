@@ -83,7 +83,7 @@ public class ProtoUtils {
         .build();
   }
 
-  static ConfigurationMessage toConfigurationMessage(
+  public static ConfigurationMessage toConfigurationMessage(
       ConfigurationMessageProto p) {
     return new ConfigurationMessage(toRaftPeerArray(p.getPeersList()));
   }
@@ -134,7 +134,7 @@ public class ProtoUtils {
         .build();
   }
 
-  static RaftRpcMessageProto.Builder toRaftRpcMessageProtoBuilder(
+  public static RaftRpcMessageProto.Builder toRaftRpcMessageProtoBuilder(
       RaftRpcMessage m) {
     return RaftRpcMessageProto.newBuilder()
         .setRequestorId(m.getRequestorId())
@@ -154,17 +154,17 @@ public class ProtoUtils {
         .setSuccess(reply.isSuccess());
   }
 
-  static Message toMessage(final ClientMessageEntryProto p) {
+  public static Message toMessage(final ClientMessageEntryProto p) {
     return () -> p.getContent().toByteArray();
   }
 
-  static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
+  public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
     final RaftRpcMessageProto m = p.getRpcRequest().getRpcMessage();
     return new RaftClientRequest(m.getRequestorId(), m.getReplyId(),
         toMessage(p.getMessage()));
   }
 
-  static RaftClientRequestProto toRaftClientRequestProto(
+  public static RaftClientRequestProto toRaftClientRequestProto(
       RaftClientRequest request) {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
@@ -172,7 +172,7 @@ public class ProtoUtils {
         .build();
   }
 
-  static RaftClientReplyProto toRaftClientReplyProto(
+  public static RaftClientReplyProto toRaftClientReplyProto(
       RaftClientRequestProto request, RaftClientReply reply) {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
@@ -181,7 +181,7 @@ public class ProtoUtils {
     return b.build();
   }
 
-  static SetConfigurationRequest toSetConfigurationRequest(
+  public static SetConfigurationRequest toSetConfigurationRequest(
       SetConfigurationRequestProto p) throws InvalidProtocolBufferException {
     final RaftRpcMessageProto m = p.getClientRequest().getRpcRequest().getRpcMessage();
     final ConfigurationMessageProto conf = ConfigurationMessageProto.parseFrom(
@@ -190,14 +190,14 @@ public class ProtoUtils {
         toRaftPeerArray(conf.getPeersList()));
   }
 
-  static SetConfigurationRequestProto toSetConfigurationRequestProto(
+  public static SetConfigurationRequestProto toSetConfigurationRequestProto(
       SetConfigurationRequest request) {
     return SetConfigurationRequestProto.newBuilder()
         .setClientRequest(toRaftClientRequestProto(request))
         .build();
   }
 
-  static SetConfigurationReplyProto toSetConfigurationReplyProto(
+  public static SetConfigurationReplyProto toSetConfigurationReplyProto(
       SetConfigurationRequestProto request, RaftClientReply reply) {
     return SetConfigurationReplyProto.newBuilder()
         .setClientReply(toRaftClientReplyProto(request.getClientRequest(), reply))

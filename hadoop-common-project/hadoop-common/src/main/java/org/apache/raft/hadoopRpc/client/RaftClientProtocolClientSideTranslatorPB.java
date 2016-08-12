@@ -15,18 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.protocol.pb;
+package org.apache.raft.hadoopRpc.client;
 
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.RPC;
-import org.apache.raft.hadoopRpc.HadoopUtils;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientRequestProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationRequestProto;
 import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.protocol.pb.ProtoUtils;
 
 import java.io.Closeable;
 import java.io.IOException;

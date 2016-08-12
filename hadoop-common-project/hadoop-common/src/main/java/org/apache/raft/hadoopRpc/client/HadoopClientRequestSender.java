@@ -15,16 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadoopRpc;
+package org.apache.raft.hadoopRpc.client;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.raft.client.RaftClientRequestSender;
+import org.apache.raft.hadoopRpc.HadoopRpcBase;
+import org.apache.raft.hadoopRpc.HadoopUtils;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.protocol.pb.RaftClientProtocolClientSideTranslatorPB;
-import org.apache.raft.protocol.pb.RaftClientProtocolPB;
+import org.apache.raft.hadoopRpc.client.RaftClientProtocolClientSideTranslatorPB;
+import org.apache.raft.hadoopRpc.client.RaftClientProtocolPB;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -51,7 +53,7 @@ public class HadoopClientRequestSender
   }
 
   @Override
-  RaftClientProtocolClientSideTranslatorPB createProxy(
+  public RaftClientProtocolClientSideTranslatorPB createProxy(
       RaftPeer p, Configuration conf) throws IOException {
     final RaftClientProtocolPB proxy = HadoopUtils.getProxy(
         RaftClientProtocolPB.class, p.getAddress(), conf);

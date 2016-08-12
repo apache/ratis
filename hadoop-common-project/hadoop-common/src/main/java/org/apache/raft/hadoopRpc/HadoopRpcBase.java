@@ -25,24 +25,24 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-abstract class HadoopRpcBase<PROXY> {
+public abstract class HadoopRpcBase<PROXY> {
   private final Map<String, PROXY> peers = new HashMap<>();
 
-  Collection<String> getServerIds() {
+  public Collection<String> getServerIds() {
     return peers.keySet();
   }
 
-  PROXY getServerProxy(String id) {
+  public PROXY getServerProxy(String id) {
     return peers.get(id);
   }
 
-  void addPeers(Iterable<RaftPeer> newPeers, Configuration conf)
+  public void addPeers(Iterable<RaftPeer> newPeers, Configuration conf)
       throws IOException {
     for(RaftPeer p : newPeers) {
       peers.put(p.getId(), createProxy(p, conf));
     }
   }
 
-  abstract PROXY createProxy(RaftPeer peer, Configuration conf)
+  public abstract PROXY createProxy(RaftPeer peer, Configuration conf)
       throws IOException;
 }
