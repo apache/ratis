@@ -109,7 +109,7 @@ public class MemoryRaftLog extends RaftLog {
     writeLock();
     try {
       final long nextIndex = getNextIndex();
-      final LogEntryProto e = ProtoUtils.toLogEntryProto(newConf, term,
+      final LogEntryProto e = ServerProtoUtils.toLogEntryProto(newConf, term,
           nextIndex);
       entries.add(e);
       return nextIndex;

@@ -348,8 +348,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       final RaftConfiguration current = getRaftConf();
       // make sure there is no other raft reconfiguration in progress
       if (!current.inStableState() || leaderState.inStagingState()) {
-        throw new ReconfigurationInProgressException(current,
-            "Reconfiguration in progress");
+        throw new ReconfigurationInProgressException(
+            "Reconfiguration is already in progress: " + current);
       }
 
       // return true if the new configuration is the same with the current one

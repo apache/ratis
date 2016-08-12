@@ -168,7 +168,7 @@ public abstract class RaftLog implements Closeable {
     writeLock();
     try {
       final long nextIndex = getNextIndex();
-      final LogEntryProto e = ProtoUtils.toLogEntryProto(newConf, term,
+      final LogEntryProto e = ServerProtoUtils.toLogEntryProto(newConf, term,
           nextIndex);
       appendEntry(e);
       return nextIndex;

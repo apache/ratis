@@ -254,7 +254,7 @@ public class ServerState implements Closeable {
       for (LogEntryProto entry : entries) {
         if (ProtoUtils.isConfigurationLogEntry(entry)) {
           configurationManager.addConfiguration(entry.getIndex(),
-              ProtoUtils.toRaftConfiguration(entry.getIndex(),
+              ServerProtoUtils.toRaftConfiguration(entry.getIndex(),
                   entry.getConfigurationEntry()));
         }
       }

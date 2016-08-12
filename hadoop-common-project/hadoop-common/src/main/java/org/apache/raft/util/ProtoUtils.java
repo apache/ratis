@@ -26,7 +26,6 @@ import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationReplyProto
 import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationRequestProto;
 import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.*;
-import org.apache.raft.server.RaftConfiguration;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -88,37 +87,8 @@ public class ProtoUtils {
     return new ConfigurationMessage(toRaftPeerArray(p.getPeersList()));
   }
 
-  public static RaftConfigurationProto toRaftConfigurationProto(
-      RaftConfiguration conf) {
-    return RaftConfigurationProto.newBuilder()
-        .addAllPeers(toRaftPeerProtos(conf.getPeersInConf()))
-        .addAllOldPeers(toRaftPeerProtos(conf.getPeersInOldConf()))
-        .build();
-  }
-
-  public static RaftConfiguration toRaftConfiguration(
-      long index, RaftConfigurationProto proto) {
-    final RaftPeer[] peers = toRaftPeerArray(proto.getPeersList());
-    if (proto.getOldPeersCount() > 0) {
-      final RaftPeer[] oldPeers = toRaftPeerArray(proto.getPeersList());
-      return RaftConfiguration.composeOldNewConf(peers, oldPeers, index);
-    } else {
-      return RaftConfiguration.composeConf(peers, index);
-    }
-  }
-
   public static boolean isConfigurationLogEntry(LogEntryProto entry) {
     return entry.getType() == LogEntryProto.Type.CONFIGURATION;
-  }
-
-  public static LogEntryProto toLogEntryProto(
-      RaftConfiguration conf, long term, long index) {
-    return LogEntryProto.newBuilder()
-        .setTerm(term)
-        .setIndex(index)
-        .setType(LogEntryProto.Type.CONFIGURATION)
-        .setConfigurationEntry(toRaftConfigurationProto(conf))
-        .build();
   }
 
   public static ClientMessageEntryProto toClientMessageEntryProto(Message message) {

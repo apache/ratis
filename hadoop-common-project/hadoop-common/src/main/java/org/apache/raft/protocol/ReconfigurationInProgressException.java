@@ -17,20 +17,8 @@
  */
 package org.apache.raft.protocol;
 
-import org.apache.raft.server.RaftConfiguration;
-
 public class ReconfigurationInProgressException extends RaftException {
-  private final RaftConfiguration confInProgress;
-
-  public ReconfigurationInProgressException(RaftConfiguration conf,
-      String message) {
+  public ReconfigurationInProgressException(String message) {
     super(message);
-    this.confInProgress = conf;
-  }
-
-  @Override
-  public String toString() {
-    return "In progress configuration:" + confInProgress
-        + ", " + super.toString();
   }
 }

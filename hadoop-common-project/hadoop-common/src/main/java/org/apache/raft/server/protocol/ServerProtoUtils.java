@@ -18,11 +18,14 @@
 package org.apache.raft.server.protocol;
 
 import org.apache.hadoop.io.MD5Hash;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.RaftRpcMessageProto;
 import org.apache.raft.proto.RaftProtos.RaftRpcReplyProto;
 import org.apache.raft.proto.RaftProtos.TermIndexProto;
 import org.apache.raft.proto.RaftServerProtocolProtos.*;
+import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
 
@@ -220,5 +223,34 @@ public class ServerProtoUtils {
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(serverReplyBuilder);
     return builder.build();
+  }
+
+  public static RaftProtos.RaftConfigurationProto toRaftConfigurationProto(
+      RaftConfiguration conf) {
+    return RaftProtos.RaftConfigurationProto.newBuilder()
+        .addAllPeers(ProtoUtils.toRaftPeerProtos(conf.getPeersInConf()))
+        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPeersInOldConf()))
+        .build();
+  }
+
+  public static RaftConfiguration toRaftConfiguration(
+      long index, RaftProtos.RaftConfigurationProto proto) {
+    final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(proto.getPeersList());
+    if (proto.getOldPeersCount() > 0) {
+      final RaftPeer[] oldPeers = ProtoUtils.toRaftPeerArray(proto.getPeersList());
+      return RaftConfiguration.composeOldNewConf(peers, oldPeers, index);
+    } else {
+      return RaftConfiguration.composeConf(peers, index);
+    }
+  }
+
+  public static LogEntryProto toLogEntryProto(
+      RaftConfiguration conf, long term, long index) {
+    return LogEntryProto.newBuilder()
+        .setTerm(term)
+        .setIndex(index)
+        .setType(LogEntryProto.Type.CONFIGURATION)
+        .setConfigurationEntry(toRaftConfigurationProto(conf))
+        .build();
   }
 }

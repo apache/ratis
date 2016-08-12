@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.protobuf.CodedOutputStream;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.LogEntryProto.Type;
+import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.RaftConstants;
@@ -105,7 +106,7 @@ class LogSegment implements Comparable<Long> {
         segment.append(next);
         if (confManager != null && next.getType() == Type.CONFIGURATION) {
           confManager.addConfiguration(next.getIndex(),
-              ProtoUtils.toRaftConfiguration(next.getIndex(),
+              ServerProtoUtils.toRaftConfiguration(next.getIndex(),
                   next.getConfigurationEntry()));
         }
         prev = next;
