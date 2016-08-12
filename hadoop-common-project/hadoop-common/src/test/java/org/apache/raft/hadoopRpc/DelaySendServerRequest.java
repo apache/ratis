@@ -18,6 +18,7 @@
 package org.apache.raft.hadoopRpc;
 
 import org.apache.raft.RaftTestUtil;
+import org.apache.raft.hadoopRpc.server.HadoopRpcService;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.apache.raft.util.RaftUtils;
 

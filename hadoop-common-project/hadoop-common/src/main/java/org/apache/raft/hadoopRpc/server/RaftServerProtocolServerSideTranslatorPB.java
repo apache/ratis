@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server.protocol.pb;
+package org.apache.raft.hadoopRpc.server;
 
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
@@ -25,6 +25,7 @@ import org.apache.raft.server.protocol.AppendEntriesReply;
 import org.apache.raft.server.protocol.InstallSnapshotReply;
 import org.apache.raft.server.protocol.RaftServerProtocol;
 import org.apache.raft.server.protocol.RequestVoteReply;
+import org.apache.raft.server.protocol.pb.ServerProtoUtils;
 
 import java.io.IOException;
 

@@ -31,11 +31,11 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 public class ServerProtoUtils {
-  static TermIndex toTermIndex(TermIndexProto p) {
+  public static TermIndex toTermIndex(TermIndexProto p) {
     return p == null? null: new TermIndex(p.getTerm(), p.getIndex());
   }
 
-  static TermIndexProto toTermIndexProto(TermIndex ti) {
+  public static TermIndexProto toTermIndexProto(TermIndex ti) {
     return ti == null? null: TermIndexProto.newBuilder()
         .setTerm(ti.getTerm())
         .setIndex(ti.getIndex())
@@ -55,13 +55,13 @@ public class ServerProtoUtils {
             .collect(Collectors.toList());
   }
 
-  static RaftServerRequestProto.Builder toRaftServerRequestProtoBuilder(
+  public static RaftServerRequestProto.Builder toRaftServerRequestProtoBuilder(
       RaftServerRequest request) {
     return RaftServerRequestProto.newBuilder()
         .setRpcRequest(ProtoUtils.toRaftRpcRequestProtoBuilder(request));
   }
 
-  static RaftServerReplyProto.Builder toRaftServerReplyProtoBuilder(
+  public static RaftServerReplyProto.Builder toRaftServerReplyProtoBuilder(
       RaftServerRequestProto request, RaftServerReply reply) {
     return RaftServerReplyProto.newBuilder()
         .setRpcReply(ProtoUtils.toRaftRpcReplyProtoBuilder(
@@ -69,13 +69,13 @@ public class ServerProtoUtils {
         .setTerm(reply.getTerm());
   }
 
-  static RequestVoteRequest toRequestVoteRequest(RequestVoteRequestProto p) {
+  public static RequestVoteRequest toRequestVoteRequest(RequestVoteRequestProto p) {
     final RaftRpcMessageProto m = p.getServerRequest().getRpcRequest().getRpcMessage();
     return new RequestVoteRequest(m.getRequestorId(), m.getReplyId(),
         p.getCandidateTerm(), toTermIndex(p.getCandidateLastEntry()));
   }
 
-  static RequestVoteRequestProto toRequestVoteRequestProto(
+  public static RequestVoteRequestProto toRequestVoteRequestProto(
       RequestVoteRequest request) {
     final RequestVoteRequestProto.Builder b = RequestVoteRequestProto.newBuilder()
         .setServerRequest(toRaftServerRequestProtoBuilder(request))
@@ -87,7 +87,7 @@ public class ServerProtoUtils {
     return b.build();
   }
 
-  static RequestVoteReply toRequestVoteReply(RequestVoteReplyProto p) {
+  public static RequestVoteReply toRequestVoteReply(RequestVoteReplyProto p) {
     final RaftServerReplyProto serverReply = p.getServerReply();
     final RaftRpcReplyProto rpcReply = serverReply.getRpcReply();
     final RaftRpcMessageProto m = rpcReply.getRpcMessage();
@@ -95,7 +95,7 @@ public class ServerProtoUtils {
         serverReply.getTerm(), rpcReply.getSuccess(), p.getShouldShutdown());
   }
 
-  static RequestVoteReplyProto toRequestVoteReplyProto(
+  public static RequestVoteReplyProto toRequestVoteReplyProto(
       RequestVoteRequestProto request, RequestVoteReply reply) {
     final RequestVoteReplyProto.Builder b = RequestVoteReplyProto.newBuilder();
     if (reply != null) {
@@ -107,7 +107,7 @@ public class ServerProtoUtils {
     return b.build();
   }
 
-  static AppendEntriesRequest toAppendEntriesRequest(AppendEntriesRequestProto p) {
+  public static AppendEntriesRequest toAppendEntriesRequest(AppendEntriesRequestProto p) {
     final RaftRpcMessageProto m = p.getServerRequest().getRpcRequest().getRpcMessage();
     final TermIndex previousLog = !p.hasPreviousLog()? null
         : toTermIndex(p.getPreviousLog());
@@ -117,7 +117,7 @@ public class ServerProtoUtils {
         p.getLeaderCommit(), p.getInitializing());
   }
 
-  static AppendEntriesRequestProto toAppendEntriesRequestProto(
+  public static AppendEntriesRequestProto toAppendEntriesRequestProto(
       AppendEntriesRequest request) {
     final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto.newBuilder()
         .setServerRequest(toRaftServerRequestProtoBuilder(request))
@@ -133,14 +133,14 @@ public class ServerProtoUtils {
     return b.build();
   }
 
-  static AppendEntriesReply toAppendEntriesReply(AppendEntriesReplyProto p) {
+  public static AppendEntriesReply toAppendEntriesReply(AppendEntriesReplyProto p) {
     final RaftServerReplyProto serverReply = p.getServerReply();
     final RaftRpcMessageProto m = serverReply.getRpcReply().getRpcMessage();
     return new AppendEntriesReply(m.getRequestorId(), m.getReplyId(),
         serverReply.getTerm(), p.getNextIndex(), toAppendResult(p.getResult()));
   }
 
-  static AppendEntriesReplyProto toAppendEntriesReplyProto(
+  public static AppendEntriesReplyProto toAppendEntriesReplyProto(
       AppendEntriesRequestProto request, AppendEntriesReply reply) {
     final AppendEntriesReplyProto.Builder b = AppendEntriesReplyProto.newBuilder();
     if (reply != null) {
@@ -153,7 +153,7 @@ public class ServerProtoUtils {
     return b.build();
   }
 
-  static AppendEntriesReplyProto.AppendResult toAppendResult(
+  public static AppendEntriesReplyProto.AppendResult toAppendResult(
       AppendEntriesReply.AppendResult result) {
     switch (result) {
       case SUCCESS:
@@ -167,7 +167,7 @@ public class ServerProtoUtils {
     }
   }
 
-  static AppendEntriesReply.AppendResult toAppendResult(
+  public static AppendEntriesReply.AppendResult toAppendResult(
       AppendEntriesReplyProto.AppendResult result) {
     switch (result) {
       case SUCCESS:
@@ -181,7 +181,7 @@ public class ServerProtoUtils {
     }
   }
 
-  static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
+  public static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
       InstallSnapshotRequest request) {
     InstallSnapshotRequestProto.Builder builder = InstallSnapshotRequestProto
         .newBuilder()
@@ -194,7 +194,7 @@ public class ServerProtoUtils {
     return builder.build();
   }
 
-  static InstallSnapshotRequest toInstallSnapshotRequest(
+  public static InstallSnapshotRequest toInstallSnapshotRequest(
       InstallSnapshotRequestProto requestProto) {
     RaftRpcMessageProto rpcMessage = requestProto.getServerRequest()
         .getRpcRequest().getRpcMessage();
@@ -205,7 +205,7 @@ public class ServerProtoUtils {
         requestProto.getChunk(), requestProto.getTotalSize(), digest);
   }
 
-  static InstallSnapshotReply toInstallSnapshotReply(
+  public static InstallSnapshotReply toInstallSnapshotReply(
       InstallSnapshotReplyProto replyProto) {
     final RaftServerReplyProto serverReply = replyProto.getServerReply();
     final RaftRpcReplyProto rpcReply = serverReply.getRpcReply();
@@ -214,7 +214,7 @@ public class ServerProtoUtils {
         serverReply.getTerm(), replyProto.getResult());
   }
 
-  static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
+  public static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
       InstallSnapshotRequestProto request, InstallSnapshotReply reply) {
     final RaftServerReplyProto.Builder serverReplyBuilder
         = toRaftServerReplyProtoBuilder(request.getServerRequest(), reply);

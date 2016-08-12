@@ -15,19 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadoopRpc;
+package org.apache.raft.hadoopRpc.server;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.BlockingService;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.RPC;
+import org.apache.raft.hadoopRpc.HadoopRpcBase;
+import org.apache.raft.hadoopRpc.HadoopUtils;
+import org.apache.raft.hadoopRpc.client.RaftClientProtocolPB;
+import org.apache.raft.hadoopRpc.client.RaftClientProtocolServerSideTranslatorPB;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientProtocolService;
 import org.apache.raft.proto.RaftServerProtocolProtos.RaftServerProtocolService;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.hadoopRpc.client.RaftClientProtocolPB;
-import org.apache.raft.hadoopRpc.client.RaftClientProtocolServerSideTranslatorPB;
 import org.apache.raft.server.PendingRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
@@ -36,9 +38,6 @@ import org.apache.raft.server.protocol.AppendEntriesRequest;
 import org.apache.raft.server.protocol.RaftServerReply;
 import org.apache.raft.server.protocol.RaftServerRequest;
 import org.apache.raft.server.protocol.RequestVoteRequest;
-import org.apache.raft.server.protocol.pb.RaftServerProtocolClientSideTranslatorPB;
-import org.apache.raft.server.protocol.pb.RaftServerProtocolPB;
-import org.apache.raft.server.protocol.pb.RaftServerProtocolServerSideTranslatorPB;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

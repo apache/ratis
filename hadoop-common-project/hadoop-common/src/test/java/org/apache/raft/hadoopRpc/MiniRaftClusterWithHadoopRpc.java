@@ -22,6 +22,7 @@ import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.hadoopRpc.client.HadoopClientRequestSender;
+import org.apache.raft.hadoopRpc.server.HadoopRpcService;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConstants;
 import org.apache.raft.server.RaftServer;

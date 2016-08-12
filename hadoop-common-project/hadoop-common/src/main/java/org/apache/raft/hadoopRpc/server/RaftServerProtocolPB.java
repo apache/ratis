@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server.protocol.pb;
+package org.apache.raft.hadoopRpc.server;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -23,7 +23,6 @@ import org.apache.hadoop.ipc.ProtocolInfo;
 import org.apache.hadoop.security.KerberosInfo;
 import org.apache.raft.hadoopRpc.HadoopConstants;
 import org.apache.raft.proto.RaftServerProtocolProtos;
-import org.apache.raft.server.RaftConstants;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
