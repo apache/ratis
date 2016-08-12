@@ -24,7 +24,7 @@ import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
-import org.apache.raft.protocol.pb.ProtoUtils;
+import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.RaftConstants;
 import org.apache.raft.server.RaftConstants.StartupOption;
 import org.apache.raft.server.RaftServerConfigKeys;

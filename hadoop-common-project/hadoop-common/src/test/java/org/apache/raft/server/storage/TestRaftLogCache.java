@@ -20,7 +20,7 @@ package org.apache.raft.server.storage;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
-import org.apache.raft.protocol.pb.ProtoUtils;
+import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.storage.RaftLogCache.TruncationSegments;
 import org.junit.Assert;
 import org.junit.Before;

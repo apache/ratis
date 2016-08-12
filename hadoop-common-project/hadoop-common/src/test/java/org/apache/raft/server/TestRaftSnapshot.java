@@ -25,7 +25,7 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.pb.ProtoUtils;
+import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.MemoryRaftLog;

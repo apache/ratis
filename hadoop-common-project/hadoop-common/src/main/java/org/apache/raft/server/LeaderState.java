@@ -31,7 +31,7 @@ import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
-import org.apache.raft.server.protocol.pb.ServerProtoUtils;
+import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.raft.util.MD5FileUtil;

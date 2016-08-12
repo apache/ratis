@@ -28,7 +28,7 @@ import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.protocol.pb.ProtoUtils;
+import org.apache.raft.util.ProtoUtils;
 
 import java.io.IOException;
 

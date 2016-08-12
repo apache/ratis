@@ -26,7 +26,7 @@ import org.apache.raft.server.protocol.RaftServerReply;
 import org.apache.raft.server.protocol.RequestVoteReply;
 import org.apache.raft.server.protocol.RequestVoteRequest;
 import org.apache.raft.server.protocol.TermIndex;
-import org.apache.raft.server.protocol.pb.ServerProtoUtils;
+import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.slf4j.Logger;
 

@@ -25,7 +25,7 @@ import org.apache.raft.server.protocol.AppendEntriesReply;
 import org.apache.raft.server.protocol.InstallSnapshotReply;
 import org.apache.raft.server.protocol.RaftServerProtocol;
 import org.apache.raft.server.protocol.RequestVoteReply;
-import org.apache.raft.server.protocol.pb.ServerProtoUtils;
+import org.apache.raft.server.protocol.ServerProtoUtils;
 
 import java.io.IOException;
 

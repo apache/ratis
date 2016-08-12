@@ -22,10 +22,10 @@ import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
-import org.apache.raft.protocol.pb.ProtoUtils;
+import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.protocol.TermIndex;
-import org.apache.raft.server.protocol.pb.ServerProtoUtils;
+import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.*;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 

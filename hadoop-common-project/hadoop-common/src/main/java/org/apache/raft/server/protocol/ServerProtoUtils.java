@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server.protocol.pb;
+package org.apache.raft.server.protocol;
 
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
@@ -23,8 +23,7 @@ import org.apache.raft.proto.RaftProtos.RaftRpcMessageProto;
 import org.apache.raft.proto.RaftProtos.RaftRpcReplyProto;
 import org.apache.raft.proto.RaftProtos.TermIndexProto;
 import org.apache.raft.proto.RaftServerProtocolProtos.*;
-import org.apache.raft.protocol.pb.ProtoUtils;
-import org.apache.raft.server.protocol.*;
+import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
 
 import java.util.Arrays;

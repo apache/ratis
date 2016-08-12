@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.protobuf.CodedOutputStream;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.LogEntryProto.Type;
-import org.apache.raft.protocol.pb.ProtoUtils;
+import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.RaftConstants;
 import org.apache.raft.util.RaftUtils;

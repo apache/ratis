@@ -29,7 +29,7 @@ import org.apache.raft.proto.RaftServerProtocolProtos.SnapshotChunkProto;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
-import org.apache.raft.server.protocol.pb.ServerProtoUtils;
+import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.apache.raft.util.RaftUtils;

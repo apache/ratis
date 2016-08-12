@@ -17,7 +17,7 @@
  */
 package org.apache.raft.protocol;
 
-import org.apache.raft.protocol.pb.ProtoUtils;
+import org.apache.raft.util.ProtoUtils;
 
 public class ConfigurationMessage implements Message {
   private final RaftPeer[] members;
