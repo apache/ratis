@@ -19,18 +19,9 @@ package org.apache.raft.server;
 
 import com.google.common.annotations.VisibleForTesting;
 
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public interface RaftConstants {
-  String RAFT_SERVER_KERBEROS_PRINCIPAL_KEY
-      = "raft.server.kerberos.principal";
-  String RAFT_CLIENT_KERBEROS_PRINCIPAL_KEY
-      = "raft.client.kerberos.principal";
-  String RAFT_SERVER_PROTOCOL_NAME
-      = "org.apache.hadoop.raft.server.protocol.RaftServerProtocol";
-  String RAFT_CLIENT_PROTOCOL_NAME
-      = "org.apache.hadoop.raft.protocol.RaftClientProtocol";
-
   long INVALID_LOG_INDEX = -1;
   byte LOG_TERMINATE_BYTE = 0;
 
@@ -57,10 +48,9 @@ public interface RaftConstants {
   int STAGING_CATCHUP_GAP = 10; // TODO: a small number for test
   long STAGING_NOPROGRESS_TIMEOUT = 2 * RPC_TIMEOUT_MAX_MS;
 
-  Random RANDOM = new Random();
-
   static int getRandomElectionWaitTime() {
-    return RANDOM.nextInt(ELECTION_TIMEOUT_MS_WIDTH) + ELECTION_TIMEOUT_MIN_MS;
+    return ThreadLocalRandom.current().nextInt(
+        ELECTION_TIMEOUT_MS_WIDTH) + ELECTION_TIMEOUT_MIN_MS;
   }
 
   enum StartupOption {

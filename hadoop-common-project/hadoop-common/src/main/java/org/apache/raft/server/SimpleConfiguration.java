@@ -54,7 +54,7 @@ class SimpleConfiguration {
     return peers.containsKey(id);
   }
 
-  Collection<RaftPeer> getOtherPeers(String selfId) {
+  List<RaftPeer> getOtherPeers(String selfId) {
     List<RaftPeer> others = new ArrayList<>();
     for (Map.Entry<String, RaftPeer> entry : peers.entrySet()) {
       if (!selfId.equals(entry.getValue().getId())) {

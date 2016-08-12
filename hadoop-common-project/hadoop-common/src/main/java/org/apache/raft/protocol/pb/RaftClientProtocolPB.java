@@ -21,16 +21,17 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.ipc.ProtocolInfo;
 import org.apache.hadoop.security.KerberosInfo;
+import org.apache.raft.hadoopRpc.HadoopConstants;
 import org.apache.raft.proto.RaftClientProtocolProtos;
 import org.apache.raft.server.RaftConstants;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 @KerberosInfo(
-    serverPrincipal = RaftConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY,
-    clientPrincipal = RaftConstants.RAFT_CLIENT_KERBEROS_PRINCIPAL_KEY)
+    serverPrincipal = HadoopConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY,
+    clientPrincipal = HadoopConstants.RAFT_CLIENT_KERBEROS_PRINCIPAL_KEY)
 @ProtocolInfo(
-    protocolName = RaftConstants.RAFT_CLIENT_PROTOCOL_NAME,
+    protocolName = HadoopConstants.RAFT_CLIENT_PROTOCOL_NAME,
     protocolVersion = 1)
 public interface RaftClientProtocolPB extends
     RaftClientProtocolProtos.RaftClientProtocolService.BlockingInterface {

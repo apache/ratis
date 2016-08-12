@@ -78,7 +78,9 @@ public class HadoopRpcService
   @Override
   RaftServerProtocolClientSideTranslatorPB createProxy(
       RaftPeer p, Configuration conf) throws IOException {
-    return new RaftServerProtocolClientSideTranslatorPB(p.getAddress(), conf);
+    final RaftServerProtocolPB proxy = HadoopUtils.getProxy(
+        RaftServerProtocolPB.class, p.getAddress(), conf);
+    return new RaftServerProtocolClientSideTranslatorPB(proxy);
   }
 
   RPC.Server newRpcServer(Configuration conf) throws IOException {

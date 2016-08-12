@@ -24,6 +24,7 @@ import org.apache.raft.protocol.RaftPeer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class RaftConfiguration {
 
@@ -141,8 +142,9 @@ public class RaftConfiguration {
   public Collection<RaftPeer> getOtherPeers(String selfId) {
     Collection<RaftPeer> others = conf.getOtherPeers(selfId);
     if (oldConf != null) {
-      Collection<RaftPeer> oldOthers = oldConf.getOtherPeers(selfId);
-      oldOthers.stream().filter(p -> !others.contains(p)).forEach(others::add);
+      oldConf.getOtherPeers(selfId).stream()
+          .filter(p -> !others.contains(p))
+          .forEach(others::add);
     }
     return others;
   }
@@ -189,12 +191,12 @@ public class RaftConfiguration {
   }
 
   RaftPeer getRandomPeer(String exclusiveId) {
-    Collection<RaftPeer> peers = conf.getOtherPeers(exclusiveId);
+    final List<RaftPeer> peers = conf.getOtherPeers(exclusiveId);
     if (peers.isEmpty()) {
       return null;
     }
-    int index = RaftConstants.RANDOM.nextInt(peers.size());
-    return peers.toArray(new RaftPeer[peers.size()])[index];
+    final int index = ThreadLocalRandom.current().nextInt(peers.size());
+    return peers.get(index);
   }
 
   public Collection<RaftPeer> getPeersInOldConf() {

@@ -20,6 +20,7 @@ package org.apache.raft.server.protocol;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.security.KerberosInfo;
+import org.apache.raft.hadoopRpc.HadoopConstants;
 import org.apache.raft.server.RaftConstants;
 
 import java.io.IOException;
@@ -27,8 +28,8 @@ import java.io.IOException;
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
 @KerberosInfo(
-    serverPrincipal = RaftConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY,
-    clientPrincipal = RaftConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY)
+    serverPrincipal = HadoopConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY,
+    clientPrincipal = HadoopConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY)
 public interface RaftServerProtocol {
 
   RequestVoteReply requestVote(RequestVoteRequest request) throws IOException;

@@ -38,11 +38,6 @@ public class RaftServerProtocolClientSideTranslatorPB
     this.rpcProxy = rpcProxy;
   }
 
-  public RaftServerProtocolClientSideTranslatorPB(
-      String address, Configuration conf) throws IOException {
-    this(HadoopUtils.getProxy(RaftServerProtocolPB.class, address, conf));
-  }
-
   @Override
   public void close() throws IOException {
     RPC.stopProxy(rpcProxy);
