@@ -315,4 +315,9 @@ class RaftLogCache {
   boolean isEmpty() {
     return closedSegments.isEmpty() && openSegment == null;
   }
+
+  void clear() {
+    openSegment = null;
+    closedSegments.clear();
+  }
 }

@@ -61,13 +61,6 @@ public abstract class RaftLog implements Closeable {
     this.selfId = selfId;
   }
 
-  /**
-   * @return The last committed log entry.
-   */
-  public LogEntryProto getLastCommitted() {
-    return get(lastCommitted.get());
-  }
-
   public long getLastCommittedIndex() {
     return lastCommitted.get();
   }
@@ -100,18 +93,6 @@ public abstract class RaftLog implements Closeable {
   }
 
   /**
-   * @return whether there is a configuration log entry between the index range
-   */
-  public boolean committedConfEntry(long oldCommitted) {
-    for (long i = oldCommitted + 1; i <= lastCommitted.get(); i++) {
-      if (ProtoUtils.isConfigurationLogEntry(get(i))) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
    * Does the log contains the given term and index? Used to check the
    * consistency between the local log of a follower and the log entries sent
    * by the leader.
@@ -132,8 +113,8 @@ public abstract class RaftLog implements Closeable {
   public long getNextIndex() {
     final LogEntryProto last = getLastEntry();
     if (last == null) {
-      // the log is empty but we may have snapshot. the last committed index
-      // is consistent with the last index included in the latest snapshot.
+      // if the log is empty, the last committed index should be consistent with
+      // the last index included in the latest snapshot.
       return getLastCommittedIndex() + 1;
     }
     return last.getIndex() + 1;
@@ -258,6 +239,8 @@ public abstract class RaftLog implements Closeable {
       throws IOException;
 
   public abstract Metadata loadMetadata() throws IOException;
+
+  public abstract void syncWithSnapshot(long lastSnapshotIndex);
 
   @Override
   public String toString() {

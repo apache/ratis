@@ -135,6 +135,7 @@ public class HadoopRpcService
     final String id = request.getReplierId();
     final RaftServerProtocolClientSideTranslatorPB proxy = getServerProxy(id);
     if (proxy == null) {
+      // TODO create new proxy based on RaftPeer information
       throw new IllegalStateException("Raft server " + id + " not found; peers="
           + getServerIds());
     }

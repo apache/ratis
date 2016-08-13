@@ -50,6 +50,8 @@ public interface StateMachine extends Closeable {
    * if {@link RaftServerConfigKeys#RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY} is
    * enabled.
    *
+   * The snapshot should include the latest raft configuration.
+   *
    * @param snapshotFile the file where the snapshot is written
    * @param storage the RaftStorage where the snapshot file is stored
    * @return the largest index of the log entry that has been applied to the
@@ -70,6 +72,11 @@ public interface StateMachine extends Closeable {
    * Reset the whole state machine, and then load states from the snapshot file.
    */
   long reloadSnapshot(File snapshotFile) throws IOException;
+
+  /**
+   * @return the latest raft configuration recorded in the state machine.
+   */
+  RaftConfiguration getRaftConfiguration();
 
   class DummyStateMachine implements StateMachine {
     @Override
@@ -95,6 +102,11 @@ public interface StateMachine extends Closeable {
     @Override
     public long reloadSnapshot(File snapshotFile) throws IOException {
       return RaftConstants.INVALID_LOG_INDEX;
+    }
+
+    @Override
+    public RaftConfiguration getRaftConfiguration() {
+      return null;
     }
 
     @Override

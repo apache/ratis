@@ -82,6 +82,13 @@ public class SegmentedRaftLog extends RaftLog {
     }
 
     abstract void execute() throws IOException;
+
+    abstract long getEndIndex();
+
+    @Override
+    public String toString() {
+      return getClass().getSimpleName() + "-" + getEndIndex();
+    }
   }
   private static final ThreadLocal<Task> myTask = new ThreadLocal<>();
 
@@ -102,7 +109,7 @@ public class SegmentedRaftLog extends RaftLog {
   public void open(ConfigurationManager confManager, long lastIndexInSnapshot)
       throws IOException {
     loadLogSegments(confManager, lastIndexInSnapshot);
-    fileLogWorker.start(cache.getEndIndex());
+    fileLogWorker.start(Math.max(cache.getEndIndex(), lastIndexInSnapshot));
     super.open(confManager, lastIndexInSnapshot);
   }
 
@@ -120,14 +127,19 @@ public class SegmentedRaftLog extends RaftLog {
         LogSegment logSegment = parseLogSegment(pi, confManager);
         cache.addSegment(logSegment);
       }
+
+      // if the largest index is smaller than the last index in snapshot, we do
+      // not load the log to avoid holes between log segments. This may happen
+      // when the local I/O worker is too slow to persist log (slower than
+      // committing the log and taking snapshot)
+      if (!cache.isEmpty() && cache.getEndIndex() < lastIndexInSnapshot) {
+        LOG.warn("End log index {} is smaller than last index in snapshot {}",
+            cache.getEndIndex(), lastIndexInSnapshot);
+        cache.clear();
+        // TODO purge all segment files
+      }
     } finally {
       writeUnlock();
-    }
-    if (cache != null) {
-      // The last index in log should not be smaller than last index in snapshot,
-      // otherwise we will have holes between segments. We guarantee this when
-      // installing snapshot in followers.
-      Preconditions.checkState(cache.getEndIndex() >= lastIndexInSnapshot);
     }
   }
 
@@ -286,6 +298,15 @@ public class SegmentedRaftLog extends RaftLog {
   public Metadata loadMetadata() throws IOException {
     return new Metadata(storage.getMetaFile().getVotedFor(),
         storage.getMetaFile().getTerm());
+  }
+
+  @Override
+  public void syncWithSnapshot(long lastSnapshotIndex) {
+    fileLogWorker.syncWithSnapshot(lastSnapshotIndex);
+    // TODO purge log files and normal/tmp/corrupt snapshot files
+    // if the last index in snapshot is larger than the index of the last
+    // log entry, we should delete all the log entries and their cache to avoid
+    // gaps between log segments.
   }
 
   @Override

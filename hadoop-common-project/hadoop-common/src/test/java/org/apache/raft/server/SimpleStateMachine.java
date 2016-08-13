@@ -19,12 +19,15 @@ package org.apache.raft.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.protocol.pb.ProtoUtils;
 import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;
 import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.util.MD5FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +36,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import static org.apache.raft.util.MD5FileUtil.computeMd5ForFile;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -53,6 +58,7 @@ public class SimpleStateMachine implements StateMachine {
   private volatile boolean running = true;
   private long endIndexLastCkpt = RaftConstants.INVALID_LOG_INDEX;
   private RaftStorage storage;
+  private RaftConfiguration raftConf;
 
   public SimpleStateMachine() {
     checkpointer = new Daemon(() -> {
@@ -86,6 +92,10 @@ public class SimpleStateMachine implements StateMachine {
     Preconditions.checkArgument(list.isEmpty() ||
         entry.getIndex() - 1 == list.get(list.size() - 1).getIndex());
     list.add(entry);
+    if (entry.hasConfigurationEntry()) {
+      this.raftConf = ProtoUtils.toRaftConfiguration(entry.getIndex(),
+          entry.getConfigurationEntry());
+    }
   }
 
   @Override
@@ -102,6 +112,15 @@ public class SimpleStateMachine implements StateMachine {
     } catch (IOException e) {
       LOG.warn("Failed to take snapshot", e);
     }
+
+    try {
+      final MD5Hash digest = MD5FileUtil.computeMd5ForFile(snapshotFile);
+      MD5FileUtil.saveMD5File(snapshotFile, digest);
+    } catch (IOException e) {
+      LOG.warn("Hit IOException when computing MD5 for snapshot file "
+          + snapshotFile, e);
+    }
+
     // TODO: purge log segments
     return endIndex;
   }
@@ -121,7 +140,7 @@ public class SimpleStateMachine implements StateMachine {
                new LogInputStream(snapshotFile, 0, endIndex, false)) {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
-          list.add(entry);
+          applyLogEntry(entry);
         }
       }
       Preconditions.checkState(endIndex == list.get(list.size() - 1).getIndex());
@@ -146,7 +165,7 @@ public class SimpleStateMachine implements StateMachine {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
           if (entry.getIndex() > lastIndexInList) {
-            list.add(entry);
+            applyLogEntry(entry);
           }
         }
       }
@@ -154,6 +173,11 @@ public class SimpleStateMachine implements StateMachine {
       this.endIndexLastCkpt = endIndex;
       return endIndex;
     }
+  }
+
+  @Override
+  public RaftConfiguration getRaftConfiguration() {
+    return this.raftConf;
   }
 
   @Override

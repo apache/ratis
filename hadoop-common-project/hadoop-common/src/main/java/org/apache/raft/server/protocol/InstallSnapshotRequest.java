@@ -55,7 +55,6 @@ public class InstallSnapshotRequest extends RaftServerRequest {
     this.chunk = chunk;
     this.totalSize = totalSize;
     this.fileDigest = fileDigest;
-    Preconditions.checkArgument(isDone() == (getFileDigest() != null));
   }
 
   public long getLeaderTerm() {

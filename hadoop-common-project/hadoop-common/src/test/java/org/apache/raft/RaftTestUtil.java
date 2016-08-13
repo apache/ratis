@@ -20,6 +20,8 @@ package org.apache.raft;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftConstants;
 import org.apache.raft.server.RaftServer;
 import org.junit.Assert;
@@ -194,5 +196,34 @@ public class RaftTestUtil {
     if (t > 0) {
       Thread.sleep(t);
     }
+  }
+
+  public static void waitAndCheckNewConf(MiniRaftCluster cluster,
+      RaftPeer[] peers, int numOfRemovedPeers, Collection<String> deadPeers)
+      throws Exception {
+    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS * (numOfRemovedPeers + 2));
+    LOG.info(cluster.printServers());
+    Assert.assertNotNull(cluster.getLeader());
+
+    int numIncluded = 0;
+    int deadIncluded = 0;
+    RaftConfiguration current = RaftConfiguration.composeConf(peers, 0);
+    for (RaftServer server : cluster.getServers()) {
+      if (deadPeers != null && deadPeers.contains(server.getId())) {
+        if (current.containsInConf(server.getId())) {
+          deadIncluded++;
+        }
+        continue;
+      }
+      if (current.containsInConf(server.getId())) {
+        numIncluded++;
+        Assert.assertTrue(server.getRaftConf().inStableState());
+        Assert.assertTrue(server.getRaftConf().hasNoChange(peers));
+      } else {
+        Assert.assertFalse(server.getId() + " is still running: " + server,
+            server.isRunning());
+      }
+    }
+    Assert.assertEquals(peers.length, numIncluded + deadIncluded);
   }
 }

@@ -330,7 +330,9 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       pending = leaderState.addPendingRequest(entryIndex, request);
       leaderState.notifySenders();
     }
-
+    // TODO make sure the response is sent only after the request is applied
+    // to the state machine. also the response should include result from
+    // state machine.
     getServerRpc().saveCallInfo(pending);
   }
 
@@ -514,8 +516,13 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), true);
       }
 
-      if (previous != null && !state.getLog().contains(previous)) {
-        // TODO add more unit tests for inconsistency scenarios
+      // We need to check if "previous" is in the local peer. Note that it is
+      // possible that "previous" is covered by the latest snapshot: e.g.,
+      // it's possible there's no log entries outside of the latest snapshot.
+      // However, it is not possible that "previous" index is smaller than the
+      // last index included in snapshot. This is because indices <= snapshot's
+      // last index should have been committed.
+      if (previous != null && !containPrevious(previous)) {
         final AppendEntriesReply reply =  new AppendEntriesReply(leaderId,
             getId(), currentTerm, nextIndex, AppendResult.INCONSISTENCY);
         LOG.debug("{}: inconsistency entries. Reply: {}", getId(), reply);
@@ -545,6 +552,12 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         currentTerm, nextIndex, AppendResult.SUCCESS);
     LOG.debug("{}: succeeded to append entries. Reply: {}", getId(), reply);
     return reply;
+  }
+
+  private boolean containPrevious(TermIndex previous) {
+    return state.getLog().contains(previous) ||
+        (state.getLatestSnapshot() != null &&
+            state.getLatestSnapshot().getTermIndex().equals(previous));
   }
 
   @Override
@@ -589,7 +602,9 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       // update the committed index
       // re-load the state machine if this is the last chunk
       state.reloadStateMachine(lastIncludedIndex, leaderTerm);
-      heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
+      if (runningState.get() == RunningState.RUNNING) {
+        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
+      }
     }
     if (request.isDone()) {
       LOG.info("{}: successfully install the whole snapshot-{}", getId(),

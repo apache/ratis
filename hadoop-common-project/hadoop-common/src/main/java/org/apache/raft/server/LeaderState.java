@@ -29,6 +29,7 @@ import org.apache.raft.proto.RaftServerProtocolProtos.SnapshotChunkProto;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.protocol.pb.ProtoUtils;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.raft.server.protocol.ServerProtoUtils;
@@ -393,21 +394,40 @@ class LeaderState {
     long majorityInNewConf = computeLastCommitted(voterLists.get(0),
         conf.containsInConf(selfId));
     final long oldLastCommitted = raftLog.getLastCommittedIndex();
+    final LogEntryProto[] entriesToCommit;
     if (!conf.inTransitionState()) {
+      // copy the entries that may get committed out of the raftlog, to prevent
+      // the possible race that the log gets purged after the statemachine does
+      // a snapshot
+      entriesToCommit = raftLog.getEntries(oldLastCommitted + 1,
+          Math.max(majorityInNewConf, oldLastCommitted) + 1);
       server.getState().updateStatemachine(majorityInNewConf, currentTerm);
     } else { // configuration is in transitional state
       long majorityInOldConf = computeLastCommitted(voterLists.get(1),
           conf.containsInOldConf(selfId));
       final long majority = Math.min(majorityInNewConf, majorityInOldConf);
+      entriesToCommit = raftLog.getEntries(oldLastCommitted + 1,
+          Math.max(majority, oldLastCommitted) + 1);
       server.getState().updateStatemachine(majority, currentTerm);
     }
     pendingRequests.notifySendingDaemon();
-    checkAndUpdateConfiguration(oldLastCommitted);
+    checkAndUpdateConfiguration(entriesToCommit);
   }
 
-  private void checkAndUpdateConfiguration(long oldLastCommitted) {
+  private boolean committedConf(LogEntryProto[] entreis) {
+    final long currentCommitted = raftLog.getLastCommittedIndex();
+    for (LogEntryProto entry : entreis) {
+      if (entry.getIndex() <= currentCommitted &&
+          ProtoUtils.isConfigurationLogEntry(entry)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private void checkAndUpdateConfiguration(LogEntryProto[] entriesToCheck) {
     final RaftConfiguration conf = server.getRaftConf();
-    if (raftLog.committedConfEntry(oldLastCommitted)) {
+    if (committedConf(entriesToCheck)) {
       if (conf.inTransitionState()) {
         replicateNewConf();
       } else { // the (new) log entry has been committed
@@ -569,12 +589,17 @@ class LeaderState {
           if (entries == null || entries.length == 0) {
             entries = raftLog.getEntries(follower.nextIndex, endIndex);
           }
-          final TermIndex previous = ServerProtoUtils.toTermIndex(
+          TermIndex previous = ServerProtoUtils.toTermIndex(
               raftLog.get(follower.nextIndex - 1));
           if (previous == null) {
-            // if previous is null, nextIndex must be 0. otherwise we will
-            // install snapshot
-            Preconditions.checkState(follower.nextIndex == 0);
+            // if previous is null, nextIndex must be equal to the log start
+            // index (otherwise we will install snapshot).
+            Preconditions.checkState(
+                follower.nextIndex == raftLog.getStartIndex(),
+                "follower's next index %s, local log start index %s",
+                follower.nextIndex, raftLog.getStartIndex());
+            SnapshotPathAndTermIndex si = server.getState().getLatestSnapshot();
+            previous = si == null ? null : si.getTermIndex();
           }
           if (entries != null || previous != null) {
             LOG.trace("follower {}, log {}", follower, raftLog);
@@ -673,17 +698,13 @@ class LeaderState {
         if (shouldSend()) {
           final long logStartIndex = raftLog.getStartIndex();
           SnapshotPathAndTermIndex si = server.getState().getLatestSnapshot();
-          // we should install snapshot if:
-          // 1. the follower needs to catch up
-          // 2. there is no local log entry but there is snapshot
-          // 3. or the "previous" log entry has been covered by snapshot and
-          //       no longer exists in the raft log
+          // we should install snapshot if the follower needs to catch up and:
+          // 1. there is no local log entry but there is snapshot
+          // 2. or the follower's next index is smaller than the log start index
           boolean toInstallSnapshot = false;
           if (follower.nextIndex < raftLog.getNextIndex()) {
-            toInstallSnapshot =
-                (logStartIndex == INVALID_LOG_INDEX && si != null) ||
-                    (follower.nextIndex - 1 >= 0 &&
-                        follower.nextIndex - 1 < logStartIndex);
+            toInstallSnapshot = (follower.nextIndex < logStartIndex) ||
+                (logStartIndex == INVALID_LOG_INDEX && si != null);
           }
 
           if (toInstallSnapshot) {
@@ -724,7 +745,7 @@ class LeaderState {
 
     /** Should the leader send appendEntries RPC to this follower? */
     private boolean shouldSend() {
-      return raftLog.get(follower.nextIndex) != null ||
+      return follower.nextIndex < raftLog.getNextIndex() ||
           getHeartbeatRemainingTime(follower.lastRpcTime.get()) <= 0;
     }
 

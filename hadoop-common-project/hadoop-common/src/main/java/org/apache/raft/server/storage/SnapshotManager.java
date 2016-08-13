@@ -96,12 +96,14 @@ public class SnapshotManager {
     // the md5 digest and create the md5 meta-file.
     if (request.isDone()) {
       final MD5Hash expectedDigest = request.getFileDigest();
-      Preconditions.checkArgument(expectedDigest != null);
+      if (expectedDigest == null) {
+        LOG.warn("MD5 digest in InstallSnapshot request is null");
+      }
 
       // calculate the checksum of the snapshot file and compare it with the
       // file digest in the request
       MD5Hash digest = MD5FileUtil.computeMd5ForFile(tmpSnapshotFile);
-      if (!digest.equals(expectedDigest)) {
+      if (expectedDigest != null && !digest.equals(expectedDigest)) {
         LOG.warn("The snapshot md5 digest {} does not match expected {}",
             digest, expectedDigest);
         // rename the temp snapshot file to .corrupt
@@ -115,11 +117,6 @@ public class SnapshotManager {
             lastIncludedIndex);
         NativeIO.renameTo(tmpSnapshotFile, snapshotFile);
         MD5FileUtil.saveMD5File(snapshotFile, digest);
-
-        // TODO purge log files and normal/tmp/corrupt snapshot files
-        // if the last index in snapshot is larger than the index of the last
-        // log entry, we should delete all the log entries to avoid gaps between
-        // log segments.
       }
     }
   }

@@ -87,6 +87,17 @@ class RaftLogWorker implements Runnable {
   }
 
   /**
+   * A snapshot has just been installed on the follower. Need to update the IO
+   * worker's state accordingly.
+   */
+  void syncWithSnapshot(long lastSnapshotIndex) {
+    queue.clear();
+    lastWrittenIndex = lastSnapshotIndex;
+    flushedIndex = lastSnapshotIndex;
+    pendingFlushNum = 0;
+  }
+
+  /**
    * This is protected by the RaftServer and RaftLog's lock.
    */
   private Task addIOTask(Task task) {
@@ -123,7 +134,17 @@ class RaftLogWorker implements Runnable {
       try {
         Task task = queue.poll(1, TimeUnit.SECONDS);
         if (task != null) {
-          task.execute();
+          try {
+            task.execute();
+          } catch (IOException e) {
+            if (task.getEndIndex() < lastWrittenIndex) {
+              LOG.info("Ignore IOException when handling task " + task
+                  + " which is smaller than the lastWrittenIndex."
+                  + " There should be a snapshot installed.", e);
+            } else {
+              throw e;
+            }
+          }
           task.done();
         }
       } catch (InterruptedException e) {
@@ -202,6 +223,11 @@ class RaftLogWorker implements Runnable {
         flushWrites();
       }
     }
+
+    @Override
+    long getEndIndex() {
+      return entry.getIndex();
+    }
   }
 
   private class FinalizeLogSegment extends Task {
@@ -232,6 +258,11 @@ class RaftLogWorker implements Runnable {
       }
       updateFlushedIndex();
     }
+
+    @Override
+    long getEndIndex() {
+      return segmentToClose.getEndIndex();
+    }
   }
 
   private class StartLogSegment extends Task {
@@ -247,6 +278,11 @@ class RaftLogWorker implements Runnable {
       Preconditions.checkState(!openFile.exists());
       Preconditions.checkState(out == null && pendingFlushNum == 0);
       out = new LogOutputStream(openFile, false);
+    }
+
+    @Override
+    long getEndIndex() {
+      return newStartIndex;
     }
   }
 
@@ -297,6 +333,16 @@ class RaftLogWorker implements Runnable {
         }
       }
       updateFlushedIndex();
+    }
+
+    @Override
+    long getEndIndex() {
+      if (segments.toTruncate != null) {
+        return segments.toTruncate.newEndIndex;
+      } else if (segments.toDelete.length > 0) {
+        return segments.toDelete[segments.toDelete.length - 1].endIndex;
+      }
+      return RaftConstants.INVALID_LOG_INDEX;
     }
   }
 

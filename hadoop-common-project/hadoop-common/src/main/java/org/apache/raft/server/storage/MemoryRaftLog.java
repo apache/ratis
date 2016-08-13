@@ -166,7 +166,8 @@ public class MemoryRaftLog extends RaftLog {
   @Override
   public String toString() {
     return "last=" + ServerProtoUtils.toString(getLastEntry())
-        + ", committed=" + ServerProtoUtils.toString(getLastCommitted());
+        + ", committed="
+        + ServerProtoUtils.toString(get(getLastCommittedIndex()));
   }
 
   public String getEntryString() {
@@ -191,5 +192,10 @@ public class MemoryRaftLog extends RaftLog {
   @Override
   public Metadata loadMetadata() {
     return new Metadata(null, 0);
+  }
+
+  @Override
+  public void syncWithSnapshot(long lastSnapshotIndex) {
+    // do nothing
   }
 }

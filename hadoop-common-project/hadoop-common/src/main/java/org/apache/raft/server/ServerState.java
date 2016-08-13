@@ -90,7 +90,17 @@ public class ServerState implements Closeable {
     if (pi == null || pi.endIndex < 0) {
       return RaftConstants.INVALID_LOG_INDEX;
     }
-    return sm.loadSnapshot(pi.path.toFile());
+    long lastIndex = sm.loadSnapshot(pi.path.toFile());
+    Preconditions.checkState(lastIndex == pi.endIndex,
+        "last index loaded from the snapshot-%s: %s", pi.endIndex, lastIndex);
+
+    // get the raft configuration from the snapshot
+    RaftConfiguration raftConf = sm.getRaftConfiguration();
+    if (raftConf != null) {
+      configurationManager.addConfiguration(raftConf.getLogEntryIndex(),
+          raftConf);
+    }
+    return lastIndex;
   }
 
   void start() {
@@ -297,6 +307,7 @@ public class ServerState implements Closeable {
 
   void installSnapshot(InstallSnapshotRequest request) throws IOException {
     snapshotManager.installSnapshot(request);
+    log.syncWithSnapshot(request.getLastIncludedIndex());
   }
 
   SnapshotPathAndTermIndex getLatestSnapshot() {

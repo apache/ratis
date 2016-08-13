@@ -19,17 +19,21 @@ package org.apache.raft.server;
 
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
+import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftStorageDirectory;
+import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -37,6 +41,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.apache.raft.RaftTestUtil.waitAndCheckNewConf;
 
 public class TestRaftSnapshot {
   static {
@@ -47,7 +55,7 @@ public class TestRaftSnapshot {
   }
 
   static final Logger LOG = LoggerFactory.getLogger(TestRaftSnapshot.class);
-  private static final int SNAPSHOT_TRIGGER_THRESHOLD = 100;
+  private static final int SNAPSHOT_TRIGGER_THRESHOLD = 10;
 
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
@@ -99,7 +107,7 @@ public class TestRaftSnapshot {
         Thread.sleep(1000);
       }
 
-      Assert.assertTrue(snapshotFile.exists());
+      Assert.assertTrue(snapshotFile + " does not exist", snapshotFile.exists());
     } finally {
       cluster.shutdown();
     }
@@ -121,6 +129,87 @@ public class TestRaftSnapshot {
             ProtoUtils.toClientMessageEntryProto(new SimpleMessage("m" + (i-1))),
             entries[i].getClientMessageEntry());
       }
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  /**
+   * Basic test for install snapshot: start a one node cluster and let it
+   * generate a snapshot. Then delete the log and restart the node, and add more
+   * nodes as followers.
+   */
+  @Test
+  public void testBasicInstallSnapshot() throws Exception {
+    MiniRaftClusterWithSimulatedRpc cluster =
+        new MiniRaftClusterWithSimulatedRpc(1, prop, true);
+    List<LogPathAndIndex> logs = new ArrayList<>();
+    try {
+      cluster.start();
+      RaftTestUtil.waitForLeader(cluster);
+      final String leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient("client", leaderId);
+
+      int i = 0;
+      for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+        RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+        Assert.assertTrue(reply.isSuccess());
+      }
+
+      // wait for the snapshot to be done
+      RaftStorageDirectory storageDirectory = cluster.getLeader().getState()
+          .getStorage().getStorageDir();
+      File snapshotFile = storageDirectory.getSnapshotFile(
+          cluster.getLeader().getState().getCurrentTerm(), i);
+      logs = storageDirectory.getLogSegmentFiles();
+
+      int retries = 0;
+      while (!snapshotFile.exists() && retries++ < 10) {
+        Thread.sleep(1000);
+      }
+
+      Assert.assertTrue(snapshotFile + " does not exist", snapshotFile.exists());
+    } finally {
+      Thread.sleep(1000);
+      cluster.shutdown();
+    }
+
+    // delete the log segments from the leader
+    for (LogPathAndIndex path : logs) {
+      RaftUtils.deleteFile(path.path.toFile());
+    }
+
+    // restart the peer
+    cluster = new MiniRaftClusterWithSimulatedRpc(1, prop, false);
+    try {
+      cluster.start();
+      RaftTestUtil.waitForLeader(cluster);
+
+      Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,
+          cluster.getLeader().getState().getLog().getLastCommittedIndex());
+      StateMachine sm = cluster.getLeader().getState().getStateMachine();
+      LogEntryProto[] entries = ((SimpleStateMachine) sm).getContent();
+      for (int i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2; i++) {
+        Assert.assertEquals(i, entries[i].getIndex());
+        Assert.assertEquals(
+            ProtoUtils.toClientMessageEntryProto(new SimpleMessage("m" + (i-1))),
+            entries[i].getClientMessageEntry());
+      }
+
+      // generate some more traffic
+      final RaftClient client = cluster.createClient("client",
+          cluster.getLeader().getId());
+      Assert.assertTrue(client.send(new SimpleMessage("test")).isSuccess());
+
+      // add two more peers
+      MiniRaftCluster.PeerChanges change = cluster.addNewPeers(2, true);
+      // trigger setConfiguration
+      SetConfigurationRequest request = new SetConfigurationRequest("client",
+          cluster.getLeader().getId(), change.allPeersInNewConf);
+      LOG.info("Start changing the configuration: {}", request);
+      cluster.getLeader().setConfiguration(request);
+
+      waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
     } finally {
       cluster.shutdown();
     }

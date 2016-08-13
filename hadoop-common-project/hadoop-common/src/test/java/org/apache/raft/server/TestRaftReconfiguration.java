@@ -40,13 +40,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
+import static org.apache.raft.RaftTestUtil.waitAndCheckNewConf;
 
 public class TestRaftReconfiguration {
   static {
@@ -89,34 +89,6 @@ public class TestRaftReconfiguration {
     } finally {
       cluster.shutdown();
     }
-  }
-
-  static void waitAndCheckNewConf(MiniRaftCluster cluster, RaftPeer[] peers,
-      int numOfRemovedPeers, Collection<String> deadPeers) throws Exception {
-    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS * (numOfRemovedPeers + 2));
-    LOG.info(cluster.printServers());
-    Assert.assertNotNull(cluster.getLeader());
-
-    int numIncluded = 0;
-    int deadIncluded = 0;
-    RaftConfiguration current = RaftConfiguration.composeConf(peers, 0);
-    for (RaftServer server : cluster.getServers()) {
-      if (deadPeers != null && deadPeers.contains(server.getId())) {
-        if (current.containsInConf(server.getId())) {
-          deadIncluded++;
-        }
-        continue;
-      }
-      if (current.containsInConf(server.getId())) {
-        numIncluded++;
-        Assert.assertTrue(server.getRaftConf().inStableState());
-        Assert.assertTrue(server.getRaftConf().hasNoChange(peers));
-      } else {
-        Assert.assertFalse(server.getId() + " is still running: " + server,
-            server.isRunning());
-      }
-    }
-    Assert.assertEquals(peers.length, numIncluded + deadIncluded);
   }
 
   /**
@@ -377,7 +349,7 @@ public class TestRaftReconfiguration {
 
       // only the first empty entry got committed
       final long committedIndex = cluster.getLeader().getState().getLog()
-          .getLastCommitted().getIndex();
+          .getLastCommittedIndex();
       Assert.assertTrue("committedIndex is " + committedIndex,
           committedIndex <= 1);
 

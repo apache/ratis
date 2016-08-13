@@ -22,6 +22,7 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.fs.FileUtil;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.util.AtomicFileOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,6 +102,10 @@ public class RaftStorageDirectory {
     @Override
     public String toString() {
       return path + "." + term + "-" + endIndex;
+    }
+
+    public TermIndex getTermIndex() {
+      return new TermIndex(term, endIndex);
     }
   }
 
@@ -229,7 +234,8 @@ public class RaftStorageDirectory {
   /**
    * @return log segment files sorted based on their index.
    */
-  List<LogPathAndIndex> getLogSegmentFiles() throws IOException {
+  @VisibleForTesting
+  public List<LogPathAndIndex> getLogSegmentFiles() throws IOException {
     List<LogPathAndIndex> list = new ArrayList<>();
     try (DirectoryStream<Path> stream =
              Files.newDirectoryStream(getCurrentDir().toPath())) {
