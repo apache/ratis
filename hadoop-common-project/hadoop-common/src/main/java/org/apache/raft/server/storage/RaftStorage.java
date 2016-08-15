@@ -19,7 +19,7 @@ package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.raft.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.raft.util.RaftUtils;
@@ -42,13 +42,13 @@ public class RaftStorage implements Closeable {
   private final StorageState state;
   private volatile MetaFile metaFile;
 
-  public RaftStorage(RaftProperties prop, RaftConstants.StartupOption option)
+  public RaftStorage(RaftProperties prop, RaftServerConstants.StartupOption option)
       throws IOException {
     final String dir = prop.get(RAFT_SERVER_STORAGE_DIR_KEY,
         RAFT_SERVER_STORAGE_DIR_DEFAULT);
     storageDir = new RaftStorageDirectory(
         new File(RaftUtils.stringAsURI(dir).getPath()));
-    if (option == RaftConstants.StartupOption.FORMAT) {
+    if (option == RaftServerConstants.StartupOption.FORMAT) {
       if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
         throw new IOException("Cannot format " + storageDir);
       }

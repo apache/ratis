@@ -23,7 +23,6 @@ import org.apache.hadoop.ipc.ProtocolInfo;
 import org.apache.hadoop.security.KerberosInfo;
 import org.apache.raft.hadoopRpc.HadoopConstants;
 import org.apache.raft.proto.RaftClientProtocolProtos;
-import org.apache.raft.server.RaftConstants;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable

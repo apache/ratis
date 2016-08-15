@@ -17,8 +17,8 @@
  */
 package org.apache.raft.client;
 
+import org.apache.raft.RaftConstants;
 import org.apache.raft.protocol.*;
-import org.apache.raft.server.RaftConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,7 +107,7 @@ public class RaftClient {
           clientId, ioe, leader, newLeader);
       this.leaderId = newLeader;
       try {
-        Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
+        Thread.sleep(RaftConstants.RPC_TIMEOUT_MS);
       } catch (InterruptedException ie) {
         Thread.currentThread().interrupt();
         throw new InterruptedIOException(
@@ -130,7 +130,7 @@ public class RaftClient {
         leaderId);
     this.leaderId = newLeader;
     try {
-      Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS);
+      Thread.sleep(RaftConstants.RPC_TIMEOUT_MS);
     } catch (InterruptedException ie) {
       Thread.currentThread().interrupt();
       throw new InterruptedIOException(

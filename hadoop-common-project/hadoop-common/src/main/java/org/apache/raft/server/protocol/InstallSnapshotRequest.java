@@ -17,7 +17,6 @@
  */
 package org.apache.raft.server.protocol;
 
-import com.google.common.base.Preconditions;
 import com.google.protobuf.ByteString;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.raft.proto.RaftServerProtocolProtos.SnapshotChunkProto;

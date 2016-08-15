@@ -26,8 +26,8 @@ import org.apache.raft.proto.RaftProtos.TermIndexProto;
 import org.apache.raft.proto.RaftServerProtocolProtos.*;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.util.ProtoUtils;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;

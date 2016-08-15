@@ -47,7 +47,7 @@ class FollowerState extends Daemon {
   }
 
   boolean shouldWithholdVotes(long now) {
-    return lastRpcTime + RaftConstants.ELECTION_TIMEOUT_MIN_MS > now;
+    return lastRpcTime + RaftServerConstants.ELECTION_TIMEOUT_MIN_MS > now;
   }
 
   void stopRunning() {
@@ -57,7 +57,7 @@ class FollowerState extends Daemon {
   @Override
   public  void run() {
     while (monitorRunning && server.isFollower()) {
-      final long electionTimeout = RaftConstants.getRandomElectionWaitTime();
+      final long electionTimeout = RaftServerConstants.getRandomElectionWaitTime();
       try {
         Thread.sleep(electionTimeout);
         if (!monitorRunning || !server.isFollower()) {

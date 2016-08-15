@@ -21,9 +21,8 @@ import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.raft.proto.RaftServerProtocolProtos.*;
-import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.protocol.*;
-import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.util.ProtoUtils;
 
 import java.io.Closeable;
 import java.io.IOException;

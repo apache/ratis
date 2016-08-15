@@ -29,13 +29,12 @@ import org.apache.raft.proto.RaftServerProtocolProtos.SnapshotChunkProto;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.protocol.pb.ProtoUtils;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
-import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.raft.util.MD5FileUtil;
+import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 
 import java.io.File;
@@ -51,7 +50,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.raft.protocol.Message.EMPTY_MESSAGE;
 import static org.apache.raft.server.LeaderState.StateUpdateEventType.*;
-import static org.apache.raft.server.RaftConstants.*;
+import static org.apache.raft.server.RaftServerConstants.*;
 
 /**
  * States for leader only. It contains three different types of processors:
@@ -68,7 +67,7 @@ class LeaderState {
    * @return the time in milliseconds that the leader should send a heartbeat.
    */
   private static long getHeartbeatRemainingTime(long lastTime) {
-    return lastTime + RaftConstants.RPC_TIMEOUT_MIN_MS / 2 - Time.monotonicNow();
+    return lastTime + RaftServerConstants.RPC_TIMEOUT_MIN_MS / 2 - Time.monotonicNow();
   }
 
   enum StateUpdateEventType {
@@ -286,7 +285,7 @@ class LeaderState {
       while (running) {
         try {
           StateUpdateEvent event = eventQ.poll(
-              RaftConstants.ELECTION_TIMEOUT_MAX_MS, TimeUnit.MILLISECONDS);
+              ELECTION_TIMEOUT_MAX_MS, TimeUnit.MILLISECONDS);
           synchronized (server) {
             if (running) {
               handleEvent(event);
@@ -346,7 +345,7 @@ class LeaderState {
       LOG.debug("{} detects a follower {} timeout for bootstrapping",
           server.getId(), follower);
       return BootStrapProgress.NOPROGRESS;
-    } else if (follower.matchIndex.get() + RaftConstants.STAGING_CATCHUP_GAP >
+    } else if (follower.matchIndex.get() + STAGING_CATCHUP_GAP >
         committed && follower.lastRpcTime.get() > progressTime) {
       return BootStrapProgress.CAUGHTUP;
     } else {
@@ -439,7 +438,7 @@ class LeaderState {
               server.getId(), conf);
           try {
             // leave some time for all RPC senders to send out new conf entry
-            Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MIN_MS);
+            Thread.sleep(ELECTION_TIMEOUT_MIN_MS);
           } catch (InterruptedException ignored) {
           }
           // the pending request handler will send NotLeaderException for
@@ -630,7 +629,7 @@ class LeaderState {
               ioe);
         }
         if (isSenderRunning()) {
-          Thread.sleep(RaftConstants.RPC_SLEEP_TIME_MS);
+          Thread.sleep(RPC_SLEEP_TIME_MS);
         }
       }
       return null;

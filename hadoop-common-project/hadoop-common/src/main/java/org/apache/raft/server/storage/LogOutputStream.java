@@ -21,7 +21,7 @@ import com.google.protobuf.CodedOutputStream;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,17 +30,15 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.zip.Checksum;
 
-import static org.apache.raft.server.RaftConstants.LOG_TERMINATE_BYTE;
-
 public class LogOutputStream implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(LogOutputStream.class);
-  private static final ByteBuffer fill = ByteBuffer
-      .allocateDirect(RaftConstants.LOG_SEGMENT_MAX_SIZE);
 
+  private static final ByteBuffer fill;
   static {
+    fill = ByteBuffer.allocateDirect(RaftServerConstants.LOG_SEGMENT_MAX_SIZE);
     fill.position(0);
     for (int i = 0; i < fill.capacity(); i++) {
-      fill.put(LOG_TERMINATE_BYTE);
+      fill.put(RaftServerConstants.LOG_TERMINATE_BYTE);
     }
   }
 

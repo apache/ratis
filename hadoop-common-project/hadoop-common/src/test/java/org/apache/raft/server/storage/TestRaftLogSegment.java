@@ -25,8 +25,8 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.util.ProtoUtils;
-import org.apache.raft.server.RaftConstants;
-import org.apache.raft.server.RaftConstants.StartupOption;
+import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.server.RaftServerConstants.StartupOption;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.junit.After;
 import org.junit.Assert;
@@ -105,7 +105,7 @@ public class TestRaftLogSegment {
     // load an open segment
     File openSegmentFile = prepareLog(true, 0, 100, 0);
     LogSegment openSegment = LogSegment.loadSegment(openSegmentFile, 0,
-        RaftConstants.INVALID_LOG_INDEX, true, null);
+        RaftServerConstants.INVALID_LOG_INDEX, true, null);
     checkLogSegment(openSegment, 0, 99, true, openSegmentFile.length(), 0);
 
     // load a closed segment (1000-1099)
@@ -127,7 +127,7 @@ public class TestRaftLogSegment {
     long term = 0;
     int i = 0;
     List<LogEntryProto> list = new ArrayList<>();
-    while (size < RaftConstants.LOG_SEGMENT_MAX_SIZE) {
+    while (size < RaftServerConstants.LOG_SEGMENT_MAX_SIZE) {
       SimpleMessage m = new SimpleMessage("m" + i);
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m, term,
           i++ + start);

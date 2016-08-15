@@ -17,25 +17,23 @@
  */
 package org.apache.raft.server;
 
-import com.google.common.annotations.VisibleForTesting;
+import org.apache.raft.RaftConstants;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-public interface RaftConstants {
+public interface RaftServerConstants {
   long INVALID_LOG_INDEX = -1;
   byte LOG_TERMINATE_BYTE = 0;
 
   int LOG_SEGMENT_MAX_SIZE = 1024 * 1024 * 8;
   int SNAPSHOT_CHUNK_MAX_SIZE = 1024 * 1024 * 16;
 
-  @VisibleForTesting
-  int ELECTION_TIMEOUT_MIN_MS = 150;
-  int ELECTION_TIMEOUT_MAX_MS = 300;
-
   int RPC_TIMEOUT_MIN_MS = 150;
-  int RPC_TIMEOUT_MAX_MS = 300;
+  int RPC_TIMEOUT_MAX_MS = RaftConstants.RPC_TIMEOUT_MS;
   int RPC_SLEEP_TIME_MS = 25;
 
+  int ELECTION_TIMEOUT_MIN_MS = RPC_TIMEOUT_MIN_MS;
+  int ELECTION_TIMEOUT_MAX_MS = RPC_TIMEOUT_MAX_MS;
   int ELECTION_TIMEOUT_MS_WIDTH = ELECTION_TIMEOUT_MAX_MS - ELECTION_TIMEOUT_MIN_MS;
 
   int LOG_FORCE_SYNC_NUM = 128;

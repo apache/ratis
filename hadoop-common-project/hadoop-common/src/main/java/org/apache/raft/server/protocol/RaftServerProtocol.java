@@ -21,7 +21,6 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.security.KerberosInfo;
 import org.apache.raft.hadoopRpc.HadoopConstants;
-import org.apache.raft.server.RaftConstants;
 
 import java.io.IOException;
 

@@ -20,13 +20,13 @@ package org.apache.raft.server.storage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.LogSegment.LogRecord;
 import org.apache.raft.server.storage.LogSegment.SegmentFileInfo;
 
 import java.util.*;
 
-import static org.apache.raft.server.RaftConstants.INVALID_LOG_INDEX;
+import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
 
 /**
  * In-memory RaftLog Cache. Currently we provide a simple implementation that
@@ -137,7 +137,7 @@ class RaftLogCache {
   long getStartIndex() {
     if (closedSegments.isEmpty()) {
       return openSegment != null ? openSegment.getStartIndex() :
-          RaftConstants.INVALID_LOG_INDEX;
+          RaftServerConstants.INVALID_LOG_INDEX;
     } else {
       return closedSegments.get(0).getStartIndex();
     }

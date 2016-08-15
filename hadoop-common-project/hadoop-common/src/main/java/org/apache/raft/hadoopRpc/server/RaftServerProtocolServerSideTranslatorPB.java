@@ -21,11 +21,7 @@ import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.raft.proto.RaftServerProtocolProtos.*;
-import org.apache.raft.server.protocol.AppendEntriesReply;
-import org.apache.raft.server.protocol.InstallSnapshotReply;
-import org.apache.raft.server.protocol.RaftServerProtocol;
-import org.apache.raft.server.protocol.RequestVoteReply;
-import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.server.protocol.*;
 
 import java.io.IOException;
 

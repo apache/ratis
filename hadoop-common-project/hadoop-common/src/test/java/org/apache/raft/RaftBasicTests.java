@@ -20,7 +20,7 @@ package org.apache.raft;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.junit.After;
@@ -92,7 +92,7 @@ public abstract class RaftBasicTests {
       client.send(messages[i]);
     }
 
-    Thread.sleep(RaftConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+    Thread.sleep(RaftServerConstants.ELECTION_TIMEOUT_MAX_MS + 100);
     LOG.info(cluster.printAllLogs());
 
     cluster.getServers().stream().filter(RaftServer::isRunning)

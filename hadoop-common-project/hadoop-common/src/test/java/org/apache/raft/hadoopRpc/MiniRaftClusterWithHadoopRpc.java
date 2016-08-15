@@ -24,7 +24,7 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.hadoopRpc.client.HadoopClientRequestSender;
 import org.apache.raft.hadoopRpc.server.HadoopRpcService;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerCodeInjection;
 import org.slf4j.Logger;
@@ -99,7 +99,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
     getServers().stream().filter(s -> !s.getId().equals(leaderId))
         .forEach(s -> DelaySendServerRequest.setDelayMs(s.getId(), delayMs));
 
-    final long sleepMs = 3 * RaftConstants.ELECTION_TIMEOUT_MAX_MS;
+    final long sleepMs = 3 * RaftServerConstants.ELECTION_TIMEOUT_MAX_MS;
     Thread.sleep(sleepMs);
   }
 

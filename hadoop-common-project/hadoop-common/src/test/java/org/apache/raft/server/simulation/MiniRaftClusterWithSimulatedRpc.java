@@ -21,7 +21,7 @@ import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.protocol.RaftServerReply;
 import org.apache.raft.server.protocol.RaftServerRequest;
@@ -89,7 +89,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
         .map(s -> serverRequestReply.getQueue(s.getId()))
         .forEach(q -> q.delayTakeRequestTo.set(delayMs));
 
-    final long sleepMs = 3 * RaftConstants.ELECTION_TIMEOUT_MAX_MS / 2;
+    final long sleepMs = 3 * RaftServerConstants.ELECTION_TIMEOUT_MAX_MS / 2;
     Thread.sleep(sleepMs);
   }
 

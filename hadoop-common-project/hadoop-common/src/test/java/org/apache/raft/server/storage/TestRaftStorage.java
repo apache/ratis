@@ -21,7 +21,7 @@ import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.RaftConstants.StartupOption;
+import org.apache.raft.server.RaftServerConstants.StartupOption;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.storage.RaftStorageDirectory.StorageState;
 import org.junit.After;

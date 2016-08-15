@@ -22,11 +22,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.protocol.RaftServerReply;
-import org.apache.raft.server.protocol.RequestVoteReply;
-import org.apache.raft.server.protocol.RequestVoteRequest;
-import org.apache.raft.server.protocol.TermIndex;
-import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.slf4j.Logger;
 
@@ -194,7 +190,7 @@ class LeaderElection extends Daemon {
   private ResultAndTerm waitForResults(final long electionTerm,
       final int submitted) throws InterruptedException {
     final long startTime = Time.monotonicNow();
-    final long timeout = startTime + RaftConstants.getRandomElectionWaitTime();
+    final long timeout = startTime + RaftServerConstants.getRandomElectionWaitTime();
     final List<RaftServerReply> responses = new ArrayList<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;

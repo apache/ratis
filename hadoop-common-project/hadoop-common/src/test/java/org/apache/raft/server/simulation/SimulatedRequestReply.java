@@ -22,7 +22,7 @@ import org.apache.hadoop.util.Time;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.RaftRpcMessage;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
@@ -40,7 +40,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   public static final String SIMULATE_LATENCY_KEY
       = SimulatedRequestReply.class.getName() + ".simulateLatencyMs";
   public static final int SIMULATE_LATENCY_DEFAULT
-      = RaftConstants.ELECTION_TIMEOUT_MIN_MS;
+      = RaftServerConstants.ELECTION_TIMEOUT_MIN_MS;
   public static final long TIMEOUT = 3000L;
 
   private static class ReplyOrException<REPLY> {

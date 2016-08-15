@@ -23,7 +23,7 @@ import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.storage.MemoryRaftLog;
@@ -293,7 +293,7 @@ public abstract class MiniRaftCluster {
     // least ELECTION_TIMEOUT_MIN. In this way when the target leader request a
     // vote, all non-leader servers can grant the vote.
     // Disable the target leader server RPC so that it can request a vote.
-    blockQueueAndSetDelay(leaderId, RaftConstants.ELECTION_TIMEOUT_MIN_MS);
+    blockQueueAndSetDelay(leaderId, RaftServerConstants.ELECTION_TIMEOUT_MIN_MS);
 
     // Reopen queues so that the vote can make progress.
     blockQueueAndSetDelay(leaderId, 0);

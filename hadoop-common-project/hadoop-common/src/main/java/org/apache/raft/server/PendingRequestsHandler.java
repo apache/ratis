@@ -131,7 +131,7 @@ class PendingRequestsHandler {
           lastCommitted = server.getState().getLog().getLastCommittedIndex();
           synchronized (PendingRequestsHandler.this) {
             if (oldLastCommitted == lastCommitted) {
-              PendingRequestsHandler.this.wait(RaftConstants.RPC_TIMEOUT_MIN_MS);
+              PendingRequestsHandler.this.wait(RaftServerConstants.RPC_TIMEOUT_MIN_MS);
             }
           }
         } catch (InterruptedException e) {

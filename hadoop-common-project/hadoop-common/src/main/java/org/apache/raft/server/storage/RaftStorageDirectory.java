@@ -44,7 +44,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.nio.file.Files.newDirectoryStream;
-import static org.apache.raft.server.RaftConstants.INVALID_LOG_INDEX;
+import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
 
 public class RaftStorageDirectory {
   static final Logger LOG = LoggerFactory.getLogger(RaftStorageDirectory.class);

@@ -22,8 +22,8 @@ import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.ConfigurationManager;
-import org.apache.raft.server.RaftConstants;
 import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
 
 import java.io.IOException;
@@ -145,7 +145,7 @@ public class SegmentedRaftLog extends RaftLog {
 
   private LogSegment parseLogSegment(LogPathAndIndex pi,
       ConfigurationManager confManager) throws IOException {
-    final boolean isOpen = pi.endIndex == RaftConstants.INVALID_LOG_INDEX;
+    final boolean isOpen = pi.endIndex == RaftServerConstants.INVALID_LOG_INDEX;
     return LogSegment.loadSegment(pi.path.toFile(), pi.startIndex, pi.endIndex,
         isOpen, confManager);
   }

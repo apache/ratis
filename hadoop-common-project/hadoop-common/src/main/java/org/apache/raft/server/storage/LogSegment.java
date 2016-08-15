@@ -21,10 +21,9 @@ import com.google.common.base.Preconditions;
 import com.google.protobuf.CodedOutputStream;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.LogEntryProto.Type;
-import org.apache.raft.server.protocol.ServerProtoUtils;
-import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.ConfigurationManager;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.File;
@@ -142,7 +141,7 @@ class LogSegment implements Comparable<Long> {
   }
 
   boolean isFull() {
-    return totalSize >= RaftConstants.LOG_SEGMENT_MAX_SIZE;
+    return totalSize >= RaftServerConstants.LOG_SEGMENT_MAX_SIZE;
   }
 
   void appendToOpenSegment(LogEntryProto... entries) {

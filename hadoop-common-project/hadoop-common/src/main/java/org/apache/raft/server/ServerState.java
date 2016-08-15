@@ -22,12 +22,12 @@ import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
-import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.protocol.InstallSnapshotRequest;
-import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.*;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
+import org.apache.raft.util.ProtoUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -69,7 +69,7 @@ public class ServerState implements Closeable {
       StateMachine stateMachine, RaftServer server) throws IOException {
     this.selfId = id;
     configurationManager = new ConfigurationManager(conf);
-    storage = new RaftStorage(prop, RaftConstants.StartupOption.REGULAR);
+    storage = new RaftStorage(prop, RaftServerConstants.StartupOption.REGULAR);
     snapshotManager = new SnapshotManager(storage, id);
     long lastApplied = initStatemachine(stateMachine, prop);
 
@@ -88,7 +88,7 @@ public class ServerState implements Closeable {
     sm.initialize(properties, storage);
     SnapshotPathAndTermIndex pi = snapshotManager.getLatestSnapshot();
     if (pi == null || pi.endIndex < 0) {
-      return RaftConstants.INVALID_LOG_INDEX;
+      return RaftServerConstants.INVALID_LOG_INDEX;
     }
     long lastIndex = sm.loadSnapshot(pi.path.toFile());
     Preconditions.checkState(lastIndex == pi.endIndex,

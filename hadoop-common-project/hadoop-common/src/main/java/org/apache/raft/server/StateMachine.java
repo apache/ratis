@@ -91,17 +91,17 @@ public interface StateMachine extends Closeable {
 
     @Override
     public long takeSnapshot(File snapshotFile, RaftStorage storage) {
-      return RaftConstants.INVALID_LOG_INDEX;
+      return RaftServerConstants.INVALID_LOG_INDEX;
     }
 
     @Override
     public long loadSnapshot(File snapshotFile) throws IOException {
-      return RaftConstants.INVALID_LOG_INDEX;
+      return RaftServerConstants.INVALID_LOG_INDEX;
     }
 
     @Override
     public long reloadSnapshot(File snapshotFile) throws IOException {
-      return RaftConstants.INVALID_LOG_INDEX;
+      return RaftServerConstants.INVALID_LOG_INDEX;
     }
 
     @Override

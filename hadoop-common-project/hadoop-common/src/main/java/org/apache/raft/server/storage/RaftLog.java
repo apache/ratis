@@ -20,12 +20,12 @@ package org.apache.raft.server.storage;
 import com.google.common.base.Preconditions;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
-import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftConstants;
-import org.apache.raft.server.protocol.TermIndex;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.server.protocol.TermIndex;
+import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +51,7 @@ public abstract class RaftLog implements Closeable {
    * in the latest snapshot file.
    */
   protected final AtomicLong lastCommitted =
-      new AtomicLong(RaftConstants.INVALID_LOG_INDEX);
+      new AtomicLong(RaftServerConstants.INVALID_LOG_INDEX);
   private final String selfId;
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);

@@ -25,7 +25,7 @@ import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
 
 import java.io.*;
 import java.util.zip.Checksum;
@@ -171,7 +171,7 @@ public class LogReader implements Closeable {
    */
   long scanEntry() throws IOException {
     LogEntryProto entry = decodeEntry();
-    return entry != null ? entry.getIndex() : RaftConstants.INVALID_LOG_INDEX;
+    return entry != null ? entry.getIndex() : RaftServerConstants.INVALID_LOG_INDEX;
   }
 
   void verifyTerminator() throws IOException {
@@ -187,7 +187,7 @@ public class LogReader implements Closeable {
           return;
         }
         for (idx = 0; idx < numRead; idx++) {
-          if (temp[idx] != RaftConstants.LOG_TERMINATE_BYTE) {
+          if (temp[idx] != RaftServerConstants.LOG_TERMINATE_BYTE) {
             throw new IOException("Read extra bytes after the terminator!");
           }
         }
@@ -228,7 +228,7 @@ public class LogReader implements Closeable {
     // Each log entry starts with a var-int. Thus a valid entry's first byte
     // should not be 0. So if the terminate byte is 0, we should hit the end
     // of the segment.
-    if (nextByte == RaftConstants.LOG_TERMINATE_BYTE) {
+    if (nextByte == RaftServerConstants.LOG_TERMINATE_BYTE) {
       verifyTerminator();
       return null;
     }

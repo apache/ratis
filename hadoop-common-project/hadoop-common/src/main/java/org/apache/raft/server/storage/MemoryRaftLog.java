@@ -19,9 +19,8 @@ package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftConstants;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 
 import java.util.ArrayList;
@@ -120,7 +119,7 @@ public class MemoryRaftLog extends RaftLog {
 
   @Override
   public long getStartIndex() {
-    return entries.isEmpty() ? RaftConstants.INVALID_LOG_INDEX :
+    return entries.isEmpty() ? RaftServerConstants.INVALID_LOG_INDEX :
         entries.get(0).getIndex();
   }
 

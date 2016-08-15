@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.server.RaftConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +29,7 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 
-import static org.apache.raft.server.RaftConstants.INVALID_LOG_INDEX;
+import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
 
 public class LogInputStream implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(LogInputStream.class);
@@ -75,7 +74,7 @@ public class LogInputStream implements Closeable {
   public LogInputStream(File log, long startIndex, long endIndex,
       boolean isOpen) {
     if (isOpen) {
-      Preconditions.checkArgument(endIndex == RaftConstants.INVALID_LOG_INDEX);
+      Preconditions.checkArgument(endIndex == INVALID_LOG_INDEX);
     } else {
       Preconditions.checkArgument(endIndex >= startIndex);
     }

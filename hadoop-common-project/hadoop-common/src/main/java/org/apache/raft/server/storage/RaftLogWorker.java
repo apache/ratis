@@ -21,8 +21,8 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.server.RaftConstants;
 import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.LogSegment.SegmentFileInfo;
 import org.apache.raft.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.raft.server.storage.SegmentedRaftLog.Task;
@@ -159,7 +159,7 @@ class RaftLogWorker implements Runnable {
   }
 
   private boolean shouldFlush() {
-    return pendingFlushNum >= RaftConstants.LOG_FORCE_SYNC_NUM ||
+    return pendingFlushNum >= RaftServerConstants.LOG_FORCE_SYNC_NUM ||
         (pendingFlushNum > 0 && queue.isEmpty());
   }
 
@@ -342,7 +342,7 @@ class RaftLogWorker implements Runnable {
       } else if (segments.toDelete.length > 0) {
         return segments.toDelete[segments.toDelete.length - 1].endIndex;
       }
-      return RaftConstants.INVALID_LOG_INDEX;
+      return RaftServerConstants.INVALID_LOG_INDEX;
     }
   }
 

@@ -38,7 +38,7 @@ public class PendingRequest implements Comparable<PendingRequest> {
   }
 
   PendingRequest(SetConfigurationRequest request) {
-    this(RaftConstants.INVALID_LOG_INDEX, request);
+    this(RaftServerConstants.INVALID_LOG_INDEX, request);
   }
 
   long getIndex() {

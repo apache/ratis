@@ -23,7 +23,7 @@ import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.protocol.pb.ProtoUtils;
+import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;
 import org.apache.raft.server.storage.RaftStorage;
@@ -36,8 +36,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import static org.apache.raft.util.MD5FileUtil.computeMd5ForFile;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -56,7 +54,7 @@ public class SimpleStateMachine implements StateMachine {
       Collections.synchronizedList(new ArrayList<>());
   private final Daemon checkpointer;
   private volatile boolean running = true;
-  private long endIndexLastCkpt = RaftConstants.INVALID_LOG_INDEX;
+  private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
   private RaftStorage storage;
   private RaftConfiguration raftConf;
 
@@ -93,7 +91,7 @@ public class SimpleStateMachine implements StateMachine {
         entry.getIndex() - 1 == list.get(list.size() - 1).getIndex());
     list.add(entry);
     if (entry.hasConfigurationEntry()) {
-      this.raftConf = ProtoUtils.toRaftConfiguration(entry.getIndex(),
+      this.raftConf = ServerProtoUtils.toRaftConfiguration(entry.getIndex(),
           entry.getConfigurationEntry());
     }
   }
@@ -133,7 +131,7 @@ public class SimpleStateMachine implements StateMachine {
   public synchronized long loadSnapshot(File snapshotFile) throws IOException {
     if (snapshotFile == null || !snapshotFile.exists()) {
       LOG.warn("The snapshot file {} does not exist", snapshotFile);
-      return RaftConstants.INVALID_LOG_INDEX;
+      return RaftServerConstants.INVALID_LOG_INDEX;
     } else {
       final long endIndex = getIndexFromSnapshotFileName(snapshotFile.getName());
       try (LogInputStream in =
@@ -153,11 +151,11 @@ public class SimpleStateMachine implements StateMachine {
   public synchronized long reloadSnapshot(File snapshotFile) throws IOException {
     if (snapshotFile == null || !snapshotFile.exists()) {
       LOG.warn("The snapshot file {} does not exist", snapshotFile);
-      return RaftConstants.INVALID_LOG_INDEX;
+      return RaftServerConstants.INVALID_LOG_INDEX;
     } else {
       final long endIndex = getIndexFromSnapshotFileName(snapshotFile.getName());
       final long lastIndexInList = list.isEmpty() ?
-          RaftConstants.INVALID_LOG_INDEX :
+          RaftServerConstants.INVALID_LOG_INDEX :
           list.get(list.size() - 1).getIndex();
       Preconditions.checkState(endIndex > lastIndexInList);
       try (LogInputStream in =

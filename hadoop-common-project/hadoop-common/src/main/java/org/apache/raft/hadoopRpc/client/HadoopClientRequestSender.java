@@ -25,8 +25,6 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.hadoopRpc.client.RaftClientProtocolClientSideTranslatorPB;
-import org.apache.raft.hadoopRpc.client.RaftClientProtocolPB;
 
 import java.io.IOException;
 import java.util.Collection;

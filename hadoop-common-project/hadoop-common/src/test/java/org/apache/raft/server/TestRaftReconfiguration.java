@@ -168,7 +168,7 @@ public class TestRaftReconfiguration {
       final RaftClient client = cluster.createClient("client", leaderId);
 
       // submit some msgs before reconf
-      for (int i = 0; i < RaftConstants.STAGING_CATCHUP_GAP * 2; i++) {
+      for (int i = 0; i < RaftServerConstants.STAGING_CATCHUP_GAP * 2; i++) {
         RaftClientReply reply = client.send(new SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
@@ -251,7 +251,7 @@ public class TestRaftReconfiguration {
 
       Assert.assertFalse(cluster.getLeader().getRaftConf().inTransitionState());
       latch.await();
-      Thread.sleep(RaftConstants.STAGING_NOPROGRESS_TIMEOUT + 200);
+      Thread.sleep(RaftServerConstants.STAGING_NOPROGRESS_TIMEOUT + 200);
 
       // the two new peers have not started yet, the bootstrapping must timeout
       Assert.assertFalse(success.get());
@@ -273,7 +273,7 @@ public class TestRaftReconfiguration {
       final RaftClient client = cluster.createClient("client", leaderId);
 
       // submit some msgs before reconf
-      for (int i = 0; i < RaftConstants.STAGING_CATCHUP_GAP * 2; i++) {
+      for (int i = 0; i < RaftServerConstants.STAGING_CATCHUP_GAP * 2; i++) {
         RaftClientReply reply = client.send(new SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
