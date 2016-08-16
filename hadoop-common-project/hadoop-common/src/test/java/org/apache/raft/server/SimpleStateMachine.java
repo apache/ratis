@@ -107,6 +107,7 @@ public class SimpleStateMachine implements StateMachine {
           out.write(entry);
         }
       }
+      out.flush();
     } catch (IOException e) {
       LOG.warn("Failed to take snapshot", e);
     }
@@ -141,7 +142,9 @@ public class SimpleStateMachine implements StateMachine {
           applyLogEntry(entry);
         }
       }
-      Preconditions.checkState(endIndex == list.get(list.size() - 1).getIndex());
+      Preconditions.checkState(
+          !list.isEmpty() && endIndex == list.get(list.size() - 1).getIndex(),
+          "endIndex=%s, list=%s", endIndex, list);
       this.endIndexLastCkpt = endIndex;
       return endIndex;
     }

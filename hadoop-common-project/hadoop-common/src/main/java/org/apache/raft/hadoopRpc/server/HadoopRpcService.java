@@ -35,6 +35,7 @@ import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.protocol.AppendEntriesRequest;
+import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.protocol.RaftServerReply;
 import org.apache.raft.server.protocol.RaftServerRequest;
 import org.apache.raft.server.protocol.RequestVoteRequest;
@@ -59,6 +60,7 @@ public class HadoopRpcService
 
   public HadoopRpcService(RaftServer server, Configuration conf)
       throws IOException {
+    super(conf);
     this.server = server;
     this.ipcServer = newRpcServer(conf);
     this.ipcServerAddress = ipcServer.getListenerAddress();
@@ -75,10 +77,10 @@ public class HadoopRpcService
   }
 
   @Override
-  public RaftServerProtocolClientSideTranslatorPB createProxy(
-      RaftPeer p, Configuration conf) throws IOException {
+  public RaftServerProtocolClientSideTranslatorPB createProxy(RaftPeer p)
+      throws IOException {
     final RaftServerProtocolPB proxy = HadoopUtils.getProxy(
-        RaftServerProtocolPB.class, p.getAddress(), conf);
+        RaftServerProtocolPB.class, p.getAddress(), getConf());
     return new RaftServerProtocolClientSideTranslatorPB(proxy);
   }
 
@@ -135,7 +137,8 @@ public class HadoopRpcService
     final String id = request.getReplierId();
     final RaftServerProtocolClientSideTranslatorPB proxy = getServerProxy(id);
     if (proxy == null) {
-      // TODO create new proxy based on RaftPeer information
+      // we create new proxy based on new RaftConfiguration. So here the proxy
+      // should be available.
       throw new IllegalStateException("Raft server " + id + " not found; peers="
           + getServerIds());
     }
@@ -143,6 +146,8 @@ public class HadoopRpcService
       return proxy.appendEntries((AppendEntriesRequest)request);
     } else if (request instanceof RequestVoteRequest) {
       return proxy.requestVote((RequestVoteRequest) request);
+    } else if (request instanceof InstallSnapshotRequest) {
+      return proxy.installSnapshot((InstallSnapshotRequest) request);
     } else {
       throw new UnsupportedOperationException("Unsupported request "
           + request.getClass() + ", " + request);

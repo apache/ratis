@@ -139,7 +139,7 @@ public abstract class RaftUtils {
    * @return a new object
    */
   @SuppressWarnings("unchecked")
-  public static <T> T newInstance(Class<T> theClass) {
+  public static <T> T newInstance(Class<T> theClass, Object... initArgs) {
     T result;
     try {
       Constructor<T> meth = (Constructor<T>) CONSTRUCTOR_CACHE.get(theClass);
@@ -148,7 +148,7 @@ public abstract class RaftUtils {
         meth.setAccessible(true);
         CONSTRUCTOR_CACHE.put(theClass, meth);
       }
-      result = meth.newInstance();
+      result = meth.newInstance(initArgs);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

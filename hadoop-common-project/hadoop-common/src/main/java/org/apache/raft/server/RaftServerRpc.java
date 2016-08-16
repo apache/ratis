@@ -19,6 +19,7 @@ package org.apache.raft.server;
 
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.protocol.RaftServerReply;
 import org.apache.raft.server.protocol.RaftServerRequest;
 
@@ -41,4 +42,7 @@ public interface RaftServerRpc {
 
   void sendClientReply(RaftClientRequest request, RaftClientReply reply, IOException ioe)
       throws IOException;
+
+  /** add rpc information of the given peers */
+  void addPeers(Iterable<RaftPeer> peers) throws IOException;
 }

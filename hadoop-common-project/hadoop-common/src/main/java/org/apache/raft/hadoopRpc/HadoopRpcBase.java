@@ -22,11 +22,18 @@ import org.apache.raft.protocol.RaftPeer;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public abstract class HadoopRpcBase<PROXY> {
-  private final Map<String, PROXY> peers = new HashMap<>();
+  private final Map<String, PROXY> peers;
+  private final Configuration conf;
+
+  public HadoopRpcBase(Configuration conf) {
+    this.conf = conf;
+    peers = Collections.synchronizedMap(new HashMap<String, PROXY>());
+  }
 
   public Collection<String> getServerIds() {
     return peers.keySet();
@@ -36,13 +43,16 @@ public abstract class HadoopRpcBase<PROXY> {
     return peers.get(id);
   }
 
-  public void addPeers(Iterable<RaftPeer> newPeers, Configuration conf)
+  public Configuration getConf() {
+    return this.conf;
+  }
+
+  public void addPeers(Iterable<RaftPeer> newPeers)
       throws IOException {
     for(RaftPeer p : newPeers) {
-      peers.put(p.getId(), createProxy(p, conf));
+      peers.put(p.getId(), createProxy(p));
     }
   }
 
-  public abstract PROXY createProxy(RaftPeer peer, Configuration conf)
-      throws IOException;
+  public abstract PROXY createProxy(RaftPeer peer) throws IOException;
 }

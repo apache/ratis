@@ -65,8 +65,8 @@ public class TestSegmentedRaftLog {
   private File storageDir;
   private final RaftProperties properties = new RaftProperties();
   private RaftStorage storage;
-  private final ConfigurationManager cm =
-      new ConfigurationManager(MiniRaftCluster.initConfiguration(3));
+  private final ConfigurationManager cm = new ConfigurationManager(
+      MiniRaftCluster.initConfiguration(MiniRaftCluster.generateIds(3, 0)));
 
   @Before
   public void setup() throws Exception {

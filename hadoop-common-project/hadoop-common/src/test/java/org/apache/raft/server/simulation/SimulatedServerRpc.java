@@ -19,6 +19,7 @@ package org.apache.raft.server.simulation;
 
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.PendingRequest;
 import org.apache.raft.server.RaftServer;
@@ -80,6 +81,11 @@ public class SimulatedServerRpc implements RaftServerRpc {
   public void sendClientReply(RaftClientRequest request, RaftClientReply reply, IOException ioe)
       throws IOException {
     clientHandler.getRpc().sendReply(request, reply, ioe);
+  }
+
+  @Override
+  public void addPeers(Iterable<RaftPeer> peers) throws IOException {
+    // do nothing
   }
 
   final RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply> serverHandlerImpl

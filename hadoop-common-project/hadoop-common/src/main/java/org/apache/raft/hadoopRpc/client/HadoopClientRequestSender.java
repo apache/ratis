@@ -34,7 +34,8 @@ public class HadoopClientRequestSender
     implements RaftClientRequestSender {
   public HadoopClientRequestSender(
       Collection<RaftPeer> peers, Configuration conf) throws IOException {
-    addPeers(peers, conf);
+    super(conf);
+    addPeers(peers);
   }
 
   @Override
@@ -51,10 +52,10 @@ public class HadoopClientRequestSender
   }
 
   @Override
-  public RaftClientProtocolClientSideTranslatorPB createProxy(
-      RaftPeer p, Configuration conf) throws IOException {
+  public RaftClientProtocolClientSideTranslatorPB createProxy(RaftPeer p)
+      throws IOException {
     final RaftClientProtocolPB proxy = HadoopUtils.getProxy(
-        RaftClientProtocolPB.class, p.getAddress(), conf);
+        RaftClientProtocolPB.class, p.getAddress(), getConf());
     return new RaftClientProtocolClientSideTranslatorPB(proxy);
   }
 }

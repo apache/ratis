@@ -17,6 +17,7 @@
  */
 package org.apache.raft;
 
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
@@ -34,7 +35,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public abstract class MiniRaftCluster {
@@ -53,10 +60,10 @@ public abstract class MiniRaftCluster {
     }
   }
 
-  public static RaftConfiguration initConfiguration(int num) {
-    RaftPeer[] peers = new RaftPeer[num];
-    for (int i = 0; i < num; i++) {
-      peers[i] = new RaftPeer("s" + i);
+  public static RaftConfiguration initConfiguration(String[] ids) {
+    RaftPeer[] peers = new RaftPeer[ids.length];
+    for (int i = 0; i < ids.length; i++) {
+      peers[i] = new RaftPeer(ids[i]);
     }
     return RaftConfiguration.composeConf(peers, 0);
   }
@@ -70,14 +77,23 @@ public abstract class MiniRaftCluster {
     FileUtil.fullyDelete(serverDir);
   }
 
-  private RaftConfiguration conf;
-  private final RaftProperties properties;
-  private final String testBaseDir;
-  private final Map<String, RaftServer> servers = new LinkedHashMap<>();
+  public static String[] generateIds(int numServers, int base) {
+    String[] ids = new String[numServers];
+    for (int i = 0; i < numServers; i++) {
+      ids[i] = "s" + (i + base);
+    }
+    return ids;
+  }
 
-  public MiniRaftCluster(int numServers, RaftProperties properties,
+  protected RaftConfiguration conf;
+  protected final RaftProperties properties;
+  private final String testBaseDir;
+  protected final Map<String, RaftServer> servers =
+      Collections.synchronizedMap(new LinkedHashMap<>());
+
+  public MiniRaftCluster(String[] ids, RaftProperties properties,
       boolean formatted) {
-    this.conf = initConfiguration(numServers);
+    this.conf = initConfiguration(ids);
     this.properties = properties;
     this.testBaseDir = getBaseDirectory();
 
@@ -88,7 +104,17 @@ public abstract class MiniRaftCluster {
   }
 
   public void start() {
-    servers.values().forEach((server) -> server.start(conf));
+    servers.values().forEach(RaftServer::start);
+  }
+
+  public void restart(boolean format) throws IOException {
+    servers.values().stream().filter(RaftServer::isRunning)
+        .forEach(RaftServer::kill);
+    List<String> idList = new ArrayList<>(servers.keySet());
+    for (String id : idList) {
+      servers.remove(id);
+      servers.put(id, newRaftServer(id, conf, format));
+    }
   }
 
   public RaftConfiguration getConf() {
@@ -114,31 +140,37 @@ public abstract class MiniRaftCluster {
   public abstract RaftClientRequestSender getRaftClientRequestSender()
       throws IOException;
 
-  public abstract void addNewPeers(Collection<RaftPeer> newPeers,
-                                   Collection<RaftServer> newServers)
+  protected abstract Collection<RaftPeer> addNewPeers(
+      Collection<RaftPeer> newPeers, Collection<RaftServer> newServers)
       throws IOException;
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer)
       throws IOException {
-    List<RaftPeer> newPeers = new ArrayList<>(number);
-    final int oldSize = conf.getPeers().size();
-    for (int i = oldSize; i < oldSize + number; i++) {
-      newPeers.add(new RaftPeer("s" + i));
+    return addNewPeers(generateIds(number, servers.size()), startNewPeer);
+  }
+
+  public PeerChanges addNewPeers(String[] ids,
+      boolean startNewPeer) throws IOException {
+    LOG.info("Add new peers {}", Arrays.asList(ids));
+    Collection<RaftPeer> newPeers = new ArrayList<>(ids.length);
+    for (String id : ids) {
+      newPeers.add(new RaftPeer(id));
     }
 
-
     // create and add new RaftServers
-    final List<RaftServer> newServers = new ArrayList<>(number);
+    final List<RaftServer> newServers = new ArrayList<>(ids.length);
     for (RaftPeer p : newPeers) {
       RaftServer newServer = newRaftServer(p.getId(), conf, true);
+      Preconditions.checkArgument(!servers.containsKey(p.getId()));
       servers.put(p.getId(), newServer);
       newServers.add(newServer);
     }
 
-    addNewPeers(newPeers, newServers);
+    // for hadoop-rpc-enabled peer, we assign inetsocketaddress here
+    newPeers = addNewPeers(newPeers, newServers);
 
     if (startNewPeer) {
-      newServers.forEach(s -> s.start(null));
+      newServers.forEach(RaftServer::start);
     }
 
     final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
@@ -148,10 +180,10 @@ public abstract class MiniRaftCluster {
     return new PeerChanges(p, np, new RaftPeer[0]);
   }
 
-  public void startServer(String id, RaftConfiguration conf) {
+  public void startServer(String id) {
     RaftServer server = servers.get(id);
     assert server != null;
-    server.start(conf);
+    server.start();
   }
 
   /**

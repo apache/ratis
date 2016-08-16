@@ -64,7 +64,7 @@ public class RaftConfiguration {
   /** the index of the corresponding log entry */
   private final long logEntryIndex;
 
-  private RaftConfiguration(RaftPeer[] peers, long index) {
+  public RaftConfiguration(RaftPeer[] peers, long index) {
     Preconditions.checkArgument(peers != null && peers.length > 0);
     this.conf = new SimpleConfiguration(peers);
     this.oldConf = null;

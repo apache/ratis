@@ -17,6 +17,7 @@
  */
 package org.apache.raft.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
@@ -31,7 +32,6 @@ import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.raft.util.CodeInjectionForTesting;
-import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,8 +42,6 @@ import java.util.Collection;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -82,32 +80,38 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
   public RaftServer(String id, RaftConfiguration raftConf,
       RaftProperties properties) throws IOException {
-    this.state = new ServerState(id, raftConf, properties,
-        getStateMachine(properties), this);
+    this.state = new ServerState(id, raftConf, properties, this);
   }
 
-  public void setServerRpc(RaftServerRpc serverRpc) {
+  /**
+   * Used by tests to set initial raft configuration with correct port bindings.
+   */
+  @VisibleForTesting
+  public void setInitialConf(RaftConfiguration conf) {
+    this.state.setInitialConf(conf);
+  }
+
+  public void setServerRpc(RaftServerRpc serverRpc) throws IOException {
     this.serverRpc = serverRpc;
+    // add peers into rpc service
+    RaftConfiguration conf = getRaftConf();
+    if (conf != null) {
+      addPeersToRPC(conf.getPeers());
+    }
   }
 
   public RaftServerRpc getServerRpc() {
     return serverRpc;
   }
 
-  public void start(RaftConfiguration conf) {
+  public void start() {
     state.start();
+    RaftConfiguration conf = getRaftConf();
     if (conf != null && conf.contains(getId())) {
       startAsFollower();
     } else {
       startInitializing();
     }
-  }
-
-  private StateMachine getStateMachine(RaftProperties properties) {
-    final Class<? extends StateMachine> smClass = properties.getClass(
-        RAFT_SERVER_STATEMACHINE_CLASS_KEY,
-        RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT, StateMachine.class);
-    return RaftUtils.newInstance(smClass);
   }
 
   private void changeRunningState(RunningState oldState, RunningState newState) {
@@ -358,6 +362,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
         leaderState.returnNoConfChange(request);
         return;
       }
+      // add new peers into the rpc service
+      addPeersToRPC(Arrays.asList(peersInNewConf));
       // add staging state into the leaderState
       pending = leaderState.startSetConfiguration(request);
     }
@@ -636,5 +642,9 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     if (isLeader()) {
       leaderState.submitUpdateStateEvent(UPDATE_COMMIT_EVENT);
     }
+  }
+
+  public void addPeersToRPC(Iterable<RaftPeer> peers) throws IOException {
+    serverRpc.addPeers(peers);
   }
 }

@@ -28,7 +28,8 @@ public class RaftPeer {
   }
 
   public RaftPeer(String id, InetSocketAddress address) {
-    this(id, address == null? null: address.toString());
+    this(id, address == null? null:
+        address.getAddress().getHostAddress() + ":" + address.getPort());
   }
 
   public RaftPeer(String id, String address) {

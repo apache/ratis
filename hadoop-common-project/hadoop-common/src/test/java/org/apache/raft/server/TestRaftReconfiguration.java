@@ -357,7 +357,7 @@ public class TestRaftReconfiguration {
       final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster, true);
       // start the two new peers
       for (RaftPeer np : c1.newPeers) {
-        cluster.startServer(np.getId(), null);
+        cluster.startServer(np.getId());
       }
 
       Thread.sleep(3000);

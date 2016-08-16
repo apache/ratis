@@ -28,46 +28,64 @@ import org.apache.raft.server.protocol.RaftServerRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.Collection;
 
 public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithSimulatedRpc.class);
 
-  private final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
-  private final SimulatedClientRequestReply client2serverRequestReply;
+  private SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
+  private SimulatedClientRequestReply client2serverRequestReply;
 
   public MiniRaftClusterWithSimulatedRpc(int numServers,
       RaftProperties properties) {
-    this(numServers, properties, true);
+    this(generateIds(numServers, 0), properties, true);
   }
 
-  public MiniRaftClusterWithSimulatedRpc(int numServers,
+  public MiniRaftClusterWithSimulatedRpc(String[] ids,
       RaftProperties properties, boolean formatted) {
-    super(numServers, properties, formatted);
+    super(ids, properties, formatted);
+    initRpc();
+  }
+
+  private void initRpc() {
     final Collection<RaftPeer> peers = getConf().getPeers();
     final int simulateLatencyMs = properties.getInt(
         SimulatedRequestReply.SIMULATE_LATENCY_KEY,
         SimulatedRequestReply.SIMULATE_LATENCY_DEFAULT);
-    LOG.info(SimulatedRequestReply.SIMULATE_LATENCY_KEY + " = " + simulateLatencyMs);
+    LOG.info(SimulatedRequestReply.SIMULATE_LATENCY_KEY + " = "
+        + simulateLatencyMs);
     serverRequestReply = new SimulatedRequestReply<>(peers, simulateLatencyMs);
-    client2serverRequestReply = new SimulatedClientRequestReply(peers, simulateLatencyMs);
+    client2serverRequestReply = new SimulatedClientRequestReply(peers,
+        simulateLatencyMs);
 
     setRpcServers(getServers());
   }
 
   private void setRpcServers(Collection<RaftServer> newServers) {
-    newServers.forEach(s -> s.setServerRpc(
-        new SimulatedServerRpc(s, serverRequestReply, client2serverRequestReply)
-    ));
+    newServers.forEach(s -> {
+      try {
+        s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
+            client2serverRequestReply));
+      } catch (IOException ignored) { // should not happen
+      }
+    });
   }
 
   @Override
-  public void addNewPeers(Collection<RaftPeer> newPeers,
-                          Collection<RaftServer> newServers) {
+  public void restart(boolean format) throws IOException {
+    super.restart(format);
+    initRpc();
+  }
+
+  @Override
+  public Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
+      Collection<RaftServer> newServers) {
     serverRequestReply.addPeers(newPeers);
     client2serverRequestReply.addPeers(newPeers);
 
     setRpcServers(newServers);
+    return newPeers;
   }
 
   @Override

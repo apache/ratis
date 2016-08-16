@@ -192,6 +192,7 @@ public class ServerProtoUtils {
         .setLastIncludedIndex(request.getLastIncludedIndex())
         .setLastIncludedTerm(request.getLastIncludedTerm())
         .setChunk(request.getChunk())
+        .setFileDigest(ProtoUtils.toByteString(request.getFileDigest().getDigest()))
         .setTotalSize(request.getTotalSize());
     return builder.build();
   }

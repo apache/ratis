@@ -115,7 +115,7 @@ public class LogOutputStream implements Closeable {
    * Flush data to persistent store.
    * Collect sync metrics.
    */
-  void flush() throws IOException {
+  public void flush() throws IOException {
     flushAndSync(true);
   }
 

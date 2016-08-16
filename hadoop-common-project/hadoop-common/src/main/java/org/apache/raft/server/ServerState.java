@@ -28,10 +28,13 @@ import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.*;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.raft.util.ProtoUtils;
+import org.apache.raft.util.RaftUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
 
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY;
 
@@ -40,6 +43,7 @@ import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY
  */
 public class ServerState implements Closeable {
   private final String selfId;
+  private final RaftServer server;
   /** Raft log */
   private final RaftLog log;
   /** Raft configuration */
@@ -66,11 +70,14 @@ public class ServerState implements Closeable {
   private String votedFor;
 
   ServerState(String id, RaftConfiguration conf, RaftProperties prop,
-      StateMachine stateMachine, RaftServer server) throws IOException {
+      RaftServer server) throws IOException {
     this.selfId = id;
+    this.server = server;
     configurationManager = new ConfigurationManager(conf);
     storage = new RaftStorage(prop, RaftServerConstants.StartupOption.REGULAR);
     snapshotManager = new SnapshotManager(storage, id);
+
+    StateMachine stateMachine = getStateMachine(prop);
     long lastApplied = initStatemachine(stateMachine, prop);
 
     leaderId = null;
@@ -81,6 +88,21 @@ public class ServerState implements Closeable {
 
     stateMachineUpdater = new StateMachineUpdater(stateMachine, log, storage,
         lastApplied, prop);
+  }
+
+  /**
+   * Used by tests to set initial raft configuration with correct port bindings.
+   */
+  @VisibleForTesting
+  public void setInitialConf(RaftConfiguration initialConf) {
+    configurationManager.setInitialConf(initialConf);
+  }
+
+  private StateMachine getStateMachine(RaftProperties properties) {
+    final Class<? extends StateMachine> smClass = properties.getClass(
+        RAFT_SERVER_STATEMACHINE_CLASS_KEY,
+        RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT, StateMachine.class);
+    return RaftUtils.newInstance(smClass);
   }
 
   private long initStatemachine(StateMachine sm, RaftProperties properties)
@@ -127,6 +149,8 @@ public class ServerState implements Closeable {
   public RaftConfiguration getRaftConf() {
     return configurationManager.getCurrent();
   }
+
+  @VisibleForTesting
 
   public String getSelfId() {
     return this.selfId;
@@ -258,14 +282,15 @@ public class ServerState implements Closeable {
         getSelfId(), conf);
   }
 
-  void updateConfiguration(LogEntryProto[] entries) {
+  void updateConfiguration(LogEntryProto[] entries) throws IOException {
     if (entries != null && entries.length > 0) {
       configurationManager.removeConfigurations(entries[0].getIndex());
       for (LogEntryProto entry : entries) {
         if (ProtoUtils.isConfigurationLogEntry(entry)) {
-          configurationManager.addConfiguration(entry.getIndex(),
-              ServerProtoUtils.toRaftConfiguration(entry.getIndex(),
-                  entry.getConfigurationEntry()));
+          final RaftConfiguration conf = ServerProtoUtils.toRaftConfiguration(
+              entry.getIndex(), entry.getConfigurationEntry());
+          configurationManager.addConfiguration(entry.getIndex(), conf);
+          server.addPeersToRPC(conf.getPeers());
         }
       }
     }
