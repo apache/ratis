@@ -52,7 +52,7 @@ public class RaftClientProtocolServerSideTranslatorPB
       throw new ServiceException(ioe);
     }
     final RaftClientReply reply = new RaftClientReply(request, true);
-    return ProtoUtils.toRaftClientReplyProto(proto, reply);
+    return ProtoUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
   }
 
   @Override

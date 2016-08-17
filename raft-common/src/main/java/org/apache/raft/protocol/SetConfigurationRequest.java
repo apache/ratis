@@ -20,18 +20,16 @@ package org.apache.raft.protocol;
 import java.util.Arrays;
 
 public class SetConfigurationRequest extends RaftClientRequest {
-  public SetConfigurationRequest(String requestorId, String replierId,
-      RaftPeer[] members) {
-    this(requestorId, replierId, new ConfigurationMessage(members));
-  }
+  private final RaftPeer[] peers;
 
   public SetConfigurationRequest(String requestorId, String replierId,
-      ConfigurationMessage members) {
-    super(requestorId, replierId, members);
+      RaftPeer[] peers) {
+    super(requestorId, replierId, null);
+    this.peers = peers;
   }
 
   public RaftPeer[] getPeersInNewConf() {
-    return ((ConfigurationMessage) getMessage()).getMembers();
+    return peers;
   }
 
   @Override

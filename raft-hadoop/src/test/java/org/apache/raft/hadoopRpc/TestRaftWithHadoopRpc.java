@@ -38,10 +38,10 @@ public class TestRaftWithHadoopRpc extends RaftBasicTests {
     GenericTestUtils.setLogLevel(RPC.Server.LOG, Level.WARN);
   }
 
-  private final Configuration conf = new Configuration();
   private final MiniRaftClusterWithHadoopRpc cluster;
 
   public TestRaftWithHadoopRpc() throws IOException {
+    Configuration conf = new Configuration();
     conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
     cluster = new MiniRaftClusterWithHadoopRpc(NUM_SERVERS, getProperties(), conf);
   }

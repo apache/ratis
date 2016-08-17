@@ -15,23 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.protocol;
+package org.apache.raft.hadoopRpc;
 
-import org.apache.raft.util.ProtoUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.raft.MiniRaftCluster;
+import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.RaftReconfigurationBaseTest;
 
-public class ConfigurationMessage implements Message {
-  private final RaftPeer[] members;
+import java.io.IOException;
 
-  public ConfigurationMessage(RaftPeer[] members) {
-    this.members = members;
-  }
-
-  public RaftPeer[] getMembers() {
-    return members;
-  }
-
+public class TestRaftReconfigurationWithHadoopRpc
+    extends RaftReconfigurationBaseTest {
   @Override
-  public byte[] getContent() {
-    return ProtoUtils.toConfigurationMessageProto(this).toByteArray();
+  public MiniRaftCluster getCluster(int peerNum) throws IOException {
+    final Configuration hadoopConf = new Configuration();
+    hadoopConf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
+    return new MiniRaftClusterWithHadoopRpc(peerNum, prop, hadoopConf);
   }
 }

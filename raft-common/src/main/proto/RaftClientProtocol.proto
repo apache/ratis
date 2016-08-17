@@ -23,22 +23,24 @@ package common.raft;
 
 import "Raft.proto";
 
+// normal client request
 message RaftClientRequestProto {
-  required RaftRpcRequestProto rpcRequest = 1;
-
-  required ClientMessageEntryProto message = 2;
+  optional RaftRpcRequestProto rpcRequest = 1;
+  optional ClientMessageEntryProto message = 2;
 }
 
 message RaftClientReplyProto {
-  required RaftRpcReplyProto rpcReply = 1;
+  optional RaftRpcReplyProto rpcReply = 1;
 }
 
+// setConfiguration request
 message SetConfigurationRequestProto {
-  required RaftClientRequestProto clientRequest = 1;
+  optional RaftRpcRequestProto rpcRequest = 1;
+  repeated RaftPeerProto peers = 2;
 }
 
 message SetConfigurationReplyProto {
-  required RaftClientReplyProto clientReply = 1;
+  optional RaftClientReplyProto clientReply = 1;
 }
 
 service RaftClientProtocolService {

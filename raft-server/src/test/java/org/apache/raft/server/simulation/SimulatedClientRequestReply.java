@@ -22,6 +22,7 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 
+import java.io.IOException;
 import java.util.Collection;
 
 public class SimulatedClientRequestReply
@@ -30,5 +31,10 @@ public class SimulatedClientRequestReply
   SimulatedClientRequestReply(Collection<RaftPeer> allPeers,
                               int simulateLatencyMs) {
     super(allPeers, simulateLatencyMs);
+  }
+
+  @Override
+  public void addServerProxies(Iterable<RaftPeer> servers) throws IOException {
+    // do nothing
   }
 }

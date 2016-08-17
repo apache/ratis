@@ -24,7 +24,8 @@ public class RaftPeer {
   private final String address;
 
   public RaftPeer(String id) {
-    this(id, id);
+    this.id = id;
+    this.address = null;
   }
 
   public RaftPeer(String id, InetSocketAddress address) {

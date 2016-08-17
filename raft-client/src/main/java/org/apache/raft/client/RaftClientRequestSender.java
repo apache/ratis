@@ -19,9 +19,13 @@ package org.apache.raft.client;
 
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.protocol.RaftPeer;
 
 import java.io.IOException;
 
 public interface RaftClientRequestSender {
   RaftClientReply sendRequest(RaftClientRequest request) throws IOException;
+
+  /** add rpc information of the given raft servers */
+  void addServerProxies(Iterable<RaftPeer> servers) throws IOException;
 }

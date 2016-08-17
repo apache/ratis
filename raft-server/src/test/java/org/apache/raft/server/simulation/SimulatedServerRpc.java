@@ -84,7 +84,7 @@ public class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
-  public void addPeers(Iterable<RaftPeer> peers) throws IOException {
+  public void addPeerProxies(Iterable<RaftPeer> peers) throws IOException {
     // do nothing
   }
 

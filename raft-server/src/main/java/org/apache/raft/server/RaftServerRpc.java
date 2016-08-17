@@ -44,5 +44,5 @@ public interface RaftServerRpc {
       throws IOException;
 
   /** add rpc information of the given peers */
-  void addPeers(Iterable<RaftPeer> peers) throws IOException;
+  void addPeerProxies(Iterable<RaftPeer> peers) throws IOException;
 }

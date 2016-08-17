@@ -58,12 +58,14 @@ public class RaftClient {
     return first;
   }
 
-  private void refreshPeers(RaftPeer[] newPeers) {
+  private void refreshPeers(RaftPeer[] newPeers) throws IOException {
     if (newPeers != null && newPeers.length > 0) {
       peers.clear();
       for (RaftPeer p : newPeers) {
         peers.put(p.getId(), p);
       }
+      // also refresh the rpc proxies for these peers
+      client2serverRpc.addServerProxies(Arrays.asList(newPeers));
     }
   }
 
@@ -95,8 +97,8 @@ public class RaftClient {
     }
   }
 
-  private RaftClientReply sendRequest(RaftClientRequest r,
-                                      final String leader) throws InterruptedIOException {
+  private RaftClientReply sendRequest(RaftClientRequest r, final String leader)
+      throws IOException {
     try {
       return client2serverRpc.sendRequest(r);
     } catch (NotLeaderException nle) {
@@ -118,7 +120,7 @@ public class RaftClient {
   }
 
   private void handleNotLeaderException(NotLeaderException e)
-      throws InterruptedIOException {
+      throws IOException {
     LOG.debug("{}: got NotLeaderException", clientId, e);
     refreshPeers(e.getPeers());
     String newLeader = e.getSuggestedLeader() != null ?

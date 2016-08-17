@@ -163,7 +163,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     return runningState.get() != RunningState.STOPPED;
   }
 
-  public void kill() {
+  public synchronized void kill() {
     changeRunningState(RunningState.STOPPED);
 
     try {
@@ -645,6 +645,6 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   public void addPeersToRPC(Iterable<RaftPeer> peers) throws IOException {
-    serverRpc.addPeers(peers);
+    serverRpc.addPeerProxies(peers);
   }
 }

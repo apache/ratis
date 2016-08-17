@@ -24,32 +24,32 @@ package common.raft;
 import "Raft.proto";
 
 message RaftServerRequestProto {
-  required RaftRpcRequestProto rpcRequest = 1;
+  optional RaftRpcRequestProto rpcRequest = 1;
 }
 
 message RaftServerReplyProto {
-  required RaftRpcReplyProto rpcReply = 1;
-  required uint64 term = 2;
+  optional RaftRpcReplyProto rpcReply = 1;
+  optional uint64 term = 2;
 }
 
 message RequestVoteRequestProto {
-  required RaftServerRequestProto serverRequest = 1;
-  required uint64 candidateTerm = 2;
+  optional RaftServerRequestProto serverRequest = 1;
+  optional uint64 candidateTerm = 2;
   optional TermIndexProto candidateLastEntry = 3;
 }
 
 message RequestVoteReplyProto {
-  required RaftServerReplyProto serverReply = 1;
-  required bool shouldShutdown = 2;
+  optional RaftServerReplyProto serverReply = 1;
+  optional bool shouldShutdown = 2;
 }
 
 message AppendEntriesRequestProto {
-  required RaftServerRequestProto serverRequest = 1;
-  required uint64 leaderTerm = 2;
+  optional RaftServerRequestProto serverRequest = 1;
+  optional uint64 leaderTerm = 2;
   optional TermIndexProto previousLog = 3;
   repeated LogEntryProto entries = 4;
-  required uint64 leaderCommit = 5;
-  required bool initializing = 6;
+  optional uint64 leaderCommit = 5;
+  optional bool initializing = 6;
 }
 
 message AppendEntriesReplyProto {
@@ -59,9 +59,9 @@ message AppendEntriesReplyProto {
     INCONSISTENCY = 3;
   }
 
-  required RaftServerReplyProto serverReply = 1;
-  required uint64 nextIndex = 2;
-  required AppendResult result = 3;
+  optional RaftServerReplyProto serverReply = 1;
+  optional uint64 nextIndex = 2;
+  optional AppendResult result = 3;
 }
 
 message SnapshotChunkProto {

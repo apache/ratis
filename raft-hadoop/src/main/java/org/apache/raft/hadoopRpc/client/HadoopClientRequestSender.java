@@ -58,4 +58,9 @@ public class HadoopClientRequestSender
         RaftClientProtocolPB.class, p.getAddress(), getConf());
     return new RaftClientProtocolClientSideTranslatorPB(proxy);
   }
+
+  @Override
+  public void addServerProxies(Iterable<RaftPeer> servers) throws IOException {
+    addPeers(servers);
+  }
 }

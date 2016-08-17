@@ -22,12 +22,8 @@ option java_generate_equals_and_hash = true;
 package common.raft;
 
 message RaftPeerProto {
-  required string id = 1;      // id of the peer
-  required string address = 2; // e.g. IP address, hostname etc.
-}
-
-message ConfigurationMessageProto {
-  repeated RaftPeerProto peers = 1; // the peers in the new configuration
+  optional string id = 1;      // id of the peer
+  optional string address = 2; // e.g. IP address, hostname etc.
 }
 
 message RaftConfigurationProto {
@@ -54,20 +50,20 @@ message LogEntryProto {
 }
 
 message TermIndexProto {
-  required uint64 term = 1;
-  required uint64 index = 2;
+  optional uint64 term = 1;
+  optional uint64 index = 2;
 }
 
 message RaftRpcMessageProto {
-  required string requestorId = 1;
-  required string replyId = 2;
+  optional string requestorId = 1;
+  optional string replyId = 2;
 }
 
 message RaftRpcRequestProto {
-  required RaftRpcMessageProto rpcMessage = 1;
+  optional RaftRpcMessageProto rpcMessage = 1;
 }
 
 message RaftRpcReplyProto {
-  required RaftRpcMessageProto rpcMessage = 1;
-  required bool success = 2;
+  optional RaftRpcMessageProto rpcMessage = 1;
+  optional bool success = 2;
 }

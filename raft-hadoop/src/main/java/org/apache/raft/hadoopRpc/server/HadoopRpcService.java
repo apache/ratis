@@ -165,4 +165,9 @@ public class HadoopRpcService
                               IOException ioe) throws IOException {
     // TODO
   }
+
+  @Override
+  public void addPeerProxies(Iterable<RaftPeer> peers) throws IOException {
+    addPeers(peers);
+  }
 }

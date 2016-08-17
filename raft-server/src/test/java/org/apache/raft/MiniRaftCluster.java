@@ -186,6 +186,10 @@ public abstract class MiniRaftCluster {
     server.start();
   }
 
+  private RaftPeer getPeer(RaftServer s) {
+    return new RaftPeer(s.getId(), s.getServerRpc().getInetSocketAddress());
+  }
+
   /**
    * prepare the peer list when removing some peers from the conf
    */
@@ -194,7 +198,7 @@ public abstract class MiniRaftCluster {
     Collection<RaftPeer> peers = new ArrayList<>(conf.getPeers());
     List<RaftPeer> removedPeers = new ArrayList<>(number);
     if (removeLeader) {
-      final RaftPeer leader = new RaftPeer(getLeader().getId());
+      final RaftPeer leader = getPeer(getLeader());
       assert !excluded.contains(leader);
       peers.remove(leader);
       removedPeers.add(leader);
@@ -202,7 +206,7 @@ public abstract class MiniRaftCluster {
     List<RaftServer> followers = getFollowers();
     for (int i = 0, removed = 0; i < followers.size() &&
         removed < (removeLeader ? number - 1 : number); i++) {
-      RaftPeer toRemove = new RaftPeer(followers.get(i).getId());
+      RaftPeer toRemove = getPeer(followers.get(i));
       if (!excluded.contains(toRemove)) {
         peers.remove(toRemove);
         removedPeers.add(toRemove);
@@ -245,22 +249,22 @@ public abstract class MiniRaftCluster {
 
   public RaftServer getLeader() {
     final List<RaftServer> leaders = new ArrayList<>();
-    for(RaftServer s : servers.values()) {
-      if (s.isRunning() && s.isLeader()) {
-        if (leaders.isEmpty()) {
-          leaders.add(s);
-        } else {
-          final long leaderTerm = leaders.get(0).getState().getCurrentTerm();
-          final long term = s.getState().getCurrentTerm();
-          if (term >= leaderTerm) {
-            if (term > leaderTerm) {
-              leaders.clear();
-            }
-            leaders.add(s);
+    servers.values().stream()
+        .filter(s -> s.isRunning() && s.isLeader())
+        .forEach(s -> {
+      if (leaders.isEmpty()) {
+        leaders.add(s);
+      } else {
+        final long leaderTerm = leaders.get(0).getState().getCurrentTerm();
+        final long term = s.getState().getCurrentTerm();
+        if (term >= leaderTerm) {
+          if (term > leaderTerm) {
+            leaders.clear();
           }
+          leaders.add(s);
         }
       }
-    }
+    });
     if (leaders.isEmpty()) {
       return null;
     } else if (leaders.size() != 1) {
