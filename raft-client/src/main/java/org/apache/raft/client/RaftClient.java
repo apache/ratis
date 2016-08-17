@@ -100,10 +100,15 @@ public class RaftClient {
   private RaftClientReply sendRequest(RaftClientRequest r, final String leader)
       throws IOException {
     try {
-      return client2serverRpc.sendRequest(r);
-    } catch (NotLeaderException nle) {
-      handleNotLeaderException(nle);
+      RaftClientReply reply = client2serverRpc.sendRequest(r);
+      if (reply.isNotLeader()) {
+        handleNotLeaderException(reply.getNotLeaderException());
+        return null;
+      } else {
+        return reply;
+      }
     } catch (IOException ioe) {
+      // TODO No retry if the exception is thrown from the state machine
       final String newLeader = nextLeader(leader, peers.keySet().iterator());
       LOG.debug("{}: Failed with {}, change Leader from {} to {}",
           clientId, ioe, leader, newLeader);

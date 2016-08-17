@@ -31,6 +31,10 @@ message RaftClientRequestProto {
 
 message RaftClientReplyProto {
   optional RaftRpcReplyProto rpcReply = 1;
+  // the following 3 fields are used to indicate the server is not leader
+  optional bool isNotLeader = 2;
+  optional RaftPeerProto suggestedLeader = 3;
+  repeated RaftPeerProto peersInConf = 4;
 }
 
 // setConfiguration request
@@ -39,14 +43,10 @@ message SetConfigurationRequestProto {
   repeated RaftPeerProto peers = 2;
 }
 
-message SetConfigurationReplyProto {
-  optional RaftClientReplyProto clientReply = 1;
-}
-
 service RaftClientProtocolService {
   rpc submitClientRequest(RaftClientRequestProto)
       returns(RaftClientReplyProto);
 
   rpc setConfiguration(SetConfigurationRequestProto)
-      returns(SetConfigurationReplyProto);
+      returns(RaftClientReplyProto);
 }

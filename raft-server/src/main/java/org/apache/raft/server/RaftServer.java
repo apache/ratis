@@ -48,12 +48,12 @@ import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
 public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
-  static final String CLASS_NAME = RaftServer.class.getSimpleName();
-  public static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
-  public static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
-  public static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
+  private static final String CLASS_NAME = RaftServer.class.getSimpleName();
+  static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
+  static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
+  static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
 
-  enum RunningState {
+  private enum RunningState {
     /**
      * the peer does not belong to any configuration yet, need to catchup
      */
@@ -179,7 +179,8 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     }
   }
 
-  void assertRunningState(RunningState... allowedStates) throws IOException {
+  private void assertRunningState(RunningState... allowedStates)
+      throws IOException {
     if (!Arrays.asList(allowedStates).contains(runningState.get())) {
       throw new IOException(getId() + " is not running.");
     }
@@ -289,16 +290,18 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     return role + " " + state + " " + runningState;
   }
 
-  private void checkLeaderState() throws NotLeaderException {
+  private RaftClientReply checkLeaderState(RaftClientRequest request)
+      throws NotLeaderException {
     if (!isLeader()) {
-      throw generateNotLeaderException();
+      NotLeaderException exception = generateNotLeaderException();
+      return new RaftClientReply(request, false, exception);
     }
+    return null;
   }
 
   NotLeaderException generateNotLeaderException() {
     if (runningState.get() != RunningState.RUNNING) {
-      return new NotLeaderException(getId(), null,
-          NotLeaderException.EMPTY_PEERS);
+      return new NotLeaderException(getId(), null, RaftPeer.EMPTY_PEERS);
     }
     String leaderId = state.getLeaderId();
     if (leaderId == null || leaderId.equals(state.getSelfId())) {
@@ -318,14 +321,23 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
    * Handle a request from client.
    */
   @Override
-  public void submitClientRequest(RaftClientRequest request) throws IOException {
+  public RaftClientReply submitClientRequest(RaftClientRequest request)
+      throws IOException {
     LOG.debug("{}: receive submit({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
-    checkLeaderState();
+    RaftClientReply reply;
+    reply = checkLeaderState(request);
+    if (reply != null) {
+      return reply;
+    }
 
     final PendingRequest pending;
     synchronized (this) {
-      checkLeaderState();
+      reply = checkLeaderState(request);
+      if (reply != null) {
+        return reply;
+      }
+
       // append the message to its local log
       final long entryIndex = state.applyLog(request.getMessage());
 
@@ -337,19 +349,28 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     // to the state machine. also the response should include result from
     // state machine.
     getServerRpc().saveCallInfo(pending);
+    return pending.getReply();
   }
 
   @Override
-  public void setConfiguration(SetConfigurationRequest request)
+  public RaftClientReply setConfiguration(SetConfigurationRequest request)
       throws IOException {
     LOG.debug("{}: receive setConfiguration({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
-    checkLeaderState();
+    RaftClientReply reply;
+    reply = checkLeaderState(request);
+    if (reply != null) {
+      return reply;
+    }
 
     final RaftPeer[] peersInNewConf = request.getPeersInNewConf();
     final PendingRequest pending;
     synchronized (this) {
-      checkLeaderState();
+      reply = checkLeaderState(request);
+      if (reply != null) {
+        return reply;
+      }
+
       final RaftConfiguration current = getRaftConf();
       // make sure there is no other raft reconfiguration in progress
       if (!current.inStableState() || leaderState.inStagingState()) {
@@ -360,7 +381,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
       // return true if the new configuration is the same with the current one
       if (current.hasNoChange(peersInNewConf)) {
         leaderState.returnNoConfChange(request);
-        return;
+        return new RaftClientReply(request, true, null);
       }
       // add new peers into the rpc service
       addPeersToRPC(Arrays.asList(peersInNewConf));
@@ -371,6 +392,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     // once the (old, new) entry is committed, and finally send the response
     // back to the client.
     getServerRpc().saveCallInfo(pending);
+    return pending.getReply();
   }
 
   private boolean shouldWithholdVotes(long now) {

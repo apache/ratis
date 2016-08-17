@@ -20,9 +20,11 @@ package org.apache.raft.hadoopRpc.client;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.ipc.RPC;
+import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientRequestProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationRequestProto;
 import org.apache.raft.protocol.RaftClientProtocol;
+import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.util.ProtoUtils;
@@ -45,23 +47,25 @@ public class RaftClientProtocolClientSideTranslatorPB
   }
 
   @Override
-  public void submitClientRequest(RaftClientRequest request)
+  public RaftClientReply submitClientRequest(RaftClientRequest request)
       throws IOException {
     final RaftClientRequestProto p = ProtoUtils.toRaftClientRequestProto(request);
     try {
-      rpcProxy.submitClientRequest(null, p);
+      RaftClientReplyProto replyProto = rpcProxy.submitClientRequest(null, p);
+      return ProtoUtils.toRaftClientReply(replyProto);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
   }
 
   @Override
-  public void setConfiguration(SetConfigurationRequest request)
+  public RaftClientReply setConfiguration(SetConfigurationRequest request)
       throws IOException {
     final SetConfigurationRequestProto p
         = ProtoUtils.toSetConfigurationRequestProto(request);
     try {
-      rpcProxy.setConfiguration(null, p);
+      RaftClientReplyProto replyProto = rpcProxy.setConfiguration(null, p);
+      return ProtoUtils.toRaftClientReply(replyProto);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }

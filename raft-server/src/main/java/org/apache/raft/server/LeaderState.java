@@ -431,7 +431,7 @@ class LeaderState {
         replicateNewConf();
       } else { // the (new) log entry has been committed
         LOG.debug("{} sends success to setConfiguration request", server.getId());
-        pendingRequests.finishSetConfiguration(null);
+        pendingRequests.finishSetConfiguration(true);
         // if the leader is not included in the current configuration, step down
         if (!conf.containsInConf(server.getId())) {
           LOG.info("{} is not included in the new configuration {}. Step down.",
@@ -500,7 +500,7 @@ class LeaderState {
 
   void returnNoConfChange(SetConfigurationRequest r) {
     pendingRequests.addConfRequest(r);
-    pendingRequests.finishSetConfiguration(null);
+    pendingRequests.finishSetConfiguration(true);
   }
 
   private class FollowerInfo {
@@ -798,8 +798,7 @@ class LeaderState {
       }
       LeaderState.this.stagingState = null;
       // send back failure response to client's request
-      pendingRequests.finishSetConfiguration(
-          new IOException("Failed to setConfiguration"));
+      pendingRequests.finishSetConfiguration(false);
     }
   }
 }

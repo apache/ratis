@@ -18,7 +18,26 @@
 package org.apache.raft.protocol;
 
 public class RaftClientReply extends RaftRpcMessage.Reply {
-  public RaftClientReply(RaftRpcMessage m, boolean success) {
-    super(m.getRequestorId(), m.getReplierId(), success);
+  /** non-null if the server is not leader */
+  private final NotLeaderException notLeaderException;
+
+  public RaftClientReply(String requestorId, String replierId, boolean success,
+      NotLeaderException notLeaderException) {
+    super(requestorId, replierId, success);
+    this.notLeaderException = notLeaderException;
+  }
+
+  public RaftClientReply(RaftClientRequest request, boolean success,
+      NotLeaderException notLeaderException) {
+    super(request.getRequestorId(), request.getReplierId(), success);
+    this.notLeaderException = notLeaderException;
+  }
+
+  public NotLeaderException getNotLeaderException() {
+    return notLeaderException;
+  }
+
+  public boolean isNotLeader() {
+    return notLeaderException != null;
   }
 }

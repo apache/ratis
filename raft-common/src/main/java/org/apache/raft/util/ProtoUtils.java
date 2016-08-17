@@ -22,7 +22,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ServiceException;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientRequestProto;
-import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationReplyProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationRequestProto;
 import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.*;
@@ -137,8 +136,33 @@ public class ProtoUtils {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
       b.setRpcReply(toRaftRpcReplyProtoBuilder(request, reply));
+      if (reply.isNotLeader()) {
+        b.setIsNotLeader(true);
+        final RaftPeer suggestedLeader = reply.getNotLeaderException()
+            .getSuggestedLeader();
+        if (suggestedLeader != null) {
+          b.setSuggestedLeader(toRaftPeerProto(suggestedLeader));
+        }
+        b.addAllPeersInConf(toRaftPeerProtos(
+            Arrays.asList(reply.getNotLeaderException().getPeers())));
+      }
     }
     return b.build();
+  }
+
+  public static RaftClientReply toRaftClientReply(
+      RaftClientReplyProto replyProto) {
+    final RaftRpcReplyProto rp = replyProto.getRpcReply();
+    final RaftRpcMessageProto rm = rp.getRpcMessage();
+    NotLeaderException e = null;
+    if (replyProto.getIsNotLeader()) {
+      final RaftPeer suggestedLeader = replyProto.hasSuggestedLeader() ?
+          toRaftPeer(replyProto.getSuggestedLeader()) : null;
+      final RaftPeer[] peers = toRaftPeerArray(replyProto.getPeersInConfList());
+      e = new NotLeaderException(rm.getReplyId(), suggestedLeader, peers);
+    }
+    return new RaftClientReply(rm.getRequestorId(), rm.getReplyId(),
+        rp.getSuccess(), e);
   }
 
   public static SetConfigurationRequest toSetConfigurationRequest(
@@ -153,13 +177,6 @@ public class ProtoUtils {
     return SetConfigurationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .addAllPeers(toRaftPeerProtos(Arrays.asList(request.getPeersInNewConf())))
-        .build();
-  }
-
-  public static SetConfigurationReplyProto toSetConfigurationReplyProto(
-      SetConfigurationRequestProto request, RaftClientReply reply) {
-    return SetConfigurationReplyProto.newBuilder()
-        .setClientReply(toRaftClientReplyProto(request.getRpcRequest(), reply))
         .build();
   }
 

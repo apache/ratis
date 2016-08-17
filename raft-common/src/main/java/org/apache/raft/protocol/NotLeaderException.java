@@ -18,8 +18,6 @@
 package org.apache.raft.protocol;
 
 public class NotLeaderException extends RaftException {
-  public static final RaftPeer[] EMPTY_PEERS = new RaftPeer[0];
-
   private final RaftPeer suggestedLeader;
   /** the client may need to update its RaftPeer list */
   private final RaftPeer[] peers;
@@ -29,7 +27,7 @@ public class NotLeaderException extends RaftException {
     super("Server " + id + " is not the leader (" + suggestedLeader
         + "). Request must be sent to leader.");
     this.suggestedLeader = suggestedLeader;
-    this.peers = peers;
+    this.peers = peers == null ? RaftPeer.EMPTY_PEERS : peers;
   }
 
   public RaftPeer getSuggestedLeader() {

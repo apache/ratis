@@ -30,7 +30,7 @@ public class PendingRequest implements Comparable<PendingRequest> {
   private final RaftClientRequest request;
 
   private RaftClientReply reply = null;
-  private IOException exception;
+  private IOException exception; // TODO make it cover StateMachineException
 
   PendingRequest(long index, RaftClientRequest request) {
     this.index = index;
@@ -49,15 +49,21 @@ public class PendingRequest implements Comparable<PendingRequest> {
     return request;
   }
 
-  synchronized void setReply(IOException e) {
-    Preconditions.checkState(reply == null);
-    Preconditions.checkState(exception == null);
-    reply = e != null? null: new RaftClientReply(getRequest(), true);
+  synchronized void setException(IOException e) {
+    Preconditions.checkArgument(e != null);
+    Preconditions.checkState(reply == null && exception == null);
     exception = e;
     notifyAll();
   }
 
-  private RaftClientReply getReply() throws IOException {
+  synchronized void setReply(RaftClientReply r) {
+    Preconditions.checkArgument(r != null);
+    Preconditions.checkState(reply == null && exception == null);
+    reply = r;
+    notifyAll();
+  }
+
+  RaftClientReply getReply() throws IOException {
     if (exception != null) {
       throw new IOException("Caught exception for " + this, exception);
     }

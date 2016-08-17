@@ -44,11 +44,10 @@ public class HadoopClientRequestSender
     final String serverId = request.getReplierId();
     final RaftClientProtocolClientSideTranslatorPB proxy = getServerProxy(serverId);
     if (request instanceof SetConfigurationRequest) {
-      proxy.setConfiguration((SetConfigurationRequest)request);
+      return proxy.setConfiguration((SetConfigurationRequest)request);
     } else {
-      proxy.submitClientRequest(request);
+      return proxy.submitClientRequest(request);
     }
-    return new RaftClientReply(request, true);
   }
 
   @Override

@@ -120,13 +120,15 @@ public class SimulatedServerRpc implements RaftServerRpc {
     @Override
     public RaftClientReply handleRequest(RaftClientRequest request)
         throws IOException {
+      final RaftClientReply reply;
       if (request instanceof SetConfigurationRequest) {
-        server.setConfiguration((SetConfigurationRequest) request);
+        reply = server.setConfiguration((SetConfigurationRequest) request);
       } else {
-        server.submitClientRequest(request);
+        reply = server.submitClientRequest(request);
       }
       // Client reply is asynchronous since it needs to wait for log commit.
-      return null;
+      // thus send back reply immediately only when it fails.
+      return (reply != null && !reply.isSuccess()) ? reply : null;
     }
   };
 }

@@ -19,11 +19,11 @@ package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.util.Daemon;
+import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.slf4j.Logger;
 
-import java.io.IOException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -40,12 +40,13 @@ class PendingRequestsHandler {
       this.pendingRequest = request;
     }
 
-    synchronized void finishSetConfiguration(IOException exception) {
+    synchronized void finishSetConfiguration(boolean success) {
       // we allow the pendingRequest to be null in case that the new leader
       // commits the new configuration while it has not received the retry
       // request from the client
       if (pendingRequest != null) {
-        pendingRequest.setReply(exception);
+        pendingRequest.setReply(
+            new RaftClientReply(pendingRequest.getRequest(), success, null));
         results.offer(pendingRequest);
         pendingRequest = null;
       }
@@ -101,8 +102,8 @@ class PendingRequestsHandler {
     return pending;
   }
 
-  void finishSetConfiguration(IOException exception) {
-    confRequests.finishSetConfiguration(exception);
+  void finishSetConfiguration(boolean success) {
+    confRequests.finishSetConfiguration(success);
   }
 
   synchronized void notifySendingDaemon() {
@@ -125,7 +126,7 @@ class PendingRequestsHandler {
                (pre = queue.peek()) != null && pre.getIndex() <= lastCommitted;
               ) {
             pre = queue.poll();
-            sendReply(pre, null);
+            sendSuccessReply(pre);
           }
           confRequests.sendResults(server.getServerRpc());
           lastCommitted = server.getState().getLog().getLastCommittedIndex();
@@ -156,7 +157,7 @@ class PendingRequestsHandler {
       while (!queue.isEmpty()) {
         final PendingRequest req = queue.poll();
         if (req.getIndex() <= lastCommitted) {
-          sendReply(req, null);
+          sendSuccessReply(req);
         } else {
           sendNotLeaderException(req);
         }
@@ -167,13 +168,19 @@ class PendingRequestsHandler {
       }
     }
 
-    private void sendReply(PendingRequest pending, IOException e) {
-      pending.setReply(e);
+    private void sendReply(PendingRequest pending, RaftClientReply reply) {
+      pending.setReply(reply);
       pending.sendReply(server.getServerRpc());
     }
 
+    private void sendSuccessReply(PendingRequest pending) {
+      sendReply(pending, new RaftClientReply(pending.getRequest(), true, null));
+    }
+
     private void sendNotLeaderException(PendingRequest pending) {
-      sendReply(pending, server.generateNotLeaderException());
+      RaftClientReply reply = new RaftClientReply(pending.getRequest(), false,
+          server.generateNotLeaderException());
+      sendReply(pending, reply);
     }
   }
 }

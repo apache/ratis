@@ -20,6 +20,8 @@ package org.apache.raft.protocol;
 import java.net.InetSocketAddress;
 
 public class RaftPeer {
+  public static final RaftPeer[] EMPTY_PEERS = new RaftPeer[0];
+
   private final String id;
   private final String address;
 

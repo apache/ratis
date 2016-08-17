@@ -15,17 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.protocol;
+package org.apache.raft.server.simulation;
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.raft.MiniRaftCluster;
+import org.apache.raft.server.RaftReconfigurationBaseTest;
 
 import java.io.IOException;
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
-public interface RaftClientProtocol {
-  RaftClientReply submitClientRequest(RaftClientRequest request) throws IOException;
-
-  RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException;
+public class TestRaftReconfigurationWithSimulatedRpc
+    extends RaftReconfigurationBaseTest {
+  @Override
+  public MiniRaftCluster getCluster(int peerNum) throws IOException {
+    return new MiniRaftClusterWithSimulatedRpc(peerNum, prop);
+  }
 }
