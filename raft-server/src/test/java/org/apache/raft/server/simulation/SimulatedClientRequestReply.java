@@ -34,7 +34,7 @@ public class SimulatedClientRequestReply
   }
 
   @Override
-  public void addServerProxies(Iterable<RaftPeer> servers) throws IOException {
+  public void addServers(Iterable<RaftPeer> servers) {
     // do nothing
   }
 }

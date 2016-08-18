@@ -58,14 +58,14 @@ public class RaftClient {
     return first;
   }
 
-  private void refreshPeers(RaftPeer[] newPeers) throws IOException {
+  private void refreshPeers(RaftPeer[] newPeers) {
     if (newPeers != null && newPeers.length > 0) {
       peers.clear();
       for (RaftPeer p : newPeers) {
         peers.put(p.getId(), p);
       }
       // also refresh the rpc proxies for these peers
-      client2serverRpc.addServerProxies(Arrays.asList(newPeers));
+      client2serverRpc.addServers(Arrays.asList(newPeers));
     }
   }
 

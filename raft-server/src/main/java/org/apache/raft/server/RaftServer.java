@@ -91,7 +91,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     this.state.setInitialConf(conf);
   }
 
-  public void setServerRpc(RaftServerRpc serverRpc) throws IOException {
+  public void setServerRpc(RaftServerRpc serverRpc) {
     this.serverRpc = serverRpc;
     // add peers into rpc service
     RaftConfiguration conf = getRaftConf();
@@ -666,7 +666,7 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     }
   }
 
-  public void addPeersToRPC(Iterable<RaftPeer> peers) throws IOException {
+  public void addPeersToRPC(Iterable<RaftPeer> peers) {
     serverRpc.addPeerProxies(peers);
   }
 }

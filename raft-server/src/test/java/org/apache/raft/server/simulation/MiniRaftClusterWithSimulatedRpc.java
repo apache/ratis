@@ -63,13 +63,8 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   }
 
   private void setRpcServers(Collection<RaftServer> newServers) {
-    newServers.forEach(s -> {
-      try {
-        s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
-            client2serverRequestReply));
-      } catch (IOException ignored) { // should not happen
-      }
-    });
+    newServers.forEach(s -> s.setServerRpc(
+        new SimulatedServerRpc(s, serverRequestReply, client2serverRequestReply)));
   }
 
   @Override

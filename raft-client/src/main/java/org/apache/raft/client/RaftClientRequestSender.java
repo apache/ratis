@@ -23,9 +23,11 @@ import org.apache.raft.protocol.RaftPeer;
 
 import java.io.IOException;
 
+/** Send requests to a raft service. */
 public interface RaftClientRequestSender {
+  /** Send a request. */
   RaftClientReply sendRequest(RaftClientRequest request) throws IOException;
 
-  /** add rpc information of the given raft servers */
-  void addServerProxies(Iterable<RaftPeer> servers) throws IOException;
+  /** Add the information of the given raft servers */
+  void addServers(Iterable<RaftPeer> servers);
 }

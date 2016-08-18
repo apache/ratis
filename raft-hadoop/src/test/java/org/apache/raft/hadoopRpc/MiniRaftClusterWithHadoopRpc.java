@@ -110,8 +110,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   }
 
   @Override
-  public RaftClientRequestSender getRaftClientRequestSender()
-      throws IOException {
+  public RaftClientRequestSender getRaftClientRequestSender() {
     return new HadoopClientRequestSender(getPeers(), hadoopConf);
   }
 

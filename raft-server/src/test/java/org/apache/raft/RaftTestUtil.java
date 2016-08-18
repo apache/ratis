@@ -22,8 +22,8 @@ import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.RaftServerConstants;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +33,8 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.function.BooleanSupplier;
+import java.util.function.IntSupplier;
 
 public class RaftTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
@@ -177,22 +179,14 @@ public class RaftTestUtil {
     return dir;
   }
 
-  public interface IsBlocked {
-    boolean isBlocked();
-  }
-
-  public static void block(IsBlocked impl) throws InterruptedException {
-    for(; impl.isBlocked(); ) {
+  public static void block(BooleanSupplier isBlocked) throws InterruptedException {
+    for(; isBlocked.getAsBoolean(); ) {
       Thread.sleep(RaftServerConstants.ELECTION_TIMEOUT_MAX_MS);
     }
   }
 
-  public interface GetDelay {
-    int getDelayMs();
-  }
-
-  public static void delay(GetDelay impl) throws InterruptedException {
-    final int t = impl.getDelayMs();
+  public static void delay(IntSupplier getDelayMs) throws InterruptedException {
+    final int t = getDelayMs.getAsInt();
     if (t > 0) {
       Thread.sleep(t);
     }

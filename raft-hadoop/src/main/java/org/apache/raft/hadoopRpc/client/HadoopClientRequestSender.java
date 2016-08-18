@@ -33,7 +33,7 @@ public class HadoopClientRequestSender
     extends HadoopRpcBase<RaftClientProtocolClientSideTranslatorPB>
     implements RaftClientRequestSender {
   public HadoopClientRequestSender(
-      Collection<RaftPeer> peers, Configuration conf) throws IOException {
+      Collection<RaftPeer> peers, Configuration conf) {
     super(conf);
     addPeers(peers);
   }
@@ -59,7 +59,7 @@ public class HadoopClientRequestSender
   }
 
   @Override
-  public void addServerProxies(Iterable<RaftPeer> servers) throws IOException {
+  public void addServers(Iterable<RaftPeer> servers) {
     addPeers(servers);
   }
 }

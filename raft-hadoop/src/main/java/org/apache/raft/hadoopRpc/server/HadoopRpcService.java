@@ -136,12 +136,7 @@ public class HadoopRpcService
 
     final String id = request.getReplierId();
     final RaftServerProtocolClientSideTranslatorPB proxy = getServerProxy(id);
-    if (proxy == null) {
-      // we create new proxy based on new RaftConfiguration. So here the proxy
-      // should be available.
-      throw new IllegalStateException("Raft server " + id + " not found; peers="
-          + getServerIds());
-    }
+
     if (request instanceof AppendEntriesRequest) {
       return proxy.appendEntries((AppendEntriesRequest)request);
     } else if (request instanceof RequestVoteRequest) {
@@ -167,7 +162,7 @@ public class HadoopRpcService
   }
 
   @Override
-  public void addPeerProxies(Iterable<RaftPeer> peers) throws IOException {
+  public void addPeerProxies(Iterable<RaftPeer> peers) {
     addPeers(peers);
   }
 }

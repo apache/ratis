@@ -61,7 +61,7 @@ public class DelaySendServerRequest
     }
     LOG.info(id + ": " + d + ", args=" + Arrays.toString(args));
     try {
-      RaftTestUtil.delay(() -> d.get());
+      RaftTestUtil.delay(d::get);
     } catch (InterruptedException e) {
       RaftUtils.toInterruptedIOException("", e);
     }

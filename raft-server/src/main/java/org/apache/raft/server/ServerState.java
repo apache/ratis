@@ -282,7 +282,7 @@ public class ServerState implements Closeable {
         getSelfId(), conf);
   }
 
-  void updateConfiguration(LogEntryProto[] entries) throws IOException {
+  void updateConfiguration(LogEntryProto[] entries) {
     if (entries != null && entries.length > 0) {
       configurationManager.removeConfigurations(entries[0].getIndex());
       for (LogEntryProto entry : entries) {

@@ -29,4 +29,9 @@ public class RaftClientRequest extends RaftRpcMessage.Request {
   public Message getMessage() {
     return message;
   }
+
+  @Override
+  public String toString() {
+    return super.toString() + ", message: " + getMessage();
+  }
 }
