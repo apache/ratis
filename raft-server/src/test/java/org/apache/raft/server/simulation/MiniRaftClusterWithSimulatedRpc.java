@@ -76,6 +76,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   public void restart(boolean format) throws IOException {
     super.restart(format);
     initRpc();
+    start();
   }
 
   @Override

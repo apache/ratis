@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.raft.RaftTestUtil.changeLeader;
 import static org.apache.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.raft.RaftTestUtil.waitForLeader;
 
@@ -146,12 +147,7 @@ public abstract class RaftBasicTests {
       if (leader != null) {
         final String oldLeader = leader.getId();
         LOG.info("Block all requests sent by leader " + oldLeader);
-        cluster.setBlockRequestsFrom(oldLeader, true);
-        String newLeader = oldLeader;
-        for(int i = 0; i < 10 && newLeader.equals(oldLeader); i++) {
-          newLeader = RaftTestUtil.waitForLeader(cluster).getId();
-        }
-        cluster.setBlockRequestsFrom(oldLeader, false);
+        String newLeader = RaftTestUtil.changeLeader(cluster, oldLeader);
         LOG.info("Changed leader from " + oldLeader + " to " + newLeader);
         Assert.assertFalse(newLeader.equals(oldLeader));
       }

@@ -159,14 +159,15 @@ class StateMachineUpdater implements Runnable {
         }
       } catch (InterruptedException e) {
         if (!isRunning()) {
-          LOG.info("The StateMachineUpdater is interrupted and will exit.");
+          LOG.info("{}: the StateMachineUpdater is interrupted and will exit.",
+              this.toString());
         } else {
           RaftUtils.terminate(e,
-              "The StateMachineUpdater is wrongly interrupted", LOG);
+              this + ": the StateMachineUpdater is wrongly interrupted", LOG);
         }
       } catch (Throwable t) {
         RaftUtils.terminate(t,
-            "The StateMachineUpdater hits Throwable", LOG);
+            this + ": the StateMachineUpdater hits Throwable", LOG);
       }
     }
   }

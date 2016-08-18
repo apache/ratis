@@ -226,4 +226,15 @@ public class RaftTestUtil {
     }
     Assert.assertEquals(peers.length, numIncluded + deadIncluded);
   }
+
+  public static String changeLeader(MiniRaftCluster cluster, String oldLeader)
+      throws InterruptedException {
+    cluster.setBlockRequestsFrom(oldLeader, true);
+    String newLeader = oldLeader;
+    for(int i = 0; i < 10 && newLeader.equals(oldLeader); i++) {
+      newLeader = RaftTestUtil.waitForLeader(cluster).getId();
+    }
+    cluster.setBlockRequestsFrom(oldLeader, false);
+    return newLeader;
+  }
 }

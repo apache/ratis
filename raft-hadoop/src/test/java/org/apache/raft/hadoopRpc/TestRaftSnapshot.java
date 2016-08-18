@@ -32,11 +32,10 @@ import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.SimpleStateMachine;
 import org.apache.raft.server.StateMachine;
+import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.raft.util.ProtoUtils;
-import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.server.simulation.RequestHandler;
-import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftStorageDirectory;
 import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
@@ -49,7 +48,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
@@ -59,19 +57,13 @@ import static org.apache.raft.RaftTestUtil.waitAndCheckNewConf;
 public class TestRaftSnapshot {
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(MemoryRaftLog.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   static final Logger LOG = LoggerFactory.getLogger(TestRaftSnapshot.class);
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 10;
-
-  static {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-  }
 
   @Parameterized.Parameters
   public static Collection<Object[]> data() throws IOException {
@@ -84,12 +76,7 @@ public class TestRaftSnapshot {
     prop.setLong(
         RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY,
         SNAPSHOT_TRIGGER_THRESHOLD);
-
-    MiniRaftClusterWithSimulatedRpc c1 =
-        new MiniRaftClusterWithSimulatedRpc(new String[]{"s1"}, prop, true);
-    MiniRaftClusterWithHadoopRpc c2 =
-        new MiniRaftClusterWithHadoopRpc(new String[]{"s2"}, prop, conf, true);
-    return Arrays.asList(new Object[][]{{c1}, {c2}});
+    return RaftHadoopRpcTestUtil.getMiniRaftClusters(1, conf, prop);
   }
 
   @Parameterized.Parameter
@@ -129,7 +116,6 @@ public class TestRaftSnapshot {
     // restart the peer and check if it can correctly load snapshot
     cluster.restart(false);
     try {
-      cluster.start();
       RaftTestUtil.waitForLeader(cluster);
 
       // 200 messages + two leader elections --> last committed = 201
@@ -158,7 +144,6 @@ public class TestRaftSnapshot {
     cluster.restart(true);
     List<LogPathAndIndex> logs = new ArrayList<>();
     try {
-      cluster.start();
       RaftTestUtil.waitForLeader(cluster);
       final String leaderId = cluster.getLeader().getId();
       final RaftClient client = cluster.createClient("client", leaderId);
@@ -195,7 +180,6 @@ public class TestRaftSnapshot {
     LOG.info("Restarting the cluster");
     cluster.restart(false);
     try {
-      cluster.start();
       RaftTestUtil.waitForLeader(cluster);
 
       Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,

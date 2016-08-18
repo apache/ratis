@@ -95,6 +95,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
           peer.getAddress(), rpc.getInetSocketAddress().toString());
       server.setServerRpc(rpc);
     }
+    start();
   }
 
   @Override
