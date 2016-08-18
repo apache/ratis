@@ -20,7 +20,7 @@
   <properties>
     <raft.tmp.dir>${project.build.directory}/test</raft.tmp.dir>
     <test.build.data>${project.build.directory}/test/data</test.build.data>
-    <log.dir>${project.build.directory}/log</log.dir>
+    <raft.log.dir>${project.build.directory}/log</raft.log.dir>
     <test.build.webapps>${project.build.directory}/test-classes/webapps</test.build.webapps>
     <test.cache.data>${project.build.directory}/test-classes</test.cache.data>
     <test.build.classes>${project.build.directory}/test-classes</test.build.classes>
