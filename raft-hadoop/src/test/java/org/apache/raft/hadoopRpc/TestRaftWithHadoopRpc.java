@@ -32,10 +32,9 @@ import java.io.IOException;
 
 public class TestRaftWithHadoopRpc extends RaftBasicTests {
   static {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+//    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RPC.Server.LOG, Level.WARN);
+//    GenericTestUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithHadoopRpc cluster;

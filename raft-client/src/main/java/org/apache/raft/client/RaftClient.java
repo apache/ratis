@@ -19,33 +19,41 @@ package org.apache.raft.client;
 
 import org.apache.raft.RaftConstants;
 import org.apache.raft.protocol.*;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.*;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
+/** A client who sends requests to a raft service. */
 public class RaftClient {
   public static final Logger LOG = LoggerFactory.getLogger(RaftClient.class);
 
-  final String clientId;
-  final Map<String, RaftPeer> peers = new HashMap<>();
-  final RaftClientRequestSender client2serverRpc;
+  private final String clientId;
+  private final RaftClientRequestSender requestSender;
+  private final Map<String, RaftPeer> peers;
 
   private volatile String leaderId;
 
   public RaftClient(String clientId, Collection<RaftPeer> peers,
-                    RaftClientRequestSender client2serverRpc, String leaderId) {
+      RaftClientRequestSender requestSender, String leaderId) {
     this.clientId = clientId;
-    this.client2serverRpc = client2serverRpc;
-    for(RaftPeer p : peers) {
-      this.peers.put(p.getId(), p);
-    }
-
+    this.requestSender = requestSender;
+    this.peers = peers.stream().collect(
+        Collectors.toMap(RaftPeer::getId, Function.identity()));
     this.leaderId = leaderId != null? leaderId : peers.iterator().next().getId();
   }
 
+  public String getId() {
+    return clientId;
+  }
+
+  /** @return the next peer after the given leader. */
   static String nextLeader(final String leaderId, final Iterator<String> i) {
     final String first = i.next();
     for(String previous = first; i.hasNext(); ) {
@@ -65,83 +73,77 @@ public class RaftClient {
         peers.put(p.getId(), p);
       }
       // also refresh the rpc proxies for these peers
-      client2serverRpc.addServers(Arrays.asList(newPeers));
+      requestSender.addServers(Arrays.asList(newPeers));
     }
   }
 
+  /** Send the given message to the raft service. */
   public RaftClientReply send(Message message) throws IOException {
-    for(;;) {
-      final String lid = leaderId;
-      LOG.debug("{} sends {} to {}", clientId, message, lid);
-      final RaftClientRequest r = new RaftClientRequest(clientId, lid, message);
-      RaftClientReply reply = sendRequest(r, lid);
-      if (reply != null) {
-        return reply;
-      }
-    }
+    return sendRequestWithRetry(
+        () -> new RaftClientRequest(clientId, leaderId, message));
   }
 
+  /** Send set configuration request to the raft service. */
   public RaftClientReply setConfiguration(RaftPeer[] peersInNewConf)
       throws IOException {
+    return sendRequestWithRetry(()
+        -> new SetConfigurationRequest(clientId, leaderId, peersInNewConf));
+  }
+
+  private RaftClientReply sendRequestWithRetry(
+      Supplier<RaftClientRequest> supplier) throws InterruptedIOException {
     for(;;) {
-      final String lid = leaderId;
-      LOG.debug("{} sends new configuration to {}: {}", clientId, lid,
-          Arrays.asList(peersInNewConf));
-      final SetConfigurationRequest r = new SetConfigurationRequest(clientId,
-          lid, peersInNewConf);
-      RaftClientReply reply = sendRequest(r, lid);
+      final RaftClientRequest request = supplier.get();
+      LOG.debug("{}: {}", clientId, request);
+      final RaftClientReply reply = sendRequest(request);
       if (reply != null) {
-        LOG.debug("{} gets reply of setConfiguration: {}", clientId, reply);
+        LOG.debug("{}: {}", clientId, reply);
         return reply;
+      }
+
+      // sleep and then retry
+      try {
+        Thread.sleep(RaftConstants.RPC_TIMEOUT_MS);
+      } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
+        throw RaftUtils.toInterruptedIOException(
+            "Interrupted when sending " + request, ie);
       }
     }
   }
 
-  private RaftClientReply sendRequest(RaftClientRequest r, final String leader)
-      throws IOException {
+  private RaftClientReply sendRequest(RaftClientRequest request) {
     try {
-      RaftClientReply reply = client2serverRpc.sendRequest(r);
+      RaftClientReply reply = requestSender.sendRequest(request);
       if (reply.isNotLeader()) {
-        handleNotLeaderException(reply.getNotLeaderException());
+        handleNotLeaderException(request, reply.getNotLeaderException());
         return null;
       } else {
         return reply;
       }
     } catch (IOException ioe) {
       // TODO No retry if the exception is thrown from the state machine
-      final String newLeader = nextLeader(leader, peers.keySet().iterator());
-      LOG.debug("{}: Failed with {}, change Leader from {} to {}",
-          clientId, ioe, leader, newLeader);
-      this.leaderId = newLeader;
-      try {
-        Thread.sleep(RaftConstants.RPC_TIMEOUT_MS);
-      } catch (InterruptedException ie) {
-        Thread.currentThread().interrupt();
-        throw new InterruptedIOException(
-            "Interrupted while waiting for the next retry");
-      }
+      handleIOException(request, ioe, null);
     }
     return null;
   }
 
-  private void handleNotLeaderException(NotLeaderException e)
-      throws IOException {
-    LOG.debug("{}: got NotLeaderException", clientId, e);
-    refreshPeers(e.getPeers());
-    String newLeader = e.getSuggestedLeader() != null ?
-        e.getSuggestedLeader().getId() : null;
-    if (newLeader == null) { // usually this should not happen
-      newLeader = nextLeader(leaderId, peers.keySet().iterator());
+  private void handleNotLeaderException(RaftClientRequest request, NotLeaderException nle) {
+    refreshPeers(nle.getPeers());
+    final String newLeader = nle.getSuggestedLeader() == null? null
+        : nle.getSuggestedLeader().getId();
+    handleIOException(request, nle, newLeader);
+  }
+
+  private void handleIOException(RaftClientRequest request, IOException ioe, String newLeader) {
+    LOG.debug("{}: Failed with {}", clientId, ioe);
+    final String oldLeader = request.getReplierId();
+    if (newLeader == null && oldLeader.equals(leaderId)) {
+      newLeader = nextLeader(oldLeader, peers.keySet().iterator());
     }
-    LOG.debug("{}: use {} as new leader to replace {}", clientId, newLeader,
-        leaderId);
-    this.leaderId = newLeader;
-    try {
-      Thread.sleep(RaftConstants.RPC_TIMEOUT_MS);
-    } catch (InterruptedException ie) {
-      Thread.currentThread().interrupt();
-      throw new InterruptedIOException(
-          "Interrupted while waiting for the next retry");
+    if (newLeader != null && oldLeader.equals(leaderId)) {
+      LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);
+      this.leaderId = newLeader;
     }
   }
 }

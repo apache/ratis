@@ -90,7 +90,7 @@ public class TestRaftNotLeaderException {
     Assert.assertNotEquals(leaderId, newLeader);
 
     RaftClientRequestSender rpc = (RaftClientRequestSender)
-        Whitebox.getInternalState(client, "client2serverRpc");
+        Whitebox.getInternalState(client, "requestSender");
     reply= null;
     for (int i = 0; reply == null && i < 10; i++) {
       try {
@@ -137,7 +137,7 @@ public class TestRaftNotLeaderException {
     LOG.info(cluster.printServers());
 
     RaftClientRequestSender rpc = (RaftClientRequestSender)
-        Whitebox.getInternalState(client, "client2serverRpc");
+        Whitebox.getInternalState(client, "requestSender");
     reply = null;
     // it is possible that the remote peer's rpc server is not ready. need retry
     for (int i = 0; reply == null && i < 10; i++) {

@@ -20,9 +20,9 @@ package org.apache.raft;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.RaftServerConstants;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -31,10 +31,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static org.apache.raft.RaftTestUtil.changeLeader;
 import static org.apache.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.raft.RaftTestUtil.waitForLeader;
 
@@ -110,33 +112,57 @@ public abstract class RaftBasicTests {
     waitForLeader(cluster, leader);
   }
 
+  static class Client4TestWithLoad extends Thread {
+    final RaftClient client;
+    final SimpleMessage[] messages;
+
+    final AtomicInteger step = new AtomicInteger();
+    volatile Exception exceptionInClientThread;
+
+    Client4TestWithLoad(RaftClient client, int numMessages) {
+      this.client = client;
+      this.messages = SimpleMessage.create(numMessages, client.getId());
+    }
+
+    boolean isRunning() {
+      return step.get() < messages.length && exceptionInClientThread == null;
+    }
+
+    @Override
+    public void run() {
+      try {
+        for (; isRunning(); ) {
+          client.send(messages[step.getAndIncrement()]);
+        }
+      } catch (IOException ioe) {
+        exceptionInClientThread = ioe;
+      }
+    }
+  }
+
   @Test
   public void testWithLoad() throws Exception {
+    final int NUM_CLIENTS = 10;
+    final int NUM_MESSAGES = 500;
+
     final MiniRaftCluster cluster = getCluster();
     LOG.info(cluster.printServers());
 
-    final SimpleMessage[] messages = SimpleMessage.create(1000);
-    final RaftClient client = cluster.createClient("client", null);
-
-    final Exception[] exceptionInClientThread = new Exception[1];
-    final AtomicInteger step = new AtomicInteger();
-    final Thread clientThread = new Thread(() -> {
-      try {
-        for (; step.get() < messages.length; step.incrementAndGet()) {
-          client.send(messages[step.get()]);
-        }
-      } catch (IOException ioe) {
-        exceptionInClientThread[0] = ioe;
-      }
-    });
-    clientThread.start();
+    final List<Client4TestWithLoad> clients
+        = Stream.iterate(0, i -> i+1).limit(NUM_CLIENTS)
+        .map(i -> cluster.createClient(String.valueOf((char)('a' + i)), null))
+        .map(c -> new Client4TestWithLoad(c, NUM_MESSAGES))
+        .collect(Collectors.toList());
+    clients.stream().forEach(c -> c.start());
 
     int count = 0;
     for(int lastStep = 0;; ) {
-      final int n = step.get();
-      if (n >= messages.length) {
+      if (clients.stream().filter(c -> c.isRunning()).count() == 0) {
         break;
-      } else if (n - lastStep < 50) { // Change leader at least 50 steps.
+      }
+
+      final int n = clients.stream().mapToInt(c -> c.step.get()).sum();
+      if (n - lastStep < 50 * NUM_CLIENTS) { // Change leader at least 50 steps.
         Thread.sleep(10);
         continue;
       }
@@ -152,13 +178,18 @@ public abstract class RaftBasicTests {
         Assert.assertFalse(newLeader.equals(oldLeader));
       }
     }
-    clientThread.join();
-    if (exceptionInClientThread[0] != null) {
-      throw new AssertionError(exceptionInClientThread[0]);
+
+    for(Client4TestWithLoad c : clients) {
+      c.join();
+    }
+    for(Client4TestWithLoad c : clients) {
+      if (c.exceptionInClientThread != null) {
+        throw new AssertionError(c.exceptionInClientThread);
+      }
+      RaftTestUtil.assertLogEntries(cluster.getServers(), c.messages);
     }
 
     LOG.info("Leader change count=" + count + cluster.printAllLogs());
 
-    RaftTestUtil.assertLogEntries(cluster.getServers(), messages);
   }
 }

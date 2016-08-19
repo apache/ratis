@@ -126,9 +126,13 @@ public class RaftTestUtil {
 
   public static class SimpleMessage implements Message {
     public static SimpleMessage[] create(int numMessages) {
+      return create(numMessages, "m");
+    }
+
+    public static SimpleMessage[] create(int numMessages, String prefix) {
       final SimpleMessage[] messages = new SimpleMessage[numMessages];
       for (int i = 0; i < messages.length; i++) {
-        messages[i] = new SimpleMessage("m" + i);
+        messages[i] = new SimpleMessage(prefix + i);
       }
       return messages;
     }
