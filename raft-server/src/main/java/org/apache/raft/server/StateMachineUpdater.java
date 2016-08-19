@@ -128,7 +128,8 @@ class StateMachineUpdater implements Runnable {
         if (state == State.RELOAD) {
           Preconditions.checkState(toLoadSnapshot != null &&
               toLoadSnapshot.endIndex > lastAppliedIndex,
-              "toLoadSnapshot: %s, lastAppliedIndex: %s", toLoadSnapshot, lastAppliedIndex);
+              "toLoadSnapshot: %s, lastAppliedIndex: %s", toLoadSnapshot,
+              lastAppliedIndex);
 
           stateMachine.reloadSnapshot(toLoadSnapshot.path.toFile());
           lastAppliedIndex = toLoadSnapshot.endIndex;

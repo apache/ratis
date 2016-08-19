@@ -39,13 +39,14 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
+public class RaftServer implements RaftServerProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
   private static final String CLASS_NAME = RaftServer.class.getSimpleName();
@@ -180,9 +181,9 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   private void assertRunningState(RunningState... allowedStates)
-      throws IOException {
+      throws RaftException {
     if (!Arrays.asList(allowedStates).contains(runningState.get())) {
-      throw new IOException(getId() + " is not running.");
+      throw new RaftException(getId() + " is not running.");
     }
   }
 
@@ -290,11 +291,13 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     return role + " " + state + " " + runningState;
   }
 
-  private RaftClientReply checkLeaderState(RaftClientRequest request)
-      throws NotLeaderException {
+  private CompletableFuture<RaftClientReply> checkLeaderState(
+      RaftClientRequest request) {
     if (!isLeader()) {
       NotLeaderException exception = generateNotLeaderException();
-      return new RaftClientReply(request, false, exception);
+      CompletableFuture<RaftClientReply> future = new CompletableFuture<>();
+      future.complete(new RaftClientReply(request, false, exception));
+      return future;
     }
     return null;
   }
@@ -318,14 +321,13 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
   }
 
   /**
-   * Handle a request from client.
+   * Handle a normal request from client.
    */
-  @Override
-  public RaftClientReply submitClientRequest(RaftClientRequest request)
-      throws IOException {
+  public CompletableFuture<RaftClientReply> submitClientRequest(
+      RaftClientRequest request) throws RaftException {
     LOG.debug("{}: receive submit({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
-    RaftClientReply reply;
+    CompletableFuture<RaftClientReply> reply;
     reply = checkLeaderState(request);
     if (reply != null) {
       return reply;
@@ -348,16 +350,17 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
     // TODO make sure the response is sent only after the request is applied
     // to the state machine. also the response should include result from
     // state machine.
-    getServerRpc().saveCallInfo(pending);
-    return pending.getReply();
+    return pending.getFuture();
   }
 
-  @Override
-  public RaftClientReply setConfiguration(SetConfigurationRequest request)
-      throws IOException {
+  /**
+   * Handle a raft configuration change request from client.
+   */
+  public CompletableFuture<RaftClientReply> setConfiguration(
+      SetConfigurationRequest request) throws IOException {
     LOG.debug("{}: receive setConfiguration({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
-    RaftClientReply reply;
+    CompletableFuture<RaftClientReply> reply;
     reply = checkLeaderState(request);
     if (reply != null) {
       return reply;
@@ -380,19 +383,16 @@ public class RaftServer implements RaftServerProtocol, RaftClientProtocol {
 
       // return true if the new configuration is the same with the current one
       if (current.hasNoChange(peersInNewConf)) {
-        leaderState.returnNoConfChange(request);
-        return new RaftClientReply(request, true, null);
+        pending = leaderState.returnNoConfChange(request);
+        return pending.getFuture();
       }
+
       // add new peers into the rpc service
       addPeersToRPC(Arrays.asList(peersInNewConf));
       // add staging state into the leaderState
       pending = leaderState.startSetConfiguration(request);
     }
-    // release the handler and the LeaderState thread will trigger the next step
-    // once the (old, new) entry is committed, and finally send the response
-    // back to the client.
-    getServerRpc().saveCallInfo(pending);
-    return pending.getReply();
+    return pending.getFuture();
   }
 
   private boolean shouldWithholdVotes(long now) {

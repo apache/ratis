@@ -26,11 +26,11 @@ public class RaftException extends IOException {
     super(message);
   }
 
-  public RaftException(Exception cause) {
+  public RaftException(Throwable cause) {
     super(cause);
   }
 
-  public RaftException(String message, Exception cause) {
+  public RaftException(String message, Throwable cause) {
     super(message, cause);
   }
 }

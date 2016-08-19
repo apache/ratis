@@ -498,9 +498,10 @@ class LeaderState {
     return lists;
   }
 
-  void returnNoConfChange(SetConfigurationRequest r) {
-    pendingRequests.addConfRequest(r);
+  PendingRequest returnNoConfChange(SetConfigurationRequest r) {
+    PendingRequest pending = pendingRequests.addConfRequest(r);
     pendingRequests.finishSetConfiguration(true);
+    return pending;
   }
 
   private class FollowerInfo {

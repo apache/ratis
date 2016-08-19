@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
-    REPLY extends RaftRpcMessage> implements RequestReply<REQUEST, REPLY> {
+    REPLY extends RaftRpcMessage> {
   public static final String SIMULATE_LATENCY_KEY
       = SimulatedRequestReply.class.getName() + ".simulateLatencyMs";
   public static final int SIMULATE_LATENCY_DEFAULT
@@ -117,7 +117,6 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     return queues.get(qid);
   }
 
-  @Override
   public REPLY sendRequest(REQUEST request) throws IOException {
     final String qid = request.getReplierId();
     final EventQueue<REQUEST, REPLY> q = queues.get(qid);
@@ -125,14 +124,13 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
       throw new IOException("The peer " + qid + " is not alive.");
     }
     try {
-      RaftTestUtil.block(() -> q.blockSendRequestTo.get());
+      RaftTestUtil.block(q.blockSendRequestTo::get);
       return q.request(request);
     } catch (InterruptedException e) {
       throw RaftUtils.toInterruptedIOException("", e);
     }
   }
 
-  @Override
   public REQUEST takeRequest(String qid) throws IOException {
     final EventQueue<REQUEST, REPLY> q = queues.get(qid);
     if (q == null) {
@@ -158,7 +156,6 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     return request;
   }
 
-  @Override
   public void sendReply(REQUEST request, REPLY reply, IOException ioe)
       throws IOException {
     if (reply != null) {
@@ -175,7 +172,6 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     }
   }
 
-  @Override
   public void shutdown(String id) {
     queues.remove(id);
   }

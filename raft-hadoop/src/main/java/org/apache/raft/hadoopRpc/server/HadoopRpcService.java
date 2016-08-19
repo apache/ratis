@@ -30,7 +30,6 @@ import org.apache.raft.proto.RaftServerProtocolProtos.RaftServerProtocolService;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.PendingRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerRpc;
@@ -54,14 +53,14 @@ public class HadoopRpcService
   static final String CLASS_NAME = HadoopRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
-  private final RaftServer server;
+  private final RaftServerRpcService raftService;
   private final RPC.Server ipcServer;
   private final InetSocketAddress ipcServerAddress;
 
   public HadoopRpcService(RaftServer server, Configuration conf)
       throws IOException {
     super(conf);
-    this.server = server;
+    this.raftService = new RaftServerRpcService(server);
     this.ipcServer = newRpcServer(conf);
     this.ipcServerAddress = ipcServer.getListenerAddress();
 
@@ -91,7 +90,7 @@ public class HadoopRpcService
 
     final BlockingService service
         = RaftServerProtocolService.newReflectiveBlockingService(
-            new RaftServerProtocolServerSideTranslatorPB(server));
+            new RaftServerProtocolServerSideTranslatorPB(raftService));
     HadoopUtils.setProtobufRpcEngine(RaftServerProtocolPB.class, conf);
     return new RPC.Builder(conf)
         .setProtocol(RaftServerProtocolPB.class)
@@ -109,7 +108,7 @@ public class HadoopRpcService
 
     final BlockingService service
         = RaftClientProtocolService.newReflectiveBlockingService(
-        new RaftClientProtocolServerSideTranslatorPB(server));
+        new RaftClientProtocolServerSideTranslatorPB(raftService));
     ipcServer.addProtocol(RPC.RpcKind.RPC_PROTOCOL_BUFFER, protocol, service);
   }
 
@@ -131,8 +130,10 @@ public class HadoopRpcService
   @Override
   public RaftServerReply sendServerRequest(RaftServerRequest request)
       throws IOException {
-    Preconditions.checkArgument(server.getId().equals(request.getRequestorId()));
-    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, server.getId(), request);
+    Preconditions.checkArgument(
+        raftService.getId().equals(request.getRequestorId()));
+    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, raftService.getId(),
+        request);
 
     final String id = request.getReplierId();
     final RaftServerProtocolClientSideTranslatorPB proxy = getServerProxy(id);
@@ -147,18 +148,6 @@ public class HadoopRpcService
       throw new UnsupportedOperationException("Unsupported request "
           + request.getClass() + ", " + request);
     }
-  }
-
-  @Override
-  public void saveCallInfo(PendingRequest pending) throws IOException {
-    // TODO do not wait and release handler immediately
-    pending.waitForReply();
-  }
-
-  @Override
-  public void sendClientReply(RaftClientRequest request, RaftClientReply reply,
-                              IOException ioe) throws IOException {
-    // TODO
   }
 
   @Override

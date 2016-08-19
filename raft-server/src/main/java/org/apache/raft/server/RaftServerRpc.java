@@ -17,8 +17,6 @@
  */
 package org.apache.raft.server;
 
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.protocol.RaftServerReply;
 import org.apache.raft.server.protocol.RaftServerRequest;
@@ -36,12 +34,6 @@ public interface RaftServerRpc {
   InetSocketAddress getInetSocketAddress();
 
   RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException;
-
-  /** Save call info so that it can reply asynchronously. */
-  void saveCallInfo(PendingRequest pending) throws IOException;
-
-  void sendClientReply(RaftClientRequest request, RaftClientReply reply, IOException ioe)
-      throws IOException;
 
   /** add rpc information of the given peers */
   void addPeerProxies(Iterable<RaftPeer> peers);

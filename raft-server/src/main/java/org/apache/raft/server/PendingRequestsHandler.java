@@ -24,15 +24,12 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.slf4j.Logger;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.PriorityBlockingQueue;
 
 class PendingRequestsHandler {
   private static final Logger LOG = RaftServer.LOG;
 
   private static class ConfigurationRequests {
-    private final Queue<PendingRequest> results = new ConcurrentLinkedDeque<>();
     private volatile PendingRequest pendingRequest;
 
     synchronized void setPendingRequest(PendingRequest request) {
@@ -47,14 +44,7 @@ class PendingRequestsHandler {
       if (pendingRequest != null) {
         pendingRequest.setReply(
             new RaftClientReply(pendingRequest.getRequest(), success, null));
-        results.offer(pendingRequest);
         pendingRequest = null;
-      }
-    }
-
-    void sendResults(RaftServerRpc rpc) {
-      for(; !results.isEmpty();) {
-        results.poll().sendReply(rpc);
       }
     }
   }
@@ -126,9 +116,8 @@ class PendingRequestsHandler {
                (pre = queue.peek()) != null && pre.getIndex() <= lastCommitted;
               ) {
             pre = queue.poll();
-            sendSuccessReply(pre);
+            setSuccessReply(pre);
           }
-          confRequests.sendResults(server.getServerRpc());
           lastCommitted = server.getState().getLog().getLastCommittedIndex();
           synchronized (PendingRequestsHandler.this) {
             if (oldLastCommitted == lastCommitted) {
@@ -157,30 +146,28 @@ class PendingRequestsHandler {
       while (!queue.isEmpty()) {
         final PendingRequest req = queue.poll();
         if (req.getIndex() <= lastCommitted) {
-          sendSuccessReply(req);
+          setSuccessReply(req);
         } else {
-          sendNotLeaderException(req);
+          setNotLeaderException(req);
         }
       }
-      confRequests.sendResults(server.getServerRpc());
       if (confRequests.pendingRequest != null) {
-        sendNotLeaderException(confRequests.pendingRequest);
+        setNotLeaderException(confRequests.pendingRequest);
       }
     }
 
-    private void sendReply(PendingRequest pending, RaftClientReply reply) {
+    private void setReply(PendingRequest pending, RaftClientReply reply) {
       pending.setReply(reply);
-      pending.sendReply(server.getServerRpc());
     }
 
-    private void sendSuccessReply(PendingRequest pending) {
-      sendReply(pending, new RaftClientReply(pending.getRequest(), true, null));
+    private void setSuccessReply(PendingRequest pending) {
+      setReply(pending, new RaftClientReply(pending.getRequest(), true, null));
     }
 
-    private void sendNotLeaderException(PendingRequest pending) {
+    private void setNotLeaderException(PendingRequest pending) {
       RaftClientReply reply = new RaftClientReply(pending.getRequest(), false,
           server.generateNotLeaderException());
-      sendReply(pending, reply);
+      setReply(pending, reply);
     }
   }
 }

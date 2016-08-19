@@ -91,8 +91,8 @@ public abstract class RaftBasicTests {
 
     final RaftClient client = cluster.createClient("client", null);
     final SimpleMessage[] messages = SimpleMessage.create(10);
-    for (int i = 0; i < messages.length; i++) {
-      client.send(messages[i]);
+    for (SimpleMessage message : messages) {
+      client.send(message);
     }
 
     Thread.sleep(RaftServerConstants.ELECTION_TIMEOUT_MAX_MS + 100);

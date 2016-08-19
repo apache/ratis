@@ -21,20 +21,18 @@ import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.util.RaftUtils;
 
-import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
 public class PendingRequest implements Comparable<PendingRequest> {
   private final Long index;
   private final RaftClientRequest request;
-
-  private RaftClientReply reply = null;
-  private IOException exception; // TODO make it cover StateMachineException
+  private final CompletableFuture<RaftClientReply> future;
 
   PendingRequest(long index, RaftClientRequest request) {
     this.index = index;
     this.request = request;
+    this.future = new CompletableFuture<>();
   }
 
   PendingRequest(SetConfigurationRequest request) {
@@ -49,51 +47,18 @@ public class PendingRequest implements Comparable<PendingRequest> {
     return request;
   }
 
-  synchronized void setException(IOException e) {
+  public CompletableFuture<RaftClientReply> getFuture() {
+    return future;
+  }
+
+  synchronized void setException(Exception e) {
     Preconditions.checkArgument(e != null);
-    Preconditions.checkState(reply == null && exception == null);
-    exception = e;
-    notifyAll();
+    future.completeExceptionally(e);
   }
 
   synchronized void setReply(RaftClientReply r) {
     Preconditions.checkArgument(r != null);
-    Preconditions.checkState(reply == null && exception == null);
-    reply = r;
-    notifyAll();
-  }
-
-  RaftClientReply getReply() throws IOException {
-    if (exception != null) {
-      throw new IOException("Caught exception for " + this, exception);
-    }
-    return reply;
-  }
-
-  public synchronized RaftClientReply waitForReply() throws IOException {
-    final RaftClientReply r = getReply();
-    if (r != null) {
-      return r;
-    }
-
-    try {
-      wait();
-    } catch (InterruptedException e) {
-      throw RaftUtils.toInterruptedIOException(
-          "waitForRely interrupted, " + this, e);
-    }
-    return getReply();
-  }
-
-  boolean sendReply(RaftServerRpc rpc) {
-    try {
-      rpc.sendClientReply(request, reply, exception);
-      return true;
-    } catch (IOException ioe) {
-      RaftServer.LOG.error(this + " has " + ioe);
-      RaftServer.LOG.trace("TRACE", ioe);
-      return false;
-    }
+    future.complete(r);
   }
 
   @Override
@@ -104,6 +69,6 @@ public class PendingRequest implements Comparable<PendingRequest> {
   @Override
   public String toString() {
     return getClass().getSimpleName() + "(index=" + index
-        + ", request=" + request + ", reply=" + reply + ")";
+        + ", request=" + request;
   }
 }

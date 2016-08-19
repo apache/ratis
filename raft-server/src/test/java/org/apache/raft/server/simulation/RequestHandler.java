@@ -43,12 +43,12 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
 
   private final String serverId;
   private final String name;
-  private final RequestReply<REQUEST, REPLY> rpc;
+  private final SimulatedRequestReply<REQUEST, REPLY> rpc;
   private final HandlerInterface<REQUEST, REPLY> handlerImpl;
   private final List<HandlerDaemon> daemons;
 
   RequestHandler(String serverId, String name,
-                 RequestReply<REQUEST, REPLY> rpc,
+                 SimulatedRequestReply<REQUEST, REPLY> rpc,
                  HandlerInterface<REQUEST, REPLY> handlerImpl,
                  int numHandlers) {
     this.serverId = serverId;
@@ -63,9 +63,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
   }
 
   void startDaemon() {
-    for(Daemon d : daemons) {
-      d.start();
-    }
+    daemons.forEach(Thread::start);
   }
 
   void shutdown() {
@@ -73,15 +71,13 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
   }
 
   void interruptAndJoinDaemon() throws InterruptedException {
-    for (Daemon d : daemons) {
-      d.interrupt();
-    }
+    daemons.forEach(Thread::interrupt);
     for (Daemon d : daemons) {
       d.join();
     }
   }
 
-  RequestReply<REQUEST, REPLY> getRpc() {
+  SimulatedRequestReply<REQUEST, REPLY> getRpc() {
     return rpc;
   }
 
