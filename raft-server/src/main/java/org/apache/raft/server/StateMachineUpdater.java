@@ -22,9 +22,12 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.protocol.RaftException;
+import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
+import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,10 +52,10 @@ class StateMachineUpdater implements Runnable {
   }
 
   private final StateMachine stateMachine;
-  private final RaftStorage storage;
+  private final RaftServer server;
   private final RaftLog raftLog;
 
-  private long lastAppliedIndex;
+  private volatile long lastAppliedIndex;
 
   private final boolean autoSnapshotEnabled;
   private final long snapshotThreshold;
@@ -62,10 +65,10 @@ class StateMachineUpdater implements Runnable {
   private volatile State state = State.RUNNING;
   private volatile SnapshotPathAndTermIndex toLoadSnapshot;
 
-  StateMachineUpdater(StateMachine stateMachine, RaftLog raftLog,
-      RaftStorage storage, long lastAppliedIndex, RaftProperties properties) {
+  StateMachineUpdater(StateMachine stateMachine, RaftServer server,
+      RaftLog raftLog, long lastAppliedIndex, RaftProperties properties) {
     this.stateMachine = stateMachine;
-    this.storage = storage;
+    this.server = server;
     this.raftLog = raftLog;
 
     this.lastAppliedIndex = lastAppliedIndex;
@@ -111,6 +114,7 @@ class StateMachineUpdater implements Runnable {
   @Override
   public void run() {
     final StateMachine sm = this.stateMachine;
+    final RaftStorage storage = server.getState().getStorage();
     while (isRunning()) {
       try {
         synchronized (this) {
@@ -140,7 +144,20 @@ class StateMachineUpdater implements Runnable {
         while (lastAppliedIndex < committedIndex) {
           final LogEntryProto next = raftLog.get(lastAppliedIndex + 1);
           if (next != null) {
-            sm.applyLogEntry(next);
+            if (next.hasConfigurationEntry()) {
+              // the reply should have already been set. only need to record
+              // the new conf in the state machine.
+              sm.setRaftConfiguration(ServerProtoUtils.toRaftConfiguration(
+                  next.getIndex(), next.getConfigurationEntry()));
+            } else {
+              StateMachineException re = null;
+              try {
+                sm.applyLogEntry(next);
+              } catch (Exception e) {
+                re = new StateMachineException(server.getId(), e);
+              }
+              server.replyPendingRequest(next.getIndex(), re);
+            }
             lastAppliedIndex++;
           } else {
             LOG.debug("{}: logEntry {} is null. There may be snapshot to load."
@@ -185,5 +202,9 @@ class StateMachineUpdater implements Runnable {
   @VisibleForTesting
   StateMachine getStateMachine() {
     return stateMachine;
+  }
+
+  long getLastAppliedIndex() {
+    return lastAppliedIndex;
   }
 }

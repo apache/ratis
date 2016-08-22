@@ -86,7 +86,7 @@ public class ServerState implements Closeable {
     currentTerm = metadata.getTerm();
     votedFor = metadata.getVotedFor();
 
-    stateMachineUpdater = new StateMachineUpdater(stateMachine, log, storage,
+    stateMachineUpdater = new StateMachineUpdater(stateMachine, server, log,
         lastApplied, prop);
   }
 
@@ -337,5 +337,13 @@ public class ServerState implements Closeable {
 
   SnapshotPathAndTermIndex getLatestSnapshot() {
     return snapshotManager.getLatestSnapshot();
+  }
+
+  long getLastAppliedIndex() {
+    return stateMachineUpdater.getLastAppliedIndex();
+  }
+
+  boolean isCurrentConfCommitted() {
+    return getRaftConf().getLogEntryIndex() <= getLog().getLastCommittedIndex();
   }
 }

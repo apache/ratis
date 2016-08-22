@@ -17,19 +17,10 @@
  */
 package org.apache.raft.server;
 
-import org.apache.raft.protocol.RaftException;
+import java.io.IOException;
 
-public class RaftServerException extends RaftException {
-  private static final long serialVersionUID = 1L;
-
-  private final String serverId;
-
-  RaftServerException(String serverId, Exception cause) {
+public class StateMachineException extends IOException {
+  StateMachineException(String serverId, Exception cause) {
     super(cause.getClass().getName() + " from Server " + serverId, cause);
-    this.serverId = serverId;
-  }
-
-  public String getServerId() {
-    return serverId;
   }
 }

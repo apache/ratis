@@ -17,6 +17,8 @@
  */
 package org.apache.raft.protocol;
 
+import com.google.common.net.HostAndPort;
+
 import java.net.InetSocketAddress;
 
 public class RaftPeer {
@@ -31,8 +33,9 @@ public class RaftPeer {
   }
 
   public RaftPeer(String id, InetSocketAddress address) {
-    this(id, address == null? null:
-        address.getAddress().getHostAddress() + ":" + address.getPort());
+    this(id, address == null ? null :
+        HostAndPort.fromParts(address.getAddress().getHostAddress(),
+            address.getPort()).toString());
   }
 
   public RaftPeer(String id, String address) {

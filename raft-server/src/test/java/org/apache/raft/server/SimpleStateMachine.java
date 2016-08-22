@@ -23,7 +23,6 @@ import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;
 import org.apache.raft.server.storage.RaftStorage;
@@ -90,10 +89,6 @@ public class SimpleStateMachine implements StateMachine {
     Preconditions.checkArgument(list.isEmpty() ||
         entry.getIndex() - 1 == list.get(list.size() - 1).getIndex());
     list.add(entry);
-    if (entry.hasConfigurationEntry()) {
-      this.raftConf = ServerProtoUtils.toRaftConfiguration(entry.getIndex(),
-          entry.getConfigurationEntry());
-    }
   }
 
   @Override
@@ -174,6 +169,11 @@ public class SimpleStateMachine implements StateMachine {
       this.endIndexLastCkpt = endIndex;
       return endIndex;
     }
+  }
+
+  @Override
+  public void setRaftConfiguration(RaftConfiguration conf) {
+    this.raftConf = conf;
   }
 
   @Override

@@ -376,7 +376,8 @@ public class RaftServer implements RaftServerProtocol {
 
       final RaftConfiguration current = getRaftConf();
       // make sure there is no other raft reconfiguration in progress
-      if (!current.inStableState() || leaderState.inStagingState()) {
+      if (!current.inStableState() || leaderState.inStagingState() ||
+          !state.isCurrentConfCommitted()) {
         throw new ReconfigurationInProgressException(
             "Reconfiguration is already in progress: " + current);
       }
@@ -668,5 +669,11 @@ public class RaftServer implements RaftServerProtocol {
 
   public void addPeersToRPC(Iterable<RaftPeer> peers) {
     serverRpc.addPeerProxies(peers);
+  }
+
+  synchronized void replyPendingRequest(long logIndex, Exception e) {
+    if (isLeader() && leaderState != null) { // is leader and is running
+      leaderState.replyPendingRequest(logIndex, e);
+    }
   }
 }

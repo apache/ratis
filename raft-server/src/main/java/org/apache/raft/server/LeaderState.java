@@ -26,7 +26,9 @@ import org.apache.hadoop.util.Time;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftServerProtocolProtos.InstallSnapshotReplyProto.InstallSnapshotResult;
 import org.apache.raft.proto.RaftServerProtocolProtos.SnapshotChunkProto;
+import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.protocol.RaftException;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.protocol.*;
@@ -106,7 +108,7 @@ class LeaderState {
   private final List<RpcSender> senders;
   private final BlockingQueue<StateUpdateEvent> eventQ;
   private final EventProcessor processor;
-  private final PendingRequestsHandler pendingRequests;
+  private final PendingRequests pendingRequests;
   private volatile boolean running = true;
 
   LeaderState(RaftServer server) {
@@ -117,7 +119,7 @@ class LeaderState {
     this.currentTerm = state.getCurrentTerm();
     eventQ = new ArrayBlockingQueue<>(4096);
     processor = new EventProcessor();
-    pendingRequests = new PendingRequestsHandler(server);
+    pendingRequests = new PendingRequests(server);
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
@@ -140,7 +142,6 @@ class LeaderState {
 
     processor.start();
     startSenders();
-    pendingRequests.start();
   }
 
   private void startSenders() {
@@ -154,7 +155,7 @@ class LeaderState {
       sender.stopSender();
       sender.interrupt();
     }
-    pendingRequests.stop();
+    pendingRequests.sendResponses(raftLog.getLastCommittedIndex());
   }
 
   void notifySenders() {
@@ -409,7 +410,6 @@ class LeaderState {
           Math.max(majority, oldLastCommitted) + 1);
       server.getState().updateStatemachine(majority, currentTerm);
     }
-    pendingRequests.notifySendingDaemon();
     checkAndUpdateConfiguration(entriesToCommit);
   }
 
@@ -431,7 +431,7 @@ class LeaderState {
         replicateNewConf();
       } else { // the (new) log entry has been committed
         LOG.debug("{} sends success to setConfiguration request", server.getId());
-        pendingRequests.finishSetConfiguration(true);
+        pendingRequests.replySetConfiguration();
         // if the leader is not included in the current configuration, step down
         if (!conf.containsInConf(server.getId())) {
           LOG.info("{} is not included in the new configuration {}. Step down.",
@@ -499,9 +499,13 @@ class LeaderState {
   }
 
   PendingRequest returnNoConfChange(SetConfigurationRequest r) {
-    PendingRequest pending = pendingRequests.addConfRequest(r);
-    pendingRequests.finishSetConfiguration(true);
+    PendingRequest pending = new PendingRequest(r);
+    pending.setReply(new RaftClientReply(r, true, null));
     return pending;
+  }
+
+  void replyPendingRequest(long logIndex, Exception e) {
+    pendingRequests.replyPendingRequest(logIndex, e);
   }
 
   private class FollowerInfo {
@@ -799,7 +803,9 @@ class LeaderState {
       }
       LeaderState.this.stagingState = null;
       // send back failure response to client's request
-      pendingRequests.finishSetConfiguration(false);
+      pendingRequests.failSetConfiguration(
+          new RaftException("Fail to set configuration " + newConf
+              + ". Timeout when bootstrapping new peers."));
     }
   }
 }

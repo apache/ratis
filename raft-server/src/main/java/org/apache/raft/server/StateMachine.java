@@ -32,11 +32,13 @@ public interface StateMachine extends Closeable {
   void initialize(RaftProperties properties, RaftStorage storage);
 
   /**
-   * Apply a committed log entry to the state machine
+   * Apply a committed log entry to the state machine.
    * @param entry the log entry that has been committed to a quorum of the raft
    *              peers
+   * @throws Exception exception when apply the log entry. This may happen if
+   *                   the op in the log entry is invalid to the state machine.
    */
-  void applyLogEntry(RaftProtos.LogEntryProto entry);
+  void applyLogEntry(RaftProtos.LogEntryProto entry) throws Exception;
 
   /**
    * Dump the in-memory state into a snapshot file in the RaftStorage. The
@@ -74,6 +76,12 @@ public interface StateMachine extends Closeable {
   long reloadSnapshot(File snapshotFile) throws IOException;
 
   /**
+   * Record the RaftConfiguration in the state machine. The RaftConfiguration
+   * should also be stored in the snapshot.
+   */
+  void setRaftConfiguration(RaftConfiguration conf);
+
+  /**
    * @return the latest raft configuration recorded in the state machine.
    */
   RaftConfiguration getRaftConfiguration();
@@ -102,6 +110,11 @@ public interface StateMachine extends Closeable {
     @Override
     public long reloadSnapshot(File snapshotFile) throws IOException {
       return RaftServerConstants.INVALID_LOG_INDEX;
+    }
+
+    @Override
+    public void setRaftConfiguration(RaftConfiguration conf) {
+      // do nothing
     }
 
     @Override
