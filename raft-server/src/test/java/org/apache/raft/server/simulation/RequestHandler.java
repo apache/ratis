@@ -19,6 +19,7 @@ package org.apache.raft.server.simulation;
 
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.protocol.RaftRpcMessage;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,8 +27,6 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.apache.hadoop.util.ExitUtil.terminate;
 
 public class RequestHandler<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> {
@@ -127,8 +126,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
             LOG.info(this + " is stopped.");
             break;
           }
-          LOG.error(this + " is terminating due to", t);
-          terminate(1, t);
+          RaftUtils.terminate(t, this + " is terminating due to", LOG);
         }
       }
     }

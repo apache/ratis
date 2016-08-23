@@ -19,14 +19,15 @@ package org.apache.raft;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FileUtil;
+import org.apache.hadoop.util.ExitUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
 import org.junit.Assert;
@@ -35,13 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public abstract class MiniRaftCluster {
@@ -101,6 +96,8 @@ public abstract class MiniRaftCluster {
       final RaftServer s = newRaftServer(p.getId(), conf, formatted);
       servers.put(p.getId(), s);
     }
+
+    ExitUtil.disableSystemExit();
   }
 
   public void start() {
@@ -306,6 +303,12 @@ public abstract class MiniRaftCluster {
   public void shutdown() {
     servers.values().stream().filter(RaftServer::isRunning)
         .forEach(RaftServer::kill);
+
+    if (ExitUtil.terminateCalled()) {
+      LOG.error("Test resulted in an unexpected exit",
+          ExitUtil.getFirstExitException());
+      throw new AssertionError("Test resulted in an unexpected exit");
+    }
   }
 
   public abstract void blockQueueAndSetDelay(String leaderId, int delayMs)
