@@ -15,12 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.protocol;
 
-import java.io.IOException;
-
-public class StateMachineException extends IOException {
-  StateMachineException(String serverId, Exception cause) {
+public class StateMachineException extends RaftException {
+  public StateMachineException(String serverId, Exception cause) {
     super(cause.getClass().getName() + " from Server " + serverId, cause);
+  }
+
+  public StateMachineException(String msg) {
+    super(msg);
   }
 }

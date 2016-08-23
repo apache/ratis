@@ -91,7 +91,8 @@ public class RaftClient {
   }
 
   private RaftClientReply sendRequestWithRetry(
-      Supplier<RaftClientRequest> supplier) throws InterruptedIOException {
+      Supplier<RaftClientRequest> supplier)
+      throws InterruptedIOException, StateMachineException {
     for(;;) {
       final RaftClientRequest request = supplier.get();
       LOG.debug("{}: {}", clientId, request);
@@ -112,7 +113,8 @@ public class RaftClient {
     }
   }
 
-  private RaftClientReply sendRequest(RaftClientRequest request) {
+  private RaftClientReply sendRequest(RaftClientRequest request)
+      throws StateMachineException {
     try {
       RaftClientReply reply = requestSender.sendRequest(request);
       if (reply.isNotLeader()) {
@@ -121,6 +123,8 @@ public class RaftClient {
       } else {
         return reply;
       }
+    } catch (StateMachineException e) {
+      throw e;
     } catch (IOException ioe) {
       // TODO No retry if the exception is thrown from the state machine
       handleIOException(request, ioe, null);

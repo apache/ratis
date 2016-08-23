@@ -347,9 +347,6 @@ public class RaftServer implements RaftServerProtocol {
       pending = leaderState.addPendingRequest(entryIndex, request);
       leaderState.notifySenders();
     }
-    // TODO make sure the response is sent only after the request is applied
-    // to the state machine. also the response should include result from
-    // state machine.
     return pending.getFuture();
   }
 

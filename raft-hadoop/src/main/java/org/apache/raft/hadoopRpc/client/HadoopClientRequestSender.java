@@ -18,13 +18,16 @@
 package org.apache.raft.hadoopRpc.client;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.ipc.RemoteException;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.hadoopRpc.HadoopRpcBase;
 import org.apache.raft.hadoopRpc.HadoopUtils;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.protocol.RaftException;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.protocol.StateMachineException;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -42,11 +45,17 @@ public class HadoopClientRequestSender
   public RaftClientReply sendRequest(RaftClientRequest request)
       throws IOException {
     final String serverId = request.getReplierId();
-    final RaftClientProtocolClientSideTranslatorPB proxy = getServerProxy(serverId);
-    if (request instanceof SetConfigurationRequest) {
-      return proxy.setConfiguration((SetConfigurationRequest)request);
-    } else {
-      return proxy.submitClientRequest(request);
+    final RaftClientProtocolClientSideTranslatorPB proxy =
+        getServerProxy(serverId);
+    try {
+      if (request instanceof SetConfigurationRequest) {
+        return proxy.setConfiguration((SetConfigurationRequest) request);
+      } else {
+        return proxy.submitClientRequest(request);
+      }
+    } catch (RemoteException e) {
+      throw e.unwrapRemoteException(StateMachineException.class,
+          RaftException.class);
     }
   }
 

@@ -117,7 +117,7 @@ class LeaderElection extends Daemon {
       final long electionTerm;
       synchronized (server) {
         electionTerm = state.initElection();
-        server.getState().persistMetadata(); // TODO add tests for failure here
+        server.getState().persistMetadata();
       }
       LOG.info(state.getSelfId() + ": begin an election in Term "
           + electionTerm);
