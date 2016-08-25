@@ -270,7 +270,7 @@ public class SegmentedRaftLog extends RaftLog {
 
   @Override
   public void logSync() throws InterruptedException {
-    CodeInjectionForTesting.execute(LOG_SYNC, getSelfId());
+    CodeInjectionForTesting.execute(LOG_SYNC, getSelfId(), null);
     final Task task = myTask.get();
     if (task != null) {
       task.waitForDone();

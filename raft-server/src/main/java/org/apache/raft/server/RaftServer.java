@@ -659,7 +659,7 @@ public class RaftServer implements RaftServerProtocol {
   }
 
   public synchronized void submitLocalSyncEvent() {
-    if (isLeader()) {
+    if (isLeader() && leaderState != null) {
       leaderState.submitUpdateStateEvent(UPDATE_COMMIT_EVENT);
     }
   }

@@ -33,7 +33,14 @@ public class CodeInjectionForTesting {
   public interface Code {
     Logger LOG = CodeInjectionForTesting.LOG;
 
-    Object execute(Object... args);
+    /**
+     * Execute the injected code for testing.
+     * @param localId the id of the local peer
+     * @param remoteId the id of the remote peer if handling a request
+     * @param args other possible args
+     * @return if the injected code is executed
+     */
+    boolean execute(String localId, String remoteId, Object... args);
   }
 
   private static final Map<String, Code> INJECTION_POINTS
@@ -46,15 +53,16 @@ public class CodeInjectionForTesting {
   }
 
   /** Execute the injected code, if there is any. */
-  public static Object execute(String injectionPoint, Object... args) {
+  public static boolean execute(String injectionPoint, String localId,
+      String remoteId, Object... args) {
     final Code code = INJECTION_POINTS.get(injectionPoint);
     if (code == null) {
-      return null;
+      return false;
     }
     if (LOG.isDebugEnabled()) {
-      LOG.debug("execute: {}, {}, args={}",
-          injectionPoint, code, Arrays.toString(args));
+      LOG.debug("execute: {}, {}, localId={}, remoteId={}, args={}",
+          injectionPoint, code, localId, remoteId, Arrays.toString(args));
     }
-    return code.execute(args);
+    return code.execute(localId, remoteId, args);
   }
 }

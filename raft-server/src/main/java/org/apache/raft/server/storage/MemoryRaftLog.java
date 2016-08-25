@@ -176,7 +176,7 @@ public class MemoryRaftLog extends RaftLog {
 
   @Override
   public void logSync() {
-    CodeInjectionForTesting.execute(LOG_SYNC, getSelfId());
+    CodeInjectionForTesting.execute(LOG_SYNC, getSelfId(), null);
     // do nothing
   }
 

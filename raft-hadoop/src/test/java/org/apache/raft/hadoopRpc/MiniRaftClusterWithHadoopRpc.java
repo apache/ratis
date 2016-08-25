@@ -25,12 +25,12 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.hadoopRpc.client.HadoopClientRequestSender;
 import org.apache.raft.hadoopRpc.server.HadoopRpcService;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.DelayInjection;
+import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.RaftServerCodeInjection;
+import org.apache.raft.server.BlockRequestHandlingInjection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,8 +42,8 @@ import java.util.Map;
 
 public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithHadoopRpc.class);
-  public static final DelayInjection sendServerRequest =
-      new DelayInjection(HadoopRpcService.SEND_SERVER_REQUEST);
+  public static final DelayLocalExecutionInjection sendServerRequest =
+      new DelayLocalExecutionInjection(HadoopRpcService.SEND_SERVER_REQUEST);
 
   private final Configuration hadoopConf;
 
@@ -125,11 +125,21 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
     final boolean block = delayMs > 0;
     LOG.debug("{} requests sent to leader {} and set {}ms delay for the others",
         block? "Block": "Unblock", leaderId, delayMs);
-    RaftServerCodeInjection.getRepliers().put(leaderId, block);
+    if (block) {
+      BlockRequestHandlingInjection.getInstance().blockReplier(leaderId);
+    } else {
+      BlockRequestHandlingInjection.getInstance().unblockReplier(leaderId);
+    }
 
     // delay RaftServerRequest for other servers
     getServers().stream().filter(s -> !s.getId().equals(leaderId))
-        .forEach(s -> sendServerRequest.setDelayMs(s.getId(), delayMs));
+        .forEach(s -> {
+          if (block) {
+            sendServerRequest.setDelayMs(s.getId(), delayMs);
+          } else {
+            sendServerRequest.removeDelay(s.getId());
+          }
+        });
 
     final long sleepMs = 3 * RaftServerConstants.ELECTION_TIMEOUT_MAX_MS;
     Thread.sleep(sleepMs);
@@ -137,6 +147,15 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
 
   @Override
   public void setBlockRequestsFrom(String src, boolean block) {
-    RaftServerCodeInjection.getRequestors().put(src, block);
+    if (block) {
+      BlockRequestHandlingInjection.getInstance().blockRequestor(src);
+    } else {
+      BlockRequestHandlingInjection.getInstance().unblockRequestor(src);
+    }
+  }
+
+  @Override
+  public void delaySendingRequests(String senderId, int delayMs) {
+    sendServerRequest.setDelayMs(senderId, delayMs);
   }
 }

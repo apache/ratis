@@ -19,15 +19,14 @@ package org.apache.raft.server;
 
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.util.CodeInjectionForTesting;
-import org.apache.raft.util.RaftUtils;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Inject code to block server requests. */
-public class RaftServerCodeInjection
-    implements CodeInjectionForTesting.Code {
-  private static final RaftServerCodeInjection INSTANCE = new RaftServerCodeInjection();
+/** Inject code to block a server from handling incoming requests. */
+public class BlockRequestHandlingInjection implements CodeInjectionForTesting.Code {
+  private static final BlockRequestHandlingInjection INSTANCE =
+      new BlockRequestHandlingInjection();
 
   static {
     CodeInjectionForTesting.put(RaftServer.REQUEST_VOTE, INSTANCE);
@@ -35,34 +34,51 @@ public class RaftServerCodeInjection
     CodeInjectionForTesting.put(RaftServer.INSTALL_SNAPSHOT, INSTANCE);
   }
 
-  public static Map<String, Boolean> getRequestors() {
-    return INSTANCE.requestors;
-  }
-
-  public static Map<String, Boolean> getRepliers() {
-    return INSTANCE.repliers;
+  public static BlockRequestHandlingInjection getInstance() {
+    return INSTANCE;
   }
 
   private final Map<String, Boolean> requestors = new ConcurrentHashMap<>();
   private final Map<String, Boolean> repliers = new ConcurrentHashMap<>();
 
-  private RaftServerCodeInjection() {}
+  private BlockRequestHandlingInjection() {}
+
+  public void blockRequestor(String requestor) {
+    requestors.put(requestor, true);
+  }
+
+  public void unblockRequestor(String requestor) {
+    requestors.remove(requestor);
+  }
+
+  public void blockReplier(String replier) {
+    repliers.put(replier, true);
+  }
+
+  public void unblockReplier(String replier) {
+    repliers.remove(replier);
+  }
+
+  public void unblockAll() {
+    requestors.clear();
+    repliers.clear();
+  }
 
   @Override
-  public Object execute(Object... args) {
-    final Object requestorId = args[1];
-    final Object replierId = args[0];
-    try {
-      RaftTestUtil.block(() -> nullAsFalse(requestors.get(requestorId))
-          || nullAsFalse(repliers.get(replierId)));
-    } catch (InterruptedException e) {
-      throw new RuntimeException(RaftUtils.toInterruptedIOException("", e));
+  public boolean execute(String localId, String remoteId, Object... args) {
+    if (shouldBlock(localId, remoteId)) {
+      try {
+        RaftTestUtil.block(() -> shouldBlock(localId, remoteId));
+        return true;
+      } catch (InterruptedException e) {
+        LOG.debug("Interrupted while blocking request handling from " + remoteId
+            + " to " + localId);
+      }
     }
-    return null;
+    return false;
   }
 
-  static boolean nullAsFalse(Boolean b) {
-    return b != null && b;
+  private boolean shouldBlock(String localId, String remoteId) {
+    return repliers.containsKey(localId) || requestors.containsKey(remoteId);
   }
-
 }

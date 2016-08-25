@@ -66,6 +66,8 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     final AtomicBoolean blockSendRequestTo = new AtomicBoolean();
     /** Delay takeRequest for the requests sent to this server. */
     final AtomicInteger delayTakeRequestTo = new AtomicInteger();
+    /** Delay takeRequest for the requests sent from this server. */
+    final AtomicInteger delayTakeRequestFrom = new AtomicInteger();
 
     REPLY request(REQUEST request) throws InterruptedException, IOException {
       requestQueue.put(request);
@@ -148,6 +150,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
       // block request for testing
       final EventQueue<REQUEST, REPLY> reqQ = queues.get(request.getRequestorId());
       if (reqQ != null) {
+        RaftTestUtil.delay(reqQ.delayTakeRequestFrom::get);
         RaftTestUtil.block(reqQ.blockTakeRequestFrom::get);
       }
     } catch (InterruptedException e) {

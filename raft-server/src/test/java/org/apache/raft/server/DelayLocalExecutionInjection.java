@@ -19,18 +19,17 @@ package org.apache.raft.server;
 
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.util.CodeInjectionForTesting;
-import org.apache.raft.util.RaftUtils;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Inject code to delay particular servers sending out server requests. */
-public class DelayInjection implements CodeInjectionForTesting.Code {
+/** Inject code to delay particular servers. */
+public class DelayLocalExecutionInjection implements CodeInjectionForTesting.Code {
   private final Map<String, AtomicInteger> delays = new ConcurrentHashMap<>();
 
-  public DelayInjection(String method) {
+  public DelayLocalExecutionInjection(String method) {
     CodeInjectionForTesting.put(method, this);
   }
 
@@ -46,19 +45,23 @@ public class DelayInjection implements CodeInjectionForTesting.Code {
     d.set(delayMs);
   }
 
+  public void removeDelay(String id) {
+    delays.remove(id);
+  }
+
   @Override
-  public Object execute(Object... args) {
-    final Object id = args[0];
-    final AtomicInteger d = delays.get(id);
+  public boolean execute(String localId, String remoteId, Object... args) {
+    final AtomicInteger d = delays.get(localId);
     if (d == null) {
-      return null;
+      return false;
     }
-    LOG.info(id + ": " + d + ", args=" + Arrays.toString(args));
+    LOG.debug("{} delay {} ms, args={}", localId, d.get(),
+        Arrays.toString(args));
     try {
       RaftTestUtil.delay(d::get);
     } catch (InterruptedException e) {
-      throw new RuntimeException(RaftUtils.toInterruptedIOException("", e));
+      LOG.debug("Interrupted while delaying " + localId);
     }
-    return null;
+    return true;
   }
 }

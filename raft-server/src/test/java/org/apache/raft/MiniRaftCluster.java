@@ -24,7 +24,7 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.DelayInjection;
+import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
@@ -42,7 +42,8 @@ import java.util.stream.Collectors;
 
 public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
-  public static final DelayInjection logSyncDelay = new DelayInjection(RaftLog.LOG_SYNC);
+  public static final DelayLocalExecutionInjection logSyncDelay =
+      new DelayLocalExecutionInjection(RaftLog.LOG_SYNC);
 
   public static class PeerChanges {
     public final RaftPeer[] allPeersInNewConf;
@@ -312,7 +313,11 @@ public abstract class MiniRaftCluster {
     }
   }
 
-  public abstract void blockQueueAndSetDelay(String leaderId, int delayMs)
+  /**
+   * Block all the incoming requests for the peer with leaderId. Also delay
+   * outgoing or incoming msg for all other peers.
+   */
+  protected abstract void blockQueueAndSetDelay(String leaderId, int delayMs)
       throws InterruptedException;
 
   /**
@@ -341,4 +346,6 @@ public abstract class MiniRaftCluster {
 
   /** Block/unblock the requests sent from the given source. */
   public abstract void setBlockRequestsFrom(String src, boolean block);
+
+  public abstract void delaySendingRequests(String senderId, int delayMs);
 }

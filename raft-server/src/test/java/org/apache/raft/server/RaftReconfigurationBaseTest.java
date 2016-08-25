@@ -489,7 +489,7 @@ public abstract class RaftReconfigurationBaseTest {
    * Test a scenario where the follower truncates its log entries which causes
    * configuration change.
    */
-  //@Test
+  @Test
   public void testRevertConfigurationChange() throws Exception {
     LOG.info("Start testOverlappedSetConfRequests");
     // originally 3 peers
@@ -505,10 +505,12 @@ public abstract class RaftReconfigurationBaseTest {
       Thread.sleep(1000);
       Assert.assertEquals(0, log.getLatestFlushedIndex());
 
-      // we block the incoming msg for the leader and delay followers' replies.
-      // in this way we force the leader change and the old leader will not know
+      // we block the incoming msg for the leader and block its requests to
+      // followers, so that we force the leader change and the old leader will
+      // not know
       LOG.info("start blocking the leader");
-      // TODO
+      BlockRequestHandlingInjection.getInstance().blockReplier(leaderId);
+      cluster.setBlockRequestsFrom(leaderId, true);
 
       PeerChanges change = cluster.removePeers(1, false, new ArrayList<>());
 
@@ -535,7 +537,8 @@ public abstract class RaftReconfigurationBaseTest {
       Assert.assertTrue(log.getLastEntry().hasConfigurationEntry());
 
       // unblock the old leader
-      cluster.blockQueueAndSetDelay(leaderId, 0);
+      BlockRequestHandlingInjection.getInstance().unblockReplier(leaderId);
+      cluster.setBlockRequestsFrom(leaderId, false);
 
       // the client should get NotLeaderException
       for (int i = 0; i < 10 && !gotNotLeader.get(); i++) {
@@ -544,8 +547,7 @@ public abstract class RaftReconfigurationBaseTest {
       Assert.assertTrue(gotNotLeader.get());
 
       // the old leader should have truncated the setConf from the log
-      boolean newState = log.getLastCommittedIndex() == 1 &&
-          !log.getLastEntry().hasConfigurationEntry();
+      boolean newState = false;
       for (int i = 0; i < 10 && !newState; i++) {
         Thread.sleep(500);
         newState = log.getLastCommittedIndex() == 1 &&

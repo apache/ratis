@@ -133,7 +133,7 @@ public class HadoopRpcService
     Preconditions.checkArgument(
         raftService.getId().equals(request.getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, raftService.getId(),
-        request);
+        null, request);
 
     final String id = request.getReplierId();
     final RaftServerProtocolClientSideTranslatorPB proxy = getServerProxy(id);
