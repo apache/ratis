@@ -30,6 +30,7 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftException;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.protocol.ReconfigurationTimeoutException;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
@@ -804,8 +805,8 @@ class LeaderState {
       LeaderState.this.stagingState = null;
       // send back failure response to client's request
       pendingRequests.failSetConfiguration(
-          new RaftException("Fail to set configuration " + newConf
-              + ". Timeout when bootstrapping new peers."));
+          new ReconfigurationTimeoutException("Fail to set configuration "
+              + newConf + ". Timeout when bootstrapping new peers."));
     }
   }
 }

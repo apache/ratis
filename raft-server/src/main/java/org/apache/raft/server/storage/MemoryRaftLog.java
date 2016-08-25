@@ -22,6 +22,7 @@ import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.util.CodeInjectionForTesting;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -175,6 +176,7 @@ public class MemoryRaftLog extends RaftLog {
 
   @Override
   public void logSync() {
+    CodeInjectionForTesting.execute(LOG_SYNC, getSelfId());
     // do nothing
   }
 

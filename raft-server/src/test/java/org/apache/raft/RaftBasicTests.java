@@ -153,11 +153,11 @@ public abstract class RaftBasicTests {
         .map(i -> cluster.createClient(String.valueOf((char)('a' + i)), null))
         .map(c -> new Client4TestWithLoad(c, NUM_MESSAGES))
         .collect(Collectors.toList());
-    clients.stream().forEach(c -> c.start());
+    clients.forEach(Thread::start);
 
     int count = 0;
     for(int lastStep = 0;; ) {
-      if (clients.stream().filter(c -> c.isRunning()).count() == 0) {
+      if (clients.stream().filter(Client4TestWithLoad::isRunning).count() == 0) {
         break;
       }
 

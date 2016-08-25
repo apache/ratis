@@ -18,17 +18,17 @@
 package org.apache.raft.hadoopRpc;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.RaftBasicTests;
 import org.apache.raft.client.RaftClient;
-import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerCodeInjection;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.junit.Test;
 
 import java.io.IOException;
+
+import static org.apache.raft.hadoopRpc.MiniRaftClusterWithHadoopRpc.sendServerRequest;
 
 public class TestRaftWithHadoopRpc extends RaftBasicTests {
   static {
@@ -55,7 +55,7 @@ public class TestRaftWithHadoopRpc extends RaftBasicTests {
   public void testEnforceLeader() throws Exception {
     super.testEnforceLeader();
 
-    DelaySendServerRequest.clear();
+    sendServerRequest.clear();
     RaftServerCodeInjection.getRepliers().clear();
   }
 

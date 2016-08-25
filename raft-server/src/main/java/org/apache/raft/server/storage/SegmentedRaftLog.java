@@ -25,6 +25,7 @@ import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
+import org.apache.raft.util.CodeInjectionForTesting;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -65,10 +66,6 @@ public class SegmentedRaftLog extends RaftLog {
    */
   static abstract class Task {
     private boolean done = false;
-
-    boolean isDone() {
-      return done;
-    }
 
     synchronized void done() {
       done = true;
@@ -273,6 +270,7 @@ public class SegmentedRaftLog extends RaftLog {
 
   @Override
   public void logSync() throws InterruptedException {
+    CodeInjectionForTesting.execute(LOG_SYNC, getSelfId());
     final Task task = myTask.get();
     if (task != null) {
       task.waitForDone();

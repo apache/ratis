@@ -25,6 +25,7 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.hadoopRpc.client.HadoopClientRequestSender;
 import org.apache.raft.hadoopRpc.server.HadoopRpcService;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.server.DelayInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerConstants;
@@ -41,6 +42,8 @@ import java.util.Map;
 
 public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithHadoopRpc.class);
+  public static final DelayInjection sendServerRequest =
+      new DelayInjection(HadoopRpcService.SEND_SERVER_REQUEST);
 
   private final Configuration hadoopConf;
 
@@ -58,7 +61,8 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
     Map<RaftPeer, HadoopRpcService> peers = initRpcServices(s);
 
     conf = new RaftConfiguration(
-        peers.keySet().toArray(new RaftPeer[peers.size()]), 0);
+        peers.keySet().toArray(new RaftPeer[peers.size()]),
+        RaftServerConstants.INVALID_LOG_INDEX);
     for (Map.Entry<RaftPeer, HadoopRpcService> entry : peers.entrySet()) {
       RaftServer server = servers.get(entry.getKey().getId());
       server.setInitialConf(conf);
@@ -125,7 +129,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
 
     // delay RaftServerRequest for other servers
     getServers().stream().filter(s -> !s.getId().equals(leaderId))
-        .forEach(s -> DelaySendServerRequest.setDelayMs(s.getId(), delayMs));
+        .forEach(s -> sendServerRequest.setDelayMs(s.getId(), delayMs));
 
     final long sleepMs = 3 * RaftServerConstants.ELECTION_TIMEOUT_MAX_MS;
     Thread.sleep(sleepMs);

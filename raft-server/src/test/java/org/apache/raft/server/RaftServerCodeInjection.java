@@ -21,7 +21,6 @@ import org.apache.raft.RaftTestUtil;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.apache.raft.util.RaftUtils;
 
-import java.io.InterruptedIOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -50,14 +49,14 @@ public class RaftServerCodeInjection
   private RaftServerCodeInjection() {}
 
   @Override
-  public Object execute(Object... args) throws InterruptedIOException {
+  public Object execute(Object... args) {
     final Object requestorId = args[1];
     final Object replierId = args[0];
     try {
       RaftTestUtil.block(() -> nullAsFalse(requestors.get(requestorId))
           || nullAsFalse(repliers.get(replierId)));
     } catch (InterruptedException e) {
-      throw RaftUtils.toInterruptedIOException("", e);
+      throw new RuntimeException(RaftUtils.toInterruptedIOException("", e));
     }
     return null;
   }

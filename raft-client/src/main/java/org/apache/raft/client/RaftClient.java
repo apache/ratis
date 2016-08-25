@@ -17,6 +17,7 @@
  */
 package org.apache.raft.client;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.raft.RaftConstants;
 import org.apache.raft.protocol.*;
 import org.apache.raft.util.RaftUtils;
@@ -126,7 +127,7 @@ public class RaftClient {
     } catch (StateMachineException e) {
       throw e;
     } catch (IOException ioe) {
-      // TODO No retry if the exception is thrown from the state machine
+      // TODO different retry policy for different exceptions
       handleIOException(request, ioe, null);
     }
     return null;
@@ -149,5 +150,10 @@ public class RaftClient {
       LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);
       this.leaderId = newLeader;
     }
+  }
+
+  @VisibleForTesting
+  public RaftClientRequestSender getRequestSender() {
+    return requestSender;
   }
 }

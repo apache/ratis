@@ -38,7 +38,6 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.mockito.internal.util.reflection.Whitebox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,8 +88,7 @@ public class TestRaftNotLeaderException {
     String newLeader = RaftTestUtil.changeLeader(cluster, leaderId);
     Assert.assertNotEquals(leaderId, newLeader);
 
-    RaftClientRequestSender rpc = (RaftClientRequestSender)
-        Whitebox.getInternalState(client, "requestSender");
+    RaftClientRequestSender rpc = client.getRequestSender();
     reply= null;
     for (int i = 0; reply == null && i < 10; i++) {
       try {
@@ -136,8 +134,7 @@ public class TestRaftNotLeaderException {
     Assert.assertTrue(reply.isSuccess());
     LOG.info(cluster.printServers());
 
-    RaftClientRequestSender rpc = (RaftClientRequestSender)
-        Whitebox.getInternalState(client, "requestSender");
+    RaftClientRequestSender rpc = client.getRequestSender();
     reply = null;
     // it is possible that the remote peer's rpc server is not ready. need retry
     for (int i = 0; reply == null && i < 10; i++) {

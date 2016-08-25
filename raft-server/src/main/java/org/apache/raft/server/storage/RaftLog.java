@@ -45,6 +45,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public abstract class RaftLog implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
   public static final LogEntryProto[] EMPTY_LOGENTRY_ARRAY = new LogEntryProto[0];
+  public static final String LOG_SYNC = RaftLog.class.getSimpleName() + ".logSync";
 
   /**
    * The largest committed index. Note the last committed log may be included

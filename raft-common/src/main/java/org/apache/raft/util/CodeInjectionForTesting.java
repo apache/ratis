@@ -33,7 +33,7 @@ public class CodeInjectionForTesting {
   public interface Code {
     Logger LOG = CodeInjectionForTesting.LOG;
 
-    Object execute(Object... args) throws IOException;
+    Object execute(Object... args);
   }
 
   private static final Map<String, Code> INJECTION_POINTS
@@ -46,8 +46,7 @@ public class CodeInjectionForTesting {
   }
 
   /** Execute the injected code, if there is any. */
-  public static Object execute(String injectionPoint, Object... args)
-      throws IOException {
+  public static Object execute(String injectionPoint, Object... args) {
     final Code code = INJECTION_POINTS.get(injectionPoint);
     if (code == null) {
       return null;

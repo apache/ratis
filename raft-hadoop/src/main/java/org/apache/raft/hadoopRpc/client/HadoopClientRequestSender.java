@@ -26,6 +26,8 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftException;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.protocol.ReconfigurationInProgressException;
+import org.apache.raft.protocol.ReconfigurationTimeoutException;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.protocol.StateMachineException;
 
@@ -55,7 +57,8 @@ public class HadoopClientRequestSender
       }
     } catch (RemoteException e) {
       throw e.unwrapRemoteException(StateMachineException.class,
-          RaftException.class);
+          ReconfigurationTimeoutException.class,
+          ReconfigurationInProgressException.class, RaftException.class);
     }
   }
 

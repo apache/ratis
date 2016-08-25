@@ -24,6 +24,7 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.server.DelayInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
@@ -40,8 +41,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public abstract class MiniRaftCluster {
-
-  static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
+  public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
+  public static final DelayInjection logSyncDelay = new DelayInjection(RaftLog.LOG_SYNC);
 
   public static class PeerChanges {
     public final RaftPeer[] allPeersInNewConf;
@@ -60,7 +61,7 @@ public abstract class MiniRaftCluster {
     for (int i = 0; i < ids.length; i++) {
       peers[i] = new RaftPeer(ids[i]);
     }
-    return RaftConfiguration.composeConf(peers, 0);
+    return RaftConfiguration.composeConf(peers, RaftServerConstants.INVALID_LOG_INDEX);
   }
 
   private static String getBaseDirectory() {
