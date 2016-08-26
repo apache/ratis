@@ -131,7 +131,7 @@ public class LogOutputStream implements Closeable {
   private void preallocate() throws IOException {
     fill.position(0);
     IOUtils.writeFully(fc, fill, fc.size());
-    LOG.debug("Pre-allocated " + fill.capacity() + " bytes for the log segment");
+    LOG.debug("Pre-allocated {} bytes for the log segment", fill.capacity());
   }
 
   @Override

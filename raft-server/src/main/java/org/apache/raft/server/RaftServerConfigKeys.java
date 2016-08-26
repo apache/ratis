@@ -64,7 +64,7 @@ public interface RaftServerConfigKeys {
   String RAFT_SERVER_STORAGE_DIR_DEFAULT = "file:///tmp/raft-server/";
 
   String RAFT_SERVER_STATEMACHINE_CLASS_KEY = "raft.server.statemachine.class";
-  Class<DummyStateMachine> RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT = DummyStateMachine.class;
+  Class<? extends StateMachine> RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT = DummyStateMachine.class;
 
   /** whether trigger snapshot when log size exceeds limit */
   String RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY = "raft.server.auto.snapshot.enabled";

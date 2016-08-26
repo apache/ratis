@@ -26,6 +26,7 @@ import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;
 import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.server.storage.RaftStorageDirectory;
 import org.apache.raft.util.MD5FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,7 +94,7 @@ public class SimpleStateMachine implements StateMachine {
 
   @Override
   public long takeSnapshot(File snapshotFile, RaftStorage storage) {
-    final long endIndex = getIndexFromSnapshotFileName(snapshotFile.getName());
+    final long endIndex = RaftStorageDirectory.getIndexFromSnapshotFile(snapshotFile);
     try (LogOutputStream out = new LogOutputStream(snapshotFile, false)) {
       for (final LogEntryProto entry : list) {
         if (entry.getIndex() > endIndex) {
@@ -119,17 +120,13 @@ public class SimpleStateMachine implements StateMachine {
     return endIndex;
   }
 
-  private long getIndexFromSnapshotFileName(String name) {
-    return Long.parseLong(name.substring(name.lastIndexOf("_") + 1));
-  }
-
   @Override
   public synchronized long loadSnapshot(File snapshotFile) throws IOException {
     if (snapshotFile == null || !snapshotFile.exists()) {
       LOG.warn("The snapshot file {} does not exist", snapshotFile);
       return RaftServerConstants.INVALID_LOG_INDEX;
     } else {
-      final long endIndex = getIndexFromSnapshotFileName(snapshotFile.getName());
+      final long endIndex = RaftStorageDirectory.getIndexFromSnapshotFile(snapshotFile);
       try (LogInputStream in =
                new LogInputStream(snapshotFile, 0, endIndex, false)) {
         LogEntryProto entry;
@@ -151,7 +148,7 @@ public class SimpleStateMachine implements StateMachine {
       LOG.warn("The snapshot file {} does not exist", snapshotFile);
       return RaftServerConstants.INVALID_LOG_INDEX;
     } else {
-      final long endIndex = getIndexFromSnapshotFileName(snapshotFile.getName());
+      final long endIndex = RaftStorageDirectory.getIndexFromSnapshotFile(snapshotFile);
       final long lastIndexInList = list.isEmpty() ?
           RaftServerConstants.INVALID_LOG_INDEX :
           list.get(list.size() - 1).getIndex();

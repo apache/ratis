@@ -112,7 +112,6 @@ class StateMachineUpdater implements Runnable {
 
   @Override
   public void run() {
-    final StateMachine sm = this.stateMachine;
     final RaftStorage storage = server.getState().getStorage();
     while (isRunning()) {
       try {
@@ -146,12 +145,12 @@ class StateMachineUpdater implements Runnable {
             if (next.hasConfigurationEntry()) {
               // the reply should have already been set. only need to record
               // the new conf in the state machine.
-              sm.setRaftConfiguration(ServerProtoUtils.toRaftConfiguration(
+              stateMachine.setRaftConfiguration(ServerProtoUtils.toRaftConfiguration(
                   next.getIndex(), next.getConfigurationEntry()));
             } else {
               StateMachineException re = null;
               try {
-                sm.applyLogEntry(next);
+                stateMachine.applyLogEntry(next);
               } catch (Exception e) {
                 re = new StateMachineException(server.getId(), e);
               }
@@ -161,7 +160,7 @@ class StateMachineUpdater implements Runnable {
           } else {
             LOG.debug("{}: logEntry {} is null. There may be snapshot to load."
                     + " state:{}, toLoadSnapshot:{}",
-                this.toString(), lastAppliedIndex + 1, state, toLoadSnapshot);
+                this, lastAppliedIndex + 1, state, toLoadSnapshot);
             break;
           }
         }
@@ -170,14 +169,14 @@ class StateMachineUpdater implements Runnable {
         if (shouldTakeSnapshot(lastAppliedIndex)) {
           File snapshotFile = storage.getStorageDir().getSnapshotFile(
               raftLog.get(lastAppliedIndex).getTerm(), lastAppliedIndex);
-          sm.takeSnapshot(snapshotFile, storage);
+          stateMachine.takeSnapshot(snapshotFile, storage);
           // TODO purge logs, including log cache. but should keep log for leader's RPCSenders
           lastSnapshotIndex = lastAppliedIndex;
         }
       } catch (InterruptedException e) {
         if (!isRunning()) {
           LOG.info("{}: the StateMachineUpdater is interrupted and will exit.",
-              this.toString());
+              this);
         } else {
           RaftUtils.terminate(e,
               this + ": the StateMachineUpdater is wrongly interrupted", LOG);

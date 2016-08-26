@@ -23,6 +23,7 @@ import org.apache.raft.RaftTestUtil;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServerConstants.StartupOption;
 import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftStorageDirectory.StorageState;
 import org.junit.After;
 import org.junit.Assert;
@@ -32,6 +33,7 @@ import org.mockito.internal.util.reflection.Whitebox;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Test RaftStorage and RaftStorageDirectory
@@ -182,6 +184,28 @@ public class TestRaftStorage {
       Assert.assertTrue(sd.getMetaFile().exists());
     } finally {
       storage.close();
+    }
+  }
+
+  @Test
+  public void testSnapshotFileName() throws Exception {
+    final long term = ThreadLocalRandom.current().nextLong(Long.MAX_VALUE);
+    final long index = ThreadLocalRandom.current().nextLong(Long.MAX_VALUE);
+    final String name = RaftStorageDirectory.getSnapshotFileName(term, index);
+    System.out.println("name = " + name);
+    final File file = new File(storageDir, name);
+    final TermIndex ti = RaftStorageDirectory.getTermIndexFromSnapshotFile(file);
+    System.out.println("file = " + file);
+    Assert.assertEquals(term, ti.getTerm());
+    Assert.assertEquals(index, ti.getIndex());
+    System.out.println("ti = " + ti);
+
+    final File foo = new File(storageDir, "foo");
+    try {
+      RaftStorageDirectory.getTermIndexFromSnapshotFile(foo);
+      Assert.fail();
+    } catch(IllegalArgumentException iae) {
+      System.out.println("Good " + iae);
     }
   }
 }

@@ -190,14 +190,29 @@ public class RaftStorageDirectory {
     return SNAPSHOT_FILE_PREFIX + "." + term + "_" + endIndex;
   }
 
+  public static TermIndex getTermIndexFromSnapshotFile(File file) {
+    final String name = file.getName();
+    final Matcher m = SNAPSHOT_REGEX.matcher(name);
+    if (!m.matches()) {
+      throw new IllegalArgumentException("File \"" + file
+          + "\" does not match snapshot file name pattern \""
+          + SNAPSHOT_REGEX + "\"");
+    }
+    final long term = Long.parseLong(m.group(1));
+    final long index = Long.parseLong(m.group(2));
+    return new TermIndex(term, index);
+  }
+
+  public static long getIndexFromSnapshotFile(File file) {
+    return getTermIndexFromSnapshotFile(file).getIndex();
+  }
+
   static String getTmpSnapshotFileName(long term, long endIndex) {
-    return SNAPSHOT_FILE_PREFIX + "." + term + "_" + endIndex
-        + AtomicFileOutputStream.TMP_EXTENSION;
+    return getSnapshotFileName(term, endIndex) + AtomicFileOutputStream.TMP_EXTENSION;
   }
 
   static String getCorruptSnapshotFileName(long term, long endIndex) {
-    return SNAPSHOT_FILE_PREFIX + "." + term + "_" + endIndex +
-        CORRUPT_SNAPSHOT_FILE_SUFFIX;
+    return getSnapshotFileName(term, endIndex) + CORRUPT_SNAPSHOT_FILE_SUFFIX;
   }
 
   public File getSnapshotFile(long term, long endIndex) {
