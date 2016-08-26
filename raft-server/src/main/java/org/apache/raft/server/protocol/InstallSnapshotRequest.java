@@ -19,7 +19,7 @@ package org.apache.raft.server.protocol;
 
 import com.google.protobuf.ByteString;
 import org.apache.hadoop.io.MD5Hash;
-import org.apache.raft.proto.RaftServerProtocolProtos.SnapshotChunkProto;
+import org.apache.raft.proto.RaftProtos.SnapshotChunkProto;
 
 /**
  * The RPC request sent by the leader to install a snapshot on a follower peer.

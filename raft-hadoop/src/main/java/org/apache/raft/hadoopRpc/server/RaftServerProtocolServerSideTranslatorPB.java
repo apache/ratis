@@ -20,6 +20,7 @@ package org.apache.raft.hadoopRpc.server;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.raft.hadoopRpc.HadoopUtils;
 import org.apache.raft.proto.RaftServerProtocolProtos.*;
 import org.apache.raft.server.protocol.*;
 
@@ -40,11 +41,11 @@ public class RaftServerProtocolServerSideTranslatorPB
       throws ServiceException {
     final RequestVoteReply reply;
     try {
-      reply = impl.requestVote(ServerProtoUtils.toRequestVoteRequest(request));
+      reply = impl.requestVote(HadoopUtils.toRequestVoteRequest(request));
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }
-    return ServerProtoUtils.toRequestVoteReplyProto(request, reply);
+    return HadoopUtils.toRequestVoteReplyProto(request, reply);
   }
 
   @Override
@@ -53,11 +54,11 @@ public class RaftServerProtocolServerSideTranslatorPB
       throws ServiceException {
     final AppendEntriesReply reply;
     try {
-      reply = impl.appendEntries(ServerProtoUtils.toAppendEntriesRequest(request));
+      reply = impl.appendEntries(HadoopUtils.toAppendEntriesRequest(request));
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }
-    return ServerProtoUtils.toAppendEntriesReplyProto(request, reply);
+    return HadoopUtils.toAppendEntriesReplyProto(request, reply);
   }
 
   @Override
@@ -66,8 +67,8 @@ public class RaftServerProtocolServerSideTranslatorPB
     final InstallSnapshotReply reply;
     try {
       reply = impl.installSnapshot(
-          ServerProtoUtils.toInstallSnapshotRequest(request));
-      return ServerProtoUtils.toInstallSnapshotReplyProto(request, reply);
+          HadoopUtils.toInstallSnapshotRequest(request));
+      return HadoopUtils.toInstallSnapshotReplyProto(request, reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }

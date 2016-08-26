@@ -67,3 +67,15 @@ message RaftRpcReplyProto {
   optional RaftRpcMessageProto rpcMessage = 1;
   optional bool success = 2;
 }
+
+message SnapshotChunkProto {
+  optional uint64 offset = 1;
+  optional bytes data = 2;
+  optional uint32 chunkIndex = 3;
+}
+
+enum InstallSnapshotResult {
+  SUCCESS = 1;
+  NOT_LEADER = 2;
+}
+

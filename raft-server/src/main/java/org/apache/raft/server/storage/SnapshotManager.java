@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.io.nativeio.NativeIO;
-import org.apache.raft.proto.RaftServerProtocolProtos;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.raft.util.MD5FileUtil;
@@ -67,7 +67,7 @@ public class SnapshotManager {
 
     final File tmpSnapshotFile = dir.getTmpSnapshotFile(lastIncludedTerm,
         lastIncludedIndex);
-    final RaftServerProtocolProtos.SnapshotChunkProto chunk = request.getChunk();
+    final RaftProtos.SnapshotChunkProto chunk = request.getChunk();
     FileOutputStream out = null;
     try {
       // if offset is 0, delete any existing temp snapshot file if it has the

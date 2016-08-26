@@ -20,6 +20,7 @@ package org.apache.raft.hadoopRpc.client;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.raft.hadoopRpc.HadoopUtils;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientRequestProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationRequestProto;
@@ -27,7 +28,6 @@ import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.util.ProtoUtils;
 
 import java.io.IOException;
 
@@ -44,10 +44,10 @@ public class RaftClientProtocolServerSideTranslatorPB
   public RaftClientReplyProto submitClientRequest(
       RpcController unused, RaftClientRequestProto proto)
       throws ServiceException {
-    final RaftClientRequest request = ProtoUtils.toRaftClientRequest(proto);
+    final RaftClientRequest request = HadoopUtils.toRaftClientRequest(proto);
     try {
       final RaftClientReply reply = impl.submitClientRequest(request);
-      return ProtoUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
+      return HadoopUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }
@@ -59,9 +59,9 @@ public class RaftClientProtocolServerSideTranslatorPB
       throws ServiceException {
     final SetConfigurationRequest request;
     try {
-      request = ProtoUtils.toSetConfigurationRequest(proto);
+      request = HadoopUtils.toSetConfigurationRequest(proto);
       final RaftClientReply reply = impl.setConfiguration(request);
-      return ProtoUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
+      return HadoopUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }

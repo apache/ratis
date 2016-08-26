@@ -17,7 +17,7 @@
  */
 package org.apache.raft.server.protocol;
 
-import org.apache.raft.proto.RaftServerProtocolProtos.InstallSnapshotReplyProto.InstallSnapshotResult;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
 
 public class InstallSnapshotReply extends RaftServerReply {
   private final InstallSnapshotResult result;

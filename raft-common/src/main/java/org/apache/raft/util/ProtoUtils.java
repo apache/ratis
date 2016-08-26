@@ -18,16 +18,14 @@
 package org.apache.raft.util;
 
 import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.ServiceException;
-import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientReplyProto;
-import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientRequestProto;
-import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationRequestProto;
-import org.apache.raft.proto.RaftProtos.*;
-import org.apache.raft.protocol.*;
+import org.apache.raft.proto.RaftProtos.ClientMessageEntryProto;
+import org.apache.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.proto.RaftProtos.RaftPeerProto;
+import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.RaftPeer;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -93,91 +91,8 @@ public class ProtoUtils {
         .build();
   }
 
-  public static RaftRpcMessageProto.Builder toRaftRpcMessageProtoBuilder(
-      RaftRpcMessage m) {
-    return RaftRpcMessageProto.newBuilder()
-        .setRequestorId(m.getRequestorId())
-        .setReplyId(m.getReplierId());
-  }
-
-  public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      RaftRpcMessage.Request request) {
-    return RaftRpcRequestProto.newBuilder().setRpcMessage(
-        toRaftRpcMessageProtoBuilder(request));
-  }
-
-  public static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
-      RaftRpcRequestProto request, RaftRpcMessage.Reply reply) {
-    return RaftRpcReplyProto.newBuilder()
-        .setRpcMessage(request.getRpcMessage())
-        .setSuccess(reply.isSuccess());
-  }
-
   public static Message toMessage(final ClientMessageEntryProto p) {
     return () -> p.getContent().toByteArray();
-  }
-
-  public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
-    final RaftRpcMessageProto m = p.getRpcRequest().getRpcMessage();
-    return new RaftClientRequest(m.getRequestorId(), m.getReplyId(),
-        toMessage(p.getMessage()));
-  }
-
-  public static RaftClientRequestProto toRaftClientRequestProto(
-      RaftClientRequest request) {
-    return RaftClientRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .setMessage(toClientMessageEntryProto(request.getMessage()))
-        .build();
-  }
-
-  public static RaftClientReplyProto toRaftClientReplyProto(
-      RaftRpcRequestProto request, RaftClientReply reply) {
-    final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
-    if (reply != null) {
-      b.setRpcReply(toRaftRpcReplyProtoBuilder(request, reply));
-      if (reply.isNotLeader()) {
-        b.setIsNotLeader(true);
-        final RaftPeer suggestedLeader = reply.getNotLeaderException()
-            .getSuggestedLeader();
-        if (suggestedLeader != null) {
-          b.setSuggestedLeader(toRaftPeerProto(suggestedLeader));
-        }
-        b.addAllPeersInConf(toRaftPeerProtos(
-            Arrays.asList(reply.getNotLeaderException().getPeers())));
-      }
-    }
-    return b.build();
-  }
-
-  public static RaftClientReply toRaftClientReply(
-      RaftClientReplyProto replyProto) {
-    final RaftRpcReplyProto rp = replyProto.getRpcReply();
-    final RaftRpcMessageProto rm = rp.getRpcMessage();
-    NotLeaderException e = null;
-    if (replyProto.getIsNotLeader()) {
-      final RaftPeer suggestedLeader = replyProto.hasSuggestedLeader() ?
-          toRaftPeer(replyProto.getSuggestedLeader()) : null;
-      final RaftPeer[] peers = toRaftPeerArray(replyProto.getPeersInConfList());
-      e = new NotLeaderException(rm.getReplyId(), suggestedLeader, peers);
-    }
-    return new RaftClientReply(rm.getRequestorId(), rm.getReplyId(),
-        rp.getSuccess(), e);
-  }
-
-  public static SetConfigurationRequest toSetConfigurationRequest(
-      SetConfigurationRequestProto p) throws InvalidProtocolBufferException {
-    final RaftRpcMessageProto m = p.getRpcRequest().getRpcMessage();
-    final RaftPeer[] peers = toRaftPeerArray(p.getPeersList());
-    return new SetConfigurationRequest(m.getRequestorId(), m.getReplyId(), peers);
-  }
-
-  public static SetConfigurationRequestProto toSetConfigurationRequestProto(
-      SetConfigurationRequest request) {
-    return SetConfigurationRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .addAllPeers(toRaftPeerProtos(Arrays.asList(request.getPeersInNewConf())))
-        .build();
   }
 
   public static IOException toIOException(ServiceException se) {
