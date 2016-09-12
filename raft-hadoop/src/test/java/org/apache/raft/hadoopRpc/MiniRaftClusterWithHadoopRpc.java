@@ -141,7 +141,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
           }
         });
 
-    final long sleepMs = 3 * RaftServerConstants.ELECTION_TIMEOUT_MAX_MS;
+    final long sleepMs = 3 * getMaxTimeout();
     Thread.sleep(sleepMs);
   }
 

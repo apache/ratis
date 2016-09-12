@@ -23,7 +23,7 @@ import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.server.RaftServerConfigKeys;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +41,7 @@ public class RaftTestUtil {
 
   public static RaftServer waitForLeader(MiniRaftCluster cluster)
       throws InterruptedException {
-    final long sleepTime = (RaftServerConstants.ELECTION_TIMEOUT_MAX_MS * 3) >> 1;
+    final long sleepTime = (cluster.getMaxTimeout() * 3) >> 1;
     LOG.info(cluster.printServers());
     RaftServer leader = null;
     for(int i = 0; leader == null && i < 10; i++) {
@@ -185,7 +185,7 @@ public class RaftTestUtil {
 
   public static void block(BooleanSupplier isBlocked) throws InterruptedException {
     for(; isBlocked.getAsBoolean(); ) {
-      Thread.sleep(RaftServerConstants.ELECTION_TIMEOUT_MAX_MS);
+      Thread.sleep(RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MAX_MS_DEFAULT);
     }
   }
 
@@ -199,7 +199,7 @@ public class RaftTestUtil {
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,
       RaftPeer[] peers, int numOfRemovedPeers, Collection<String> deadPeers)
       throws Exception {
-    Thread.sleep(RaftServerConstants.ELECTION_TIMEOUT_MAX_MS * (numOfRemovedPeers + 2));
+    Thread.sleep(cluster.getMaxTimeout() * (numOfRemovedPeers + 2));
     LOG.info(cluster.printServers());
     Assert.assertNotNull(cluster.getLeader());
 

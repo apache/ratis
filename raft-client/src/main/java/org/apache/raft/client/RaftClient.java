@@ -18,7 +18,8 @@
 package org.apache.raft.client;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.raft.RaftConstants;
+import org.apache.raft.RaftClientConfigKeys;
+import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
@@ -38,16 +39,21 @@ public class RaftClient {
   private final String clientId;
   private final RaftClientRequestSender requestSender;
   private final Map<String, RaftPeer> peers;
+  private final int retryInterval;
 
   private volatile String leaderId;
 
   public RaftClient(String clientId, Collection<RaftPeer> peers,
-      RaftClientRequestSender requestSender, String leaderId) {
+      RaftClientRequestSender requestSender, String leaderId,
+      RaftProperties properties) {
     this.clientId = clientId;
     this.requestSender = requestSender;
     this.peers = peers.stream().collect(
         Collectors.toMap(RaftPeer::getId, Function.identity()));
     this.leaderId = leaderId != null? leaderId : peers.iterator().next().getId();
+    retryInterval = properties.getInt(
+        RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_KEY,
+        RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_DEFAULT);
   }
 
   public String getId() {
@@ -105,7 +111,7 @@ public class RaftClient {
 
       // sleep and then retry
       try {
-        Thread.sleep(RaftConstants.RPC_TIMEOUT_MS);
+        Thread.sleep(retryInterval);
       } catch (InterruptedException ie) {
         Thread.currentThread().interrupt();
         throw RaftUtils.toInterruptedIOException(
@@ -127,7 +133,7 @@ public class RaftClient {
     } catch (StateMachineException e) {
       throw e;
     } catch (IOException ioe) {
-      // TODO different retry policy for different exceptions
+      // TODO different retry policies for different exceptions
       handleIOException(request, ioe, null);
     }
     return null;

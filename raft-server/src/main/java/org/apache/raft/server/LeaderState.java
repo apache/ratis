@@ -23,6 +23,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
+import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.raft.proto.RaftProtos.SnapshotChunkProto;
@@ -52,6 +53,12 @@ import java.util.stream.Collectors;
 
 import static org.apache.raft.protocol.Message.EMPTY_MESSAGE;
 import static org.apache.raft.server.LeaderState.StateUpdateEventType.*;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_RPC_SLEEP_TIME_MS_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_RPC_SLEEP_TIME_MS_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SNAPSHOT_CHUNK_MAX_SIZE_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SNAPSHOT_CHUNK_MAX_SIZE_KEY;
 import static org.apache.raft.server.RaftServerConstants.*;
 
 /**
@@ -64,13 +71,6 @@ import static org.apache.raft.server.RaftServerConstants.*;
  */
 class LeaderState {
   private static final Logger LOG = RaftServer.LOG;
-
-  /**
-   * @return the time in milliseconds that the leader should send a heartbeat.
-   */
-  private static long getHeartbeatRemainingTime(long lastTime) {
-    return lastTime + RaftServerConstants.RPC_TIMEOUT_MIN_MS / 2 - Time.monotonicNow();
-  }
 
   enum StateUpdateEventType {
     STEPDOWN, UPDATECOMMIT, STAGINGPROGRESS
@@ -111,8 +111,22 @@ class LeaderState {
   private final PendingRequests pendingRequests;
   private volatile boolean running = true;
 
-  LeaderState(RaftServer server) {
+  private final int stagingCatchupGap;
+  private final int snapshotChunkMaxSize;
+  private final int syncInterval;
+
+  LeaderState(RaftServer server, RaftProperties properties) {
     this.server = server;
+
+    stagingCatchupGap = properties.getInt(
+        RAFT_SERVER_STAGING_CATCHUP_GAP_KEY,
+        RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT);
+    snapshotChunkMaxSize = properties.getInt(
+        RAFT_SNAPSHOT_CHUNK_MAX_SIZE_KEY,
+        RAFT_SNAPSHOT_CHUNK_MAX_SIZE_DEFAULT);
+    syncInterval = properties.getInt(
+        RAFT_SERVER_RPC_SLEEP_TIME_MS_KEY,
+        RAFT_SERVER_RPC_SLEEP_TIME_MS_DEFAULT);
 
     final ServerState state = server.getState();
     this.raftLog = state.getLog();
@@ -123,7 +137,7 @@ class LeaderState {
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
-    final long t = Time.monotonicNow() - RPC_TIMEOUT_MAX_MS;
+    final long t = Time.monotonicNow() - server.maxTimeout;
     final long nextIndex = raftLog.getNextIndex();
     senders = new ArrayList<>(others.size());
     for (RaftPeer p : others) {
@@ -225,7 +239,7 @@ class LeaderState {
    * RpcSender list.
    */
   void addSenders(Collection<RaftPeer> newMembers) {
-    final long t = Time.monotonicNow() - RPC_TIMEOUT_MAX_MS;
+    final long t = Time.monotonicNow() - server.maxTimeout;
     final long nextIndex = raftLog.getNextIndex();
     for (RaftPeer peer : newMembers) {
       FollowerInfo f = new FollowerInfo(peer, t, nextIndex, false);
@@ -285,8 +299,8 @@ class LeaderState {
 
       while (running) {
         try {
-          StateUpdateEvent event = eventQ.poll(
-              ELECTION_TIMEOUT_MAX_MS, TimeUnit.MILLISECONDS);
+          StateUpdateEvent event = eventQ.poll(server.maxTimeout,
+              TimeUnit.MILLISECONDS);
           synchronized (server) {
             if (running) {
               handleEvent(event);
@@ -340,13 +354,13 @@ class LeaderState {
   private BootStrapProgress checkProgress(FollowerInfo follower,
       long committed) {
     Preconditions.checkArgument(!follower.attendVote);
-    final long progressTime = Time.monotonicNow() - RPC_TIMEOUT_MAX_MS;
-    final long timeoutTime = Time.monotonicNow() - STAGING_NOPROGRESS_TIMEOUT;
+    final long progressTime = Time.monotonicNow() - server.maxTimeout;
+    final long timeoutTime = Time.monotonicNow() - 2 * server.maxTimeout;
     if (follower.lastRpcTime.get() < timeoutTime) {
       LOG.debug("{} detects a follower {} timeout for bootstrapping",
           server.getId(), follower);
       return BootStrapProgress.NOPROGRESS;
-    } else if (follower.matchIndex.get() + STAGING_CATCHUP_GAP >
+    } else if (follower.matchIndex.get() + stagingCatchupGap >
         committed && follower.lastRpcTime.get() > progressTime) {
       return BootStrapProgress.CAUGHTUP;
     } else {
@@ -438,7 +452,7 @@ class LeaderState {
               server.getId(), conf);
           try {
             // leave some time for all RPC senders to send out new conf entry
-            Thread.sleep(ELECTION_TIMEOUT_MIN_MS);
+            Thread.sleep(server.minTimeout);
           } catch (InterruptedException ignored) {
           }
           // the pending request handler will send NotLeaderException for
@@ -634,7 +648,7 @@ class LeaderState {
               ioe);
         }
         if (isSenderRunning()) {
-          Thread.sleep(RPC_SLEEP_TIME_MS);
+          Thread.sleep(syncInterval);
         }
       }
       return null;
@@ -654,7 +668,7 @@ class LeaderState {
         throws InterruptedException, InterruptedIOException {
       File snapshotFile = si.path.toFile();
       final long totalSize = snapshotFile.length();
-      final int bufLength = (int) Math.min(SNAPSHOT_CHUNK_MAX_SIZE, totalSize);
+      final int bufLength = (int) Math.min(snapshotChunkMaxSize, totalSize);
       final byte[] buf = new byte[bufLength];
       long offset = 0;
       int chunkIndex = 0;
@@ -663,7 +677,7 @@ class LeaderState {
         InstallSnapshotReply reply = null;
         while (offset < totalSize) {
           int targetLength = (int) Math.min(totalSize - offset,
-              SNAPSHOT_CHUNK_MAX_SIZE);
+              snapshotChunkMaxSize);
           SnapshotChunkProto chunk = readChunk(in, buf, targetLength, offset,
               chunkIndex);
           InstallSnapshotRequest request = server.createInstallSnapshotRequest(
@@ -761,6 +775,13 @@ class LeaderState {
               new StateUpdateEvent(StateUpdateEventType.STEPDOWN, responseTerm));
         }
       }
+    }
+
+    /**
+     * @return the time in milliseconds that the leader should send a heartbeat.
+     */
+    private long getHeartbeatRemainingTime(long lastTime) {
+      return lastTime + server.minTimeout / 2 - Time.monotonicNow();
     }
   }
 

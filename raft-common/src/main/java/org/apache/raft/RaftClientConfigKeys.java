@@ -17,6 +17,7 @@
  */
 package org.apache.raft;
 
-public interface RaftConstants {
-  int RPC_TIMEOUT_MS = 300;
+public interface RaftClientConfigKeys {
+  String RAFT_RPC_TIMEOUT_MS_KEY = "raft.rpc.timeout.ms";
+  int RAFT_RPC_TIMEOUT_MS_DEFAULT = 300;
 }

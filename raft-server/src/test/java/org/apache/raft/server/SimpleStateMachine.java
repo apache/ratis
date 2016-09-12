@@ -37,6 +37,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
  * entries in a list. Mainly used for test.
@@ -95,7 +97,8 @@ public class SimpleStateMachine implements StateMachine {
   @Override
   public long takeSnapshot(File snapshotFile, RaftStorage storage) {
     final long endIndex = RaftStorageDirectory.getIndexFromSnapshotFile(snapshotFile);
-    try (LogOutputStream out = new LogOutputStream(snapshotFile, false)) {
+    try (LogOutputStream out = new LogOutputStream(snapshotFile, false,
+        RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT)) {
       for (final LogEntryProto entry : list) {
         if (entry.getIndex() > endIndex) {
           break;

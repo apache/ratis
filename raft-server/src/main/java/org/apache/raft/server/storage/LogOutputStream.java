@@ -34,8 +34,9 @@ public class LogOutputStream implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(LogOutputStream.class);
 
   private static final ByteBuffer fill;
+  private static final int BUFFER_SIZE = 1024 * 1024; // 1 MB
   static {
-    fill = ByteBuffer.allocateDirect(RaftServerConstants.LOG_SEGMENT_MAX_SIZE);
+    fill = ByteBuffer.allocateDirect(BUFFER_SIZE);
     fill.position(0);
     for (int i = 0; i < fill.capacity(); i++) {
       fill.put(RaftServerConstants.LOG_TERMINATE_BYTE);
@@ -46,10 +47,13 @@ public class LogOutputStream implements Closeable {
   private FileOutputStream out; // file stream for storing edit logs
   private FileChannel fc; // channel of the file stream for sync
   private final Checksum checksum;
+  private final int segmentMaxSize;
 
-  public LogOutputStream(File file, boolean append) throws IOException {
+  public LogOutputStream(File file, boolean append, int segmentMaxSize)
+      throws IOException {
     this.file = file;
     this.checksum = DataChecksum.newCrc32();
+    this.segmentMaxSize = segmentMaxSize;
     RandomAccessFile rp = new RandomAccessFile(file, "rw");
     out = new FileOutputStream(rp.getFD());
     fc = rp.getChannel();
@@ -116,21 +120,23 @@ public class LogOutputStream implements Closeable {
    * Collect sync metrics.
    */
   public void flush() throws IOException {
-    flushAndSync(true);
-  }
-
-  private void flushAndSync(boolean durable) throws IOException {
     if (out == null) {
       throw new IOException("Trying to use aborted output stream");
     }
-    if (durable) {
-      fc.force(false); // metadata updates not needed
-    }
+    fc.force(false); // metadata updates not needed
   }
 
   private void preallocate() throws IOException {
     fill.position(0);
-    IOUtils.writeFully(fc, fill, fc.size());
+    // preallocate a segment with max size
+    int allocated = 0;
+    while (allocated < segmentMaxSize) {
+      int size = Math.min(BUFFER_SIZE, segmentMaxSize - allocated);
+      ByteBuffer buffer = fill.slice();
+      buffer.limit(size);
+      IOUtils.writeFully(fc, buffer, fc.size());
+      allocated += size;
+    }
     LOG.debug("Pre-allocated {} bytes for the log segment", fill.capacity());
   }
 

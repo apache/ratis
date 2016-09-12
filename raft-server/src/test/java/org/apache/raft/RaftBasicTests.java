@@ -22,7 +22,6 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.RaftServerConstants;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -95,7 +94,7 @@ public abstract class RaftBasicTests {
       client.send(message);
     }
 
-    Thread.sleep(RaftServerConstants.ELECTION_TIMEOUT_MAX_MS + 100);
+    Thread.sleep(cluster.getMaxTimeout() + 100);
     LOG.info(cluster.printAllLogs());
 
     cluster.getServers().stream().filter(RaftServer::isRunning)

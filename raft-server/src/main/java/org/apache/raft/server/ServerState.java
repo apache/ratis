@@ -140,7 +140,7 @@ public class ServerState implements Closeable {
       return new MemoryRaftLog(id);
     } else {
       RaftLog log = new SegmentedRaftLog(id, server, this.storage,
-          lastIndexInSnapshot);
+          lastIndexInSnapshot, prop);
       log.open(configurationManager, lastIndexInSnapshot);
       return log;
     }

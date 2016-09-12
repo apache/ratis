@@ -74,6 +74,33 @@ public interface RaftServerConfigKeys {
   String RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY = "raft.server.snapshot.trigger.threshold";
   long RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_DEFAULT = 400000;
 
+  String RAFT_LOG_SEGMENT_MAX_SIZE_KEY = "raft.log.segment.max.size";
+  int RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT = 1024 * 1024 * 8;
+
+  String RAFT_SNAPSHOT_CHUNK_MAX_SIZE_KEY = "raft.snapshot.chunk.max.size";
+  int RAFT_SNAPSHOT_CHUNK_MAX_SIZE_DEFAULT = 1024 * 1024 * 16;
+
+  String RAFT_LOG_FORCE_SYNC_NUM_KEY = "raft.log.force.sync.num";
+  int RAFT_LOG_FORCE_SYNC_NUM_DEFAULT = 128;
+
+  /** server rpc timeout related */
+  String RAFT_SERVER_RPC_TIMEOUT_MIN_MS_KEY = "raft.server.rpc.timeout.min.ms";
+  int RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT = 150;
+
+  String RAFT_SERVER_RPC_TIMEOUT_MAX_MS_KEY = "raft.server.rpc.timeout.max.ms";
+  int RAFT_SERVER_RPC_TIMEOUT_MAX_MS_DEFAULT = 300;
+
+  String RAFT_SERVER_RPC_SLEEP_TIME_MS_KEY = "raft.server.rpc.sleep.time.ms";
+  int RAFT_SERVER_RPC_SLEEP_TIME_MS_DEFAULT = 25;
+
+  /**
+   * When bootstrapping a new peer, If the gap between the match index of the
+   * peer and the leader's latest committed index is less than this gap, we
+   * treat the peer as caught-up.
+   */
+  String RAFT_SERVER_STAGING_CATCHUP_GAP_KEY = "raft.server.staging.catchup.gap";
+  int RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT = 10; // a small number for test
+
   /** An utility class to get conf values. */
   class Get {
     static Logger LOG = LoggerFactory.getLogger(RaftServerConfigKeys.class);

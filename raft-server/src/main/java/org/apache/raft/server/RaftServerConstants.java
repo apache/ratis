@@ -17,39 +17,9 @@
  */
 package org.apache.raft.server;
 
-import org.apache.raft.RaftConstants;
-
-import java.util.concurrent.ThreadLocalRandom;
-
 public interface RaftServerConstants {
   long INVALID_LOG_INDEX = -1;
   byte LOG_TERMINATE_BYTE = 0;
-
-  int LOG_SEGMENT_MAX_SIZE = 1024 * 1024 * 8;
-  int SNAPSHOT_CHUNK_MAX_SIZE = 1024 * 1024 * 16;
-
-  int RPC_TIMEOUT_MIN_MS = 150;
-  int RPC_TIMEOUT_MAX_MS = RaftConstants.RPC_TIMEOUT_MS;
-  int RPC_SLEEP_TIME_MS = 25;
-
-  int ELECTION_TIMEOUT_MIN_MS = RPC_TIMEOUT_MIN_MS;
-  int ELECTION_TIMEOUT_MAX_MS = RPC_TIMEOUT_MAX_MS;
-  int ELECTION_TIMEOUT_MS_WIDTH = ELECTION_TIMEOUT_MAX_MS - ELECTION_TIMEOUT_MIN_MS;
-
-  int LOG_FORCE_SYNC_NUM = 128;
-
-  /**
-   * When bootstrapping a new peer, If the gap between the match index of the
-   * peer and the leader's latest committed index is less than this gap, we
-   * treat the peer as caught-up.
-   */
-  int STAGING_CATCHUP_GAP = 10; // TODO: a small number for test
-  long STAGING_NOPROGRESS_TIMEOUT = 2 * RPC_TIMEOUT_MAX_MS;
-
-  static int getRandomElectionWaitTime() {
-    return ThreadLocalRandom.current().nextInt(
-        ELECTION_TIMEOUT_MS_WIDTH) + ELECTION_TIMEOUT_MIN_MS;
-  }
 
   enum StartupOption {
     FORMAT("format"),

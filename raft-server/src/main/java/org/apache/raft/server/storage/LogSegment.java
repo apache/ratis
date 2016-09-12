@@ -22,7 +22,6 @@ import com.google.protobuf.CodedOutputStream;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.LogEntryProto.Type;
 import org.apache.raft.server.ConfigurationManager;
-import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.util.RaftUtils;
 
@@ -138,10 +137,6 @@ class LogSegment implements Comparable<Long> {
 
   int numOfEntries() {
     return (int) (endIndex - startIndex + 1);
-  }
-
-  boolean isFull() {
-    return totalSize >= RaftServerConstants.LOG_SEGMENT_MAX_SIZE;
   }
 
   void appendToOpenSegment(LogEntryProto... entries) {

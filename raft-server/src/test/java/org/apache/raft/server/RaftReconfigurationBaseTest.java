@@ -64,6 +64,11 @@ public abstract class RaftReconfigurationBaseTest {
 
   public abstract MiniRaftCluster getCluster(int peerNum) throws IOException;
 
+  private int getStagingGap() {
+    return prop.getInt(RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_KEY,
+        RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT);
+  }
+
   /**
    * add 2 new peers (3 peers -> 5 peers), no leader change
    */
@@ -168,7 +173,7 @@ public abstract class RaftReconfigurationBaseTest {
       final RaftClient client = cluster.createClient("client", leaderId);
 
       // submit some msgs before reconf
-      for (int i = 0; i < RaftServerConstants.STAGING_CATCHUP_GAP * 2; i++) {
+      for (int i = 0; i < getStagingGap() * 2; i++) {
         RaftClientReply reply = client.send(new SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
@@ -285,7 +290,7 @@ public abstract class RaftReconfigurationBaseTest {
       final RaftClient client = cluster.createClient("client", leaderId);
 
       // submit some msgs before reconf
-      for (int i = 0; i < RaftServerConstants.STAGING_CATCHUP_GAP * 2; i++) {
+      for (int i = 0; i < getStagingGap() * 2; i++) {
         RaftClientReply reply = client.send(new SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }

@@ -19,6 +19,7 @@ package org.apache.raft.server;
 
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 
 /**
@@ -28,6 +29,7 @@ class FollowerState extends Daemon {
   static final Logger LOG = RaftServer.LOG;
 
   private final RaftServer server;
+
   private volatile long lastRpcTime = Time.monotonicNow();
   private volatile boolean monitorRunning = true;
   private volatile boolean inLogSync = false;
@@ -47,7 +49,7 @@ class FollowerState extends Daemon {
   }
 
   boolean shouldWithholdVotes(long now) {
-    return lastRpcTime + RaftServerConstants.ELECTION_TIMEOUT_MIN_MS > now;
+    return lastRpcTime + server.minTimeout > now;
   }
 
   void stopRunning() {
@@ -57,7 +59,8 @@ class FollowerState extends Daemon {
   @Override
   public  void run() {
     while (monitorRunning && server.isFollower()) {
-      final long electionTimeout = RaftServerConstants.getRandomElectionWaitTime();
+      final long electionTimeout = RaftUtils.getRandomBetween(
+          server.minTimeout, server.maxTimeout);
       try {
         Thread.sleep(electionTimeout);
         if (!monitorRunning || !server.isFollower()) {

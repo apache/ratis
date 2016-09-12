@@ -24,6 +24,7 @@ import org.apache.hadoop.util.Time;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -190,7 +191,8 @@ class LeaderElection extends Daemon {
   private ResultAndTerm waitForResults(final long electionTerm,
       final int submitted) throws InterruptedException {
     final long startTime = Time.monotonicNow();
-    final long timeout = startTime + RaftServerConstants.getRandomElectionWaitTime();
+    final long timeout = startTime +
+        RaftUtils.getRandomBetween(server.minTimeout, server.maxTimeout);
     final List<RaftServerReply> responses = new ArrayList<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;

@@ -20,6 +20,7 @@ package org.apache.raft.server.storage;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
+import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConstants;
@@ -36,6 +37,10 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_FORCE_SYNC_NUM_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_FORCE_SYNC_NUM_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
 import static org.apache.raft.util.RaftUtils.deleteFile;
 
 /**
@@ -65,9 +70,17 @@ class RaftLogWorker implements Runnable {
   /** the largest index of the entry that has been flushed */
   private volatile long flushedIndex;
 
-  RaftLogWorker(RaftServer raftServer, RaftStorage storage) {
+  private final int forceSyncNum;
+  private final int segmentMaxSize;
+
+  RaftLogWorker(RaftServer raftServer, RaftStorage storage,
+      RaftProperties properties) {
     this.raftServer = raftServer;
     this.storage = storage;
+    this.forceSyncNum = properties.getInt(RAFT_LOG_FORCE_SYNC_NUM_KEY,
+        RAFT_LOG_FORCE_SYNC_NUM_DEFAULT);
+    this.segmentMaxSize = properties.getInt(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
+        RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
     workerThread = new Thread(this, this.getClass().getSimpleName());
   }
 
@@ -159,7 +172,7 @@ class RaftLogWorker implements Runnable {
   }
 
   private boolean shouldFlush() {
-    return pendingFlushNum >= RaftServerConstants.LOG_FORCE_SYNC_NUM ||
+    return pendingFlushNum >= forceSyncNum ||
         (pendingFlushNum > 0 && queue.isEmpty());
   }
 
@@ -277,7 +290,7 @@ class RaftLogWorker implements Runnable {
       File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
       Preconditions.checkState(!openFile.exists());
       Preconditions.checkState(out == null && pendingFlushNum == 0);
-      out = new LogOutputStream(openFile, false);
+      out = new LogOutputStream(openFile, false, segmentMaxSize);
     }
 
     @Override

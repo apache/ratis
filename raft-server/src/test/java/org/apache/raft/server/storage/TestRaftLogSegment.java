@@ -38,6 +38,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+
 /**
  * Test basic functionality of {@link LogSegment}
  */
@@ -66,7 +68,10 @@ public class TestRaftLogSegment {
         storage.getStorageDir().getClosedLogFile(start, start + size - 1);
 
     LogEntryProto[] entries = new LogEntryProto[size];
-    try (LogOutputStream out = new LogOutputStream(file, false)) {
+    int maxSize = properties.getInt(
+        RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
+        RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
+    try (LogOutputStream out = new LogOutputStream(file, false, maxSize)) {
       for (int i = 0; i < size; i++) {
         SimpleMessage m = new SimpleMessage("m" + i);
         entries[i] = ProtoUtils.toLogEntryProto(m, term, i + start);
@@ -127,7 +132,7 @@ public class TestRaftLogSegment {
     long term = 0;
     int i = 0;
     List<LogEntryProto> list = new ArrayList<>();
-    while (size < RaftServerConstants.LOG_SEGMENT_MAX_SIZE) {
+    while (size < RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT) {
       SimpleMessage m = new SimpleMessage("m" + i);
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m, term,
           i++ + start);
@@ -136,7 +141,7 @@ public class TestRaftLogSegment {
     }
 
     segment.appendToOpenSegment(list.toArray(new LogEntryProto[list.size()]));
-    Assert.assertTrue(segment.isFull());
+    Assert.assertTrue(segment.getTotalSize() >= RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
     checkLogSegment(segment, start, i - 1 + start, true, size, term);
   }
 

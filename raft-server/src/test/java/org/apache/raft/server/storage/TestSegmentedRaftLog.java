@@ -64,6 +64,7 @@ public class TestSegmentedRaftLog {
 
   private File storageDir;
   private final RaftProperties properties = new RaftProperties();
+  private final int segmentMaxSize = RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
   private RaftStorage storage;
   private final ConfigurationManager cm = new ConfigurationManager(
       MiniRaftCluster.initConfiguration(MiniRaftCluster.generateIds(3, 0)));
@@ -92,7 +93,7 @@ public class TestSegmentedRaftLog {
 
       final int size = (int) (range.end - range.start + 1);
       LogEntryProto[] entries = new LogEntryProto[size];
-      try (LogOutputStream out = new LogOutputStream(file, false)) {
+      try (LogOutputStream out = new LogOutputStream(file, false, segmentMaxSize)) {
         for (int i = 0; i < size; i++) {
           SimpleMessage m = new SimpleMessage("m" + (i + range.start));
           entries[i] = ProtoUtils.toLogEntryProto(m, range.term,
@@ -123,7 +124,8 @@ public class TestSegmentedRaftLog {
     LogEntryProto[] entries = prepareLog(ranges);
 
     // create RaftLog object and load log file
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1)) {
+    try (SegmentedRaftLog raftLog =
+             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(cm, RaftServerConstants.INVALID_LOG_INDEX);
       // check if log entries are loaded correctly
       for (LogEntryProto e : entries) {
@@ -155,14 +157,16 @@ public class TestSegmentedRaftLog {
     List<SegmentRange> ranges = prepareRanges(5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges);
 
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1)) {
+    try (SegmentedRaftLog raftLog =
+             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(cm, RaftServerConstants.INVALID_LOG_INDEX);
       // append entries to the raftlog
       entries.forEach(raftLog::appendEntry);
       raftLog.logSync();
     }
 
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1)) {
+    try (SegmentedRaftLog raftLog =
+             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(cm, RaftServerConstants.INVALID_LOG_INDEX);
       // check if the raft log is correct
       checkEntries(raftLog, entries, 0, entries.size());
@@ -175,7 +179,8 @@ public class TestSegmentedRaftLog {
     List<SegmentRange> ranges = prepareRanges(5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges);
 
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1)) {
+    try (SegmentedRaftLog raftLog =
+             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(cm, RaftServerConstants.INVALID_LOG_INDEX);
       // append entries to the raftlog
       entries.forEach(raftLog::appendEntry);
@@ -189,7 +194,8 @@ public class TestSegmentedRaftLog {
 
   private void testTruncate(List<LogEntryProto> entries, long fromIndex)
       throws Exception {
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1)) {
+    try (SegmentedRaftLog raftLog =
+             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(cm, RaftServerConstants.INVALID_LOG_INDEX);
       // truncate the log
       raftLog.truncate(fromIndex);
@@ -198,7 +204,8 @@ public class TestSegmentedRaftLog {
       checkEntries(raftLog, entries, 0, (int) fromIndex);
     }
 
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1)) {
+    try (SegmentedRaftLog raftLog =
+             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(cm, RaftServerConstants.INVALID_LOG_INDEX);
       // check if the raft log is correct
       if (fromIndex > 0) {
@@ -236,7 +243,8 @@ public class TestSegmentedRaftLog {
     List<SegmentRange> ranges = prepareRanges(5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges);
 
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1)) {
+    try (SegmentedRaftLog raftLog =
+             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(cm, RaftServerConstants.INVALID_LOG_INDEX);
       // append entries to the raftlog
       entries.forEach(raftLog::appendEntry);
@@ -250,7 +258,8 @@ public class TestSegmentedRaftLog {
     SegmentRange r3 = new SegmentRange(650, 749, 10, false);
     List<LogEntryProto> newEntries = prepareLogEntries(Arrays.asList(r1, r2, r3));
 
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1)) {
+    try (SegmentedRaftLog raftLog =
+             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(cm, RaftServerConstants.INVALID_LOG_INDEX);
       raftLog.append(newEntries.toArray(new LogEntryProto[newEntries.size()]));
       raftLog.logSync();
@@ -264,7 +273,8 @@ public class TestSegmentedRaftLog {
     }
 
     // load the raftlog again and check
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1)) {
+    try (SegmentedRaftLog raftLog =
+             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(cm, RaftServerConstants.INVALID_LOG_INDEX);
       checkEntries(raftLog, entries, 0, 650);
       checkEntries(raftLog, newEntries, 100, 100);

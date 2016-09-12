@@ -17,6 +17,7 @@
  */
 package org.apache.raft.util;
 
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.util.ExitUtil;
 import org.slf4j.Logger;
@@ -33,6 +34,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class RaftUtils {
   public static final Logger LOG = LoggerFactory.getLogger(RaftUtils.class);
@@ -153,5 +155,10 @@ public abstract class RaftUtils {
       throw new RuntimeException(e);
     }
     return result;
+  }
+
+  public static int getRandomBetween(int min, int max) {
+    Preconditions.checkArgument(max > min);
+    return ThreadLocalRandom.current().nextInt(max -min) + min;
   }
 }

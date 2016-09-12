@@ -20,6 +20,7 @@ package org.apache.raft.server.storage;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
+import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.RaftServer;
@@ -30,6 +31,9 @@ import org.apache.raft.util.CodeInjectionForTesting;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
 
 /**
  * The RaftLog implementation that writes log entries into segmented files in
@@ -92,13 +96,16 @@ public class SegmentedRaftLog extends RaftLog {
   private final RaftStorage storage;
   private final RaftLogCache cache;
   private final RaftLogWorker fileLogWorker;
+  private final int segmentMaxSize;
 
   public SegmentedRaftLog(String selfId, RaftServer server, RaftStorage storage,
-      long lastIndexInSnapshot) throws IOException {
+      long lastIndexInSnapshot, RaftProperties properties) throws IOException {
     super(selfId);
     this.storage = storage;
+    this.segmentMaxSize = properties.getInt(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
+        RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
     cache = new RaftLogCache();
-    fileLogWorker = new RaftLogWorker(server, storage);
+    fileLogWorker = new RaftLogWorker(server, storage, properties);
     lastCommitted.set(lastIndexInSnapshot);
   }
 
@@ -208,7 +215,7 @@ public class SegmentedRaftLog extends RaftLog {
       if (currentOpenSegment == null) {
         cache.addSegment(LogSegment.newOpenSegment(entry.getIndex()));
         fileLogWorker.startLogSegment(getNextIndex());
-      } else if (currentOpenSegment.isFull()) {
+      } else if (isSegmentFull(currentOpenSegment)) {
         cache.rollOpenSegment(true);
         fileLogWorker.rollLogSegment(currentOpenSegment);
       } else if (currentOpenSegment.numOfEntries() > 0 &&
@@ -228,6 +235,10 @@ public class SegmentedRaftLog extends RaftLog {
     } finally {
       writeUnlock();
     }
+  }
+
+  private boolean isSegmentFull(LogSegment segment) {
+    return segment.getTotalSize() >= segmentMaxSize;
   }
 
   @Override

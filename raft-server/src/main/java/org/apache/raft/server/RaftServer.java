@@ -63,7 +63,11 @@ public class RaftServer implements RaftServerProtocol {
     STOPPED
   }
 
+  public final int minTimeout;
+  public final int maxTimeout;
+
   private final ServerState state;
+  private final RaftProperties properties;
   private volatile Role role;
   private final AtomicReference<RunningState> runningState
       = new AtomicReference<>(RunningState.INITIALIZING);
@@ -81,6 +85,15 @@ public class RaftServer implements RaftServerProtocol {
 
   public RaftServer(String id, RaftConfiguration raftConf,
       RaftProperties properties) throws IOException {
+    minTimeout = properties.getInt(
+        RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_KEY,
+        RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT);
+    maxTimeout = properties.getInt(
+        RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MAX_MS_KEY,
+        RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MAX_MS_DEFAULT);
+    Preconditions.checkArgument(maxTimeout > minTimeout,
+        "max timeout: %s, min timeout: %s", maxTimeout, minTimeout);
+    this.properties = properties;
     this.state = new ServerState(id, raftConf, properties, this);
   }
 
@@ -264,7 +277,7 @@ public class RaftServer implements RaftServerProtocol {
     role = Role.LEADER;
     state.becomeLeader();
     // start sending AppendEntries RPC to followers
-    leaderState = new LeaderState(this);
+    leaderState = new LeaderState(this, properties);
     leaderState.start();
   }
 
