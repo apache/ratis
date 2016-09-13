@@ -25,6 +25,7 @@ import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.protocol.Message;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.SimpleStateMachine;
@@ -53,7 +54,7 @@ public class TestRaftStateMachineException {
 
   private static class StateMachineWithException extends SimpleStateMachine {
     @Override
-    public void applyLogEntry(RaftProtos.LogEntryProto entry) {
+    public Message applyLogEntry(RaftProtos.LogEntryProto entry) {
       throw new RuntimeException("Fake Exception");
     }
   }

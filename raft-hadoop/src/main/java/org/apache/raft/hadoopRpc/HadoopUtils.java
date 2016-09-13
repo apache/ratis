@@ -290,6 +290,7 @@ public class HadoopUtils {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
       b.setRpcReply(toRaftRpcReplyProtoBuilder(request, reply));
+      b.setMessage(ProtoUtils.toClientMessageEntryProto(reply.getMessage()));
       if (reply.isNotLeader()) {
         b.setIsNotLeader(true);
         final RaftPeer suggestedLeader = reply.getNotLeaderException()
@@ -317,7 +318,7 @@ public class HadoopUtils {
       e = new NotLeaderException(rm.getReplyId(), suggestedLeader, peers);
     }
     return new RaftClientReply(rm.getRequestorId(), rm.getReplyId(),
-        rp.getSuccess(), e);
+        rp.getSuccess(), ProtoUtils.toMessage(replyProto.getMessage()), e);
   }
 
   public static SetConfigurationRequest toSetConfigurationRequest(

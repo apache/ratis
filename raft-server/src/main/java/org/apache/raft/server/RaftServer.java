@@ -309,7 +309,7 @@ public class RaftServer implements RaftServerProtocol {
     if (!isLeader()) {
       NotLeaderException exception = generateNotLeaderException();
       CompletableFuture<RaftClientReply> future = new CompletableFuture<>();
-      future.complete(new RaftClientReply(request, false, exception));
+      future.complete(new RaftClientReply(request, exception));
       return future;
     }
     return null;
@@ -681,9 +681,9 @@ public class RaftServer implements RaftServerProtocol {
     serverRpc.addPeerProxies(peers);
   }
 
-  synchronized void replyPendingRequest(long logIndex, Exception e) {
+  synchronized void replyPendingRequest(long logIndex, Message message, Exception e) {
     if (isLeader() && leaderState != null) { // is leader and is running
-      leaderState.replyPendingRequest(logIndex, e);
+      leaderState.replyPendingRequest(logIndex, message, e);
     }
   }
 }

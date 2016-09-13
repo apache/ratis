@@ -18,10 +18,7 @@
 package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.protocol.RaftException;
-import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.protocol.*;
 import org.slf4j.Logger;
 
 import java.util.HashMap;
@@ -57,7 +54,7 @@ class PendingRequests {
     if (pendingSetConf != null) {
       // for setConfiguration we do not need to wait for statemachine. send back
       // reply after it's committed.
-      setSuccessReply(pendingSetConf);
+      pendingSetConf.setSuccessReply(null);
       pendingSetConf = null;
     }
   }
@@ -68,11 +65,11 @@ class PendingRequests {
     pendingSetConf = null;
   }
 
-  void replyPendingRequest(long index, Exception e) {
+  void replyPendingRequest(long index, Message message, Exception e) {
     PendingRequest pending = pendingRequests.remove(index);
     if (pending != null) {
       if (e == null) {
-        setSuccessReply(pending);
+        pending.setSuccessReply(message);
       } else {
         pending.setException(e);
       }
@@ -85,7 +82,8 @@ class PendingRequests {
 
     pendingRequests.entrySet().forEach(entry -> {
       if (entry.getKey() <= lastCommitted) {
-        setSuccessReply(entry.getValue());
+        // TODO: set return message from state machine
+        entry.getValue().setSuccessReply(null);
       } else {
         setNotLeaderException(entry.getValue());
       }
@@ -95,12 +93,8 @@ class PendingRequests {
     }
   }
 
-  private void setSuccessReply(PendingRequest pending) {
-    pending.setReply(new RaftClientReply(pending.getRequest(), true, null));
-  }
-
   private void setNotLeaderException(PendingRequest pending) {
-    RaftClientReply reply = new RaftClientReply(pending.getRequest(), false,
+    RaftClientReply reply = new RaftClientReply(pending.getRequest(),
         server.generateNotLeaderException());
     pending.setReply(reply);
   }

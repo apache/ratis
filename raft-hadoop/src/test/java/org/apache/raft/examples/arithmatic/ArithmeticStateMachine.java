@@ -18,6 +18,9 @@
 package org.apache.raft.examples.arithmatic;
 
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.examples.arithmatic.expression.DoubleValue;
+import org.apache.raft.examples.arithmatic.expression.Expression;
+import org.apache.raft.examples.arithmatic.expression.NullValue;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.server.RaftConfiguration;
@@ -109,11 +112,15 @@ public class ArithmeticStateMachine implements StateMachine {
   }
 
   @Override
-  public synchronized void applyLogEntry(LogEntryProto entry) {
+  public synchronized Message applyLogEntry(LogEntryProto entry) {
     final Message message = ProtoUtils.toMessage(entry.getClientMessageEntry());
     final AssignmentMessage assignment = new AssignmentMessage(message);
-    assignment.evaluate(variables);
+    final Double result = assignment.evaluate(variables);
+    final Expression r = result == null?
+        NullValue.getInstance(): new DoubleValue(result);
     lastAppliedIndex = entry.getIndex();
-    LOG.debug("{}: {}, variables={}", lastAppliedIndex, assignment, variables);
+    LOG.debug("{}: {} = {}, variables={}",
+        lastAppliedIndex, assignment, result, variables);
+    return new AssignmentMessage(assignment.getVariable(), r);
   }
 }

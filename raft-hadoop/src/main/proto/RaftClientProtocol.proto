@@ -31,10 +31,11 @@ message RaftClientRequestProto {
 
 message RaftClientReplyProto {
   optional RaftRpcReplyProto rpcReply = 1;
+  optional ClientMessageEntryProto message = 2;
   // the following 3 fields are used to indicate the server is not leader
-  optional bool isNotLeader = 2;
-  optional RaftPeerProto suggestedLeader = 3;
-  repeated RaftPeerProto peersInConf = 4;
+  optional bool isNotLeader = 3;
+  optional RaftPeerProto suggestedLeader = 4;
+  repeated RaftPeerProto peersInConf = 5;
 }
 
 // setConfiguration request

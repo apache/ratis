@@ -22,6 +22,9 @@ import com.google.common.base.Preconditions;
 import java.util.Map;
 
 public class DoubleValue implements Expression {
+  public static final DoubleValue ZERO = new DoubleValue(0);
+  public static final DoubleValue ONE = new DoubleValue(1);
+
   private final double value;
 
   public DoubleValue(double value) {

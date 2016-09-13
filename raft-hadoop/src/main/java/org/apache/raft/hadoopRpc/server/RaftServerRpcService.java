@@ -53,7 +53,7 @@ public class RaftServerRpcService implements RaftClientProtocol, RaftServerProto
     } catch (ExecutionException e) {
       final Throwable cause = e.getCause();
       if (cause instanceof NotLeaderException) {
-        return new RaftClientReply(request, false, (NotLeaderException) cause);
+        return new RaftClientReply(request, (NotLeaderException)cause);
       } else if (cause instanceof IOException) {
         throw (IOException) cause;
       } else {

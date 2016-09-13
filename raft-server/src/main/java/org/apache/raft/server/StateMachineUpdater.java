@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.StateMachineException;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
@@ -149,12 +150,13 @@ class StateMachineUpdater implements Runnable {
                   next.getIndex(), next.getConfigurationEntry()));
             } else {
               StateMachineException re = null;
+              Message message = null;
               try {
-                stateMachine.applyLogEntry(next);
+                message = stateMachine.applyLogEntry(next);
               } catch (Exception e) {
                 re = new StateMachineException(server.getId(), e);
               }
-              server.replyPendingRequest(next.getIndex(), re);
+              server.replyPendingRequest(next.getIndex(), message, re);
             }
             lastAppliedIndex++;
           } else {

@@ -19,6 +19,7 @@ package org.apache.raft.server;
 
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.protocol.Message;
 import org.apache.raft.server.storage.RaftStorage;
 
 import java.io.Closeable;
@@ -38,7 +39,7 @@ public interface StateMachine extends Closeable {
    * @throws Exception exception when apply the log entry. This may happen if
    *                   the op in the log entry is invalid to the state machine.
    */
-  void applyLogEntry(RaftProtos.LogEntryProto entry) throws Exception;
+  Message applyLogEntry(RaftProtos.LogEntryProto entry) throws Exception;
 
   /**
    * Dump the in-memory state into a snapshot file in the RaftStorage. The
@@ -93,8 +94,9 @@ public interface StateMachine extends Closeable {
     }
 
     @Override
-    public void applyLogEntry(RaftProtos.LogEntryProto entry) {
+    public Message applyLogEntry(RaftProtos.LogEntryProto entry) {
       // do nothing
+      return null;
     }
 
     @Override

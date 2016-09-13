@@ -27,11 +27,7 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.raft.proto.RaftProtos.SnapshotChunkProto;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.protocol.ReconfigurationTimeoutException;
-import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.raft.server.storage.RaftLog;
@@ -514,12 +510,12 @@ class LeaderState {
 
   PendingRequest returnNoConfChange(SetConfigurationRequest r) {
     PendingRequest pending = new PendingRequest(r);
-    pending.setReply(new RaftClientReply(r, true, null));
+    pending.setSuccessReply(null);
     return pending;
   }
 
-  void replyPendingRequest(long logIndex, Exception e) {
-    pendingRequests.replyPendingRequest(logIndex, e);
+  void replyPendingRequest(long logIndex, Message message, Exception e) {
+    pendingRequests.replyPendingRequest(logIndex, message, e);
   }
 
   private class FollowerInfo {

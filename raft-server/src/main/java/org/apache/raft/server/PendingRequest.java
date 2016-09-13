@@ -18,6 +18,7 @@
 package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
+import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
@@ -59,6 +60,10 @@ public class PendingRequest implements Comparable<PendingRequest> {
   synchronized void setReply(RaftClientReply r) {
     Preconditions.checkArgument(r != null);
     future.complete(r);
+  }
+
+  void setSuccessReply(Message message) {
+    setReply(new RaftClientReply(getRequest(), message));
   }
 
   @Override

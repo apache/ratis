@@ -27,8 +27,11 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.arithmatic.expression.*;
 import org.apache.raft.hadoopRpc.RaftHadoopRpcTestUtil;
+import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.StateMachine;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -83,12 +86,27 @@ public class TestArithmetic {
     for(int n = 3; n < 100; n += 2) {
       int n2 = n*n;
       int half_n2 = n2/2;
-      client.send(new AssignmentMessage(a, new DoubleValue(n)));
-      client.send(new AssignmentMessage(b, new DoubleValue(half_n2)));
-      client.send(pythagorean);
-      client.send(nullA);
-      client.send(nullB);
-      client.send(nullC);
+
+      RaftClientReply r;
+      r = client.send(new AssignmentMessage(a, new DoubleValue(n)));
+      assertRaftClientReply(r, (double)n);
+      r = client.send(new AssignmentMessage(b, new DoubleValue(half_n2)));
+      assertRaftClientReply(r, (double)half_n2);
+      r = client.send(pythagorean);
+      assertRaftClientReply(r, (double)half_n2 + 1);
+
+      r = client.send(nullA);
+      assertRaftClientReply(r, null);
+      r = client.send(nullB);
+      assertRaftClientReply(r, null);
+      r = client.send(nullC);
+      assertRaftClientReply(r, null);
     }
+  }
+
+  static void assertRaftClientReply(RaftClientReply reply, Double expected) {
+    Assert.assertTrue(reply.isSuccess());
+    final AssignmentMessage a = new AssignmentMessage(reply.getMessage());
+    Assert.assertEquals(expected, a.getExpression().evaluate(null));
   }
 }
