@@ -25,7 +25,9 @@ import org.apache.raft.server.RaftServerConfigKeys;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,6 +57,9 @@ public abstract class RaftBasicTests {
   public RaftProperties getProperties() {
     return properties;
   }
+
+  @Rule
+  public Timeout globalTimeout = new Timeout(60 * 1000);
 
   @Before
   public void setup() throws IOException {

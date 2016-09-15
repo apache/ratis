@@ -165,7 +165,7 @@ class LeaderState {
       sender.stopSender();
       sender.interrupt();
     }
-    pendingRequests.sendResponses(raftLog.getLastCommittedIndex());
+    pendingRequests.sendNotLeaderResponses();
   }
 
   void notifySenders() {

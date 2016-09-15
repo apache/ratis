@@ -339,7 +339,8 @@ public class ServerState implements Closeable {
     return snapshotManager.getLatestSnapshot();
   }
 
-  long getLastAppliedIndex() {
+  @VisibleForTesting
+  public long getLastAppliedIndex() {
     return stateMachineUpdater.getLastAppliedIndex();
   }
 

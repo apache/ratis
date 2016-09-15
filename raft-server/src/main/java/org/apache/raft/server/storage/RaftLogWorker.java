@@ -84,9 +84,13 @@ class RaftLogWorker implements Runnable {
     workerThread = new Thread(this, this.getClass().getSimpleName());
   }
 
-  void start(long latestIndex) {
+  void start(long latestIndex, File openSegmentFile) throws IOException {
     lastWrittenIndex = latestIndex;
     flushedIndex = latestIndex;
+    if (openSegmentFile != null) {
+      Preconditions.checkArgument(openSegmentFile.exists());
+      out = new LogOutputStream(openSegmentFile, true, segmentMaxSize);
+    }
     workerThread.start();
   }
 

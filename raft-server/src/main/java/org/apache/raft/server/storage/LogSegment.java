@@ -65,6 +65,11 @@ class LogSegment implements Comparable<Long> {
     }
   }
 
+  static long getEntrySize(LogEntryProto entry) {
+    final int serialized = entry.getSerializedSize();
+    return serialized + CodedOutputStream.computeRawVarint32Size(serialized) + 4;
+  }
+
   private boolean isOpen;
   private final List<LogRecord> records = new ArrayList<>();
   private long totalSize;
@@ -167,9 +172,7 @@ class LogSegment implements Comparable<Long> {
 
       final LogRecord record = new LogRecord(totalSize, entry);
       records.add(record);
-      final int serialized = entry.getSerializedSize();
-      totalSize += serialized
-          + CodedOutputStream.computeRawVarint32Size(serialized) + 4;
+      totalSize += getEntrySize(entry);
       endIndex = entry.getIndex();
     }
   }

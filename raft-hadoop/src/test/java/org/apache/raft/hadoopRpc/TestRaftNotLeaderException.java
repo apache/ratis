@@ -35,7 +35,9 @@ import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
@@ -66,6 +68,9 @@ public class TestRaftNotLeaderException {
 
   @Parameterized.Parameter
   public MiniRaftCluster cluster;
+
+  @Rule
+  public Timeout globalTimeout = new Timeout(60 * 1000);
 
   @After
   public void tearDown() {

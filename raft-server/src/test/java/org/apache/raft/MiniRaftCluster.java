@@ -109,6 +109,15 @@ public abstract class MiniRaftCluster {
     servers.values().forEach(RaftServer::start);
   }
 
+  /**
+   * start a stopped server again.
+   */
+  public void restartServer(String id, boolean format) throws IOException {
+    killServer(id);
+    servers.remove(id);
+    servers.put(id, newRaftServer(id, conf, format));
+  }
+
   public void restart(boolean format) throws IOException {
     servers.values().stream().filter(RaftServer::isRunning)
         .forEach(RaftServer::kill);

@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 
 public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithSimulatedRpc.class);
@@ -73,12 +74,25 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     start();
   }
 
+  private void addPeersToRpc(Collection<RaftPeer> peers) {
+    serverRequestReply.addPeers(peers);
+    client2serverRequestReply.addPeers(peers);
+  }
+
+  @Override
+  public void restartServer(String id, boolean format) throws IOException {
+    super.restartServer(id, format);
+    RaftServer s = getServer(id);
+    addPeersToRpc(Collections.singletonList(conf.getPeer(id)));
+    s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
+        client2serverRequestReply));
+    s.start();
+  }
+
   @Override
   public Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
       Collection<RaftServer> newServers) {
-    serverRequestReply.addPeers(newPeers);
-    client2serverRequestReply.addPeers(newPeers);
-
+    addPeersToRpc(newPeers);
     setRpcServers(newServers);
     return newPeers;
   }

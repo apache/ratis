@@ -290,7 +290,9 @@ public class HadoopUtils {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
       b.setRpcReply(toRaftRpcReplyProtoBuilder(request, reply));
-      b.setMessage(ProtoUtils.toClientMessageEntryProto(reply.getMessage()));
+      if (reply.getMessage() != null) {
+        b.setMessage(ProtoUtils.toClientMessageEntryProto(reply.getMessage()));
+      }
       if (reply.isNotLeader()) {
         b.setIsNotLeader(true);
         final RaftPeer suggestedLeader = reply.getNotLeaderException()

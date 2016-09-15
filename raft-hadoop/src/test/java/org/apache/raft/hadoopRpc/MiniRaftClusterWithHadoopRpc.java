@@ -83,23 +83,34 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
     return peerRpcs;
   }
 
+  private void setPeerRpc(RaftPeer peer) throws IOException {
+    Configuration hconf = new Configuration(hadoopConf);
+    hconf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, peer.getAddress());
+
+    RaftServer server = servers.get(peer.getId());
+    final HadoopRpcService rpc = new HadoopRpcService(server, hconf);
+    Preconditions.checkState(
+        rpc.getInetSocketAddress().toString().contains(peer.getAddress()),
+        "address in the raft conf: %s, address in rpc server: %s",
+        peer.getAddress(), rpc.getInetSocketAddress().toString());
+    server.setServerRpc(rpc);
+  }
+
   @Override
   public void restart(boolean format) throws IOException {
     super.restart(format);
 
     for (RaftPeer peer : conf.getPeers()) {
-      Configuration hconf = new Configuration(hadoopConf);
-      hconf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, peer.getAddress());
-
-      RaftServer server = servers.get(peer.getId());
-      final HadoopRpcService rpc = new HadoopRpcService(server, hconf);
-      Preconditions.checkState(
-          rpc.getInetSocketAddress().toString().contains(peer.getAddress()),
-          "address in the raft conf: %s, address in rpc server: %s",
-          peer.getAddress(), rpc.getInetSocketAddress().toString());
-      server.setServerRpc(rpc);
+      setPeerRpc(peer);
     }
     start();
+  }
+
+  @Override
+  public void restartServer(String id, boolean format) throws IOException {
+    super.restartServer(id, format);
+    setPeerRpc(conf.getPeer(id));
+    getServer(id).start();
   }
 
   @Override

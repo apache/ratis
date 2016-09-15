@@ -76,18 +76,16 @@ class PendingRequests {
     }
   }
 
-  void sendResponses(final long lastCommitted) {
+  /**
+   * The leader state is stopped. Send NotLeaderException to all the pending
+   * requests since they have not got applied to the state machine yet.
+   */
+  void sendNotLeaderResponses() {
     LOG.info("{} sends responses before shutting down PendingRequestsHandler",
         server.getId());
 
-    pendingRequests.entrySet().forEach(entry -> {
-      if (entry.getKey() <= lastCommitted) {
-        // TODO: set return message from state machine
-        entry.getValue().setSuccessReply(null);
-      } else {
-        setNotLeaderException(entry.getValue());
-      }
-    });
+    pendingRequests.entrySet().forEach(
+        entry -> setNotLeaderException(entry.getValue()));
     if (pendingSetConf != null) {
       setNotLeaderException(pendingSetConf);
     }

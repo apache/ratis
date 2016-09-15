@@ -28,6 +28,7 @@ import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.raft.util.CodeInjectionForTesting;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
@@ -113,7 +114,13 @@ public class SegmentedRaftLog extends RaftLog {
   public void open(ConfigurationManager confManager, long lastIndexInSnapshot)
       throws IOException {
     loadLogSegments(confManager, lastIndexInSnapshot);
-    fileLogWorker.start(Math.max(cache.getEndIndex(), lastIndexInSnapshot));
+    File openSegmentFile = null;
+    if (cache.getOpenSegment() != null) {
+      openSegmentFile = storage.getStorageDir()
+          .getOpenLogFile(cache.getOpenSegment().getStartIndex());
+    }
+    fileLogWorker.start(Math.max(cache.getEndIndex(), lastIndexInSnapshot),
+        openSegmentFile);
     super.open(confManager, lastIndexInSnapshot);
   }
 
@@ -215,7 +222,7 @@ public class SegmentedRaftLog extends RaftLog {
       if (currentOpenSegment == null) {
         cache.addSegment(LogSegment.newOpenSegment(entry.getIndex()));
         fileLogWorker.startLogSegment(getNextIndex());
-      } else if (isSegmentFull(currentOpenSegment)) {
+      } else if (isSegmentFull(currentOpenSegment, entry)) {
         cache.rollOpenSegment(true);
         fileLogWorker.rollLogSegment(currentOpenSegment);
       } else if (currentOpenSegment.numOfEntries() > 0 &&
@@ -237,8 +244,16 @@ public class SegmentedRaftLog extends RaftLog {
     }
   }
 
-  private boolean isSegmentFull(LogSegment segment) {
-    return segment.getTotalSize() >= segmentMaxSize;
+  private boolean isSegmentFull(LogSegment segment, LogEntryProto entry) {
+    if (segment.getTotalSize() >= segmentMaxSize) {
+      return true;
+    } else {
+      final long entrySize = LogSegment.getEntrySize(entry);
+      // if entry size is greater than the max segment size, write it directly
+      // into the current segment
+      return entrySize <= segmentMaxSize &&
+          segment.getTotalSize() + entrySize > segmentMaxSize;
+    }
   }
 
   @Override
