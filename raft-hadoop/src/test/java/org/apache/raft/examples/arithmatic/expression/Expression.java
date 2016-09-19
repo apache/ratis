@@ -2,6 +2,7 @@ package org.apache.raft.examples.arithmatic.expression;
 
 import com.google.common.base.Preconditions;
 import org.apache.raft.examples.arithmatic.Evaluable;
+import org.apache.raft.protocol.Message;
 
 public interface Expression extends Evaluable {
   enum Type {
@@ -25,6 +26,19 @@ public interface Expression extends Evaluable {
   int length();
 
   class Utils {
+    public static Message toMessage(final Expression e) {
+      return () -> {
+        final byte[] buf = new byte[e.length()];
+        final int length = e.toBytes(buf, 0);
+        Preconditions.checkState(length == buf.length);
+        return buf;
+      };
+    }
+
+    public static Expression double2Expression(Double d) {
+      return d == null? NullValue.getInstance(): new DoubleValue(d);
+    }
+
     public static Expression bytes2Expression(byte[] buf, int offset) {
       final Type type = Type.valueOf(buf[offset]);
       switch(type) {

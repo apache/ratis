@@ -22,6 +22,7 @@ import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.util.AutoCloseableLock;
 import org.apache.raft.util.CodeInjectionForTesting;
 
 import java.util.ArrayList;
@@ -40,81 +41,63 @@ public class MemoryRaftLog extends RaftLog {
   @Override
   public LogEntryProto get(long index) {
     checkLogState();
-    readLock();
-    try {
+    try(AutoCloseableLock readLock = readLock()) {
       final int i = (int) index;
       return i >= 0 && i < entries.size() ? entries.get(i) : null;
-    } finally {
-      readUnlock();
     }
   }
 
   @Override
   public LogEntryProto[] getEntries(long startIndex, long endIndex) {
     checkLogState();
-    readLock();
-    try {
+    try(AutoCloseableLock readLock = readLock()) {
       final int i = (int) startIndex;
       if (startIndex >= entries.size()) {
         return null;
       }
       final int toIndex = (int) Math.min(entries.size(), endIndex);
       return entries.subList(i, toIndex).toArray(EMPTY_LOGENTRY_ARRAY);
-    } finally {
-      readUnlock();
     }
   }
 
   @Override
   void truncate(long index) {
     checkLogState();
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       Preconditions.checkArgument(index >= 0);
       final int truncateIndex = (int) index;
       for (int i = entries.size() - 1; i >= truncateIndex; i--) {
         entries.remove(i);
       }
-    } finally {
-      writeUnlock();
     }
   }
 
   @Override
   public LogEntryProto getLastEntry() {
     checkLogState();
-    readLock();
-    try {
+    try(AutoCloseableLock readLock = readLock()) {
       final int size = entries.size();
       return size == 0 ? null : entries.get(size - 1);
-    } finally {
-      readUnlock();
     }
   }
 
   @Override
   void appendEntry(LogEntryProto entry) {
     checkLogState();
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       entries.add(entry);
-    } finally {
-      writeUnlock();
     }
   }
 
   @Override
   public long append(long term, RaftConfiguration newConf) {
     checkLogState();
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
       final LogEntryProto e = ServerProtoUtils.toLogEntryProto(newConf, term,
           nextIndex);
       entries.add(e);
       return nextIndex;
-    } finally {
-      writeUnlock();
     }
   }
 
@@ -127,8 +110,7 @@ public class MemoryRaftLog extends RaftLog {
   @Override
   public void append(LogEntryProto... entries) {
     checkLogState();
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       if (entries == null || entries.length == 0) {
         return;
       }
@@ -158,8 +140,6 @@ public class MemoryRaftLog extends RaftLog {
       for (int i = index; i < entries.length; i++) {
         this.entries.add(entries[i]);
       }
-    } finally {
-      writeUnlock();
     }
   }
 

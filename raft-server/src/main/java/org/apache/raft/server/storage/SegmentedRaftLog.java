@@ -26,6 +26,7 @@ import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
+import org.apache.raft.util.AutoCloseableLock;
 import org.apache.raft.util.CodeInjectionForTesting;
 
 import java.io.File;
@@ -131,8 +132,7 @@ public class SegmentedRaftLog extends RaftLog {
 
   private void loadLogSegments(ConfigurationManager confManager,
       long lastIndexInSnapshot) throws IOException {
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       List<LogPathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
       for (LogPathAndIndex pi : paths) {
         LogSegment logSegment = parseLogSegment(pi, confManager);
@@ -149,8 +149,6 @@ public class SegmentedRaftLog extends RaftLog {
         cache.clear();
         // TODO purge all segment files
       }
-    } finally {
-      writeUnlock();
     }
   }
 
@@ -164,33 +162,24 @@ public class SegmentedRaftLog extends RaftLog {
   @Override
   public LogEntryProto get(long index) {
     checkLogState();
-    readLock();
-    try {
+    try(AutoCloseableLock readLock = readLock()) {
       return cache.getEntry(index);
-    } finally {
-      readUnlock();
     }
   }
 
   @Override
   public LogEntryProto[] getEntries(long startIndex, long endIndex) {
     checkLogState();
-    readLock();
-    try {
+    try(AutoCloseableLock readLock = readLock()) {
       return cache.getEntries(startIndex, endIndex);
-    } finally {
-      readUnlock();
     }
   }
 
   @Override
   public LogEntryProto getLastEntry() {
     checkLogState();
-    readLock();
-    try {
+    try(AutoCloseableLock readLock = readLock()) {
       return cache.getLastEntry();
-    } finally {
-      readUnlock();
     }
   }
 
@@ -201,23 +190,19 @@ public class SegmentedRaftLog extends RaftLog {
   @Override
   void truncate(long index) {
     checkLogState();
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       RaftLogCache.TruncationSegments ts = cache.truncate(index);
       if (ts != null) {
         Task task = fileLogWorker.truncate(ts);
         myTask.set(task);
       }
-    } finally {
-      writeUnlock();
     }
   }
 
   @Override
   void appendEntry(LogEntryProto entry) {
     checkLogState();
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       final LogSegment currentOpenSegment = cache.getOpenSegment();
       if (currentOpenSegment == null) {
         cache.addSegment(LogSegment.newOpenSegment(entry.getIndex()));
@@ -239,8 +224,6 @@ public class SegmentedRaftLog extends RaftLog {
 
       cache.appendEntry(entry);
       myTask.set(fileLogWorker.writeLogEntry(entry));
-    } finally {
-      writeUnlock();
     }
   }
 
@@ -259,8 +242,7 @@ public class SegmentedRaftLog extends RaftLog {
   @Override
   public void append(LogEntryProto... entries) {
     checkLogState();
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       if (entries == null || entries.length == 0) {
         return;
       }
@@ -289,8 +271,6 @@ public class SegmentedRaftLog extends RaftLog {
       for (int i = index; i < entries.length; i++) {
         appendEntry(entries[i]);
       }
-    } finally {
-      writeUnlock();
     }
   }
 

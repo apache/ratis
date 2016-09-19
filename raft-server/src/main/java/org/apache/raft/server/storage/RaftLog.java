@@ -25,6 +25,7 @@ import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
+import org.apache.raft.util.AutoCloseableLock;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,8 +78,7 @@ public abstract class RaftLog implements Closeable {
    * @param currentTerm the current term.
    */
   public void updateLastCommitted(long majorityIndex, long currentTerm) {
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       if (lastCommitted.get() < majorityIndex) {
         // Only update last committed index for current term. See §5.4.2 in
         // paper for details.
@@ -88,8 +88,6 @@ public abstract class RaftLog implements Closeable {
           lastCommitted.set(majorityIndex);
         }
       }
-    } finally {
-      writeUnlock();
     }
   }
 
@@ -128,15 +126,12 @@ public abstract class RaftLog implements Closeable {
    */
   public long append(long term, Message message) {
     checkLogState();
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
       final LogEntryProto e = ProtoUtils.toLogEntryProto(message, term,
           nextIndex);
       appendEntry(e);
       return nextIndex;
-    } finally {
-      writeUnlock();
     }
   }
 
@@ -147,15 +142,12 @@ public abstract class RaftLog implements Closeable {
    */
   public long append(long term, RaftConfiguration newConf) {
     checkLogState();
-    writeLock();
-    try {
+    try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
       final LogEntryProto e = ServerProtoUtils.toLogEntryProto(newConf, term,
           nextIndex);
       appendEntry(e);
       return nextIndex;
-    } finally {
-      writeUnlock();
     }
   }
 
@@ -266,20 +258,12 @@ public abstract class RaftLog implements Closeable {
     }
   }
 
-  public void readLock() {
-    this.lock.readLock().lock();
+  public AutoCloseableLock readLock() {
+    return AutoCloseableLock.acquire(lock.readLock());
   }
 
-  public void readUnlock() {
-    this.lock.readLock().unlock();
-  }
-
-  public void writeLock() {
-    this.lock.writeLock().lock();
-  }
-
-  public void writeUnlock() {
-    this.lock.writeLock().unlock();
+  public AutoCloseableLock writeLock() {
+    return AutoCloseableLock.acquire(lock.writeLock());
   }
 
   public boolean hasWriteLock() {

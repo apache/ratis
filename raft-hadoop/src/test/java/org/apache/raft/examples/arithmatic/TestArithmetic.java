@@ -27,10 +27,10 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.arithmatic.expression.*;
 import org.apache.raft.hadoopRpc.RaftHadoopRpcTestUtil;
-import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.StateMachine;
+import org.apache.raft.server.simulation.SimulatedRequestReply;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,6 +40,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.concurrent.ThreadLocalRandom;
 
 @RunWith(Parameterized.class)
 public class TestArithmetic {
@@ -57,6 +58,10 @@ public class TestArithmetic {
     final RaftProperties prop = new RaftProperties();
     prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
         ArithmeticStateMachine.class, StateMachine.class);
+    if (ThreadLocalRandom.current().nextBoolean()) {
+      // turn off simulate latency half of the times.
+      prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
+    }
     return RaftHadoopRpcTestUtil.getMiniRaftClusters(3, conf, prop);
   }
 
