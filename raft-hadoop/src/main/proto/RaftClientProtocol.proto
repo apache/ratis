@@ -27,6 +27,7 @@ import "Raft.proto";
 message RaftClientRequestProto {
   optional RaftRpcRequestProto rpcRequest = 1;
   optional ClientMessageEntryProto message = 2;
+  optional bool readOnly = 3;
 }
 
 message RaftClientReplyProto {

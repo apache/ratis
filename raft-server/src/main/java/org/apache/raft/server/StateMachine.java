@@ -41,6 +41,8 @@ public interface StateMachine extends Closeable {
    */
   Message applyLogEntry(RaftProtos.LogEntryProto entry) throws Exception;
 
+  Message query(Message query) throws Exception;
+
   /**
    * Dump the in-memory state into a snapshot file in the RaftStorage. The
    * StateMachine implementation can decide 1) its own snapshot format, 2) when
@@ -97,6 +99,11 @@ public interface StateMachine extends Closeable {
     public Message applyLogEntry(RaftProtos.LogEntryProto entry) {
       // do nothing
       return null;
+    }
+
+    @Override
+    public Message query(Message query) throws Exception {
+      throw new UnsupportedOperationException();
     }
 
     @Override

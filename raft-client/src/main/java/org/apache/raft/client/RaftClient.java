@@ -86,8 +86,16 @@ public class RaftClient {
 
   /** Send the given message to the raft service. */
   public RaftClientReply send(Message message) throws IOException {
+    return send(message, false);
+  }
+
+  public RaftClientReply sendReadOnly(Message message) throws IOException {
+    return send(message, true);
+  }
+
+  private RaftClientReply send(Message message, boolean readOnly) throws IOException {
     return sendRequestWithRetry(
-        () -> new RaftClientRequest(clientId, leaderId, message));
+        () -> new RaftClientRequest(clientId, leaderId, message, readOnly));
   }
 
   /** Send set configuration request to the raft service. */

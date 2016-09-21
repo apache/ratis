@@ -212,6 +212,20 @@ class LeaderState {
     return pendingRequests.addPendingRequest(index, request);
   }
 
+  PendingRequest handleReqdOnlyRequest(RaftClientRequest request) {
+    if (!pendingRequests.isEmpty()) {
+      // Add the readonly request to the pending request queue.
+      return pendingRequests.addReadOnlyRequest(request);
+    }
+
+    // No outstanding pending requests.
+    // Process the readonly request immediately.
+    final long index = server.getState().getLastAppliedIndex();
+    final PendingRequest pending = new PendingRequest(index, request);
+    pendingRequests.processReadOnlyReqeusts(pending);
+    return pending;
+  }
+
   private void applyOldNewConf() {
     final ServerState state = server.getState();
     final RaftConfiguration current = server.getRaftConf();

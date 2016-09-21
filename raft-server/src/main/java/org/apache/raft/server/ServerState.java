@@ -325,7 +325,6 @@ public class ServerState implements Closeable {
     return storage;
   }
 
-  @VisibleForTesting
   public StateMachine getStateMachine() {
     return stateMachineUpdater.getStateMachine();
   }

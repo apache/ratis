@@ -353,12 +353,16 @@ public class RaftServer implements RaftServerProtocol {
         return reply;
       }
 
-      // append the message to its local log
-      final long entryIndex = state.applyLog(request.getMessage());
+      if (request.isReadOnly()) {
+        pending = leaderState.handleReqdOnlyRequest(request);
+      } else {
+        // append the message to its local log
+        final long entryIndex = state.applyLog(request.getMessage());
 
-      // put the request into the pending queue
-      pending = leaderState.addPendingRequest(entryIndex, request);
-      leaderState.notifySenders();
+        // put the request into the pending queue
+        pending = leaderState.addPendingRequest(entryIndex, request);
+        leaderState.notifySenders();
+      }
     }
     return pending.getFuture();
   }

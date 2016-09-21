@@ -97,6 +97,11 @@ public class SimpleStateMachine implements StateMachine {
   }
 
   @Override
+  public Message query(Message query) throws Exception {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public long takeSnapshot(File snapshotFile, RaftStorage storage) {
     final long endIndex = RaftStorageDirectory.getIndexFromSnapshotFile(snapshotFile);
     try (LogOutputStream out = new LogOutputStream(snapshotFile, false,

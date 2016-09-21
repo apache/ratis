@@ -274,7 +274,7 @@ public class HadoopUtils {
   public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
     final RaftRpcMessageProto m = p.getRpcRequest().getRpcMessage();
     return new RaftClientRequest(m.getRequestorId(), m.getReplyId(),
-        ProtoUtils.toMessage(p.getMessage()));
+        ProtoUtils.toMessage(p.getMessage()), p.getReadOnly());
   }
 
   public static RaftClientRequestProto toRaftClientRequestProto(
@@ -282,6 +282,7 @@ public class HadoopUtils {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .setMessage(ProtoUtils.toClientMessageEntryProto(request.getMessage()))
+        .setReadOnly(request.isReadOnly())
         .build();
   }
 

@@ -21,23 +21,42 @@ import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.*;
 import org.slf4j.Logger;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Deque;
+import java.util.LinkedList;
 
 class PendingRequests {
   private static final Logger LOG = RaftServer.LOG;
 
   private PendingRequest pendingSetConf;
   private final RaftServer server;
-  private final Map<Long, PendingRequest> pendingRequests = new HashMap<>();
+  private final Deque<PendingRequest> pendingRequests = new LinkedList<>();
 
   PendingRequests(RaftServer server) {
     this.server = server;
   }
 
+  boolean isEmpty() {
+    return  pendingRequests.isEmpty();
+  }
+
   PendingRequest addPendingRequest(long index, RaftClientRequest request) {
+    Preconditions.checkArgument(!request.isReadOnly());
+    final PendingRequest last = pendingRequests.peekLast();
+    Preconditions.checkState(last == null || index == last.getIndex() + 1);
+    return add(index, request);
+  }
+
+  PendingRequest addReadOnlyRequest(RaftClientRequest request) {
+    Preconditions.checkArgument(request.isReadOnly());
+    final PendingRequest last = pendingRequests.peekLast();
+    Preconditions.checkNotNull(last);
+    final long index = last.getIndex();
+    return add(index, request);
+  }
+
+  private PendingRequest add(long index, RaftClientRequest request) {
     final PendingRequest pending = new PendingRequest(index, request);
-    Preconditions.checkState(pendingRequests.put(index, pending) == null);
+    pendingRequests.offer(pending);
     return pending;
   }
 
@@ -66,13 +85,32 @@ class PendingRequests {
   }
 
   void replyPendingRequest(long index, Message message, Exception e) {
-    PendingRequest pending = pendingRequests.remove(index);
+    final PendingRequest pending = pendingRequests.poll();
     if (pending != null) {
+      Preconditions.checkState(pending.getIndex() == index);
       if (e == null) {
         pending.setSuccessReply(message);
       } else {
         pending.setException(e);
       }
+
+      for(; !pendingRequests.isEmpty() && pendingRequests.peek().getIndex() == index; ) {
+        final PendingRequest ro = pendingRequests.poll();
+        Preconditions.checkState(ro.getIndex() == index);
+        processReadOnlyReqeusts(ro);
+      }
+    }
+  }
+
+  void processReadOnlyReqeusts(PendingRequest ro) {
+    final RaftClientRequest request = ro.getRequest();
+    Preconditions.checkArgument(request.isReadOnly());
+    final StateMachine stateMachine = server.getState().getStateMachine();
+    try {
+      final Message message = stateMachine.query(request.getMessage());
+      ro.setSuccessReply(message);
+    } catch (Exception e) {
+      ro.setException(e);
     }
   }
 
@@ -84,8 +122,7 @@ class PendingRequests {
     LOG.info("{} sends responses before shutting down PendingRequestsHandler",
         server.getId());
 
-    pendingRequests.entrySet().forEach(
-        entry -> setNotLeaderException(entry.getValue()));
+    pendingRequests.forEach(pending -> setNotLeaderException(pending));
     if (pendingSetConf != null) {
       setNotLeaderException(pendingSetConf);
     }

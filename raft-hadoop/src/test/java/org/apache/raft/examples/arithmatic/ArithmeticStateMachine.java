@@ -142,16 +142,18 @@ public class ArithmeticStateMachine implements StateMachine {
     }
     final Expression r = Expression.Utils.double2Expression(result);
     LOG.debug("{}: {} = {}, variables={}", last, assignment, r, variables);
-    return new AssignmentMessage(assignment.getVariable(), r);
+    return Expression.Utils.toMessage(r);
   }
 
-  public Message query(Message query) throws Exception {
+  @Override
+  public Message query(Message query) {
     final Expression q = Expression.Utils.bytes2Expression(query.getContent(), 0);
     final Double result;
     try(final AutoCloseableLock readLock = readLock()) {
       result = q.evaluate(variables);
     }
     final Expression r = Expression.Utils.double2Expression(result);
+    LOG.debug("QUERY: {} = {}", q, r);
     return Expression.Utils.toMessage(r);
   }
 }

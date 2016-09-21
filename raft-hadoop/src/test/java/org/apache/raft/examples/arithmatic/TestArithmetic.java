@@ -95,8 +95,12 @@ public class TestArithmetic {
       RaftClientReply r;
       r = client.send(new AssignmentMessage(a, new DoubleValue(n)));
       assertRaftClientReply(r, (double)n);
+      r = client.sendReadOnly(Expression.Utils.toMessage(a2));
+      assertRaftClientReply(r, (double)n2);
       r = client.send(new AssignmentMessage(b, new DoubleValue(half_n2)));
       assertRaftClientReply(r, (double)half_n2);
+      r = client.sendReadOnly(Expression.Utils.toMessage(b2));
+      assertRaftClientReply(r, (double)half_n2*half_n2);
       r = client.send(pythagorean);
       assertRaftClientReply(r, (double)half_n2 + 1);
 
@@ -111,7 +115,7 @@ public class TestArithmetic {
 
   static void assertRaftClientReply(RaftClientReply reply, Double expected) {
     Assert.assertTrue(reply.isSuccess());
-    final AssignmentMessage a = new AssignmentMessage(reply.getMessage());
-    Assert.assertEquals(expected, a.getExpression().evaluate(null));
+    final Expression e = Expression.Utils.bytes2Expression(reply.getMessage().getContent(), 0);
+    Assert.assertEquals(expected, e.evaluate(null));
   }
 }

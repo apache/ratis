@@ -19,19 +19,31 @@ package org.apache.raft.protocol;
 
 public class RaftClientRequest extends RaftRpcMessage.Request {
   private final Message message;
+  private final boolean readOnly;
 
   public RaftClientRequest(String  requestorId, String replierId,
                            Message message) {
+    this(requestorId, replierId, message, false);
+  }
+
+  public RaftClientRequest(String requestorId, String replierId,
+       Message message, boolean readOnly) {
     super(requestorId, replierId);
     this.message = message;
+    this.readOnly = readOnly;
   }
 
   public Message getMessage() {
     return message;
   }
 
+  public boolean isReadOnly() {
+    return readOnly;
+  }
+
   @Override
   public String toString() {
-    return super.toString() + ", message: " + getMessage();
+    return super.toString() + ", " + (isReadOnly()? "RO": "RW")
+        + " message: " + getMessage();
   }
 }
