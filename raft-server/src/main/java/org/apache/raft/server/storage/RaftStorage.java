@@ -54,8 +54,8 @@ public class RaftStorage implements Closeable {
       }
       storageDir.lock();
       format();
-      Preconditions.checkState((state = storageDir.analyzeStorage(false)) ==
-          StorageState.NORMAL);
+      state = storageDir.analyzeStorage(false);
+      Preconditions.checkState(state == StorageState.NORMAL);
     } else {
       state = analyzeAndRecoverStorage(true); // metaFile is initialized here
       if (state != StorageState.NORMAL) {

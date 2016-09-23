@@ -46,7 +46,7 @@ import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_S
  *
  * For snapshot it simply merges all the log segments together.
  */
-public class SimpleStateMachine implements StateMachine {
+public class SimpleStateMachine extends BaseStateMachine {
   static volatile int SNAPSHOT_THRESHOLD = 100;
   static final Logger LOG = LoggerFactory.getLogger(SimpleStateMachine.class);
   public static final String RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY
@@ -58,8 +58,6 @@ public class SimpleStateMachine implements StateMachine {
   private final Daemon checkpointer;
   private volatile boolean running = true;
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
-  private RaftStorage storage;
-  private RaftConfiguration raftConf;
 
   public SimpleStateMachine() {
     checkpointer = new Daemon(() -> {
@@ -81,7 +79,7 @@ public class SimpleStateMachine implements StateMachine {
 
   @Override
   public void initialize(RaftProperties properties, RaftStorage storage) {
-    this.storage = storage;
+    super.initialize(properties, storage);
     if (properties.getBoolean(RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY,
         RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT)) {
       checkpointer.start();
@@ -176,16 +174,6 @@ public class SimpleStateMachine implements StateMachine {
       this.endIndexLastCkpt = endIndex;
       return endIndex;
     }
-  }
-
-  @Override
-  public void setRaftConfiguration(RaftConfiguration conf) {
-    this.raftConf = conf;
-  }
-
-  @Override
-  public RaftConfiguration getRaftConfiguration() {
-    return this.raftConf;
   }
 
   @Override

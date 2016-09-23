@@ -30,7 +30,7 @@ public interface StateMachine extends Closeable {
   /**
    * Pass in the RaftProperties and RaftStorage for later usage.
    */
-  void initialize(RaftProperties properties, RaftStorage storage);
+  void initialize(RaftProperties properties, RaftStorage storage) throws IOException;
 
   /**
    * Apply a committed log entry to the state machine.

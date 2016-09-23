@@ -124,7 +124,8 @@ public class RaftStorageDirectory {
   /**
    * Get root directory of this storage
    */
-  File getRoot() {
+  //TODO
+  public File getRoot() {
     return root;
   }
 
