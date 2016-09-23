@@ -36,10 +36,7 @@ import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -54,13 +51,10 @@ public class RaftStorageDirectory {
   static final String META_FILE_NAME = "raft-meta";
   static final String LOG_FILE_INPROGRESS = "inprogress";
   static final String LOG_FILE_PREFIX = "log";
-  static final String SNAPSHOT_FILE_PREFIX = "snapshot";
-  static final String CORRUPT_SNAPSHOT_FILE_SUFFIX = ".corrupt";
+  static final String STATE_MACHINE = "sm"; // directory containing state machine snapshots
+  static final String TEMP = "tmp";
   static final Pattern CLOSED_SEGMENT_REGEX = Pattern.compile("log_(\\d+)-(\\d+)");
   static final Pattern OPEN_SEGMENT_REGEX = Pattern.compile("log_inprogress_(\\d+)(?:\\..*)?");
-  /** snapshot.term_index */
-  static final Pattern SNAPSHOT_REGEX =
-      Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)");
 
   private static final List<Pattern> LOGSEGMENTS_REGEXES =
       ImmutableList.of(CLOSED_SEGMENT_REGEX, OPEN_SEGMENT_REGEX);
@@ -85,27 +79,6 @@ public class RaftStorageDirectory {
     @Override
     public String toString() {
       return path + "-" + startIndex + "-" + endIndex;
-    }
-  }
-
-  public static class SnapshotPathAndTermIndex {
-    public final Path path;
-    public final long term;
-    public final long endIndex;
-
-    SnapshotPathAndTermIndex(Path path, long term, long endIndex) {
-      this.path = path;
-      this.term = term;
-      this.endIndex = endIndex;
-    }
-
-    @Override
-    public String toString() {
-      return path + "." + term + "-" + endIndex;
-    }
-
-    public TermIndex getTermIndex() {
-      return new TermIndex(term, endIndex);
     }
   }
 
@@ -142,14 +115,19 @@ public class RaftStorageDirectory {
    */
   void clearDirectory() throws IOException {
     File curDir = this.getCurrentDir();
-    if (curDir.exists()) {
-      File[] files = FileUtil.listFiles(curDir);
+    clearDirectory(curDir);
+    clearDirectory(getStateMachineDir());
+  }
+
+  void clearDirectory(File dir) throws IOException {
+    if (dir.exists()) {
+      File[] files = FileUtil.listFiles(dir);
       LOG.info("Will remove files: " + Arrays.toString(files));
-      if (!(FileUtil.fullyDelete(curDir)))
-        throw new IOException("Cannot remove current directory: " + curDir);
+      if (!(FileUtil.fullyDelete(dir)))
+        throw new IOException("Cannot remove directory: " + dir);
     }
-    if (!curDir.mkdirs())
-      throw new IOException("Cannot create directory " + curDir);
+    if (!dir.mkdirs())
+      throw new IOException("Cannot create directory " + dir);
   }
 
   /**
@@ -187,64 +165,20 @@ public class RaftStorageDirectory {
     return LOG_FILE_PREFIX + "_" + startIndex + "-" + endIndex;
   }
 
-  static String getSnapshotFileName(long term, long endIndex) {
-    return SNAPSHOT_FILE_PREFIX + "." + term + "_" + endIndex;
+  public File getStateMachineDir() {
+    return new File(getRoot(), STATE_MACHINE);
   }
 
-  public static TermIndex getTermIndexFromSnapshotFile(File file) {
-    final String name = file.getName();
-    final Matcher m = SNAPSHOT_REGEX.matcher(name);
-    if (!m.matches()) {
-      throw new IllegalArgumentException("File \"" + file
-          + "\" does not match snapshot file name pattern \""
-          + SNAPSHOT_REGEX + "\"");
+  /** Returns a uniquely named temporary directory under $rootdir/tmp/ */
+  public File getNewTempDir() {
+    return new File(new File(getRoot(), TEMP), UUID.randomUUID().toString());
+  }
+
+  public Path relativizeToRoot(Path p) {
+    if (p.isAbsolute()) {
+      return getRoot().toPath().relativize(p);
     }
-    final long term = Long.parseLong(m.group(1));
-    final long index = Long.parseLong(m.group(2));
-    return new TermIndex(term, index);
-  }
-
-  public static long getIndexFromSnapshotFile(File file) {
-    return getTermIndexFromSnapshotFile(file).getIndex();
-  }
-
-  static String getTmpSnapshotFileName(long term, long endIndex) {
-    return getSnapshotFileName(term, endIndex) + AtomicFileOutputStream.TMP_EXTENSION;
-  }
-
-  static String getCorruptSnapshotFileName(long term, long endIndex) {
-    return getSnapshotFileName(term, endIndex) + CORRUPT_SNAPSHOT_FILE_SUFFIX;
-  }
-
-  public File getSnapshotFile(long term, long endIndex) {
-    return new File(getCurrentDir(), getSnapshotFileName(term, endIndex));
-  }
-
-  public File getTmpSnapshotFile(long term, long endIndex) {
-    return new File(getCurrentDir(), getTmpSnapshotFileName(term, endIndex));
-  }
-
-  public File getCorruptSnapshotFile(long term, long endIndex) {
-    return new File(getCurrentDir(), getCorruptSnapshotFileName(term, endIndex));
-  }
-
-  @VisibleForTesting
-  public SnapshotPathAndTermIndex getLatestSnapshot() throws IOException {
-    SnapshotPathAndTermIndex latest = null;
-    try (DirectoryStream<Path> stream =
-             Files.newDirectoryStream(getCurrentDir().toPath())) {
-      for (Path path : stream) {
-          Matcher matcher = SNAPSHOT_REGEX.matcher(path.getFileName().toString());
-          if (matcher.matches()) {
-            final long endIndex = Long.parseLong(matcher.group(2));
-            if (latest == null || endIndex > latest.endIndex) {
-              final long term = Long.parseLong(matcher.group(1));
-              latest = new SnapshotPathAndTermIndex(path, term, endIndex);
-          }
-        }
-      }
-    }
-    return latest;
+    return p;
   }
 
   /**

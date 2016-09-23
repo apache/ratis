@@ -18,6 +18,7 @@
 package org.apache.raft.util;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.util.ExitUtil;
 import org.slf4j.Logger;
@@ -78,6 +79,10 @@ public abstract class RaftUtils {
       LOG.warn("Could not delete " + f);
       throw e;
     }
+  }
+
+  public static void deleteDir(File d) {
+    FileUtil.fullyDelete(d);
   }
 
   public static void terminate(Throwable t, String message, Logger LOG) {

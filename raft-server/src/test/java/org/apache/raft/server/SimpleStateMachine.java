@@ -24,10 +24,14 @@ import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;
 import org.apache.raft.server.storage.RaftStorage;
-import org.apache.raft.server.storage.RaftStorageDirectory;
+import org.apache.raft.statemachine.SimpleStateMachineStorage;
+import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
+import org.apache.raft.statemachine.StateMachineStorage;
+import org.apache.raft.statemachine.TermIndexTracker;
 import org.apache.raft.util.MD5FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +43,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+import static org.apache.raft.server.StateMachine.State.*;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -58,32 +63,58 @@ public class SimpleStateMachine extends BaseStateMachine {
   private final Daemon checkpointer;
   private volatile boolean running = true;
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
+  private SimpleStateMachineStorage storage;
+  private TermIndexTracker termIndexTracker;
+
 
   public SimpleStateMachine() {
+    this.storage  = new SimpleStateMachineStorage();
+    this.termIndexTracker = new TermIndexTracker();
     checkpointer = new Daemon(() -> {
       while (running) {
-        if (list.get(list.size() - 1).getIndex() - endIndexLastCkpt >=
-            SNAPSHOT_THRESHOLD) {
-          LogEntryProto entry = list.get(list.size() - 1);
-          File snapshotFile = storage.getStorageDir()
-              .getSnapshotFile(entry.getTerm(), entry.getIndex());
-          endIndexLastCkpt = takeSnapshot(snapshotFile, storage);
-        }
         try {
-          Thread.sleep(1000);
-        } catch (InterruptedException ignored) {
+          if (list.get(list.size() - 1).getIndex() - endIndexLastCkpt >=
+              SNAPSHOT_THRESHOLD) {
+            endIndexLastCkpt = takeSnapshot();
+          }
+          try {
+            Thread.sleep(1000);
+          } catch (InterruptedException ignored) {
+          }
+        } catch (IOException ioe) {
+          LOG.warn("Received IOException in Checkpointer", ioe);
         }
       }
     });
+    this.state = NEW;
   }
 
   @Override
-  public void initialize(RaftProperties properties, RaftStorage storage) {
-    super.initialize(properties, storage);
+  public synchronized void initialize(RaftProperties properties, RaftStorage raftStorage)
+      throws IOException {
+    LOG.info("Initializing the StateMachine");
+    this.state = State.STARTING;
+    super.initialize(properties, raftStorage);
+    this.storage.init(raftStorage);
+    loadSnapshot(this.storage.findLatestSnapshot());
+
     if (properties.getBoolean(RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY,
         RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT)) {
       checkpointer.start();
     }
+    this.state = State.RUNNING;
+  }
+
+  @Override
+  public synchronized void pause() {
+    this.state = PAUSED;
+  }
+
+  @Override
+  public synchronized void reinitialize(RaftProperties properties, RaftStorage storage)
+      throws IOException {
+    LOG.info("Reinitializing the StateMachine");
+    initialize(properties, storage);
   }
 
   @Override
@@ -91,6 +122,7 @@ public class SimpleStateMachine extends BaseStateMachine {
     Preconditions.checkArgument(list.isEmpty() ||
         entry.getIndex() - 1 == list.get(list.size() - 1).getIndex());
     list.add(entry);
+    termIndexTracker.update(entry.getTerm(), entry.getIndex());
     return null;
   }
 
@@ -100,8 +132,17 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public long takeSnapshot(File snapshotFile, RaftStorage storage) {
-    final long endIndex = RaftStorageDirectory.getIndexFromSnapshotFile(snapshotFile);
+  public long takeSnapshot() throws IOException {
+    TermIndex termIndex = termIndexTracker.getLatestTermIndex();
+    if (termIndex.getTerm() <= 0 || termIndex.getIndex() <= 0) {
+      return RaftServerConstants.INVALID_LOG_INDEX;
+    }
+    final long endIndex = termIndex.getIndex();
+
+    //TODO: snapshot should be written to a tmp file, then renamed
+    File snapshotFile = storage.getSnapshotFile(termIndex.getTerm(), termIndex.getIndex());
+    LOG.debug("Taking a snapshot with t:{}, i:{}, file:{}", termIndex.getTerm(), termIndex.getIndex(),
+        snapshotFile);
     try (LogOutputStream out = new LogOutputStream(snapshotFile, false,
         RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT)) {
       for (final LogEntryProto entry : list) {
@@ -124,19 +165,26 @@ public class SimpleStateMachine extends BaseStateMachine {
           + snapshotFile, e);
     }
 
+    this.storage.loadLatestSnapshot();
     // TODO: purge log segments
     return endIndex;
   }
 
   @Override
-  public synchronized long loadSnapshot(File snapshotFile) throws IOException {
-    if (snapshotFile == null || !snapshotFile.exists()) {
-      LOG.warn("The snapshot file {} does not exist", snapshotFile);
+  public StateMachineStorage getStateMachineStorage() {
+    return storage;
+  }
+
+  public synchronized long loadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
+    if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
+      LOG.warn("The snapshot file {} does not exist", snapshot == null ? null : snapshot.getFile());
       return RaftServerConstants.INVALID_LOG_INDEX;
     } else {
-      final long endIndex = RaftStorageDirectory.getIndexFromSnapshotFile(snapshotFile);
+      LOG.info("Loading snapshot with t:{}, i:{}, file:{}", snapshot.getTerm(), snapshot.getIndex(),
+          snapshot.getFile().getPath());
+      final long endIndex = snapshot.getIndex();
       try (LogInputStream in =
-               new LogInputStream(snapshotFile, 0, endIndex, false)) {
+               new LogInputStream(snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
           applyLogEntry(entry);
@@ -146,23 +194,26 @@ public class SimpleStateMachine extends BaseStateMachine {
           !list.isEmpty() && endIndex == list.get(list.size() - 1).getIndex(),
           "endIndex=%s, list=%s", endIndex, list);
       this.endIndexLastCkpt = endIndex;
+      termIndexTracker.init(snapshot.getTermIndex());
+      this.storage.loadLatestSnapshot();
       return endIndex;
     }
   }
 
-  @Override
-  public synchronized long reloadSnapshot(File snapshotFile) throws IOException {
-    if (snapshotFile == null || !snapshotFile.exists()) {
-      LOG.warn("The snapshot file {} does not exist", snapshotFile);
+  public synchronized long reloadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
+    if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
+      LOG.warn("The snapshot file {} does not exist", snapshot.getFile());
       return RaftServerConstants.INVALID_LOG_INDEX;
     } else {
-      final long endIndex = RaftStorageDirectory.getIndexFromSnapshotFile(snapshotFile);
+      LOG.info("Reloading snapshot with t:{}, i:{}, file:{}", snapshot.getTerm(),
+          snapshot.getIndex(), snapshot.getFile().getPath());
+      final long endIndex = snapshot.getIndex();
       final long lastIndexInList = list.isEmpty() ?
           RaftServerConstants.INVALID_LOG_INDEX :
           list.get(list.size() - 1).getIndex();
       Preconditions.checkState(endIndex > lastIndexInList);
       try (LogInputStream in =
-               new LogInputStream(snapshotFile, 0, endIndex, false)) {
+               new LogInputStream(snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
           if (entry.getIndex() > lastIndexInList) {
@@ -172,14 +223,18 @@ public class SimpleStateMachine extends BaseStateMachine {
       }
       Preconditions.checkState(endIndex == list.get(list.size() - 1).getIndex());
       this.endIndexLastCkpt = endIndex;
+      termIndexTracker.init(snapshot.getTermIndex());
+      this.storage.loadLatestSnapshot();
       return endIndex;
     }
   }
 
   @Override
   public void close() throws IOException {
+    this.state = CLOSING;
     running = false;
     checkpointer.interrupt();
+    this.state = CLOSED;
   }
 
   @VisibleForTesting

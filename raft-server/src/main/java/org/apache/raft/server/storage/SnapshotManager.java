@@ -22,8 +22,9 @@ import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.server.StateMachine;
 import org.apache.raft.server.protocol.InstallSnapshotRequest;
-import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
+import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.MD5FileUtil;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
@@ -33,6 +34,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.nio.file.Path;
 
 /**
  * Manage snapshots of a raft peer.
@@ -44,88 +46,94 @@ public class SnapshotManager {
 
   private final RaftStorage storage;
   private final String selfId;
-  private volatile SnapshotPathAndTermIndex latestSnapshot;
 
   public SnapshotManager(RaftStorage storage, String selfId)
       throws IOException {
     this.storage = storage;
     this.selfId = selfId;
-    latestSnapshot = storage.getLastestSnapshotPath();
   }
 
-  public void installSnapshot(InstallSnapshotRequest request) throws IOException {
+  public void installSnapshot(StateMachine stateMachine,
+      InstallSnapshotRequest request) throws IOException {
     final long lastIncludedIndex = request.getLastIncludedIndex();
     final long lastIncludedTerm = request.getLastIncludedTerm();
     final RaftStorageDirectory dir = storage.getStorageDir();
 
-    SnapshotPathAndTermIndex pi = dir.getLatestSnapshot();
-    if (pi != null && pi.endIndex >= lastIncludedIndex) {
-      throw new IOException("There exists snapshot file "
-          + pi.path.getFileName() + " in " + selfId
-          + " with endIndex >= lastIncludedIndex " + lastIncludedIndex);
-    }
+    File tmpDir = dir.getNewTempDir();
+    tmpDir.mkdirs();
+    tmpDir.deleteOnExit();
 
-    final File tmpSnapshotFile = dir.getTmpSnapshotFile(lastIncludedTerm,
-        lastIncludedIndex);
-    final RaftProtos.SnapshotChunkProto chunk = request.getChunk();
-    FileOutputStream out = null;
-    try {
-      // if offset is 0, delete any existing temp snapshot file if it has the
-      // same last index.
-      if (chunk.getOffset() == 0) {
-        if (tmpSnapshotFile.exists()) {
-          RaftUtils.deleteFile(tmpSnapshotFile);
+    LOG.info("Installing snapshot:{}, to tmp dir:{}", request, tmpDir);
+
+    // TODO: Make sure that subsequent requests for the same installSnapshot are coming in order,
+    // and are not lost when whole request cycle is done. Check requestId and requestIndex here
+
+    for (RaftProtos.FileChunkProto chunk :  request.getChunks()) {
+      SnapshotInfo pi = stateMachine.getLatestSnapshot();
+      if (pi != null && pi.getTermIndex().getIndex() >= lastIncludedIndex) {
+        throw new IOException("There exists snapshot file "
+            + pi.getFiles() + " in " + selfId
+            + " with endIndex >= lastIncludedIndex " + lastIncludedIndex);
+      }
+
+      String fileName = chunk.getFilename(); // this is relative to the root dir
+      // TODO: assumes flat layout inside SM dir
+      File tmpSnapshotFile = new File(tmpDir,
+          new File(dir.getRoot(), fileName).getName());
+
+      FileOutputStream out = null;
+      try {
+        // if offset is 0, delete any existing temp snapshot file if it has the
+        // same last index.
+        if (chunk.getOffset() == 0) {
+          if (tmpSnapshotFile.exists()) {
+            RaftUtils.deleteDir(tmpSnapshotFile);
+          }
+          // create the temp snapshot file and put padding inside
+          out = new FileOutputStream(tmpSnapshotFile);
+        } else {
+          Preconditions.checkState(tmpSnapshotFile.exists());
+          out = new FileOutputStream(tmpSnapshotFile, true);
+          FileChannel fc = out.getChannel();
+          fc.position(chunk.getOffset());
         }
-        // create the temp snapshot file and put padding inside
-        out = new FileOutputStream(tmpSnapshotFile);
-      } else {
-        Preconditions.checkState(tmpSnapshotFile.exists());
-        out = new FileOutputStream(tmpSnapshotFile, true);
-        FileChannel fc = out.getChannel();
-        fc.position(chunk.getOffset());
+
+        // write data to the file
+        out.write(chunk.getData().toByteArray());
+      } finally {
+        IOUtils.cleanup(null, out);
       }
 
-      // write data to the file
-      out.write(chunk.getData().toByteArray());
-    } finally {
-      IOUtils.cleanup(null, out);
+      // rename the temp snapshot file if this is the last chunk. also verify
+      // the md5 digest and create the md5 meta-file.
+      if (chunk.hasDone() && chunk.getDone()) {
+        final MD5Hash expectedDigest = new MD5Hash(chunk.getFileDigest().toByteArray());
+        if (expectedDigest == null) {
+          LOG.warn("MD5 digest in InstallSnapshot request is null");
+        }
+
+        // calculate the checksum of the snapshot file and compare it with the
+        // file digest in the request
+        MD5Hash digest = MD5FileUtil.computeMd5ForFile(tmpSnapshotFile);
+        if (expectedDigest != null && !digest.equals(expectedDigest)) {
+          LOG.warn("The snapshot md5 digest {} does not match expected {}",
+              digest, expectedDigest);
+          // rename the temp snapshot file to .corrupt
+//          NativeIO.renameTo(tmpSnapshotFile, // TODO:
+//              dir.getCorruptSnapshotFile(lastIncludedTerm, lastIncludedIndex));
+          throw new IOException("MD5 mismatch for snapshot-" + lastIncludedIndex
+              + " installation");
+        } else {
+          MD5FileUtil.saveMD5File(tmpSnapshotFile, digest);
+        }
+      }
     }
 
-
-    // rename the temp snapshot file if this is the last chunk. also verify
-    // the md5 digest and create the md5 meta-file.
     if (request.isDone()) {
-      final MD5Hash expectedDigest = request.getFileDigest();
-      if (expectedDigest == null) {
-        LOG.warn("MD5 digest in InstallSnapshot request is null");
-      }
-
-      // calculate the checksum of the snapshot file and compare it with the
-      // file digest in the request
-      MD5Hash digest = MD5FileUtil.computeMd5ForFile(tmpSnapshotFile);
-      if (expectedDigest != null && !digest.equals(expectedDigest)) {
-        LOG.warn("The snapshot md5 digest {} does not match expected {}",
-            digest, expectedDigest);
-        // rename the temp snapshot file to .corrupt
-        NativeIO.renameTo(tmpSnapshotFile,
-            dir.getCorruptSnapshotFile(lastIncludedTerm, lastIncludedIndex));
-        throw new IOException("MD5 mismatch for snapshot-" + lastIncludedIndex
-            + " installation");
-      } else {
-        // rename the temp snapshot file. also persist the md5 hash.
-        final File snapshotFile = dir.getSnapshotFile(lastIncludedTerm,
-            lastIncludedIndex);
-        NativeIO.renameTo(tmpSnapshotFile, snapshotFile);
-        MD5FileUtil.saveMD5File(snapshotFile, digest);
-      }
+      LOG.info("Install snapshot is done, renaming tnp dir:{} to:{}",
+          tmpDir, dir.getStateMachineDir());
+      dir.getStateMachineDir().delete();
+      tmpDir.renameTo(dir.getStateMachineDir());
     }
-  }
-
-  public SnapshotPathAndTermIndex getLatestSnapshot() {
-    return latestSnapshot;
-  }
-
-  public void setLatestSnapshot(SnapshotPathAndTermIndex snapshot) {
-    this.latestSnapshot = snapshot;
   }
 }

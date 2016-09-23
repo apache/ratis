@@ -63,6 +63,6 @@ public class TermIndex implements Comparable<TermIndex> {
 
   @Override
   public String toString() {
-    return "t" + toString(term) + "i" + toString(index);
+    return "(t:" + toString(term) + ", i:" + toString(index) + ")";
   }
 }

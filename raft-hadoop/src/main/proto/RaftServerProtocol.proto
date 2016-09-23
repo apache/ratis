@@ -66,12 +66,14 @@ message AppendEntriesReplyProto {
 
 message InstallSnapshotRequestProto {
   optional RaftServerRequestProto serverRequest = 1;
-  optional uint64 leaderTerm = 2;
-  optional uint64 lastIncludedIndex = 3;
-  optional uint64 lastIncludedTerm = 4;
-  optional SnapshotChunkProto chunk = 5;
-  optional uint64 totalSize = 6;
-  optional bytes fileDigest = 7;
+  optional string requestId = 2; // an identifier for chunked-requests.
+  optional uint32 requestIndex = 3; // the index for this request chunk. Starts from 0.
+  optional RaftConfigurationProto raftConfiguration = 4;
+  optional uint64 leaderTerm = 5;
+  optional TermIndexProto termIndex = 6;
+  repeated FileChunkProto fileChunks = 7;
+  optional uint64 totalSize = 8;
+  optional bool done = 9; // whether this is the final chunk for the same req.
 }
 
 message InstallSnapshotReplyProto {

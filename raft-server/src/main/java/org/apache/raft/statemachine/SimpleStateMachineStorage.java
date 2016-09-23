@@ -1,0 +1,148 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.raft.statemachine;
+
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
+import org.apache.hadoop.io.MD5Hash;
+import org.apache.raft.server.RaftConfiguration;
+import org.apache.raft.server.protocol.TermIndex;
+import org.apache.raft.server.storage.FileInfo;
+import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.util.AtomicFileOutputStream;
+import org.apache.raft.util.MD5FileUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * A StateMachineStorage that stores the snapshot in a single file.
+ */
+public class SimpleStateMachineStorage implements StateMachineStorage {
+
+  private static final Logger LOG = LoggerFactory.getLogger(SimpleStateMachineStorage.class);
+
+  static final String SNAPSHOT_FILE_PREFIX = "snapshot";
+  static final String CORRUPT_SNAPSHOT_FILE_SUFFIX = ".corrupt";
+  /** snapshot.term_index */
+  static final Pattern SNAPSHOT_REGEX =
+      Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)");
+
+
+  private RaftStorage raftStorage;
+  private File smDir = null;
+
+  private volatile SingleFileSnapshotInfo currentSnapshot = null;
+
+  public static class SingleFileSnapshotInfo extends SnapshotInfoImpl {
+    protected  SingleFileSnapshotInfo(RaftConfiguration raftConfiguration,
+                                      Path path, MD5Hash fileDigest, long term, long endIndex) {
+      super(raftConfiguration, Lists.newArrayList(new FileInfo(path, fileDigest)), term, endIndex);
+    }
+
+    public FileInfo getFile() {
+      return getFiles().get(0);
+    }
+  }
+
+  public void init(RaftStorage raftStorage) throws IOException {
+    this.raftStorage = raftStorage;
+    this.smDir = raftStorage.getStorageDir().getStateMachineDir();
+    loadLatestSnapshot();
+  }
+
+  @Override
+  public void format() throws IOException {
+    // TODO
+  }
+
+  @VisibleForTesting
+  public static TermIndex getTermIndexFromSnapshotFile(File file) {
+    final String name = file.getName();
+    final Matcher m = SNAPSHOT_REGEX.matcher(name);
+    if (!m.matches()) {
+      throw new IllegalArgumentException("File \"" + file
+          + "\" does not match snapshot file name pattern \""
+          + SNAPSHOT_REGEX + "\"");
+    }
+    final long term = Long.parseLong(m.group(1));
+    final long index = Long.parseLong(m.group(2));
+    return new TermIndex(term, index);
+  }
+
+  protected static String getTmpSnapshotFileName(long term, long endIndex) {
+    return getSnapshotFileName(term, endIndex) + AtomicFileOutputStream.TMP_EXTENSION;
+  }
+
+  protected static String getCorruptSnapshotFileName(long term, long endIndex) {
+    return getSnapshotFileName(term, endIndex) + CORRUPT_SNAPSHOT_FILE_SUFFIX;
+  }
+
+  public File getSnapshotFile(long term, long endIndex) {
+    return new File(smDir, getSnapshotFileName(term, endIndex));
+  }
+
+  protected File getTmpSnapshotFile(long term, long endIndex) {
+    return new File(smDir, getTmpSnapshotFileName(term, endIndex));
+  }
+
+  protected File getCorruptSnapshotFile(long term, long endIndex) {
+    return new File(smDir, getCorruptSnapshotFileName(term, endIndex));
+  }
+
+  public SingleFileSnapshotInfo findLatestSnapshot() throws IOException {
+    SingleFileSnapshotInfo latest = null;
+    try (DirectoryStream<Path> stream =
+             Files.newDirectoryStream(smDir.toPath())) {
+      for (Path path : stream) {
+        Matcher matcher = SNAPSHOT_REGEX.matcher(path.getFileName().toString());
+        if (matcher.matches()) {
+          final long endIndex = Long.parseLong(matcher.group(2));
+          if (latest == null || endIndex > latest.termIndex.getIndex()) {
+            final long term = Long.parseLong(matcher.group(1));
+            MD5Hash fileDigest = MD5FileUtil.readStoredMd5ForFile(path.toFile());
+            latest = new SingleFileSnapshotInfo(null, path, fileDigest, term, endIndex);
+          }
+        }
+      }
+    }
+    return latest;
+  }
+
+  public void loadLatestSnapshot() throws IOException {
+    this.currentSnapshot = findLatestSnapshot();
+  }
+
+  public static String getSnapshotFileName(long term, long endIndex) {
+    return SNAPSHOT_FILE_PREFIX + "." + term + "_" + endIndex;
+  }
+
+  @Override
+  public SingleFileSnapshotInfo getLatestSnapshot() {
+    return currentSnapshot;
+  }
+}

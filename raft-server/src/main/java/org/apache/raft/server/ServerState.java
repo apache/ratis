@@ -26,7 +26,7 @@ import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.*;
-import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
+import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;
 
@@ -69,6 +69,13 @@ public class ServerState implements Closeable {
    */
   private String votedFor;
 
+  /**
+   * Latest installed snapshot for this server. This maybe different than StateMachine's latest
+   * snapshot. Once we successfully install a snapshot, the SM may not pick it up immediately.
+   * Further, this will not get updated when SM does snapshots itself.
+   */
+  private TermIndex latestInstalledSnapshot;
+
   ServerState(String id, RaftConfiguration conf, RaftProperties prop,
       RaftServer server) throws IOException {
     this.selfId = id;
@@ -108,13 +115,12 @@ public class ServerState implements Closeable {
   private long initStatemachine(StateMachine sm, RaftProperties properties)
       throws IOException {
     sm.initialize(properties, storage);
-    SnapshotPathAndTermIndex pi = snapshotManager.getLatestSnapshot();
-    if (pi == null || pi.endIndex < 0) {
+    storage.setStateMachineStorage(sm.getStateMachineStorage());
+    SnapshotInfo snapshot = sm.getLatestSnapshot();
+
+    if (snapshot == null || snapshot.getTermIndex().getIndex() < 0) {
       return RaftServerConstants.INVALID_LOG_INDEX;
     }
-    long lastIndex = sm.loadSnapshot(pi.path.toFile());
-    Preconditions.checkState(lastIndex == pi.endIndex,
-        "last index loaded from the snapshot-%s: %s", pi.endIndex, lastIndex);
 
     // get the raft configuration from the snapshot
     RaftConfiguration raftConf = sm.getRaftConfiguration();
@@ -122,7 +128,7 @@ public class ServerState implements Closeable {
       configurationManager.addConfiguration(raftConf.getLogEntryIndex(),
           raftConf);
     }
-    return lastIndex;
+    return snapshot.getIndex();
   }
 
   void start() {
@@ -251,15 +257,15 @@ public class ServerState implements Closeable {
   boolean isLogUpToDate(TermIndex candidateLastEntry) {
     LogEntryProto lastEntry = log.getLastEntry();
     // need to take into account snapshot
-    SnapshotPathAndTermIndex si = snapshotManager.getLatestSnapshot();
-    if (lastEntry == null && si == null) {
+    SnapshotInfo snapshot = getStateMachine().getLatestSnapshot();
+     if (lastEntry == null && snapshot == null) {
       return true;
     } else if (candidateLastEntry == null) {
       return false;
     }
     TermIndex local = ServerProtoUtils.toTermIndex(lastEntry);
-    if (local == null || (si != null && si.endIndex > lastEntry.getIndex())) {
-      local = new TermIndex(si.term, si.endIndex);
+    if (local == null || (snapshot != null && snapshot.getIndex() > lastEntry.getIndex())) {
+      local = snapshot.getTermIndex();
     }
     return local.compareTo(candidateLastEntry) <= 0;
   }
@@ -305,13 +311,7 @@ public class ServerState implements Closeable {
       throws IOException {
     log.updateLastCommitted(lastIndexInSnapshot, currentTerm);
 
-    SnapshotPathAndTermIndex pi = storage.getLastestSnapshotPath();
-    Preconditions.checkState(pi.endIndex == lastIndexInSnapshot,
-        "latest snapshot path: {}, lastIndex in snapshot just installed: {}",
-        pi, lastIndexInSnapshot);
-    snapshotManager.setLatestSnapshot(pi);
-
-    stateMachineUpdater.reloadStateMachine(pi);
+    stateMachineUpdater.reloadStateMachine();
   }
 
   @Override
@@ -330,12 +330,20 @@ public class ServerState implements Closeable {
   }
 
   void installSnapshot(InstallSnapshotRequest request) throws IOException {
-    snapshotManager.installSnapshot(request);
+    // TODO: verify that we need to install the snapshot
+    getStateMachine().pause(); // pause the SM to prepare for install snapshot
+    snapshotManager.installSnapshot(getStateMachine(), request);
     log.syncWithSnapshot(request.getLastIncludedIndex());
+    this.latestInstalledSnapshot = new TermIndex(request.getLastIncludedTerm(),
+        request.getLastIncludedIndex());
   }
 
-  SnapshotPathAndTermIndex getLatestSnapshot() {
-    return snapshotManager.getLatestSnapshot();
+  SnapshotInfo getLatestSnapshot() {
+    return getStateMachine().getStateMachineStorage().getLatestSnapshot();
+  }
+
+  public TermIndex getLatestInstalledSnapshot() {
+    return latestInstalledSnapshot;
   }
 
   @VisibleForTesting

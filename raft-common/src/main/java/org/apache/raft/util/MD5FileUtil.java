@@ -33,6 +33,10 @@ import java.util.regex.Pattern;
 public abstract class MD5FileUtil {
   private static final Log LOG = LogFactory.getLog(MD5FileUtil.class);
 
+  // TODO: we should provide something like Hadoop's checksum fs for the local filesystem
+  // so that individual state machines do not have to deal with checksumming/corruption prevention.
+  // Keep the checksum and data in the same block format instead of individual files.
+
   public static final String MD5_SUFFIX = ".md5";
   private static final Pattern LINE_REGEX =
       Pattern.compile("([0-9a-f]{32}) [ \\*](.+)");

@@ -18,21 +18,22 @@
 package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import org.apache.commons.io.IOUtils;
-import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
-import org.apache.raft.proto.RaftProtos.SnapshotChunkProto;
+import org.apache.raft.proto.RaftProtos.FileChunkProto;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
+import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.server.storage.RaftLog;
-import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
-import org.apache.raft.util.MD5FileUtil;
+import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 
@@ -40,6 +41,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -626,8 +628,8 @@ class LeaderState {
                 follower.nextIndex == raftLog.getStartIndex(),
                 "follower's next index %s, local log start index %s",
                 follower.nextIndex, raftLog.getStartIndex());
-            SnapshotPathAndTermIndex si = server.getState().getLatestSnapshot();
-            previous = si == null ? null : si.getTermIndex();
+            SnapshotInfo snapshot = server.getState().getLatestSnapshot();
+            previous = snapshot == null ? null : snapshot.getTermIndex();
           }
           if (entries != null || previous != null) {
             LOG.trace("follower {}, log {}", follower, raftLog);
@@ -664,59 +666,73 @@ class LeaderState {
       return null;
     }
 
-    private SnapshotChunkProto readChunk(FileInputStream in, byte[] buf,
+    private FileChunkProto readChunk(FileInfo fileInfo, FileInputStream in, byte[] buf,
         int length, long offset, int chunkIndex) throws IOException {
-      SnapshotChunkProto.Builder builder = SnapshotChunkProto.newBuilder()
+      FileChunkProto.Builder builder = RaftProtos.FileChunkProto.newBuilder()
           .setOffset(offset).setChunkIndex(chunkIndex);
       IOUtils.readFully(in, buf, 0, length);
+      Path relativePath = server.getState().getStorage().getStorageDir()
+          .relativizeToRoot(fileInfo.getPath());
+      builder.setFilename(relativePath.toString());
+      builder.setDone(offset + length == fileInfo.getFileSize());
+      builder.setFileDigest(ByteString.copyFrom(fileInfo.getFileDigest().getDigest()));
       builder.setData(ByteString.copyFrom(buf, 0, length));
       return builder.build();
     }
 
     // TODO inefficient using RPC. need to change to zero-copy transfer
-    private InstallSnapshotReply installSnapshot(SnapshotPathAndTermIndex si)
+    private InstallSnapshotReply installSnapshot(SnapshotInfo snapshot)
         throws InterruptedException, InterruptedIOException {
-      File snapshotFile = si.path.toFile();
-      final long totalSize = snapshotFile.length();
-      final int bufLength = (int) Math.min(snapshotChunkMaxSize, totalSize);
-      final byte[] buf = new byte[bufLength];
-      long offset = 0;
-      int chunkIndex = 0;
-      try (FileInputStream in = new FileInputStream(snapshotFile)) {
-        MD5Hash fileDigest = MD5FileUtil.readStoredMd5ForFile(snapshotFile);
-        InstallSnapshotReply reply = null;
-        while (offset < totalSize) {
-          int targetLength = (int) Math.min(totalSize - offset,
-              snapshotChunkMaxSize);
-          SnapshotChunkProto chunk = readChunk(in, buf, targetLength, offset,
-              chunkIndex);
-          InstallSnapshotRequest request = server.createInstallSnapshotRequest(
-              follower.peer.getId(), si, chunk, totalSize, fileDigest);
 
-          reply = (InstallSnapshotReply) server.getServerRpc()
-              .sendServerRequest(request);
-          follower.lastRpcTime.set(Time.monotonicNow());
+      String requestId = UUID.randomUUID().toString();
+      int requestIndex = 0;
 
-          if (!reply.isSuccess()) {
-            return reply;
+      InstallSnapshotReply reply = null;
+      for (int i=0; i < snapshot.getFiles().size(); i++) {
+        FileInfo fileInfo = snapshot.getFiles().get(i);
+        File snapshotFile = fileInfo.getPath().toFile();
+        final long totalSize = snapshotFile.length();
+        final int bufLength = (int) Math.min(snapshotChunkMaxSize, totalSize);
+        final byte[] buf = new byte[bufLength];
+        long offset = 0;
+        int chunkIndex = 0;
+        try (FileInputStream in = new FileInputStream(snapshotFile)) {
+
+          while (offset < totalSize) {
+            int targetLength = (int) Math.min(totalSize - offset,
+                snapshotChunkMaxSize);
+            FileChunkProto chunk = readChunk(fileInfo, in, buf, targetLength, offset,
+                chunkIndex);
+            boolean done = (i == snapshot.getFiles().size() - 1) && chunk.getDone();
+            InstallSnapshotRequest request = server.createInstallSnapshotRequest(
+                follower.peer.getId(), requestId, requestIndex++, snapshot,
+                Lists.newArrayList(chunk), done);
+
+            reply = (InstallSnapshotReply) server.getServerRpc()
+                .sendServerRequest(request);
+            follower.lastRpcTime.set(Time.monotonicNow());
+
+            if (!reply.isSuccess()) {
+              return reply;
+            }
+
+            offset += targetLength;
+            chunkIndex++;
           }
-
-          offset += targetLength;
-          chunkIndex++;
-        }
-        if (reply != null) {
-          follower.updateMatchIndex(si.endIndex);
-          follower.updateNextIndex(si.endIndex + 1);
-          LOG.info("{}: install snapshot-{} successfully on follower {}",
-              server.getId(), si.endIndex, follower.peer);
-        }
-        return reply;
-      } catch (InterruptedIOException iioe) {
+        } catch (InterruptedIOException iioe) {
           throw iioe;
-      } catch (IOException ioe) {
-        LOG.warn(this + ": failed to install Snapshot at offset " + offset, ioe);
+        } catch (IOException ioe) {
+          LOG.warn(this + ": failed to install SnapshotInfo at offset " + offset, ioe);
+          return null;
+        }
       }
-      return null;
+      if (reply != null) {
+        follower.updateMatchIndex(snapshot.getTermIndex().getIndex());
+        follower.updateNextIndex(snapshot.getTermIndex().getIndex() + 1);
+        LOG.info("{}: install snapshot-{} successfully on follower {}",
+            server.getId(), snapshot.getTermIndex().getIndex(), follower.peer);
+      }
+      return reply;
     }
 
     /** Check and send appendEntries RPC */
@@ -725,23 +741,24 @@ class LeaderState {
       while (isSenderRunning()) {
         if (shouldSend()) {
           final long logStartIndex = raftLog.getStartIndex();
-          SnapshotPathAndTermIndex si = server.getState().getLatestSnapshot();
+          SnapshotInfo snapshot = null;
           // we should install snapshot if the follower needs to catch up and:
           // 1. there is no local log entry but there is snapshot
           // 2. or the follower's next index is smaller than the log start index
           boolean toInstallSnapshot = false;
           if (follower.nextIndex < raftLog.getNextIndex()) {
+            snapshot = server.getState().getLatestSnapshot();
             toInstallSnapshot = (follower.nextIndex < logStartIndex) ||
-                (logStartIndex == INVALID_LOG_INDEX && si != null);
+                (logStartIndex == INVALID_LOG_INDEX && snapshot != null);
           }
 
           if (toInstallSnapshot) {
             LOG.info("{}: follower {}'s next index is {}," +
                 " log's start index is {}, need to install snapshot",
                 server.getId(), follower.peer, follower.nextIndex, logStartIndex);
-            Preconditions.checkState(si != null);
+            Preconditions.checkState(snapshot != null);
 
-            final InstallSnapshotReply r = installSnapshot(si);
+            final InstallSnapshotReply r = installSnapshot(snapshot);
             if (r != null && r.getResult() == InstallSnapshotResult.NOT_LEADER) {
               checkResponseTerm(r.getTerm());
             } // otherwise if r is null, retry the snapshot installation

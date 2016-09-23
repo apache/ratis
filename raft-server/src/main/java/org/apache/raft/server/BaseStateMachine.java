@@ -20,14 +20,28 @@ package org.apache.raft.server;
 
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.statemachine.SnapshotInfo;
 
+import java.io.IOException;
+
+/**
+ * Base implementation for StateMachines.
+ */
 public abstract class BaseStateMachine implements StateMachine {
 
+  protected RaftProperties properties;
   protected RaftStorage storage;
   protected RaftConfiguration raftConf;
+  protected volatile State state = State.NEW;
 
   @Override
-  public void initialize(RaftProperties properties, RaftStorage storage) {
+  public State getState() {
+    return state;
+  }
+
+  @Override
+  public void initialize(RaftProperties properties, RaftStorage storage) throws IOException {
+    this.properties = properties;
     this.storage = storage;
   }
 
@@ -41,4 +55,8 @@ public abstract class BaseStateMachine implements StateMachine {
     return this.raftConf;
   }
 
+  @Override
+  public SnapshotInfo getLatestSnapshot() {
+    return getStateMachineStorage().getLatestSnapshot();
+  }
 }

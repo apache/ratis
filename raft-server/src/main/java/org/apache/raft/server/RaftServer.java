@@ -24,13 +24,13 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
-import org.apache.raft.proto.RaftProtos.SnapshotChunkProto;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
-import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
+import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -567,7 +568,7 @@ public class RaftServer implements RaftServerProtocol {
       if (previous != null && !containPrevious(previous)) {
         final AppendEntriesReply reply =  new AppendEntriesReply(leaderId,
             getId(), currentTerm, nextIndex, AppendResult.INCONSISTENCY);
-        LOG.debug("{}: inconsistency entries. Reply: {}", getId(), reply);
+        LOG.debug("{}: inconsistency entries. Previous:{} Reply: {}", getId(), previous, reply);
         return reply;
       }
 
@@ -597,9 +598,13 @@ public class RaftServer implements RaftServerProtocol {
   }
 
   private boolean containPrevious(TermIndex previous) {
-    return state.getLog().contains(previous) ||
-        (state.getLatestSnapshot() != null &&
-            state.getLatestSnapshot().getTermIndex().equals(previous));
+    LOG.debug("prev:{}, latestSnapshot:{}, getLatestInstalledSnapshot:{}",
+        previous, state.getLatestSnapshot(), state.getLatestInstalledSnapshot());
+    return state.getLog().contains(previous)
+        ||  (state.getLatestSnapshot() != null
+             && state.getLatestSnapshot().getTermIndex().equals(previous))
+        || (state.getLatestInstalledSnapshot() != null)
+             && state.getLatestInstalledSnapshot().equals(previous);
   }
 
   @Override
@@ -639,11 +644,15 @@ public class RaftServer implements RaftServerProtocol {
           state.getLog().getNextIndex() <= lastIncludedIndex,
           "%s log's next id is %s, last included index in snapshot is %s",
           getId(),  state.getLog().getNextIndex(), lastIncludedIndex);
+
+      //TODO: We should only update State with installed snapshot once the request is done.
       state.installSnapshot(request);
 
       // update the committed index
       // re-load the state machine if this is the last chunk
-      state.reloadStateMachine(lastIncludedIndex, leaderTerm);
+      if (request.isDone()) {
+        state.reloadStateMachine(lastIncludedIndex, leaderTerm);
+      }
       if (runningState.get() == RunningState.RUNNING) {
         heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
       }
@@ -663,11 +672,11 @@ public class RaftServer implements RaftServerProtocol {
         state.getLog().getLastCommittedIndex(), initializing);
   }
 
-  synchronized InstallSnapshotRequest createInstallSnapshotRequest(
-      String targetId, SnapshotPathAndTermIndex snapshot,
-      SnapshotChunkProto chunk, long totalSize, MD5Hash digest) {
-    return new InstallSnapshotRequest(getId(), targetId, state.getCurrentTerm(),
-        snapshot.endIndex, snapshot.term, chunk, totalSize, digest);
+  synchronized InstallSnapshotRequest createInstallSnapshotRequest(String targetId,
+      String requestId, int requestIndex, SnapshotInfo snapshot,
+      List<RaftProtos.FileChunkProto> chunks, boolean done) {
+    return new InstallSnapshotRequest(getId(), targetId, requestId, requestIndex,
+        state.getCurrentTerm(), snapshot, chunks, done);
   }
 
   synchronized RequestVoteRequest createRequestVoteRequest(String targetId,

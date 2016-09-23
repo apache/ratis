@@ -20,17 +20,65 @@ package org.apache.raft.server;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.protocol.Message;
+import org.apache.raft.server.protocol.InstallSnapshotRequest;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.statemachine.StateMachineStorage;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 
 public interface StateMachine extends Closeable {
+
   /**
-   * Pass in the RaftProperties and RaftStorage for later usage.
+   * The Lifecycle state for the StateMachine. Upon construction, State machine is in NEW state.
+   * initialize() will put the SM in RUNNING state if no exceptions. Paused state is for stopping
+   * internal compaction or other operations in the SM so that a new snapshot can be installed.
+   *
+   * TODO: list and verify all possible state transitions
+   * NEW --> STARTING -> RUNNING
+   *     |      |___________|
+   *     |      |
+   *     |      V
+   *     |-> CLOSING -> CLOSED
+   */
+  public enum State {
+    NEW,
+    STARTING,
+    RUNNING,
+    PAUSING,
+    PAUSED,
+    CLOSING,
+    CLOSED
+  }
+
+  /**
+   * Initializes the State Machine with the given properties and storage. The state machine is
+   * responsible reading the latest snapshot from the file system (if any) and initialize itself
+   * with the latest term and index there including all the edits.
    */
   void initialize(RaftProperties properties, RaftStorage storage) throws IOException;
+
+  /**
+   * Returns the lifecycle state for this StateMachine.
+   * @return the lifecycle state.
+   */
+  State getState();
+
+  /**
+   * Pauses the state machine. On return, the state machine should have closed all open files so
+   * that a new snapshot can be installed.
+   */
+  void pause();
+
+  /**
+   * Re-initializes the State Machine in PAUSED state with the given properties and storage. The
+   * state machine is responsible reading the latest snapshot from the file system (if any) and
+   * initialize itself with the latest term and index there including all the edits.
+   */
+  void reinitialize(RaftProperties properties, RaftStorage storage) throws IOException;
 
   /**
    * Apply a committed log entry to the state machine.
@@ -57,26 +105,12 @@ public interface StateMachine extends Closeable {
    *
    * The snapshot should include the latest raft configuration.
    *
-   * @param snapshotFile the file where the snapshot is written
-   * @param storage the RaftStorage where the snapshot file is stored
    * @return the largest index of the log entry that has been applied to the
    *         state machine and also included in the snapshot. Note the log purge
    *         should be handled separately.
    */
-  long takeSnapshot(File snapshotFile, RaftStorage storage);
-
-  /**
-   * Load states from the given snapshot file.
-   * @param snapshotFile the snapshot file
-   * @return the largest log entry index that is applied to the state machine
-   *         while loading the snapshot.
-   */
-  long loadSnapshot(File snapshotFile) throws IOException;
-
-  /**
-   * Reset the whole state machine, and then load states from the snapshot file.
-   */
-  long reloadSnapshot(File snapshotFile) throws IOException;
+  // TODO: refactor this
+  public long takeSnapshot() throws IOException;
 
   /**
    * Record the RaftConfiguration in the state machine. The RaftConfiguration
@@ -89,10 +123,38 @@ public interface StateMachine extends Closeable {
    */
   RaftConfiguration getRaftConfiguration();
 
+  /**
+   * @return StateMachineStorage to interact with the durability guarantees provided by the
+   * state machine.
+   */
+  StateMachineStorage getStateMachineStorage();
+
+  /**
+   * Returns the information for the latest durable snapshot.
+   */
+  SnapshotInfo getLatestSnapshot();
+
   class DummyStateMachine implements StateMachine {
     @Override
     public void initialize(RaftProperties properties, RaftStorage storage) {
       // do nothing
+    }
+
+    @Override
+    public State getState() {
+      return null;
+    }
+
+    @Override
+    public Message query(Message query) throws Exception {
+      throw new UnsupportedOperationException();
+    }
+
+    public void pause() {
+    }
+
+    @Override
+    public void reinitialize(RaftProperties properties, RaftStorage storage) throws IOException {
     }
 
     @Override
@@ -102,22 +164,7 @@ public interface StateMachine extends Closeable {
     }
 
     @Override
-    public Message query(Message query) throws Exception {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long takeSnapshot(File snapshotFile, RaftStorage storage) {
-      return RaftServerConstants.INVALID_LOG_INDEX;
-    }
-
-    @Override
-    public long loadSnapshot(File snapshotFile) throws IOException {
-      return RaftServerConstants.INVALID_LOG_INDEX;
-    }
-
-    @Override
-    public long reloadSnapshot(File snapshotFile) throws IOException {
+    public long takeSnapshot() {
       return RaftServerConstants.INVALID_LOG_INDEX;
     }
 
@@ -132,9 +179,33 @@ public interface StateMachine extends Closeable {
     }
 
     @Override
+    public StateMachineStorage getStateMachineStorage() {
+      return new StateMachineStorage() {
+        @Override
+        public void init(RaftStorage raftStorage) throws IOException {
+        }
+
+        @Override
+        public SnapshotInfo getLatestSnapshot() {
+          return null;
+        }
+
+        @Override
+        public void format() throws IOException {
+        }
+      };
+    }
+
+    @Override
+    public SnapshotInfo getLatestSnapshot() {
+      return null;
+    }
+
+    @Override
     public void close() throws IOException {
       // do nothing
     }
+
   }
 
 }

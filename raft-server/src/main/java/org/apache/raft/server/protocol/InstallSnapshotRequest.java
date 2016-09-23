@@ -17,9 +17,12 @@
  */
 package org.apache.raft.server.protocol;
 
-import com.google.protobuf.ByteString;
-import org.apache.hadoop.io.MD5Hash;
-import org.apache.raft.proto.RaftProtos.SnapshotChunkProto;
+import org.apache.raft.proto.RaftProtos.FileChunkProto;
+import org.apache.raft.server.RaftConfiguration;
+import org.apache.raft.server.storage.FileInfo;
+import org.apache.raft.statemachine.SnapshotInfo;
+
+import java.util.List;
 
 /**
  * The RPC request sent by the leader to install a snapshot on a follower peer.
@@ -28,32 +31,53 @@ import org.apache.raft.proto.RaftProtos.SnapshotChunkProto;
  * leader may send multiple requests for a complete snapshot.
  */
 public class InstallSnapshotRequest extends RaftServerRequest {
+  /** An identifier for the logical request in case it is a chunk */
+  private final String requestId;
+  /** The index for the install snapshot chunk for the same logical InstallSnapshotRequest. */
+  private final int requestIndex;
+  /** Configuration for the raft quorum */
+  private final RaftConfiguration raftConfiguration;
   /** the current term of the leader */
   private final long leaderTerm;
   /** the last index included in the snapshot */
-  private final long lastIncludedIndex;
-  /** the term of last log entry that is included in the snapshot */
-  private final long lastIncludedTerm;
+  private final TermIndex termIndex;
   /** the snapshot chunk */
-  private final SnapshotChunkProto chunk;
+  private final List<FileChunkProto> chunks;
   /** total size of the snapshot */
   private final long totalSize;
-  /**
-   * The MD5 digest of the whole snapshot file. Non-null if this is the last
-   * chunk.
-   */
-  private final MD5Hash fileDigest;
+  /** Whether this is the last request */
+  private final boolean done;
 
-  public InstallSnapshotRequest(String from, String to, long leaderTerm,
-      long lastIncludedIndex, long lastIncludedTerm, SnapshotChunkProto chunk,
-      long totalSize, MD5Hash fileDigest) {
+  public InstallSnapshotRequest(String from, String to, String requestId, int requestIndex,
+      long leaderTerm, SnapshotInfo snapshot, List<FileChunkProto> chunks, boolean done) {
+    this(from, to, requestId, requestIndex, snapshot.getRaftConfiguration(),
+        leaderTerm, snapshot.getTermIndex(), chunks,
+        snapshot.getFiles().stream()
+            .mapToLong(FileInfo::getFileSize).reduce(Long::sum).getAsLong(),
+        done);
+  }
+
+  public InstallSnapshotRequest(String from, String to, String requestId, int requestIndex,
+                                RaftConfiguration raftConfiguration,
+                                long leaderTerm, TermIndex termIndex,
+                                List<FileChunkProto> chunks, long totalSize, boolean done) {
     super(from, to);
-    this.leaderTerm = leaderTerm;
-    this.lastIncludedIndex = lastIncludedIndex;
-    this.lastIncludedTerm = lastIncludedTerm;
-    this.chunk = chunk;
+    this.requestId = requestId;
+    this.requestIndex = requestIndex;
+    this.raftConfiguration = raftConfiguration;
+    this.leaderTerm = leaderTerm; // TODO: we do not need some of these for subsequent requests.
+    this.termIndex = termIndex;
+    this.chunks = chunks;
     this.totalSize = totalSize;
-    this.fileDigest = fileDigest;
+    this.done = done;
+  }
+
+  public String getRequestId() {
+    return requestId;
+  }
+
+  public int getRequestIndex() {
+    return requestIndex;
   }
 
   public long getLeaderTerm() {
@@ -61,23 +85,15 @@ public class InstallSnapshotRequest extends RaftServerRequest {
   }
 
   public long getLastIncludedIndex() {
-    return lastIncludedIndex;
+    return termIndex.getIndex();
   }
 
   public long getLastIncludedTerm() {
-    return lastIncludedTerm;
+    return termIndex.getTerm();
   }
 
-  public SnapshotChunkProto getChunk() {
-    return chunk;
-  }
-
-  public long getOffset() {
-    return chunk.getOffset();
-  }
-
-  public ByteString getData() {
-    return chunk.getData();
+  public List<FileChunkProto> getChunks() {
+    return chunks;
   }
 
   public long getTotalSize() {
@@ -85,20 +101,28 @@ public class InstallSnapshotRequest extends RaftServerRequest {
   }
 
   public boolean isDone() {
-    return totalSize == getOffset() + getData().size();
-  }
-
-  public MD5Hash getFileDigest() {
-    return this.fileDigest;
+    return done;
   }
 
   @Override
   public String toString() {
-    return super.toString() + ", leaderTerm: " + getLeaderTerm()
-        + ", lastIncludedIndex: " + getLastIncludedIndex()
-        + ", lastIncludedTerm: " + getLastIncludedTerm()
-        + ", offset: " + getOffset()
-        + ", data.length: " + getData().size()
-        + ", totalSize: " + getTotalSize();
+    StringBuilder builder = new StringBuilder(super.toString())
+        .append(", leaderTerm: ").append(getLeaderTerm())
+        .append(", lastIncludedIndex: ").append(getLastIncludedIndex())
+        .append(", lastIncludedTerm: ").append(getLastIncludedTerm())
+        .append(", chunks:");
+    return toString(builder, chunks)
+        .append(", totalSize: ").append(getTotalSize())
+        .append(", done:").append(done).toString();
+  }
+
+  private StringBuilder toString(StringBuilder builder, List<FileChunkProto> chunks) {
+    builder.append("{");
+    for (FileChunkProto chunk : chunks) {
+      builder.append("filename:").append(chunk.getFilename())
+          .append(", offset:").append(chunk.getOffset())
+          .append(" data.length").append(chunk.getData().size());
+    }
+    return builder.append("}");
   }
 }

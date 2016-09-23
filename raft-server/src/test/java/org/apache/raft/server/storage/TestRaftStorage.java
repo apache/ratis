@@ -25,6 +25,7 @@ import org.apache.raft.server.RaftServerConstants.StartupOption;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftStorageDirectory.StorageState;
+import org.apache.raft.statemachine.SimpleStateMachineStorage;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -191,10 +192,10 @@ public class TestRaftStorage {
   public void testSnapshotFileName() throws Exception {
     final long term = ThreadLocalRandom.current().nextLong(Long.MAX_VALUE);
     final long index = ThreadLocalRandom.current().nextLong(Long.MAX_VALUE);
-    final String name = RaftStorageDirectory.getSnapshotFileName(term, index);
+    final String name = SimpleStateMachineStorage.getSnapshotFileName(term, index);
     System.out.println("name = " + name);
     final File file = new File(storageDir, name);
-    final TermIndex ti = RaftStorageDirectory.getTermIndexFromSnapshotFile(file);
+    final TermIndex ti = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(file);
     System.out.println("file = " + file);
     Assert.assertEquals(term, ti.getTerm());
     Assert.assertEquals(index, ti.getIndex());
@@ -202,7 +203,7 @@ public class TestRaftStorage {
 
     final File foo = new File(storageDir, "foo");
     try {
-      RaftStorageDirectory.getTermIndexFromSnapshotFile(foo);
+      SimpleStateMachineStorage.getTermIndexFromSnapshotFile(foo);
       Assert.fail();
     } catch(IllegalArgumentException iae) {
       System.out.println("Good " + iae);

@@ -23,7 +23,7 @@ import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.protocol.*;
-import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
+import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 
@@ -127,9 +127,9 @@ class LeaderElection extends Daemon {
           state.getLog().getLastEntry());
       if (lastEntry == null) {
         // lastEntry may need to be derived from snapshot
-        SnapshotPathAndTermIndex si = state.getLatestSnapshot();
-        if (si != null) {
-          lastEntry = new TermIndex(si.term, si.endIndex);
+        SnapshotInfo snapshot = state.getLatestSnapshot();
+        if (snapshot != null) {
+          lastEntry = snapshot.getTermIndex();
         }
       }
 

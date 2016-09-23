@@ -44,6 +44,7 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.RaftRpcMessage;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.protocol.AppendEntriesReply;
 import org.apache.raft.server.protocol.AppendEntriesRequest;
 import org.apache.raft.server.protocol.InstallSnapshotReply;
@@ -55,6 +56,7 @@ import org.apache.raft.server.protocol.RequestVoteRequest;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.statemachine.SnapshotInfoImpl;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;
 
@@ -213,12 +215,14 @@ public class HadoopUtils {
     InstallSnapshotRequestProto.Builder builder = InstallSnapshotRequestProto
         .newBuilder()
         .setServerRequest(toRaftServerRequestProtoBuilder(request))
+        .setRequestId(request.getRequestId())
+        .setRequestIndex(request.getRequestIndex())
+        // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
         .setLeaderTerm(request.getLeaderTerm())
-        .setLastIncludedIndex(request.getLastIncludedIndex())
-        .setLastIncludedTerm(request.getLastIncludedTerm())
-        .setChunk(request.getChunk())
-        .setFileDigest(ProtoUtils.toByteString(request.getFileDigest().getDigest()))
-        .setTotalSize(request.getTotalSize());
+        .setTermIndex(toTermIndex(request.getLastIncludedTerm(), request.getLastIncludedIndex()))
+        .addAllFileChunks(request.getChunks())
+        .setTotalSize(request.getTotalSize())
+        .setDone(request.isDone());
     return builder.build();
   }
 
@@ -226,11 +230,13 @@ public class HadoopUtils {
       InstallSnapshotRequestProto requestProto) {
     RaftRpcMessageProto rpcMessage = requestProto.getServerRequest()
         .getRpcRequest().getRpcMessage();
-    MD5Hash digest = new MD5Hash(requestProto.getFileDigest().toByteArray());
     return new InstallSnapshotRequest(rpcMessage.getRequestorId(),
-        rpcMessage.getReplyId(), requestProto.getLeaderTerm(),
-        requestProto.getLastIncludedIndex(), requestProto.getLastIncludedTerm(),
-        requestProto.getChunk(), requestProto.getTotalSize(), digest);
+        rpcMessage.getReplyId(),
+        requestProto.getRequestId(), requestProto.getRequestIndex(),
+        null, // requestProto.getRaftConfiguration(); TODO
+        requestProto.getLeaderTerm(),
+        toTermIndex(requestProto.getTermIndex()),
+        requestProto.getFileChunksList(), requestProto.getTotalSize(), requestProto.getDone());
   }
 
   public static InstallSnapshotReply toInstallSnapshotReply(
@@ -337,6 +343,21 @@ public class HadoopUtils {
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(
             Arrays.asList(request.getPeersInNewConf())))
+        .build();
+  }
+
+  public static TermIndex toTermIndex(RaftProtos.TermIndexProto termIndex) {
+    return new TermIndex(termIndex.getTerm(), termIndex.getIndex());
+  }
+
+  public static RaftProtos.TermIndexProto toTermIndex(TermIndex termIndex) {
+    return toTermIndex(termIndex.getTerm(), termIndex.getIndex());
+  }
+
+  public static RaftProtos.TermIndexProto toTermIndex(long term,  long index) {
+    return RaftProtos.TermIndexProto.newBuilder()
+        .setTerm(term)
+        .setIndex(index)
         .build();
   }
 }

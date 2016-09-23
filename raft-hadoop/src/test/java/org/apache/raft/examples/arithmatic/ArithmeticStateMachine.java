@@ -21,11 +21,18 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.arithmatic.expression.Expression;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
+import org.apache.raft.server.BaseStateMachine;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.StateMachine;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.server.storage.RaftStorageDirectory;
+import org.apache.raft.statemachine.SimpleStateMachineStorage;
+import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
+import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.statemachine.StateMachineStorage;
+import org.apache.raft.statemachine.TermIndexTracker;
 import org.apache.raft.util.AutoCloseableLock;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
@@ -37,12 +44,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class ArithmeticStateMachine implements StateMachine {
+public class ArithmeticStateMachine extends BaseStateMachine {
   static final Logger LOG = LoggerFactory.getLogger(ArithmeticStateMachine.class);
 
   private RaftConfiguration conf;
+  private SimpleStateMachineStorage storage;
   private final Map<String, Double> variables = new ConcurrentHashMap<>();
-  private long lastAppliedIndex = RaftServerConstants.INVALID_LOG_INDEX;
+  private TermIndexTracker termIndexTracker = new TermIndexTracker();
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
@@ -54,23 +62,44 @@ public class ArithmeticStateMachine implements StateMachine {
     return AutoCloseableLock.acquire(lock.writeLock());
   }
 
+  public ArithmeticStateMachine() {
+    this.storage  = new SimpleStateMachineStorage();
+  }
+
   void reset() {
     variables.clear();
-    lastAppliedIndex = RaftServerConstants.INVALID_LOG_INDEX;
+    termIndexTracker.reset();
   }
 
   @Override
-  public void initialize(RaftProperties properties, RaftStorage storage) {
+  public void initialize(RaftProperties properties, RaftStorage raftStorage) throws IOException {
+    super.initialize(properties, raftStorage);
+    this.storage.init(raftStorage);
+    SingleFileSnapshotInfo snapshot = this.storage.findLatestSnapshot();
+    loadSnapshot(snapshot);
   }
 
   @Override
-  public long takeSnapshot(File snapshotFile, RaftStorage storage) {
+  public void pause() {
+  }
+
+  @Override
+  public void reinitialize(RaftProperties properties, RaftStorage storage) throws IOException {
+    close();
+    this.initialize(properties, storage);
+  }
+
+  @Override
+  public long takeSnapshot() throws IOException {
     final Map<String, Double> copy;
-    final long last;
+    final TermIndex last;
     try(final AutoCloseableLock readLock = readLock()) {
       copy = new HashMap<>(variables);
-      last = lastAppliedIndex;
+      last = termIndexTracker.getLatestTermIndex();
     }
+
+    File snapshotFile =  new File(SimpleStateMachineStorage.getSnapshotFileName(
+        last.getTerm(), last.getIndex()));
 
     try(final ObjectOutputStream out = new ObjectOutputStream(
         new BufferedOutputStream(new FileOutputStream(snapshotFile)))) {
@@ -80,38 +109,37 @@ public class ArithmeticStateMachine implements StateMachine {
           + "\", last applied index=" + last);
     }
 
-    return last;
+    return last.getIndex();
   }
 
-  @Override
-  public long loadSnapshot(File snapshotFile) throws IOException {
-    return load(snapshotFile, false);
+  public long loadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
+    return load(snapshot, false);
   }
 
-  @Override
-  public long reloadSnapshot(File snapshotFile) throws IOException {
-    return load(snapshotFile, true);
+  public long reloadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
+    return load(snapshot, true);
   }
 
-  private long load(File snapshotFile, boolean reload) throws IOException {
-    if (snapshotFile == null || !snapshotFile.exists()) {
-      LOG.warn("The snapshot file {} does not exist", snapshotFile);
+  private long load(SingleFileSnapshotInfo snapshot, boolean reload) throws IOException {
+    if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
+      LOG.warn("The snapshot file {} does not exist", snapshot);
       return RaftServerConstants.INVALID_LOG_INDEX;
     }
 
-    final long last = RaftStorageDirectory.getIndexFromSnapshotFile(snapshotFile);
+    File snapshotFile =snapshot.getFile().getPath().toFile();
+    final TermIndex last = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotFile);
     try(final AutoCloseableLock writeLock = writeLock();
         final ObjectInputStream in = new ObjectInputStream(
             new BufferedInputStream(new FileInputStream(snapshotFile)))) {
       if (reload) {
         reset();
       }
-      lastAppliedIndex = last;
+      termIndexTracker.init(last);
       variables.putAll((Map<String, Double>) in.readObject());
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
     }
-    return last;
+    return last.getIndex();
   }
 
   @Override
@@ -122,6 +150,11 @@ public class ArithmeticStateMachine implements StateMachine {
   @Override
   public RaftConfiguration getRaftConfiguration() {
     return conf;
+  }
+
+  @Override
+  public StateMachineStorage getStateMachineStorage() {
+    return storage;
   }
 
   @Override
@@ -138,7 +171,7 @@ public class ArithmeticStateMachine implements StateMachine {
     final Double result;
     try(final AutoCloseableLock writeLock = writeLock()) {
       result = assignment.evaluate(variables);
-      lastAppliedIndex = last;
+      termIndexTracker.update(entry.getTerm(), entry.getIndex());
     }
     final Expression r = Expression.Utils.double2Expression(result);
     LOG.debug("{}: {} = {}, variables={}", last, assignment, r, variables);

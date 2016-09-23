@@ -25,14 +25,14 @@ import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.StateMachineException;
 import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorage;
-import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
+import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 
 /**
@@ -51,6 +51,7 @@ class StateMachineUpdater implements Runnable {
     RUNNING, STOP, RELOAD
   }
 
+  private final RaftProperties properties;
   private final StateMachine stateMachine;
   private final RaftServer server;
   private final RaftLog raftLog;
@@ -63,10 +64,10 @@ class StateMachineUpdater implements Runnable {
 
   private final Thread updater;
   private volatile State state = State.RUNNING;
-  private volatile SnapshotPathAndTermIndex toLoadSnapshot;
 
   StateMachineUpdater(StateMachine stateMachine, RaftServer server,
       RaftLog raftLog, long lastAppliedIndex, RaftProperties properties) {
+    this.properties = properties;
     this.stateMachine = stateMachine;
     this.server = server;
     this.raftLog = raftLog;
@@ -96,9 +97,8 @@ class StateMachineUpdater implements Runnable {
     }
   }
 
-  void reloadStateMachine(SnapshotPathAndTermIndex snapshot) {
+  void reloadStateMachine() {
     state = State.RELOAD;
-    this.toLoadSnapshot = snapshot;
     notifyUpdater();
   }
 
@@ -129,14 +129,16 @@ class StateMachineUpdater implements Runnable {
         Preconditions.checkState(lastAppliedIndex < committedIndex);
 
         if (state == State.RELOAD) {
-          Preconditions.checkState(toLoadSnapshot != null &&
-              toLoadSnapshot.endIndex > lastAppliedIndex,
-              "toLoadSnapshot: %s, lastAppliedIndex: %s", toLoadSnapshot,
-              lastAppliedIndex);
+          Preconditions.checkState(stateMachine.getState() == StateMachine.State.PAUSED);
 
-          stateMachine.reloadSnapshot(toLoadSnapshot.path.toFile());
-          lastAppliedIndex = toLoadSnapshot.endIndex;
-          lastSnapshotIndex = toLoadSnapshot.endIndex;
+          stateMachine.reinitialize(properties, storage);
+
+          SnapshotInfo snapshot = stateMachine.getLatestSnapshot();
+          Preconditions.checkState(snapshot != null && snapshot.getIndex() > lastAppliedIndex,
+              "Snapshot: %s, lastAppliedIndex: %s", snapshot, lastAppliedIndex);
+
+          lastAppliedIndex = snapshot.getIndex();
+          lastSnapshotIndex = snapshot.getIndex();
           state = State.RUNNING;
         }
 
@@ -160,18 +162,15 @@ class StateMachineUpdater implements Runnable {
             }
             lastAppliedIndex++;
           } else {
-            LOG.debug("{}: logEntry {} is null. There may be snapshot to load."
-                    + " state:{}, toLoadSnapshot:{}",
-                this, lastAppliedIndex + 1, state, toLoadSnapshot);
+            LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
+                this, lastAppliedIndex + 1, state);
             break;
           }
         }
 
         // check if need to trigger a snapshot
         if (shouldTakeSnapshot(lastAppliedIndex)) {
-          File snapshotFile = storage.getStorageDir().getSnapshotFile(
-              raftLog.get(lastAppliedIndex).getTerm(), lastAppliedIndex);
-          stateMachine.takeSnapshot(snapshotFile, storage);
+          stateMachine.takeSnapshot();
           // TODO purge logs, including log cache. but should keep log for leader's RPCSenders
           lastSnapshotIndex = lastAppliedIndex;
         }
@@ -184,6 +183,7 @@ class StateMachineUpdater implements Runnable {
               this + ": the StateMachineUpdater is wrongly interrupted", LOG);
         }
       } catch (Throwable t) {
+        LOG.warn("the StateMachineUpdater hits Throwable", t);
         RaftUtils.terminate(t,
             this + ": the StateMachineUpdater hits Throwable", LOG);
       }

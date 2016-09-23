@@ -20,8 +20,9 @@ package org.apache.raft.server.storage;
 import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServerConstants;
-import org.apache.raft.server.storage.RaftStorageDirectory.SnapshotPathAndTermIndex;
 import org.apache.raft.server.storage.RaftStorageDirectory.StorageState;
+import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.statemachine.StateMachineStorage;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +42,7 @@ public class RaftStorage implements Closeable {
   private final RaftStorageDirectory storageDir;
   private final StorageState state;
   private volatile MetaFile metaFile;
+  private StateMachineStorage stateMachineStorage;
 
   public RaftStorage(RaftProperties prop, RaftServerConstants.StartupOption option)
       throws IOException {
@@ -120,7 +122,18 @@ public class RaftStorage implements Closeable {
     return metaFile;
   }
 
-  public SnapshotPathAndTermIndex getLastestSnapshotPath() throws IOException {
-    return storageDir.getLatestSnapshot();
+  public SnapshotInfo getLastestSnapshot() throws IOException {
+    return getStateMachineStorage().getLatestSnapshot();
+  }
+
+  /**
+   * Called by the state machine after it has initialized the StateMachineStorage.
+   */
+  public void setStateMachineStorage(StateMachineStorage smStorage) {
+    this.stateMachineStorage = smStorage;
+  }
+
+  public StateMachineStorage getStateMachineStorage() {
+    return stateMachineStorage;
   }
 }
