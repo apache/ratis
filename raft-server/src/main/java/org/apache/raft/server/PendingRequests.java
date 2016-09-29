@@ -19,10 +19,14 @@ package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.*;
+import org.apache.raft.server.StateMachine.ClientOperationEntry;
 import org.slf4j.Logger;
 
+import java.util.Collection;
 import java.util.Deque;
 import java.util.LinkedList;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 class PendingRequests {
   private static final Logger LOG = RaftServer.LOG;
@@ -35,27 +39,17 @@ class PendingRequests {
     this.server = server;
   }
 
-  boolean isEmpty() {
-    return  pendingRequests.isEmpty();
-  }
-
-  PendingRequest addPendingRequest(long index, RaftClientRequest request) {
+  PendingRequest addPendingRequest(long index, RaftClientRequest request,
+      ClientOperationEntry entry) {
     Preconditions.checkArgument(!request.isReadOnly());
     final PendingRequest last = pendingRequests.peekLast();
     Preconditions.checkState(last == null || index == last.getIndex() + 1);
-    return add(index, request);
+    return add(index, request, entry);
   }
 
-  PendingRequest addReadOnlyRequest(RaftClientRequest request) {
-    Preconditions.checkArgument(request.isReadOnly());
-    final PendingRequest last = pendingRequests.peekLast();
-    Preconditions.checkNotNull(last);
-    final long index = last.getIndex();
-    return add(index, request);
-  }
-
-  private PendingRequest add(long index, RaftClientRequest request) {
-    final PendingRequest pending = new PendingRequest(index, request);
+  private PendingRequest add(long index, RaftClientRequest request,
+      ClientOperationEntry entry) {
+    final PendingRequest pending = new PendingRequest(index, request, entry);
     pendingRequests.offer(pending);
     return pending;
   }
@@ -84,33 +78,18 @@ class PendingRequests {
     pendingSetConf = null;
   }
 
-  void replyPendingRequest(long index, Message message, Exception e) {
+  void replyPendingRequest(long index, CompletableFuture<Message> messageFuture) {
     final PendingRequest pending = pendingRequests.poll();
     if (pending != null) {
       Preconditions.checkState(pending.getIndex() == index);
-      if (e == null) {
-        pending.setSuccessReply(message);
-      } else {
-        pending.setException(e);
-      }
 
-      for(; !pendingRequests.isEmpty() && pendingRequests.peek().getIndex() == index; ) {
-        final PendingRequest ro = pendingRequests.poll();
-        Preconditions.checkState(ro.getIndex() == index);
-        processReadOnlyReqeusts(ro);
-      }
-    }
-  }
-
-  void processReadOnlyReqeusts(PendingRequest ro) {
-    final RaftClientRequest request = ro.getRequest();
-    Preconditions.checkArgument(request.isReadOnly());
-    final StateMachine stateMachine = server.getState().getStateMachine();
-    try {
-      final Message message = stateMachine.query(request.getMessage());
-      ro.setSuccessReply(message);
-    } catch (Exception e) {
-      ro.setException(e);
+      messageFuture.whenCompleteAsync((reply, exception) -> {
+        if (exception == null) {
+          pending.setSuccessReply(reply);
+        } else {
+          pending.setException(exception);
+        }
+      });
     }
   }
 
@@ -122,7 +101,11 @@ class PendingRequests {
     LOG.info("{} sends responses before shutting down PendingRequestsHandler",
         server.getId());
 
-    pendingRequests.forEach(pending -> setNotLeaderException(pending));
+    Collection<ClientOperationEntry> pendingEntries = pendingRequests.stream()
+        .map(PendingRequest::getEntry).collect(Collectors.toList());
+    // notify the state machine about stepping down
+    server.getStateMachine().notifyNotLeader(pendingEntries);
+    pendingRequests.forEach(this::setNotLeaderException);
     if (pendingSetConf != null) {
       setNotLeaderException(pendingSetConf);
     }

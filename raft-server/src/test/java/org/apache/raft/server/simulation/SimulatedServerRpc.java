@@ -20,11 +20,11 @@ package org.apache.raft.server.simulation;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.protocol.RaftException;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
+import org.apache.raft.server.RequestDispatcher;
 import org.apache.raft.server.protocol.AppendEntriesRequest;
 import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.protocol.RaftServerReply;
@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 public class SimulatedServerRpc implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(SimulatedServerRpc.class);
 
-  private final RaftServer server;
+  private final RequestDispatcher dispatcher;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
   private final ExecutorService executor = Executors.newFixedThreadPool(3,
@@ -52,11 +52,15 @@ public class SimulatedServerRpc implements RaftServerRpc {
   public SimulatedServerRpc(RaftServer server,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
       SimulatedRequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
-    this.server = server;
-    this.serverHandler = new RequestHandler<>(server.getId(), "serverHandler",
-        serverRequestReply, serverHandlerImpl, 3);
-    this.clientHandler = new RequestHandler<>(server.getId(), "clientHandler",
-        clientRequestReply, clientHandlerImpl, 3);
+    this.dispatcher = new RequestDispatcher(server);
+    this.serverHandler = new RequestHandler<>(getRaftServer().getId(),
+        "serverHandler", serverRequestReply, serverHandlerImpl, 3);
+    this.clientHandler = new RequestHandler<>(getRaftServer().getId(),
+        "clientHandler", clientRequestReply, clientHandlerImpl, 3);
+  }
+
+  private RaftServer getRaftServer() {
+    return dispatcher.getRaftServer();
   }
 
   @Override
@@ -101,18 +105,18 @@ public class SimulatedServerRpc implements RaftServerRpc {
       = new RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply>() {
     @Override
     public boolean isRunning() {
-      return server.isRunning();
+      return getRaftServer().isRunning();
     }
 
     @Override
     public RaftServerReply handleRequest(RaftServerRequest r)
         throws IOException {
       if (r instanceof AppendEntriesRequest) {
-        return server.appendEntries((AppendEntriesRequest) r);
+        return dispatcher.appendEntries((AppendEntriesRequest) r);
       } else if (r instanceof RequestVoteRequest) {
-        return server.requestVote((RequestVoteRequest) r);
+        return dispatcher.requestVote((RequestVoteRequest) r);
       } else if (r instanceof InstallSnapshotRequest) {
-        return server.installSnapshot((InstallSnapshotRequest) r);
+        return dispatcher.installSnapshot((InstallSnapshotRequest) r);
       } else {
         throw new IllegalStateException("unexpected state");
       }
@@ -123,7 +127,7 @@ public class SimulatedServerRpc implements RaftServerRpc {
       = new RequestHandler.HandlerInterface<RaftClientRequest, RaftClientReply>() {
     @Override
     public boolean isRunning() {
-      return server.isRunning();
+      return getRaftServer().isRunning();
     }
 
     @Override
@@ -131,24 +135,23 @@ public class SimulatedServerRpc implements RaftServerRpc {
         throws IOException {
       final CompletableFuture<RaftClientReply> future;
       if (request instanceof SetConfigurationRequest) {
-        future = server.setConfiguration((SetConfigurationRequest) request);
+        future = dispatcher.setConfiguration((SetConfigurationRequest) request);
       } else {
-        future = server.submitClientRequest(request);
+        future = dispatcher.handleClientRequest(request);
       }
 
-      future.handleAsync((reply, exception) -> {
+      future.whenCompleteAsync((reply, exception) -> {
         try {
-          RaftException e = null;
+          IOException e = null;
           if (exception != null) {
-            e = exception instanceof RaftException ?
-                (RaftException) exception : new RaftException(exception);
+            e = exception instanceof IOException ?
+                (IOException) exception : new IOException(exception);
           }
           clientHandler.getRpc().sendReply(request, reply, e);
         } catch (IOException e) {
           LOG.warn("Failed to send reply {} for request {} due to exception {}",
               reply, request, e);
         }
-        return reply;
       }, executor);
       return null;
     }

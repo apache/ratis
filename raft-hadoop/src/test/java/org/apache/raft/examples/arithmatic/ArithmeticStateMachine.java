@@ -19,18 +19,18 @@ package org.apache.raft.examples.arithmatic;
 
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.arithmatic.expression.Expression;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.BaseStateMachine;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConstants;
-import org.apache.raft.server.StateMachine;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftStorage;
-import org.apache.raft.server.storage.RaftStorageDirectory;
 import org.apache.raft.statemachine.SimpleStateMachineStorage;
 import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
-import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachineStorage;
 import org.apache.raft.statemachine.TermIndexTracker;
 import org.apache.raft.util.AutoCloseableLock;
@@ -38,9 +38,18 @@ import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -116,10 +125,6 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     return load(snapshot, false);
   }
 
-  public long reloadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
-    return load(snapshot, true);
-  }
-
   private long load(SingleFileSnapshotInfo snapshot, boolean reload) throws IOException {
     if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
       LOG.warn("The snapshot file {} does not exist", snapshot);
@@ -158,35 +163,52 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public void close() {
-    reset();
-  }
-
-  @Override
-  public Message applyLogEntry(LogEntryProto entry) {
-    final Message message = ProtoUtils.toMessage(entry.getClientMessageEntry());
-    final AssignmentMessage assignment = new AssignmentMessage(message);
-
-    final long last = entry.getIndex();
-    final Double result;
-    try(final AutoCloseableLock writeLock = writeLock()) {
-      result = assignment.evaluate(variables);
-      termIndexTracker.update(entry.getTerm(), entry.getIndex());
-    }
-    final Expression r = Expression.Utils.double2Expression(result);
-    LOG.debug("{}: {} = {}, variables={}", last, assignment, r, variables);
-    return Expression.Utils.toMessage(r);
-  }
-
-  @Override
-  public Message query(Message query) {
-    final Expression q = Expression.Utils.bytes2Expression(query.getContent(), 0);
+  public CompletableFuture<RaftClientReply> queryStateMachine(
+      RaftClientRequest request) {
+    final Expression q = Expression.Utils.bytes2Expression(
+        request.getMessage().getContent(), 0);
     final Double result;
     try(final AutoCloseableLock readLock = readLock()) {
       result = q.evaluate(variables);
     }
     final Expression r = Expression.Utils.double2Expression(result);
     LOG.debug("QUERY: {} = {}", q, r);
-    return Expression.Utils.toMessage(r);
+    final RaftClientReply reply = new RaftClientReply(request,
+        Expression.Utils.toMessage(r));
+    return CompletableFuture.completedFuture(reply);
+  }
+
+  @Override
+  public ClientOperationEntry validateUpdate(RaftClientRequest request)
+      throws IOException {
+    return () -> RaftProtos.ClientOperationProto.newBuilder()
+        .setOp(ProtoUtils.toByteString(request.getMessage().getContent()))
+        .build();
+  }
+
+  @Override
+  public void notifyNotLeader(Collection<ClientOperationEntry> pendingEntries) {
+    // do nothing
+  }
+
+  @Override
+  public void close() {
+    reset();
+  }
+
+  @Override
+  public CompletableFuture<Message> applyLogEntry(LogEntryProto entry) {
+    final Message message = () -> entry.getClientOperation().getOp().toByteArray();
+    final AssignmentMessage assignment = new AssignmentMessage(message);
+
+    final long last = entry.getIndex();
+    final Double result;
+    try(final AutoCloseableLock writeLock = writeLock()) {
+      result = assignment.evaluate(variables);
+      termIndexTracker.update(new TermIndex(entry.getTerm(), entry.getIndex()));
+    }
+    final Expression r = Expression.Utils.double2Expression(result);
+    LOG.debug("{}: {} = {}, variables={}", last, assignment, r, variables);
+    return CompletableFuture.completedFuture(Expression.Utils.toMessage(r));
   }
 }

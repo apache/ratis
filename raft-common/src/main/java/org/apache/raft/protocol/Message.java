@@ -21,21 +21,6 @@ package org.apache.raft.protocol;
  * The information clients append to the raft ring.
  */
 public interface Message {
-  byte[] EMPTY_BYTE_ARRAY = {};
-
-  /** Empty message */
-  Message EMPTY_MESSAGE = new Message() {
-    @Override
-    public String toString() {
-      return "";
-    }
-
-    @Override
-    public byte[] getContent() {
-      return EMPTY_BYTE_ARRAY;
-    }
-  };
-
   /**
    * @return the content of the message
    */

@@ -22,22 +22,26 @@ import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.server.StateMachine.ClientOperationEntry;
 
 import java.util.concurrent.CompletableFuture;
 
 public class PendingRequest implements Comparable<PendingRequest> {
   private final Long index;
   private final RaftClientRequest request;
+  private final ClientOperationEntry entry;
   private final CompletableFuture<RaftClientReply> future;
 
-  PendingRequest(long index, RaftClientRequest request) {
+  PendingRequest(long index, RaftClientRequest request,
+      ClientOperationEntry entry) {
     this.index = index;
     this.request = request;
+    this.entry = entry;
     this.future = new CompletableFuture<>();
   }
 
   PendingRequest(SetConfigurationRequest request) {
-    this(RaftServerConstants.INVALID_LOG_INDEX, request);
+    this(RaftServerConstants.INVALID_LOG_INDEX, request, null);
   }
 
   long getIndex() {
@@ -52,7 +56,11 @@ public class PendingRequest implements Comparable<PendingRequest> {
     return future;
   }
 
-  synchronized void setException(Exception e) {
+  ClientOperationEntry getEntry() {
+    return entry;
+  }
+
+  synchronized void setException(Throwable e) {
     Preconditions.checkArgument(e != null);
     future.completeExceptionally(e);
   }

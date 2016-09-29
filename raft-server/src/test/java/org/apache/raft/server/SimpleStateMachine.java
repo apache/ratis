@@ -21,9 +21,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.util.Daemon;
+import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;
@@ -33,17 +37,23 @@ import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshot
 import org.apache.raft.statemachine.StateMachineStorage;
 import org.apache.raft.statemachine.TermIndexTracker;
 import org.apache.raft.util.MD5FileUtil;
+import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
-import static org.apache.raft.server.StateMachine.State.*;
+import static org.apache.raft.server.StateMachine.State.CLOSED;
+import static org.apache.raft.server.StateMachine.State.CLOSING;
+import static org.apache.raft.server.StateMachine.State.NEW;
+import static org.apache.raft.server.StateMachine.State.PAUSED;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -65,7 +75,6 @@ public class SimpleStateMachine extends BaseStateMachine {
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
   private SimpleStateMachineStorage storage;
   private TermIndexTracker termIndexTracker;
-
 
   public SimpleStateMachine() {
     this.storage  = new SimpleStateMachineStorage();
@@ -90,8 +99,8 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public synchronized void initialize(RaftProperties properties, RaftStorage raftStorage)
-      throws IOException {
+  public synchronized void initialize(RaftProperties properties,
+      RaftStorage raftStorage) throws IOException {
     LOG.info("Initializing the StateMachine");
     this.state = State.STARTING;
     super.initialize(properties, raftStorage);
@@ -111,24 +120,18 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public synchronized void reinitialize(RaftProperties properties, RaftStorage storage)
-      throws IOException {
+  public synchronized void reinitialize(RaftProperties properties,
+      RaftStorage storage) throws IOException {
     LOG.info("Reinitializing the StateMachine");
     initialize(properties, storage);
   }
 
   @Override
-  public synchronized Message applyLogEntry(LogEntryProto entry) {
-    Preconditions.checkArgument(list.isEmpty() ||
-        entry.getIndex() - 1 == list.get(list.size() - 1).getIndex());
+  public CompletableFuture<Message> applyLogEntry(LogEntryProto entry) {
     list.add(entry);
-    termIndexTracker.update(entry.getTerm(), entry.getIndex());
-    return null;
-  }
-
-  @Override
-  public Message query(Message query) throws Exception {
-    throw new UnsupportedOperationException();
+    termIndexTracker.update(new TermIndex(entry.getTerm(), entry.getIndex()));
+    return CompletableFuture.completedFuture(
+        new SimpleMessage(entry.getIndex() + " OK"));
   }
 
   @Override
@@ -139,10 +142,11 @@ public class SimpleStateMachine extends BaseStateMachine {
     }
     final long endIndex = termIndex.getIndex();
 
-    //TODO: snapshot should be written to a tmp file, then renamed
-    File snapshotFile = storage.getSnapshotFile(termIndex.getTerm(), termIndex.getIndex());
-    LOG.debug("Taking a snapshot with t:{}, i:{}, file:{}", termIndex.getTerm(), termIndex.getIndex(),
-        snapshotFile);
+    // TODO: snapshot should be written to a tmp file, then renamed
+    File snapshotFile = storage.getSnapshotFile(termIndex.getTerm(),
+        termIndex.getIndex());
+    LOG.debug("Taking a snapshot with t:{}, i:{}, file:{}", termIndex.getTerm(),
+        termIndex.getIndex(), snapshotFile);
     try (LogOutputStream out = new LogOutputStream(snapshotFile, false,
         RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT)) {
       for (final LogEntryProto entry : list) {
@@ -165,7 +169,12 @@ public class SimpleStateMachine extends BaseStateMachine {
           + snapshotFile, e);
     }
 
-    this.storage.loadLatestSnapshot();
+    try {
+      this.storage.loadLatestSnapshot();
+    } catch (IOException e) {
+      LOG.warn("Hit IOException when loading latest snapshot for snapshot file "
+          + snapshotFile, e);
+    }
     // TODO: purge log segments
     return endIndex;
   }
@@ -175,19 +184,23 @@ public class SimpleStateMachine extends BaseStateMachine {
     return storage;
   }
 
-  public synchronized long loadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
+  public synchronized long loadSnapshot(SingleFileSnapshotInfo snapshot)
+      throws IOException {
     if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
-      LOG.warn("The snapshot file {} does not exist", snapshot == null ? null : snapshot.getFile());
+      LOG.warn("The snapshot file {} does not exist",
+          snapshot == null ? null : snapshot.getFile());
       return RaftServerConstants.INVALID_LOG_INDEX;
     } else {
-      LOG.info("Loading snapshot with t:{}, i:{}, file:{}", snapshot.getTerm(), snapshot.getIndex(),
-          snapshot.getFile().getPath());
+      LOG.info("Loading snapshot with t:{}, i:{}, file:{}", snapshot.getTerm(),
+          snapshot.getIndex(), snapshot.getFile().getPath());
       final long endIndex = snapshot.getIndex();
-      try (LogInputStream in =
-               new LogInputStream(snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
+      try (LogInputStream in = new LogInputStream(
+          snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
-          applyLogEntry(entry);
+          list.add(entry);
+          termIndexTracker.update(
+              new TermIndex(entry.getTerm(), entry.getIndex()));
         }
       }
       Preconditions.checkState(
@@ -200,33 +213,24 @@ public class SimpleStateMachine extends BaseStateMachine {
     }
   }
 
-  public synchronized long reloadSnapshot(SingleFileSnapshotInfo snapshot) throws IOException {
-    if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
-      LOG.warn("The snapshot file {} does not exist", snapshot.getFile());
-      return RaftServerConstants.INVALID_LOG_INDEX;
-    } else {
-      LOG.info("Reloading snapshot with t:{}, i:{}, file:{}", snapshot.getTerm(),
-          snapshot.getIndex(), snapshot.getFile().getPath());
-      final long endIndex = snapshot.getIndex();
-      final long lastIndexInList = list.isEmpty() ?
-          RaftServerConstants.INVALID_LOG_INDEX :
-          list.get(list.size() - 1).getIndex();
-      Preconditions.checkState(endIndex > lastIndexInList);
-      try (LogInputStream in =
-               new LogInputStream(snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
-        LogEntryProto entry;
-        while ((entry = in.nextEntry()) != null) {
-          if (entry.getIndex() > lastIndexInList) {
-            applyLogEntry(entry);
-          }
-        }
-      }
-      Preconditions.checkState(endIndex == list.get(list.size() - 1).getIndex());
-      this.endIndexLastCkpt = endIndex;
-      termIndexTracker.init(snapshot.getTermIndex());
-      this.storage.loadLatestSnapshot();
-      return endIndex;
-    }
+  @Override
+  public CompletableFuture<RaftClientReply> queryStateMachine(
+      RaftClientRequest request) {
+    return CompletableFuture.completedFuture(
+        new RaftClientReply(request, new SimpleMessage("query success")));
+  }
+
+  @Override
+  public ClientOperationEntry validateUpdate(RaftClientRequest request)
+      throws IOException {
+    return () -> RaftProtos.ClientOperationProto.newBuilder()
+        .setOp(ProtoUtils.toByteString(request.getMessage().getContent()))
+        .build();
+  }
+
+  @Override
+  public void notifyNotLeader(Collection<ClientOperationEntry> pendingEntries) {
+    // do nothing
   }
 
   @Override

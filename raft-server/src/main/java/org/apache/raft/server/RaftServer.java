@@ -21,7 +21,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
@@ -68,6 +67,7 @@ public class RaftServer implements RaftServerProtocol {
   public final int maxTimeout;
 
   private final ServerState state;
+  private final StateMachine stateMachine;
   private final RaftProperties properties;
   private volatile Role role;
   private final AtomicReference<RunningState> runningState
@@ -85,7 +85,7 @@ public class RaftServer implements RaftServerProtocol {
   private RaftServerRpc serverRpc;
 
   public RaftServer(String id, RaftConfiguration raftConf,
-      RaftProperties properties) throws IOException {
+      RaftProperties properties, StateMachine stateMachine) throws IOException {
     minTimeout = properties.getInt(
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_KEY,
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT);
@@ -95,7 +95,12 @@ public class RaftServer implements RaftServerProtocol {
     Preconditions.checkArgument(maxTimeout > minTimeout,
         "max timeout: %s, min timeout: %s", maxTimeout, minTimeout);
     this.properties = properties;
-    this.state = new ServerState(id, raftConf, properties, this);
+    this.stateMachine = stateMachine;
+    this.state = new ServerState(id, raftConf, properties, this, stateMachine);
+  }
+
+  public StateMachine getStateMachine() {
+    return this.stateMachine;
   }
 
   /**
@@ -178,7 +183,7 @@ public class RaftServer implements RaftServerProtocol {
     return runningState.get() != RunningState.STOPPED;
   }
 
-  public synchronized void kill() {
+  public void kill() {
     changeRunningState(RunningState.STOPPED);
 
     try {
@@ -305,7 +310,10 @@ public class RaftServer implements RaftServerProtocol {
     return role + " " + state + " " + runningState;
   }
 
-  private CompletableFuture<RaftClientReply> checkLeaderState(
+  /**
+   * @return null if the server is in leader state.
+   */
+  CompletableFuture<RaftClientReply> checkLeaderState(
       RaftClientRequest request) {
     if (!isLeader()) {
       NotLeaderException exception = generateNotLeaderException();
@@ -335,17 +343,14 @@ public class RaftServer implements RaftServerProtocol {
   }
 
   /**
-   * Handle a normal request from client.
+   * Handle a normal update request from client.
    */
-  public CompletableFuture<RaftClientReply> submitClientRequest(
-      RaftClientRequest request) throws RaftException {
-    LOG.debug("{}: receive submit({})", getId(), request);
+  public CompletableFuture<RaftClientReply> appendClientOperation(
+      RaftClientRequest request, StateMachine.ClientOperationEntry entry)
+      throws RaftException {
+    LOG.debug("{}: receive client request({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
     CompletableFuture<RaftClientReply> reply;
-    reply = checkLeaderState(request);
-    if (reply != null) {
-      return reply;
-    }
 
     final PendingRequest pending;
     synchronized (this) {
@@ -354,16 +359,12 @@ public class RaftServer implements RaftServerProtocol {
         return reply;
       }
 
-      if (request.isReadOnly()) {
-        pending = leaderState.handleReqdOnlyRequest(request);
-      } else {
-        // append the message to its local log
-        final long entryIndex = state.applyLog(request.getMessage());
+      // append the message to its local log
+      final long entryIndex = state.applyLog(entry.getLogEntryContent());
 
-        // put the request into the pending queue
-        pending = leaderState.addPendingRequest(entryIndex, request);
-        leaderState.notifySenders();
-      }
+      // put the request into the pending queue
+      pending = leaderState.addPendingRequest(entryIndex, request, entry);
+      leaderState.notifySenders();
     }
     return pending.getFuture();
   }
@@ -375,8 +376,7 @@ public class RaftServer implements RaftServerProtocol {
       SetConfigurationRequest request) throws IOException {
     LOG.debug("{}: receive setConfiguration({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
-    CompletableFuture<RaftClientReply> reply;
-    reply = checkLeaderState(request);
+    CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
     if (reply != null) {
       return reply;
     }
@@ -694,9 +694,10 @@ public class RaftServer implements RaftServerProtocol {
     serverRpc.addPeerProxies(peers);
   }
 
-  synchronized void replyPendingRequest(long logIndex, Message message, Exception e) {
+  synchronized void replyPendingRequest(long logIndex,
+      CompletableFuture<Message> message) {
     if (isLeader() && leaderState != null) { // is leader and is running
-      leaderState.replyPendingRequest(logIndex, message, e);
+      leaderState.replyPendingRequest(logIndex, message);
     }
   }
 }

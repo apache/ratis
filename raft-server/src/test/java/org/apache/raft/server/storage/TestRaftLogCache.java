@@ -17,11 +17,11 @@
  */
 package org.apache.raft.server.storage;
 
-import org.apache.raft.RaftTestUtil.SimpleMessage;
+import org.apache.raft.RaftTestUtil;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.protocol.Message;
-import org.apache.raft.util.ProtoUtils;
+import org.apache.raft.server.StateMachine.ClientOperationEntry;
 import org.apache.raft.server.storage.RaftLogCache.TruncationSegments;
+import org.apache.raft.util.ProtoUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -39,8 +39,9 @@ public class TestRaftLogCache {
   private LogSegment prepareLogSegment(long start, long end, boolean isOpen) {
     LogSegment s = LogSegment.newOpenSegment(start);
     for (long i = start; i <= end; i++) {
-      Message m = new SimpleMessage("m" + i);
-      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, i);
+      ClientOperationEntry m = new RaftTestUtil.SimpleOperation("m" + i);
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
+          0, i);
       s.appendToOpenSegment(entry);
     }
     if (!isOpen) {
@@ -127,9 +128,10 @@ public class TestRaftLogCache {
     LogSegment closedSegment = prepareLogSegment(0, 99, false);
     cache.addSegment(closedSegment);
 
-    final Message m = new SimpleMessage("m");
+    final ClientOperationEntry m = new RaftTestUtil.SimpleOperation("m");
     try {
-      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 0);
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
+          0, 0);
       cache.appendEntry(entry);
       Assert.fail("the open segment is null");
     } catch (IllegalStateException ignored) {
@@ -138,7 +140,8 @@ public class TestRaftLogCache {
     LogSegment openSegment = prepareLogSegment(100, 100, true);
     cache.addSegment(openSegment);
     for (long index = 101; index < 200; index++) {
-      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, index);
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
+          0, index);
       cache.appendEntry(entry);
     }
 

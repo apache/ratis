@@ -17,19 +17,24 @@
  */
 package org.apache.raft;
 
+import com.google.common.base.Preconditions;
 import org.apache.commons.lang.RandomStringUtils;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.StateMachine.ClientOperationEntry;
+import org.apache.raft.util.ProtoUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collection;
@@ -90,7 +95,7 @@ public class RaftTestUtil {
     while (idxEntries < entries.length
         && idxExpected < expectedMessages.length) {
       if (Arrays.equals(expectedMessages[idxExpected].getContent(),
-          entries[idxEntries].getClientMessageEntry().getContent().toByteArray())) {
+          entries[idxEntries].getClientOperation().getOp().toByteArray())) {
         ++idxExpected;
       }
       ++idxEntries;
@@ -120,7 +125,7 @@ public class RaftTestUtil {
       Assert.assertEquals(expertedTerm, e.getTerm());
       Assert.assertEquals(startIndex + i, e.getIndex());
       Assert.assertArrayEquals(expectedMessages[i].getContent(),
-          e.getClientMessageEntry().getContent().toByteArray());
+          e.getClientOperation().getOp().toByteArray());
     }
   }
 
@@ -168,6 +173,42 @@ public class RaftTestUtil {
     @Override
     public byte[] getContent() {
       return messageId.getBytes(Charset.forName("UTF-8"));
+    }
+  }
+
+  public static class SimpleOperation implements ClientOperationEntry {
+    private final String op;
+
+    public SimpleOperation(String op) {
+      Preconditions.checkArgument(op != null);
+      this.op = op;
+    }
+
+    @Override
+    public String toString() {
+      return op;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return obj == this ||
+          (obj instanceof SimpleOperation &&
+              ((SimpleOperation) obj).op.equals(op));
+    }
+
+    @Override
+    public int hashCode() {
+      return op.hashCode();
+    }
+
+    @Override
+    public RaftProtos.ClientOperationProto getLogEntryContent() {
+      try {
+        return RaftProtos.ClientOperationProto.newBuilder()
+            .setOp(ProtoUtils.toByteString(op.getBytes("UTF-8"))).build();
+      } catch (UnsupportedEncodingException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 

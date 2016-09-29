@@ -28,6 +28,10 @@ public class TermIndex implements Comparable<TermIndex> {
     this.index = logIndex;
   }
 
+  public TermIndex(TermIndex other) {
+    this(other.getTerm(), other.getIndex());
+  }
+
   public long getTerm() {
     return term;
   }

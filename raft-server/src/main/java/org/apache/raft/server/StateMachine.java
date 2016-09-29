@@ -19,16 +19,19 @@ package org.apache.raft.server;
 
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
-import org.apache.raft.server.protocol.InstallSnapshotRequest;
-import org.apache.raft.server.protocol.TermIndex;
+import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachineStorage;
+import org.apache.raft.util.ProtoUtils;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 public interface StateMachine extends Closeable {
 
@@ -44,7 +47,7 @@ public interface StateMachine extends Closeable {
    *     |      V
    *     |-> CLOSING -> CLOSED
    */
-  public enum State {
+  enum State {
     NEW,
     STARTING,
     RUNNING,
@@ -84,12 +87,8 @@ public interface StateMachine extends Closeable {
    * Apply a committed log entry to the state machine.
    * @param entry the log entry that has been committed to a quorum of the raft
    *              peers
-   * @throws Exception exception when apply the log entry. This may happen if
-   *                   the op in the log entry is invalid to the state machine.
    */
-  Message applyLogEntry(RaftProtos.LogEntryProto entry) throws Exception;
-
-  Message query(Message query) throws Exception;
+  CompletableFuture<Message> applyLogEntry(LogEntryProto entry);
 
   /**
    * Dump the in-memory state into a snapshot file in the RaftStorage. The
@@ -110,7 +109,7 @@ public interface StateMachine extends Closeable {
    *         should be handled separately.
    */
   // TODO: refactor this
-  public long takeSnapshot() throws IOException;
+  long takeSnapshot() throws IOException;
 
   /**
    * Record the RaftConfiguration in the state machine. The RaftConfiguration
@@ -134,6 +133,33 @@ public interface StateMachine extends Closeable {
    */
   SnapshotInfo getLatestSnapshot();
 
+  /**
+   * Query the state machine. The request must be read-only.
+   * TODO: extend RaftClientRequest to have a read-only request subclass.
+   */
+  CompletableFuture<RaftClientReply> queryStateMachine(RaftClientRequest request);
+
+  /**
+   * Validate/pre-process the incoming update request in the state machine.
+   * @return the content to be written to the log entry. Null means the request
+   * should be rejected.
+   * @throws IOException thrown by the state machine while validation
+   */
+  ClientOperationEntry validateUpdate(RaftClientRequest request)
+      throws IOException;
+
+  /**
+   * Notify the state machine that the raft peer is no longer leader.
+   */
+  void notifyNotLeader(Collection<ClientOperationEntry> pendingEntries);
+
+  /**
+   * The operation entry to be written into the raft log.
+   */
+  interface ClientOperationEntry {
+    RaftProtos.ClientOperationProto getLogEntryContent();
+  }
+
   class DummyStateMachine implements StateMachine {
     @Override
     public void initialize(RaftProperties properties, RaftStorage storage) {
@@ -145,11 +171,6 @@ public interface StateMachine extends Closeable {
       return null;
     }
 
-    @Override
-    public Message query(Message query) throws Exception {
-      throw new UnsupportedOperationException();
-    }
-
     public void pause() {
     }
 
@@ -158,9 +179,10 @@ public interface StateMachine extends Closeable {
     }
 
     @Override
-    public Message applyLogEntry(RaftProtos.LogEntryProto entry) {
-      // do nothing
-      return null;
+    public CompletableFuture<Message> applyLogEntry(LogEntryProto entry) {
+      // return the same message contained in the entry
+      Message msg = () -> entry.getClientOperation().getOp().toByteArray();
+      return CompletableFuture.completedFuture(msg);
     }
 
     @Override
@@ -199,6 +221,25 @@ public interface StateMachine extends Closeable {
     @Override
     public SnapshotInfo getLatestSnapshot() {
       return null;
+    }
+
+    @Override
+    public CompletableFuture<RaftClientReply> queryStateMachine(
+        RaftClientRequest request) {
+      return null;
+    }
+
+    @Override
+    public ClientOperationEntry validateUpdate(RaftClientRequest request)
+        throws IOException {
+      return () -> RaftProtos.ClientOperationProto.newBuilder()
+          .setOp(ProtoUtils.toByteString(request.getMessage().getContent()))
+          .build();
+    }
+
+    @Override
+    public void notifyNotLeader(Collection<ClientOperationEntry> pendingEntries) {
+
     }
 
     @Override

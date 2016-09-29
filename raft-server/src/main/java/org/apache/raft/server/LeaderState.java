@@ -29,6 +29,7 @@ import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.raft.proto.RaftProtos.FileChunkProto;
 import org.apache.raft.protocol.*;
+import org.apache.raft.server.StateMachine.ClientOperationEntry;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.raft.server.storage.FileInfo;
@@ -45,11 +46,11 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static org.apache.raft.protocol.Message.EMPTY_MESSAGE;
 import static org.apache.raft.server.LeaderState.StateUpdateEventType.*;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_RPC_SLEEP_TIME_MS_DEFAULT;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_RPC_SLEEP_TIME_MS_KEY;
@@ -150,7 +151,11 @@ class LeaderState {
     // to finally commit entries in the previous term.
     // Also this message can help identify the last committed index when
     // the leader peer is just started.
-    raftLog.append(server.getState().getCurrentTerm(), EMPTY_MESSAGE);
+    final LogEntryProto placeHolder = LogEntryProto.newBuilder()
+        .setTerm(server.getState().getCurrentTerm())
+        .setIndex(raftLog.getNextIndex())
+        .setType(LogEntryProto.Type.PLACEHOLDER).build();
+    raftLog.append(placeHolder);
 
     processor.start();
     startSenders();
@@ -210,22 +215,9 @@ class LeaderState {
     return pending;
   }
 
-  PendingRequest addPendingRequest(long index, RaftClientRequest request) {
-    return pendingRequests.addPendingRequest(index, request);
-  }
-
-  PendingRequest handleReqdOnlyRequest(RaftClientRequest request) {
-    if (!pendingRequests.isEmpty()) {
-      // Add the readonly request to the pending request queue.
-      return pendingRequests.addReadOnlyRequest(request);
-    }
-
-    // No outstanding pending requests.
-    // Process the readonly request immediately.
-    final long index = server.getState().getLastAppliedIndex();
-    final PendingRequest pending = new PendingRequest(index, request);
-    pendingRequests.processReadOnlyReqeusts(pending);
-    return pending;
+  PendingRequest addPendingRequest(long index, RaftClientRequest request,
+      ClientOperationEntry entry) {
+    return pendingRequests.addPendingRequest(index, request, entry);
   }
 
   private void applyOldNewConf() {
@@ -530,8 +522,8 @@ class LeaderState {
     return pending;
   }
 
-  void replyPendingRequest(long logIndex, Message message, Exception e) {
-    pendingRequests.replyPendingRequest(logIndex, message, e);
+  void replyPendingRequest(long logIndex, CompletableFuture<Message> message) {
+    pendingRequests.replyPendingRequest(logIndex, message);
   }
 
   private class FollowerInfo {

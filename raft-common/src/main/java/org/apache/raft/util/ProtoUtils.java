@@ -19,10 +19,9 @@ package org.apache.raft.util;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ServiceException;
-import org.apache.raft.proto.RaftProtos.ClientMessageEntryProto;
+import org.apache.raft.proto.RaftProtos.ClientOperationProto;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.RaftPeerProto;
-import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftPeer;
 
 import java.io.IOException;
@@ -78,21 +77,12 @@ public class ProtoUtils {
     return entry.getType() == LogEntryProto.Type.CONFIGURATION;
   }
 
-  public static ClientMessageEntryProto toClientMessageEntryProto(Message message) {
-    return ClientMessageEntryProto.newBuilder()
-        .setContent(toByteString(message.getContent())).build();
-  }
-
   public static LogEntryProto toLogEntryProto(
-      Message message, long term, long index) {
+      ClientOperationProto operation, long term, long index) {
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
         .setType(LogEntryProto.Type.CLIENT_MESSAGE)
-        .setClientMessageEntry(toClientMessageEntryProto(message))
+        .setClientOperation(operation)
         .build();
-  }
-
-  public static Message toMessage(final ClientMessageEntryProto p) {
-    return () -> p.getContent().toByteArray();
   }
 
   public static IOException toIOException(ServiceException se) {

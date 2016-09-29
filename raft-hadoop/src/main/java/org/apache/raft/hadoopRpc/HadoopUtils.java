@@ -24,6 +24,7 @@ import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.raft.proto.RaftClientProtocolProtos.ClientMessageEntryProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientRequestProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationRequestProto;
@@ -38,6 +39,7 @@ import org.apache.raft.proto.RaftServerProtocolProtos.RaftServerReplyProto;
 import org.apache.raft.proto.RaftServerProtocolProtos.RaftServerRequestProto;
 import org.apache.raft.proto.RaftServerProtocolProtos.RequestVoteReplyProto;
 import org.apache.raft.proto.RaftServerProtocolProtos.RequestVoteRequestProto;
+import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.NotLeaderException;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
@@ -62,6 +64,8 @@ import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
 import java.util.Arrays;
+
+import static org.apache.raft.util.ProtoUtils.toByteString;
 
 public class HadoopUtils {
   public static void setProtobufRpcEngine(
@@ -280,14 +284,14 @@ public class HadoopUtils {
   public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
     final RaftRpcMessageProto m = p.getRpcRequest().getRpcMessage();
     return new RaftClientRequest(m.getRequestorId(), m.getReplyId(),
-        ProtoUtils.toMessage(p.getMessage()), p.getReadOnly());
+        toMessage(p.getMessage()), p.getReadOnly());
   }
 
   public static RaftClientRequestProto toRaftClientRequestProto(
       RaftClientRequest request) {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .setMessage(ProtoUtils.toClientMessageEntryProto(request.getMessage()))
+        .setMessage(toClientMessageEntryProto(request.getMessage()))
         .setReadOnly(request.isReadOnly())
         .build();
   }
@@ -298,7 +302,7 @@ public class HadoopUtils {
     if (reply != null) {
       b.setRpcReply(toRaftRpcReplyProtoBuilder(request, reply));
       if (reply.getMessage() != null) {
-        b.setMessage(ProtoUtils.toClientMessageEntryProto(reply.getMessage()));
+        b.setMessage(toClientMessageEntryProto(reply.getMessage()));
       }
       if (reply.isNotLeader()) {
         b.setIsNotLeader(true);
@@ -327,7 +331,16 @@ public class HadoopUtils {
       e = new NotLeaderException(rm.getReplyId(), suggestedLeader, peers);
     }
     return new RaftClientReply(rm.getRequestorId(), rm.getReplyId(),
-        rp.getSuccess(), ProtoUtils.toMessage(replyProto.getMessage()), e);
+        rp.getSuccess(), toMessage(replyProto.getMessage()), e);
+  }
+
+  public static Message toMessage(final ClientMessageEntryProto p) {
+    return () -> p.getContent().toByteArray();
+  }
+
+  public static ClientMessageEntryProto toClientMessageEntryProto(Message message) {
+    return ClientMessageEntryProto.newBuilder()
+        .setContent(toByteString(message.getContent())).build();
   }
 
   public static SetConfigurationRequest toSetConfigurationRequest(

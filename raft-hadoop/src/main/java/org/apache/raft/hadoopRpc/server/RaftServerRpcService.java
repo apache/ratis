@@ -5,7 +5,7 @@ import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.RequestDispatcher;
 import org.apache.raft.server.protocol.AppendEntriesReply;
 import org.apache.raft.server.protocol.AppendEntriesRequest;
 import org.apache.raft.server.protocol.InstallSnapshotReply;
@@ -23,23 +23,25 @@ import java.util.concurrent.ExecutionException;
 
 public class RaftServerRpcService implements RaftClientProtocol, RaftServerProtocol {
   static final Logger LOG = LoggerFactory.getLogger(RaftServerRpcService.class);
-  private final RaftServer server;
+  private final RequestDispatcher dispatcher;
 
-  public RaftServerRpcService(RaftServer server) {
-    this.server = server;
+  public RaftServerRpcService(RequestDispatcher dispatcher) {
+    this.dispatcher = dispatcher;
   }
 
   @Override
   public RaftClientReply submitClientRequest(RaftClientRequest request)
       throws IOException {
-    CompletableFuture<RaftClientReply> future = server.submitClientRequest(request);
+    CompletableFuture<RaftClientReply> future =
+        dispatcher.handleClientRequest(request);
     return waitForReply(request, future);
   }
 
   @Override
   public RaftClientReply setConfiguration(SetConfigurationRequest request)
       throws IOException {
-    CompletableFuture<RaftClientReply> future = server.setConfiguration(request);
+    CompletableFuture<RaftClientReply> future =
+        dispatcher.setConfiguration(request);
     return waitForReply(request, future);
   }
 
@@ -65,22 +67,22 @@ public class RaftServerRpcService implements RaftClientProtocol, RaftServerProto
   @Override
   public RequestVoteReply requestVote(RequestVoteRequest request)
       throws IOException {
-    return server.requestVote(request);
+    return dispatcher.requestVote(request);
   }
 
   @Override
   public AppendEntriesReply appendEntries(AppendEntriesRequest request)
       throws IOException {
-    return server.appendEntries(request);
+    return dispatcher.appendEntries(request);
   }
 
   @Override
   public InstallSnapshotReply installSnapshot(InstallSnapshotRequest request)
       throws IOException {
-    return server.installSnapshot(request);
+    return dispatcher.installSnapshot(request);
   }
 
   public String getId() {
-    return server.getId();
+    return dispatcher.getRaftServer().getId();
   }
 }

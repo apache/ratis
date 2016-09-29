@@ -20,21 +20,22 @@ package org.apache.raft.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.protocol.Message;
 import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
-import org.apache.raft.server.storage.*;
+import org.apache.raft.server.storage.MemoryRaftLog;
+import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.server.storage.SegmentedRaftLog;
+import org.apache.raft.server.storage.SnapshotManager;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.ProtoUtils;
-import org.apache.raft.util.RaftUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY;
 
@@ -77,14 +78,13 @@ public class ServerState implements Closeable {
   private TermIndex latestInstalledSnapshot;
 
   ServerState(String id, RaftConfiguration conf, RaftProperties prop,
-      RaftServer server) throws IOException {
+      RaftServer server, StateMachine stateMachine) throws IOException {
     this.selfId = id;
     this.server = server;
     configurationManager = new ConfigurationManager(conf);
     storage = new RaftStorage(prop, RaftServerConstants.StartupOption.REGULAR);
     snapshotManager = new SnapshotManager(storage, id);
 
-    StateMachine stateMachine = getStateMachine(prop);
     long lastApplied = initStatemachine(stateMachine, prop);
 
     leaderId = null;
@@ -103,13 +103,6 @@ public class ServerState implements Closeable {
   @VisibleForTesting
   public void setInitialConf(RaftConfiguration initialConf) {
     configurationManager.setInitialConf(initialConf);
-  }
-
-  private StateMachine getStateMachine(RaftProperties properties) {
-    final Class<? extends StateMachine> smClass = properties.getClass(
-        RAFT_SERVER_STATEMACHINE_CLASS_KEY,
-        RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT, StateMachine.class);
-    return RaftUtils.newInstance(smClass);
   }
 
   private long initStatemachine(StateMachine sm, RaftProperties properties)
@@ -216,8 +209,8 @@ public class ServerState implements Closeable {
     return log;
   }
 
-  long applyLog(Message message) {
-    return log.append(currentTerm, message);
+  long applyLog(RaftProtos.ClientOperationProto operation) {
+    return log.append(currentTerm, operation);
   }
 
   /**
@@ -257,7 +250,7 @@ public class ServerState implements Closeable {
   boolean isLogUpToDate(TermIndex candidateLastEntry) {
     LogEntryProto lastEntry = log.getLastEntry();
     // need to take into account snapshot
-    SnapshotInfo snapshot = getStateMachine().getLatestSnapshot();
+    SnapshotInfo snapshot = server.getStateMachine().getLatestSnapshot();
      if (lastEntry == null && snapshot == null) {
       return true;
     } else if (candidateLastEntry == null) {
@@ -325,21 +318,18 @@ public class ServerState implements Closeable {
     return storage;
   }
 
-  public StateMachine getStateMachine() {
-    return stateMachineUpdater.getStateMachine();
-  }
-
   void installSnapshot(InstallSnapshotRequest request) throws IOException {
     // TODO: verify that we need to install the snapshot
-    getStateMachine().pause(); // pause the SM to prepare for install snapshot
-    snapshotManager.installSnapshot(getStateMachine(), request);
+    StateMachine sm = server.getStateMachine();
+    sm.pause(); // pause the SM to prepare for install snapshot
+    snapshotManager.installSnapshot(sm, request);
     log.syncWithSnapshot(request.getLastIncludedIndex());
     this.latestInstalledSnapshot = new TermIndex(request.getLastIncludedTerm(),
         request.getLastIncludedIndex());
   }
 
   SnapshotInfo getLatestSnapshot() {
-    return getStateMachine().getStateMachineStorage().getLatestSnapshot();
+    return server.getStateMachine().getStateMachineStorage().getLatestSnapshot();
   }
 
   public TermIndex getLatestInstalledSnapshot() {

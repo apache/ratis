@@ -23,6 +23,10 @@ package common.raft;
 
 import "Raft.proto";
 
+message ClientMessageEntryProto {
+  optional bytes content = 1;
+}
+
 // normal client request
 message RaftClientRequestProto {
   optional RaftRpcRequestProto rpcRequest = 1;

@@ -40,6 +40,7 @@ import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.Assert.fail;
 
@@ -54,8 +55,10 @@ public class TestRaftStateMachineException {
 
   private static class StateMachineWithException extends SimpleStateMachine {
     @Override
-    public Message applyLogEntry(RaftProtos.LogEntryProto entry) {
-      throw new RuntimeException("Fake Exception");
+    public CompletableFuture<Message> applyLogEntry(RaftProtos.LogEntryProto entry) {
+      CompletableFuture<Message> future = new CompletableFuture<>();
+      future.completeExceptionally(new StateMachineException("Fake Exception"));
+      return future;
     }
   }
 
@@ -86,7 +89,7 @@ public class TestRaftStateMachineException {
       client.send(new RaftTestUtil.SimpleMessage("m"));
       fail("Exception expected");
     } catch (StateMachineException e) {
-      Assert.assertTrue(e.getCause().getMessage().contains("Fake Exception"));
+      Assert.assertTrue(e.getMessage().contains("Fake Exception"));
     }
   }
 }

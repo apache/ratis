@@ -23,7 +23,6 @@ import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
-import org.apache.raft.protocol.StateMachineException;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftLog;
@@ -34,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * This class tracks the log entries that have been committed in a quorum and
@@ -148,17 +148,13 @@ class StateMachineUpdater implements Runnable {
             if (next.hasConfigurationEntry()) {
               // the reply should have already been set. only need to record
               // the new conf in the state machine.
-              stateMachine.setRaftConfiguration(ServerProtoUtils.toRaftConfiguration(
-                  next.getIndex(), next.getConfigurationEntry()));
-            } else {
-              StateMachineException re = null;
-              Message message = null;
-              try {
-                message = stateMachine.applyLogEntry(next);
-              } catch (Exception e) {
-                re = new StateMachineException(server.getId(), e);
-              }
-              server.replyPendingRequest(next.getIndex(), message, re);
+              stateMachine.setRaftConfiguration(
+                  ServerProtoUtils.toRaftConfiguration(next.getIndex(),
+                      next.getConfigurationEntry()));
+            } else if (next.hasClientOperation()) {
+              CompletableFuture<Message> messageFuture =
+                  stateMachine.applyLogEntry(next);
+              server.replyPendingRequest(next.getIndex(), messageFuture);
             }
             lastAppliedIndex++;
           } else {
@@ -197,11 +193,6 @@ class StateMachineUpdater implements Runnable {
   private boolean shouldTakeSnapshot(long currentAppliedIndex) {
     return autoSnapshotEnabled && (state != State.RELOAD) &&
         (currentAppliedIndex - lastSnapshotIndex >= snapshotThreshold);
-  }
-
-  @VisibleForTesting
-  StateMachine getStateMachine() {
-    return stateMachine;
   }
 
   long getLastAppliedIndex() {

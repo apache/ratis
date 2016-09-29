@@ -35,7 +35,6 @@ import org.apache.raft.server.StateMachine;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.raft.statemachine.SimpleStateMachineStorage;
-import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftStorageDirectory;
 import org.apache.raft.util.RaftUtils;
@@ -102,9 +101,9 @@ public class TestRaftSnapshot {
     }
 
     // wait for the snapshot to be done
-    StateMachine sm = cluster.getLeader().getState().getStateMachine();
-    File snapshotFile = ((SimpleStateMachineStorage)sm.getStateMachineStorage()).getSnapshotFile(
-        cluster.getLeader().getState().getCurrentTerm(), i);
+    StateMachine sm = cluster.getLeader().getStateMachine();
+    File snapshotFile = ((SimpleStateMachineStorage)sm.getStateMachineStorage())
+        .getSnapshotFile(cluster.getLeader().getState().getCurrentTerm(), i);
 
     int retries = 0;
     do {
@@ -121,13 +120,12 @@ public class TestRaftSnapshot {
       // 200 messages + two leader elections --> last committed = 201
       Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,
           cluster.getLeader().getState().getLog().getLastCommittedIndex());
-      sm = cluster.getLeader().getState().getStateMachine();
+      sm = cluster.getLeader().getStateMachine();
       LogEntryProto[] entries = ((SimpleStateMachine) sm).getContent();
-      for (i = 1; i <= SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-        Assert.assertEquals(i, entries[i].getIndex());
-        Assert.assertEquals(ProtoUtils.toClientMessageEntryProto(
-            new SimpleMessage("m" + (i - 1))),
-            entries[i].getClientMessageEntry());
+      for (i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+        Assert.assertEquals(i+1, entries[i].getIndex());
+        Assert.assertArrayEquals(new SimpleMessage("m" + i).getContent(),
+            entries[i].getClientOperation().getOp().toByteArray());
       }
     } finally {
       cluster.shutdown();
@@ -157,9 +155,9 @@ public class TestRaftSnapshot {
       // wait for the snapshot to be done
       RaftStorageDirectory storageDirectory = cluster.getLeader().getState()
           .getStorage().getStorageDir();
-      StateMachine sm = cluster.getLeader().getState().getStateMachine();
-      File snapshotFile =  ((SimpleStateMachineStorage)sm.getStateMachineStorage()).getSnapshotFile(
-          cluster.getLeader().getState().getCurrentTerm(), i);
+      StateMachine sm = cluster.getLeader().getStateMachine();
+      File snapshotFile = ((SimpleStateMachineStorage) sm.getStateMachineStorage())
+          .getSnapshotFile(cluster.getLeader().getState().getCurrentTerm(), i);
       logs = storageDirectory.getLogSegmentFiles();
 
       int retries = 0;
@@ -185,13 +183,12 @@ public class TestRaftSnapshot {
 
       Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,
           cluster.getLeader().getState().getLog().getLastCommittedIndex());
-      StateMachine sm = cluster.getLeader().getState().getStateMachine();
+      StateMachine sm = cluster.getLeader().getStateMachine();
       LogEntryProto[] entries = ((SimpleStateMachine) sm).getContent();
-      for (int i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2; i++) {
-        Assert.assertEquals(i, entries[i].getIndex());
-        Assert.assertEquals(
-            ProtoUtils.toClientMessageEntryProto(new SimpleMessage("m" + (i-1))),
-            entries[i].getClientMessageEntry());
+      for (int i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+        Assert.assertEquals(i+1, entries[i].getIndex());
+        Assert.assertArrayEquals(new SimpleMessage("m" + i).getContent(),
+            entries[i].getClientOperation().getOp().toByteArray());
       }
 
       // generate some more traffic

@@ -22,7 +22,7 @@ import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
-import org.apache.raft.RaftTestUtil.SimpleMessage;
+import org.apache.raft.RaftTestUtil.SimpleOperation;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.ProtoUtils;
@@ -95,9 +95,9 @@ public class TestSegmentedRaftLog {
       LogEntryProto[] entries = new LogEntryProto[size];
       try (LogOutputStream out = new LogOutputStream(file, false, segmentMaxSize)) {
         for (int i = 0; i < size; i++) {
-          SimpleMessage m = new SimpleMessage("m" + (i + range.start));
-          entries[i] = ProtoUtils.toLogEntryProto(m, range.term,
-              i + range.start);
+          SimpleOperation m = new SimpleOperation("m" + (i + range.start));
+          entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
+              range.term, i + range.start);
           out.write(entries[i]);
         }
       }
@@ -142,8 +142,9 @@ public class TestSegmentedRaftLog {
     List<LogEntryProto> eList = new ArrayList<>();
     for (SegmentRange range : slist) {
       for (long index = range.start; index <= range.end; index++) {
-        SimpleMessage m = new SimpleMessage("m" + index);
-        eList.add(ProtoUtils.toLogEntryProto(m, range.term, index));
+        SimpleOperation m = new SimpleOperation("m" + index);
+        eList.add(ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
+            range.term, index));
       }
     }
     return eList;

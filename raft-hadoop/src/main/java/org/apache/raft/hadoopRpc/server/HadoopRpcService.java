@@ -31,6 +31,7 @@ import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerRpc;
+import org.apache.raft.server.RequestDispatcher;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.slf4j.Logger;
@@ -54,7 +55,7 @@ public class HadoopRpcService
   public HadoopRpcService(RaftServer server, Configuration conf)
       throws IOException {
     super(conf);
-    this.raftService = new RaftServerRpcService(server);
+    this.raftService = new RaftServerRpcService(new RequestDispatcher(server));
     this.ipcServer = newRpcServer(conf);
     this.ipcServerAddress = ipcServer.getListenerAddress();
 
@@ -77,7 +78,7 @@ public class HadoopRpcService
     return new RaftServerProtocolClientSideTranslatorPB(proxy);
   }
 
-  RPC.Server newRpcServer(Configuration conf) throws IOException {
+  private RPC.Server newRpcServer(Configuration conf) throws IOException {
     final RaftServerConfigKeys.Get get = new RaftServerConfigKeys.Get(conf);
     final int handlerCount = get.ipc().handlers();
     final InetSocketAddress address = get.ipc().address();

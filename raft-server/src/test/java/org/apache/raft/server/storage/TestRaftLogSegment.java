@@ -20,7 +20,9 @@ package org.apache.raft.server.storage;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
+import org.apache.raft.RaftTestUtil.SimpleOperation;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.util.ProtoUtils;
@@ -74,8 +76,9 @@ public class TestRaftLogSegment {
         RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
     try (LogOutputStream out = new LogOutputStream(file, false, maxSize)) {
       for (int i = 0; i < size; i++) {
-        SimpleMessage m = new SimpleMessage("m" + i);
-        entries[i] = ProtoUtils.toLogEntryProto(m, term, i + start);
+        SimpleOperation op = new SimpleOperation("m" + i);
+        entries[i] = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
+            term, i + start);
         out.write(entries[i]);
       }
     }
@@ -129,9 +132,9 @@ public class TestRaftLogSegment {
     int i = 0;
     List<LogEntryProto> list = new ArrayList<>();
     while (size < RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT) {
-      SimpleMessage m = new SimpleMessage("m" + i);
-      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, term,
-          i++ + start);
+      SimpleOperation op = new SimpleOperation("m" + i);
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
+          term, i++ + start);
       size += getEntrySize(entry);
       list.add(entry);
     }
@@ -144,7 +147,8 @@ public class TestRaftLogSegment {
   @Test
   public void testAppendWithGap() throws Exception {
     LogSegment segment = LogSegment.newOpenSegment(1000);
-    final Message m = new SimpleMessage("m");
+    SimpleOperation op = new SimpleOperation("m");
+    final RaftProtos.ClientOperationProto m = op.getLogEntryContent();
     try {
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1001);
       segment.appendToOpenSegment(entry);
@@ -183,7 +187,7 @@ public class TestRaftLogSegment {
     LogSegment segment = LogSegment.newOpenSegment(start);
     for (int i = 0; i < 100; i++) {
       LogEntryProto entry = ProtoUtils.toLogEntryProto(
-          new SimpleMessage("m" + i), term, i + start);
+          new SimpleOperation("m" + i).getLogEntryContent(), term, i + start);
       segment.appendToOpenSegment(entry);
     }
 
@@ -231,8 +235,9 @@ public class TestRaftLogSegment {
     Arrays.fill(content, (byte) 1);
     final long size;
     try (LogOutputStream out = new LogOutputStream(file, false, 1024)) {
-      SimpleMessage message = new SimpleMessage(new String(content));
-      LogEntryProto entry = ProtoUtils.toLogEntryProto(message, 0, 0);
+      SimpleOperation op = new SimpleOperation(new String(content));
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
+          0, 0);
       size = LogSegment.getEntrySize(entry);
       out.write(entry);
     }
@@ -242,7 +247,7 @@ public class TestRaftLogSegment {
         RaftServerConstants.INVALID_LOG_INDEX, true)) {
       LogEntryProto entry = in.nextEntry();
       Assert.assertArrayEquals(content,
-          ProtoUtils.toMessage(entry.getClientMessageEntry()).getContent());
+          entry.getClientOperation().getOp().toByteArray());
       Assert.assertNull(in.nextEntry());
     }
   }
