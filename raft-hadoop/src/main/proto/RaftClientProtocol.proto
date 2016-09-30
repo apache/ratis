@@ -15,38 +15,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+syntax = "proto3";
 option java_package = "org.apache.raft.proto";
 option java_outer_classname = "RaftClientProtocolProtos";
 option java_generic_services = true;
 option java_generate_equals_and_hash = true;
-package common.raft;
+package raft.hadoop;
 
 import "Raft.proto";
 
 message ClientMessageEntryProto {
-  optional bytes content = 1;
+  bytes content = 1;
 }
 
 // normal client request
 message RaftClientRequestProto {
-  optional RaftRpcRequestProto rpcRequest = 1;
-  optional ClientMessageEntryProto message = 2;
-  optional bool readOnly = 3;
+  raft.common.RaftRpcRequestProto rpcRequest = 1;
+  ClientMessageEntryProto message = 2;
+  bool readOnly = 3;
 }
 
 message RaftClientReplyProto {
-  optional RaftRpcReplyProto rpcReply = 1;
-  optional ClientMessageEntryProto message = 2;
+  raft.common.RaftRpcReplyProto rpcReply = 1;
+  ClientMessageEntryProto message = 2;
   // the following 3 fields are used to indicate the server is not leader
-  optional bool isNotLeader = 3;
-  optional RaftPeerProto suggestedLeader = 4;
-  repeated RaftPeerProto peersInConf = 5;
+  bool isNotLeader = 3;
+  raft.common.RaftPeerProto suggestedLeader = 4;
+  repeated raft.common.RaftPeerProto peersInConf = 5;
 }
 
 // setConfiguration request
 message SetConfigurationRequestProto {
-  optional RaftRpcRequestProto rpcRequest = 1;
-  repeated RaftPeerProto peers = 2;
+  raft.common.RaftRpcRequestProto rpcRequest = 1;
+  repeated raft.common.RaftPeerProto peers = 2;
 }
 
 service RaftClientProtocolService {

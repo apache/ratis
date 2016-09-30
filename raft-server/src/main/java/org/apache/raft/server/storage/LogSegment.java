@@ -67,7 +67,7 @@ class LogSegment implements Comparable<Long> {
 
   static long getEntrySize(LogEntryProto entry) {
     final int serialized = entry.getSerializedSize();
-    return serialized + CodedOutputStream.computeRawVarint32Size(serialized) + 4;
+    return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4;
   }
 
   private boolean isOpen;

@@ -71,11 +71,11 @@ public class LogOutputStream implements Closeable {
    */
   public void write(LogEntryProto entry) throws IOException {
     final int serialized = entry.getSerializedSize();
-    final int bufferSize = CodedOutputStream.computeRawVarint32Size(serialized)
+    final int bufferSize = CodedOutputStream.computeUInt32SizeNoTag(serialized)
         + serialized;
     byte[] buf = new byte[bufferSize];
     CodedOutputStream cout = CodedOutputStream.newInstance(buf);
-    cout.writeRawVarint32(serialized);
+    cout.writeUInt32NoTag(serialized);
     entry.writeTo(cout);
 
     checksum.reset();

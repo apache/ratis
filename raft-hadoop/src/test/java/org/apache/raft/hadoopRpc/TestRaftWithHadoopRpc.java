@@ -23,6 +23,7 @@ import org.apache.log4j.Level;
 import org.apache.raft.RaftBasicTests;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.server.BlockRequestHandlingInjection;
+import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.junit.Test;
 
@@ -32,9 +33,9 @@ import static org.apache.raft.hadoopRpc.MiniRaftClusterWithHadoopRpc.sendServerR
 
 public class TestRaftWithHadoopRpc extends RaftBasicTests {
   static {
-//    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-//    GenericTestUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithHadoopRpc cluster;

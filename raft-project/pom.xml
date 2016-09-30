@@ -58,11 +58,6 @@
     <!-- com.google.re2j version -->
     <re2j.version>1.0</re2j.version>
 
-    <!-- ProtocolBuffer version, used to verify the protoc version and -->
-    <!-- define the protobuf JAR version                               -->
-    <protobuf.version>2.5.0</protobuf.version>
-    <protoc.path>${env.RAFT_PROTOC_PATH}</protoc.path>
-
     <curator.version>2.7.1</curator.version>
     <findbugs.version>3.0.0</findbugs.version>
 
@@ -98,6 +93,7 @@
     <make-maven-plugin.version>1.0-beta-1</make-maven-plugin.version>
     <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
     <surefire.fork.timeout>900</surefire.fork.timeout>
+    <maven-shade-plugin.version>2.4.3</maven-shade-plugin.version>
 
     <hadoop.version>2.7.2</hadoop.version>
   </properties>
@@ -155,7 +151,7 @@
       <dependency>
         <groupId>com.google.protobuf</groupId>
         <artifactId>protobuf-java</artifactId>
-        <version>${protobuf.version}</version>
+        <version>3.0.0</version>
       </dependency>
 
       <dependency>

@@ -15,15 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+syntax = "proto3";
 option java_package = "org.apache.raft.proto";
 option java_outer_classname = "RaftProtos";
 option java_generate_equals_and_hash = true;
-package common.raft;
+package raft.common;
 
 message RaftPeerProto {
-  optional string id = 1;      // id of the peer
-  optional string address = 2; // e.g. IP address, hostname etc.
+  string id = 1;      // id of the peer
+  string address = 2; // e.g. IP address, hostname etc.
 }
 
 message RaftConfigurationProto {
@@ -32,55 +32,55 @@ message RaftConfigurationProto {
 }
 
 message ClientOperationProto {
-  optional bytes op = 1;
+  bytes op = 1;
 }
 
 message LogEntryProto {
   enum Type {
-    CLIENT_MESSAGE = 1;
-    CONFIGURATION = 2;
-    PLACEHOLDER = 3;
+    CLIENT_MESSAGE = 0;
+    CONFIGURATION = 1;
+    PLACEHOLDER = 2;
   }
 
-  optional uint64 term = 1;
-  optional uint64 index = 2;
-  optional Type type = 3; // the type of the log entry
+  uint64 term = 1;
+  uint64 index = 2;
+  Type type = 3; // the type of the log entry
 
-  optional ClientOperationProto clientOperation = 4;
-  optional RaftConfigurationProto configurationEntry = 5;
+  ClientOperationProto clientOperation = 4;
+  RaftConfigurationProto configurationEntry = 5;
 }
 
 message TermIndexProto {
-  optional uint64 term = 1;
-  optional uint64 index = 2;
+  uint64 term = 1;
+  uint64 index = 2;
 }
 
 message RaftRpcMessageProto {
-  optional string requestorId = 1;
-  optional string replyId = 2;
+  string requestorId = 1;
+  string replyId = 2;
 }
 
 message RaftRpcRequestProto {
-  optional RaftRpcMessageProto rpcMessage = 1;
+  RaftRpcMessageProto rpcMessage = 1;
 }
 
 message RaftRpcReplyProto {
-  optional RaftRpcMessageProto rpcMessage = 1;
-  optional bool success = 2;
+  RaftRpcMessageProto rpcMessage = 1;
+  bool success = 2;
 }
 
 message FileChunkProto {
-  optional string filename = 1; // relative to root
-  optional uint64 totalSize = 2;
-  optional bytes fileDigest = 3;
-  optional uint32 chunkIndex = 4;
-  optional uint64 offset = 5;
-  optional bytes data = 6;
-  optional bool done = 7;
+  string filename = 1; // relative to root
+  uint64 totalSize = 2;
+  bytes fileDigest = 3;
+  uint32 chunkIndex = 4;
+  uint64 offset = 5;
+  bytes data = 6;
+  bool done = 7;
 }
 
 enum InstallSnapshotResult {
-  SUCCESS = 1;
-  NOT_LEADER = 2;
+  SUCCESS = 0;
+  NOT_LEADER = 1;
 }
 

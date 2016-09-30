@@ -241,7 +241,7 @@ public class LogReader implements Closeable {
           + ", but maxOpSize = " + maxOpSize);
     }
 
-    final int varintLength = CodedOutputStream.computeRawVarint32Size(
+    final int varintLength = CodedOutputStream.computeUInt32SizeNoTag(
         entryLength);
     final int totalLength = varintLength + entryLength;
     checkBufferSize(totalLength);

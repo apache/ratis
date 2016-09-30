@@ -93,7 +93,7 @@ public class TestRaftLogReadWrite {
       SimpleOperation m = new SimpleOperation("m" + i);
       entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
       final int s = entries[i].getSerializedSize();
-      size += CodedOutputStream.computeRawVarint32Size(s) + s + 4;
+      size += CodedOutputStream.computeUInt32SizeNoTag(s) + s + 4;
       out.write(entries[i]);
     }
     return size;

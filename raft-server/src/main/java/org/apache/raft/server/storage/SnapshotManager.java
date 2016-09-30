@@ -106,16 +106,13 @@ public class SnapshotManager {
 
       // rename the temp snapshot file if this is the last chunk. also verify
       // the md5 digest and create the md5 meta-file.
-      if (chunk.hasDone() && chunk.getDone()) {
-        final MD5Hash expectedDigest = new MD5Hash(chunk.getFileDigest().toByteArray());
-        if (expectedDigest == null) {
-          LOG.warn("MD5 digest in InstallSnapshot request is null");
-        }
-
+      if (chunk.getDone()) {
+        final MD5Hash expectedDigest =
+            new MD5Hash(chunk.getFileDigest().toByteArray());
         // calculate the checksum of the snapshot file and compare it with the
         // file digest in the request
         MD5Hash digest = MD5FileUtil.computeMd5ForFile(tmpSnapshotFile);
-        if (expectedDigest != null && !digest.equals(expectedDigest)) {
+        if (!digest.equals(expectedDigest)) {
           LOG.warn("The snapshot md5 digest {} does not match expected {}",
               digest, expectedDigest);
           // rename the temp snapshot file to .corrupt

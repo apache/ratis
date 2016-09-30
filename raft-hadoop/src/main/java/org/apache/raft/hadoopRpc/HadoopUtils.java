@@ -19,7 +19,6 @@ package org.apache.raft.hadoopRpc;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.net.NetUtils;
@@ -46,7 +45,6 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.RaftRpcMessage;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.protocol.AppendEntriesReply;
 import org.apache.raft.server.protocol.AppendEntriesRequest;
 import org.apache.raft.server.protocol.InstallSnapshotReply;
@@ -58,7 +56,6 @@ import org.apache.raft.server.protocol.RequestVoteRequest;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftLog;
-import org.apache.raft.statemachine.SnapshotInfoImpl;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;
 

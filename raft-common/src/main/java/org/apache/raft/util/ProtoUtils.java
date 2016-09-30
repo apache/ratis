@@ -45,7 +45,7 @@ public class ProtoUtils {
   }
 
   public static RaftPeer toRaftPeer(RaftPeerProto p) {
-    return new RaftPeer(p.getId(), p.hasAddress() ? p.getAddress() : null);
+    return new RaftPeer(p.getId(), p.getAddress());
   }
 
   public static RaftPeer[] toRaftPeerArray(List<RaftPeerProto> protos) {
