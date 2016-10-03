@@ -15,13 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadoopRpc.client;
+package org.apache.raft.hadooprpc.client;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.raft.client.RaftClientRequestSender;
-import org.apache.raft.hadoopRpc.HadoopRpcBase;
-import org.apache.raft.hadoopRpc.HadoopUtils;
+import org.apache.raft.hadooprpc.HadoopRpcBase;
+import org.apache.raft.hadooprpc.HadoopUtils;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftException;

@@ -15,27 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadoopRpc;
+package org.apache.raft.hadooprpc;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.raft.MiniRaftCluster;
-import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
+import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.RaftReconfigurationBaseTest;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
 
-public class RaftHadoopRpcTestUtil {
-  /** used by parameterized unit test */
-  public static Collection<Object[]> getMiniRaftClusters(int clusterSize,
-      Configuration hadoopConf, RaftProperties prop) throws IOException {
-    String[] s1 = MiniRaftCluster.generateIds(clusterSize, 0);
-    String[] s2 = MiniRaftCluster.generateIds(clusterSize, clusterSize);
-    MiniRaftClusterWithSimulatedRpc c1 =
-        new MiniRaftClusterWithSimulatedRpc(s1, prop, true);
-    MiniRaftClusterWithHadoopRpc c2 =
-        new MiniRaftClusterWithHadoopRpc(s2, prop, hadoopConf, true);
-    return Arrays.asList(new Object[][]{{c1}, {c2}});
+public class TestRaftReconfigurationWithHadoopRpc
+    extends RaftReconfigurationBaseTest {
+  @Override
+  public MiniRaftCluster getCluster(int peerNum) throws IOException {
+    final Configuration hadoopConf = new Configuration();
+    hadoopConf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
+    return new MiniRaftClusterWithHadoopRpc(peerNum, prop, hadoopConf);
   }
 }

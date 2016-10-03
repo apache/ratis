@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadoopRpc;
+package org.apache.raft.hadooprpc;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.test.GenericTestUtils;
@@ -29,7 +29,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 
-import static org.apache.raft.hadoopRpc.MiniRaftClusterWithHadoopRpc.sendServerRequest;
+import static org.apache.raft.hadooprpc.MiniRaftClusterWithHadoopRpc.sendServerRequest;
 
 public class TestRaftWithHadoopRpc extends RaftBasicTests {
   static {

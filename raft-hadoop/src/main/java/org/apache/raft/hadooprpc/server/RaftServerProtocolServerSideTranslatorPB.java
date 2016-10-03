@@ -15,12 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadoopRpc.server;
+package org.apache.raft.hadooprpc.server;
 
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.raft.hadoopRpc.HadoopUtils;
+import org.apache.raft.hadooprpc.HadoopUtils;
 import org.apache.raft.proto.RaftServerProtocolProtos.*;
 import org.apache.raft.server.protocol.*;
 

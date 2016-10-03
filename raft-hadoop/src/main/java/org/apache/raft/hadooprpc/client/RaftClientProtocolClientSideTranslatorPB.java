@@ -15,12 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadoopRpc.client;
+package org.apache.raft.hadooprpc.client;
 
-import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.raft.hadoopRpc.HadoopUtils;
+import org.apache.hadoop.ipc.RPC;
+import org.apache.raft.hadooprpc.HadoopUtils;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientRequestProto;
 import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationRequestProto;
@@ -28,42 +28,47 @@ import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.util.ProtoUtils;
 
+import java.io.Closeable;
 import java.io.IOException;
 
 @InterfaceAudience.Private
-public class RaftClientProtocolServerSideTranslatorPB
-    implements RaftClientProtocolPB {
-  private final RaftClientProtocol impl;
+public class RaftClientProtocolClientSideTranslatorPB
+    implements RaftClientProtocol, Closeable {
+  private final RaftClientProtocolPB rpcProxy;
 
-  public RaftClientProtocolServerSideTranslatorPB(RaftClientProtocol impl) {
-    this.impl = impl;
+  public RaftClientProtocolClientSideTranslatorPB(RaftClientProtocolPB rpcProxy) {
+    this.rpcProxy = rpcProxy;
   }
 
   @Override
-  public RaftClientReplyProto submitClientRequest(
-      RpcController unused, RaftClientRequestProto proto)
-      throws ServiceException {
-    final RaftClientRequest request = HadoopUtils.toRaftClientRequest(proto);
+  public void close() throws IOException {
+    RPC.stopProxy(rpcProxy);
+  }
+
+  @Override
+  public RaftClientReply submitClientRequest(RaftClientRequest request)
+      throws IOException {
+    final RaftClientRequestProto p = HadoopUtils.toRaftClientRequestProto(request);
     try {
-      final RaftClientReply reply = impl.submitClientRequest(request);
-      return HadoopUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
-    } catch(IOException ioe) {
-      throw new ServiceException(ioe);
+      RaftClientReplyProto replyProto = rpcProxy.submitClientRequest(null, p);
+      return HadoopUtils.toRaftClientReply(replyProto);
+    } catch (ServiceException se) {
+      throw ProtoUtils.toIOException(se);
     }
   }
 
   @Override
-  public RaftClientReplyProto setConfiguration(
-      RpcController unused, SetConfigurationRequestProto proto)
-      throws ServiceException {
-    final SetConfigurationRequest request;
+  public RaftClientReply setConfiguration(SetConfigurationRequest request)
+      throws IOException {
+    final SetConfigurationRequestProto p
+        = HadoopUtils.toSetConfigurationRequestProto(request);
     try {
-      request = HadoopUtils.toSetConfigurationRequest(proto);
-      final RaftClientReply reply = impl.setConfiguration(request);
-      return HadoopUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
-    } catch(IOException ioe) {
-      throw new ServiceException(ioe);
+      RaftClientReplyProto replyProto = rpcProxy.setConfiguration(null, p);
+      return HadoopUtils.toRaftClientReply(replyProto);
+    } catch (ServiceException se) {
+      throw ProtoUtils.toIOException(se);
     }
   }
 }

@@ -26,7 +26,7 @@ import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.arithmatic.expression.*;
-import org.apache.raft.hadoopRpc.RaftHadoopRpcTestUtil;
+import org.apache.raft.hadooprpc.RaftHadoopRpcTestUtil;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.StateMachine;

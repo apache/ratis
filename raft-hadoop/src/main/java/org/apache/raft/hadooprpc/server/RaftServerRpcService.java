@@ -1,4 +1,4 @@
-package org.apache.raft.hadoopRpc.server;
+package org.apache.raft.hadooprpc.server;
 
 import org.apache.raft.protocol.NotLeaderException;
 import org.apache.raft.protocol.RaftClientProtocol;

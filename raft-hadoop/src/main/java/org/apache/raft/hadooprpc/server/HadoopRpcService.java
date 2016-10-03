@@ -15,16 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadoopRpc.server;
+package org.apache.raft.hadooprpc.server;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.BlockingService;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.RPC;
-import org.apache.raft.hadoopRpc.HadoopRpcBase;
-import org.apache.raft.hadoopRpc.HadoopUtils;
-import org.apache.raft.hadoopRpc.client.RaftClientProtocolPB;
-import org.apache.raft.hadoopRpc.client.RaftClientProtocolServerSideTranslatorPB;
+import org.apache.raft.hadooprpc.HadoopRpcBase;
+import org.apache.raft.hadooprpc.HadoopUtils;
+import org.apache.raft.hadooprpc.client.RaftClientProtocolPB;
+import org.apache.raft.hadooprpc.client.RaftClientProtocolServerSideTranslatorPB;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientProtocolService;
 import org.apache.raft.proto.RaftServerProtocolProtos.RaftServerProtocolService;
 import org.apache.raft.protocol.RaftPeer;
