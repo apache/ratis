@@ -23,8 +23,8 @@
     <relativePath>../raft-project-dist</relativePath>
   </parent>
 
-  <artifactId>raft-hadoop</artifactId>
-  <name>Raft Hadoop Support</name>
+  <artifactId>raft-grpc</artifactId>
+  <name>Raft gRPC Support</name>
 
   <dependencies>
     <dependency>
@@ -91,43 +91,26 @@
     </dependency>
 
     <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
-      <scope>provided</scope>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-netty</artifactId>
+      <version>${grpc-java-version}</version>
     </dependency>
+
     <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
-      <scope>test</scope>
-      <type>test-jar</type>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-protobuf</artifactId>
+      <version>${grpc-java-version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-stub</artifactId>
+      <version>${grpc-java-version}</version>
     </dependency>
   </dependencies>
 
   <build>
     <plugins>
-      <plugin>
-        <groupId>org.apache.hadoop</groupId>
-        <artifactId>hadoop-maven-plugins</artifactId>
-        <executions>
-          <execution>
-            <id>version-info</id>
-            <phase>generate-resources</phase>
-            <goals>
-              <goal>version-info</goal>
-            </goals>
-            <configuration>
-              <source>
-                <directory>${basedir}/src/main</directory>
-                <includes>
-                  <include>java/**/*.java</include>
-                  <include>proto/**/*.proto</include>
-                </includes>
-              </source>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
       <plugin>
         <artifactId>maven-deploy-plugin</artifactId>
         <configuration>
@@ -150,10 +133,21 @@
         </configuration>
         <executions>
           <execution>
+            <id>1</id>
             <goals>
               <goal>compile</goal>
-              <goal>test-compile</goal>
+	      <goal>test-compile</goal>
             </goals>
+          </execution>
+          <execution>
+            <id>2</id>
+            <goals>
+              <goal>compile-custom</goal>
+            </goals>
+            <configuration>
+              <pluginId>grpc-java</pluginId>
+              <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc-java-version}:exe:${os.detected.classifier}</pluginArtifact>
+            </configuration>
           </execution>
         </executions>
       </plugin>

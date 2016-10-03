@@ -496,7 +496,7 @@ public abstract class RaftReconfigurationBaseTest {
    */
   @Test
   public void testRevertConfigurationChange() throws Exception {
-    LOG.info("Start testOverlappedSetConfRequests");
+    LOG.info("Start testRevertConfigurationChange");
     // originally 3 peers
     final MiniRaftCluster cluster = getCluster(5);
     try {

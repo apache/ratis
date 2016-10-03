@@ -33,6 +33,7 @@
     <module>../raft-client</module>
     <module>../raft-server</module>
     <module>../raft-hadoop</module>
+    <module>../raft-grpc</module>
   </modules>
 
   <properties>
@@ -93,8 +94,9 @@
     <make-maven-plugin.version>1.0-beta-1</make-maven-plugin.version>
     <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
     <surefire.fork.timeout>900</surefire.fork.timeout>
-    <maven-shade-plugin.version>2.4.3</maven-shade-plugin.version>
-
+    <grpc-java-version>1.0.1</grpc-java-version>
+    <protobuf-java-version>3.0.2</protobuf-java-version>
+    <guava-version>19.0</guava-version>
     <hadoop.version>2.7.2</hadoop.version>
   </properties>
 
@@ -145,13 +147,13 @@
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>11.0.2</version>
+        <version>${guava-version}</version>
       </dependency>
 
       <dependency>
         <groupId>com.google.protobuf</groupId>
         <artifactId>protobuf-java</artifactId>
-        <version>3.0.0</version>
+        <version>${protobuf-java-version}</version>
       </dependency>
 
       <dependency>
