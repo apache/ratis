@@ -18,13 +18,13 @@
 package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
-import org.apache.raft.proto.RaftProtos.ClientOperationProto;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
+import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.AutoCloseableLock;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
@@ -124,11 +124,11 @@ public abstract class RaftLog implements Closeable {
    * Used by the leader.
    * @return the index of the new log entry.
    */
-  public long append(long term, ClientOperationProto operation) {
+  public long append(long term, TrxContext operation) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
-      final LogEntryProto e = ProtoUtils.toLogEntryProto(operation, term,
+      final LogEntryProto e = ProtoUtils.toLogEntryProto(operation.getSMLogEntry().get(), term,
           nextIndex);
       appendEntry(e);
       return nextIndex;
@@ -198,7 +198,7 @@ public abstract class RaftLog implements Closeable {
    * If an existing entry conflicts with a new one (same index but different
    * terms), delete the existing entry and all entries that follow it (§5.3).
    *
-   * This method, {@link #append(long, ClientOperationProto)},
+   * This method, {@link #append(long, TrxContext)},
    * {@link #append(long, RaftConfiguration)}, and {@link #truncate(long)},
    * do not guarantee the changes are persisted.
    * Need to call {@link #logSync()} to persist the changes.

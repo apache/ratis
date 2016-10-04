@@ -30,6 +30,7 @@ import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -345,8 +346,8 @@ public class RaftServer implements RaftServerProtocol {
   /**
    * Handle a normal update request from client.
    */
-  public CompletableFuture<RaftClientReply> appendClientOperation(
-      RaftClientRequest request, StateMachine.ClientOperationEntry entry)
+  public CompletableFuture<RaftClientReply> appendTransaction(
+      RaftClientRequest request, TrxContext entry)
       throws RaftException {
     LOG.debug("{}: receive client request({})", getId(), request);
     assertRunningState(RunningState.RUNNING);
@@ -360,7 +361,7 @@ public class RaftServer implements RaftServerProtocol {
       }
 
       // append the message to its local log
-      final long entryIndex = state.applyLog(entry.getLogEntryContent());
+      final long entryIndex = state.applyLog(entry);
 
       // put the request into the pending queue
       pending = leaderState.addPendingRequest(entryIndex, request, entry);

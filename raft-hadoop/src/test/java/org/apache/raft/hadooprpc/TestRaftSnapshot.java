@@ -125,7 +125,7 @@ public class TestRaftSnapshot {
       for (i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
         Assert.assertEquals(i+1, entries[i].getIndex());
         Assert.assertArrayEquals(new SimpleMessage("m" + i).getContent(),
-            entries[i].getClientOperation().getOp().toByteArray());
+            entries[i].getSmLogEntry().getData().toByteArray());
       }
     } finally {
       cluster.shutdown();
@@ -188,7 +188,7 @@ public class TestRaftSnapshot {
       for (int i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
         Assert.assertEquals(i+1, entries[i].getIndex());
         Assert.assertArrayEquals(new SimpleMessage("m" + i).getContent(),
-            entries[i].getClientOperation().getOp().toByteArray());
+            entries[i].getSmLogEntry().getData().toByteArray());
       }
 
       // generate some more traffic

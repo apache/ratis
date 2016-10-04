@@ -151,7 +151,7 @@ class StateMachineUpdater implements Runnable {
               stateMachine.setRaftConfiguration(
                   ServerProtoUtils.toRaftConfiguration(next.getIndex(),
                       next.getConfigurationEntry()));
-            } else if (next.hasClientOperation()) {
+            } else if (next.hasSmLogEntry()) {
               CompletableFuture<Message> messageFuture =
                   stateMachine.applyLogEntry(next);
               server.replyPendingRequest(next.getIndex(), messageFuture);

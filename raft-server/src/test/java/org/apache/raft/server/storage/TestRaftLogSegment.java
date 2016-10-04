@@ -148,7 +148,7 @@ public class TestRaftLogSegment {
   public void testAppendWithGap() throws Exception {
     LogSegment segment = LogSegment.newOpenSegment(1000);
     SimpleOperation op = new SimpleOperation("m");
-    final RaftProtos.ClientOperationProto m = op.getLogEntryContent();
+    final RaftProtos.SMLogEntryProto m = op.getLogEntryContent();
     try {
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1001);
       segment.appendToOpenSegment(entry);
@@ -247,7 +247,7 @@ public class TestRaftLogSegment {
         RaftServerConstants.INVALID_LOG_INDEX, true)) {
       LogEntryProto entry = in.nextEntry();
       Assert.assertArrayEquals(content,
-          entry.getClientOperation().getOp().toByteArray());
+          entry.getSmLogEntry().getData().toByteArray());
       Assert.assertNull(in.nextEntry());
     }
   }

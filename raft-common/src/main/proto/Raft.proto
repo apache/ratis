@@ -31,8 +31,10 @@ message RaftConfigurationProto {
   repeated RaftPeerProto oldPeers = 2; // the peers in the old conf
 }
 
-message ClientOperationProto {
-  bytes op = 1;
+message SMLogEntryProto {
+  // TODO: This is not super efficient if the SM itself uses PB to serialize its own data for a
+  // log entry. Data will be copied twice. We should directly support having any Message from SM
+  bytes data = 1;
 }
 
 message LogEntryProto {
@@ -46,7 +48,7 @@ message LogEntryProto {
   uint64 index = 2;
   Type type = 3; // the type of the log entry
 
-  ClientOperationProto clientOperation = 4;
+  SMLogEntryProto smLogEntry = 4;
   RaftConfigurationProto configurationEntry = 5;
 }
 

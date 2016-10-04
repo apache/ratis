@@ -26,6 +26,7 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachineStorage;
+import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.ProtoUtils;
 
 import java.io.Closeable;
@@ -145,20 +146,13 @@ public interface StateMachine extends Closeable {
    * should be rejected.
    * @throws IOException thrown by the state machine while validation
    */
-  ClientOperationEntry validateUpdate(RaftClientRequest request)
+  TrxContext startTransaction(RaftClientRequest request)
       throws IOException;
 
   /**
    * Notify the state machine that the raft peer is no longer leader.
    */
-  void notifyNotLeader(Collection<ClientOperationEntry> pendingEntries);
-
-  /**
-   * The operation entry to be written into the raft log.
-   */
-  interface ClientOperationEntry {
-    RaftProtos.ClientOperationProto getLogEntryContent();
-  }
+  void notifyNotLeader(Collection<TrxContext> pendingEntries);
 
   class DummyStateMachine implements StateMachine {
     @Override
@@ -181,7 +175,7 @@ public interface StateMachine extends Closeable {
     @Override
     public CompletableFuture<Message> applyLogEntry(LogEntryProto entry) {
       // return the same message contained in the entry
-      Message msg = () -> entry.getClientOperation().getOp().toByteArray();
+      Message msg = () -> entry.getSmLogEntry().getData().toByteArray();
       return CompletableFuture.completedFuture(msg);
     }
 
@@ -230,16 +224,16 @@ public interface StateMachine extends Closeable {
     }
 
     @Override
-    public ClientOperationEntry validateUpdate(RaftClientRequest request)
+    public TrxContext startTransaction(RaftClientRequest request)
         throws IOException {
-      return () -> RaftProtos.ClientOperationProto.newBuilder()
-          .setOp(ProtoUtils.toByteString(request.getMessage().getContent()))
-          .build();
+      return new TrxContext(request,
+          RaftProtos.SMLogEntryProto.newBuilder()
+          .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
+          .build());
     }
 
     @Override
-    public void notifyNotLeader(Collection<ClientOperationEntry> pendingEntries) {
-
+    public void notifyNotLeader(Collection<TrxContext> pendingEntries) {
     }
 
     @Override

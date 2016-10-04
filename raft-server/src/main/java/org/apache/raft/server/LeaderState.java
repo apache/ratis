@@ -29,12 +29,12 @@ import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.raft.proto.RaftProtos.FileChunkProto;
 import org.apache.raft.protocol.*;
-import org.apache.raft.server.StateMachine.ClientOperationEntry;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 
@@ -216,7 +216,7 @@ class LeaderState {
   }
 
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
-      ClientOperationEntry entry) {
+      TrxContext entry) {
     return pendingRequests.addPendingRequest(index, request, entry);
   }
 

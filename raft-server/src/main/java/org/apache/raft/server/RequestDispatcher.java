@@ -20,19 +20,19 @@ package org.apache.raft.server;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.server.StateMachine.ClientOperationEntry;
 import org.apache.raft.server.protocol.AppendEntriesReply;
 import org.apache.raft.server.protocol.AppendEntriesRequest;
 import org.apache.raft.server.protocol.InstallSnapshotReply;
 import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.protocol.RequestVoteReply;
 import org.apache.raft.server.protocol.RequestVoteRequest;
+import org.apache.raft.statemachine.TrxContext;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Each RPC request is first handled by the RequestDistributor:
+ * Each RPC request is first handled by the RequestDispatcher:
  * 1. A request from another RaftPeer is to be handled by RaftServer.
  *
  * If the raft peer is the leader, then:
@@ -65,15 +65,18 @@ public class RequestDispatcher {
 
     // let the state machine handle read-only request from client
     if (request.isReadOnly()) {
+      // TODO: We might not be the leader anymore by the time this completes. See the RAFT paper,
+      // section 8 (last part)
       return stateMachine.queryStateMachine(request);
     }
 
-    ClientOperationEntry entry = stateMachine.validateUpdate(request);
-    if (entry == null) {
-      throw new IOException("The reqeust is rejected by the state machine");
+    TrxContext entry = stateMachine.startTransaction(request);
+    if (entry.getException().isPresent()) {
+      Exception ex = entry.getException().get();
+      throw ex instanceof IOException ? (IOException)ex : new IOException(ex);
     }
 
-    return server.appendClientOperation(request, entry);
+    return server.appendTransaction(request, entry);
   }
 
   public CompletableFuture<RaftClientReply> setConfiguration(

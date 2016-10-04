@@ -31,6 +31,7 @@ import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.server.storage.SegmentedRaftLog;
 import org.apache.raft.server.storage.SnapshotManager;
 import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.ProtoUtils;
 
 import java.io.Closeable;
@@ -209,7 +210,7 @@ public class ServerState implements Closeable {
     return log;
   }
 
-  long applyLog(RaftProtos.ClientOperationProto operation) {
+  long applyLog(TrxContext operation) {
     return log.append(currentTerm, operation);
   }
 

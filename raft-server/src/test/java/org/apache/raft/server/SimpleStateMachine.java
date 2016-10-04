@@ -36,6 +36,7 @@ import org.apache.raft.statemachine.SimpleStateMachineStorage;
 import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
 import org.apache.raft.statemachine.StateMachineStorage;
 import org.apache.raft.statemachine.TermIndexTracker;
+import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.MD5FileUtil;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
@@ -221,15 +222,15 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public ClientOperationEntry validateUpdate(RaftClientRequest request)
+  public TrxContext startTransaction(RaftClientRequest request)
       throws IOException {
-    return () -> RaftProtos.ClientOperationProto.newBuilder()
-        .setOp(ProtoUtils.toByteString(request.getMessage().getContent()))
-        .build();
+    return new TrxContext(request, RaftProtos.SMLogEntryProto.newBuilder()
+        .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
+        .build());
   }
 
   @Override
-  public void notifyNotLeader(Collection<ClientOperationEntry> pendingEntries) {
+  public void notifyNotLeader(Collection<TrxContext> pendingEntries) {
     // do nothing
   }
 

@@ -19,7 +19,7 @@ package org.apache.raft.util;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ServiceException;
-import org.apache.raft.proto.RaftProtos.ClientOperationProto;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.RaftPeerProto;
 import org.apache.raft.protocol.RaftPeer;
@@ -78,10 +78,10 @@ public class ProtoUtils {
   }
 
   public static LogEntryProto toLogEntryProto(
-      ClientOperationProto operation, long term, long index) {
+      RaftProtos.SMLogEntryProto operation, long term, long index) {
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
         .setType(LogEntryProto.Type.CLIENT_MESSAGE)
-        .setClientOperation(operation)
+        .setSmLogEntry(operation)
         .build();
   }
 

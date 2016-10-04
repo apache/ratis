@@ -33,6 +33,7 @@ import org.apache.raft.statemachine.SimpleStateMachineStorage;
 import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
 import org.apache.raft.statemachine.StateMachineStorage;
 import org.apache.raft.statemachine.TermIndexTracker;
+import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.AutoCloseableLock;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
@@ -179,16 +180,11 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public ClientOperationEntry validateUpdate(RaftClientRequest request)
+  public TrxContext startTransaction(RaftClientRequest request)
       throws IOException {
-    return () -> RaftProtos.ClientOperationProto.newBuilder()
-        .setOp(ProtoUtils.toByteString(request.getMessage().getContent()))
-        .build();
-  }
-
-  @Override
-  public void notifyNotLeader(Collection<ClientOperationEntry> pendingEntries) {
-    // do nothing
+    return new TrxContext(request, RaftProtos.SMLogEntryProto.newBuilder()
+        .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
+        .build());
   }
 
   @Override
@@ -198,7 +194,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Message> applyLogEntry(LogEntryProto entry) {
-    final Message message = () -> entry.getClientOperation().getOp().toByteArray();
+    final Message message = () -> entry.getSmLogEntry().getData().toByteArray();
     final AssignmentMessage assignment = new AssignmentMessage(message);
 
     final long last = entry.getIndex();

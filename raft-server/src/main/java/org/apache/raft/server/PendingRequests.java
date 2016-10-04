@@ -19,7 +19,7 @@ package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.*;
-import org.apache.raft.server.StateMachine.ClientOperationEntry;
+import org.apache.raft.statemachine.TrxContext;
 import org.slf4j.Logger;
 
 import java.util.Collection;
@@ -40,7 +40,7 @@ class PendingRequests {
   }
 
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
-      ClientOperationEntry entry) {
+      TrxContext entry) {
     Preconditions.checkArgument(!request.isReadOnly());
     final PendingRequest last = pendingRequests.peekLast();
     Preconditions.checkState(last == null || index == last.getIndex() + 1);
@@ -48,7 +48,7 @@ class PendingRequests {
   }
 
   private PendingRequest add(long index, RaftClientRequest request,
-      ClientOperationEntry entry) {
+      TrxContext entry) {
     final PendingRequest pending = new PendingRequest(index, request, entry);
     pendingRequests.offer(pending);
     return pending;
@@ -101,7 +101,7 @@ class PendingRequests {
     LOG.info("{} sends responses before shutting down PendingRequestsHandler",
         server.getId());
 
-    Collection<ClientOperationEntry> pendingEntries = pendingRequests.stream()
+    Collection<TrxContext> pendingEntries = pendingRequests.stream()
         .map(PendingRequest::getEntry).collect(Collectors.toList());
     // notify the state machine about stepping down
     server.getStateMachine().notifyNotLeader(pendingEntries);

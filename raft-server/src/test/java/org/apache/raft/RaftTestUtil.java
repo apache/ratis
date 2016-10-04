@@ -26,7 +26,6 @@ import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.StateMachine.ClientOperationEntry;
 import org.apache.raft.util.ProtoUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
@@ -95,7 +94,7 @@ public class RaftTestUtil {
     while (idxEntries < entries.length
         && idxExpected < expectedMessages.length) {
       if (Arrays.equals(expectedMessages[idxExpected].getContent(),
-          entries[idxEntries].getClientOperation().getOp().toByteArray())) {
+          entries[idxEntries].getSmLogEntry().getData().toByteArray())) {
         ++idxExpected;
       }
       ++idxEntries;
@@ -125,7 +124,7 @@ public class RaftTestUtil {
       Assert.assertEquals(expertedTerm, e.getTerm());
       Assert.assertEquals(startIndex + i, e.getIndex());
       Assert.assertArrayEquals(expectedMessages[i].getContent(),
-          e.getClientOperation().getOp().toByteArray());
+          e.getSmLogEntry().getData().toByteArray());
     }
   }
 
@@ -176,7 +175,7 @@ public class RaftTestUtil {
     }
   }
 
-  public static class SimpleOperation implements ClientOperationEntry {
+  public static class SimpleOperation {
     private final String op;
 
     public SimpleOperation(String op) {
@@ -201,11 +200,10 @@ public class RaftTestUtil {
       return op.hashCode();
     }
 
-    @Override
-    public RaftProtos.ClientOperationProto getLogEntryContent() {
+    public RaftProtos.SMLogEntryProto getLogEntryContent() {
       try {
-        return RaftProtos.ClientOperationProto.newBuilder()
-            .setOp(ProtoUtils.toByteString(op.getBytes("UTF-8"))).build();
+        return RaftProtos.SMLogEntryProto.newBuilder()
+            .setData(ProtoUtils.toByteString(op.getBytes("UTF-8"))).build();
       } catch (UnsupportedEncodingException e) {
         throw new RuntimeException(e);
       }

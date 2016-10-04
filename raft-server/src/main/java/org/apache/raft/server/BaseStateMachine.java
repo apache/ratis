@@ -21,8 +21,10 @@ package org.apache.raft.server;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.statemachine.TrxContext;
 
 import java.io.IOException;
+import java.util.Collection;
 
 /**
  * Base implementation for StateMachines.
@@ -58,5 +60,10 @@ public abstract class BaseStateMachine implements StateMachine {
   @Override
   public SnapshotInfo getLatestSnapshot() {
     return getStateMachineStorage().getLatestSnapshot();
+  }
+
+  @Override
+  public void notifyNotLeader(Collection<TrxContext> pendingEntries) {
+    // do nothing
   }
 }

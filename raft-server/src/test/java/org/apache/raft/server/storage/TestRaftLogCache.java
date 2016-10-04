@@ -17,9 +17,8 @@
  */
 package org.apache.raft.server.storage;
 
-import org.apache.raft.RaftTestUtil;
+import org.apache.raft.RaftTestUtil.SimpleOperation;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.server.StateMachine.ClientOperationEntry;
 import org.apache.raft.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.raft.util.ProtoUtils;
 import org.junit.Assert;
@@ -39,7 +38,7 @@ public class TestRaftLogCache {
   private LogSegment prepareLogSegment(long start, long end, boolean isOpen) {
     LogSegment s = LogSegment.newOpenSegment(start);
     for (long i = start; i <= end; i++) {
-      ClientOperationEntry m = new RaftTestUtil.SimpleOperation("m" + i);
+      SimpleOperation m = new SimpleOperation("m" + i);
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
           0, i);
       s.appendToOpenSegment(entry);
@@ -128,7 +127,7 @@ public class TestRaftLogCache {
     LogSegment closedSegment = prepareLogSegment(0, 99, false);
     cache.addSegment(closedSegment);
 
-    final ClientOperationEntry m = new RaftTestUtil.SimpleOperation("m");
+    final SimpleOperation m = new SimpleOperation("m");
     try {
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
           0, 0);
