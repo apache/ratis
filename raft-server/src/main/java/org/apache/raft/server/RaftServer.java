@@ -30,6 +30,7 @@ import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
 import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.slf4j.Logger;

@@ -26,6 +26,7 @@ import org.apache.raft.server.protocol.InstallSnapshotReply;
 import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.protocol.RequestVoteReply;
 import org.apache.raft.server.protocol.RequestVoteRequest;
+import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
 
 import java.io.IOException;
@@ -67,7 +68,7 @@ public class RequestDispatcher {
     if (request.isReadOnly()) {
       // TODO: We might not be the leader anymore by the time this completes. See the RAFT paper,
       // section 8 (last part)
-      return stateMachine.queryStateMachine(request);
+      return stateMachine.query(request);
     }
 
     TrxContext entry = stateMachine.startTransaction(request);

@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.statemachine;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -28,15 +28,12 @@ import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;
 import org.apache.raft.server.storage.RaftStorage;
-import org.apache.raft.statemachine.SimpleStateMachineStorage;
 import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
-import org.apache.raft.statemachine.StateMachineStorage;
-import org.apache.raft.statemachine.TermIndexTracker;
-import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.MD5FileUtil;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
@@ -51,10 +48,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
-import static org.apache.raft.server.StateMachine.State.CLOSED;
-import static org.apache.raft.server.StateMachine.State.CLOSING;
-import static org.apache.raft.server.StateMachine.State.NEW;
-import static org.apache.raft.server.StateMachine.State.PAUSED;
+import static org.apache.raft.statemachine.StateMachine.State.CLOSED;
+import static org.apache.raft.statemachine.StateMachine.State.CLOSING;
+import static org.apache.raft.statemachine.StateMachine.State.NEW;
+import static org.apache.raft.statemachine.StateMachine.State.PAUSED;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -216,7 +213,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> queryStateMachine(
+  public CompletableFuture<RaftClientReply> query(
       RaftClientRequest request) {
     return CompletableFuture.completedFuture(
         new RaftClientReply(request, new SimpleMessage("query success")));

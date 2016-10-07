@@ -24,7 +24,7 @@ import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.server.BaseStateMachine;
+import org.apache.raft.statemachine.BaseStateMachine;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.TermIndex;
@@ -47,7 +47,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -164,7 +163,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> queryStateMachine(
+  public CompletableFuture<RaftClientReply> query(
       RaftClientRequest request) {
     final Expression q = Expression.Utils.bytes2Expression(
         request.getMessage().getContent(), 0);

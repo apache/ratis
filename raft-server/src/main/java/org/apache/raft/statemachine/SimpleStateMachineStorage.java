@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,7 +50,6 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   /** snapshot.term_index */
   static final Pattern SNAPSHOT_REGEX =
       Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)");
-
 
   private RaftStorage raftStorage;
   private File smDir = null;

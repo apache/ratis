@@ -20,9 +20,8 @@ package org.apache.raft.server.storage;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MD5Hash;
-import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.server.StateMachine;
+import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.MD5FileUtil;
@@ -34,7 +33,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
-import java.nio.file.Path;
 
 /**
  * Manage snapshots of a raft peer.

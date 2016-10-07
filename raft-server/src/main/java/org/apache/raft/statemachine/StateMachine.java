@@ -15,19 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.statemachine;
 
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.server.RaftConfiguration;
+import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.storage.RaftStorage;
-import org.apache.raft.statemachine.SnapshotInfo;
-import org.apache.raft.statemachine.StateMachineStorage;
-import org.apache.raft.statemachine.TrxContext;
-import org.apache.raft.util.ProtoUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -138,7 +134,7 @@ public interface StateMachine extends Closeable {
    * Query the state machine. The request must be read-only.
    * TODO: extend RaftClientRequest to have a read-only request subclass.
    */
-  CompletableFuture<RaftClientReply> queryStateMachine(RaftClientRequest request);
+  CompletableFuture<RaftClientReply> query(RaftClientRequest request);
 
   /**
    * Validate/pre-process the incoming update request in the state machine.
@@ -153,92 +149,4 @@ public interface StateMachine extends Closeable {
    * Notify the state machine that the raft peer is no longer leader.
    */
   void notifyNotLeader(Collection<TrxContext> pendingEntries);
-
-  class DummyStateMachine implements StateMachine {
-    @Override
-    public void initialize(RaftProperties properties, RaftStorage storage) {
-      // do nothing
-    }
-
-    @Override
-    public State getState() {
-      return null;
-    }
-
-    public void pause() {
-    }
-
-    @Override
-    public void reinitialize(RaftProperties properties, RaftStorage storage) throws IOException {
-    }
-
-    @Override
-    public CompletableFuture<Message> applyLogEntry(TrxContext trx) {
-      // return the same message contained in the entry
-      Message msg = () -> trx.getLogEntry().get().getSmLogEntry().getData().toByteArray();
-      return CompletableFuture.completedFuture(msg);
-    }
-
-    @Override
-    public long takeSnapshot() {
-      return RaftServerConstants.INVALID_LOG_INDEX;
-    }
-
-    @Override
-    public void setRaftConfiguration(RaftConfiguration conf) {
-      // do nothing
-    }
-
-    @Override
-    public RaftConfiguration getRaftConfiguration() {
-      return null;
-    }
-
-    @Override
-    public StateMachineStorage getStateMachineStorage() {
-      return new StateMachineStorage() {
-        @Override
-        public void init(RaftStorage raftStorage) throws IOException {
-        }
-
-        @Override
-        public SnapshotInfo getLatestSnapshot() {
-          return null;
-        }
-
-        @Override
-        public void format() throws IOException {
-        }
-      };
-    }
-
-    @Override
-    public SnapshotInfo getLatestSnapshot() {
-      return null;
-    }
-
-    @Override
-    public CompletableFuture<RaftClientReply> queryStateMachine(
-        RaftClientRequest request) {
-      return null;
-    }
-
-    @Override
-    public TrxContext startTransaction(RaftClientRequest request)
-        throws IOException {
-      return new TrxContext(request,
-          RaftProtos.SMLogEntryProto.newBuilder()
-          .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
-          .build());
-    }
-
-    @Override
-    public void notifyNotLeader(Collection<TrxContext> pendingEntries) {
-    }
-
-    @Override
-    public void close() throws IOException {
-      // do nothing
-    }
-  }
 }

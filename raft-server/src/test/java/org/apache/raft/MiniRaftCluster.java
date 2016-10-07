@@ -29,7 +29,7 @@ import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerConstants;
-import org.apache.raft.server.StateMachine;
+import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.util.RaftUtils;

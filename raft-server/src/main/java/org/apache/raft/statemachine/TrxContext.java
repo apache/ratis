@@ -11,10 +11,10 @@ import java.util.Optional;
  * maybe coming from another replica of the state machine through the RAFT log. TrxContext can be
  * either created from the StateMachine or can be created by the StateMachineUpdater. In the first
  * case, the StateMachine receives a
- * {@link org.apache.raft.server.StateMachine#startTransaction(RaftClientRequest)} request, and
+ * {@link StateMachine#startTransaction(RaftClientRequest)} request, and
  * should return a TrxContext with the changes from the SM. The same context will come back to the
- * SM via {@link org.apache.raft.server.StateMachine#applyLogEntry(TrxContext)} call
- * or {@link org.apache.raft.server.StateMachine#notifyNotLeader(Collection)} call. In the second
+ * SM via {@link StateMachine#applyLogEntry(TrxContext)} call
+ * or {@link StateMachine#notifyNotLeader(Collection)} call. In the second
  * case, if the StateMachine is a follower, the TrxContext will be a committed entry coming from
  * the RAFT log from the leader.
  */

@@ -19,7 +19,8 @@ package org.apache.raft.server;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.raft.server.StateMachine.DummyStateMachine;
+import org.apache.raft.statemachine.BaseStateMachine;
+import org.apache.raft.statemachine.StateMachine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,7 +65,7 @@ public interface RaftServerConfigKeys {
   String RAFT_SERVER_STORAGE_DIR_DEFAULT = "file:///tmp/raft-server/";
 
   String RAFT_SERVER_STATEMACHINE_CLASS_KEY = "raft.server.statemachine.class";
-  Class<? extends StateMachine> RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT = DummyStateMachine.class;
+  Class<? extends StateMachine> RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT = BaseStateMachine.class;
 
   /** whether trigger snapshot when log size exceeds limit */
   String RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY = "raft.server.auto.snapshot.enabled";

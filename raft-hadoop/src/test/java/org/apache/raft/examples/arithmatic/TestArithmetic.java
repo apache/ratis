@@ -29,7 +29,7 @@ import org.apache.raft.examples.arithmatic.expression.*;
 import org.apache.raft.hadooprpc.RaftHadoopRpcTestUtil;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.StateMachine;
+import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.server.simulation.SimulatedRequestReply;
 import org.junit.Assert;
 import org.junit.Test;

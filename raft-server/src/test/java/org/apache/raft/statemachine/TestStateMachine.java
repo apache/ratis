@@ -15,37 +15,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server.statemachine;
+package org.apache.raft.statemachine;
 
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClient;
-import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.SimpleStateMachine;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.ProtoUtils;
 import org.junit.*;
 import org.junit.rules.Timeout;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.LongStream;
 
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY;
 import static org.junit.Assert.*;
