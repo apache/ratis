@@ -431,9 +431,9 @@ class LeaderState {
     checkAndUpdateConfiguration(entriesToCommit);
   }
 
-  private boolean committedConf(LogEntryProto[] entreis) {
+  private boolean committedConf(LogEntryProto[] entries) {
     final long currentCommitted = raftLog.getLastCommittedIndex();
-    for (LogEntryProto entry : entreis) {
+    for (LogEntryProto entry : entries) {
       if (entry.getIndex() <= currentCommitted &&
           ProtoUtils.isConfigurationLogEntry(entry)) {
         return true;
@@ -524,6 +524,10 @@ class LeaderState {
 
   void replyPendingRequest(long logIndex, CompletableFuture<Message> message) {
     pendingRequests.replyPendingRequest(logIndex, message);
+  }
+
+  TrxContext getTransactionContext(long index) {
+    return pendingRequests.getTransactionContext(index);
   }
 
   private class FollowerInfo {

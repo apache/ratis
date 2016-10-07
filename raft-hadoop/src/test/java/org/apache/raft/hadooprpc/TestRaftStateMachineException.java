@@ -33,6 +33,7 @@ import org.apache.raft.server.StateMachine;
 import org.apache.raft.protocol.StateMachineException;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.statemachine.TrxContext;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -55,7 +56,8 @@ public class TestRaftStateMachineException {
 
   private static class StateMachineWithException extends SimpleStateMachine {
     @Override
-    public CompletableFuture<Message> applyLogEntry(RaftProtos.LogEntryProto entry) {
+    public CompletableFuture<Message> applyLogEntry(TrxContext trx) {
+      RaftProtos.LogEntryProto entry = trx.getLogEntry().get();
       CompletableFuture<Message> future = new CompletableFuture<>();
       future.completeExceptionally(new StateMachineException("Fake Exception"));
       return future;

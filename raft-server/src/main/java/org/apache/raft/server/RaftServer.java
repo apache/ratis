@@ -267,6 +267,7 @@ public class RaftServer implements RaftServerProtocol {
       leader.stop();
     }
     leaderState = null;
+    // TODO: make sure that StateMachineUpdater has applied all transactions that have context
   }
 
   private void shutdownElectionDaemon() {
@@ -700,5 +701,12 @@ public class RaftServer implements RaftServerProtocol {
     if (isLeader() && leaderState != null) { // is leader and is running
       leaderState.replyPendingRequest(logIndex, message);
     }
+  }
+
+  TrxContext getTransactionContext(long index) {
+    if (leaderState != null) { // is leader and is running
+      return leaderState.getTransactionContext(index);
+    }
+    return null;
   }
 }

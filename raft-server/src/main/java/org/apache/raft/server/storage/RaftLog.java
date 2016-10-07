@@ -131,6 +131,7 @@ public abstract class RaftLog implements Closeable {
       final LogEntryProto e = ProtoUtils.toLogEntryProto(operation.getSMLogEntry().get(), term,
           nextIndex);
       appendEntry(e);
+      operation.setLogEntry(e);
       return nextIndex;
     }
   }

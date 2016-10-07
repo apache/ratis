@@ -3,11 +3,20 @@ package org.apache.raft.statemachine;
 import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.protocol.RaftClientRequest;
 
+import java.util.Collection;
 import java.util.Optional;
 
 /**
  * Context for a transaction. The transaction might have originated from a client request, or it
- * maybe coming from another replica of the state machine through the RAFT log.
+ * maybe coming from another replica of the state machine through the RAFT log. TrxContext can be
+ * either created from the StateMachine or can be created by the StateMachineUpdater. In the first
+ * case, the StateMachine receives a
+ * {@link org.apache.raft.server.StateMachine#startTransaction(RaftClientRequest)} request, and
+ * should return a TrxContext with the changes from the SM. The same context will come back to the
+ * SM via {@link org.apache.raft.server.StateMachine#applyLogEntry(TrxContext)} call
+ * or {@link org.apache.raft.server.StateMachine#notifyNotLeader(Collection)} call. In the second
+ * case, if the StateMachine is a follower, the TrxContext will be a committed entry coming from
+ * the RAFT log from the leader.
  */
 public class TrxContext {
 
@@ -29,6 +38,10 @@ public class TrxContext {
    */
   protected Optional<RaftProtos.LogEntryProto> logEntry = Optional.empty();
 
+  /**
+   * Construct a TrxContext from a client request. Used by the state machine to start a transaction
+   * and send the Log entry representing the SM data to be applied to the raft log.
+   */
   public TrxContext(RaftClientRequest clientRequest, RaftProtos.SMLogEntryProto smLogEntryProto) {
     this.clientRequest = Optional.of(clientRequest);
     this.smLogEntryProto = Optional.of(smLogEntryProto);
@@ -36,6 +49,10 @@ public class TrxContext {
     this.stateMachineContext = Optional.empty();
   }
 
+  /**
+   * Construct a TrxContext from a client request. Used by the state machine to start a transaction
+   * and send the Log entry representing the SM data to be applied to the raft log.
+   */
   public TrxContext(RaftClientRequest clientRequest, RaftProtos.SMLogEntryProto smLogEntryProto,
                     Object stateMachineContext) {
     this.clientRequest = Optional.of(clientRequest);
@@ -44,6 +61,10 @@ public class TrxContext {
     this.stateMachineContext = Optional.of(stateMachineContext);
   }
 
+  /**
+   * Construct a TrxContext from a client request to signal a failure. RAFT server will fail this
+   * request on behalf of the SM.
+   */
   public TrxContext(RaftClientRequest clientRequest, Exception exception) {
     this.clientRequest = Optional.of(clientRequest);
     this.smLogEntryProto = Optional.empty();
@@ -51,6 +72,10 @@ public class TrxContext {
     this.stateMachineContext = Optional.empty();
   }
 
+  /**
+   * Construct a TrxContext from a client request to signal a failure. RAFT server will fail this
+   * request on behalf of the SM.
+   */
   public TrxContext(RaftClientRequest clientRequest, Exception exception,
                     Object stateMachineContext) {
     this.clientRequest = Optional.of(clientRequest);
@@ -88,8 +113,8 @@ public class TrxContext {
     return stateMachineContext;
   }
 
-  public void setLogEntry(Optional<RaftProtos.LogEntryProto> logEntry) {
-    this.logEntry = logEntry;
+  public void setLogEntry(RaftProtos.LogEntryProto logEntry) {
+    this.logEntry = Optional.of(logEntry);
   }
 
   public Optional<RaftProtos.LogEntryProto> getLogEntry() {

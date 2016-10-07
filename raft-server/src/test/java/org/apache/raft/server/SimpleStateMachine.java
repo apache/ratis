@@ -128,7 +128,8 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<Message> applyLogEntry(LogEntryProto entry) {
+  public CompletableFuture<Message> applyLogEntry(TrxContext trx) {
+    LogEntryProto entry = trx.getLogEntry().get();
     list.add(entry);
     termIndexTracker.update(new TermIndex(entry.getTerm(), entry.getIndex()));
     return CompletableFuture.completedFuture(

@@ -95,7 +95,7 @@ public class ServerState implements Closeable {
     votedFor = metadata.getVotedFor();
 
     stateMachineUpdater = new StateMachineUpdater(stateMachine, server, log,
-        lastApplied, prop);
+         lastApplied, prop);
   }
 
   /**
@@ -135,15 +135,16 @@ public class ServerState implements Closeable {
    */
   private RaftLog initLog(String id, RaftProperties prop, RaftServer server,
       long lastIndexInSnapshot) throws IOException {
+    RaftLog log = null;
     if (prop.getBoolean(RAFT_SERVER_USE_MEMORY_LOG_KEY,
         RAFT_SERVER_USE_MEMORY_LOG_DEFAULT)) {
-      return new MemoryRaftLog(id);
+      log = new MemoryRaftLog(id);
     } else {
-      RaftLog log = new SegmentedRaftLog(id, server, this.storage,
+      log = new SegmentedRaftLog(id, server, this.storage,
           lastIndexInSnapshot, prop);
-      log.open(configurationManager, lastIndexInSnapshot);
-      return log;
     }
+    log.open(configurationManager, lastIndexInSnapshot);
+    return log;
   }
 
   public RaftConfiguration getRaftConf() {

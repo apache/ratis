@@ -19,6 +19,7 @@ package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.*;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.statemachine.TrxContext;
 import org.slf4j.Logger;
 
@@ -26,6 +27,8 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 class PendingRequests {
@@ -33,7 +36,8 @@ class PendingRequests {
 
   private PendingRequest pendingSetConf;
   private final RaftServer server;
-  private final Deque<PendingRequest> pendingRequests = new LinkedList<>();
+  private final ConcurrentMap<Long, PendingRequest> pendingRequests = new ConcurrentHashMap<>();
+  private PendingRequest last = null;
 
   PendingRequests(RaftServer server) {
     this.server = server;
@@ -41,8 +45,8 @@ class PendingRequests {
 
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
       TrxContext entry) {
+    // externally synced for now
     Preconditions.checkArgument(!request.isReadOnly());
-    final PendingRequest last = pendingRequests.peekLast();
     Preconditions.checkState(last == null || index == last.getIndex() + 1);
     return add(index, request, entry);
   }
@@ -50,7 +54,8 @@ class PendingRequests {
   private PendingRequest add(long index, RaftClientRequest request,
       TrxContext entry) {
     final PendingRequest pending = new PendingRequest(index, request, entry);
-    pendingRequests.offer(pending);
+    pendingRequests.put(index, pending);
+    last = pending;
     return pending;
   }
 
@@ -78,8 +83,12 @@ class PendingRequests {
     pendingSetConf = null;
   }
 
+  TrxContext getTransactionContext(long index) {
+    return pendingRequests.get(index).getEntry();
+  }
+
   void replyPendingRequest(long index, CompletableFuture<Message> messageFuture) {
-    final PendingRequest pending = pendingRequests.poll();
+    final PendingRequest pending = pendingRequests.get(index);
     if (pending != null) {
       Preconditions.checkState(pending.getIndex() == index);
 
@@ -101,11 +110,11 @@ class PendingRequests {
     LOG.info("{} sends responses before shutting down PendingRequestsHandler",
         server.getId());
 
-    Collection<TrxContext> pendingEntries = pendingRequests.stream()
+    Collection<TrxContext> pendingEntries = pendingRequests.values().stream()
         .map(PendingRequest::getEntry).collect(Collectors.toList());
     // notify the state machine about stepping down
     server.getStateMachine().notifyNotLeader(pendingEntries);
-    pendingRequests.forEach(this::setNotLeaderException);
+    pendingRequests.values().forEach(this::setNotLeaderException);
     if (pendingSetConf != null) {
       setNotLeaderException(pendingSetConf);
     }

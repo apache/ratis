@@ -24,10 +24,10 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.server.protocol.ServerProtoUtils;
-import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -152,8 +152,13 @@ class StateMachineUpdater implements Runnable {
                   ServerProtoUtils.toRaftConfiguration(next.getIndex(),
                       next.getConfigurationEntry()));
             } else if (next.hasSmLogEntry()) {
+              // check whether there is a TransactionContext because we are the leader.
+              TrxContext trx = server.getTransactionContext(next.getIndex());
+              if (trx == null) {
+                trx = new TrxContext(next);
+              }
               CompletableFuture<Message> messageFuture =
-                  stateMachine.applyLogEntry(next);
+                  stateMachine.applyLogEntry(trx);
               server.replyPendingRequest(next.getIndex(), messageFuture);
             }
             lastAppliedIndex++;

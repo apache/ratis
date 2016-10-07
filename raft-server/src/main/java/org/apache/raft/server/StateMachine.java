@@ -86,10 +86,10 @@ public interface StateMachine extends Closeable {
 
   /**
    * Apply a committed log entry to the state machine.
-   * @param entry the log entry that has been committed to a quorum of the raft
-   *              peers
+   * @param trx the transaction state including the log entry that has been committed to a quorum
+   *            of the raft peers
    */
-  CompletableFuture<Message> applyLogEntry(LogEntryProto entry);
+  CompletableFuture<Message> applyLogEntry(TrxContext trx);
 
   /**
    * Dump the in-memory state into a snapshot file in the RaftStorage. The
@@ -173,9 +173,9 @@ public interface StateMachine extends Closeable {
     }
 
     @Override
-    public CompletableFuture<Message> applyLogEntry(LogEntryProto entry) {
+    public CompletableFuture<Message> applyLogEntry(TrxContext trx) {
       // return the same message contained in the entry
-      Message msg = () -> entry.getSmLogEntry().getData().toByteArray();
+      Message msg = () -> trx.getLogEntry().get().getSmLogEntry().getData().toByteArray();
       return CompletableFuture.completedFuture(msg);
     }
 
@@ -240,7 +240,5 @@ public interface StateMachine extends Closeable {
     public void close() throws IOException {
       // do nothing
     }
-
   }
-
 }
