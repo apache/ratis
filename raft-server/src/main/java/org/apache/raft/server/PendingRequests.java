@@ -84,7 +84,10 @@ class PendingRequests {
   }
 
   TrxContext getTransactionContext(long index) {
-    return pendingRequests.get(index).getEntry();
+    PendingRequest pendingRequest = pendingRequests.get(index);
+    // it is possible that the pendingRequest is null if this peer just becomes
+    // the new leader and commits transactions received by the previous leader
+    return pendingRequest != null ? pendingRequest.getEntry() : null;
   }
 
   void replyPendingRequest(long index, CompletableFuture<Message> messageFuture) {

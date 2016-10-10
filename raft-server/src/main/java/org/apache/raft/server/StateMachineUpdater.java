@@ -145,13 +145,13 @@ class StateMachineUpdater implements Runnable {
         while (lastAppliedIndex < committedIndex) {
           final LogEntryProto next = raftLog.get(lastAppliedIndex + 1);
           if (next != null) {
-            if (next.hasConfigurationEntry()) {
+            if (next.getType() == LogEntryProto.Type.CONFIGURATION) {
               // the reply should have already been set. only need to record
               // the new conf in the state machine.
               stateMachine.setRaftConfiguration(
                   ServerProtoUtils.toRaftConfiguration(next.getIndex(),
                       next.getConfigurationEntry()));
-            } else if (next.hasSmLogEntry()) {
+            } else if (next.getType() == LogEntryProto.Type.CLIENT_MESSAGE) {
               // check whether there is a TransactionContext because we are the leader.
               TrxContext trx = server.getTransactionContext(next.getIndex());
               if (trx == null) {
