@@ -143,6 +143,7 @@
             <id>2</id>
             <goals>
               <goal>compile-custom</goal>
+	      <goal>test-compile-custom</goal>
             </goals>
             <configuration>
               <pluginId>grpc-java</pluginId>

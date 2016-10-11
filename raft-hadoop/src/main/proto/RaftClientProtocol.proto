@@ -24,36 +24,10 @@ package raft.hadoop;
 
 import "Raft.proto";
 
-message ClientMessageEntryProto {
-  bytes content = 1;
-}
-
-// normal client request
-message RaftClientRequestProto {
-  raft.common.RaftRpcRequestProto rpcRequest = 1;
-  ClientMessageEntryProto message = 2;
-  bool readOnly = 3;
-}
-
-message RaftClientReplyProto {
-  raft.common.RaftRpcReplyProto rpcReply = 1;
-  ClientMessageEntryProto message = 2;
-  // the following 3 fields are used to indicate the server is not leader
-  bool isNotLeader = 3;
-  raft.common.RaftPeerProto suggestedLeader = 4;
-  repeated raft.common.RaftPeerProto peersInConf = 5;
-}
-
-// setConfiguration request
-message SetConfigurationRequestProto {
-  raft.common.RaftRpcRequestProto rpcRequest = 1;
-  repeated raft.common.RaftPeerProto peers = 2;
-}
-
 service RaftClientProtocolService {
-  rpc submitClientRequest(RaftClientRequestProto)
-      returns(RaftClientReplyProto);
+  rpc submitClientRequest(raft.common.RaftClientRequestProto)
+      returns(raft.common.RaftClientReplyProto);
 
-  rpc setConfiguration(SetConfigurationRequestProto)
-      returns(RaftClientReplyProto);
+  rpc setConfiguration(raft.common.SetConfigurationRequestProto)
+      returns(raft.common.RaftClientReplyProto);
 }

@@ -86,3 +86,86 @@ enum InstallSnapshotResult {
   NOT_LEADER = 1;
 }
 
+message RaftServerRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+}
+
+message RaftServerReplyProto {
+  RaftRpcReplyProto rpcReply = 1;
+  uint64 term = 2;
+}
+
+message RequestVoteRequestProto {
+  RaftServerRequestProto serverRequest = 1;
+  uint64 candidateTerm = 2;
+  TermIndexProto candidateLastEntry = 3;
+}
+
+message RequestVoteReplyProto {
+  RaftServerReplyProto serverReply = 1;
+  bool shouldShutdown = 2;
+}
+
+message AppendEntriesRequestProto {
+  RaftServerRequestProto serverRequest = 1;
+  uint64 leaderTerm = 2;
+  TermIndexProto previousLog = 3;
+  repeated LogEntryProto entries = 4;
+  uint64 leaderCommit = 5;
+  bool initializing = 6;
+}
+
+message AppendEntriesReplyProto {
+  enum AppendResult {
+    SUCCESS = 0;
+    NOT_LEADER = 1;
+    INCONSISTENCY = 2;
+  }
+
+  RaftServerReplyProto serverReply = 1;
+  uint64 nextIndex = 2;
+  AppendResult result = 3;
+}
+
+message InstallSnapshotRequestProto {
+  RaftServerRequestProto serverRequest = 1;
+  string requestId = 2; // an identifier for chunked-requests.
+  uint32 requestIndex = 3; // the index for this request chunk. Starts from 0.
+  RaftConfigurationProto raftConfiguration = 4;
+  uint64 leaderTerm = 5;
+  TermIndexProto termIndex = 6;
+  repeated FileChunkProto fileChunks = 7;
+  uint64 totalSize = 8;
+  bool done = 9; // whether this is the final chunk for the same req.
+}
+
+message InstallSnapshotReplyProto {
+  RaftServerReplyProto serverReply = 1;
+  InstallSnapshotResult result = 2;
+}
+
+message ClientMessageEntryProto {
+  bytes content = 1;
+}
+
+// normal client request
+message RaftClientRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+  ClientMessageEntryProto message = 2;
+  bool readOnly = 3;
+}
+
+message RaftClientReplyProto {
+  RaftRpcReplyProto rpcReply = 1;
+  ClientMessageEntryProto message = 2;
+  // the following 3 fields are used to indicate the server is not leader
+  bool isNotLeader = 3;
+  RaftPeerProto suggestedLeader = 4;
+  repeated RaftPeerProto peersInConf = 5;
+}
+
+// setConfiguration request
+message SetConfigurationRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+  repeated RaftPeerProto peers = 2;
+}

@@ -17,15 +17,40 @@
  */
 package org.apache.raft.server.protocol;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.ClientMessageEntryProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
+import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.raft.proto.RaftProtos.RaftRpcMessageProto;
+import org.apache.raft.proto.RaftProtos.RaftRpcReplyProto;
+import org.apache.raft.proto.RaftProtos.RaftRpcRequestProto;
+import org.apache.raft.proto.RaftProtos.RaftServerReplyProto;
+import org.apache.raft.proto.RaftProtos.RaftServerRequestProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.raft.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.raft.proto.RaftProtos.TermIndexProto;
+import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.NotLeaderException;
+import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.protocol.RaftRpcMessage;
+import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RaftConfiguration;
+import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.util.ProtoUtils;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
+
+import static org.apache.raft.util.ProtoUtils.toByteString;
 
 public class ServerProtoUtils {
   public static TermIndex toTermIndex(TermIndexProto p) {
@@ -78,6 +103,292 @@ public class ServerProtoUtils {
         .setIndex(index)
         .setType(LogEntryProto.Type.CONFIGURATION)
         .setConfigurationEntry(toRaftConfigurationProto(conf))
+        .build();
+  }
+
+  public static RequestVoteRequest toRequestVoteRequest(
+      RequestVoteRequestProto p) {
+    final RaftRpcMessageProto m = p.getServerRequest()
+        .getRpcRequest().getRpcMessage();
+    return new RequestVoteRequest(m.getRequestorId(), m.getReplyId(),
+        p.getCandidateTerm(),
+        toTermIndex(p.getCandidateLastEntry()));
+  }
+
+  public static RequestVoteReplyProto toRequestVoteReplyProto(
+      RequestVoteRequestProto request, RequestVoteReply reply) {
+    final RequestVoteReplyProto.Builder b = RequestVoteReplyProto.newBuilder();
+    if (reply != null) {
+      final RaftServerReplyProto.Builder serverReplyBuilder
+          = toRaftServerReplyProtoBuilder(request.getServerRequest(), reply);
+      b.setServerReply(serverReplyBuilder)
+       .setShouldShutdown(reply.shouldShutdown());
+    }
+    return b.build();
+  }
+
+  public static RaftServerReplyProto.Builder toRaftServerReplyProtoBuilder(
+      RaftServerRequestProto request, RaftServerReply reply) {
+    return RaftServerReplyProto.newBuilder()
+        .setRpcReply(toRaftRpcReplyProtoBuilder(request.getRpcRequest(), reply))
+        .setTerm(reply.getTerm());
+  }
+
+  public static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
+      RaftRpcRequestProto request, RaftRpcMessage.Reply reply) {
+    return RaftRpcReplyProto.newBuilder()
+        .setRpcMessage(request.getRpcMessage())
+        .setSuccess(reply.isSuccess());
+  }
+
+  public static InstallSnapshotRequest toInstallSnapshotRequest(
+      InstallSnapshotRequestProto requestProto) {
+    RaftRpcMessageProto rpcMessage = requestProto.getServerRequest()
+        .getRpcRequest().getRpcMessage();
+    return new InstallSnapshotRequest(rpcMessage.getRequestorId(),
+        rpcMessage.getReplyId(),
+        requestProto.getRequestId(), requestProto.getRequestIndex(),
+        null, // requestProto.getRaftConfiguration(); TODO
+        requestProto.getLeaderTerm(),
+        toTermIndex(requestProto.getTermIndex()),
+        requestProto.getFileChunksList(), requestProto.getTotalSize(),
+        requestProto.getDone());
+  }
+
+  public static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
+      InstallSnapshotRequestProto request, InstallSnapshotReply reply) {
+    final RaftServerReplyProto.Builder serverReplyBuilder
+        = toRaftServerReplyProtoBuilder(request.getServerRequest(), reply);
+    final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
+        .newBuilder().setServerReply(serverReplyBuilder);
+    return builder.build();
+  }
+
+  public static AppendEntriesRequest toAppendEntriesRequest(
+      AppendEntriesRequestProto p) {
+    final RaftRpcMessageProto m = p.getServerRequest()
+        .getRpcRequest().getRpcMessage();
+    final TermIndex previousLog = !p.hasPreviousLog()? null
+        : toTermIndex(p.getPreviousLog());
+    return new AppendEntriesRequest(m.getRequestorId(), m.getReplyId(),
+        p.getLeaderTerm(), previousLog,
+        p.getEntriesList().toArray(RaftLog.EMPTY_LOGENTRY_ARRAY),
+        p.getLeaderCommit(), p.getInitializing());
+  }
+
+  public static AppendEntriesReplyProto toAppendEntriesReplyProto(
+      AppendEntriesRequestProto request, AppendEntriesReply reply) {
+    final AppendEntriesReplyProto.Builder b = AppendEntriesReplyProto.newBuilder();
+    if (reply != null) {
+      final RaftServerReplyProto.Builder serverReplyBuilder
+          = toRaftServerReplyProtoBuilder(
+              request.getServerRequest(), reply);
+      b.setServerReply(serverReplyBuilder)
+          .setNextIndex(reply.getNextIndex())
+          .setResult(toAppendResult(reply.getResult()));
+    }
+    return b.build();
+  }
+
+  public static AppendEntriesReplyProto.AppendResult toAppendResult(
+      AppendEntriesReply.AppendResult result) {
+    switch (result) {
+      case SUCCESS:
+        return AppendEntriesReplyProto.AppendResult.SUCCESS;
+      case NOT_LEADER:
+        return AppendEntriesReplyProto.AppendResult.NOT_LEADER;
+      case INCONSISTENCY:
+        return AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
+      default:
+        throw new IllegalStateException("Unexpected value " + result);
+    }
+  }
+
+  public static RequestVoteRequestProto toRequestVoteRequestProto(
+      RequestVoteRequest request) {
+    final RequestVoteRequestProto.Builder b = RequestVoteRequestProto.newBuilder()
+        .setServerRequest(toRaftServerRequestProtoBuilder(request))
+        .setCandidateTerm(request.getCandidateTerm());
+    final TermIndex candidateLastEntry = request.getCandidateLastEntry();
+    if (candidateLastEntry != null) {
+      b.setCandidateLastEntry(toTermIndexProto(candidateLastEntry));
+    }
+    return b.build();
+  }
+
+  public static RaftServerRequestProto.Builder toRaftServerRequestProtoBuilder(
+      RaftServerRequest request) {
+    return RaftServerRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+  }
+
+  public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
+      RaftRpcMessage.Request request) {
+    return RaftRpcRequestProto.newBuilder().setRpcMessage(
+        toRaftRpcMessageProtoBuilder(request));
+  }
+
+  private static RaftRpcMessageProto.Builder toRaftRpcMessageProtoBuilder(
+      RaftRpcMessage m) {
+    return RaftRpcMessageProto.newBuilder()
+        .setRequestorId(m.getRequestorId())
+        .setReplyId(m.getReplierId());
+  }
+
+  public static RequestVoteReply toRequestVoteReply(RequestVoteReplyProto p) {
+    final RaftServerReplyProto serverReply = p.getServerReply();
+    final RaftRpcReplyProto rpcReply = serverReply.getRpcReply();
+    final RaftRpcMessageProto m = rpcReply.getRpcMessage();
+    return new RequestVoteReply(m.getRequestorId(), m.getReplyId(),
+        serverReply.getTerm(), rpcReply.getSuccess(), p.getShouldShutdown());
+  }
+
+  public static AppendEntriesRequestProto toAppendEntriesRequestProto(
+      AppendEntriesRequest request) {
+    final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto.newBuilder()
+        .setServerRequest(toRaftServerRequestProtoBuilder(request))
+        .setLeaderTerm(request.getLeaderTerm())
+        .addAllEntries(Arrays.asList(request.getEntries()))
+        .setLeaderCommit(request.getLeaderCommit())
+        .setInitializing(request.isInitializing());
+
+    final TermIndex previousLog = request.getPreviousLog();
+    if (previousLog != null) {
+      b.setPreviousLog(toTermIndexProto(previousLog));
+    }
+    return b.build();
+  }
+
+  public static AppendEntriesReply toAppendEntriesReply(AppendEntriesReplyProto p) {
+    final RaftServerReplyProto serverReply = p.getServerReply();
+    final RaftRpcMessageProto m = serverReply.getRpcReply()
+        .getRpcMessage();
+    return new AppendEntriesReply(m.getRequestorId(), m.getReplyId(),
+        serverReply.getTerm(), p.getNextIndex(), toAppendResult(p.getResult()));
+  }
+
+  public static AppendEntriesReply.AppendResult toAppendResult(
+      AppendEntriesReplyProto.AppendResult result) {
+    switch (result) {
+      case SUCCESS:
+        return AppendEntriesReply.AppendResult.SUCCESS;
+      case NOT_LEADER:
+        return AppendEntriesReply.AppendResult.NOT_LEADER;
+      case INCONSISTENCY:
+        return AppendEntriesReply.AppendResult.INCONSISTENCY;
+      default:
+        throw new IllegalStateException("Unexpected value " + result);
+    }
+  }
+
+  public static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
+      InstallSnapshotRequest request) {
+    InstallSnapshotRequestProto.Builder builder = InstallSnapshotRequestProto
+        .newBuilder()
+        .setServerRequest(toRaftServerRequestProtoBuilder(request))
+        .setRequestId(request.getRequestId())
+        .setRequestIndex(request.getRequestIndex())
+        // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
+        .setLeaderTerm(request.getLeaderTerm())
+        .setTermIndex(toTermIndex(request.getLastIncludedTerm(),
+            request.getLastIncludedIndex()))
+        .addAllFileChunks(request.getChunks())
+        .setTotalSize(request.getTotalSize())
+        .setDone(request.isDone());
+    return builder.build();
+  }
+
+  public static InstallSnapshotReply toInstallSnapshotReply(
+      InstallSnapshotReplyProto replyProto) {
+    final RaftServerReplyProto serverReply = replyProto.getServerReply();
+    final RaftRpcReplyProto rpcReply = serverReply.getRpcReply();
+    final RaftRpcMessageProto m = rpcReply.getRpcMessage();
+    return new InstallSnapshotReply(m.getRequestorId(), m.getReplyId(),
+        serverReply.getTerm(), replyProto.getResult());
+  }
+
+  public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
+    final RaftRpcMessageProto m = p.getRpcRequest().getRpcMessage();
+    return new RaftClientRequest(m.getRequestorId(), m.getReplyId(),
+        toMessage(p.getMessage()), p.getReadOnly());
+  }
+
+  public static RaftClientRequestProto toRaftClientRequestProto(
+      RaftClientRequest request) {
+    return RaftClientRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
+        .setMessage(toClientMessageEntryProto(request.getMessage()))
+        .setReadOnly(request.isReadOnly())
+        .build();
+  }
+
+  public static RaftClientReplyProto toRaftClientReplyProto(
+      RaftRpcRequestProto request, RaftClientReply reply) {
+    final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
+    if (reply != null) {
+      b.setRpcReply(toRaftRpcReplyProtoBuilder(request, reply));
+      if (reply.getMessage() != null) {
+        b.setMessage(toClientMessageEntryProto(reply.getMessage()));
+      }
+      if (reply.isNotLeader()) {
+        b.setIsNotLeader(true);
+        final RaftPeer suggestedLeader = reply.getNotLeaderException()
+            .getSuggestedLeader();
+        if (suggestedLeader != null) {
+          b.setSuggestedLeader(ProtoUtils.toRaftPeerProto(suggestedLeader));
+        }
+        b.addAllPeersInConf(ProtoUtils.toRaftPeerProtos(
+            Arrays.asList(reply.getNotLeaderException().getPeers())));
+      }
+    }
+    return b.build();
+  }
+
+  public static RaftClientReply toRaftClientReply(
+      RaftClientReplyProto replyProto) {
+    final RaftRpcReplyProto rp = replyProto.getRpcReply();
+    final RaftRpcMessageProto rm = rp.getRpcMessage();
+    NotLeaderException e = null;
+    if (replyProto.getIsNotLeader()) {
+      final RaftPeer suggestedLeader = replyProto.hasSuggestedLeader() ?
+          ProtoUtils.toRaftPeer(replyProto.getSuggestedLeader()) : null;
+      final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(
+          replyProto.getPeersInConfList());
+      e = new NotLeaderException(rm.getReplyId(), suggestedLeader, peers);
+    }
+    return new RaftClientReply(rm.getRequestorId(), rm.getReplyId(),
+        rp.getSuccess(), toMessage(replyProto.getMessage()), e);
+  }
+
+  public static Message toMessage(final ClientMessageEntryProto p) {
+    return () -> p.getContent().toByteArray();
+  }
+
+  public static ClientMessageEntryProto toClientMessageEntryProto(Message message) {
+    return ClientMessageEntryProto.newBuilder()
+        .setContent(toByteString(message.getContent())).build();
+  }
+
+  public static SetConfigurationRequest toSetConfigurationRequest(
+      SetConfigurationRequestProto p) throws InvalidProtocolBufferException {
+    final RaftRpcMessageProto m = p.getRpcRequest().getRpcMessage();
+    final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(p.getPeersList());
+    return new SetConfigurationRequest(m.getRequestorId(), m.getReplyId(), peers);
+  }
+
+  public static SetConfigurationRequestProto toSetConfigurationRequestProto(
+      SetConfigurationRequest request) {
+    return SetConfigurationRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
+        .addAllPeers(ProtoUtils.toRaftPeerProtos(
+            Arrays.asList(request.getPeersInNewConf())))
+        .build();
+  }
+
+  private static TermIndexProto toTermIndex(long term, long index) {
+    return TermIndexProto.newBuilder()
+        .setTerm(term)
+        .setIndex(index)
         .build();
   }
 }

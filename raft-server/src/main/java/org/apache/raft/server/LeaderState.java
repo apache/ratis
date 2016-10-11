@@ -18,47 +18,44 @@
 package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.protobuf.ByteString;
-import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
-import org.apache.raft.proto.RaftProtos.FileChunkProto;
-import org.apache.raft.protocol.*;
-import org.apache.raft.server.protocol.*;
-import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
-import org.apache.raft.server.storage.FileInfo;
+import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.protocol.ReconfigurationTimeoutException;
+import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.storage.RaftLog;
-import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static org.apache.raft.server.LeaderState.StateUpdateEventType.*;
+import static org.apache.raft.server.LeaderState.StateUpdateEventType.STAGINGPROGRESS;
+import static org.apache.raft.server.LeaderState.StateUpdateEventType.STEPDOWN;
+import static org.apache.raft.server.LeaderState.StateUpdateEventType.UPDATECOMMIT;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_RPC_SLEEP_TIME_MS_DEFAULT;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_RPC_SLEEP_TIME_MS_KEY;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_KEY;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SNAPSHOT_CHUNK_MAX_SIZE_DEFAULT;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SNAPSHOT_CHUNK_MAX_SIZE_KEY;
-import static org.apache.raft.server.RaftServerConstants.*;
 
 /**
  * States for leader only. It contains three different types of processors:
@@ -68,7 +65,7 @@ import static org.apache.raft.server.RaftServerConstants.*;
  * 3. PendingRequestHandler: a handler sending back responses to clients when
  *                           corresponding log entries are committed
  */
-class LeaderState {
+public class LeaderState {
   private static final Logger LOG = RaftServer.LOG;
 
   enum StateUpdateEventType {
@@ -91,7 +88,7 @@ class LeaderState {
 
   static final StateUpdateEvent UPDATE_COMMIT_EVENT =
       new StateUpdateEvent(StateUpdateEventType.UPDATECOMMIT, -1);
-  private static final StateUpdateEvent STAGING_PROGRESS_EVENT =
+  static final StateUpdateEvent STAGING_PROGRESS_EVENT =
       new StateUpdateEvent(StateUpdateEventType.STAGINGPROGRESS, -1);
 
   private final RaftServer server;
@@ -141,7 +138,7 @@ class LeaderState {
     senders = new ArrayList<>(others.size());
     for (RaftPeer p : others) {
       FollowerInfo f = new FollowerInfo(p, t, nextIndex, true);
-      senders.add(new RpcSender(f));
+      senders.add(new RpcSender(server, this, f));
     }
     voterLists = divideFollowers(conf);
   }
@@ -185,6 +182,18 @@ class LeaderState {
 
   ConfigurationStagingState getStagingState() {
     return stagingState;
+  }
+
+  long getCurrentTerm() {
+    return currentTerm;
+  }
+
+  int getSnapshotChunkMaxSize() {
+    return snapshotChunkMaxSize;
+  }
+
+  int getSyncInterval() {
+    return syncInterval;
   }
 
   /**
@@ -247,7 +256,7 @@ class LeaderState {
     final long nextIndex = raftLog.getNextIndex();
     for (RaftPeer peer : newMembers) {
       FollowerInfo f = new FollowerInfo(peer, t, nextIndex, false);
-      RpcSender sender = new RpcSender(f);
+      RpcSender sender = new RpcSender(server, this, f);
       senders.add(sender);
       sender.start();
     }
@@ -262,7 +271,7 @@ class LeaderState {
     Iterator<RpcSender> iterator = senders.iterator();
     while (iterator.hasNext()) {
       RpcSender sender = iterator.next();
-      if (!conf.containsInConf(sender.follower.peer.getId())) {
+      if (!conf.containsInConf(sender.getFollower().getPeer().getId())) {
         iterator.remove();
         sender.stopSender();
         sender.interrupt();
@@ -357,14 +366,14 @@ class LeaderState {
    */
   private BootStrapProgress checkProgress(FollowerInfo follower,
       long committed) {
-    Preconditions.checkArgument(!follower.attendVote);
+    Preconditions.checkArgument(!follower.isAttendingVote());
     final long progressTime = Time.monotonicNow() - server.maxTimeout;
     final long timeoutTime = Time.monotonicNow() - 2 * server.maxTimeout;
     if (follower.lastRpcTime.get() < timeoutTime) {
       LOG.debug("{} detects a follower {} timeout for bootstrapping",
           server.getId(), follower);
       return BootStrapProgress.NOPROGRESS;
-    } else if (follower.matchIndex.get() + stagingCatchupGap >
+    } else if (follower.getMatchIndex() + stagingCatchupGap >
         committed && follower.lastRpcTime.get() > progressTime) {
       return BootStrapProgress.CAUGHTUP;
     } else {
@@ -375,8 +384,8 @@ class LeaderState {
   private Collection<BootStrapProgress> checkAllProgress(long committed) {
     Preconditions.checkState(inStagingState());
     return senders.stream()
-        .filter(sender -> !sender.follower.attendVote)
-        .map(sender -> checkProgress(sender.follower, committed))
+        .filter(sender -> !sender.getFollower().isAttendingVote())
+        .map(sender -> checkProgress(sender.getFollower(), committed))
         .collect(Collectors.toCollection(ArrayList::new));
   }
 
@@ -396,7 +405,7 @@ class LeaderState {
         // all caught up!
         applyOldNewConf();
         for (RpcSender sender : senders) {
-          sender.follower.startAttendVote();
+          sender.getFollower().startAttendVote();
         }
       }
     }
@@ -488,7 +497,7 @@ class LeaderState {
     final int length = includeSelf ? followers.size() + 1 : followers.size();
     final long[] indices = new long[length];
     for (int i = 0; i < followers.size(); i++) {
-      indices[i] = followers.get(i).matchIndex.get();
+      indices[i] = followers.get(i).getMatchIndex();
     }
     if (includeSelf) {
       // note that we also need to wait for the local disk I/O
@@ -502,14 +511,14 @@ class LeaderState {
   private List<List<FollowerInfo>> divideFollowers(RaftConfiguration conf) {
     List<List<FollowerInfo>> lists = new ArrayList<>(2);
     List<FollowerInfo> listForNew = senders.stream()
-        .filter(sender -> conf.containsInConf(sender.follower.peer.getId()))
-        .map(sender -> sender.follower)
+        .filter(sender -> conf.containsInConf(sender.getFollower().getPeer().getId()))
+        .map(RpcSender::getFollower)
         .collect(Collectors.toList());
     lists.add(listForNew);
     if (conf.inTransitionState()) {
       List<FollowerInfo> listForOld = senders.stream()
-          .filter(sender -> conf.containsInOldConf(sender.follower.peer.getId()))
-          .map(sender -> sender.follower)
+          .filter(sender -> conf.containsInOldConf(sender.getFollower().getPeer().getId()))
+          .map(RpcSender::getFollower)
           .collect(Collectors.toList());
       lists.add(listForOld);
     }
@@ -528,284 +537,6 @@ class LeaderState {
 
   TrxContext getTransactionContext(long index) {
     return pendingRequests.getTransactionContext(index);
-  }
-
-  private class FollowerInfo {
-    private final RaftPeer peer;
-    private final AtomicLong lastRpcTime;
-    private long nextIndex;
-    private final AtomicLong matchIndex;
-    private volatile boolean attendVote;
-
-    FollowerInfo(RaftPeer peer, long lastRpcTime, long nextIndex,
-        boolean attendVote) {
-      this.peer = peer;
-      this.lastRpcTime = new AtomicLong(lastRpcTime);
-      this.nextIndex = nextIndex;
-      this.matchIndex = new AtomicLong(0);
-      this.attendVote = attendVote;
-    }
-
-    void updateMatchIndex(final long matchIndex) {
-      this.matchIndex.set(matchIndex);
-    }
-
-    void updateNextIndex(long i) {
-      nextIndex = i;
-    }
-
-    void decreaseNextIndex(long targetIndex) {
-      if (nextIndex > 0) {
-        nextIndex = Math.min(nextIndex - 1, targetIndex);
-      }
-    }
-
-    @Override
-    public String toString() {
-      return peer.getId() + "(next=" + nextIndex + ", match=" + matchIndex
-          + ", attendVote=" + attendVote + ", lastRpcTime="
-          + lastRpcTime.get() + ")";
-    }
-
-    void startAttendVote() {
-      attendVote = true;
-    }
-  }
-
-  class RpcSender extends Daemon {
-    private final FollowerInfo follower;
-    private volatile boolean sending = true;
-
-    public RpcSender(FollowerInfo f) {
-      this.follower = f;
-    }
-
-    @Override
-    public String toString() {
-      return getClass().getSimpleName() + "(" + server.getId()
-          + " -> " + follower.peer.getId() + ")";
-    }
-
-    @Override
-    public void run() {
-      try {
-        checkAndSendAppendEntries();
-      } catch (InterruptedException | InterruptedIOException e) {
-        LOG.info(this + " was interrupted: " + e);
-        LOG.trace("TRACE", e);
-      }
-    }
-
-    private boolean isSenderRunning() {
-      return running && sending;
-    }
-
-    void stopSender() {
-      this.sending = false;
-    }
-
-    /** Send an appendEntries RPC; retry indefinitely. */
-    private AppendEntriesReply sendAppendEntriesWithRetries()
-        throws InterruptedException, InterruptedIOException {
-      LogEntryProto[] entries = null;
-      int retry = 0;
-      while (isSenderRunning()) {
-        try {
-          final long endIndex = raftLog.getNextIndex();
-          if (entries == null || entries.length == 0) {
-            entries = raftLog.getEntries(follower.nextIndex, endIndex);
-          }
-          TermIndex previous = ServerProtoUtils.toTermIndex(
-              raftLog.get(follower.nextIndex - 1));
-          if (previous == null) {
-            // if previous is null, nextIndex must be equal to the log start
-            // index (otherwise we will install snapshot).
-            Preconditions.checkState(
-                follower.nextIndex == raftLog.getStartIndex(),
-                "follower's next index %s, local log start index %s",
-                follower.nextIndex, raftLog.getStartIndex());
-            SnapshotInfo snapshot = server.getState().getLatestSnapshot();
-            previous = snapshot == null ? null : snapshot.getTermIndex();
-          }
-          if (entries != null || previous != null) {
-            LOG.trace("follower {}, log {}", follower, raftLog);
-          }
-
-          final AppendEntriesRequest request = server.createAppendEntriesRequest(
-              follower.peer.getId(), previous, entries, !follower.attendVote);
-          final AppendEntriesReply r = (AppendEntriesReply) server
-              .getServerRpc().sendServerRequest(request);
-
-          follower.lastRpcTime.set(Time.monotonicNow());
-          if (r.isSuccess()) {
-            if (entries != null && entries.length > 0) {
-              final long mi = entries[entries.length - 1].getIndex();
-              follower.updateMatchIndex(mi);
-              follower.updateNextIndex(mi + 1);
-
-              StateUpdateEvent e = follower.attendVote ?
-                  UPDATE_COMMIT_EVENT : STAGING_PROGRESS_EVENT;
-              submitUpdateStateEvent(e);
-            }
-          }
-          return r;
-        } catch (InterruptedIOException iioe) {
-          throw iioe;
-        } catch (IOException ioe) {
-          LOG.debug(this + ": failed to send appendEntries; retry " + retry++,
-              ioe);
-        }
-        if (isSenderRunning()) {
-          Thread.sleep(syncInterval);
-        }
-      }
-      return null;
-    }
-
-    private FileChunkProto readChunk(FileInfo fileInfo, FileInputStream in, byte[] buf,
-        int length, long offset, int chunkIndex) throws IOException {
-      FileChunkProto.Builder builder = RaftProtos.FileChunkProto.newBuilder()
-          .setOffset(offset).setChunkIndex(chunkIndex);
-      IOUtils.readFully(in, buf, 0, length);
-      Path relativePath = server.getState().getStorage().getStorageDir()
-          .relativizeToRoot(fileInfo.getPath());
-      builder.setFilename(relativePath.toString());
-      builder.setDone(offset + length == fileInfo.getFileSize());
-      builder.setFileDigest(ByteString.copyFrom(fileInfo.getFileDigest().getDigest()));
-      builder.setData(ByteString.copyFrom(buf, 0, length));
-      return builder.build();
-    }
-
-    // TODO inefficient using RPC. need to change to zero-copy transfer
-    private InstallSnapshotReply installSnapshot(SnapshotInfo snapshot)
-        throws InterruptedException, InterruptedIOException {
-
-      String requestId = UUID.randomUUID().toString();
-      int requestIndex = 0;
-
-      InstallSnapshotReply reply = null;
-      for (int i=0; i < snapshot.getFiles().size(); i++) {
-        FileInfo fileInfo = snapshot.getFiles().get(i);
-        File snapshotFile = fileInfo.getPath().toFile();
-        final long totalSize = snapshotFile.length();
-        final int bufLength = (int) Math.min(snapshotChunkMaxSize, totalSize);
-        final byte[] buf = new byte[bufLength];
-        long offset = 0;
-        int chunkIndex = 0;
-        try (FileInputStream in = new FileInputStream(snapshotFile)) {
-
-          while (offset < totalSize) {
-            int targetLength = (int) Math.min(totalSize - offset,
-                snapshotChunkMaxSize);
-            FileChunkProto chunk = readChunk(fileInfo, in, buf, targetLength, offset,
-                chunkIndex);
-            boolean done = (i == snapshot.getFiles().size() - 1) && chunk.getDone();
-            InstallSnapshotRequest request = server.createInstallSnapshotRequest(
-                follower.peer.getId(), requestId, requestIndex++, snapshot,
-                Lists.newArrayList(chunk), done);
-
-            reply = (InstallSnapshotReply) server.getServerRpc()
-                .sendServerRequest(request);
-            follower.lastRpcTime.set(Time.monotonicNow());
-
-            if (!reply.isSuccess()) {
-              return reply;
-            }
-
-            offset += targetLength;
-            chunkIndex++;
-          }
-        } catch (InterruptedIOException iioe) {
-          throw iioe;
-        } catch (IOException ioe) {
-          LOG.warn(this + ": failed to install SnapshotInfo at offset " + offset, ioe);
-          return null;
-        }
-      }
-      if (reply != null) {
-        follower.updateMatchIndex(snapshot.getTermIndex().getIndex());
-        follower.updateNextIndex(snapshot.getTermIndex().getIndex() + 1);
-        LOG.info("{}: install snapshot-{} successfully on follower {}",
-            server.getId(), snapshot.getTermIndex().getIndex(), follower.peer);
-      }
-      return reply;
-    }
-
-    /** Check and send appendEntries RPC */
-    private void checkAndSendAppendEntries() throws InterruptedException,
-        InterruptedIOException {
-      while (isSenderRunning()) {
-        if (shouldSend()) {
-          final long logStartIndex = raftLog.getStartIndex();
-          SnapshotInfo snapshot = null;
-          // we should install snapshot if the follower needs to catch up and:
-          // 1. there is no local log entry but there is snapshot
-          // 2. or the follower's next index is smaller than the log start index
-          boolean toInstallSnapshot = false;
-          if (follower.nextIndex < raftLog.getNextIndex()) {
-            snapshot = server.getState().getLatestSnapshot();
-            toInstallSnapshot = (follower.nextIndex < logStartIndex) ||
-                (logStartIndex == INVALID_LOG_INDEX && snapshot != null);
-          }
-
-          if (toInstallSnapshot) {
-            LOG.info("{}: follower {}'s next index is {}," +
-                " log's start index is {}, need to install snapshot",
-                server.getId(), follower.peer, follower.nextIndex, logStartIndex);
-            Preconditions.checkState(snapshot != null);
-
-            final InstallSnapshotReply r = installSnapshot(snapshot);
-            if (r != null && r.getResult() == InstallSnapshotResult.NOT_LEADER) {
-              checkResponseTerm(r.getTerm());
-            } // otherwise if r is null, retry the snapshot installation
-          } else {
-            final AppendEntriesReply r = sendAppendEntriesWithRetries();
-            if (r == null) {
-              break;
-            }
-
-            // check if should step down
-            if (r.getResult() == AppendResult.NOT_LEADER) {
-              checkResponseTerm(r.getTerm());
-            } else if (r.getResult() == AppendResult.INCONSISTENCY) {
-              follower.decreaseNextIndex(r.getNextIndex());
-            }
-          }
-        }
-        if (isSenderRunning()) {
-          synchronized (this) {
-            wait(getHeartbeatRemainingTime(follower.lastRpcTime.get()));
-          }
-        }
-      }
-    }
-
-    synchronized void notifyAppend() {
-      this.notify();
-    }
-
-    /** Should the leader send appendEntries RPC to this follower? */
-    private boolean shouldSend() {
-      return follower.nextIndex < raftLog.getNextIndex() ||
-          getHeartbeatRemainingTime(follower.lastRpcTime.get()) <= 0;
-    }
-
-    private void checkResponseTerm(long responseTerm) {
-      synchronized (server) {
-        if (isSenderRunning() && follower.attendVote &&
-            responseTerm > currentTerm) {
-          submitUpdateStateEvent(
-              new StateUpdateEvent(StateUpdateEventType.STEPDOWN, responseTerm));
-        }
-      }
-    }
-
-    /**
-     * @return the time in milliseconds that the leader should send a heartbeat.
-     */
-    private long getHeartbeatRemainingTime(long lastTime) {
-      return lastTime + server.minTimeout / 2 - Time.monotonicNow();
-    }
   }
 
   private class ConfigurationStagingState {
@@ -839,7 +570,7 @@ class LeaderState {
       Iterator<RpcSender> iterator = senders.iterator();
       while (iterator.hasNext()) {
         RpcSender sender = iterator.next();
-        if (!sender.follower.attendVote) {
+        if (!sender.getFollower().isAttendingVote()) {
           iterator.remove();
           sender.stopSender();
           sender.interrupt();

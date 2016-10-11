@@ -20,14 +20,12 @@ package org.apache.raft.hadooprpc.client;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.raft.hadooprpc.HadoopUtils;
-import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientReplyProto;
-import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientRequestProto;
-import org.apache.raft.proto.RaftClientProtocolProtos.SetConfigurationRequestProto;
+import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.server.protocol.ServerProtoUtils;
 
 import java.io.IOException;
 
@@ -44,10 +42,10 @@ public class RaftClientProtocolServerSideTranslatorPB
   public RaftClientReplyProto submitClientRequest(
       RpcController unused, RaftClientRequestProto proto)
       throws ServiceException {
-    final RaftClientRequest request = HadoopUtils.toRaftClientRequest(proto);
+    final RaftClientRequest request = ServerProtoUtils.toRaftClientRequest(proto);
     try {
       final RaftClientReply reply = impl.submitClientRequest(request);
-      return HadoopUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
+      return ServerProtoUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }
@@ -59,9 +57,9 @@ public class RaftClientProtocolServerSideTranslatorPB
       throws ServiceException {
     final SetConfigurationRequest request;
     try {
-      request = HadoopUtils.toSetConfigurationRequest(proto);
+      request = ServerProtoUtils.toSetConfigurationRequest(proto);
       final RaftClientReply reply = impl.setConfiguration(request);
-      return HadoopUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
+      return ServerProtoUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }

@@ -20,8 +20,7 @@ package org.apache.raft.hadooprpc.server;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.ipc.RPC;
-import org.apache.raft.hadooprpc.HadoopUtils;
-import org.apache.raft.proto.RaftServerProtocolProtos.*;
+import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.server.protocol.*;
 import org.apache.raft.util.ProtoUtils;
 
@@ -44,32 +43,32 @@ public class RaftServerProtocolClientSideTranslatorPB
 
   @Override
   public RequestVoteReply requestVote(RequestVoteRequest request) throws IOException {
-    final RequestVoteRequestProto p = HadoopUtils.toRequestVoteRequestProto(request);
+    final RequestVoteRequestProto p = ServerProtoUtils.toRequestVoteRequestProto(request);
     final RequestVoteReplyProto reply;
     try {
       reply = rpcProxy.requestVote(null, p);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
-    return HadoopUtils.toRequestVoteReply(reply);
+    return ServerProtoUtils.toRequestVoteReply(reply);
   }
 
   @Override
   public AppendEntriesReply appendEntries(AppendEntriesRequest request) throws IOException {
-    final AppendEntriesRequestProto p = HadoopUtils.toAppendEntriesRequestProto(request);
+    final AppendEntriesRequestProto p = ServerProtoUtils.toAppendEntriesRequestProto(request);
     final AppendEntriesReplyProto reply;
     try {
       reply = rpcProxy.appendEntries(null, p);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
-    return HadoopUtils.toAppendEntriesReply(reply);
+    return ServerProtoUtils.toAppendEntriesReply(reply);
   }
 
   @Override
   public InstallSnapshotReply installSnapshot(InstallSnapshotRequest request)
       throws IOException {
-    final InstallSnapshotRequestProto p = HadoopUtils
+    final InstallSnapshotRequestProto p = ServerProtoUtils
         .toInstallSnapshotRequestProto(request);
     final InstallSnapshotReplyProto replyProto;
     try {
@@ -77,6 +76,6 @@ public class RaftServerProtocolClientSideTranslatorPB
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
-    return HadoopUtils.toInstallSnapshotReply(replyProto);
+    return ServerProtoUtils.toInstallSnapshotReply(replyProto);
   }
 }
