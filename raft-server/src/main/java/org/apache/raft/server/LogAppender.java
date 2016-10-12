@@ -51,7 +51,7 @@ import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
 /**
  * A daemon thread appending log entries to a follower peer.
  */
-public class RpcSender extends Daemon {
+public class LogAppender extends Daemon {
   private static final Logger LOG = RaftServer.LOG;
 
   private final RaftServer server;
@@ -61,7 +61,7 @@ public class RpcSender extends Daemon {
 
   private volatile boolean sending = true;
 
-  public RpcSender(RaftServer server, LeaderState leaderState, FollowerInfo f) {
+  public LogAppender(RaftServer server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
     this.server = server;
     this.leaderState = leaderState;
@@ -87,11 +87,11 @@ public class RpcSender extends Daemon {
     return sending;
   }
 
-  void stopSender() {
+  public void stopSender() {
     this.sending = false;
   }
 
-  FollowerInfo getFollower() {
+  public FollowerInfo getFollower() {
     return follower;
   }
 
@@ -275,7 +275,7 @@ public class RpcSender extends Daemon {
     }
   }
 
-  synchronized void notifyAppend() {
+  public synchronized void notifyAppend() {
     this.notify();
   }
 
@@ -302,5 +302,4 @@ public class RpcSender extends Daemon {
   private long getHeartbeatRemainingTime(long lastTime) {
     return lastTime + server.minTimeout / 2 - Time.monotonicNow();
   }
-
 }

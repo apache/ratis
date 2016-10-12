@@ -15,24 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.grpc;
 
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.protocol.RaftServerReply;
-import org.apache.raft.server.protocol.RaftServerRequest;
+public interface RaftGrpcConfigKeys {
+  String PREFIX = "raft.grpc";
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
+  String RAFT_GRPC_SERVER_PORT_KEY = PREFIX + ".server.port";
+  int RAFT_GRPC_SERVER_PORT_DEFAULT = 0;
 
-public interface RaftServerRpc {
-  void start();
+  String RAFT_GRPC_MESSAGE_MAXSIZE_KEY = PREFIX + ".message.maxsize";
+  int RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT = 64 * 1024 * 1024; // 64 MB
 
-  void shutdown();
 
-  InetSocketAddress getInetSocketAddress();
-
-  RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException;
-
-  /** add rpc information of the given peers */
-  void addPeerProxies(Iterable<RaftPeer> peers);
 }

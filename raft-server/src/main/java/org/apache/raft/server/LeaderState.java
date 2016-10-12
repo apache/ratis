@@ -101,7 +101,7 @@ public class LeaderState {
    * The list of threads appending entries to followers.
    * The list is protected by the RaftServer's lock.
    */
-  private final List<RpcSender> senders;
+  private final List<LogAppender> senders;
   private final BlockingQueue<StateUpdateEvent> eventQ;
   private final EventProcessor processor;
   private final PendingRequests pendingRequests;
@@ -138,7 +138,7 @@ public class LeaderState {
     senders = new ArrayList<>(others.size());
     for (RaftPeer p : others) {
       FollowerInfo f = new FollowerInfo(p, t, nextIndex, true);
-      senders.add(new RpcSender(server, this, f));
+      senders.add(server.getLogAppenderFactory().getLogAppender(server, this, f));
     }
     voterLists = divideFollowers(conf);
   }
@@ -165,7 +165,7 @@ public class LeaderState {
   void stop() {
     this.running = false;
     // do not interrupt event processor since it may be in the middle of logSync
-    for (RpcSender sender : senders) {
+    for (LogAppender sender : senders) {
       sender.stopSender();
       sender.interrupt();
     }
@@ -173,7 +173,7 @@ public class LeaderState {
   }
 
   void notifySenders() {
-    senders.forEach(RpcSender::notifyAppend);
+    senders.forEach(LogAppender::notifyAppend);
   }
 
   boolean inStagingState() {
@@ -256,7 +256,8 @@ public class LeaderState {
     final long nextIndex = raftLog.getNextIndex();
     for (RaftPeer peer : newMembers) {
       FollowerInfo f = new FollowerInfo(peer, t, nextIndex, false);
-      RpcSender sender = new RpcSender(server, this, f);
+      LogAppender sender = server.getLogAppenderFactory()
+          .getLogAppender(server, this, f);
       senders.add(sender);
       sender.start();
     }
@@ -268,9 +269,9 @@ public class LeaderState {
   private void updateSenders() {
     final RaftConfiguration conf = server.getRaftConf();
     Preconditions.checkState(conf.inStableState() && !inStagingState());
-    Iterator<RpcSender> iterator = senders.iterator();
+    Iterator<LogAppender> iterator = senders.iterator();
     while (iterator.hasNext()) {
-      RpcSender sender = iterator.next();
+      LogAppender sender = iterator.next();
       if (!conf.containsInConf(sender.getFollower().getPeer().getId())) {
         iterator.remove();
         sender.stopSender();
@@ -404,7 +405,7 @@ public class LeaderState {
       } else if (!reports.contains(BootStrapProgress.PROGRESSING)) {
         // all caught up!
         applyOldNewConf();
-        for (RpcSender sender : senders) {
+        for (LogAppender sender : senders) {
           sender.getFollower().startAttendVote();
         }
       }
@@ -512,13 +513,13 @@ public class LeaderState {
     List<List<FollowerInfo>> lists = new ArrayList<>(2);
     List<FollowerInfo> listForNew = senders.stream()
         .filter(sender -> conf.containsInConf(sender.getFollower().getPeer().getId()))
-        .map(RpcSender::getFollower)
+        .map(LogAppender::getFollower)
         .collect(Collectors.toList());
     lists.add(listForNew);
     if (conf.inTransitionState()) {
       List<FollowerInfo> listForOld = senders.stream()
           .filter(sender -> conf.containsInOldConf(sender.getFollower().getPeer().getId()))
-          .map(RpcSender::getFollower)
+          .map(LogAppender::getFollower)
           .collect(Collectors.toList());
       lists.add(listForOld);
     }
@@ -567,9 +568,9 @@ public class LeaderState {
     }
 
     void fail() {
-      Iterator<RpcSender> iterator = senders.iterator();
+      Iterator<LogAppender> iterator = senders.iterator();
       while (iterator.hasNext()) {
-        RpcSender sender = iterator.next();
+        LogAppender sender = iterator.next();
         if (!sender.getFollower().isAttendingVote()) {
           iterator.remove();
           sender.stopSender();

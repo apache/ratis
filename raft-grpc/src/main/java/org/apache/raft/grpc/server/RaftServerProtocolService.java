@@ -1,0 +1,125 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.raft.grpc.server;
+
+import io.grpc.stub.StreamObserver;
+import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
+import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.raft.server.RequestDispatcher;
+import org.apache.raft.server.protocol.AppendEntriesReply;
+import org.apache.raft.server.protocol.AppendEntriesRequest;
+import org.apache.raft.server.protocol.InstallSnapshotReply;
+import org.apache.raft.server.protocol.InstallSnapshotRequest;
+import org.apache.raft.server.protocol.RequestVoteReply;
+import org.apache.raft.server.protocol.RequestVoteRequest;
+import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase {
+  static final Logger LOG = LoggerFactory.getLogger(RaftServerProtocolService.class);
+  private final RequestDispatcher dispatcher;
+
+  RaftServerProtocolService(RequestDispatcher dispatcher) {
+    this.dispatcher = dispatcher;
+  }
+
+  @Override
+  public void requestVote(RequestVoteRequestProto request,
+      StreamObserver<RequestVoteReplyProto> responseObserver) {
+    RequestVoteRequest requestVote = ServerProtoUtils.toRequestVoteRequest(
+        request);
+    try {
+      RequestVoteReply reply = dispatcher.requestVote(requestVote);
+      responseObserver.onNext(
+          ServerProtoUtils.toRequestVoteReplyProto(request, reply));
+    } catch (Exception e) {
+      responseObserver.onError(e);
+    }
+    responseObserver.onCompleted();
+  }
+
+  @Override
+  public StreamObserver<AppendEntriesRequestProto> appendEntries(
+      StreamObserver<AppendEntriesReplyProto> responseObserver) {
+    return new StreamObserver<AppendEntriesRequestProto>() {
+      @Override
+      public void onNext(AppendEntriesRequestProto value) {
+        final AppendEntriesRequest request = ServerProtoUtils
+            .toAppendEntriesRequest(value);
+        try {
+          AppendEntriesReply reply = dispatcher.appendEntries(request);
+          responseObserver.onNext(
+              ServerProtoUtils.toAppendEntriesReplyProto(value, reply));
+        } catch (Exception e) {
+          // TODO test if client can get/handle exception correctly
+          responseObserver.onError(e);
+        }
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        // for now we just log a msg
+        LOG.warn("appendEntries cancelled");
+      }
+
+      @Override
+      public void onCompleted() {
+        responseObserver.onCompleted();
+      }
+    };
+  }
+
+  @Override
+  public StreamObserver<InstallSnapshotRequestProto> installSnapshot(
+      StreamObserver<InstallSnapshotReplyProto> responseObserver) {
+    return new StreamObserver<InstallSnapshotRequestProto>() {
+      @Override
+      public void onNext(InstallSnapshotRequestProto value) {
+        // TODO avoid unnecessary protobuf - java_object conversion
+        final InstallSnapshotRequest request = ServerProtoUtils
+            .toInstallSnapshotRequest(value);
+        try {
+          InstallSnapshotReply reply = dispatcher.installSnapshot(request);
+          responseObserver.onNext(
+              ServerProtoUtils.toInstallSnapshotReplyProto(value, reply));
+        } catch (Exception e) {
+          responseObserver.onError(e);
+        }
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        // TODO clean up partial downloaded snapshots
+        LOG.warn("installSnapshot cancelled");
+      }
+
+      @Override
+      public void onCompleted() {
+        // TODO we can move the rename snapshot + reloadStateMachine logic here
+        responseObserver.onCompleted();
+      }
+    };
+  }
+}

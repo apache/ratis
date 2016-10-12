@@ -17,22 +17,15 @@
  */
 package org.apache.raft.server;
 
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.protocol.RaftServerReply;
-import org.apache.raft.server.protocol.RaftServerRequest;
+public interface LogAppenderFactory {
+  LogAppender getLogAppender(RaftServer server, LeaderState state,
+      FollowerInfo f);
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-
-public interface RaftServerRpc {
-  void start();
-
-  void shutdown();
-
-  InetSocketAddress getInetSocketAddress();
-
-  RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException;
-
-  /** add rpc information of the given peers */
-  void addPeerProxies(Iterable<RaftPeer> peers);
+  class SynchronousLogAppenderFactory implements LogAppenderFactory {
+    @Override
+    public LogAppender getLogAppender(RaftServer server, LeaderState state,
+        FollowerInfo f) {
+      return new LogAppender(server, state, f);
+    }
+  }
 }

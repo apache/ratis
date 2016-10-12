@@ -33,6 +33,7 @@ import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.CodeInjectionForTesting;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,6 +87,8 @@ public class RaftServer implements RaftServerProtocol {
 
   private RaftServerRpc serverRpc;
 
+  private final LogAppenderFactory appenderFactory;
+
   public RaftServer(String id, RaftConfiguration raftConf,
       RaftProperties properties, StateMachine stateMachine) throws IOException {
     minTimeout = properties.getInt(
@@ -99,10 +102,23 @@ public class RaftServer implements RaftServerProtocol {
     this.properties = properties;
     this.stateMachine = stateMachine;
     this.state = new ServerState(id, raftConf, properties, this, stateMachine);
+    appenderFactory = initAppenderFactory();
   }
 
   public StateMachine getStateMachine() {
     return this.stateMachine;
+  }
+
+  public LogAppenderFactory getLogAppenderFactory() {
+    return appenderFactory;
+  }
+
+  private LogAppenderFactory initAppenderFactory() {
+    Class<? extends LogAppenderFactory> factoryClass = properties.getClass(
+        RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
+        RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_DEFAULT,
+        LogAppenderFactory.class);
+    return RaftUtils.newInstance(factoryClass);
   }
 
   /**
@@ -189,8 +205,6 @@ public class RaftServer implements RaftServerProtocol {
     changeRunningState(RunningState.STOPPED);
 
     try {
-      serverRpc.interruptAndJoin();
-
       shutdownHeartbeatMonitor();
       shutdownElectionDaemon();
       shutdownLeaderState();

@@ -113,11 +113,6 @@ public class HadoopRpcService
   }
 
   @Override
-  public void interruptAndJoin() throws InterruptedException {
-    // nothing to do.
-  }
-
-  @Override
   public void shutdown() {
     ipcServer.stop();
   }

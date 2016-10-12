@@ -67,6 +67,10 @@ public interface RaftServerConfigKeys {
   String RAFT_SERVER_STATEMACHINE_CLASS_KEY = "raft.server.statemachine.class";
   Class<? extends StateMachine> RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT = BaseStateMachine.class;
 
+  String RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY = "raft.server.log.appender.factory.class";
+  Class<? extends LogAppenderFactory> RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_DEFAULT
+      = LogAppenderFactory.SynchronousLogAppenderFactory.class;
+
   /** whether trigger snapshot when log size exceeds limit */
   String RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY = "raft.server.auto.snapshot.enabled";
   boolean RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_DEFAULT = true;

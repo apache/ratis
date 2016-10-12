@@ -69,8 +69,7 @@ public class SimulatedServerRpc implements RaftServerRpc {
     clientHandler.startDaemon();
   }
 
-  @Override
-  public void interruptAndJoin() throws InterruptedException {
+  private void interruptAndJoin() throws InterruptedException {
     clientHandler.interruptAndJoinDaemon();
     serverHandler.interruptAndJoinDaemon();
   }
@@ -78,6 +77,7 @@ public class SimulatedServerRpc implements RaftServerRpc {
   @Override
   public void shutdown() {
     try {
+      interruptAndJoin();
       executor.shutdown();
       executor.awaitTermination(1000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException ignored) {
