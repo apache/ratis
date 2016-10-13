@@ -31,29 +31,6 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 public interface StateMachine extends Closeable {
-
-  /**
-   * The Lifecycle state for the StateMachine. Upon construction, State machine is in NEW state.
-   * initialize() will put the SM in RUNNING state if no exceptions. Paused state is for stopping
-   * internal compaction or other operations in the SM so that a new snapshot can be installed.
-   *
-   * TODO: list and verify all possible state transitions
-   * NEW --> STARTING -> RUNNING
-   *     |      |___________|
-   *     |      |
-   *     |      V
-   *     |-> CLOSING -> CLOSED
-   */
-  enum State {
-    NEW,
-    STARTING,
-    RUNNING,
-    PAUSING,
-    PAUSED,
-    CLOSING,
-    CLOSED
-  }
-
   /**
    * Initializes the State Machine with the given properties and storage. The state machine is
    * responsible reading the latest snapshot from the file system (if any) and initialize itself
@@ -65,7 +42,7 @@ public interface StateMachine extends Closeable {
    * Returns the lifecycle state for this StateMachine.
    * @return the lifecycle state.
    */
-  State getState();
+  LifeCycle.State getLifeCycleState();
 
   /**
    * Pauses the state machine. On return, the state machine should have closed all open files so

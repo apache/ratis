@@ -30,6 +30,7 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.statemachine.LifeCycle;
 import org.apache.raft.statemachine.SimpleStateMachine;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.server.storage.RaftLog;
@@ -60,6 +61,7 @@ public class TestRaftSnapshot {
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(LifeCycle.LOG, Level.ALL);
   }
 
   static final Logger LOG = LoggerFactory.getLogger(TestRaftSnapshot.class);

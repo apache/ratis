@@ -48,10 +48,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
-import static org.apache.raft.statemachine.StateMachine.State.CLOSED;
-import static org.apache.raft.statemachine.StateMachine.State.CLOSING;
-import static org.apache.raft.statemachine.StateMachine.State.NEW;
-import static org.apache.raft.statemachine.StateMachine.State.PAUSED;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -93,14 +89,13 @@ public class SimpleStateMachine extends BaseStateMachine {
         }
       }
     });
-    this.state = NEW;
   }
 
   @Override
   public synchronized void initialize(RaftProperties properties,
       RaftStorage raftStorage) throws IOException {
     LOG.info("Initializing the StateMachine");
-    this.state = State.STARTING;
+    lifeCycle.transition(LifeCycle.State.STARTING);
     super.initialize(properties, raftStorage);
     this.storage.init(raftStorage);
     loadSnapshot(this.storage.findLatestSnapshot());
@@ -109,12 +104,13 @@ public class SimpleStateMachine extends BaseStateMachine {
         RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT)) {
       checkpointer.start();
     }
-    this.state = State.RUNNING;
+    lifeCycle.transition(LifeCycle.State.RUNNING);
   }
 
   @Override
   public synchronized void pause() {
-    this.state = PAUSED;
+    lifeCycle.transition(LifeCycle.State.PAUSING);
+    lifeCycle.transition(LifeCycle.State.PAUSED);
   }
 
   @Override
@@ -234,10 +230,10 @@ public class SimpleStateMachine extends BaseStateMachine {
 
   @Override
   public void close() throws IOException {
-    this.state = CLOSING;
+    lifeCycle.transition(LifeCycle.State.CLOSING);
     running = false;
     checkpointer.interrupt();
-    this.state = CLOSED;
+    lifeCycle.transition(LifeCycle.State.CLOSED);
   }
 
   @VisibleForTesting

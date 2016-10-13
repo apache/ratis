@@ -40,11 +40,11 @@ public class BaseStateMachine implements StateMachine {
   protected RaftProperties properties;
   protected RaftStorage storage;
   protected RaftConfiguration raftConf;
-  protected volatile State state = State.NEW;
+  protected final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
 
   @Override
-  public State getState() {
-    return state;
+  public LifeCycle.State getLifeCycleState() {
+    return lifeCycle.getCurrentState();
   }
 
   @Override
