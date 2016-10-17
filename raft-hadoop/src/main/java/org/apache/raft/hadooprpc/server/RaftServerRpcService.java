@@ -17,19 +17,19 @@
  */
 package org.apache.raft.hadooprpc.server;
 
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.NotLeaderException;
 import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RequestDispatcher;
-import org.apache.raft.server.protocol.AppendEntriesReply;
-import org.apache.raft.server.protocol.AppendEntriesRequest;
-import org.apache.raft.server.protocol.InstallSnapshotReply;
-import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.protocol.RaftServerProtocol;
-import org.apache.raft.server.protocol.RequestVoteReply;
-import org.apache.raft.server.protocol.RequestVoteRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,20 +82,20 @@ public class RaftServerRpcService implements RaftClientProtocol, RaftServerProto
   }
 
   @Override
-  public RequestVoteReply requestVote(RequestVoteRequest request)
+  public RequestVoteReplyProto requestVote(RequestVoteRequestProto request)
       throws IOException {
     return dispatcher.requestVote(request);
   }
 
   @Override
-  public AppendEntriesReply appendEntries(AppendEntriesRequest request)
+  public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request)
       throws IOException {
     return dispatcher.appendEntries(request);
   }
 
   @Override
-  public InstallSnapshotReply installSnapshot(InstallSnapshotRequest request)
-      throws IOException {
+  public InstallSnapshotReplyProto installSnapshot(
+      InstallSnapshotRequestProto request) throws IOException {
     return dispatcher.installSnapshot(request);
   }
 

@@ -18,23 +18,12 @@
 package org.apache.raft.protocol;
 
 public abstract class RaftRpcMessage {
-  private final String requestorId;
-  private final String replierId;
-
-  private RaftRpcMessage(String requestorId, String replierId) {
-    this.requestorId = requestorId;
-    this.replierId = replierId;
-  }
 
   public abstract boolean isRequest();
 
-  public String getRequestorId() {
-    return requestorId;
-  }
+  public abstract String getRequestorId();
 
-  public String getReplierId() {
-    return replierId;
-  }
+  public abstract String getReplierId();
 
   @Override
   public String toString() {
@@ -43,27 +32,54 @@ public abstract class RaftRpcMessage {
   }
 
   public static class Request extends RaftRpcMessage {
+    private final String requestorId;
+    private final String replierId;
+
     public Request(String requestorId, String replierId) {
-      super(requestorId, replierId);
+      this.requestorId = requestorId;
+      this.replierId = replierId;
     }
 
     @Override
     public final boolean isRequest() {
       return true;
     }
+
+    @Override
+    public String getRequestorId() {
+      return requestorId;
+    }
+
+    @Override
+    public String getReplierId() {
+      return replierId;
+    }
   }
 
   public static class Reply extends RaftRpcMessage {
+    private final String requestorId;
+    private final String replierId;
     private final boolean success;
 
     public Reply(String requestorId, String replierId, boolean success) {
-      super(requestorId, replierId);
+      this.requestorId = requestorId;
+      this.replierId = replierId;
       this.success = success;
     }
 
     @Override
     public final boolean isRequest() {
       return false;
+    }
+
+    @Override
+    public String getRequestorId() {
+      return requestorId;
+    }
+
+    @Override
+    public String getReplierId() {
+      return replierId;
     }
 
     @Override

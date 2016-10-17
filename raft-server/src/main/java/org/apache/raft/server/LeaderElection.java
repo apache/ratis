@@ -21,8 +21,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
+import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.protocol.*;
+import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
@@ -38,7 +41,8 @@ import static org.apache.raft.server.LeaderElection.Result.PASSED;
 class LeaderElection extends Daemon {
   static final Logger LOG = RaftServer.LOG;
 
-  private ResultAndTerm logAndReturn(Result r, List<RaftServerReply> responses,
+  private ResultAndTerm logAndReturn(Result r,
+      List<RequestVoteReplyProto> responses,
       List<Exception> exceptions, long newTerm) {
     LOG.info(server.getId() + ": Election " + r + "; received "
         + responses.size() + " response(s) " + responses + " and "
@@ -63,7 +67,7 @@ class LeaderElection extends Daemon {
   }
 
   private final RaftServer server;
-  private ExecutorCompletionService<RequestVoteReply> service;
+  private ExecutorCompletionService<RequestVoteReplyProto> service;
   private ExecutorService executor;
   private volatile boolean running;
   /**
@@ -179,10 +183,10 @@ class LeaderElection extends Daemon {
   private int submitRequests(final long electionTerm, final TermIndex lastEntry) {
     int submitted = 0;
     for (final RaftPeer peer : others) {
-      final RequestVoteRequest r = server.createRequestVoteRequest(peer.getId(),
-          electionTerm, lastEntry);
+      final RequestVoteRequestProto r = server.createRequestVoteRequest(
+          peer.getId(), electionTerm, lastEntry);
       service.submit(
-          () -> (RequestVoteReply) server.getServerRpc().sendServerRequest(r));
+          () -> server.getServerRpc().sendRequestVote(r));
       submitted++;
     }
     return submitted;
@@ -193,7 +197,7 @@ class LeaderElection extends Daemon {
     final long startTime = Time.monotonicNow();
     final long timeout = startTime +
         RaftUtils.getRandomBetween(server.minTimeout, server.maxTimeout);
-    final List<RaftServerReply> responses = new ArrayList<>();
+    final List<RequestVoteReplyProto> responses = new ArrayList<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;
     Collection<String> votedPeers = new ArrayList<>();
@@ -204,23 +208,23 @@ class LeaderElection extends Daemon {
       }
 
       try {
-        final Future<RequestVoteReply> future = service.poll(
+        final Future<RequestVoteReplyProto> future = service.poll(
             waitTime, TimeUnit.MILLISECONDS);
         if (future == null) {
           continue; // poll timeout, continue to return Result.TIMEOUT
         }
 
-        final RequestVoteReply r = future.get();
+        final RequestVoteReplyProto r = future.get();
         responses.add(r);
-        if (r.shouldShutdown()) {
+        if (r.getShouldShutdown()) {
           return logAndReturn(Result.SHUTDOWN, responses, exceptions, -1);
         }
         if (r.getTerm() > electionTerm) {
           return logAndReturn(Result.DISCOVERED_A_NEW_TERM, responses,
               exceptions, r.getTerm());
         }
-        if (r.isSuccess()) {
-          votedPeers.add(r.getReplierId());
+        if (r.getServerReply().getSuccess()) {
+          votedPeers.add(r.getServerReply().getReplyId());
           if (conf.hasMajorities(votedPeers, server.getId())) {
             return logAndReturn(PASSED, responses, exceptions, -1);
           }

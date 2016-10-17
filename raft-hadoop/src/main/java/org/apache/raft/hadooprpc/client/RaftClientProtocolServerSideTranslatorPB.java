@@ -45,7 +45,7 @@ public class RaftClientProtocolServerSideTranslatorPB
     final RaftClientRequest request = ServerProtoUtils.toRaftClientRequest(proto);
     try {
       final RaftClientReply reply = impl.submitClientRequest(request);
-      return ServerProtoUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
+      return ServerProtoUtils.toRaftClientReplyProto(reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }
@@ -59,7 +59,7 @@ public class RaftClientProtocolServerSideTranslatorPB
     try {
       request = ServerProtoUtils.toSetConfigurationRequest(proto);
       final RaftClientReply reply = impl.setConfiguration(request);
-      return ServerProtoUtils.toRaftClientReplyProto(proto.getRpcRequest(), reply);
+      return ServerProtoUtils.toRaftClientReplyProto(reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }

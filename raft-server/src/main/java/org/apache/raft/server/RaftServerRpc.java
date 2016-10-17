@@ -17,9 +17,13 @@
  */
 package org.apache.raft.server;
 
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.protocol.RaftServerReply;
-import org.apache.raft.server.protocol.RaftServerRequest;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -31,7 +35,14 @@ public interface RaftServerRpc {
 
   InetSocketAddress getInetSocketAddress();
 
-  RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException;
+  AppendEntriesReplyProto sendAppendEntries(
+      AppendEntriesRequestProto request) throws IOException;
+
+  InstallSnapshotReplyProto sendInstallSnapshot(
+      InstallSnapshotRequestProto request) throws IOException;
+
+  RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
+      throws IOException;
 
   /** add rpc information of the given peers */
   void addPeerProxies(Iterable<RaftPeer> peers);

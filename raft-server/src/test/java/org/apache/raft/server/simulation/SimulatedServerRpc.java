@@ -18,6 +18,12 @@
 package org.apache.raft.server.simulation;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
@@ -25,11 +31,6 @@ import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.RequestDispatcher;
-import org.apache.raft.server.protocol.AppendEntriesRequest;
-import org.apache.raft.server.protocol.InstallSnapshotRequest;
-import org.apache.raft.server.protocol.RaftServerReply;
-import org.apache.raft.server.protocol.RaftServerRequest;
-import org.apache.raft.server.protocol.RequestVoteRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,8 +93,27 @@ public class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
-  public RaftServerReply sendServerRequest(RaftServerRequest request) throws IOException {
-    return serverHandler.getRpc().sendRequest(request);
+  public AppendEntriesReplyProto sendAppendEntries(AppendEntriesRequestProto request)
+      throws IOException {
+    RaftServerReply reply = serverHandler.getRpc()
+        .sendRequest(new RaftServerRequest(request));
+    return reply.getAppendEntries();
+  }
+
+  @Override
+  public InstallSnapshotReplyProto sendInstallSnapshot(InstallSnapshotRequestProto request)
+      throws IOException {
+    RaftServerReply reply = serverHandler.getRpc()
+        .sendRequest(new RaftServerRequest(request));
+    return reply.getInstallSnapshot();
+  }
+
+  @Override
+  public RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
+      throws IOException {
+    RaftServerReply reply = serverHandler.getRpc()
+        .sendRequest(new RaftServerRequest(request));
+    return reply.getRequestVote();
   }
 
   @Override
@@ -111,12 +131,14 @@ public class SimulatedServerRpc implements RaftServerRpc {
     @Override
     public RaftServerReply handleRequest(RaftServerRequest r)
         throws IOException {
-      if (r instanceof AppendEntriesRequest) {
-        return dispatcher.appendEntries((AppendEntriesRequest) r);
-      } else if (r instanceof RequestVoteRequest) {
-        return dispatcher.requestVote((RequestVoteRequest) r);
-      } else if (r instanceof InstallSnapshotRequest) {
-        return dispatcher.installSnapshot((InstallSnapshotRequest) r);
+      if (r.isAppendEntries()) {
+        return new RaftServerReply(
+            dispatcher.appendEntries(r.getAppendEntries()));
+      } else if (r.isRequestVote()) {
+        return new RaftServerReply(dispatcher.requestVote(r.getRequestVote()));
+      } else if (r.isInstallSnapshot()) {
+        return new RaftServerReply(
+            dispatcher.installSnapshot(r.getInstallSnapshot()));
       } else {
         throw new IllegalStateException("unexpected state");
       }

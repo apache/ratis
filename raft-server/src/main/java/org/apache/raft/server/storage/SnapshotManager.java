@@ -21,8 +21,8 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.statemachine.StateMachine;
-import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.MD5FileUtil;
 import org.apache.raft.util.RaftUtils;
@@ -52,9 +52,8 @@ public class SnapshotManager {
   }
 
   public void installSnapshot(StateMachine stateMachine,
-      InstallSnapshotRequest request) throws IOException {
-    final long lastIncludedIndex = request.getLastIncludedIndex();
-    final long lastIncludedTerm = request.getLastIncludedTerm();
+      InstallSnapshotRequestProto request) throws IOException {
+    final long lastIncludedIndex = request.getTermIndex().getIndex();
     final RaftStorageDirectory dir = storage.getStorageDir();
 
     File tmpDir = dir.getNewTempDir();
@@ -66,7 +65,7 @@ public class SnapshotManager {
     // TODO: Make sure that subsequent requests for the same installSnapshot are coming in order,
     // and are not lost when whole request cycle is done. Check requestId and requestIndex here
 
-    for (RaftProtos.FileChunkProto chunk :  request.getChunks()) {
+    for (RaftProtos.FileChunkProto chunk : request.getFileChunksList()) {
       SnapshotInfo pi = stateMachine.getLatestSnapshot();
       if (pi != null && pi.getTermIndex().getIndex() >= lastIncludedIndex) {
         throw new IOException("There exists snapshot file "
@@ -124,7 +123,7 @@ public class SnapshotManager {
       }
     }
 
-    if (request.isDone()) {
+    if (request.getDone()) {
       LOG.info("Install snapshot is done, renaming tnp dir:{} to:{}",
           tmpDir, dir.getStateMachineDir());
       dir.getStateMachineDir().delete();

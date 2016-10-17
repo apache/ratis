@@ -24,11 +24,17 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
+import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.*;
-import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
+import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
@@ -42,10 +48,12 @@ import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
+import static org.apache.raft.server.protocol.ServerProtoUtils.toTermIndex;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -452,13 +460,15 @@ public class RaftServer implements RaftServerProtocol {
   }
 
   @Override
-  public RequestVoteReply requestVote(RequestVoteRequest r) throws IOException {
-    return requestVote(r.getCandidateId(), r.getCandidateTerm(),
-        r.getCandidateLastEntry());
+  public RequestVoteReplyProto requestVote(RequestVoteRequestProto r)
+      throws IOException {
+    final String candidateId = r.getServerRequest().getRequestorId();
+    return requestVote(candidateId, r.getCandidateTerm(),
+        toTermIndex(r.getCandidateLastEntry()));
   }
 
-  private RequestVoteReply requestVote(String candidateId, long candidateTerm,
-      TermIndex candidateLastEntry) throws IOException {
+  private RequestVoteReplyProto requestVote(String candidateId,
+      long candidateTerm, TermIndex candidateLastEntry) throws IOException {
     CodeInjectionForTesting.execute(REQUEST_VOTE, getId(),
         candidateId, candidateTerm, candidateLastEntry);
     LOG.debug("{}: receive requestVote({}, {}, {})",
@@ -468,7 +478,7 @@ public class RaftServer implements RaftServerProtocol {
     final long startTime = Time.monotonicNow();
     boolean voteGranted = false;
     boolean shouldShutdown = false;
-    final RequestVoteReply reply;
+    final RequestVoteReplyProto reply;
     synchronized (this) {
       if (shouldWithholdVotes(startTime)) {
         LOG.info("{} Withhold vote from server {} with term {}. " +
@@ -490,8 +500,8 @@ public class RaftServer implements RaftServerProtocol {
       if (!voteGranted && shouldSendShutdown(candidateId, candidateLastEntry)) {
         shouldShutdown = true;
       }
-      reply = new RequestVoteReply(candidateId, getId(),
-          state.getCurrentTerm(), voteGranted, shouldShutdown);
+      reply = ServerProtoUtils.toRequestVoteReplyProto(candidateId, getId(),
+          voteGranted, state.getCurrentTerm(), shouldShutdown);
       LOG.debug("{} replies to vote request: {}. Peer's state: {}",
           getId(), reply, state);
     }
@@ -528,13 +538,19 @@ public class RaftServer implements RaftServerProtocol {
   }
 
   @Override
-  public AppendEntriesReply appendEntries(AppendEntriesRequest r) throws IOException {
-    return appendEntries(r.getLeaderId(), r.getLeaderTerm(),
-        r.getPreviousLog(), r.getLeaderCommit(), r.isInitializing(),
-        r.getEntries());
+  public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto r)
+      throws IOException {
+    // TODO avoid converting list to array
+    final LogEntryProto[] entries = r.getEntriesList()
+        .toArray(new LogEntryProto[r.getEntriesCount()]);
+    final TermIndex previous = r.hasPreviousLog() ?
+        toTermIndex(r.getPreviousLog()) : null;
+    return appendEntries(r.getServerRequest().getRequestorId(),
+        r.getLeaderTerm(), previous, r.getLeaderCommit(), r.getInitializing(),
+        entries);
   }
 
-  private AppendEntriesReply appendEntries(String leaderId, long leaderTerm,
+  private AppendEntriesReplyProto appendEntries(String leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
       LogEntryProto... entries) throws IOException {
     CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(),
@@ -559,8 +575,9 @@ public class RaftServer implements RaftServerProtocol {
       currentTerm = state.getCurrentTerm();
       nextIndex = state.getLog().getNextIndex();
       if (!recognized) {
-        final AppendEntriesReply reply = new AppendEntriesReply(leaderId,
-            getId(), currentTerm, nextIndex, AppendResult.NOT_LEADER);
+        final AppendEntriesReplyProto reply = ServerProtoUtils
+            .toAppendEntriesReplyProto(leaderId, getId(), currentTerm,
+                nextIndex, AppendEntriesReplyProto.AppendResult.NOT_LEADER);
         LOG.debug("{}: do not recognize leader. Reply: {}", getId(), reply);
         return reply;
       }
@@ -583,9 +600,11 @@ public class RaftServer implements RaftServerProtocol {
       // last index included in snapshot. This is because indices <= snapshot's
       // last index should have been committed.
       if (previous != null && !containPrevious(previous)) {
-        final AppendEntriesReply reply =  new AppendEntriesReply(leaderId,
-            getId(), currentTerm, nextIndex, AppendResult.INCONSISTENCY);
-        LOG.debug("{}: inconsistency entries. Previous:{} Reply: {}", getId(), previous, reply);
+        final AppendEntriesReplyProto reply =  ServerProtoUtils
+            .toAppendEntriesReplyProto(leaderId, getId(), currentTerm,
+                nextIndex, AppendEntriesReplyProto.AppendResult.INCONSISTENCY);
+        LOG.debug("{}: inconsistency entries. Previous:{} Reply: {}", getId(),
+            previous, reply);
         return reply;
       }
 
@@ -608,8 +627,9 @@ public class RaftServer implements RaftServerProtocol {
         heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
       }
     }
-    final AppendEntriesReply reply = new AppendEntriesReply(leaderId, getId(),
-        currentTerm, nextIndex, AppendResult.SUCCESS);
+    final AppendEntriesReplyProto reply = ServerProtoUtils
+        .toAppendEntriesReplyProto(leaderId, getId(), currentTerm, nextIndex,
+            AppendEntriesReplyProto.AppendResult.SUCCESS);
     LOG.debug("{}: succeeded to append entries. Reply: {}", getId(), reply);
     return reply;
   }
@@ -625,24 +645,26 @@ public class RaftServer implements RaftServerProtocol {
   }
 
   @Override
-  public InstallSnapshotReply installSnapshot(InstallSnapshotRequest request)
-      throws IOException {
-    CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(),
-        request.getRequestorId(), request);
+  public InstallSnapshotReplyProto installSnapshot(
+      InstallSnapshotRequestProto request) throws IOException {
+    final String leaderId = request.getServerRequest().getRequestorId();
+    CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(), leaderId, request);
     LOG.debug("{}: receive installSnapshot({})", getId(), request);
 
     assertRunningState(RunningState.RUNNING, RunningState.INITIALIZING);
 
     final long currentTerm;
-    final String leaderId = request.getRequestorId();
     final long leaderTerm = request.getLeaderTerm();
-    final long lastIncludedIndex = request.getLastIncludedIndex();
+    final TermIndex lastTermIndex = ServerProtoUtils.toTermIndex(
+        request.getTermIndex());
+    final long lastIncludedIndex = lastTermIndex.getIndex();
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
-        final InstallSnapshotReply reply = new InstallSnapshotReply(leaderId,
-            getId(), currentTerm, InstallSnapshotResult.NOT_LEADER);
+        final InstallSnapshotReplyProto reply = ServerProtoUtils
+            .toInstallSnapshotReplyProto(leaderId, getId(), currentTerm,
+                InstallSnapshotResult.NOT_LEADER);
         LOG.debug("{}: do not recognize leader for installing snapshot." +
             " Reply: {}", getId(), reply);
         return reply;
@@ -667,38 +689,44 @@ public class RaftServer implements RaftServerProtocol {
 
       // update the committed index
       // re-load the state machine if this is the last chunk
-      if (request.isDone()) {
+      if (request.getDone()) {
         state.reloadStateMachine(lastIncludedIndex, leaderTerm);
       }
       if (runningState.get() == RunningState.RUNNING) {
         heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
       }
     }
-    if (request.isDone()) {
+    if (request.getDone()) {
       LOG.info("{}: successfully install the whole snapshot-{}", getId(),
           lastIncludedIndex);
     }
-    return new InstallSnapshotReply(leaderId, getId(), currentTerm,
-        InstallSnapshotResult.SUCCESS);
+    return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getId(),
+        currentTerm, InstallSnapshotResult.SUCCESS);
   }
 
-  synchronized AppendEntriesRequest createAppendEntriesRequest(String targetId,
-      TermIndex previous, LogEntryProto[] entries, boolean initializing) {
-    return new AppendEntriesRequest(getId(), targetId,
-        state.getCurrentTerm(), previous, entries,
-        state.getLog().getLastCommittedIndex(), initializing);
+  synchronized AppendEntriesRequestProto createAppendEntriesRequest(
+      String targetId, TermIndex previous, LogEntryProto[] entries,
+      boolean initializing) {
+    return ServerProtoUtils.toAppendEntriesRequestProto(getId(), targetId,
+        state.getCurrentTerm(), entries, state.getLog().getLastCommittedIndex(),
+        initializing, previous);
   }
 
-  synchronized InstallSnapshotRequest createInstallSnapshotRequest(String targetId,
-      String requestId, int requestIndex, SnapshotInfo snapshot,
+  synchronized InstallSnapshotRequestProto createInstallSnapshotRequest(
+      String targetId, String requestId, int requestIndex, SnapshotInfo snapshot,
       List<RaftProtos.FileChunkProto> chunks, boolean done) {
-    return new InstallSnapshotRequest(getId(), targetId, requestId, requestIndex,
-        state.getCurrentTerm(), snapshot, chunks, done);
+    OptionalLong totalSize = snapshot.getFiles().stream()
+        .mapToLong(FileInfo::getFileSize).reduce(Long::sum);
+    assert totalSize.isPresent();
+    return ServerProtoUtils.toInstallSnapshotRequestProto(getId(), targetId,
+        requestId, requestIndex, state.getCurrentTerm(), snapshot.getTermIndex(),
+        chunks, totalSize.getAsLong(), done);
   }
 
-  synchronized RequestVoteRequest createRequestVoteRequest(String targetId,
+  synchronized RequestVoteRequestProto createRequestVoteRequest(String targetId,
       long term, TermIndex lastEntry) {
-    return new RequestVoteRequest(getId(), targetId, term, lastEntry);
+    return ServerProtoUtils.toRequestVoteRequestProto(getId(), targetId, term,
+        lastEntry);
   }
 
   public synchronized void submitLocalSyncEvent() {

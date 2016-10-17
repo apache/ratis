@@ -17,15 +17,15 @@
  */
 package org.apache.raft.server;
 
+import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.server.protocol.AppendEntriesReply;
-import org.apache.raft.server.protocol.AppendEntriesRequest;
-import org.apache.raft.server.protocol.InstallSnapshotReply;
-import org.apache.raft.server.protocol.InstallSnapshotRequest;
-import org.apache.raft.server.protocol.RequestVoteReply;
-import org.apache.raft.server.protocol.RequestVoteRequest;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
 
@@ -85,18 +85,18 @@ public class RequestDispatcher {
     return server.setConfiguration(request);
   }
 
-  public RequestVoteReply requestVote(RequestVoteRequest request)
-      throws IOException {
+  public RaftProtos.RequestVoteReplyProto requestVote(
+      RequestVoteRequestProto request) throws IOException {
     return server.requestVote(request);
   }
 
-  public AppendEntriesReply appendEntries(AppendEntriesRequest request)
+  public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request)
       throws IOException {
     return server.appendEntries(request);
   }
 
-  public InstallSnapshotReply installSnapshot(InstallSnapshotRequest request)
-      throws IOException {
+  public InstallSnapshotReplyProto installSnapshot(
+      InstallSnapshotRequestProto request) throws IOException {
     return server.installSnapshot(request);
   }
 }

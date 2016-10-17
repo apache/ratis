@@ -38,36 +38,29 @@ public class RaftServerProtocolServerSideTranslatorPB
   public RequestVoteReplyProto requestVote(
       RpcController unused, RequestVoteRequestProto request)
       throws ServiceException {
-    final RequestVoteReply reply;
     try {
-      reply = impl.requestVote(ServerProtoUtils.toRequestVoteRequest(request));
+      return impl.requestVote(request);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }
-    return ServerProtoUtils.toRequestVoteReplyProto(request, reply);
   }
 
   @Override
   public AppendEntriesReplyProto appendEntries(
       RpcController unused, AppendEntriesRequestProto request)
       throws ServiceException {
-    final AppendEntriesReply reply;
     try {
-      reply = impl.appendEntries(ServerProtoUtils.toAppendEntriesRequest(request));
+      return impl.appendEntries(request);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }
-    return ServerProtoUtils.toAppendEntriesReplyProto(request, reply);
   }
 
   @Override
   public InstallSnapshotReplyProto installSnapshot(RpcController controller,
       InstallSnapshotRequestProto request) throws ServiceException {
-    final InstallSnapshotReply reply;
     try {
-      reply = impl.installSnapshot(
-          ServerProtoUtils.toInstallSnapshotRequest(request));
-      return ServerProtoUtils.toInstallSnapshotReplyProto(request, reply);
+      return impl.installSnapshot(request);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }

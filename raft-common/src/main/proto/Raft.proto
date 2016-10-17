@@ -57,18 +57,15 @@ message TermIndexProto {
   uint64 index = 2;
 }
 
-message RaftRpcMessageProto {
+message RaftRpcRequestProto {
   string requestorId = 1;
   string replyId = 2;
 }
 
-message RaftRpcRequestProto {
-  RaftRpcMessageProto rpcMessage = 1;
-}
-
 message RaftRpcReplyProto {
-  RaftRpcMessageProto rpcMessage = 1;
-  bool success = 2;
+  string requestorId = 1;
+  string replyId = 2;
+  bool success = 3;
 }
 
 message FileChunkProto {
@@ -86,28 +83,20 @@ enum InstallSnapshotResult {
   NOT_LEADER = 1;
 }
 
-message RaftServerRequestProto {
-  RaftRpcRequestProto rpcRequest = 1;
-}
-
-message RaftServerReplyProto {
-  RaftRpcReplyProto rpcReply = 1;
-  uint64 term = 2;
-}
-
 message RequestVoteRequestProto {
-  RaftServerRequestProto serverRequest = 1;
+  RaftRpcRequestProto serverRequest = 1;
   uint64 candidateTerm = 2;
   TermIndexProto candidateLastEntry = 3;
 }
 
 message RequestVoteReplyProto {
-  RaftServerReplyProto serverReply = 1;
-  bool shouldShutdown = 2;
+  RaftRpcReplyProto serverReply = 1;
+  uint64 term = 2;
+  bool shouldShutdown = 3;
 }
 
 message AppendEntriesRequestProto {
-  RaftServerRequestProto serverRequest = 1;
+  RaftRpcRequestProto serverRequest = 1;
   uint64 leaderTerm = 2;
   TermIndexProto previousLog = 3;
   repeated LogEntryProto entries = 4;
@@ -118,17 +107,18 @@ message AppendEntriesRequestProto {
 message AppendEntriesReplyProto {
   enum AppendResult {
     SUCCESS = 0;
-    NOT_LEADER = 1;
-    INCONSISTENCY = 2;
+    NOT_LEADER = 1; // the requester's term is not large enough
+    INCONSISTENCY = 2; // gap between the local log and the entries
   }
 
-  RaftServerReplyProto serverReply = 1;
-  uint64 nextIndex = 2;
-  AppendResult result = 3;
+  RaftRpcReplyProto serverReply = 1;
+  uint64 term = 2;
+  uint64 nextIndex = 3;
+  AppendResult result = 4;
 }
 
 message InstallSnapshotRequestProto {
-  RaftServerRequestProto serverRequest = 1;
+  RaftRpcRequestProto serverRequest = 1;
   string requestId = 2; // an identifier for chunked-requests.
   uint32 requestIndex = 3; // the index for this request chunk. Starts from 0.
   RaftConfigurationProto raftConfiguration = 4;
@@ -140,8 +130,9 @@ message InstallSnapshotRequestProto {
 }
 
 message InstallSnapshotReplyProto {
-  RaftServerReplyProto serverReply = 1;
-  InstallSnapshotResult result = 2;
+  RaftRpcReplyProto serverReply = 1;
+  uint64 term = 2;
+  InstallSnapshotResult result = 3;
 }
 
 message ClientMessageEntryProto {

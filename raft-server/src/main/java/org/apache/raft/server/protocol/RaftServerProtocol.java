@@ -19,6 +19,12 @@ package org.apache.raft.server.protocol;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 
 import java.io.IOException;
 
@@ -26,9 +32,9 @@ import java.io.IOException;
 @InterfaceStability.Unstable
 public interface RaftServerProtocol {
 
-  RequestVoteReply requestVote(RequestVoteRequest request) throws IOException;
+  RequestVoteReplyProto requestVote(RequestVoteRequestProto request) throws IOException;
 
-  AppendEntriesReply appendEntries(AppendEntriesRequest request) throws IOException;
+  AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request) throws IOException;
 
-  InstallSnapshotReply installSnapshot(InstallSnapshotRequest request) throws IOException;
+  InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException;
 }

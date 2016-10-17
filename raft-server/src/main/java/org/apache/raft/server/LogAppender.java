@@ -24,14 +24,14 @@ import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.raft.proto.RaftProtos.FileChunkProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
 import org.apache.raft.server.LeaderState.StateUpdateEventType;
-import org.apache.raft.server.protocol.AppendEntriesReply;
-import org.apache.raft.server.protocol.AppendEntriesReply.AppendResult;
-import org.apache.raft.server.protocol.AppendEntriesRequest;
-import org.apache.raft.server.protocol.InstallSnapshotReply;
-import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
@@ -96,7 +96,7 @@ public class LogAppender extends Daemon {
   }
 
   /** Send an appendEntries RPC; retry indefinitely. */
-  private AppendEntriesReply sendAppendEntriesWithRetries()
+  private AppendEntriesReplyProto sendAppendEntriesWithRetries()
       throws InterruptedException, InterruptedIOException {
     RaftProtos.LogEntryProto[] entries = null;
     int retry = 0;
@@ -121,13 +121,14 @@ public class LogAppender extends Daemon {
           LOG.trace("follower {}, log {}", follower, raftLog);
         }
 
-        final AppendEntriesRequest request = server.createAppendEntriesRequest(
-            follower.getPeer().getId(), previous, entries, !follower.isAttendingVote());
-        final AppendEntriesReply r = (AppendEntriesReply) server.getServerRpc()
-            .sendServerRequest(request);
+        final AppendEntriesRequestProto request =
+            server.createAppendEntriesRequest(follower.getPeer().getId(),
+                previous, entries, !follower.isAttendingVote());
+        final AppendEntriesReplyProto r = server.getServerRpc()
+            .sendAppendEntries(request);
 
         follower.lastRpcTime.set(Time.monotonicNow());
-        if (r.isSuccess()) {
+        if (r.getServerReply().getSuccess()) {
           if (entries != null && entries.length > 0) {
             final long mi = entries[entries.length - 1].getIndex();
             follower.updateMatchIndex(mi);
@@ -169,13 +170,12 @@ public class LogAppender extends Daemon {
   }
 
   // TODO inefficient using RPC. need to change to zero-copy transfer
-  private InstallSnapshotReply installSnapshot(SnapshotInfo snapshot)
+  private InstallSnapshotReplyProto installSnapshot(SnapshotInfo snapshot)
       throws InterruptedException, InterruptedIOException {
-
     String requestId = UUID.randomUUID().toString();
     int requestIndex = 0;
 
-    InstallSnapshotReply reply = null;
+    InstallSnapshotReplyProto reply = null;
     for (int i = 0; i < snapshot.getFiles().size(); i++) {
       FileInfo fileInfo = snapshot.getFiles().get(i);
       File snapshotFile = fileInfo.getPath().toFile();
@@ -193,15 +193,15 @@ public class LogAppender extends Daemon {
           FileChunkProto chunk = readChunk(fileInfo, in, buf, targetLength,
               offset, chunkIndex);
           boolean done = (i == snapshot.getFiles().size() - 1) && chunk.getDone();
-          InstallSnapshotRequest request = server.createInstallSnapshotRequest(
-              follower.getPeer().getId(), requestId, requestIndex++, snapshot,
-              Lists.newArrayList(chunk), done);
+          InstallSnapshotRequestProto request =
+              server.createInstallSnapshotRequest(follower.getPeer().getId(),
+                  requestId, requestIndex++, snapshot,
+                  Lists.newArrayList(chunk), done);
 
-          reply = (InstallSnapshotReply) server.getServerRpc()
-              .sendServerRequest(request);
+          reply = server.getServerRpc().sendInstallSnapshot(request);
           follower.lastRpcTime.set(Time.monotonicNow());
 
-          if (!reply.isSuccess()) {
+          if (!reply.getServerReply().getSuccess()) {
             return reply;
           }
 
@@ -249,16 +249,15 @@ public class LogAppender extends Daemon {
               logStartIndex);
           Preconditions.checkState(snapshot != null);
 
-          final InstallSnapshotReply r = installSnapshot(snapshot);
+          final InstallSnapshotReplyProto r = installSnapshot(snapshot);
           if (r != null && r.getResult() == InstallSnapshotResult.NOT_LEADER) {
             checkResponseTerm(r.getTerm());
           } // otherwise if r is null, retry the snapshot installation
         } else {
-          final AppendEntriesReply r = sendAppendEntriesWithRetries();
+          final AppendEntriesReplyProto r = sendAppendEntriesWithRetries();
           if (r == null) {
             break;
           }
-
           // check if should step down
           if (r.getResult() == AppendResult.NOT_LEADER) {
             checkResponseTerm(r.getTerm());

@@ -22,7 +22,6 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 
-import java.io.IOException;
 import java.util.Collection;
 
 public class SimulatedClientRequestReply

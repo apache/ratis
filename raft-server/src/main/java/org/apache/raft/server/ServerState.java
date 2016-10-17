@@ -20,8 +20,8 @@ package org.apache.raft.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.server.protocol.InstallSnapshotRequest;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.MemoryRaftLog;
@@ -135,7 +135,7 @@ public class ServerState implements Closeable {
    */
   private RaftLog initLog(String id, RaftProperties prop, RaftServer server,
       long lastIndexInSnapshot) throws IOException {
-    RaftLog log = null;
+    final RaftLog log;
     if (prop.getBoolean(RAFT_SERVER_USE_MEMORY_LOG_KEY,
         RAFT_SERVER_USE_MEMORY_LOG_DEFAULT)) {
       log = new MemoryRaftLog(id);
@@ -320,14 +320,14 @@ public class ServerState implements Closeable {
     return storage;
   }
 
-  void installSnapshot(InstallSnapshotRequest request) throws IOException {
+  void installSnapshot(InstallSnapshotRequestProto request) throws IOException {
     // TODO: verify that we need to install the snapshot
     StateMachine sm = server.getStateMachine();
     sm.pause(); // pause the SM to prepare for install snapshot
     snapshotManager.installSnapshot(sm, request);
-    log.syncWithSnapshot(request.getLastIncludedIndex());
-    this.latestInstalledSnapshot = new TermIndex(request.getLastIncludedTerm(),
-        request.getLastIncludedIndex());
+    log.syncWithSnapshot(request.getTermIndex().getIndex());
+    this.latestInstalledSnapshot = ServerProtoUtils.toTermIndex(
+        request.getTermIndex());
   }
 
   SnapshotInfo getLatestSnapshot() {

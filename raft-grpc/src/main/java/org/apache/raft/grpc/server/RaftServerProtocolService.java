@@ -19,7 +19,6 @@ package org.apache.raft.grpc.server;
 
 import io.grpc.stub.StreamObserver;
 import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
-import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
@@ -27,13 +26,6 @@ import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.server.RequestDispatcher;
-import org.apache.raft.server.protocol.AppendEntriesReply;
-import org.apache.raft.server.protocol.AppendEntriesRequest;
-import org.apache.raft.server.protocol.InstallSnapshotReply;
-import org.apache.raft.server.protocol.InstallSnapshotRequest;
-import org.apache.raft.server.protocol.RequestVoteReply;
-import org.apache.raft.server.protocol.RequestVoteRequest;
-import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,12 +40,9 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
   @Override
   public void requestVote(RequestVoteRequestProto request,
       StreamObserver<RequestVoteReplyProto> responseObserver) {
-    RequestVoteRequest requestVote = ServerProtoUtils.toRequestVoteRequest(
-        request);
     try {
-      RequestVoteReply reply = dispatcher.requestVote(requestVote);
-      responseObserver.onNext(
-          ServerProtoUtils.toRequestVoteReplyProto(request, reply));
+      final RequestVoteReplyProto reply = dispatcher.requestVote(request);
+      responseObserver.onNext(reply);
     } catch (Exception e) {
       responseObserver.onError(e);
     }
@@ -65,13 +54,10 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       StreamObserver<AppendEntriesReplyProto> responseObserver) {
     return new StreamObserver<AppendEntriesRequestProto>() {
       @Override
-      public void onNext(AppendEntriesRequestProto value) {
-        final AppendEntriesRequest request = ServerProtoUtils
-            .toAppendEntriesRequest(value);
+      public void onNext(AppendEntriesRequestProto request) {
         try {
-          AppendEntriesReply reply = dispatcher.appendEntries(request);
-          responseObserver.onNext(
-              ServerProtoUtils.toAppendEntriesReplyProto(value, reply));
+          final AppendEntriesReplyProto reply = dispatcher.appendEntries(request);
+          responseObserver.onNext(reply);
         } catch (Exception e) {
           // TODO test if client can get/handle exception correctly
           responseObserver.onError(e);
@@ -96,14 +82,11 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       StreamObserver<InstallSnapshotReplyProto> responseObserver) {
     return new StreamObserver<InstallSnapshotRequestProto>() {
       @Override
-      public void onNext(InstallSnapshotRequestProto value) {
-        // TODO avoid unnecessary protobuf - java_object conversion
-        final InstallSnapshotRequest request = ServerProtoUtils
-            .toInstallSnapshotRequest(value);
+      public void onNext(InstallSnapshotRequestProto request) {
         try {
-          InstallSnapshotReply reply = dispatcher.installSnapshot(request);
-          responseObserver.onNext(
-              ServerProtoUtils.toInstallSnapshotReplyProto(value, reply));
+          final InstallSnapshotReplyProto reply =
+              dispatcher.installSnapshot(request);
+          responseObserver.onNext(reply);
         } catch (Exception e) {
           responseObserver.onError(e);
         }

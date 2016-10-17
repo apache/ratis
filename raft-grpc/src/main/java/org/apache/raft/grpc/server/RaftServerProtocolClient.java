@@ -26,9 +26,6 @@ import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtoc
 import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.protocol.RequestVoteReply;
-import org.apache.raft.server.protocol.RequestVoteRequest;
-import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,12 +51,9 @@ public class RaftServerProtocolClient {
     channel.shutdownNow();
   }
 
-  public RequestVoteReply requestVote(RequestVoteRequest request) {
-    RequestVoteRequestProto requestProto = ServerProtoUtils
-        .toRequestVoteRequestProto(request);
+  public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) {
     try {
-      RequestVoteReplyProto replyProto = blockingStub.requestVote(requestProto);
-      return ServerProtoUtils.toRequestVoteReply(replyProto);
+      return blockingStub.requestVote(request);
     } catch (StatusRuntimeException e) {
       LOG.warn("RequestVote RPC failed", e);
       return null;

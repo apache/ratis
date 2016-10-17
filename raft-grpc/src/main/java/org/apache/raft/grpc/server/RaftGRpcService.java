@@ -23,13 +23,16 @@ import io.grpc.ServerBuilder;
 import io.grpc.netty.NettyServerBuilder;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.RaftGrpcConfigKeys;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.RequestDispatcher;
-import org.apache.raft.server.protocol.RaftServerReply;
-import org.apache.raft.server.protocol.RaftServerRequest;
-import org.apache.raft.server.protocol.RequestVoteRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,12 +100,25 @@ public class RaftGRpcService implements RaftServerRpc {
   }
 
   @Override
-  public RaftServerReply sendServerRequest(RaftServerRequest request)
+  public AppendEntriesReplyProto sendAppendEntries(
+      AppendEntriesRequestProto request) throws IOException {
+    throw new UnsupportedOperationException(
+        "Blocking AppendEntries call is not supported");
+  }
+
+  @Override
+  public InstallSnapshotReplyProto sendInstallSnapshot(
+      InstallSnapshotRequestProto request) throws IOException {
+    throw new UnsupportedOperationException(
+        "Blocking InstallSnapshot call is not supported");
+  }
+
+  @Override
+  public RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
       throws IOException {
-    // only requestVote is blocking
-    Preconditions.checkArgument(request instanceof RequestVoteRequest);
-    return Preconditions.checkNotNull(peers.get(request.getReplierId()))
-        .requestVote((RequestVoteRequest) request);
+    RaftServerProtocolClient target = Preconditions.checkNotNull(
+        peers.get(request.getServerRequest().getReplyId()));
+    return target.requestVote(request);
   }
 
   @Override

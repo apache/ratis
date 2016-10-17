@@ -19,6 +19,7 @@ package org.apache.raft.hadooprpc.server;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.BlockingService;
+import com.google.protobuf.ServiceException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.raft.hadooprpc.HadoopRpcBase;
@@ -26,14 +27,20 @@ import org.apache.raft.hadooprpc.HadoopUtils;
 import org.apache.raft.hadooprpc.client.RaftClientProtocolPB;
 import org.apache.raft.hadooprpc.client.RaftClientProtocolServerSideTranslatorPB;
 import org.apache.raft.proto.RaftClientProtocolProtos.RaftClientProtocolService;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.proto.RaftServerProtocolProtos.RaftServerProtocolService;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.RequestDispatcher;
-import org.apache.raft.server.protocol.*;
 import org.apache.raft.util.CodeInjectionForTesting;
+import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,8 +48,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 
 /** Server side Hadoop RPC service. */
-public class HadoopRpcService
-    extends HadoopRpcBase<RaftServerProtocolClientSideTranslatorPB>
+public class HadoopRpcService extends HadoopRpcBase<RaftServerProtocolPB>
     implements RaftServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(HadoopRpcService.class);
   static final String CLASS_NAME = HadoopRpcService.class.getSimpleName();
@@ -71,11 +77,10 @@ public class HadoopRpcService
   }
 
   @Override
-  public RaftServerProtocolClientSideTranslatorPB createProxy(RaftPeer p)
+  public RaftServerProtocolPB createProxy(RaftPeer p)
       throws IOException {
-    final RaftServerProtocolPB proxy = HadoopUtils.getProxy(
-        RaftServerProtocolPB.class, p.getAddress(), getConf());
-    return new RaftServerProtocolClientSideTranslatorPB(proxy);
+    return HadoopUtils.getProxy(RaftServerProtocolPB.class, p.getAddress(),
+        getConf());
   }
 
   private RPC.Server newRpcServer(Configuration conf) throws IOException {
@@ -118,25 +123,53 @@ public class HadoopRpcService
   }
 
   @Override
-  public RaftServerReply sendServerRequest(RaftServerRequest request)
-      throws IOException {
+  public AppendEntriesReplyProto sendAppendEntries(
+      AppendEntriesRequestProto request) throws IOException {
     Preconditions.checkArgument(
-        raftService.getId().equals(request.getRequestorId()));
+        raftService.getId().equals(request.getServerRequest().getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, raftService.getId(),
         null, request);
 
-    final String id = request.getReplierId();
-    final RaftServerProtocolClientSideTranslatorPB proxy = getServerProxy(id);
+    final RaftServerProtocolPB proxy = getServerProxy(
+        request.getServerRequest().getReplyId());
+    try {
+      return proxy.appendEntries(null, request);
+    } catch (ServiceException se) {
+      throw ProtoUtils.toIOException(se);
+    }
+  }
 
-    if (request instanceof AppendEntriesRequest) {
-      return proxy.appendEntries((AppendEntriesRequest)request);
-    } else if (request instanceof RequestVoteRequest) {
-      return proxy.requestVote((RequestVoteRequest) request);
-    } else if (request instanceof InstallSnapshotRequest) {
-      return proxy.installSnapshot((InstallSnapshotRequest) request);
-    } else {
-      throw new UnsupportedOperationException("Unsupported request "
-          + request.getClass() + ", " + request);
+  @Override
+  public InstallSnapshotReplyProto sendInstallSnapshot(
+      InstallSnapshotRequestProto request) throws IOException {
+    Preconditions.checkArgument(
+        raftService.getId().equals(request.getServerRequest().getRequestorId()));
+    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, raftService.getId(),
+        null, request);
+
+    final RaftServerProtocolPB proxy = getServerProxy(
+        request.getServerRequest().getReplyId());
+    try {
+      return proxy.installSnapshot(null, request);
+    } catch (ServiceException se) {
+      throw ProtoUtils.toIOException(se);
+    }
+  }
+
+  @Override
+  public RequestVoteReplyProto sendRequestVote(
+      RequestVoteRequestProto request) throws IOException {
+    Preconditions.checkArgument(
+        raftService.getId().equals(request.getServerRequest().getRequestorId()));
+    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, raftService.getId(),
+        null, request);
+
+    final RaftServerProtocolPB proxy = getServerProxy(
+        request.getServerRequest().getReplyId());
+    try {
+      return proxy.requestVote(null, request);
+    } catch (ServiceException se) {
+      throw ProtoUtils.toIOException(se);
     }
   }
 
