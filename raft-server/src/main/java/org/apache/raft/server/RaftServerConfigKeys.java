@@ -106,6 +106,12 @@ public interface RaftServerConfigKeys {
   String RAFT_SERVER_STAGING_CATCHUP_GAP_KEY = "raft.server.staging.catchup.gap";
   int RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT = 10; // a small number for test
 
+  String RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_KEY = "raft.server.log.appender.buffer.capacity";
+  int RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_DEFAULT = 1024 * 8; // at most 8192 entries
+
+  String RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_KEY = "raft.server.log.appender.batch.enabled";
+  boolean RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_DEFAULT = false;
+
   /** An utility class to get conf values. */
   class Get {
     static Logger LOG = LoggerFactory.getLogger(RaftServerConfigKeys.class);

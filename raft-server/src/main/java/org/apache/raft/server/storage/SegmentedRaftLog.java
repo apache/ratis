@@ -242,10 +242,10 @@ public class SegmentedRaftLog extends RaftLog {
   @Override
   public void append(LogEntryProto... entries) {
     checkLogState();
+    if (entries == null || entries.length == 0) {
+      return;
+    }
     try(AutoCloseableLock writeLock = writeLock()) {
-      if (entries == null || entries.length == 0) {
-        return;
-      }
       Iterator<LogEntryProto> iter = cache.iterator(entries[0].getIndex());
       int index = 0;
       long truncateIndex = -1;

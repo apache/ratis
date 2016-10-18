@@ -23,14 +23,13 @@ import com.google.protobuf.ByteString;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
-import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.raft.proto.RaftProtos.FileChunkProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
+import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.LeaderState.StateUpdateEventType;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
@@ -44,8 +43,15 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_KEY;
 import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
 
 /**
@@ -58,6 +64,9 @@ public class LogAppender extends Daemon {
   private final LeaderState leaderState;
   private final RaftLog raftLog;
   private final FollowerInfo follower;
+  private final int maxBufferEntryNum;
+  private final boolean batchSending;
+  private final LogEntryBuffer buffer;
 
   private volatile boolean sending = true;
 
@@ -66,6 +75,13 @@ public class LogAppender extends Daemon {
     this.server = server;
     this.leaderState = leaderState;
     this.raftLog = server.getState().getLog();
+    this.maxBufferEntryNum = server.getProperties().getInt(
+        RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_KEY,
+        RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_DEFAULT);
+    this.batchSending = server.getProperties().getBoolean(
+        RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_KEY,
+        RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_DEFAULT);
+    this.buffer = new LogEntryBuffer();
   }
 
   @Override
@@ -95,51 +111,98 @@ public class LogAppender extends Daemon {
     return follower;
   }
 
+  /**
+   * A buffer for log entries with size limitation.
+   */
+  private class LogEntryBuffer {
+    private final List<LogEntryProto> buf = new ArrayList<>(maxBufferEntryNum);
+
+    void addEntries(LogEntryProto... entries) {
+      Collections.addAll(buf, entries);
+    }
+
+    boolean isFull() {
+      return buf.size() >= maxBufferEntryNum;
+    }
+
+    boolean isEmpty() {
+      return buf.isEmpty();
+    }
+
+    int getRemainingSlots() {
+      return maxBufferEntryNum - buf.size();
+    }
+
+    AppendEntriesRequestProto getAppendRequest(TermIndex previous) {
+      final AppendEntriesRequestProto request = server
+          .createAppendEntriesRequest(follower.getPeer().getId(),
+              previous, buf, !follower.isAttendingVote());
+      buf.clear();
+      return request;
+    }
+
+    int getPendingEntryNum() {
+      return buf.size();
+    }
+  }
+
+  private TermIndex getPrevious() {
+    TermIndex previous = ServerProtoUtils.toTermIndex(
+        raftLog.get(follower.getNextIndex() - 1));
+    if (previous == null) {
+      // if previous is null, nextIndex must be equal to the log start
+      // index (otherwise we will install snapshot).
+      Preconditions.checkState(follower.getNextIndex() == raftLog.getStartIndex(),
+          "follower's next index %s, local log start index %s",
+          follower.getNextIndex(), raftLog.getStartIndex());
+      SnapshotInfo snapshot = server.getState().getLatestSnapshot();
+      previous = snapshot == null ? null : snapshot.getTermIndex();
+    }
+    return previous;
+  }
+
+  private AppendEntriesRequestProto createRequest() {
+    final TermIndex previous = getPrevious();
+    final long leaderNext = raftLog.getNextIndex();
+    final long next = follower.getNextIndex() + buffer.getPendingEntryNum();
+    boolean toSend = false;
+    if (leaderNext > next) {
+      int num = Math.min(buffer.getRemainingSlots(), (int) (leaderNext - next));
+      buffer.addEntries(raftLog.getEntries(next, next + num));
+      if (buffer.isFull() || !batchSending) {
+        // buffer is full or batch sending is disabled, send out a request
+        toSend = true;
+      }
+    } else if (!buffer.isEmpty()) {
+      // no new entries, then send out the entries in the buffer
+      toSend = true;
+    }
+    if (toSend || shouldHeartbeat()) {
+      return buffer.getAppendRequest(previous);
+    }
+    return null;
+  }
+
   /** Send an appendEntries RPC; retry indefinitely. */
   private AppendEntriesReplyProto sendAppendEntriesWithRetries()
       throws InterruptedException, InterruptedIOException {
-    RaftProtos.LogEntryProto[] entries = null;
     int retry = 0;
-    while (isSenderRunning()) {
+    AppendEntriesRequestProto request = null;
+    while (isSenderRunning()) { // keep retrying for IOException
       try {
-        final long endIndex = raftLog.getNextIndex();
-        if (entries == null || entries.length == 0) {
-          entries = raftLog.getEntries(follower.getNextIndex(), endIndex);
+        if (request == null || request.getEntriesCount() == 0) {
+          request = createRequest();
         }
-        TermIndex previous = ServerProtoUtils.toTermIndex(
-            raftLog.get(follower.getNextIndex() - 1));
-        if (previous == null) {
-          // if previous is null, nextIndex must be equal to the log start
-          // index (otherwise we will install snapshot).
-          Preconditions.checkState(follower.getNextIndex() == raftLog.getStartIndex(),
-              "follower's next index %s, local log start index %s",
-              follower.getNextIndex(), raftLog.getStartIndex());
-          SnapshotInfo snapshot = server.getState().getLatestSnapshot();
-          previous = snapshot == null ? null : snapshot.getTermIndex();
-        }
-        if (entries != null || previous != null) {
-          LOG.trace("follower {}, log {}", follower, raftLog);
+        if (request == null) {
+          LOG.trace("{} need not send AppendEntries now." +
+              " Wait for more entries.", server.getId());
+          return null;
         }
 
-        final AppendEntriesRequestProto request =
-            server.createAppendEntriesRequest(follower.getPeer().getId(),
-                previous, entries, !follower.isAttendingVote());
         final AppendEntriesReplyProto r = server.getServerRpc()
             .sendAppendEntries(request);
-
         follower.lastRpcTime.set(Time.monotonicNow());
-        if (r.getServerReply().getSuccess()) {
-          if (entries != null && entries.length > 0) {
-            final long mi = entries[entries.length - 1].getIndex();
-            follower.updateMatchIndex(mi);
-            follower.updateNextIndex(mi + 1);
 
-            LeaderState.StateUpdateEvent e = follower.isAttendingVote() ?
-                LeaderState.UPDATE_COMMIT_EVENT :
-                LeaderState.STAGING_PROGRESS_EVENT;
-            leaderState.submitUpdateStateEvent(e);
-          }
-        }
         return r;
       } catch (InterruptedIOException iioe) {
         throw iioe;
@@ -153,7 +216,7 @@ public class LogAppender extends Daemon {
     return null;
   }
 
-  private FileChunkProto readChunk(FileInfo fileInfo,
+  private FileChunkProto readFileChunk(FileInfo fileInfo,
       FileInputStream in, byte[] buf, int length, long offset, int chunkIndex)
       throws IOException {
     FileChunkProto.Builder builder = FileChunkProto.newBuilder()
@@ -190,7 +253,7 @@ public class LogAppender extends Daemon {
         while (offset < totalSize) {
           int targetLength = (int) Math.min(totalSize - offset,
               leaderState.getSnapshotChunkMaxSize());
-          FileChunkProto chunk = readChunk(fileInfo, in, buf, targetLength,
+          FileChunkProto chunk = readFileChunk(fileInfo, in, buf, targetLength,
               offset, chunkIndex);
           boolean done = (i == snapshot.getFiles().size() - 1) && chunk.getDone();
           InstallSnapshotRequestProto request =
@@ -229,7 +292,7 @@ public class LogAppender extends Daemon {
   private void checkAndSendAppendEntries()
       throws InterruptedException, InterruptedIOException {
     while (isSenderRunning()) {
-      if (shouldSend()) {
+      if (shouldSendRequest()) {
         final long logStartIndex = raftLog.getStartIndex();
         SnapshotInfo snapshot = null;
         // we should install snapshot if the follower needs to catch up and:
@@ -255,21 +318,54 @@ public class LogAppender extends Daemon {
           } // otherwise if r is null, retry the snapshot installation
         } else {
           final AppendEntriesReplyProto r = sendAppendEntriesWithRetries();
-          if (r == null) {
-            break;
-          }
-          // check if should step down
-          if (r.getResult() == AppendResult.NOT_LEADER) {
-            checkResponseTerm(r.getTerm());
-          } else if (r.getResult() == AppendResult.INCONSISTENCY) {
-            follower.decreaseNextIndex(r.getNextIndex());
+          if (r != null) {
+            handleReply(r);
           }
         }
       }
-      if (isSenderRunning()) {
-        synchronized (this) {
-          wait(getHeartbeatRemainingTime(follower.lastRpcTime.get()));
+      if (isSenderRunning() && !shouldAppendEntries(
+          follower.getNextIndex() + buffer.getPendingEntryNum())) {
+        final long waitTime = getHeartbeatRemainingTime(follower.lastRpcTime.get());
+        if (waitTime > 0) {
+          synchronized (this) {
+            wait(waitTime);
+          }
         }
+      }
+    }
+  }
+
+  private void handleReply(AppendEntriesReplyProto reply) {
+    if (reply != null) {
+      switch (reply.getResult()) {
+        case SUCCESS:
+          final long oldNextIndex = follower.getNextIndex();
+          final long nextIndex = reply.getNextIndex();
+          Preconditions.checkState(nextIndex >= oldNextIndex,
+              "old next index: %s, next index in the reply: %s", oldNextIndex,
+              nextIndex);
+
+          if (nextIndex > oldNextIndex) {
+            follower.updateMatchIndex(nextIndex - 1);
+            follower.updateNextIndex(nextIndex);
+
+            LeaderState.StateUpdateEvent e = follower.isAttendingVote() ?
+                LeaderState.UPDATE_COMMIT_EVENT :
+                LeaderState.STAGING_PROGRESS_EVENT;
+            leaderState.submitUpdateStateEvent(e);
+          }
+          break;
+        case NOT_LEADER:
+          // check if should step down
+          checkResponseTerm(reply.getTerm());
+          break;
+        case INCONSISTENCY:
+          follower.decreaseNextIndex(reply.getNextIndex());
+          break;
+        case UNRECOGNIZED:
+          LOG.warn("{} received UNRECOGNIZED AppendResult from {}",
+              server.getId(), follower.getPeer().getId());
+          break;
       }
     }
   }
@@ -279,9 +375,23 @@ public class LogAppender extends Daemon {
   }
 
   /** Should the leader send appendEntries RPC to this follower? */
-  private boolean shouldSend() {
-    return follower.getNextIndex() < raftLog.getNextIndex() ||
-        getHeartbeatRemainingTime(follower.lastRpcTime.get()) <= 0;
+  private boolean shouldSendRequest() {
+    return shouldAppendEntries(follower.getNextIndex()) || shouldHeartbeat();
+  }
+
+  private boolean shouldAppendEntries(long followerIndex) {
+    return followerIndex < raftLog.getNextIndex();
+  }
+
+  private boolean shouldHeartbeat() {
+    return getHeartbeatRemainingTime(follower.lastRpcTime.get()) <= 0;
+  }
+
+  /**
+   * @return the time in milliseconds that the leader should send a heartbeat.
+   */
+  private long getHeartbeatRemainingTime(long lastTime) {
+    return lastTime + server.minTimeout / 2 - Time.monotonicNow();
   }
 
   private void checkResponseTerm(long responseTerm) {
@@ -293,12 +403,5 @@ public class LogAppender extends Daemon {
                 responseTerm));
       }
     }
-  }
-
-  /**
-   * @return the time in milliseconds that the leader should send a heartbeat.
-   */
-  private long getHeartbeatRemainingTime(long lastTime) {
-    return lastTime + server.minTimeout / 2 - Time.monotonicNow();
   }
 }

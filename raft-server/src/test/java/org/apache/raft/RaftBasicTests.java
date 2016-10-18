@@ -59,7 +59,7 @@ public abstract class RaftBasicTests {
   }
 
   @Rule
-  public Timeout globalTimeout = new Timeout(60 * 1000);
+  public Timeout globalTimeout = new Timeout(120 * 1000);
 
   @Before
   public void setup() throws IOException {

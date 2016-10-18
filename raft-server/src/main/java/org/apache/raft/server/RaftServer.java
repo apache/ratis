@@ -25,6 +25,7 @@ import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
@@ -569,15 +570,14 @@ public class RaftServer implements RaftServerProtocol {
     }
 
     final long currentTerm;
-    final long nextIndex;
+    long nextIndex = state.getLog().getNextIndex();
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
-      nextIndex = state.getLog().getNextIndex();
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils
             .toAppendEntriesReplyProto(leaderId, getId(), currentTerm,
-                nextIndex, AppendEntriesReplyProto.AppendResult.NOT_LEADER);
+                nextIndex, AppendResult.NOT_LEADER);
         LOG.debug("{}: do not recognize leader. Reply: {}", getId(), reply);
         return reply;
       }
@@ -600,9 +600,10 @@ public class RaftServer implements RaftServerProtocol {
       // last index included in snapshot. This is because indices <= snapshot's
       // last index should have been committed.
       if (previous != null && !containPrevious(previous)) {
-        final AppendEntriesReplyProto reply =  ServerProtoUtils
-            .toAppendEntriesReplyProto(leaderId, getId(), currentTerm,
-                nextIndex, AppendEntriesReplyProto.AppendResult.INCONSISTENCY);
+        final AppendEntriesReplyProto reply =
+            ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(),
+                currentTerm, Math.min(nextIndex, previous.getIndex()),
+                AppendResult.INCONSISTENCY);
         LOG.debug("{}: inconsistency entries. Previous:{} Reply: {}", getId(),
             previous, reply);
         return reply;
@@ -618,6 +619,7 @@ public class RaftServer implements RaftServerProtocol {
       } catch (InterruptedException e) {
         throw new InterruptedIOException("logSync got interrupted");
       }
+      nextIndex = entries[entries.length - 1].getIndex() + 1;
     }
     synchronized (this) {
       if (runningState.get() == RunningState.RUNNING && isFollower()
@@ -629,8 +631,9 @@ public class RaftServer implements RaftServerProtocol {
     }
     final AppendEntriesReplyProto reply = ServerProtoUtils
         .toAppendEntriesReplyProto(leaderId, getId(), currentTerm, nextIndex,
-            AppendEntriesReplyProto.AppendResult.SUCCESS);
-    LOG.debug("{}: succeeded to append entries. Reply: {}", getId(), reply);
+            AppendResult.SUCCESS);
+    LOG.debug("{}: succeeded to append entries. Reply: {}", getId(),
+        ServerProtoUtils.toString(reply));
     return reply;
   }
 
@@ -705,7 +708,7 @@ public class RaftServer implements RaftServerProtocol {
   }
 
   synchronized AppendEntriesRequestProto createAppendEntriesRequest(
-      String targetId, TermIndex previous, LogEntryProto[] entries,
+      String targetId, TermIndex previous, List<LogEntryProto> entries,
       boolean initializing) {
     return ServerProtoUtils.toAppendEntriesRequestProto(getId(), targetId,
         state.getCurrentTerm(), entries, state.getLog().getLastCommittedIndex(),
@@ -751,5 +754,9 @@ public class RaftServer implements RaftServerProtocol {
       return leaderState.getTransactionContext(index);
     }
     return null;
+  }
+
+  RaftProperties getProperties() {
+    return this.properties;
   }
 }

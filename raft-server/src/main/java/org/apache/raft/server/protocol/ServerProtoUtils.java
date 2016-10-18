@@ -75,6 +75,16 @@ public class ServerProtoUtils {
             .collect(Collectors.toList());
   }
 
+  public static String toString(AppendEntriesReplyProto reply) {
+    return toString(reply.getServerReply()) + "," + reply.getResult()
+        + ",nextIndex:" + reply.getNextIndex() + ",term:" + reply.getTerm();
+  }
+
+  private static String toString(RaftRpcReplyProto reply) {
+    return reply.getRequestorId() + "->" + reply.getReplyId() + ","
+        + reply.getSuccess();
+  }
+
   public static RaftProtos.RaftConfigurationProto toRaftConfigurationProto(
       RaftConfiguration conf) {
     return RaftProtos.RaftConfigurationProto.newBuilder()
@@ -177,14 +187,17 @@ public class ServerProtoUtils {
 
   public static AppendEntriesRequestProto toAppendEntriesRequestProto(
       String requestorId, String replyId, long leaderTerm,
-      LogEntryProto[] entries, long leaderCommit, boolean initializing,
+      List<LogEntryProto> entries, long leaderCommit, boolean initializing,
       TermIndex previous) {
-    final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto.newBuilder()
+    final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto
+        .newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
         .setLeaderTerm(leaderTerm)
-        .addAllEntries(Arrays.asList(entries))
         .setLeaderCommit(leaderCommit)
         .setInitializing(initializing);
+    if (entries != null && !entries.isEmpty()) {
+      b.addAllEntries(entries);
+    }
 
     if (previous != null) {
       b.setPreviousLog(toTermIndexProto(previous));
