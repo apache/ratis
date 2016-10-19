@@ -21,8 +21,6 @@ public interface RaftServerConstants {
   long INVALID_LOG_INDEX = -1;
   byte LOG_TERMINATE_BYTE = 0;
 
-  byte[] EMPTY_BYTE_ARRAY = {};
-
   enum StartupOption {
     FORMAT("format"),
     REGULAR("regular");

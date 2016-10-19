@@ -15,17 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.grpc;
+package org.apache.raft.grpc.server;
 
-public interface RaftGrpcConfigKeys {
-  String PREFIX = "raft.grpc";
+import org.apache.raft.server.FollowerInfo;
+import org.apache.raft.server.LeaderState;
+import org.apache.raft.server.LogAppender;
+import org.apache.raft.server.LogAppenderFactory;
+import org.apache.raft.server.RaftServer;
 
-  String RAFT_GRPC_SERVER_PORT_KEY = PREFIX + ".server.port";
-  int RAFT_GRPC_SERVER_PORT_DEFAULT = 0;
-
-  String RAFT_GRPC_MESSAGE_MAXSIZE_KEY = PREFIX + ".message.maxsize";
-  int RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT = 64 * 1024 * 1024; // 64 MB
-
-  String RAFT_GRPC_MAX_OUTSTANDING_APPENDS_KEY = PREFIX + ".max.outstanding.appends";
-  int RAFT_GRPC_MAX_OUTSTANDING_APPENDS_DEFAULT = 128;
+public class PipelinedLogAppenderFactory implements LogAppenderFactory {
+  @Override
+  public LogAppender getLogAppender(RaftServer server, LeaderState state,
+      FollowerInfo f) {
+    return new GRpcLogAppender(server, state, f);
+  }
 }

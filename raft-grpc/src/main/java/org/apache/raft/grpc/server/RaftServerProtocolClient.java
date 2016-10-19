@@ -19,10 +19,12 @@ package org.apache.raft.grpc.server;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import io.grpc.StatusRuntimeException;
+import io.grpc.stub.StreamObserver;
 import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc;
 import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceBlockingStub;
 import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceStub;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftPeer;
@@ -52,11 +54,12 @@ public class RaftServerProtocolClient {
   }
 
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) {
-    try {
-      return blockingStub.requestVote(request);
-    } catch (StatusRuntimeException e) {
-      LOG.warn("RequestVote RPC failed", e);
-      return null;
-    }
+    // the StatusRuntimeException will be handled by the caller
+    return blockingStub.requestVote(request);
+  }
+
+  StreamObserver<AppendEntriesRequestProto> appendEntries(
+      StreamObserver<AppendEntriesReplyProto> responseHandler) {
+    return asyncStub.appendEntries(responseHandler);
   }
 }

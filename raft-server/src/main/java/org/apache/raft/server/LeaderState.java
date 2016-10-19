@@ -370,12 +370,12 @@ public class LeaderState {
     Preconditions.checkArgument(!follower.isAttendingVote());
     final long progressTime = Time.monotonicNow() - server.maxTimeout;
     final long timeoutTime = Time.monotonicNow() - 2 * server.maxTimeout;
-    if (follower.lastRpcTime.get() < timeoutTime) {
+    if (follower.getLastRpcTime() < timeoutTime) {
       LOG.debug("{} detects a follower {} timeout for bootstrapping",
           server.getId(), follower);
       return BootStrapProgress.NOPROGRESS;
     } else if (follower.getMatchIndex() + stagingCatchupGap >
-        committed && follower.lastRpcTime.get() > progressTime) {
+        committed && follower.getLastRpcTime() > progressTime) {
       return BootStrapProgress.CAUGHTUP;
     } else {
       return BootStrapProgress.PROGRESSING;

@@ -707,11 +707,11 @@ public class RaftServer implements RaftServerProtocol {
         currentTerm, InstallSnapshotResult.SUCCESS);
   }
 
-  synchronized AppendEntriesRequestProto createAppendEntriesRequest(
+  AppendEntriesRequestProto createAppendEntriesRequest(long leaderTerm,
       String targetId, TermIndex previous, List<LogEntryProto> entries,
       boolean initializing) {
     return ServerProtoUtils.toAppendEntriesRequestProto(getId(), targetId,
-        state.getCurrentTerm(), entries, state.getLog().getLastCommittedIndex(),
+        leaderTerm, entries, state.getLog().getLastCommittedIndex(),
         initializing, previous);
   }
 
@@ -756,7 +756,7 @@ public class RaftServer implements RaftServerProtocol {
     return null;
   }
 
-  RaftProperties getProperties() {
+  public RaftProperties getProperties() {
     return this.properties;
   }
 }

@@ -58,15 +58,16 @@ import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
  * A daemon thread appending log entries to a follower peer.
  */
 public class LogAppender extends Daemon {
-  private static final Logger LOG = RaftServer.LOG;
+  public static final Logger LOG = RaftServer.LOG;
 
-  private final RaftServer server;
+  protected final RaftServer server;
   private final LeaderState leaderState;
-  private final RaftLog raftLog;
-  private final FollowerInfo follower;
+  protected final RaftLog raftLog;
+  protected final FollowerInfo follower;
   private final int maxBufferEntryNum;
   private final boolean batchSending;
   private final LogEntryBuffer buffer;
+  private final long leaderTerm;
 
   private volatile boolean sending = true;
 
@@ -82,6 +83,7 @@ public class LogAppender extends Daemon {
         RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_KEY,
         RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_DEFAULT);
     this.buffer = new LogEntryBuffer();
+    this.leaderTerm = server.getState().getCurrentTerm();
   }
 
   @Override
@@ -99,7 +101,7 @@ public class LogAppender extends Daemon {
     }
   }
 
-  private boolean isSenderRunning() {
+  protected boolean isAppenderRunning() {
     return sending;
   }
 
@@ -135,7 +137,7 @@ public class LogAppender extends Daemon {
 
     AppendEntriesRequestProto getAppendRequest(TermIndex previous) {
       final AppendEntriesRequestProto request = server
-          .createAppendEntriesRequest(follower.getPeer().getId(),
+          .createAppendEntriesRequest(leaderTerm, follower.getPeer().getId(),
               previous, buf, !follower.isAttendingVote());
       buf.clear();
       return request;
@@ -161,7 +163,7 @@ public class LogAppender extends Daemon {
     return previous;
   }
 
-  private AppendEntriesRequestProto createRequest() {
+  protected AppendEntriesRequestProto createRequest() {
     final TermIndex previous = getPrevious();
     final long leaderNext = raftLog.getNextIndex();
     final long next = follower.getNextIndex() + buffer.getPendingEntryNum();
@@ -188,7 +190,7 @@ public class LogAppender extends Daemon {
       throws InterruptedException, InterruptedIOException {
     int retry = 0;
     AppendEntriesRequestProto request = null;
-    while (isSenderRunning()) { // keep retrying for IOException
+    while (isAppenderRunning()) { // keep retrying for IOException
       try {
         if (request == null || request.getEntriesCount() == 0) {
           request = createRequest();
@@ -201,7 +203,7 @@ public class LogAppender extends Daemon {
 
         final AppendEntriesReplyProto r = server.getServerRpc()
             .sendAppendEntries(request);
-        follower.lastRpcTime.set(Time.monotonicNow());
+        follower.updateLastRpcTime(Time.monotonicNow());
 
         return r;
       } catch (InterruptedIOException iioe) {
@@ -209,7 +211,7 @@ public class LogAppender extends Daemon {
       } catch (IOException ioe) {
         LOG.debug(this + ": failed to send appendEntries; retry " + retry++, ioe);
       }
-      if (isSenderRunning()) {
+      if (isAppenderRunning()) {
         Thread.sleep(leaderState.getSyncInterval());
       }
     }
@@ -262,7 +264,7 @@ public class LogAppender extends Daemon {
                   Lists.newArrayList(chunk), done);
 
           reply = server.getServerRpc().sendInstallSnapshot(request);
-          follower.lastRpcTime.set(Time.monotonicNow());
+          follower.updateLastRpcTime(Time.monotonicNow());
 
           if (!reply.getServerReply().getSuccess()) {
             return reply;
@@ -291,7 +293,7 @@ public class LogAppender extends Daemon {
   /** Check and send appendEntries RPC */
   private void checkAndSendAppendEntries()
       throws InterruptedException, InterruptedIOException {
-    while (isSenderRunning()) {
+    while (isAppenderRunning()) {
       if (shouldSendRequest()) {
         final long logStartIndex = raftLog.getStartIndex();
         SnapshotInfo snapshot = null;
@@ -323,9 +325,9 @@ public class LogAppender extends Daemon {
           }
         }
       }
-      if (isSenderRunning() && !shouldAppendEntries(
+      if (isAppenderRunning() && !shouldAppendEntries(
           follower.getNextIndex() + buffer.getPendingEntryNum())) {
-        final long waitTime = getHeartbeatRemainingTime(follower.lastRpcTime.get());
+        final long waitTime = getHeartbeatRemainingTime(follower.getLastRpcTime());
         if (waitTime > 0) {
           synchronized (this) {
             wait(waitTime);
@@ -348,11 +350,7 @@ public class LogAppender extends Daemon {
           if (nextIndex > oldNextIndex) {
             follower.updateMatchIndex(nextIndex - 1);
             follower.updateNextIndex(nextIndex);
-
-            LeaderState.StateUpdateEvent e = follower.isAttendingVote() ?
-                LeaderState.UPDATE_COMMIT_EVENT :
-                LeaderState.STAGING_PROGRESS_EVENT;
-            leaderState.submitUpdateStateEvent(e);
+            submitEventOnSuccessAppend();
           }
           break;
         case NOT_LEADER:
@@ -370,12 +368,19 @@ public class LogAppender extends Daemon {
     }
   }
 
+  protected void submitEventOnSuccessAppend() {
+    LeaderState.StateUpdateEvent e = follower.isAttendingVote() ?
+        LeaderState.UPDATE_COMMIT_EVENT :
+        LeaderState.STAGING_PROGRESS_EVENT;
+    leaderState.submitUpdateStateEvent(e);
+  }
+
   public synchronized void notifyAppend() {
     this.notify();
   }
 
   /** Should the leader send appendEntries RPC to this follower? */
-  private boolean shouldSendRequest() {
+  protected boolean shouldSendRequest() {
     return shouldAppendEntries(follower.getNextIndex()) || shouldHeartbeat();
   }
 
@@ -384,19 +389,19 @@ public class LogAppender extends Daemon {
   }
 
   private boolean shouldHeartbeat() {
-    return getHeartbeatRemainingTime(follower.lastRpcTime.get()) <= 0;
+    return getHeartbeatRemainingTime(follower.getLastRpcTime()) <= 0;
   }
 
   /**
    * @return the time in milliseconds that the leader should send a heartbeat.
    */
-  private long getHeartbeatRemainingTime(long lastTime) {
+  protected long getHeartbeatRemainingTime(long lastTime) {
     return lastTime + server.minTimeout / 2 - Time.monotonicNow();
   }
 
-  private void checkResponseTerm(long responseTerm) {
+  protected void checkResponseTerm(long responseTerm) {
     synchronized (server) {
-      if (isSenderRunning() && follower.isAttendingVote()
+      if (isAppenderRunning() && follower.isAttendingVote()
           && responseTerm > leaderState.getCurrentTerm()) {
         leaderState.submitUpdateStateEvent(
             new LeaderState.StateUpdateEvent(StateUpdateEventType.STEPDOWN,

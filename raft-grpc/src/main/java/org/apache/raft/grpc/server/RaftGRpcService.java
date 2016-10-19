@@ -63,19 +63,25 @@ public class RaftGRpcService implements RaftServerRpc {
     server = ((NettyServerBuilder) serverBuilder).maxMessageSize(maxMessageSize)
         .addService(new RaftServerProtocolService(new RequestDispatcher(raftServer)))
         .build();
+
+    // start service to determine the port (in case port is configured as 0)
+    startService();
     address = new InetSocketAddress(server.getPort());
-    raftServer.setServerRpc(this);
+    LOG.info("Server started, listening on " + address.getPort());
   }
 
   @Override
   public void start() {
+    // do nothing
+  }
+
+  private void startService() {
     try {
       server.start();
     } catch (IOException e) {
-      LOG.error("Failed to start Grpc server on " + address.getPort(), e);
+      LOG.error("Failed to start Grpc server", e);
       System.exit(1);
     }
-    LOG.info("Server started, listening on " + address.getPort());
     Runtime.getRuntime().addShutdownHook(new Thread() {
       @Override
       public void run() {
@@ -132,5 +138,9 @@ public class RaftGRpcService implements RaftServerRpc {
 
   private void shutdownClients() {
     peers.values().forEach(RaftServerProtocolClient::shutdown);
+  }
+
+  RaftServerProtocolClient getRpcClient(RaftPeer peer) {
+    return peers.get(peer.getId());
   }
 }

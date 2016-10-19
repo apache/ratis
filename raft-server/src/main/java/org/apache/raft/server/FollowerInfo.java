@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class FollowerInfo {
   private final RaftPeer peer;
-  final AtomicLong lastRpcTime;
+  private final AtomicLong lastRpcTime;
   private long nextIndex;
   private final AtomicLong matchIndex;
   private volatile boolean attendVote;
@@ -37,7 +37,7 @@ public class FollowerInfo {
     this.attendVote = attendVote;
   }
 
-  void updateMatchIndex(final long matchIndex) {
+  public void updateMatchIndex(final long matchIndex) {
     this.matchIndex.set(matchIndex);
   }
 
@@ -45,15 +45,15 @@ public class FollowerInfo {
     return matchIndex.get();
   }
 
-  long getNextIndex() {
+  public synchronized long getNextIndex() {
     return nextIndex;
   }
 
-  void updateNextIndex(long i) {
+  synchronized void updateNextIndex(long i) {
     nextIndex = i;
   }
 
-  void decreaseNextIndex(long targetIndex) {
+  public synchronized void decreaseNextIndex(long targetIndex) {
     if (nextIndex > 0) {
       nextIndex = Math.min(nextIndex - 1, targetIndex);
     }
@@ -75,5 +75,13 @@ public class FollowerInfo {
 
   public RaftPeer getPeer() {
     return peer;
+  }
+
+  public void updateLastRpcTime(long time) {
+    lastRpcTime.set(time);
+  }
+
+  public long getLastRpcTime() {
+    return lastRpcTime.get();
   }
 }

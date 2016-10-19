@@ -230,7 +230,7 @@ class LeaderElection extends Daemon {
           }
         }
       } catch(ExecutionException e) {
-        LOG.warn("", e);
+        LOG.info("Got exception when requesting votes: " + e);
         exceptions.add(e);
       }
       waitForNum--;
