@@ -739,7 +739,7 @@ public class RaftServer implements RaftServerProtocol {
   }
 
   public void addPeersToRPC(Iterable<RaftPeer> peers) {
-    serverRpc.addPeerProxies(peers);
+    serverRpc.addPeers(peers);
   }
 
   synchronized void replyPendingRequest(long logIndex,

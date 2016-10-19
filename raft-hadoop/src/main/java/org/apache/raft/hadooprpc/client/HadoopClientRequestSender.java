@@ -20,27 +20,31 @@ package org.apache.raft.hadooprpc.client;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.raft.client.RaftClientRequestSender;
-import org.apache.raft.hadooprpc.HadoopRpcBase;
 import org.apache.raft.hadooprpc.HadoopUtils;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.protocol.RaftException;
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.protocol.ReconfigurationInProgressException;
-import org.apache.raft.protocol.ReconfigurationTimeoutException;
-import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.protocol.StateMachineException;
+import org.apache.raft.protocol.*;
+import org.apache.raft.util.PeerProxyMap;
 
 import java.io.IOException;
 import java.util.Collection;
 
-public class HadoopClientRequestSender
-    extends HadoopRpcBase<RaftClientProtocolClientSideTranslatorPB>
-    implements RaftClientRequestSender {
+public class HadoopClientRequestSender implements RaftClientRequestSender {
+  private final Configuration conf;
+
+  private final PeerProxyMap<RaftClientProtocolClientSideTranslatorPB> proxies
+      = new PeerProxyMap<RaftClientProtocolClientSideTranslatorPB>() {
+    @Override
+    public RaftClientProtocolClientSideTranslatorPB createProxy(RaftPeer peer)
+        throws IOException {
+      final RaftClientProtocolPB proxy = HadoopUtils.getProxy(
+          RaftClientProtocolPB.class, peer.getAddress(), conf);
+      return new RaftClientProtocolClientSideTranslatorPB(proxy);
+    }
+  };
+
   public HadoopClientRequestSender(
       Collection<RaftPeer> peers, Configuration conf) {
-    super(conf);
-    addPeers(peers);
+    this.conf = conf;
+    proxies.addPeers(peers);
   }
 
   @Override
@@ -48,7 +52,7 @@ public class HadoopClientRequestSender
       throws IOException {
     final String serverId = request.getReplierId();
     final RaftClientProtocolClientSideTranslatorPB proxy =
-        getServerProxy(serverId);
+        proxies.getProxy(serverId);
     try {
       if (request instanceof SetConfigurationRequest) {
         return proxy.setConfiguration((SetConfigurationRequest) request);
@@ -63,15 +67,7 @@ public class HadoopClientRequestSender
   }
 
   @Override
-  public RaftClientProtocolClientSideTranslatorPB createProxy(RaftPeer p)
-      throws IOException {
-    final RaftClientProtocolPB proxy = HadoopUtils.getProxy(
-        RaftClientProtocolPB.class, p.getAddress(), getConf());
-    return new RaftClientProtocolClientSideTranslatorPB(proxy);
-  }
-
-  @Override
   public void addServers(Iterable<RaftPeer> servers) {
-    addPeers(servers);
+    proxies.addPeers(servers);
   }
 }

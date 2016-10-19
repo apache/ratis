@@ -117,7 +117,7 @@ public class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
-  public void addPeerProxies(Iterable<RaftPeer> peers) {
+  public void addPeers(Iterable<RaftPeer> peers) {
     // do nothing
   }
 

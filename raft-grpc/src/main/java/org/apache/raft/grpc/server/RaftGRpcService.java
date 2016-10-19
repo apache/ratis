@@ -122,7 +122,7 @@ public class RaftGRpcService implements RaftServerRpc {
   }
 
   @Override
-  public void addPeerProxies(Iterable<RaftPeer> newPeers) {
+  public void addPeers(Iterable<RaftPeer> newPeers) {
     for (RaftPeer p : newPeers) {
       if (!peers.containsKey(p.getId())) {
         peers.put(p.getId(), new RaftServerProtocolClient(p));

@@ -44,6 +44,6 @@ public interface RaftServerRpc {
   RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
       throws IOException;
 
-  /** add rpc information of the given peers */
-  void addPeerProxies(Iterable<RaftPeer> peers);
+  /** add information of the given peers */
+  void addPeers(Iterable<RaftPeer> peers);
 }

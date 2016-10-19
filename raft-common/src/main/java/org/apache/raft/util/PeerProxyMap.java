@@ -15,9 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadooprpc;
+package org.apache.raft.util;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.raft.protocol.RaftPeer;
 
 import java.io.IOException;
@@ -26,8 +25,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-public abstract class HadoopRpcBase<PROXY> {
-  class PeerAndProxy {
+/** A map from peer id to peer and its proxy. */
+public abstract class PeerProxyMap<PROXY> {
+  /** Peer and its proxy. */
+  private class PeerAndProxy {
     private final RaftPeer peer;
     private volatile PROXY proxy = null;
 
@@ -47,30 +48,21 @@ public abstract class HadoopRpcBase<PROXY> {
     }
   }
 
-  private final Configuration conf;
   private final Map<String, PeerAndProxy> peers
       = Collections.synchronizedMap(new HashMap<>());
 
-  public HadoopRpcBase(Configuration conf) {
-    this.conf = conf;
-  }
-
-  public Collection<String> getServerIds() {
+  public Collection<String> getPeerIds() {
     return peers.keySet();
   }
 
-  public PROXY getServerProxy(String id) throws IOException {
+  public PROXY getProxy(String id) throws IOException {
     final PeerAndProxy p = peers.get(id);
     if (p == null) {
       //  create new proxy based on new RaftConfiguration. So here the proxy
       // should be available.
-      throw new IOException("Server " + id + " not found; peers=" + getServerIds());
+      throw new IOException("Server " + id + " not found; peers=" + getPeerIds());
     }
     return p.getProxy();
-  }
-
-  public Configuration getConf() {
-    return this.conf;
   }
 
   public void addPeers(Iterable<RaftPeer> newPeers) {
