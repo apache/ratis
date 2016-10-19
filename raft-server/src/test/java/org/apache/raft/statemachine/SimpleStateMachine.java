@@ -34,6 +34,7 @@ import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
+import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.MD5FileUtil;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;

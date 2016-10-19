@@ -30,7 +30,7 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.statemachine.LifeCycle;
+import org.apache.raft.util.LifeCycle;
 import org.apache.raft.statemachine.SimpleStateMachine;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.server.storage.RaftLog;

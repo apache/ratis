@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.statemachine;
+package org.apache.raft.util;
 
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
@@ -25,7 +25,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * The life cycle of a state machine.
+ * The life cycle of a machine.
  * <pre>
  * NEW --> STARTING --> RUNNING ----- --> CLOSING --> [CLOSED]
  *          |    ^          |        |       ^

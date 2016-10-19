@@ -24,6 +24,7 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.util.LifeCycle;
 
 import java.io.Closeable;
 import java.io.IOException;

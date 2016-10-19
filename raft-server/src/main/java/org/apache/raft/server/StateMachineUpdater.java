@@ -25,7 +25,7 @@ import org.apache.raft.protocol.Message;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorage;
-import org.apache.raft.statemachine.LifeCycle;
+import org.apache.raft.util.LifeCycle;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
