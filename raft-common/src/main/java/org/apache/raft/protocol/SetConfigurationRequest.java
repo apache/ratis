@@ -23,8 +23,8 @@ public class SetConfigurationRequest extends RaftClientRequest {
   private final RaftPeer[] peers;
 
   public SetConfigurationRequest(String requestorId, String replierId,
-      RaftPeer[] peers) {
-    super(requestorId, replierId, null);
+      long seqNum, RaftPeer[] peers) {
+    super(requestorId, replierId, seqNum, null);
     this.peers = peers;
   }
 

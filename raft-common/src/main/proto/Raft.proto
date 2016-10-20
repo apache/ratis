@@ -60,12 +60,14 @@ message TermIndexProto {
 message RaftRpcRequestProto {
   string requestorId = 1;
   string replyId = 2;
+  uint64 seqNum = 3;
 }
 
 message RaftRpcReplyProto {
   string requestorId = 1;
   string replyId = 2;
-  bool success = 3;
+  uint64 seqNum = 3;
+  bool success = 4;
 }
 
 message FileChunkProto {

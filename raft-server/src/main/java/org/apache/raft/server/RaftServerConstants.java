@@ -20,6 +20,7 @@ package org.apache.raft.server;
 public interface RaftServerConstants {
   long INVALID_LOG_INDEX = -1;
   byte LOG_TERMINATE_BYTE = 0;
+  long DEFAULT_SEQNUM = 0;
 
   enum StartupOption {
     FORMAT("format"),

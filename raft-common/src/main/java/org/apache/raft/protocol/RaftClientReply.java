@@ -17,27 +17,64 @@
  */
 package org.apache.raft.protocol;
 
-public class RaftClientReply extends RaftRpcMessage.Reply {
+public class RaftClientReply extends RaftRpcMessage {
+  private final String requestorId;
+  private final String replierId;
+  private final boolean success;
+  private final long seqNum;
+
   /** non-null if the server is not leader */
   private final NotLeaderException notLeaderException;
   private final Message message;
 
-  public RaftClientReply(String requestorId, String replierId, boolean success,
-      Message message, NotLeaderException notLeaderException) {
-    super(requestorId, replierId, success);
+  public RaftClientReply(String requestorId, String replierId, long seqNum,
+      boolean success, Message message, NotLeaderException notLeaderException) {
+    this.requestorId = requestorId;
+    this.replierId = replierId;
+    this.success = success;
+    this.seqNum = seqNum;
     this.message = message;
     this.notLeaderException = notLeaderException;
   }
 
   public RaftClientReply(RaftClientRequest request,
       NotLeaderException notLeaderException) {
-    this(request.getRequestorId(), request.getReplierId(),
+    this(request.getRequestorId(), request.getReplierId(), request.getSeqNum(),
         false, null, notLeaderException);
   }
 
   public RaftClientReply(RaftClientRequest request, Message message) {
-    this(request.getRequestorId(), request.getReplierId(),
+    this(request.getRequestorId(), request.getReplierId(), request.getSeqNum(),
         true, message, null);
+  }
+
+  @Override
+  public final boolean isRequest() {
+    return false;
+  }
+
+  @Override
+  public String getRequestorId() {
+    return requestorId;
+  }
+
+  @Override
+  public String getReplierId() {
+    return replierId;
+  }
+
+  public long getSeqNum() {
+    return seqNum;
+  }
+
+  @Override
+  public String toString() {
+    return super.toString() + ", seqNum: " + getSeqNum()
+        + ", success: " + isSuccess();
+  }
+
+  public boolean isSuccess() {
+    return success;
   }
 
   public Message getMessage() {

@@ -17,20 +17,44 @@
  */
 package org.apache.raft.protocol;
 
-public class RaftClientRequest extends RaftRpcMessage.Request {
+public class RaftClientRequest extends RaftRpcMessage {
+  private final String requestorId;
+  private final String replierId;
+  private final long seqNum;
   private final Message message;
   private final boolean readOnly;
 
-  public RaftClientRequest(String  requestorId, String replierId,
+  public RaftClientRequest(String  requestorId, String replierId, long seqNum,
                            Message message) {
-    this(requestorId, replierId, message, false);
+    this(requestorId, replierId, seqNum, message, false);
   }
 
-  public RaftClientRequest(String requestorId, String replierId,
+  public RaftClientRequest(String requestorId, String replierId, long seqNum,
        Message message, boolean readOnly) {
-    super(requestorId, replierId);
+    this.requestorId = requestorId;
+    this.replierId = replierId;
+    this.seqNum = seqNum;
     this.message = message;
     this.readOnly = readOnly;
+  }
+
+  @Override
+  public final boolean isRequest() {
+    return true;
+  }
+
+  @Override
+  public String getRequestorId() {
+    return requestorId;
+  }
+
+  @Override
+  public String getReplierId() {
+    return replierId;
+  }
+
+  public long getSeqNum() {
+    return seqNum;
   }
 
   public Message getMessage() {
@@ -43,7 +67,7 @@ public class RaftClientRequest extends RaftRpcMessage.Request {
 
   @Override
   public String toString() {
-    return super.toString() + ", " + (isReadOnly()? "RO": "RW")
-        + " message: " + getMessage();
+    return super.toString() + ", seqNum: " + seqNum + ", "
+        + (isReadOnly()? "RO": "RW") + " message: " + getMessage();
   }
 }

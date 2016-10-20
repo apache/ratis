@@ -195,9 +195,13 @@ public class LogAppender extends Daemon {
         if (request == null || request.getEntriesCount() == 0) {
           request = createRequest();
         }
+
         if (request == null) {
           LOG.trace("{} need not send AppendEntries now." +
               " Wait for more entries.", server.getId());
+          return null;
+        } else if (!isAppenderRunning()) {
+          LOG.debug("LogAppender {} has been stopped. Skip the request.", this);
           return null;
         }
 

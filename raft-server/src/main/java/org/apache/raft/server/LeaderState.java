@@ -266,8 +266,7 @@ public class LeaderState {
   /**
    * Update the RpcSender list based on the current configuration
    */
-  private void updateSenders() {
-    final RaftConfiguration conf = server.getRaftConf();
+  private void updateSenders(RaftConfiguration conf) {
     Preconditions.checkState(conf.inStableState() && !inStagingState());
     Iterator<LogAppender> iterator = senders.iterator();
     while (iterator.hasNext()) {
@@ -487,9 +486,10 @@ public class LeaderState {
   private void replicateNewConf() {
     final RaftConfiguration conf = server.getRaftConf();
     RaftConfiguration newConf = conf.generateNewConf(raftLog.getNextIndex());
+    // stop the LogAppender if the corresponding follower is no longer in the conf
+    updateSenders(newConf);
     long index = raftLog.append(server.getState().getCurrentTerm(), newConf);
     updateConfiguration(index, newConf);
-    updateSenders();
     notifySenders();
   }
 

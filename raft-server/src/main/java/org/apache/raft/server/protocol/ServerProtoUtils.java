@@ -20,6 +20,7 @@ package org.apache.raft.server.protocol;
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.raft.proto.RaftProtos.ClientMessageEntryProto;
 import org.apache.raft.proto.RaftProtos.FileChunkProto;
@@ -48,6 +49,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
 import static org.apache.raft.util.ProtoUtils.toByteString;
 
 public class ServerProtoUtils {
@@ -115,23 +117,24 @@ public class ServerProtoUtils {
   }
 
   public static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
-      String requestorId, String replyId, boolean success) {
+      String requestorId, String replyId, long seqNum, boolean success) {
     return RaftRpcReplyProto.newBuilder()
-        .setRequestorId(requestorId).setReplyId(replyId)
+        .setRequestorId(requestorId).setReplyId(replyId).setSeqNum(seqNum)
         .setSuccess(success);
   }
 
   public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      String requesterId, String replyId) {
+      String requesterId, String replyId, long seqNum) {
     return RaftRpcRequestProto.newBuilder()
-        .setRequestorId(requesterId).setReplyId(replyId);
+        .setRequestorId(requesterId).setReplyId(replyId).setSeqNum(seqNum);
   }
 
   public static RequestVoteReplyProto toRequestVoteReplyProto(
       String requestorId, String replyId, boolean success, long term,
       boolean shouldShutdown) {
     final RequestVoteReplyProto.Builder b = RequestVoteReplyProto.newBuilder();
-    b.setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId, success))
+    b.setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId,
+        DEFAULT_SEQNUM, success))
         .setTerm(term)
         .setShouldShutdown(shouldShutdown);
     return b.build();
@@ -140,7 +143,8 @@ public class ServerProtoUtils {
   public static RequestVoteRequestProto toRequestVoteRequestProto(
       String requestorId, String replyId, long term, TermIndex lastEntry) {
     final RequestVoteRequestProto.Builder b = RequestVoteRequestProto.newBuilder()
-        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
+        .setServerRequest(
+            toRaftRpcRequestProtoBuilder(requestorId, replyId, DEFAULT_SEQNUM))
         .setCandidateTerm(term);
     if (lastEntry != null) {
       b.setCandidateLastEntry(toTermIndexProto(lastEntry));
@@ -152,7 +156,7 @@ public class ServerProtoUtils {
       String requestorId, String replyId, long term,
       InstallSnapshotResult result) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, result == InstallSnapshotResult.SUCCESS);
+        replyId, DEFAULT_SEQNUM, result == InstallSnapshotResult.SUCCESS);
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setTerm(term).setResult(result);
     return builder.build();
@@ -163,7 +167,8 @@ public class ServerProtoUtils {
       long term, TermIndex lastTermIndex, List<FileChunkProto> chunks,
       long totalSize, boolean done) {
     return InstallSnapshotRequestProto.newBuilder()
-        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
+        .setServerRequest(
+            toRaftRpcRequestProtoBuilder(requestorId, replyId, DEFAULT_SEQNUM))
         .setRequestId(requestId)
         .setRequestIndex(requestIndex)
         // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
@@ -176,9 +181,9 @@ public class ServerProtoUtils {
 
   public static AppendEntriesReplyProto toAppendEntriesReplyProto(
       String requestorId, String replyId, long term,
-      long nextIndex, AppendEntriesReplyProto.AppendResult appendResult) {
+      long nextIndex, AppendResult appendResult) {
     RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, appendResult == AppendEntriesReplyProto.AppendResult.SUCCESS);
+        replyId, DEFAULT_SEQNUM, appendResult == AppendResult.SUCCESS);
     final AppendEntriesReplyProto.Builder b = AppendEntriesReplyProto.newBuilder();
     b.setServerReply(rb).setTerm(term).setNextIndex(nextIndex)
         .setResult(appendResult);
@@ -191,7 +196,8 @@ public class ServerProtoUtils {
       TermIndex previous) {
     final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto
         .newBuilder()
-        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
+        .setServerRequest(
+            toRaftRpcRequestProtoBuilder(requestorId, replyId, DEFAULT_SEQNUM))
         .setLeaderTerm(leaderTerm)
         .setLeaderCommit(leaderCommit)
         .setInitializing(initializing);
@@ -207,14 +213,15 @@ public class ServerProtoUtils {
 
   public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
     return new RaftClientRequest(p.getRpcRequest().getRequestorId(),
-        p.getRpcRequest().getReplyId(), toMessage(p.getMessage()), p.getReadOnly());
+        p.getRpcRequest().getReplyId(), p.getRpcRequest().getSeqNum(),
+        toMessage(p.getMessage()), p.getReadOnly());
   }
 
   public static RaftClientRequestProto toRaftClientRequestProto(
       RaftClientRequest request) {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request.getRequestorId(),
-            request.getReplierId()))
+            request.getReplierId(), request.getSeqNum()))
         .setMessage(toClientMessageEntryProto(request.getMessage()))
         .setReadOnly(request.isReadOnly())
         .build();
@@ -225,7 +232,7 @@ public class ServerProtoUtils {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
       b.setRpcReply(toRaftRpcReplyProtoBuilder(reply.getRequestorId(),
-          reply.getReplierId(), reply.isSuccess()));
+          reply.getReplierId(), reply.getSeqNum(), reply.isSuccess()));
       if (reply.getMessage() != null) {
         b.setMessage(toClientMessageEntryProto(reply.getMessage()));
       }
@@ -255,7 +262,7 @@ public class ServerProtoUtils {
       e = new NotLeaderException(rp.getReplyId(), suggestedLeader, peers);
     }
     return new RaftClientReply(rp.getRequestorId(), rp.getReplyId(),
-        rp.getSuccess(), toMessage(replyProto.getMessage()), e);
+        rp.getSeqNum(), rp.getSuccess(), toMessage(replyProto.getMessage()), e);
   }
 
   public static Message toMessage(final ClientMessageEntryProto p) {
@@ -271,14 +278,15 @@ public class ServerProtoUtils {
       SetConfigurationRequestProto p) throws InvalidProtocolBufferException {
     final RaftRpcRequestProto m = p.getRpcRequest();
     final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(p.getPeersList());
-    return new SetConfigurationRequest(m.getRequestorId(), m.getReplyId(), peers);
+    return new SetConfigurationRequest(m.getRequestorId(), m.getReplyId(),
+        p.getRpcRequest().getSeqNum(), peers);
   }
 
   public static SetConfigurationRequestProto toSetConfigurationRequestProto(
       SetConfigurationRequest request) {
     return SetConfigurationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request.getRequestorId(),
-            request.getReplierId()))
+            request.getReplierId(), request.getSeqNum()))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(
             Arrays.asList(request.getPeersInNewConf())))
         .build();

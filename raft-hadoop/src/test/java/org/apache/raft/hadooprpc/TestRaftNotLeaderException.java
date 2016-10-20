@@ -47,6 +47,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 
+import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
+
 @RunWith(Parameterized.class)
 public class TestRaftNotLeaderException {
   static {
@@ -98,7 +100,8 @@ public class TestRaftNotLeaderException {
     for (int i = 0; reply == null && i < 10; i++) {
       try {
         reply = rpc.sendRequest(
-            new RaftClientRequest("client", leaderId, new SimpleMessage("m2")));
+            new RaftClientRequest("client", leaderId, DEFAULT_SEQNUM,
+                new SimpleMessage("m2")));
       } catch (IOException ignored) {
         Thread.sleep(1000);
       }
@@ -145,7 +148,8 @@ public class TestRaftNotLeaderException {
     for (int i = 0; reply == null && i < 10; i++) {
       try {
         reply = rpc.sendRequest(
-            new RaftClientRequest("client", leaderId, new SimpleMessage("m1")));
+            new RaftClientRequest("client", leaderId, DEFAULT_SEQNUM,
+                new SimpleMessage("m1")));
       } catch (IOException ignored) {
         Thread.sleep(1000);
       }

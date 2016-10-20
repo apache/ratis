@@ -53,6 +53,7 @@ import java.util.Collection;
 import java.util.List;
 
 import static org.apache.raft.RaftTestUtil.waitAndCheckNewConf;
+import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
 
 @RunWith(Parameterized.class)
 public class TestRaftSnapshot {
@@ -203,7 +204,7 @@ public class TestRaftSnapshot {
           new String[]{"s3", "s4"}, true);
       // trigger setConfiguration
       SetConfigurationRequest request = new SetConfigurationRequest("client",
-          cluster.getLeader().getId(), change.allPeersInNewConf);
+          cluster.getLeader().getId(), DEFAULT_SEQNUM, change.allPeersInNewConf);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);
 
