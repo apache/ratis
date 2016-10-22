@@ -18,6 +18,10 @@
 
 package org.apache.raft.statemachine;
 
+import java.io.IOException;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.protocol.Message;
@@ -28,10 +32,6 @@ import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.ProtoUtils;
-
-import java.io.IOException;
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Base implementation for StateMachines.
@@ -82,7 +82,12 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public CompletableFuture<Message> applyLogEntry(TrxContext trx) {
+  public TrxContext applyTransactionSerial(TrxContext trx) {
+    return trx;
+  }
+
+  @Override
+  public CompletableFuture<Message> applyTransaction(TrxContext trx) {
     // return the same message contained in the entry
     Message msg = () -> trx.getLogEntry().get().getSmLogEntry().getData().toByteArray();
     return CompletableFuture.completedFuture(msg);
@@ -120,10 +125,20 @@ public class BaseStateMachine implements StateMachine {
   @Override
   public TrxContext startTransaction(RaftClientRequest request)
       throws IOException {
-    return new TrxContext(request,
+    return new TrxContext(this, request,
         RaftProtos.SMLogEntryProto.newBuilder()
             .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
             .build());
+  }
+
+  @Override
+  public TrxContext cancelTransaction(TrxContext trx) {
+    return trx;
+  }
+
+  @Override
+  public TrxContext preAppendTransaction(TrxContext trx) {
+    return trx;
   }
 
   @Override

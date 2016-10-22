@@ -17,6 +17,11 @@
  */
 package org.apache.raft.statemachine;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
@@ -25,11 +30,6 @@ import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.util.LifeCycle;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
 
 public interface StateMachine extends Closeable {
   /**
@@ -57,13 +57,6 @@ public interface StateMachine extends Closeable {
    * initialize itself with the latest term and index there including all the edits.
    */
   void reinitialize(RaftProperties properties, RaftStorage storage) throws IOException;
-
-  /**
-   * Apply a committed log entry to the state machine.
-   * @param trx the transaction state including the log entry that has been committed to a quorum
-   *            of the raft peers
-   */
-  CompletableFuture<Message> applyLogEntry(TrxContext trx);
 
   /**
    * Dump the in-memory state into a snapshot file in the RaftStorage. The
@@ -122,6 +115,45 @@ public interface StateMachine extends Closeable {
    */
   TrxContext startTransaction(RaftClientRequest request)
       throws IOException;
+
+  /**
+   * This is called before the transaction passed from the StateMachine is appended to the raft log.
+   * This method will be called from log append and having the same strict serial order that the
+   * transactions will have in the RAFT log. Since this is called serially in the critical path of
+   * log append, it is important to do only required operations here. Cannot throw an exception at
+   * this stage.
+   * @return The Transaction context.
+   */
+  TrxContext preAppendTransaction(TrxContext trx);
+
+  /**
+   * Called to notify the state machine that the Transaction passed cannot be appended (or synced).
+   * The exception field will indicate whether there was an exception or not.
+   * @param trx the transaction to cancel
+   * @return cancelled transaction
+   */
+  TrxContext cancelTransaction(TrxContext trx);
+
+  /**
+   * Called for transactions that have been committed to the RAFT log. This step is called
+   * sequentially in strict serial order that the transactions have been committed in the log.
+   * The SM is expected to do only necessary work, and leave the actual apply operation to the
+   * applyTransaction calls that can happen concurrently.
+   * @param trx the transaction state including the log entry that has been committed to a quorum
+   *            of the raft peers
+   * @return The Transaction context.
+   */
+  TrxContext applyTransactionSerial(TrxContext trx);
+
+  /**
+   * Apply a committed log entry to the state machine. This method can be called concurrently with
+   * the other calls, and there is no guarantee that the calls will be ordered according to the
+   * log commit order.
+   * @param trx the transaction state including the log entry that has been committed to a quorum
+   *            of the raft peers
+   */
+  // TODO: We do not need to return CompletableFuture
+  CompletableFuture<Message> applyTransaction(TrxContext trx);
 
   /**
    * Notify the state machine that the raft peer is no longer leader.

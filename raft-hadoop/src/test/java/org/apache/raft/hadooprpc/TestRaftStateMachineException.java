@@ -17,6 +17,12 @@
  */
 package org.apache.raft.hadooprpc;
 
+import static org.junit.Assert.fail;
+
+import java.io.IOException;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
@@ -26,24 +32,18 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.StateMachineException;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.statemachine.SimpleStateMachine;
-import org.apache.raft.statemachine.StateMachine;
-import org.apache.raft.protocol.StateMachineException;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.statemachine.SimpleStateMachine;
+import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-
-import java.io.IOException;
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
-
-import static org.junit.Assert.fail;
 
 @RunWith(Parameterized.class)
 public class TestRaftStateMachineException {
@@ -56,7 +56,7 @@ public class TestRaftStateMachineException {
 
   private static class StateMachineWithException extends SimpleStateMachine {
     @Override
-    public CompletableFuture<Message> applyLogEntry(TrxContext trx) {
+    public CompletableFuture<Message> applyTransaction(TrxContext trx) {
       RaftProtos.LogEntryProto entry = trx.getLogEntry().get();
       CompletableFuture<Message> future = new CompletableFuture<>();
       future.completeExceptionally(new StateMachineException("Fake Exception"));

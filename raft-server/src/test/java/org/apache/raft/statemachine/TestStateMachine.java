@@ -17,6 +17,22 @@
  */
 package org.apache.raft.statemachine;
 
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
@@ -30,22 +46,12 @@ import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.util.ProtoUtils;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.Timeout;
-
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
-
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY;
-import static org.junit.Assert.*;
 
 /**
  * Test StateMachine related functionality
@@ -107,13 +113,13 @@ public class TestStateMachine {
       // only leader will get this call
       isLeader.set(true);
       // send the next transaction id as the "context" from SM
-      return new TrxContext(request, RaftProtos.SMLogEntryProto.newBuilder()
+      return new TrxContext(this, request, RaftProtos.SMLogEntryProto.newBuilder()
           .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
           .build(), transactions.incrementAndGet());
     }
 
     @Override
-    public CompletableFuture<Message> applyLogEntry(TrxContext trx) {
+    public CompletableFuture<Message> applyTransaction(TrxContext trx) {
       try {
         assertTrue(trx.getLogEntry().isPresent());
         assertTrue(trx.getSMLogEntry().isPresent());

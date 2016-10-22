@@ -17,11 +17,12 @@
  */
 package org.apache.raft.statemachine;
 
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.protocol.RaftClientRequest;
-
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Optional;
+
+import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.protocol.RaftClientRequest;
 
 /**
  * Context for a transaction. The transaction might have originated from a client request, or it
@@ -30,83 +31,93 @@ import java.util.Optional;
  * case, the StateMachine receives a
  * {@link StateMachine#startTransaction(RaftClientRequest)} request, and
  * should return a TrxContext with the changes from the SM. The same context will come back to the
- * SM via {@link StateMachine#applyLogEntry(TrxContext)} call
+ * SM via {@link StateMachine#applyTransaction(TrxContext)} call
  * or {@link StateMachine#notifyNotLeader(Collection)} call. In the second
  * case, if the StateMachine is a follower, the TrxContext will be a committed entry coming from
  * the RAFT log from the leader.
  */
 public class TrxContext {
 
-  /** Original request from the client */
-  protected final Optional<RaftClientRequest> clientRequest;
+  /** The StateMachine that originated the Transaction. */
+  protected final StateMachine stateMachine;
 
-  /** Exception from the StateMachine */
-  protected final Optional<Exception> exception;
+  /** Original request from the client */
+  protected Optional<RaftClientRequest> clientRequest;
+
+  /** Exception from the StateMachine or log */
+  protected Optional<Exception> exception;
 
   /** Data from the StateMachine */
-  protected final Optional<RaftProtos.SMLogEntryProto> smLogEntryProto;
+  protected Optional<RaftProtos.SMLogEntryProto> smLogEntryProto;
 
   /** Context specific to the State machine. The StateMachine can use this object to carry state
    * between startTransaction() and applyLogEntries() */
-  protected final Optional<Object> stateMachineContext;
+  protected Optional<Object> stateMachineContext;
+
+  /** Whether to commit the transaction to the RAFT Log. In some cases the SM may want to indicate
+   * that the transaction should not be committed */
+  protected boolean shouldCommit = true;
 
   /**
    * Committed LogEntry.
    */
   protected Optional<RaftProtos.LogEntryProto> logEntry = Optional.empty();
 
-  /**
-   * Construct a TrxContext from a client request. Used by the state machine to start a transaction
-   * and send the Log entry representing the SM data to be applied to the raft log.
-   */
-  public TrxContext(RaftClientRequest clientRequest, RaftProtos.SMLogEntryProto smLogEntryProto) {
-    this.clientRequest = Optional.of(clientRequest);
-    this.smLogEntryProto = Optional.of(smLogEntryProto);
-    this.exception = Optional.empty();
-    this.stateMachineContext = Optional.empty();
+  private TrxContext(StateMachine stateMachine) {
+    this.stateMachine = stateMachine;
   }
 
   /**
    * Construct a TrxContext from a client request. Used by the state machine to start a transaction
    * and send the Log entry representing the SM data to be applied to the raft log.
    */
-  public TrxContext(RaftClientRequest clientRequest, RaftProtos.SMLogEntryProto smLogEntryProto,
-                    Object stateMachineContext) {
+  public TrxContext(StateMachine stateMachine,
+                    RaftClientRequest clientRequest, RaftProtos.SMLogEntryProto smLogEntryProto) {
+    this(stateMachine, clientRequest, smLogEntryProto, null);
+  }
+
+  /**
+   * Construct a TrxContext from a client request. Used by the state machine to start a transaction
+   * and send the Log entry representing the SM data to be applied to the raft log.
+   */
+  public TrxContext(StateMachine stateMachine, RaftClientRequest clientRequest,
+                    RaftProtos.SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
+    this(stateMachine);
     this.clientRequest = Optional.of(clientRequest);
     this.smLogEntryProto = Optional.of(smLogEntryProto);
     this.exception = Optional.empty();
-    this.stateMachineContext = Optional.of(stateMachineContext);
+    this.stateMachineContext = Optional.ofNullable(stateMachineContext);
   }
 
   /**
    * Construct a TrxContext from a client request to signal a failure. RAFT server will fail this
    * request on behalf of the SM.
    */
-  public TrxContext(RaftClientRequest clientRequest, Exception exception) {
-    this.clientRequest = Optional.of(clientRequest);
-    this.smLogEntryProto = Optional.empty();
-    this.exception = Optional.empty();
-    this.stateMachineContext = Optional.empty();
+  public TrxContext(StateMachine stateMachine, RaftClientRequest clientRequest,
+                    Exception exception) {
+    this(stateMachine, clientRequest, exception, null);
   }
 
   /**
    * Construct a TrxContext from a client request to signal a failure. RAFT server will fail this
    * request on behalf of the SM.
    */
-  public TrxContext(RaftClientRequest clientRequest, Exception exception,
+  public TrxContext(StateMachine stateMachine, RaftClientRequest clientRequest, Exception exception,
                     Object stateMachineContext) {
+    this(stateMachine);
     this.clientRequest = Optional.of(clientRequest);
     this.smLogEntryProto = Optional.empty();
     this.exception = Optional.empty();
-    this.stateMachineContext = Optional.of(stateMachineContext);
+    this.stateMachineContext = Optional.ofNullable(stateMachineContext);
   }
 
   /**
    * Construct a TrxContext from a LogEntry. Used by followers for applying committed entries to the
    * state machine
-   * @param logEntry
+   * @param logEntry the log entry to be applied
    */
-  public TrxContext(RaftProtos.LogEntryProto logEntry) {
+  public TrxContext(StateMachine stateMachine, RaftProtos.LogEntryProto logEntry) {
+    this(stateMachine);
     this.clientRequest = Optional.empty();
     this.smLogEntryProto = Optional.of(logEntry.getSmLogEntry());
     this.exception = Optional.empty();
@@ -136,5 +147,44 @@ public class TrxContext {
 
   public Optional<RaftProtos.LogEntryProto> getLogEntry() {
     return logEntry;
+  }
+
+  private void setException(IOException ioe) {
+    assert !this.exception.isPresent();
+    this.exception = Optional.of(ioe);
+  }
+
+  public void setShouldCommit(boolean shouldCommit) {
+    this.shouldCommit = shouldCommit;
+  }
+
+  public boolean shouldCommit() {
+    // TODO: Hook this up in the server to bypass the RAFT Log and send back a response to client
+    return this.shouldCommit;
+  }
+
+  // proxy StateMachine methods. We do not want to expose the SM to the RaftLog
+
+  /**
+   * This is called before the transaction passed from the StateMachine is appended to the raft log.
+   * This method will be called from log append and having the same strict serial order that the
+   * Transactions will have in the RAFT log. Since this is called serially in the critical path of
+   * log append, it is important to do only required operations here. Cannot throw an exception at
+   * this stage.
+   * @return The Transaction context.
+   */
+  public TrxContext preAppendTransaction() {
+    return stateMachine.preAppendTransaction(this);
+  }
+
+  /**
+   * Called to notify the state machine that the Transaction passed cannot be appended (or synced).
+   * The exception field will indicate whether there was an exception or not.
+   * @return cancelled transaction
+   */
+  public TrxContext cancelTransaction() {
+    // TODO: This is not called from Raft server / log yet. When an IOException happens, we should
+    // call this to let the SM know that Transaction cannot be synced
+    return stateMachine.cancelTransaction(this);
   }
 }

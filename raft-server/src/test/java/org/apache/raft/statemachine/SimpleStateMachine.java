@@ -17,8 +17,16 @@
  */
 package org.apache.raft.statemachine;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
@@ -40,15 +48,8 @@ import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -122,7 +123,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<Message> applyLogEntry(TrxContext trx) {
+  public CompletableFuture<Message> applyTransaction(TrxContext trx) {
     LogEntryProto entry = trx.getLogEntry().get();
     list.add(entry);
     termIndexTracker.update(new TermIndex(entry.getTerm(), entry.getIndex()));
@@ -219,7 +220,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   @Override
   public TrxContext startTransaction(RaftClientRequest request)
       throws IOException {
-    return new TrxContext(request, RaftProtos.SMLogEntryProto.newBuilder()
+    return new TrxContext(this, request, RaftProtos.SMLogEntryProto.newBuilder()
         .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
         .build());
   }

@@ -17,7 +17,11 @@
  */
 package org.apache.raft.server.storage;
 
-import com.google.common.base.Preconditions;
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.RaftConfiguration;
@@ -30,11 +34,7 @@ import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import com.google.common.base.Preconditions;
 
 /**
  * Base class of RaftLog. Currently we provide two types of RaftLog
@@ -131,6 +131,11 @@ public abstract class RaftLog implements Closeable {
       final long nextIndex = getNextIndex();
       final LogEntryProto e = ProtoUtils.toLogEntryProto(
           operation.getSMLogEntry().get(), term, nextIndex);
+
+      // This is called here to guarantee strict serialization of callback executions in case
+      // the SM wants to attach a logic depending on ordered execution in the log commit order.
+      operation = operation.preAppendTransaction();
+
       appendEntry(e);
       operation.setLogEntry(e);
       return nextIndex;

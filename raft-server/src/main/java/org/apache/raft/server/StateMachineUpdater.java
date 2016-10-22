@@ -17,7 +17,9 @@
  */
 package org.apache.raft.server;
 
-import com.google.common.base.Preconditions;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
@@ -25,16 +27,15 @@ import org.apache.raft.protocol.Message;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorage;
-import org.apache.raft.util.LifeCycle;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
+import com.google.common.base.Preconditions;
 
 /**
  * This class tracks the log entries that have been committed in a quorum and
@@ -156,10 +157,15 @@ class StateMachineUpdater implements Runnable {
               // check whether there is a TransactionContext because we are the leader.
               TrxContext trx = server.getTransactionContext(next.getIndex());
               if (trx == null) {
-                trx = new TrxContext(next);
+                trx = new TrxContext(stateMachine, next);
               }
+
+              // Let the StateMachine inject logic for committed transactions in sequential order.
+              trx = stateMachine.applyTransactionSerial(trx);
+
+              // TODO: This step can be parallelized
               CompletableFuture<Message> messageFuture =
-                  stateMachine.applyLogEntry(trx);
+                  stateMachine.applyTransaction(trx);
               server.replyPendingRequest(next.getIndex(), messageFuture);
             }
             lastAppliedIndex++;
