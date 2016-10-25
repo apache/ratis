@@ -33,7 +33,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
   static final Logger LOG = LoggerFactory.getLogger(RaftServerProtocolService.class);
   private final RequestDispatcher dispatcher;
 
-  RaftServerProtocolService(RequestDispatcher dispatcher) {
+  public RaftServerProtocolService(RequestDispatcher dispatcher) {
     this.dispatcher = dispatcher;
   }
 

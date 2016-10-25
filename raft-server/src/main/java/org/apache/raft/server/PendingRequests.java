@@ -95,7 +95,7 @@ class PendingRequests {
     if (pending != null) {
       Preconditions.checkState(pending.getIndex() == index);
 
-      messageFuture.whenCompleteAsync((reply, exception) -> {
+      messageFuture.whenComplete((reply, exception) -> {
         if (exception == null) {
           pending.setSuccessReply(reply);
         } else {

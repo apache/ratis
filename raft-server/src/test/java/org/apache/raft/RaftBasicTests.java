@@ -42,15 +42,11 @@ import static org.apache.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.raft.RaftTestUtil.waitForLeader;
 
 public abstract class RaftBasicTests {
-  static final Logger LOG = LoggerFactory.getLogger(RaftBasicTests.class);
+  public static final Logger LOG = LoggerFactory.getLogger(RaftBasicTests.class);
 
   public static final int NUM_SERVERS = 5;
 
-  private final RaftProperties properties = new RaftProperties();
-
-  {
-    properties.setBoolean(RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY, false);
-  }
+  protected static final RaftProperties properties = new RaftProperties();
 
   public abstract MiniRaftCluster getCluster();
 

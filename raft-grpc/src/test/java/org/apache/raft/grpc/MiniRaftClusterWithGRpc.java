@@ -18,10 +18,12 @@
 package org.apache.raft.grpc;
 
 import org.apache.raft.MiniRaftCluster;
+import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.grpc.server.RaftGRpcService;
+import org.apache.raft.grpc.client.RaftClientWithGrpc;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConstants;
@@ -29,12 +31,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithGRpc.class);
+  public static final DelayLocalExecutionInjection sendServerRequestInjection =
+      new DelayLocalExecutionInjection(RaftGRpcService.GRPC_SEND_SERVER_REQUEST);
 
   public MiniRaftClusterWithGRpc(int numServers, RaftProperties properties)
       throws IOException {
@@ -72,28 +77,35 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
 
   @Override
   public RaftClientRequestSender getRaftClientRequestSender() {
-    return null;
+    return new RaftClientWithGrpc(getPeers());
   }
 
   @Override
   protected Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
       Collection<RaftServer> newServers) throws IOException {
-    return null;
+    Map<RaftPeer, RaftGRpcService> peers = initRpcServices(properties,
+        newServers);
+    for (Map.Entry<RaftPeer, RaftGRpcService> entry : peers.entrySet()) {
+      RaftServer server = servers.get(entry.getKey().getId());
+      server.setServerRpc(entry.getValue());
+    }
+    return new ArrayList<>(peers.keySet());
   }
 
   @Override
   protected void blockQueueAndSetDelay(String leaderId, int delayMs)
       throws InterruptedException {
-
+    RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequestInjection,
+        leaderId, delayMs, getMaxTimeout());
   }
 
   @Override
   public void setBlockRequestsFrom(String src, boolean block) {
-
+    RaftTestUtil.setBlockRequestsFrom(src, block);
   }
 
   @Override
   public void delaySendingRequests(String senderId, int delayMs) {
-
+    sendServerRequestInjection.setDelayMs(senderId, delayMs);
   }
 }

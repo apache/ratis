@@ -17,6 +17,7 @@
  */
 package org.apache.raft.util;
 
+import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.RaftPeer;
 
 import java.io.IOException;
@@ -56,12 +57,10 @@ public abstract class PeerProxyMap<PROXY> {
   }
 
   public PROXY getProxy(String id) throws IOException {
-    final PeerAndProxy p = peers.get(id);
-    if (p == null) {
-      //  create new proxy based on new RaftConfiguration. So here the proxy
-      // should be available.
-      throw new IOException("Server " + id + " not found; peers=" + getPeerIds());
-    }
+    // create new proxy based on new RaftConfiguration. So here the proxy
+    // should be available.
+    final PeerAndProxy p = Preconditions.checkNotNull(peers.get(id),
+        "Server %s not found; peers=%s", id, getPeerIds());
     return p.getProxy();
   }
 

@@ -49,7 +49,7 @@ public class FollowerInfo {
     return nextIndex;
   }
 
-  synchronized void updateNextIndex(long i) {
+  public synchronized void updateNextIndex(long i) {
     nextIndex = i;
   }
 

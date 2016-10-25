@@ -24,10 +24,6 @@ package raft.grpc;
 import "Raft.proto";
 
 service RaftClientProtocolService {
-  // A client-to-server RPC request
-  rpc submitRequest(raft.common.RaftClientRequestProto)
-      returns(raft.common.RaftClientReplyProto) {}
-
   // A client-to-server RPC to set new raft configuration
   rpc setConfiguration(raft.common.SetConfigurationRequestProto)
       returns(raft.common.RaftClientReplyProto) {}

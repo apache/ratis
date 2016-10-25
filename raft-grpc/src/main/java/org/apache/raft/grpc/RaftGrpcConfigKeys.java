@@ -26,6 +26,14 @@ public interface RaftGrpcConfigKeys {
   String RAFT_GRPC_MESSAGE_MAXSIZE_KEY = PREFIX + ".message.maxsize";
   int RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT = 64 * 1024 * 1024; // 64 MB
 
-  String RAFT_GRPC_MAX_OUTSTANDING_APPENDS_KEY = PREFIX + ".max.outstanding.appends";
-  int RAFT_GRPC_MAX_OUTSTANDING_APPENDS_DEFAULT = 128;
+  String RAFT_GRPC_LEADER_MAX_OUTSTANDING_APPENDS_KEY =
+      PREFIX + "leader.max.outstanding.appends";
+  int RAFT_GRPC_LEADER_MAX_OUTSTANDING_APPENDS_DEFAULT = 128;
+
+  String RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_KEY =
+      PREFIX + "client.max.outstanding.appends";
+  int RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_DEFAULT = 128;
+
+  String RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY = "raft.outputstream.buffer.size";
+  int RAFT_OUTPUTSTREAM_BUFFER_SIZE_DEFAULT = 64 * 1024;
 }

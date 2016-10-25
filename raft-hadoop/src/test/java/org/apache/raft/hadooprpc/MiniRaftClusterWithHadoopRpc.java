@@ -20,6 +20,7 @@ package org.apache.raft.hadooprpc;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.raft.MiniRaftCluster;
+import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.hadooprpc.client.HadoopClientRequestSender;
@@ -132,37 +133,13 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   @Override
   public void blockQueueAndSetDelay(String leaderId, int delayMs)
       throws InterruptedException {
-    // block reqeusts sent to leader if delayMs > 0
-    final boolean block = delayMs > 0;
-    LOG.debug("{} requests sent to leader {} and set {}ms delay for the others",
-        block? "Block": "Unblock", leaderId, delayMs);
-    if (block) {
-      BlockRequestHandlingInjection.getInstance().blockReplier(leaderId);
-    } else {
-      BlockRequestHandlingInjection.getInstance().unblockReplier(leaderId);
-    }
-
-    // delay RaftServerRequest for other servers
-    getServers().stream().filter(s -> !s.getId().equals(leaderId))
-        .forEach(s -> {
-          if (block) {
-            sendServerRequest.setDelayMs(s.getId(), delayMs);
-          } else {
-            sendServerRequest.removeDelay(s.getId());
-          }
-        });
-
-    final long sleepMs = 3 * getMaxTimeout();
-    Thread.sleep(sleepMs);
+    RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequest,
+        leaderId, delayMs, getMaxTimeout());
   }
 
   @Override
   public void setBlockRequestsFrom(String src, boolean block) {
-    if (block) {
-      BlockRequestHandlingInjection.getInstance().blockRequestor(src);
-    } else {
-      BlockRequestHandlingInjection.getInstance().unblockRequestor(src);
-    }
+    RaftTestUtil.setBlockRequestsFrom(src, block);
   }
 
   @Override

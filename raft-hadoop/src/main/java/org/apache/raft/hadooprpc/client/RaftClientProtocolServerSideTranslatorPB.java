@@ -20,12 +20,12 @@ package org.apache.raft.hadooprpc.client;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
+import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.server.protocol.ServerProtoUtils;
 
 import java.io.IOException;
 
@@ -42,10 +42,10 @@ public class RaftClientProtocolServerSideTranslatorPB
   public RaftClientReplyProto submitClientRequest(
       RpcController unused, RaftClientRequestProto proto)
       throws ServiceException {
-    final RaftClientRequest request = ServerProtoUtils.toRaftClientRequest(proto);
+    final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(proto);
     try {
       final RaftClientReply reply = impl.submitClientRequest(request);
-      return ServerProtoUtils.toRaftClientReplyProto(reply);
+      return ClientProtoUtils.toRaftClientReplyProto(reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }
@@ -57,9 +57,9 @@ public class RaftClientProtocolServerSideTranslatorPB
       throws ServiceException {
     final SetConfigurationRequest request;
     try {
-      request = ServerProtoUtils.toSetConfigurationRequest(proto);
+      request = ClientProtoUtils.toSetConfigurationRequest(proto);
       final RaftClientReply reply = impl.setConfiguration(request);
-      return ServerProtoUtils.toRaftClientReplyProto(reply);
+      return ClientProtoUtils.toRaftClientReplyProto(reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);
     }

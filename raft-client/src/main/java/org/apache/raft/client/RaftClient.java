@@ -31,7 +31,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -39,7 +38,7 @@ import java.util.stream.Collectors;
 /** A client who sends requests to a raft service. */
 public class RaftClient {
   public static final Logger LOG = LoggerFactory.getLogger(RaftClient.class);
-  private static final AtomicLong seqNumCounter = new AtomicLong();
+  public static final long DEFAULT_SEQNUM = 0;
 
   private final String clientId;
   private final RaftClientRequestSender requestSender;
@@ -100,7 +99,7 @@ public class RaftClient {
 
   private RaftClientReply send(Message message, boolean readOnly) throws IOException {
     return sendRequestWithRetry(
-        () -> new RaftClientRequest(clientId, leaderId, nextSeqNum(), message,
+        () -> new RaftClientRequest(clientId, leaderId, DEFAULT_SEQNUM, message,
             readOnly));
   }
 
@@ -108,7 +107,7 @@ public class RaftClient {
   public RaftClientReply setConfiguration(RaftPeer[] peersInNewConf)
       throws IOException {
     return sendRequestWithRetry(()
-        -> new SetConfigurationRequest(clientId, leaderId, nextSeqNum(),
+        -> new SetConfigurationRequest(clientId, leaderId, DEFAULT_SEQNUM,
         peersInNewConf));
   }
 
@@ -176,9 +175,5 @@ public class RaftClient {
   @VisibleForTesting
   public RaftClientRequestSender getRequestSender() {
     return requestSender;
-  }
-
-  static long nextSeqNum() {
-    return seqNumCounter.getAndIncrement() & Long.MAX_VALUE;
   }
 }

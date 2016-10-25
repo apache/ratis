@@ -15,14 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.grpc.server;
+package org.apache.raft.grpc;
 
 import com.google.common.base.Preconditions;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.netty.NettyServerBuilder;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.grpc.RaftGrpcConfigKeys;
+import org.apache.raft.grpc.client.RaftClientProtocolService;
+import org.apache.raft.grpc.server.RaftServerProtocolClient;
+import org.apache.raft.grpc.server.RaftServerProtocolService;
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
@@ -33,6 +35,7 @@ import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.RequestDispatcher;
+import org.apache.raft.util.CodeInjectionForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,11 +50,14 @@ import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY;
 
 public class RaftGRpcService implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(RaftGRpcService.class);
+  public static final String GRPC_SEND_SERVER_REQUEST =
+      RaftGRpcService.class.getSimpleName() + ".sendRequest";
 
   private final Server server;
   private final InetSocketAddress address;
   private final Map<String, RaftServerProtocolClient> peers =
       Collections.synchronizedMap(new HashMap<>());
+  private final String selfId;
 
   public RaftGRpcService(RaftServer raftServer, RaftProperties properties) {
     int port = properties.getInt(RAFT_GRPC_SERVER_PORT_KEY,
@@ -60,8 +66,11 @@ public class RaftGRpcService implements RaftServerRpc {
         RaftGrpcConfigKeys.RAFT_GRPC_MESSAGE_MAXSIZE_KEY,
         RaftGrpcConfigKeys.RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT);
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);
+    final RequestDispatcher dispatcher = new RequestDispatcher(raftServer);
+    selfId = raftServer.getId();
     server = ((NettyServerBuilder) serverBuilder).maxMessageSize(maxMessageSize)
-        .addService(new RaftServerProtocolService(new RequestDispatcher(raftServer)))
+        .addService(new RaftServerProtocolService(dispatcher))
+        .addService(new RaftClientProtocolService(dispatcher))
         .build();
 
     // start service to determine the port (in case port is configured as 0)
@@ -122,6 +131,9 @@ public class RaftGRpcService implements RaftServerRpc {
   @Override
   public RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
       throws IOException {
+    CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, selfId,
+        null, request);
+
     RaftServerProtocolClient target = Preconditions.checkNotNull(
         peers.get(request.getServerRequest().getReplyId()));
     return target.requestVote(request);
@@ -140,7 +152,7 @@ public class RaftGRpcService implements RaftServerRpc {
     peers.values().forEach(RaftServerProtocolClient::shutdown);
   }
 
-  RaftServerProtocolClient getRpcClient(RaftPeer peer) {
+  public RaftServerProtocolClient getRpcClient(RaftPeer peer) {
     return peers.get(peer.getId());
   }
 }

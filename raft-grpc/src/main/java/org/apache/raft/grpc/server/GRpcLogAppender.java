@@ -20,6 +20,7 @@ package org.apache.raft.grpc.server;
 import com.google.common.base.Preconditions;
 import io.grpc.stub.StreamObserver;
 import org.apache.hadoop.util.Time;
+import org.apache.raft.grpc.RaftGRpcService;
 import org.apache.raft.grpc.RaftGrpcConfigKeys;
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
@@ -27,9 +28,12 @@ import org.apache.raft.server.FollowerInfo;
 import org.apache.raft.server.LeaderState;
 import org.apache.raft.server.LogAppender;
 import org.apache.raft.server.RaftServer;
+import org.apache.raft.util.CodeInjectionForTesting;
 
 import java.util.LinkedList;
 import java.util.Queue;
+
+import static org.apache.raft.grpc.RaftGRpcService.GRPC_SEND_SERVER_REQUEST;
 
 /**
  * A new log appender implementation using grpc bi-directional stream API.
@@ -47,8 +51,8 @@ public class GRpcLogAppender extends LogAppender {
     RaftGRpcService rpcService = (RaftGRpcService) server.getServerRpc();
     client = rpcService.getRpcClient(f.getPeer());
     maxPendingRequestsNum = server.getProperties().getInt(
-        RaftGrpcConfigKeys.RAFT_GRPC_MAX_OUTSTANDING_APPENDS_KEY,
-        RaftGrpcConfigKeys.RAFT_GRPC_MAX_OUTSTANDING_APPENDS_DEFAULT);
+        RaftGrpcConfigKeys.RAFT_GRPC_LEADER_MAX_OUTSTANDING_APPENDS_KEY,
+        RaftGrpcConfigKeys.RAFT_GRPC_LEADER_MAX_OUTSTANDING_APPENDS_DEFAULT);
     pendingRequests = new LinkedList<>();
   }
 
@@ -57,6 +61,7 @@ public class GRpcLogAppender extends LogAppender {
     final StreamObserver<AppendEntriesRequestProto> requestObserver =
         client.appendEntries(new ResponseHandler());
     while (isAppenderRunning()) {
+      // TODO restart a stream RPC if necessary
       if (shouldSendRequest()) {
         // keep appending log entries or sending heartbeats
         appendLog(requestObserver);
@@ -64,16 +69,21 @@ public class GRpcLogAppender extends LogAppender {
         follower.updateLastRpcTime(Time.monotonicNow());
       }
 
-      if (isAppenderRunning()) { // TODO also check if there is more log to tail
+      if (isAppenderRunning() && !shouldSendRequest()) {
         try {
           synchronized (this) {
             wait(getHeartbeatRemainingTime(follower.getLastRpcTime()));
           }
-        } catch (InterruptedException e) {
-          LOG.info(this + " was interrupted: " + e);
+        } catch (InterruptedException ignored) {
         }
       }
     }
+    requestObserver.onCompleted();
+  }
+
+  private boolean shouldWait() {
+    return pendingRequests.size() >= maxPendingRequestsNum ||
+        shouldWaitForFirstResponse();
   }
 
   private void appendLog(
@@ -82,10 +92,10 @@ public class GRpcLogAppender extends LogAppender {
       AppendEntriesRequestProto pending = null;
       // if the queue's size >= maxSize, wait
       synchronized (this) {
-        while (isAppenderRunning() &&
-            (pendingRequests.size() >= maxPendingRequestsNum ||
-                shouldWaitForFirstResponse())) {
+        while (isAppenderRunning() && shouldWait()) {
           try {
+            LOG.debug("{} wait to send the next AppendEntries to {}",
+                server.getId(), follower.getPeer().getId());
             this.wait();
           } catch (InterruptedException ignored) {
           }
@@ -98,17 +108,33 @@ public class GRpcLogAppender extends LogAppender {
           pending = createRequest();
           if (pending != null) {
             Preconditions.checkState(pendingRequests.offer(pending));
+            updateNextIndex(pending);
           }
         }
       }
 
       if (pending != null && isAppenderRunning()) {
-        requestObserver.onNext(pending);
+        sendRequest(pending, requestObserver);
       }
     } catch (RuntimeException e) {
       // TODO we can cancel the original RPC and restart it. In this way we can
       // cancel all the pending requests in the channel
       LOG.info(this + "got exception when appending log to " + follower, e);
+    }
+  }
+
+  private void sendRequest(AppendEntriesRequestProto request,
+      StreamObserver<AppendEntriesRequestProto> requestObserver) {
+    CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, server.getId(),
+        null, request);
+
+    requestObserver.onNext(request);
+  }
+
+  private void updateNextIndex(AppendEntriesRequestProto request) {
+    final int count = request.getEntriesCount();
+    if (count > 0) {
+      follower.updateNextIndex(request.getEntries(count - 1).getIndex() + 1);
     }
   }
 
@@ -135,6 +161,8 @@ public class GRpcLogAppender extends LogAppender {
     @Override
     public void onNext(AppendEntriesReplyProto reply) {
       if (!firstResponseReceived) {
+        LOG.debug("{} received the first response from {}", server.getId(),
+            follower.getPeer().getId());
         firstResponseReceived = true;
       }
       switch (reply.getResult()) {
@@ -150,6 +178,7 @@ public class GRpcLogAppender extends LogAppender {
         default:
           break;
       }
+      notifyAppend();
     }
 
     /**
@@ -205,6 +234,7 @@ public class GRpcLogAppender extends LogAppender {
 
   private void onNotLeader(AppendEntriesReplyProto reply) {
     checkResponseTerm(reply.getTerm());
+    // TODO cancel the RPC
   }
 
   private void onInconsistency(AppendEntriesReplyProto reply) {

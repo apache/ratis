@@ -19,56 +19,55 @@ package org.apache.raft.grpc;
 
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
-import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.RaftBasicTests;
 import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
+import org.apache.raft.server.BlockRequestHandlingInjection;
 import org.apache.raft.server.LogAppenderFactory;
 import org.apache.raft.server.RaftServer;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.IOException;
 
-import static org.apache.raft.RaftTestUtil.waitAndKillLeader;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
 
-public class TestRaftWithGrpc {
+public class TestRaftWithGrpc extends RaftBasicTests {
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
   }
-  private static final int NUM_PEERS = 5;
-  private static RaftProperties prop;
 
-  private MiniRaftClusterWithGRpc cluster;
+  private final MiniRaftClusterWithGRpc cluster;
 
   @BeforeClass
   public static void setProp() {
-    prop = new RaftProperties();
-    prop.setClass(RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
+    properties.setClass(RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
         PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
   }
 
-  @Before
-  public void setup() throws IOException {
-    cluster = new MiniRaftClusterWithGRpc(NUM_PEERS, prop);
-
+  public TestRaftWithGrpc() throws IOException {
+    cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, properties);
     Assert.assertNull(cluster.getLeader());
-    cluster.start();
   }
 
-  @After
-  public void tearDown() {
-    cluster.shutdown();
+  @Override
+  public MiniRaftClusterWithGRpc getCluster() {
+    return cluster;
   }
 
+  @Override
   @Test
-  public void testBasicLeaderElection() throws Exception {
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, false);
+  public void testEnforceLeader() throws Exception {
+    super.testEnforceLeader();
+
+    MiniRaftClusterWithGRpc.sendServerRequestInjection.clear();
+    BlockRequestHandlingInjection.getInstance().unblockAll();
   }
 
+  @Override
+  @Test
+  public void testWithLoad() throws Exception {
+    super.testWithLoad();
+    BlockRequestHandlingInjection.getInstance().unblockAll();
+  }
 }

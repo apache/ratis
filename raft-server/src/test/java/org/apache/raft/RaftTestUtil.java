@@ -23,6 +23,8 @@ import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.server.BlockRequestHandlingInjection;
+import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
@@ -273,5 +275,39 @@ public class RaftTestUtil {
     }
     cluster.setBlockRequestsFrom(oldLeader, false);
     return newLeader;
+  }
+
+  public static void blockQueueAndSetDelay(Collection<RaftServer> servers,
+      DelayLocalExecutionInjection injection, String leaderId, int delayMs,
+      long maxTimeout) throws InterruptedException {
+    // block reqeusts sent to leader if delayMs > 0
+    final boolean block = delayMs > 0;
+    LOG.debug("{} requests sent to leader {} and set {}ms delay for the others",
+        block? "Block": "Unblock", leaderId, delayMs);
+    if (block) {
+      BlockRequestHandlingInjection.getInstance().blockReplier(leaderId);
+    } else {
+      BlockRequestHandlingInjection.getInstance().unblockReplier(leaderId);
+    }
+
+    // delay RaftServerRequest for other servers
+    servers.stream().filter(s -> !s.getId().equals(leaderId))
+        .forEach(s -> {
+          if (block) {
+            injection.setDelayMs(s.getId(), delayMs);
+          } else {
+            injection.removeDelay(s.getId());
+          }
+        });
+
+    Thread.sleep(3 * maxTimeout);
+  }
+
+  public static void setBlockRequestsFrom(String src, boolean block) {
+    if (block) {
+      BlockRequestHandlingInjection.getInstance().blockRequestor(src);
+    } else {
+      BlockRequestHandlingInjection.getInstance().unblockRequestor(src);
+    }
   }
 }
