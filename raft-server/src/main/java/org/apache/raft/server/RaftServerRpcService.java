@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadooprpc.server;
+package org.apache.raft.server;
 
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
@@ -28,7 +28,6 @@ import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.server.RequestDispatcher;
 import org.apache.raft.server.protocol.RaftServerProtocol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
