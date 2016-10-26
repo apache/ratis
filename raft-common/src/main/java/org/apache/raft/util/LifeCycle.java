@@ -85,6 +85,15 @@ public class LifeCycle {
     State.validate(from, to);
   }
 
+  public boolean compareAndTransition(final State from, final State to) {
+    if (current.compareAndSet(from, to)) {
+      LOG.trace("{}: {} -> {}", name, from, to);
+      State.validate(from, to);
+      return true;
+    }
+    return false;
+  }
+
   /** @return the current state. */
   public State getCurrentState() {
     return current.get();
