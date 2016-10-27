@@ -23,7 +23,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class FollowerInfo {
   private final RaftPeer peer;
-  private final AtomicLong lastRpcTime;
+  private final AtomicLong lastRpcResponseTime;
+  private final AtomicLong lastRpcSendTime;
   private long nextIndex;
   private final AtomicLong matchIndex;
   private volatile boolean attendVote;
@@ -31,7 +32,8 @@ public class FollowerInfo {
   FollowerInfo(RaftPeer peer, long lastRpcTime, long nextIndex,
       boolean attendVote) {
     this.peer = peer;
-    this.lastRpcTime = new AtomicLong(lastRpcTime);
+    this.lastRpcResponseTime = new AtomicLong(lastRpcTime);
+    this.lastRpcSendTime = new AtomicLong(lastRpcTime);
     this.nextIndex = nextIndex;
     this.matchIndex = new AtomicLong(0);
     this.attendVote = attendVote;
@@ -62,7 +64,9 @@ public class FollowerInfo {
   @Override
   public String toString() {
     return peer.getId() + "(next=" + nextIndex + ", match=" + matchIndex + "," +
-        " attendVote=" + attendVote + ", lastRpcTime=" + lastRpcTime.get() + ")";
+        " attendVote=" + attendVote +
+        ", lastRpcSendTime=" + lastRpcSendTime.get() +
+        ", lastRpcResponseTime=" + lastRpcResponseTime.get() + ")";
   }
 
   void startAttendVote() {
@@ -77,11 +81,19 @@ public class FollowerInfo {
     return peer;
   }
 
-  public void updateLastRpcTime(long time) {
-    lastRpcTime.set(time);
+  public void updateLastRpcResponseTime(long time) {
+    lastRpcResponseTime.set(time);
+  }
+
+  public long getLastRpcResponseTime() {
+    return lastRpcResponseTime.get();
+  }
+
+  public void updateLastRpcSendTime(long time) {
+    lastRpcSendTime.set(time);
   }
 
   public long getLastRpcTime() {
-    return lastRpcTime.get();
+    return Math.max(lastRpcResponseTime.get(), lastRpcSendTime.get());
   }
 }

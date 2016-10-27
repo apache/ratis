@@ -65,16 +65,21 @@ public class GRpcLogAppender extends LogAppender {
       if (shouldSendRequest()) {
         // keep appending log entries or sending heartbeats
         appendLog(requestObserver);
-        // update the last rpc time
-        follower.updateLastRpcTime(Time.monotonicNow());
       }
 
       if (isAppenderRunning() && !shouldSendRequest()) {
-        try {
+        // use lastSend time instead of lastResponse time
+        final long waitTime = getHeartbeatRemainingTime(
+            follower.getLastRpcTime());
+        if (waitTime > 0) {
           synchronized (this) {
-            wait(getHeartbeatRemainingTime(follower.getLastRpcTime()));
+            try {
+              LOG.debug("{} decides to wait {}ms before appending to {}",
+                  server.getId(), waitTime, follower.getPeer().getId());
+              wait(waitTime);
+            } catch (InterruptedException ignored) {
+            }
           }
-        } catch (InterruptedException ignored) {
         }
       }
     }
@@ -101,7 +106,7 @@ public class GRpcLogAppender extends LogAppender {
           }
         }
 
-        if (isAppenderRunning() && shouldSendRequest()) {
+        if (isAppenderRunning()) {
           // prepare and enqueue the append request. note changes on follower's
           // nextIndex and ops on pendingRequests should always be associated
           // together and protected by the lock
@@ -129,6 +134,7 @@ public class GRpcLogAppender extends LogAppender {
         null, request);
 
     requestObserver.onNext(request);
+    follower.updateLastRpcSendTime(Time.monotonicNow());
   }
 
   private void updateNextIndex(AppendEntriesRequestProto request) {
@@ -160,9 +166,14 @@ public class GRpcLogAppender extends LogAppender {
      */
     @Override
     public void onNext(AppendEntriesReplyProto reply) {
+      LOG.debug("{} received {} response from {}", server.getId(),
+          (!firstResponseReceived ? "the first" : "a"),
+          follower.getPeer().getId());
+
+      // update the last rpc time
+      follower.updateLastRpcResponseTime(Time.monotonicNow());
+
       if (!firstResponseReceived) {
-        LOG.debug("{} received the first response from {}", server.getId(),
-            follower.getPeer().getId());
         firstResponseReceived = true;
       }
       switch (reply.getResult()) {
@@ -186,6 +197,8 @@ public class GRpcLogAppender extends LogAppender {
      */
     @Override
     public void onError(Throwable t) {
+      LOG.info("{} got error when appending entries to {}, exception: {}",
+          server.getId(), follower.getPeer().getId(), t);
       // clear the pending requests queue and reset the next index of follower
       // TODO reuse the requests
       AppendEntriesRequestProto request = pendingRequests.peek();

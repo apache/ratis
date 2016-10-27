@@ -356,7 +356,7 @@ public class LeaderState {
 
   /**
    * So far we use a simple implementation for catchup checking:
-   * 1. If the latest rpc time of the remote peer is before 2 * max_timeout,
+   * 1. If the latest rpc time of the remote peer is before 3 * max_timeout,
    *    the peer made no progress for that long. We should fail the whole
    *    setConfiguration request.
    * 2. If the peer's matching index is just behind for a small gap, and the
@@ -368,13 +368,13 @@ public class LeaderState {
       long committed) {
     Preconditions.checkArgument(!follower.isAttendingVote());
     final long progressTime = Time.monotonicNow() - server.maxTimeout;
-    final long timeoutTime = Time.monotonicNow() - 2 * server.maxTimeout;
-    if (follower.getLastRpcTime() < timeoutTime) {
+    final long timeoutTime = Time.monotonicNow() - 3 * server.maxTimeout;
+    if (follower.getLastRpcResponseTime() < timeoutTime) {
       LOG.debug("{} detects a follower {} timeout for bootstrapping",
           server.getId(), follower);
       return BootStrapProgress.NOPROGRESS;
-    } else if (follower.getMatchIndex() + stagingCatchupGap >
-        committed && follower.getLastRpcTime() > progressTime) {
+    } else if (follower.getMatchIndex() + stagingCatchupGap > committed
+        && follower.getLastRpcResponseTime() > progressTime) {
       return BootStrapProgress.CAUGHTUP;
     } else {
       return BootStrapProgress.PROGRESSING;

@@ -20,6 +20,7 @@ package org.apache.raft.grpc.client;
 import com.google.common.base.Preconditions;
 import io.grpc.stub.StreamObserver;
 import org.apache.raft.client.ClientProtoUtils;
+import org.apache.raft.grpc.RaftGrpcUtil;
 import org.apache.raft.grpc.proto.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceImplBase;
 import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
@@ -29,7 +30,6 @@ import org.apache.raft.server.RequestDispatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -80,18 +80,16 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     try {
       CompletableFuture<RaftClientReply> future = dispatcher.setConfiguration(
           ClientProtoUtils.toSetConfigurationRequest(request));
-      future.whenComplete((reply, exception) -> {
+      future.whenCompleteAsync((reply, exception) -> {
         if (exception != null) {
-          IOException e = exception instanceof IOException ?
-              (IOException) exception : new IOException(exception);
-          responseObserver.onError(e);
+          responseObserver.onError(RaftGrpcUtil.wrapException(exception));
         } else {
           responseObserver.onNext(ClientProtoUtils.toRaftClientReplyProto(reply));
+          responseObserver.onCompleted();
         }
-        responseObserver.onCompleted();
       });
     } catch (Exception e) {
-      responseObserver.onError(e);
+      responseObserver.onError(RaftGrpcUtil.wrapException(e));
     }
   }
 
@@ -125,9 +123,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
             // TODO: the exception may be from either raft or state machine.
             // Currently we skip all the following responses when getting an
             // exception from the state machine. Is it correct?
-            IOException e = exception instanceof IOException ?
-                (IOException) exception : new IOException(exception);
-            responseObserver.onError(e);
+            responseObserver.onError(RaftGrpcUtil.wrapException(exception));
           } else {
             final long replySeq = reply.getSeqNum();
             synchronized (pendingList) {
@@ -159,7 +155,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
           }
         });
       } catch (Exception e) {
-        responseObserver.onError(e);
+        responseObserver.onError(RaftGrpcUtil.wrapException(e));
       }
     }
 

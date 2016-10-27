@@ -116,11 +116,15 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
 
   @Override
   public Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
-      Collection<RaftServer> newServers) throws IOException {
+      Collection<RaftServer> newServers, boolean startService)
+      throws IOException {
     Map<RaftPeer, HadoopRpcService> peers = initRpcServices(newServers);
     for (Map.Entry<RaftPeer, HadoopRpcService> entry : peers.entrySet()) {
       RaftServer server = servers.get(entry.getKey().getId());
       server.setServerRpc(entry.getValue());
+    }
+    if (startService) {
+      newServers.forEach(RaftServer::start);
     }
     return new ArrayList<>(peers.keySet());
   }

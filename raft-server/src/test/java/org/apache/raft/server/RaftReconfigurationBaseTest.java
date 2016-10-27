@@ -34,6 +34,7 @@ import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.util.CodeInjectionForTesting;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
@@ -42,6 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -61,11 +63,11 @@ public abstract class RaftReconfigurationBaseTest {
   }
   static final Logger LOG = LoggerFactory.getLogger(RaftReconfigurationBaseTest.class);
 
-  protected final RaftProperties prop = new RaftProperties();
+  protected static final RaftProperties prop = new RaftProperties();
 
   public abstract MiniRaftCluster getCluster(int peerNum) throws IOException;
 
-  private int getStagingGap() {
+  private static int getStagingGap() {
     return prop.getInt(RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_KEY,
         RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT);
   }
@@ -371,9 +373,9 @@ public abstract class RaftReconfigurationBaseTest {
       Assert.assertTrue("committedIndex is " + committedIndex,
           committedIndex <= 1);
 
-      // kill the current leader
+      LOG.info("kill the current leader");
       final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster, true);
-      // start the two new peers
+      LOG.info("start the two new peers: {}", Arrays.asList(c1.newPeers));
       for (RaftPeer np : c1.newPeers) {
         cluster.startServer(np.getId());
       }

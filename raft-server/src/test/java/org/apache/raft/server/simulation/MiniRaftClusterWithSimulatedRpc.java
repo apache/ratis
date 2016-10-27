@@ -89,9 +89,12 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
 
   @Override
   public Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
-      Collection<RaftServer> newServers) {
+      Collection<RaftServer> newServers, boolean startService) {
     addPeersToRpc(newPeers);
     setRpcServers(newServers);
+    if (startService) {
+      newServers.forEach(RaftServer::start);
+    }
     return newPeers;
   }
 

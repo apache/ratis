@@ -30,7 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase {
-  static final Logger LOG = LoggerFactory.getLogger(RaftServerProtocolService.class);
+  public static final Logger LOG = LoggerFactory.getLogger(RaftServerProtocolService.class);
   private final RequestDispatcher dispatcher;
 
   public RaftServerProtocolService(RequestDispatcher dispatcher) {
@@ -43,10 +43,12 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
     try {
       final RequestVoteReplyProto reply = dispatcher.requestVote(request);
       responseObserver.onNext(reply);
+      responseObserver.onCompleted();
     } catch (Exception e) {
+      LOG.info(dispatcher.getRaftServer().getId() +
+          " got exception when handling requestVote " + request, e);
       responseObserver.onError(e);
     }
-    responseObserver.onCompleted();
   }
 
   @Override
@@ -67,11 +69,14 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       @Override
       public void onError(Throwable t) {
         // for now we just log a msg
-        LOG.warn("appendEntries cancelled");
+        LOG.info("{}: appendEntries cancelled",
+            dispatcher.getRaftServer().getId());
       }
 
       @Override
       public void onCompleted() {
+        LOG.info("{}: appendEntries completed",
+            dispatcher.getRaftServer().getId());
         responseObserver.onCompleted();
       }
     };

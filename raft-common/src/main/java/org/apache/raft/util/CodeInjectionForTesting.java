@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** Inject code for testing. */
 public class CodeInjectionForTesting {
-  static final Logger LOG = LoggerFactory.getLogger(CodeInjectionForTesting.class);
+  public static final Logger LOG = LoggerFactory.getLogger(CodeInjectionForTesting.class);
 
   /** Code to be injected. */
   public interface Code {

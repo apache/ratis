@@ -168,8 +168,8 @@ public abstract class MiniRaftCluster {
   public abstract RaftClientRequestSender getRaftClientRequestSender();
 
   protected abstract Collection<RaftPeer> addNewPeers(
-      Collection<RaftPeer> newPeers, Collection<RaftServer> newServers)
-      throws IOException;
+      Collection<RaftPeer> newPeers, Collection<RaftServer> newServers,
+      boolean startService) throws IOException;
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer)
       throws IOException {
@@ -194,11 +194,7 @@ public abstract class MiniRaftCluster {
     }
 
     // for hadoop-rpc-enabled peer, we assign inetsocketaddress here
-    newPeers = addNewPeers(newPeers, newServers);
-
-    if (startNewPeer) {
-      newServers.forEach(RaftServer::start);
-    }
+    newPeers = addNewPeers(newPeers, newServers, startNewPeer);
 
     final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
     newPeers.addAll(conf.getPeers());

@@ -205,9 +205,10 @@ public class LogAppender extends Daemon {
           return null;
         }
 
+        follower.updateLastRpcSendTime(Time.monotonicNow());
         final AppendEntriesReplyProto r = server.getServerRpc()
             .sendAppendEntries(request);
-        follower.updateLastRpcTime(Time.monotonicNow());
+        follower.updateLastRpcResponseTime(Time.monotonicNow());
 
         return r;
       } catch (InterruptedIOException iioe) {
@@ -267,8 +268,9 @@ public class LogAppender extends Daemon {
                   requestId, requestIndex++, snapshot,
                   Lists.newArrayList(chunk), done);
 
+          follower.updateLastRpcSendTime(Time.monotonicNow());
           reply = server.getServerRpc().sendInstallSnapshot(request);
-          follower.updateLastRpcTime(Time.monotonicNow());
+          follower.updateLastRpcResponseTime(Time.monotonicNow());
 
           if (!reply.getServerReply().getSuccess()) {
             return reply;
@@ -331,7 +333,8 @@ public class LogAppender extends Daemon {
       }
       if (isAppenderRunning() && !shouldAppendEntries(
           follower.getNextIndex() + buffer.getPendingEntryNum())) {
-        final long waitTime = getHeartbeatRemainingTime(follower.getLastRpcTime());
+        final long waitTime = getHeartbeatRemainingTime(
+            follower.getLastRpcTime());
         if (waitTime > 0) {
           synchronized (this) {
             wait(waitTime);

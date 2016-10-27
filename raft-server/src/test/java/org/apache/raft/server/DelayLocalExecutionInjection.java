@@ -55,7 +55,7 @@ public class DelayLocalExecutionInjection implements CodeInjectionForTesting.Cod
     if (d == null) {
       return false;
     }
-    LOG.debug("{} delay {} ms, args={}", localId, d.get(),
+    LOG.info("{} delay {} ms, args={}", localId, d.get(),
         Arrays.toString(args));
     try {
       RaftTestUtil.delay(d::get);

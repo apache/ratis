@@ -67,6 +67,7 @@ public class RaftServer implements RaftServerProtocol {
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
 
   private enum RunningState {
+    // TODO add BEFORESTART state for GRpc
     /**
      * the peer does not belong to any configuration yet, need to catchup
      */
@@ -155,15 +156,18 @@ public class RaftServer implements RaftServerProtocol {
     state.start();
     RaftConfiguration conf = getRaftConf();
     if (conf != null && conf.contains(getId())) {
+      LOG.debug("{} starts as a follower", getId());
       startAsFollower();
     } else {
+      LOG.debug("{} starts with initializing state", getId());
       startInitializing();
     }
   }
 
   private void changeRunningState(RunningState oldState, RunningState newState) {
     final boolean changed = runningState.compareAndSet(oldState, newState);
-    Preconditions.checkState(changed);
+    Preconditions.checkState(changed, "%s running state: %s", getId(),
+        runningState.get());
   }
 
   private void changeRunningState(RunningState newState) {
@@ -557,8 +561,8 @@ public class RaftServer implements RaftServerProtocol {
     CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(),
         leaderId, leaderTerm, previous, leaderCommit, initializing, entries);
     if (LOG.isDebugEnabled()) {
-      LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {})", getId(),
-          leaderId, leaderTerm, previous, leaderCommit,
+      LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {}, {})", getId(),
+          leaderId, leaderTerm, previous, leaderCommit, initializing,
           ServerProtoUtils.toString(entries));
     }
     assertRunningState(RunningState.RUNNING, RunningState.INITIALIZING);
@@ -585,6 +589,7 @@ public class RaftServer implements RaftServerProtocol {
       state.setLeader(leaderId);
 
       if (runningState.get() == RunningState.INITIALIZING && !initializing) {
+        LOG.debug("{} changes its state from INITIALIZING to RUNNING", getId());
         changeRunningState(RunningState.INITIALIZING, RunningState.RUNNING);
         heartbeatMonitor = new FollowerState(this);
         heartbeatMonitor.start();
@@ -604,8 +609,8 @@ public class RaftServer implements RaftServerProtocol {
             ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(),
                 currentTerm, Math.min(nextIndex, previous.getIndex()),
                 AppendResult.INCONSISTENCY);
-        LOG.debug("{}: inconsistency entries. Previous:{} Reply: {}", getId(),
-            previous, reply);
+        LOG.debug("{}: inconsistency entries. Leader previous:{}, Reply:{}",
+            getId(), previous, ServerProtoUtils.toString(reply));
         return reply;
       }
 
@@ -632,7 +637,7 @@ public class RaftServer implements RaftServerProtocol {
     final AppendEntriesReplyProto reply = ServerProtoUtils
         .toAppendEntriesReplyProto(leaderId, getId(), currentTerm, nextIndex,
             AppendResult.SUCCESS);
-    LOG.debug("{}: succeeded to append entries. Reply: {}", getId(),
+    LOG.debug("{}: succeeded to handle AppendEntries. Reply: {}", getId(),
         ServerProtoUtils.toString(reply));
     return reply;
   }

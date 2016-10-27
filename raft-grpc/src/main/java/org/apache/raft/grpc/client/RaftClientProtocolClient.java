@@ -19,7 +19,9 @@ package org.apache.raft.grpc.client;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+import org.apache.raft.grpc.RaftGrpcUtil;
 import org.apache.raft.grpc.proto.RaftClientProtocolServiceGrpc;
 import org.apache.raft.grpc.proto.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceBlockingStub;
 import org.apache.raft.grpc.proto.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceStub;
@@ -27,6 +29,8 @@ import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.raft.protocol.RaftPeer;
+
+import java.io.IOException;
 
 public class RaftClientProtocolClient {
   private final ManagedChannel channel;
@@ -45,8 +49,15 @@ public class RaftClientProtocolClient {
   }
 
   public RaftClientReplyProto setConfiguration(
-      SetConfigurationRequestProto request) {
-    return blockingStub.setConfiguration(request);
+      SetConfigurationRequestProto request) throws IOException {
+    try {
+      return blockingStub.setConfiguration(request);
+    } catch (StatusRuntimeException e) {
+      // unwrap StatusRuntimeException
+      Exception exception = RaftGrpcUtil.unwrapException(e);
+      throw exception instanceof IOException ?
+          ((IOException) exception) : new IOException(exception);
+    }
   }
 
   StreamObserver<RaftClientRequestProto> append(

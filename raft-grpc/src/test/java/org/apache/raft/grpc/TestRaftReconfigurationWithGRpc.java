@@ -15,26 +15,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadooprpc;
+package org.apache.raft.grpc;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.raft.MiniRaftCluster;
-import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.hadoop.test.GenericTestUtils;
+import org.apache.log4j.Level;
+import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
+import org.apache.raft.grpc.server.RaftServerProtocolService;
+import org.apache.raft.server.LogAppenderFactory;
 import org.apache.raft.server.RaftReconfigurationBaseTest;
+import org.junit.BeforeClass;
 
 import java.io.IOException;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY;
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_TIMEOUT_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
 
-public class TestRaftReconfigurationWithHadoopRpc
-    extends RaftReconfigurationBaseTest {
+public class TestRaftReconfigurationWithGRpc extends RaftReconfigurationBaseTest {
+  static {
+    GenericTestUtils.setLogLevel(RaftServerProtocolService.LOG, Level.DEBUG);
+  }
+
+  @BeforeClass
+  public static void setProp() {
+    prop.setClass(RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
+        PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
+  }
+
   @Override
-  public MiniRaftCluster getCluster(int peerNum) throws IOException {
-    final Configuration hadoopConf = new Configuration();
-    hadoopConf.setInt(IPC_CLIENT_CONNECT_TIMEOUT_KEY, 1000);
-    hadoopConf.setInt(IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, 0);
-    hadoopConf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
-    return new MiniRaftClusterWithHadoopRpc(peerNum, prop, hadoopConf);
+  public MiniRaftClusterWithGRpc getCluster(int peerNum) throws IOException {
+    return new MiniRaftClusterWithGRpc(peerNum, prop);
   }
 }

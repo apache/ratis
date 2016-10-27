@@ -23,6 +23,7 @@ import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.client.RaftClientWithGrpc;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.server.BlockRequestHandlingInjection;
 import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
@@ -82,14 +83,26 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
 
   @Override
   protected Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
-      Collection<RaftServer> newServers) throws IOException {
+      Collection<RaftServer> newServers, boolean startService)
+      throws IOException {
     Map<RaftPeer, RaftGRpcService> peers = initRpcServices(properties,
         newServers);
     for (Map.Entry<RaftPeer, RaftGRpcService> entry : peers.entrySet()) {
       RaftServer server = servers.get(entry.getKey().getId());
       server.setServerRpc(entry.getValue());
+      if (!startService) {
+        BlockRequestHandlingInjection.getInstance().blockReplier(server.getId());
+      } else {
+        server.start();
+      }
     }
     return new ArrayList<>(peers.keySet());
+  }
+
+  @Override
+  public void startServer(String id) {
+    super.startServer(id);
+    BlockRequestHandlingInjection.getInstance().unblockReplier(id);
   }
 
   @Override
