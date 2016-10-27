@@ -21,7 +21,7 @@ import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.grpc.client.RaftClientWithGrpc;
+import org.apache.raft.grpc.client.RaftClientSenderWithGrpc;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.BlockRequestHandlingInjection;
 import org.apache.raft.server.DelayLocalExecutionInjection;
@@ -66,7 +66,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
 
   @Override
   public RaftClientRequestSender getRaftClientRequestSender() {
-    return new RaftClientWithGrpc(getPeers());
+    return new RaftClientSenderWithGrpc(getPeers());
   }
 
   @Override

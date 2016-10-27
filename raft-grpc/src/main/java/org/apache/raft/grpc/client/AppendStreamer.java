@@ -22,6 +22,8 @@ import io.grpc.stub.StreamObserver;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -32,6 +34,8 @@ import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_GRPC_CLIENT_MAX_OUTST
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_KEY;
 
 class AppendStreamer implements Closeable {
+  static final Logger LOG = LoggerFactory.getLogger(AppendStreamer.class);
+
   private final RaftClientProtocolClient proxy;
   private volatile StreamObserver<RaftClientRequestProto> requestObserver;
   private final Queue<RaftClientRequestProto> pendingRequests;
@@ -96,7 +100,7 @@ class AppendStreamer implements Closeable {
   private class ResponseHandler implements StreamObserver<RaftClientReplyProto> {
     @Override
     public void onNext(RaftClientReplyProto reply) {
-      synchronized (this) {
+      synchronized (AppendStreamer.this) {
         RaftClientRequestProto pending = Preconditions.checkNotNull(
             pendingRequests.peek());
         Preconditions.checkState(pending.getRpcRequest().getSeqNum() ==
@@ -111,11 +115,13 @@ class AppendStreamer implements Closeable {
 
     @Override
     public void onError(Throwable t) {
+      LOG.warn("Got error in AppendStreamer", t);
       // TODO retry on NotLeaderException/IOException
     }
 
     @Override
     public void onCompleted() {
+      LOG.info("AppendStreamer completes");
       Preconditions.checkState(pendingRequests.isEmpty());
       // TODO set Exception for close
     }

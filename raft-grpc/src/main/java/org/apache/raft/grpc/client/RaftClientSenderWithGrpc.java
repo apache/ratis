@@ -44,8 +44,8 @@ import static org.apache.raft.client.ClientProtoUtils.toRaftClientReply;
 import static org.apache.raft.client.ClientProtoUtils.toRaftClientRequestProto;
 import static org.apache.raft.client.ClientProtoUtils.toSetConfigurationRequestProto;
 
-public class RaftClientWithGrpc implements RaftClientRequestSender, Closeable {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftClientWithGrpc.class);
+public class RaftClientSenderWithGrpc implements RaftClientRequestSender, Closeable {
+  public static final Logger LOG = LoggerFactory.getLogger(RaftClientSenderWithGrpc.class);
 
   private final PeerProxyMap<RaftClientProtocolClient> proxies
       = new PeerProxyMap<RaftClientProtocolClient>() {
@@ -56,7 +56,7 @@ public class RaftClientWithGrpc implements RaftClientRequestSender, Closeable {
     }
   };
 
-  public RaftClientWithGrpc(Collection<RaftPeer> peers) {
+  public RaftClientSenderWithGrpc(Collection<RaftPeer> peers) {
     addServers(peers);
   }
 

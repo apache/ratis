@@ -46,6 +46,7 @@ public class RaftClient {
   private final int retryInterval;
 
   private volatile String leaderId;
+  protected RaftProperties prop;
 
   public RaftClient(String clientId, Collection<RaftPeer> peers,
       RaftClientRequestSender requestSender, String leaderId,
@@ -58,10 +59,15 @@ public class RaftClient {
     retryInterval = properties.getInt(
         RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_KEY,
         RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_DEFAULT);
+    this.prop = properties;
   }
 
   public String getId() {
     return clientId;
+  }
+
+  protected RaftPeer getCurrentLeader() {
+    return peers.get(leaderId);
   }
 
   /** @return the next peer after the given leader. */

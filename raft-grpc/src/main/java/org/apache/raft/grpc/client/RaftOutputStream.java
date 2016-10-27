@@ -39,6 +39,8 @@ public class RaftOutputStream extends OutputStream {
 
   private boolean closed = false;
 
+  // TODO change target and recreate AppendStreamer after hitting NotLeaderException/Exception
+
   public RaftOutputStream(RaftProperties prop, String sourceId, RaftPeer target) {
     final int bufferSize = prop.getInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY,
         RAFT_OUTPUTSTREAM_BUFFER_SIZE_DEFAULT);
@@ -82,17 +84,18 @@ public class RaftOutputStream extends OutputStream {
   @Override
   public void flush() throws IOException {
     checkClosed();
-    // wrap the current buffer into a RaftClientRequestProto
-    RaftClientRequest request = new RaftClientRequest(sourceId, target.getId(),
-        seqNum++, () -> buf);
-    streamer.write(ClientProtoUtils.toRaftClientRequestProto(request));
-    if (count == buf.length) {
+    if (count > 0) {
+      // wrap the current buffer into a RaftClientRequestProto
+      RaftClientRequest request = new RaftClientRequest(sourceId,
+          target.getId(), seqNum++, () -> buf);
+      streamer.write(ClientProtoUtils.toRaftClientRequestProto(request));
       count = 0;
     }
   }
 
   @Override
   public void close() throws IOException {
+    flush();
     this.closed = true;
     streamer.close();
   }
