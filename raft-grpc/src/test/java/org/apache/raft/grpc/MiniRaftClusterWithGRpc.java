@@ -50,29 +50,17 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
   public MiniRaftClusterWithGRpc(String[] ids, RaftProperties properties,
       boolean formatted) throws IOException {
     super(ids, properties, formatted);
-    Collection<RaftServer> s = getServers();
-    Map<RaftPeer, RaftGRpcService> peers = initRpcServices(properties, s);
-
-    conf = new RaftConfiguration(
-        peers.keySet().toArray(new RaftPeer[peers.size()]),
-        RaftServerConstants.INVALID_LOG_INDEX);
-    for (Map.Entry<RaftPeer, RaftGRpcService> entry : peers.entrySet()) {
-      RaftServer server = servers.get(entry.getKey().getId());
-      server.setInitialConf(conf);
-      server.setServerRpc(entry.getValue());
-    }
+    init(initRpcServices(getServers(), properties));
   }
 
-  private Map<RaftPeer, RaftGRpcService> initRpcServices(RaftProperties prop,
-      Collection<RaftServer> servers) throws IOException {
+  private static Map<RaftPeer, RaftGRpcService> initRpcServices(
+      Collection<RaftServer> servers, RaftProperties prop) throws IOException {
     final Map<RaftPeer, RaftGRpcService> peerRpcs = new HashMap<>();
 
     for (RaftServer s : servers) {
       final RaftGRpcService rpc = new RaftGRpcService(s, prop);
       peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
     }
-
-    LOG.info("peers = " + peerRpcs.keySet());
     return peerRpcs;
   }
 
@@ -85,8 +73,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
   protected Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
       Collection<RaftServer> newServers, boolean startService)
       throws IOException {
-    Map<RaftPeer, RaftGRpcService> peers = initRpcServices(properties,
-        newServers);
+    final Map<RaftPeer, RaftGRpcService> peers = initRpcServices(newServers, properties);
     for (Map.Entry<RaftPeer, RaftGRpcService> entry : peers.entrySet()) {
       RaftServer server = servers.get(entry.getKey().getId());
       server.setServerRpc(entry.getValue());

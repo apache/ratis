@@ -24,14 +24,10 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.DelayLocalExecutionInjection;
-import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.RaftServerConstants;
-import org.apache.raft.statemachine.StateMachine;
+import org.apache.raft.server.*;
 import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
@@ -42,9 +38,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.*;
 
 public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
@@ -64,11 +58,9 @@ public abstract class MiniRaftCluster {
   }
 
   public static RaftConfiguration initConfiguration(String[] ids) {
-    RaftPeer[] peers = new RaftPeer[ids.length];
-    for (int i = 0; i < ids.length; i++) {
-      peers[i] = new RaftPeer(ids[i]);
-    }
-    return RaftConfiguration.composeConf(peers, RaftServerConstants.INVALID_LOG_INDEX);
+    return new RaftConfiguration(Arrays.stream(ids)
+        .map(id -> new RaftPeer(id))
+        .collect(Collectors.toList()));
   }
 
   private static String getBaseDirectory() {
@@ -100,12 +92,20 @@ public abstract class MiniRaftCluster {
     this.properties = properties;
     this.testBaseDir = getBaseDirectory();
 
-    for (RaftPeer p : conf.getPeers()) {
-      final RaftServer s = newRaftServer(p.getId(), conf, formatted);
-      servers.put(p.getId(), s);
-    }
+    conf.getPeers().forEach(
+        p -> servers.put(p.getId(), newRaftServer(p.getId(), conf, formatted)));
 
     ExitUtil.disableSystemExit();
+  }
+
+  protected <RPC extends  RaftServerRpc> void init(Map<RaftPeer, RPC> peers) {
+    LOG.info("peers = " + peers.keySet());
+    conf = new RaftConfiguration(peers.keySet());
+    for (Map.Entry<RaftPeer, RPC> entry : peers.entrySet()) {
+      final RaftServer server = servers.get(entry.getKey().getId());
+      server.setInitialConf(conf);
+      server.setServerRpc(entry.getValue());
+    }
   }
 
   public void start() {
@@ -167,6 +167,19 @@ public abstract class MiniRaftCluster {
 
   public abstract RaftClientRequestSender getRaftClientRequestSender();
 
+  protected <RPC extends RaftServerRpc> Collection<RaftPeer> addNewPeers(
+      Map<RaftPeer, RPC> newPeers, Collection<RaftServer> newServers,
+      boolean startService) throws IOException {
+    for (Map.Entry<RaftPeer, RPC> entry : newPeers.entrySet()) {
+      RaftServer server = servers.get(entry.getKey().getId());
+      server.setServerRpc(entry.getValue());
+    }
+    if (startService) {
+      newServers.forEach(RaftServer::start);
+    }
+    return new ArrayList<>(newPeers.keySet());
+  }
+
   protected abstract Collection<RaftPeer> addNewPeers(
       Collection<RaftPeer> newPeers, Collection<RaftServer> newServers,
       boolean startService) throws IOException;
@@ -198,8 +211,8 @@ public abstract class MiniRaftCluster {
 
     final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
     newPeers.addAll(conf.getPeers());
+    conf = new RaftConfiguration(newPeers, 0);
     RaftPeer[] p = newPeers.toArray(new RaftPeer[newPeers.size()]);
-    conf = RaftConfiguration.composeConf(p, 0);
     return new PeerChanges(p, np, new RaftPeer[0]);
   }
 
@@ -236,8 +249,8 @@ public abstract class MiniRaftCluster {
         removed++;
       }
     }
+    conf = new RaftConfiguration(peers, 0);
     RaftPeer[] p = peers.toArray(new RaftPeer[peers.size()]);
-    conf = RaftConfiguration.composeConf(p, 0);
     return new PeerChanges(p, new RaftPeer[0],
         removedPeers.toArray(new RaftPeer[removedPeers.size()]));
   }

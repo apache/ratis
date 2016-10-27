@@ -91,7 +91,7 @@ public class ServerProtoUtils {
       final RaftPeer[] oldPeers = ProtoUtils.toRaftPeerArray(proto.getPeersList());
       return RaftConfiguration.composeOldNewConf(peers, oldPeers, index);
     } else {
-      return RaftConfiguration.composeConf(peers, index);
+      return new RaftConfiguration(peers, index);
     }
   }
 

@@ -67,7 +67,8 @@ public class LifeCycle {
 
     /** Validate the given transition. */
     static void validate(State from, State to) {
-      Preconditions.checkState(PREDECESSORS.get(to).contains(from));
+      Preconditions.checkState(PREDECESSORS.get(to).contains(from),
+          "Illegal transition: %s -> %s", from, to);
     }
   }
 

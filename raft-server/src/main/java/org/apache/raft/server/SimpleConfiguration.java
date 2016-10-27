@@ -25,12 +25,14 @@ import java.util.*;
 class SimpleConfiguration {
   private final Map<String, RaftPeer> peers;
 
-  SimpleConfiguration(RaftPeer[] peers) {
+  SimpleConfiguration(Iterable<RaftPeer> peers) {
+    Preconditions.checkNotNull(peers);
     Map<String, RaftPeer> map = new HashMap<>();
     for(RaftPeer p : peers) {
       map.put(p.getId(), p);
     }
     this.peers = Collections.unmodifiableMap(map);
+    Preconditions.checkState(!this.peers.isEmpty());
   }
 
   Collection<RaftPeer> getPeers() {

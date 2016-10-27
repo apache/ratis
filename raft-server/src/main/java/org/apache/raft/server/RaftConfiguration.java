@@ -20,8 +20,10 @@ package org.apache.raft.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.util.RaftUtils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -37,14 +39,9 @@ public class RaftConfiguration {
       RaftPeer[] old, long index) {
     Preconditions.checkArgument(peers != null && peers.length > 0);
     Preconditions.checkArgument(old != null && old.length > 0);
-    return new RaftConfiguration(new SimpleConfiguration(peers),
-        new SimpleConfiguration(old), index);
-  }
-
-  public static RaftConfiguration composeConf(RaftPeer[] peers, long index) {
-    Preconditions.checkArgument(peers != null);
-    Preconditions.checkArgument(peers.length > 0);
-    return new RaftConfiguration(peers, index);
+    return new RaftConfiguration(
+        new SimpleConfiguration(Arrays.asList(peers)),
+        new SimpleConfiguration(Arrays.asList(old)), index);
   }
 
   /**
@@ -64,8 +61,15 @@ public class RaftConfiguration {
   /** the index of the corresponding log entry */
   private final long logEntryIndex;
 
+  public RaftConfiguration(Iterable<RaftPeer> peers) {
+    this(peers, RaftServerConstants.INVALID_LOG_INDEX);
+  }
+
   public RaftConfiguration(RaftPeer[] peers, long index) {
-    Preconditions.checkArgument(peers != null && peers.length > 0);
+    this(Arrays.asList(peers), index);
+  }
+
+  public RaftConfiguration(Iterable<RaftPeer> peers, long index) {
     this.conf = new SimpleConfiguration(peers);
     this.oldConf = null;
     this.state = State.STABLE;
@@ -88,9 +92,7 @@ public class RaftConfiguration {
 
   public RaftConfiguration generateNewConf(long index) {
     Preconditions.checkState(inTransitionState());
-    RaftPeer[] peersInNewConf = conf.getPeers()
-        .toArray(new RaftPeer[conf.getPeers().size()]);
-    return new RaftConfiguration(peersInNewConf, index);
+    return new RaftConfiguration(conf.getPeers(), index);
   }
 
   public State getState() {

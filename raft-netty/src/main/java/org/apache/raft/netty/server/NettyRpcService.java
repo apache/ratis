@@ -46,14 +46,13 @@ import java.net.InetSocketAddress;
 /**
  * A netty server endpoint that acts as the communication layer.
  */
-public final class NettyServer implements RaftServerRpc {
-  private final int port;
+public final class NettyRpcService implements RaftServerRpc {
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
   private final RaftServerRpcService raftService;
 
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
-  private Channel channel;
+  private final ChannelFuture channelFuture;
 
   private final PeerProxyMap<RaftServerProtocolProxy> proxies
       = new PeerProxyMap<RaftServerProtocolProxy>() {
@@ -70,25 +69,19 @@ public final class NettyServer implements RaftServerRpc {
     }
   };
 
-
-  /** Constructs a netty server with the given port. */
-  public NettyServer(int port, RaftServer server) {
-    this.port = port;
-    this.raftService = new RaftServerRpcService(new RequestDispatcher(server));
+  @ChannelHandler.Sharable
+  class InboundHandler extends SimpleChannelInboundHandler<RaftServerRequestProto> {
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, RaftServerRequestProto proto)
+        throws IOException {
+      final RaftServerReplyProto reply = handleRaftServerRequestProto(proto);
+      ctx.writeAndFlush(reply);
+    }
   }
 
-  @Override
-  public void start() {
-    lifeCycle.transition(LifeCycle.State.STARTING);
-    final SimpleChannelInboundHandler<RaftServerRequestProto> inboundHandler
-        = new SimpleChannelInboundHandler<RaftServerRequestProto>() {
-      @Override
-      protected void channelRead0(ChannelHandlerContext ctx, RaftServerRequestProto proto)
-          throws IOException {
-        final RaftServerReplyProto reply = handleRaftServerRequestProto(proto);
-        ctx.writeAndFlush(reply);
-      }
-    };
+  /** Constructs a netty server with the given port. */
+  public NettyRpcService(int port, RaftServer server) {
+    this.raftService = new RaftServerRpcService(new RequestDispatcher(server));
 
     final ChannelInitializer<SocketChannel> initializer
         = new ChannelInitializer<SocketChannel>() {
@@ -101,35 +94,49 @@ public final class NettyServer implements RaftServerRpc {
         p.addLast(new ProtobufVarint32LengthFieldPrepender());
         p.addLast(new ProtobufEncoder());
 
-        p.addLast(inboundHandler);
+        p.addLast(new InboundHandler());
       }
     };
 
-    channel = new ServerBootstrap()
+    channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(initializer)
         .bind(port)
-        .syncUninterruptibly()
-        .channel();
+        .syncUninterruptibly();
+  }
+
+  @Override
+  public void start() {
+    lifeCycle.transition(LifeCycle.State.STARTING);
+    channelFuture.awaitUninterruptibly();
     lifeCycle.transition(LifeCycle.State.RUNNING);
   }
 
   @Override
   public void shutdown() {
-    lifeCycle.transition(LifeCycle.State.CLOSING);
-    bossGroup.shutdownGracefully();
-    workerGroup.shutdownGracefully();
-    if (channel != null) {
-      channel.close().awaitUninterruptibly();
+    for(;;) {
+      final LifeCycle.State current = lifeCycle.getCurrentState();
+      if (current == LifeCycle.State.CLOSING
+          || current == LifeCycle.State.CLOSED) {
+        return; //already closing or closed.
+      }
+      if (lifeCycle.compareAndTransition(current, LifeCycle.State.CLOSING)) {
+        bossGroup.shutdownGracefully();
+        workerGroup.shutdownGracefully();
+        channelFuture.channel().close().awaitUninterruptibly();
+        lifeCycle.transition(LifeCycle.State.CLOSED);
+        return;
+      }
+
+      // lifecycle state is changed, retry.
     }
-    lifeCycle.transition(LifeCycle.State.CLOSED);
   }
 
   @Override
   public InetSocketAddress getInetSocketAddress() {
-    return (InetSocketAddress) channel.localAddress();
+    return (InetSocketAddress) channelFuture.channel().localAddress();
   }
 
   RaftServerReplyProto handleRaftServerRequestProto(RaftServerRequestProto proto)

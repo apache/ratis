@@ -27,16 +27,12 @@ import org.apache.raft.hadooprpc.client.HadoopClientRequestSender;
 import org.apache.raft.hadooprpc.server.HadoopRpcService;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.DelayLocalExecutionInjection;
-import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.BlockRequestHandlingInjection;
+import org.apache.raft.server.RaftServerConfigKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -58,29 +54,17 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
     super(ids, properties, formatted);
     this.hadoopConf = hadoopConf;
 
-    Collection<RaftServer> s = getServers();
-    Map<RaftPeer, HadoopRpcService> peers = initRpcServices(s);
-
-    conf = new RaftConfiguration(
-        peers.keySet().toArray(new RaftPeer[peers.size()]),
-        RaftServerConstants.INVALID_LOG_INDEX);
-    for (Map.Entry<RaftPeer, HadoopRpcService> entry : peers.entrySet()) {
-      RaftServer server = servers.get(entry.getKey().getId());
-      server.setInitialConf(conf);
-      server.setServerRpc(entry.getValue());
-    }
+    init(initRpcServices(getServers(), hadoopConf));
   }
 
-  private Map<RaftPeer, HadoopRpcService> initRpcServices(
-      Collection<RaftServer> servers) throws IOException {
+  private static Map<RaftPeer, HadoopRpcService> initRpcServices(
+      Collection<RaftServer> servers, Configuration hadoopConf) throws IOException {
     final Map<RaftPeer, HadoopRpcService> peerRpcs = new HashMap<>();
 
     for(RaftServer s : servers) {
       final HadoopRpcService rpc = new HadoopRpcService(s, hadoopConf);
       peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
     }
-
-    LOG.info("peers = " + peerRpcs.keySet());
     return peerRpcs;
   }
 
@@ -118,15 +102,8 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   public Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
       Collection<RaftServer> newServers, boolean startService)
       throws IOException {
-    Map<RaftPeer, HadoopRpcService> peers = initRpcServices(newServers);
-    for (Map.Entry<RaftPeer, HadoopRpcService> entry : peers.entrySet()) {
-      RaftServer server = servers.get(entry.getKey().getId());
-      server.setServerRpc(entry.getValue());
-    }
-    if (startService) {
-      newServers.forEach(RaftServer::start);
-    }
-    return new ArrayList<>(peers.keySet());
+    return addNewPeers(initRpcServices(newServers, hadoopConf),
+        newServers, startService);
   }
 
   @Override
