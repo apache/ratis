@@ -15,31 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadooprpc;
+package org.apache.raft;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
-import org.apache.raft.MiniRaftCluster;
-import org.apache.raft.RaftTestUtil;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
-import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,8 +43,7 @@ import java.util.Collection;
 
 import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
 
-@RunWith(Parameterized.class)
-public class TestRaftNotLeaderException {
+public abstract class RaftNotLeaderExceptionBaseTest {
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
@@ -58,21 +51,22 @@ public class TestRaftNotLeaderException {
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  static final Logger LOG = LoggerFactory.getLogger(TestRaftNotLeaderException.class);
-
-  @Parameterized.Parameters
-  public static Collection<Object[]> data() throws IOException {
-    final Configuration conf = new Configuration();
-    conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
-    RaftProperties prop = new RaftProperties();
-    return RaftHadoopRpcTestUtil.getMiniRaftClusters(3, conf, prop);
-  }
-
-  @Parameterized.Parameter
-  public MiniRaftCluster cluster;
+  public static final Logger LOG =
+      LoggerFactory.getLogger(RaftNotLeaderExceptionBaseTest.class);
+  public static final int NUM_PEERS = 3;
 
   @Rule
   public Timeout globalTimeout = new Timeout(60 * 1000);
+
+  private MiniRaftCluster cluster;
+
+  public abstract MiniRaftCluster initCluster() throws IOException;
+
+  @Before
+  public void setup() throws IOException {
+    this.cluster = initCluster();
+    cluster.start();
+  }
 
   @After
   public void tearDown() {
@@ -83,7 +77,6 @@ public class TestRaftNotLeaderException {
 
   @Test
   public void testHandleNotLeaderException() throws Exception {
-    cluster.start();
     RaftTestUtil.waitForLeader(cluster);
     final String leaderId = cluster.getLeader().getId();
     final RaftClient client = cluster.createClient("client", leaderId);
@@ -118,9 +111,6 @@ public class TestRaftNotLeaderException {
 
   @Test
   public void testNotLeaderExceptionWithReconf() throws Exception {
-    LOG.info("restart the " + cluster.getClass().getSimpleName()
-        + " for testNotLeaderExceptionWithReconf");
-    cluster.restart(true);
     Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));
 
     final String leaderId = cluster.getLeader().getId();

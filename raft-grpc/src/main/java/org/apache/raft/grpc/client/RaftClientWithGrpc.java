@@ -17,9 +17,11 @@
  */
 package org.apache.raft.grpc.client;
 
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.client.RaftClientRequestSender;
+import org.apache.raft.grpc.RaftGrpcUtil;
 import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.proto.RaftProtos.SetConfigurationRequestProto;
@@ -82,7 +84,13 @@ public class RaftClientWithGrpc implements RaftClientRequestSender, Closeable {
             public void onError(Throwable t) {
               // This implementation is used as RaftClientRequestSender. Retry
               // logic on NotLeaderException/IOException is in RaftClient.
-              replyFuture.completeExceptionally(t);
+              final IOException e;
+              if (t instanceof StatusRuntimeException) {
+                e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
+              } else {
+                e = RaftGrpcUtil.asIOException(t);
+              }
+              replyFuture.completeExceptionally(e);
             }
 
             @Override
@@ -104,8 +112,7 @@ public class RaftClientWithGrpc implements RaftClientRequestSender, Closeable {
             "Interrupted while waiting for response of request " + request);
       } catch (ExecutionException e) {
         if (e.getCause() != null) {
-          throw e.getCause() instanceof IOException ?
-              (IOException) e.getCause() : new IOException(e.getCause());
+          throw RaftGrpcUtil.asIOException(e.getCause());
         } else {
           throw new IOException(e);
         }

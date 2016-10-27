@@ -114,6 +114,12 @@ class RaftLogWorker implements Runnable {
     pendingFlushNum = 0;
   }
 
+  @Override
+  public String toString() {
+    return this.getClass().getSimpleName() + "-"
+        + (raftServer != null ? raftServer.getId() : "");
+  }
+
   /**
    * This is protected by the RaftServer and RaftLog's lock.
    */
@@ -292,7 +298,8 @@ class RaftLogWorker implements Runnable {
     @Override
     void execute() throws IOException {
       File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
-      Preconditions.checkState(!openFile.exists());
+      Preconditions.checkState(!openFile.exists(), "open file %s exists for %s",
+          openFile.getAbsolutePath(), RaftLogWorker.this.toString());
       Preconditions.checkState(out == null && pendingFlushNum == 0);
       out = new LogOutputStream(openFile, false, segmentMaxSize);
     }

@@ -34,7 +34,6 @@ import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
-import org.apache.raft.util.CodeInjectionForTesting;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;

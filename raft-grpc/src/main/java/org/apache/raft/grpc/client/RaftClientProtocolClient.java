@@ -54,9 +54,7 @@ public class RaftClientProtocolClient {
       return blockingStub.setConfiguration(request);
     } catch (StatusRuntimeException e) {
       // unwrap StatusRuntimeException
-      Exception exception = RaftGrpcUtil.unwrapException(e);
-      throw exception instanceof IOException ?
-          ((IOException) exception) : new IOException(exception);
+      throw RaftGrpcUtil.unwrapException(e);
     }
   }
 

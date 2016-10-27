@@ -15,19 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadooprpc;
+package org.apache.raft;
 
-import static org.junit.Assert.fail;
-
-import java.io.IOException;
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
-
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
-import org.apache.raft.MiniRaftCluster;
-import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos;
@@ -40,13 +31,17 @@ import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.statemachine.SimpleStateMachine;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
-@RunWith(Parameterized.class)
-public class TestRaftStateMachineException {
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+
+import static org.junit.Assert.fail;
+
+public abstract class RaftStateMachineExceptionBaseTest {
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
@@ -54,7 +49,7 @@ public class TestRaftStateMachineException {
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  private static class StateMachineWithException extends SimpleStateMachine {
+  protected static class StateMachineWithException extends SimpleStateMachine {
     @Override
     public CompletableFuture<Message> applyTransaction(TrxContext trx) {
       RaftProtos.LogEntryProto entry = trx.getLogEntry().get();
@@ -64,24 +59,32 @@ public class TestRaftStateMachineException {
     }
   }
 
-  @Parameterized.Parameters
-  public static Collection<Object[]> data() throws IOException {
-    final Configuration conf = new Configuration();
-    conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
+  public static final int NUM_PEERS = 3;
 
-    RaftProperties prop = new RaftProperties();
+  private MiniRaftCluster cluster;
+  protected RaftProperties prop;
+
+  public abstract MiniRaftCluster initCluster() throws IOException;
+
+  @Before
+  public void setup() throws IOException {
+    prop = new RaftProperties();
     prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
         StateMachineWithException.class, StateMachine.class);
 
-    return RaftHadoopRpcTestUtil.getMiniRaftClusters(3, conf, prop);
+    this.cluster = initCluster();
+    cluster.start();
   }
 
-  @Parameterized.Parameter
-  public MiniRaftCluster cluster;
+  @After
+  public void tearDown() {
+    if (cluster != null) {
+      cluster.shutdown();
+    }
+  }
 
   @Test
   public void testHandleStateMachineException() throws Exception {
-    cluster.start();
     RaftTestUtil.waitForLeader(cluster);
 
     final String leaderId = cluster.getLeader().getId();

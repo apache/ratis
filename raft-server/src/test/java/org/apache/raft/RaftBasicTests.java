@@ -73,6 +73,7 @@ public abstract class RaftBasicTests {
 
   @Test
   public void testBasicLeaderElection() throws Exception {
+    LOG.info("Running testBasicLeaderElection");
     final MiniRaftCluster cluster = getCluster();
     waitAndKillLeader(cluster, true);
     waitAndKillLeader(cluster, true);
@@ -82,6 +83,7 @@ public abstract class RaftBasicTests {
 
   @Test
   public void testBasicAppendEntries() throws Exception {
+    LOG.info("Running testBasicAppendEntries");
     final MiniRaftCluster cluster = getCluster();
     RaftServer leader = waitForLeader(cluster);
     final long term = leader.getState().getCurrentTerm();
@@ -105,6 +107,7 @@ public abstract class RaftBasicTests {
 
   @Test
   public void testEnforceLeader() throws Exception {
+    LOG.info("Running testEnforceLeader");
     final String leader = "s" + ThreadLocalRandom.current().nextInt(NUM_SERVERS);
     LOG.info("enforce leader to " + leader);
     final MiniRaftCluster cluster = getCluster();
@@ -142,6 +145,7 @@ public abstract class RaftBasicTests {
 
   @Test
   public void testWithLoad() throws Exception {
+    LOG.info("Running testWithLoad");
     final int NUM_CLIENTS = 10;
     final int NUM_MESSAGES = 500;
 

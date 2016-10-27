@@ -21,6 +21,7 @@ import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Constructor;
@@ -45,7 +46,7 @@ public class RaftGrpcUtil {
         trailers);
   }
 
-  public static Exception unwrapException(StatusRuntimeException se) {
+  public static IOException unwrapException(StatusRuntimeException se) {
     final Metadata trailers = se.getTrailers();
     final Status status = se.getStatus();
     if (trailers != null && status != null) {
@@ -53,14 +54,19 @@ public class RaftGrpcUtil {
       if (className != null) {
         try {
           Class<?> clazz = Class.forName(className);
-          return instantiateException(clazz.asSubclass(Exception.class),
-              status.getDescription(), se);
+          final Exception unwrapped = instantiateException(
+              clazz.asSubclass(Exception.class), status.getDescription(), se);
+          return asIOException(unwrapped);
         } catch (Exception e) {
-          return se;
+          return new IOException(se);
         }
       }
     }
-    return se;
+    return new IOException(se);
+  }
+
+  public static IOException asIOException(Throwable t) {
+    return t instanceof IOException ? (IOException) t : new IOException(t);
   }
 
   private static Exception instantiateException(Class<? extends Exception> cls,
