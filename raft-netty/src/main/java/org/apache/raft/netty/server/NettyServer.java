@@ -49,7 +49,6 @@ import java.net.InetSocketAddress;
 public final class NettyServer implements RaftServerRpc {
   private final int port;
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
-  private final RaftServer server;
   private final RaftServerRpcService raftService;
 
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
@@ -75,7 +74,6 @@ public final class NettyServer implements RaftServerRpc {
   /** Constructs a netty server with the given port. */
   public NettyServer(int port, RaftServer server) {
     this.port = port;
-    this.server = server;
     this.raftService = new RaftServerRpcService(new RequestDispatcher(server));
   }
 
