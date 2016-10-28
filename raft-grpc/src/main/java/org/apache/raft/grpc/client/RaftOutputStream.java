@@ -19,12 +19,12 @@ package org.apache.raft.grpc.client;
 
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.util.ProtoUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
 
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_SIZE_DEFAULT;
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY;
@@ -85,10 +85,11 @@ public class RaftOutputStream extends OutputStream {
   private void flushToStreamer() throws IOException {
     if (count > 0) {
       // wrap the current buffer into a RaftClientRequestProto
-      // TODO avoid copy
-      RaftClientRequest request = new RaftClientRequest(sourceId,
-          target.getId(), seqNum++, () -> Arrays.copyOf(buf, count));
-      streamer.write(ClientProtoUtils.toRaftClientRequestProto(request));
+      // TODO avoid the byte array copy after upgrading to protobuf 3.1
+      RaftClientRequestProto request = ClientProtoUtils
+          .genRaftClientRequestProto(sourceId, target.getId(), seqNum++,
+              ProtoUtils.toByteString(buf, 0, count), false);
+      streamer.write(request);
       count = 0;
     }
   }

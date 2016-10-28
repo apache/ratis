@@ -17,6 +17,7 @@
  */
 package org.apache.raft.client;
 
+import com.google.protobuf.ByteString;
 import org.apache.raft.proto.RaftProtos.ClientMessageEntryProto;
 import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
@@ -67,6 +68,16 @@ public class ClientProtoUtils {
             request.getReplierId(), request.getSeqNum()))
         .setMessage(toClientMessageEntryProto(request.getMessage()))
         .setReadOnly(request.isReadOnly())
+        .build();
+  }
+
+  public static RaftClientRequestProto genRaftClientRequestProto(
+      String requestorId, String replierId, long seqNum, ByteString content,
+      boolean readOnly) {
+    return RaftClientRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(requestorId, replierId, seqNum))
+        .setMessage(ClientMessageEntryProto.newBuilder().setContent(content))
+        .setReadOnly(readOnly)
         .build();
   }
 

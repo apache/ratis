@@ -59,7 +59,7 @@ public abstract class MiniRaftCluster {
 
   public static RaftConfiguration initConfiguration(String[] ids) {
     return new RaftConfiguration(Arrays.stream(ids)
-        .map(id -> new RaftPeer(id))
+        .map(RaftPeer::new)
         .collect(Collectors.toList()));
   }
 
@@ -69,7 +69,9 @@ public abstract class MiniRaftCluster {
 
   private static void formatDir(String dirStr) {
     final File serverDir = new File(dirStr);
-    FileUtil.fullyDelete(serverDir);
+    Preconditions.checkState(FileUtil.fullyDelete(serverDir),
+        "Failed to format directory %s", dirStr);
+    LOG.info("Formatted directory {}", dirStr);
   }
 
   public static String[] generateIds(int numServers, int base) {

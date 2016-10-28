@@ -29,8 +29,13 @@ import java.util.List;
 
 public class ProtoUtils {
   public static ByteString toByteString(byte[] bytes) {
+    return toByteString(bytes, 0, bytes.length);
+  }
+
+  public static ByteString toByteString(byte[] bytes, int offset, int size) {
     // return singleton to reduce object allocation
-    return bytes.length == 0? ByteString.EMPTY : ByteString.copyFrom(bytes);
+    return bytes.length == 0 ?
+        ByteString.EMPTY : ByteString.copyFrom(bytes, offset, size);
   }
 
   public static RaftPeerProto toRaftPeerProto(RaftPeer peer) {
