@@ -160,8 +160,7 @@ public class RaftConfiguration {
 
   @Override
   public String toString() {
-    return "{" + conf.toString() + ", old:"
-        + (oldConf != null ? oldConf : "[]") + "}";
+    return conf + (oldConf != null ? "old:" + oldConf : "");
   }
 
   @VisibleForTesting

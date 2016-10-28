@@ -27,31 +27,35 @@ import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 import static org.apache.raft.server.LeaderElection.Result.PASSED;
 
 class LeaderElection extends Daemon {
-  static final Logger LOG = RaftServer.LOG;
+  public static final Logger LOG = LoggerFactory.getLogger(LeaderElection.class);
 
-  private ResultAndTerm logAndReturn(Result r,
+  private ResultAndTerm logAndReturn(Result result,
       List<RequestVoteReplyProto> responses,
       List<Exception> exceptions, long newTerm) {
-    LOG.info(server.getId() + ": Election " + r + "; received "
-        + responses.size() + " response(s) " + responses + " and "
-        + exceptions.size() + " exception(s); " + server.getState());
+    LOG.info(server.getId() + ": Election " + result + "; received "
+        + responses.size() + " response(s) "
+        + responses.stream().map(r -> ProtoUtils.toString(r)).collect(Collectors.toList())
+        + " and " + exceptions.size() + " exception(s); " + server.getState());
     int i = 0;
     for(Exception e : exceptions) {
       LOG.info("  " + i++ + ": " + e);
     }
-    return new ResultAndTerm(r, newTerm);
+    return new ResultAndTerm(result, newTerm);
   }
 
   enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN}

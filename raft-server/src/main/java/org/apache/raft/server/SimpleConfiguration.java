@@ -45,7 +45,7 @@ class SimpleConfiguration {
 
   @Override
   public String toString() {
-    return "conf:" + peers.values();
+    return peers.values().toString();
   }
 
   RaftPeer getPeer(String id) {

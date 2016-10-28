@@ -19,9 +19,7 @@ package org.apache.raft.util;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ServiceException;
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.proto.RaftProtos.RaftPeerProto;
+import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftPeer;
 
 import java.io.IOException;
@@ -78,7 +76,7 @@ public class ProtoUtils {
   }
 
   public static LogEntryProto toLogEntryProto(
-      RaftProtos.SMLogEntryProto operation, long term, long index) {
+      SMLogEntryProto operation, long term, long index) {
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
         .setType(LogEntryProto.Type.CLIENT_MESSAGE)
         .setSmLogEntry(operation)
@@ -93,4 +91,12 @@ public class ProtoUtils {
     return t instanceof IOException? (IOException)t : new IOException(se);
   }
 
+  public static String toString(RaftRpcReplyProto proto) {
+    return proto.getRequestorId() + "<-" + proto.getReplyId()
+        + "#" + proto.getSeqNum() + ":"
+        + (proto.getSuccess()? "OK": "FAIL");
+  }
+  public static String toString(RequestVoteReplyProto proto) {
+    return toString(proto.getServerReply()) + "-t" + proto.getTerm();
+  }
 }

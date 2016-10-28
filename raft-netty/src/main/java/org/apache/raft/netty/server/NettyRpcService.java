@@ -28,8 +28,8 @@ import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import org.apache.raft.netty.proto.NettyProtos.RaftServerReplyProto;
-import org.apache.raft.netty.proto.NettyProtos.RaftServerRequestProto;
+import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerReplyProto;
+import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
@@ -70,11 +70,11 @@ public final class NettyRpcService implements RaftServerRpc {
   };
 
   @ChannelHandler.Sharable
-  class InboundHandler extends SimpleChannelInboundHandler<RaftServerRequestProto> {
+  class InboundHandler extends SimpleChannelInboundHandler<RaftNettyServerRequestProto> {
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, RaftServerRequestProto proto)
+    protected void channelRead0(ChannelHandlerContext ctx, RaftNettyServerRequestProto proto)
         throws IOException {
-      final RaftServerReplyProto reply = handleRaftServerRequestProto(proto);
+      final RaftNettyServerReplyProto reply = handle(proto);
       ctx.writeAndFlush(reply);
     }
   }
@@ -90,7 +90,7 @@ public final class NettyRpcService implements RaftServerRpc {
         final ChannelPipeline p = ch.pipeline();
 
         p.addLast(new ProtobufVarint32FrameDecoder());
-        p.addLast(new ProtobufDecoder(RaftServerRequestProto.getDefaultInstance()));
+        p.addLast(new ProtobufDecoder(RaftNettyServerRequestProto.getDefaultInstance()));
         p.addLast(new ProtobufVarint32LengthFieldPrepender());
         p.addLast(new ProtobufEncoder());
 
@@ -139,71 +139,71 @@ public final class NettyRpcService implements RaftServerRpc {
     return (InetSocketAddress) channelFuture.channel().localAddress();
   }
 
-  RaftServerReplyProto handleRaftServerRequestProto(RaftServerRequestProto proto)
+  RaftNettyServerReplyProto handle(RaftNettyServerRequestProto proto)
       throws IOException {
-    switch (proto.getRaftServerRequestCase()) {
+    switch (proto.getRaftNettyServerRequestCase()) {
       case REQUESTVOTEREQUEST: {
         final RequestVoteReplyProto reply = raftService.requestVote(
             proto.getRequestVoteRequest());
-        return RaftServerReplyProto.newBuilder()
+        return RaftNettyServerReplyProto.newBuilder()
             .setRequestVoteReply(reply)
             .build();
       }
       case APPENDENTRIESREQUEST: {
         final AppendEntriesReplyProto reply = raftService.appendEntries(
             proto.getAppendEntriesRequest());
-        return RaftServerReplyProto.newBuilder()
+        return RaftNettyServerReplyProto.newBuilder()
             .setAppendEntriesReply(reply)
             .build();
       }
       case INSTALLSNAPSHOTREQUEST: {
         final InstallSnapshotReplyProto reply = raftService.installSnapshot(
             proto.getInstallSnapshotRequest());
-        return RaftServerReplyProto.newBuilder()
+        return RaftNettyServerReplyProto.newBuilder()
             .setInstallSnapshotReply(reply)
             .build();
       }
-      case RAFTSERVERREQUEST_NOT_SET:
+      case RAFTNETTYSERVERREQUEST_NOT_SET:
         throw new IllegalArgumentException("Request case not set in proto: "
-            + proto.getRaftServerRequestCase());
+            + proto.getRaftNettyServerRequestCase());
       default:
         throw new UnsupportedOperationException("Request case not supported: "
-            + proto.getRaftServerRequestCase());
+            + proto.getRaftNettyServerRequestCase());
     }
   }
 
   @Override
   public RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request) throws IOException {
-    final RaftServerRequestProto proto = RaftServerRequestProto.newBuilder()
+    final RaftNettyServerRequestProto proto = RaftNettyServerRequestProto.newBuilder()
         .setRequestVoteRequest(request)
         .build();
     final RaftRpcRequestProto serverRequest = request.getServerRequest();
-    return sendRaftServerRequestProto(serverRequest, proto).getRequestVoteReply();
+    return sendRaftNettyServerRequestProto(serverRequest, proto).getRequestVoteReply();
   }
 
   @Override
   public AppendEntriesReplyProto sendAppendEntries(AppendEntriesRequestProto request) throws IOException {
-    final RaftServerRequestProto proto = RaftServerRequestProto.newBuilder()
+    final RaftNettyServerRequestProto proto = RaftNettyServerRequestProto.newBuilder()
         .setAppendEntriesRequest(request)
         .build();
     final RaftRpcRequestProto serverRequest = request.getServerRequest();
-    return sendRaftServerRequestProto(serverRequest, proto).getAppendEntriesReply();
+    return sendRaftNettyServerRequestProto(serverRequest, proto).getAppendEntriesReply();
   }
 
   @Override
   public InstallSnapshotReplyProto sendInstallSnapshot(InstallSnapshotRequestProto request) throws IOException {
-    final RaftServerRequestProto proto = RaftServerRequestProto.newBuilder()
+    final RaftNettyServerRequestProto proto = RaftNettyServerRequestProto.newBuilder()
         .setInstallSnapshotRequest(request)
         .build();
     final RaftRpcRequestProto serverRequest = request.getServerRequest();
-    return sendRaftServerRequestProto(serverRequest, proto).getInstallSnapshotReply();
+    return sendRaftNettyServerRequestProto(serverRequest, proto).getInstallSnapshotReply();
   }
 
-  private RaftServerReplyProto sendRaftServerRequestProto(
-      RaftRpcRequestProto request, RaftServerRequestProto proto)
+  private RaftNettyServerReplyProto sendRaftNettyServerRequestProto(
+      RaftRpcRequestProto request, RaftNettyServerRequestProto proto)
       throws IOException {
     final RaftServerProtocolProxy p = proxies.getProxy(request.getReplyId());
-    return p.sendRaftServerRequestProto(request, proto);
+    return p.sendRaftNettyServerRequestProto(request, proto);
   }
 
   @Override

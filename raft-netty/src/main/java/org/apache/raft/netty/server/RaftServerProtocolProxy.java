@@ -36,26 +36,26 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
 public class RaftServerProtocolProxy implements Closeable {
-  static long getSeqNum(RaftServerReplyProto proto) {
-    switch (proto.getRaftServerReplyCase()) {
+  static long getSeqNum(RaftNettyServerReplyProto proto) {
+    switch (proto.getRaftNettyServerReplyCase()) {
       case REQUESTVOTEREPLY:
         return proto.getRequestVoteReply().getServerReply().getSeqNum();
       case APPENDENTRIESREPLY:
         return proto.getAppendEntriesReply().getServerReply().getSeqNum();
       case INSTALLSNAPSHOTREPLY:
         return proto.getInstallSnapshotReply().getServerReply().getSeqNum();
-      case RAFTSERVERREPLY_NOT_SET:
+      case RAFTNETTYSERVERREPLY_NOT_SET:
         throw new IllegalArgumentException("Reply case not set in proto: "
-            + proto.getRaftServerReplyCase());
+            + proto.getRaftNettyServerReplyCase());
       default:
         throw new UnsupportedOperationException("Reply case not supported: "
-            + proto.getRaftServerReplyCase());
+            + proto.getRaftNettyServerReplyCase());
     }
   }
 
   private final RaftPeer peer;
 
-  private final ConcurrentHashMap<Long, CompletableFuture<RaftServerReplyProto>> replyMap
+  private final ConcurrentHashMap<Long, CompletableFuture<RaftNettyServerReplyProto>> replyMap
       = new ConcurrentHashMap<>();
 
   private final NettyClient client;
@@ -64,10 +64,10 @@ public class RaftServerProtocolProxy implements Closeable {
     this.peer = peer;
 
     final ChannelInboundHandler inboundHandler
-        = new SimpleChannelInboundHandler<RaftServerReplyProto>() {
+        = new SimpleChannelInboundHandler<RaftNettyServerReplyProto>() {
       @Override
       protected void channelRead0(ChannelHandlerContext ctx,
-                                  RaftServerReplyProto proto) {
+                                  RaftNettyServerReplyProto proto) {
         final long seq = getSeqNum(proto);
         replyMap.remove(seq).complete(proto);
       }
@@ -79,7 +79,7 @@ public class RaftServerProtocolProxy implements Closeable {
         final ChannelPipeline p = ch.pipeline();
 
         p.addLast(new ProtobufVarint32FrameDecoder());
-        p.addLast(new ProtobufDecoder(RaftServerReplyProto.getDefaultInstance()));
+        p.addLast(new ProtobufDecoder(RaftNettyServerReplyProto.getDefaultInstance()));
         p.addLast(new ProtobufVarint32LengthFieldPrepender());
         p.addLast(new ProtobufEncoder());
 
@@ -98,10 +98,10 @@ public class RaftServerProtocolProxy implements Closeable {
     client.close();
   }
 
-  RaftServerReplyProto sendRaftServerRequestProto(
-      RaftRpcRequestProto request, RaftServerRequestProto proto)
+  RaftNettyServerReplyProto sendRaftNettyServerRequestProto(
+      RaftRpcRequestProto request, RaftNettyServerRequestProto proto)
       throws IOException {
-    final CompletableFuture<RaftServerReplyProto> replyFuture = new CompletableFuture<>();
+    final CompletableFuture<RaftNettyServerReplyProto> replyFuture = new CompletableFuture<>();
     replyMap.put(request.getSeqNum(), replyFuture);
     final ChannelFuture channelFuture = client.writeAndFlush(proto);
 
