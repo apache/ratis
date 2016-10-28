@@ -24,6 +24,7 @@ import org.apache.raft.protocol.RaftPeer;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_SIZE_DEFAULT;
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY;
@@ -60,7 +61,7 @@ public class RaftOutputStream extends OutputStream {
 
   private void flushIfNecessary() throws IOException {
     if(count == buf.length) {
-      flush();
+      flushToStreamer();
     }
   }
 
@@ -81,23 +82,29 @@ public class RaftOutputStream extends OutputStream {
     }
   }
 
-  @Override
-  public void flush() throws IOException {
-    checkClosed();
+  private void flushToStreamer() throws IOException {
     if (count > 0) {
       // wrap the current buffer into a RaftClientRequestProto
+      // TODO avoid copy
       RaftClientRequest request = new RaftClientRequest(sourceId,
-          target.getId(), seqNum++, () -> buf);
+          target.getId(), seqNum++, () -> Arrays.copyOf(buf, count));
       streamer.write(ClientProtoUtils.toRaftClientRequestProto(request));
       count = 0;
     }
   }
 
   @Override
+  public void flush() throws IOException {
+    checkClosed();
+    flushToStreamer();
+    streamer.flush();
+  }
+
+  @Override
   public void close() throws IOException {
-    flush();
+    flushToStreamer();
+    streamer.close(); // streamer will flush
     this.closed = true;
-    streamer.close();
   }
 
   @Override
