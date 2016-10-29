@@ -40,6 +40,7 @@ import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.CodeInjectionForTesting;
+import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -507,8 +508,10 @@ public class RaftServer implements RaftServerProtocol {
       }
       reply = ServerProtoUtils.toRequestVoteReplyProto(candidateId, getId(),
           voteGranted, state.getCurrentTerm(), shouldShutdown);
-      LOG.debug("{} replies to vote request: {}. Peer's state: {}",
-          getId(), reply, state);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("{} replies to vote request: {}. Peer's state: {}",
+            getId(), ProtoUtils.toString(reply), state);
+      }
     }
     return reply;
   }

@@ -15,7 +15,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.apache.raft.netty.server;
+package org.apache.raft.netty;
 
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
@@ -23,9 +23,8 @@ import io.netty.handler.codec.protobuf.ProtobufDecoder;
 import io.netty.handler.codec.protobuf.ProtobufEncoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
-import org.apache.raft.netty.NettyClient;
 import org.apache.raft.netty.proto.NettyProtos.*;
-import org.apache.raft.proto.RaftProtos.*;
+import org.apache.raft.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.util.RaftUtils;
 
@@ -35,8 +34,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
-public class RaftServerProtocolProxy implements Closeable {
-  static long getSeqNum(RaftNettyServerReplyProto proto) {
+public class NettyRpcProxy implements Closeable {
+  public static long getSeqNum(RaftNettyServerReplyProto proto) {
     switch (proto.getRaftNettyServerReplyCase()) {
       case REQUESTVOTEREPLY:
         return proto.getRequestVoteReply().getServerReply().getSeqNum();
@@ -44,6 +43,8 @@ public class RaftServerProtocolProxy implements Closeable {
         return proto.getAppendEntriesReply().getServerReply().getSeqNum();
       case INSTALLSNAPSHOTREPLY:
         return proto.getInstallSnapshotReply().getServerReply().getSeqNum();
+      case RAFTCLIENTREPLY:
+        return proto.getRaftClientReply().getRpcReply().getSeqNum();
       case RAFTNETTYSERVERREPLY_NOT_SET:
         throw new IllegalArgumentException("Reply case not set in proto: "
             + proto.getRaftNettyServerReplyCase());
@@ -60,7 +61,7 @@ public class RaftServerProtocolProxy implements Closeable {
 
   private final NettyClient client;
 
-  RaftServerProtocolProxy(RaftPeer peer) {
+  public NettyRpcProxy(RaftPeer peer) {
     this.peer = peer;
 
     final ChannelInboundHandler inboundHandler
@@ -69,7 +70,12 @@ public class RaftServerProtocolProxy implements Closeable {
       protected void channelRead0(ChannelHandlerContext ctx,
                                   RaftNettyServerReplyProto proto) {
         final long seq = getSeqNum(proto);
-        replyMap.remove(seq).complete(proto);
+        final CompletableFuture<RaftNettyServerReplyProto> future
+            = replyMap.remove(seq);
+        if (future == null) {
+          throw new IllegalStateException("Request #" + seq + " not found");
+        }
+        future.complete(proto);
       }
     };
     final ChannelInitializer<SocketChannel> initializer
@@ -98,7 +104,7 @@ public class RaftServerProtocolProxy implements Closeable {
     client.close();
   }
 
-  RaftNettyServerReplyProto sendRaftNettyServerRequestProto(
+  public RaftNettyServerReplyProto send(
       RaftRpcRequestProto request, RaftNettyServerRequestProto proto)
       throws IOException {
     final CompletableFuture<RaftNettyServerReplyProto> replyFuture = new CompletableFuture<>();

@@ -17,12 +17,20 @@
  */
 package org.apache.raft.netty;
 
+import org.apache.hadoop.test.GenericTestUtils;
+import org.apache.log4j.Level;
 import org.apache.raft.RaftBasicTests;
+import org.apache.raft.client.RaftClient;
+import org.apache.raft.server.RaftServer;
 import org.junit.Test;
 
 import java.io.IOException;
 
 public class TestRaftWithNetty extends RaftBasicTests {
+  static {
+    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+  }
 
   private final MiniRaftClusterWithNetty cluster;
 
@@ -36,11 +44,6 @@ public class TestRaftWithNetty extends RaftBasicTests {
   }
 
   //TODO: implement the following tests
-
-  @Override
-  @Test
-  public void testBasicAppendEntries() throws Exception {
-  }
 
   @Override
   @Test

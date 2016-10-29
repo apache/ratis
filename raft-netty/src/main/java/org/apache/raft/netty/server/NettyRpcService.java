@@ -28,10 +28,15 @@ import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import org.apache.raft.client.ClientProtoUtils;
+import org.apache.raft.netty.NettyRpcProxy;
 import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.raft.proto.RaftProtos.*;
+import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.RaftServerRpcService;
@@ -54,12 +59,12 @@ public final class NettyRpcService implements RaftServerRpc {
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final ChannelFuture channelFuture;
 
-  private final PeerProxyMap<RaftServerProtocolProxy> proxies
-      = new PeerProxyMap<RaftServerProtocolProxy>() {
+  private final PeerProxyMap<NettyRpcProxy> proxies
+      = new PeerProxyMap<NettyRpcProxy>() {
     @Override
-    public RaftServerProtocolProxy createProxy(RaftPeer peer)
+    public NettyRpcProxy createProxy(RaftPeer peer)
         throws IOException {
-      final RaftServerProtocolProxy proxy = new RaftServerProtocolProxy(peer);
+      final NettyRpcProxy proxy = new NettyRpcProxy(peer);
       try {
         proxy.connect();
       } catch (InterruptedException e) {
@@ -163,6 +168,22 @@ public final class NettyRpcService implements RaftServerRpc {
             .setInstallSnapshotReply(reply)
             .build();
       }
+      case RAFTCLIENTREQUEST: {
+        final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
+            proto.getRaftClientRequest());
+        final RaftClientReply reply = raftService.submitClientRequest(request);
+        return RaftNettyServerReplyProto.newBuilder()
+            .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
+            .build();
+      }
+      case SETCONFIGURATIONREQUEST: {
+        final SetConfigurationRequest request = ClientProtoUtils.toSetConfigurationRequest(
+            proto.getSetConfigurationRequest());
+        final RaftClientReply reply = raftService.setConfiguration(request);
+        return RaftNettyServerReplyProto.newBuilder()
+            .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
+            .build();
+      }
       case RAFTNETTYSERVERREQUEST_NOT_SET:
         throw new IllegalArgumentException("Request case not set in proto: "
             + proto.getRaftNettyServerRequestCase());
@@ -202,8 +223,8 @@ public final class NettyRpcService implements RaftServerRpc {
   private RaftNettyServerReplyProto sendRaftNettyServerRequestProto(
       RaftRpcRequestProto request, RaftNettyServerRequestProto proto)
       throws IOException {
-    final RaftServerProtocolProxy p = proxies.getProxy(request.getReplyId());
-    return p.sendRaftNettyServerRequestProto(request, proto);
+    final NettyRpcProxy p = proxies.getProxy(request.getReplyId());
+    return p.send(request, proto);
   }
 
   @Override

@@ -96,6 +96,11 @@ public class ProtoUtils {
     return t instanceof IOException? (IOException)t : new IOException(se);
   }
 
+  public static String toString(RaftRpcRequestProto proto) {
+    return proto.getRequestorId() + "->" + proto.getReplyId()
+        + "#" + proto.getSeqNum();
+  }
+
   public static String toString(RaftRpcReplyProto proto) {
     return proto.getRequestorId() + "<-" + proto.getReplyId()
         + "#" + proto.getSeqNum() + ":"

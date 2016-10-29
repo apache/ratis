@@ -28,6 +28,8 @@ message RaftNettyServerRequestProto {
     raft.common.RequestVoteRequestProto requestVoteRequest = 1;
     raft.common.AppendEntriesRequestProto appendEntriesRequest = 2;
     raft.common.InstallSnapshotRequestProto installSnapshotRequest = 3;
+    raft.common.RaftClientRequestProto raftClientRequest = 4;
+    raft.common.SetConfigurationRequestProto setConfigurationRequest = 5;
   }
 }
 
@@ -36,5 +38,6 @@ message RaftNettyServerReplyProto {
     raft.common.RequestVoteReplyProto requestVoteReply = 1;
     raft.common.AppendEntriesReplyProto appendEntriesReply = 2;
     raft.common.InstallSnapshotReplyProto installSnapshotReply = 3;
+    raft.common.RaftClientReplyProto raftClientReply = 4;
   }
 }

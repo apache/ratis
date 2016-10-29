@@ -37,11 +37,6 @@ import java.util.Arrays;
 import static org.apache.raft.util.ProtoUtils.toByteString;
 
 public class ClientProtoUtils {
-  public static String toString(RaftRpcRequestProto proto) {
-    return proto.getRequestorId() + " -> " + proto.getReplyId()
-        + ": Req #" + proto.getSeqNum();
-  }
-
   public static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
       String requestorId, String replyId, long seqNum, boolean success) {
     return RaftRpcReplyProto.newBuilder()

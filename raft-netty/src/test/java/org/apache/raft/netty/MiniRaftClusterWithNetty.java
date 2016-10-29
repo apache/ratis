@@ -20,6 +20,7 @@ package org.apache.raft.netty;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.netty.client.NettyClientRequestSender;
 import org.apache.raft.netty.server.NettyRpcService;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
@@ -76,7 +77,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster {
 
   @Override
   public RaftClientRequestSender getRaftClientRequestSender() {
-    return null;
+    return new NettyClientRequestSender(getPeers());
   }
 
   @Override
