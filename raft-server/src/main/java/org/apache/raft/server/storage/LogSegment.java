@@ -20,7 +20,7 @@ package org.apache.raft.server.storage;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.CodedOutputStream;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.proto.RaftProtos.LogEntryProto.Type;
+import org.apache.raft.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.util.RaftUtils;
@@ -107,7 +107,8 @@ class LogSegment implements Comparable<Long> {
               "gap between entry %s and entry %s", prev, next);
         }
         segment.append(next);
-        if (confManager != null && next.getType() == Type.CONFIGURATION) {
+        if (confManager != null &&
+            next.getLogEntryBodyCase() == LogEntryBodyCase.CONFIGURATIONENTRY) {
           confManager.addConfiguration(next.getIndex(),
               ServerProtoUtils.toRaftConfiguration(next.getIndex(),
                   next.getConfigurationEntry()));

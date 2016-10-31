@@ -100,7 +100,6 @@ public class ServerProtoUtils {
     return LogEntryProto.newBuilder()
         .setTerm(term)
         .setIndex(index)
-        .setType(LogEntryProto.Type.CONFIGURATION)
         .setConfigurationEntry(toRaftConfigurationProto(conf))
         .build();
   }

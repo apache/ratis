@@ -77,13 +77,13 @@ public class ProtoUtils {
   }
 
   public static boolean isConfigurationLogEntry(LogEntryProto entry) {
-    return entry.getType() == LogEntryProto.Type.CONFIGURATION;
+    return entry.getLogEntryBodyCase() ==
+        LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
   }
 
   public static LogEntryProto toLogEntryProto(
       SMLogEntryProto operation, long term, long index) {
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
-        .setType(LogEntryProto.Type.CLIENT_MESSAGE)
         .setSmLogEntry(operation)
         .build();
   }

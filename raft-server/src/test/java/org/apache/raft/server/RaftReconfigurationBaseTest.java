@@ -26,6 +26,7 @@ import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.ReconfigurationInProgressException;
@@ -542,7 +543,8 @@ public abstract class RaftReconfigurationBaseTest {
         Thread.sleep(500);
       }
       Assert.assertEquals(1, log.getLatestFlushedIndex());
-      Assert.assertTrue(log.getLastEntry().hasConfigurationEntry());
+      Assert.assertEquals(LogEntryBodyCase.CONFIGURATIONENTRY,
+          log.getLastEntry().getLogEntryBodyCase());
 
       // unblock the old leader
       BlockRequestHandlingInjection.getInstance().unblockReplier(leaderId);
@@ -559,7 +561,8 @@ public abstract class RaftReconfigurationBaseTest {
       for (int i = 0; i < 10 && !newState; i++) {
         Thread.sleep(500);
         newState = log.getLastCommittedIndex() == 1 &&
-            !log.getLastEntry().hasConfigurationEntry();
+            log.getLastEntry().getLogEntryBodyCase() !=
+                LogEntryBodyCase.CONFIGURATIONENTRY;
       }
       Assert.assertTrue(newState);
     } finally {

@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
@@ -147,13 +148,13 @@ class StateMachineUpdater implements Runnable {
         while (lastAppliedIndex < committedIndex) {
           final LogEntryProto next = raftLog.get(lastAppliedIndex + 1);
           if (next != null) {
-            if (next.getType() == LogEntryProto.Type.CONFIGURATION) {
+            if (next.getLogEntryBodyCase() == LogEntryBodyCase.CONFIGURATIONENTRY) {
               // the reply should have already been set. only need to record
               // the new conf in the state machine.
               stateMachine.setRaftConfiguration(
                   ServerProtoUtils.toRaftConfiguration(next.getIndex(),
                       next.getConfigurationEntry()));
-            } else if (next.getType() == LogEntryProto.Type.CLIENT_MESSAGE) {
+            } else if (next.getLogEntryBodyCase() == LogEntryBodyCase.SMLOGENTRY) {
               // check whether there is a TransactionContext because we are the leader.
               TrxContext trx = server.getTransactionContext(next.getIndex());
               if (trx == null) {

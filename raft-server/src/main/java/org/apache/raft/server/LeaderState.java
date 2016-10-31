@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.storage.RaftLog;
@@ -133,7 +134,7 @@ public class LeaderState {
     final LogEntryProto placeHolder = LogEntryProto.newBuilder()
         .setTerm(server.getState().getCurrentTerm())
         .setIndex(raftLog.getNextIndex())
-        .setType(LogEntryProto.Type.PLACEHOLDER).build();
+        .setNoOp(RaftProtos.LeaderNoOp.newBuilder()).build();
     raftLog.append(placeHolder);
 
     processor.start();

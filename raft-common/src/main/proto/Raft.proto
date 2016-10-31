@@ -37,19 +37,19 @@ message SMLogEntryProto {
   bytes data = 1;
 }
 
-message LogEntryProto {
-  enum Type {
-    CLIENT_MESSAGE = 0;
-    CONFIGURATION = 1;
-    PLACEHOLDER = 2;
-  }
+message LeaderNoOp {
+  // empty
+}
 
+message LogEntryProto {
   uint64 term = 1;
   uint64 index = 2;
-  Type type = 3; // the type of the log entry
 
-  SMLogEntryProto smLogEntry = 4;
-  RaftConfigurationProto configurationEntry = 5;
+  oneof LogEntryBody {
+    SMLogEntryProto smLogEntry = 3;
+    RaftConfigurationProto configurationEntry = 4;
+    LeaderNoOp noOp = 5;
+  }
 }
 
 message TermIndexProto {
