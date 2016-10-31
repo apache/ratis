@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.examples.arithmatic.expression;
+package org.apache.raft.examples.arithmetic.expression;
 
 
 import org.junit.Assert;

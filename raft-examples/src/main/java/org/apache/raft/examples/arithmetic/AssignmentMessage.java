@@ -15,10 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.examples.arithmatic;
+package org.apache.raft.examples.arithmetic;
 
-import org.apache.raft.examples.arithmatic.expression.Expression;
-import org.apache.raft.examples.arithmatic.expression.Variable;
+import org.apache.raft.examples.arithmetic.expression.Expression;
+import org.apache.raft.examples.arithmetic.expression.Variable;
 import org.apache.raft.protocol.Message;
 
 import java.nio.charset.Charset;

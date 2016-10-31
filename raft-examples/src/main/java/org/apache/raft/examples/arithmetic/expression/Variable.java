@@ -15,10 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.examples.arithmatic.expression;
+package org.apache.raft.examples.arithmetic.expression;
 
+import org.apache.raft.examples.arithmetic.AssignmentMessage;
 import com.google.common.base.Preconditions;
-import org.apache.raft.examples.arithmatic.AssignmentMessage;
 
 import java.util.Map;
 import java.util.regex.Pattern;

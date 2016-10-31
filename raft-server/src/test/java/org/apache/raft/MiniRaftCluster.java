@@ -82,6 +82,14 @@ public abstract class MiniRaftCluster {
     return ids;
   }
 
+  public static String[][] generateIds4MultiClusters(int numServers, int numClusters) {
+    final String[][] ids = new String[numClusters][];
+    for (int i = 0; i < ids.length; i++) {
+      ids[i] = generateIds(numServers, i*numServers);
+    }
+    return ids;
+  }
+
   protected RaftConfiguration conf;
   protected final RaftProperties properties;
   private final String testBaseDir;

@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.examples.arithmatic;
+package org.apache.raft.examples.arithmetic;
 
 import java.util.Map;
 

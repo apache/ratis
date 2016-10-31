@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.examples.arithmatic;
+package org.apache.raft.examples.arithmetic;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -31,8 +31,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.raft.examples.arithmetic.expression.Expression;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.examples.arithmatic.expression.Expression;
 import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;

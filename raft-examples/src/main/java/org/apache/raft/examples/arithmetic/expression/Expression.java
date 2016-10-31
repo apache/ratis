@@ -1,7 +1,7 @@
-package org.apache.raft.examples.arithmatic.expression;
+package org.apache.raft.examples.arithmetic.expression;
 
 import com.google.common.base.Preconditions;
-import org.apache.raft.examples.arithmatic.Evaluable;
+import org.apache.raft.examples.arithmetic.Evaluable;
 import org.apache.raft.protocol.Message;
 
 public interface Expression extends Evaluable {

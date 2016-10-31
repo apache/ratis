@@ -15,28 +15,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadooprpc;
+package org.apache.raft.examples;
 
-import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.grpc.MiniRaftClusterWithGRpc;
+import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
+import org.apache.raft.hadooprpc.MiniRaftClusterWithHadoopRpc;
+import org.apache.raft.netty.MiniRaftClusterWithNetty;
+import org.apache.raft.server.LogAppenderFactory;
+import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 
-public class RaftHadoopRpcTestUtil {
-  /** used by parameterized unit test */
+public class RaftExamplesTestUtil {
   public static Collection<Object[]> getMiniRaftClusters(int clusterSize,
       Configuration hadoopConf, RaftProperties prop) throws IOException {
-    final String[][] ids = MiniRaftCluster.generateIds4MultiClusters(clusterSize, 2);
+    final String[][] ids = MiniRaftCluster.generateIds4MultiClusters(clusterSize, 4);
     final Object[][] clusters = {
         {new MiniRaftClusterWithSimulatedRpc(ids[0], prop, true)},
         {new MiniRaftClusterWithHadoopRpc(ids[1], prop, hadoopConf, true)},
+        {null},
+        {new MiniRaftClusterWithNetty(ids[3], prop, true)},
     };
-    Preconditions.checkState(ids.length == clusters.length);
+    prop.setClass(RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
+        PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
+    clusters[2][0] = new MiniRaftClusterWithGRpc(ids[2], prop, true);
     return Arrays.asList(clusters);
   }
 }

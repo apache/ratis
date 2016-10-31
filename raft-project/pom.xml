@@ -35,6 +35,7 @@
     <module>../raft-hadoop</module>
     <module>../raft-grpc</module>
     <module>../raft-netty</module>
+    <module>../raft-examples</module>
   </modules>
 
   <properties>
@@ -122,6 +123,42 @@
       </dependency>
       <dependency>
         <artifactId>raft-client</artifactId>
+        <groupId>com.hortonworks.raft</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+      </dependency>
+
+      <dependency>
+        <artifactId>raft-hadoop</artifactId>
+        <groupId>com.hortonworks.raft</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>raft-hadoop</artifactId>
+        <groupId>com.hortonworks.raft</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+      </dependency>
+
+      <dependency>
+        <artifactId>raft-grpc</artifactId>
+        <groupId>com.hortonworks.raft</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>raft-grpc</artifactId>
+        <groupId>com.hortonworks.raft</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+      </dependency>
+
+      <dependency>
+        <artifactId>raft-netty</artifactId>
+        <groupId>com.hortonworks.raft</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>raft-netty</artifactId>
         <groupId>com.hortonworks.raft</groupId>
         <version>${project.version}</version>
         <type>test-jar</type>

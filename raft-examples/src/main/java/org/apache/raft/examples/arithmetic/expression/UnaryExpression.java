@@ -15,15 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.examples.arithmatic.expression;
+package org.apache.raft.examples.arithmetic.expression;
 
 import com.google.common.base.Preconditions;
 
 import java.util.Map;
 
-public class BinaryExpression implements Expression {
+public class UnaryExpression implements Expression {
   public enum Op {
-    ADD("+"), SUBTRACT("-"), MULT("*"), DIV("/");
+    NEG("~"), SQRT("√");
 
     final String symbol;
 
@@ -48,49 +48,41 @@ public class BinaryExpression implements Expression {
     }
   }
 
-  private final Op op;
-  private final Expression left, right;
+  final Op op;
+  final Expression expression;
 
-  BinaryExpression(byte[] buf, final int offset) {
-    Preconditions.checkArgument(buf[offset] == Type.BINARY.byteValue());
+  UnaryExpression(byte[] buf, int offset) {
+    Preconditions.checkArgument(buf[offset] == Type.UNARY.byteValue());
     op = Op.valueOf(buf[offset + 1]);
-    left = Utils.bytes2Expression(buf, offset + 2);
-    right = Utils.bytes2Expression(buf, offset + 2 + left.length());
+    expression = Utils.bytes2Expression(buf, offset + 2);
   }
 
-  public BinaryExpression(Op op, Expression left, Expression right) {
+  public UnaryExpression(Op op, Expression expression) {
     this.op = op;
-    this.left = left;
-    this.right = right;
+    this.expression = expression;
   }
 
   @Override
-  public int toBytes(byte[] buf, final int offset) {
-    buf[offset] = Type.BINARY.byteValue();
+  public int toBytes(byte[] buf, int offset) {
+    buf[offset] = Type.UNARY.byteValue();
     buf[offset + 1] = op.byteValue();
-    final int l = left.toBytes(buf, offset + 2);
-    final int r = right.toBytes(buf, offset + 2 + l);
-    return 2 + l + r;
+    final int length = expression.toBytes(buf, offset + 2);
+    return 2 + length;
   }
 
   @Override
   public int length() {
-    return 2 + left.length() + right.length();
+    return 2 + expression.length();
   }
 
   @Override
   public Double evaluate(Map<String, Double> variableMap) {
-    final double l = left.evaluate(variableMap);
-    final double r = right.evaluate(variableMap);
+    final double value = expression.evaluate(variableMap);
     switch (op) {
-      case ADD:
-        return l + r;
-      case SUBTRACT:
-        return l - r;
-      case MULT:
-        return l * r;
-      case DIV:
-        return l / r;
+      case NEG:
+        return -value;
+      case SQRT:
+        return Math.sqrt(value);
       default:
         throw new AssertionError("Unexpected op value: " + op);
     }
@@ -98,6 +90,6 @@ public class BinaryExpression implements Expression {
 
   @Override
   public String toString() {
-    return "(" + left + " " + op + " " + right + ")";
+    return op + " " + expression;
   }
 }

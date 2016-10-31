@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.examples.arithmatic;
+package org.apache.raft.examples.arithmetic;
 
 
 import org.apache.hadoop.conf.Configuration;
@@ -25,8 +25,8 @@ import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.examples.arithmatic.expression.*;
-import org.apache.raft.hadooprpc.RaftHadoopRpcTestUtil;
+import org.apache.raft.examples.RaftExamplesTestUtil;
+import org.apache.raft.examples.arithmetic.expression.*;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.statemachine.StateMachine;
@@ -62,7 +62,7 @@ public class TestArithmetic {
       // turn off simulate latency half of the times.
       prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
     }
-    return RaftHadoopRpcTestUtil.getMiniRaftClusters(3, conf, prop);
+    return RaftExamplesTestUtil.getMiniRaftClusters(3, conf, prop);
   }
 
   @Parameterized.Parameter
