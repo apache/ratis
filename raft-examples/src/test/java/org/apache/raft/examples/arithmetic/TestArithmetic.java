@@ -18,19 +18,14 @@
 package org.apache.raft.examples.arithmetic;
 
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClient;
-import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.RaftExamplesTestUtil;
 import org.apache.raft.examples.arithmetic.expression.*;
 import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.statemachine.StateMachine;
-import org.apache.raft.server.simulation.SimulatedRequestReply;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,7 +35,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.concurrent.ThreadLocalRandom;
 
 @RunWith(Parameterized.class)
 public class TestArithmetic {
@@ -52,17 +46,7 @@ public class TestArithmetic {
 
   @Parameterized.Parameters
   public static Collection<Object[]> data() throws IOException {
-    final Configuration conf = new Configuration();
-    conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
-
-    final RaftProperties prop = new RaftProperties();
-    prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
-        ArithmeticStateMachine.class, StateMachine.class);
-    if (ThreadLocalRandom.current().nextBoolean()) {
-      // turn off simulate latency half of the times.
-      prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
-    }
-    return RaftExamplesTestUtil.getMiniRaftClusters(3, conf, prop);
+    return RaftExamplesTestUtil.getMiniRaftClusters(ArithmeticStateMachine.class);
   }
 
   @Parameterized.Parameter
@@ -111,6 +95,7 @@ public class TestArithmetic {
       r = client.send(nullC);
       assertRaftClientReply(r, null);
     }
+    cluster.shutdown();
   }
 
   static void assertRaftClientReply(RaftClientReply reply, Double expected) {

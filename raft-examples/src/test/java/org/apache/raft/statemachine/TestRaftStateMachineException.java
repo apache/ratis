@@ -15,33 +15,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft;
+package org.apache.raft.statemachine;
 
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
+import org.apache.raft.MiniRaftCluster;
+import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClient;
-import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.examples.RaftExamplesTestUtil;
+import org.apache.raft.grpc.MiniRaftClusterWithGRpc;
+import org.apache.raft.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.StateMachineException;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
-import org.apache.raft.statemachine.SimpleStateMachine;
-import org.apache.raft.statemachine.StateMachine;
-import org.apache.raft.statemachine.TrxContext;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.Assert.fail;
 
-public abstract class RaftStateMachineExceptionBaseTest {
+@RunWith(Parameterized.class)
+public class TestRaftStateMachineException {
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
@@ -52,39 +54,26 @@ public abstract class RaftStateMachineExceptionBaseTest {
   protected static class StateMachineWithException extends SimpleStateMachine {
     @Override
     public CompletableFuture<Message> applyTransaction(TrxContext trx) {
-      RaftProtos.LogEntryProto entry = trx.getLogEntry().get();
       CompletableFuture<Message> future = new CompletableFuture<>();
       future.completeExceptionally(new StateMachineException("Fake Exception"));
       return future;
     }
   }
 
-  public static final int NUM_PEERS = 3;
-
-  private MiniRaftCluster cluster;
-  protected RaftProperties prop;
-
-  public abstract MiniRaftCluster initCluster() throws IOException;
-
-  @Before
-  public void setup() throws IOException {
-    prop = new RaftProperties();
-    prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
-        StateMachineWithException.class, StateMachine.class);
-
-    this.cluster = initCluster();
-    cluster.start();
+  @Parameterized.Parameters
+  public static Collection<Object[]> data() throws IOException {
+    return RaftExamplesTestUtil.getMiniRaftClusters(StateMachineWithException.class,
+        MiniRaftClusterWithSimulatedRpc.class,
+        MiniRaftClusterWithHadoopRpc.class,
+        MiniRaftClusterWithGRpc.class);
   }
 
-  @After
-  public void tearDown() {
-    if (cluster != null) {
-      cluster.shutdown();
-    }
-  }
+  @Parameterized.Parameter
+  public MiniRaftCluster cluster;
 
   @Test
   public void testHandleStateMachineException() throws Exception {
+    cluster.start();
     RaftTestUtil.waitForLeader(cluster);
 
     final String leaderId = cluster.getLeader().getId();
@@ -96,5 +85,7 @@ public abstract class RaftStateMachineExceptionBaseTest {
     } catch (StateMachineException e) {
       Assert.assertTrue(e.getMessage().contains("Fake Exception"));
     }
+
+    cluster.shutdown();
   }
 }

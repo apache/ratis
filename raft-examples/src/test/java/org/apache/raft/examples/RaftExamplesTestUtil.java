@@ -27,24 +27,56 @@ import org.apache.raft.netty.MiniRaftClusterWithNetty;
 import org.apache.raft.server.LogAppenderFactory;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
+import org.apache.raft.server.simulation.SimulatedRequestReply;
+import org.apache.raft.statemachine.StateMachine;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 
 public class RaftExamplesTestUtil {
-  public static Collection<Object[]> getMiniRaftClusters(int clusterSize,
-      Configuration hadoopConf, RaftProperties prop) throws IOException {
+  private static void add(Collection<Object[]> clusters, MiniRaftCluster c) {
+    clusters.add(new Object[]{c});
+  }
+
+  public static Collection<Object[]> getMiniRaftClusters(
+      RaftProperties prop, int clusterSize, Class<?>... clusterClasses)
+      throws IOException {
+    final List<Class<?>> classes = Arrays.asList(clusterClasses);
+    final boolean isAll = classes.isEmpty(); //empty means all
+
     final String[][] ids = MiniRaftCluster.generateIds4MultiClusters(clusterSize, 4);
-    final Object[][] clusters = {
-        {new MiniRaftClusterWithSimulatedRpc(ids[0], prop, true)},
-        {new MiniRaftClusterWithHadoopRpc(ids[1], prop, hadoopConf, true)},
-        {null},
-        {new MiniRaftClusterWithNetty(ids[3], prop, true)},
-    };
-    prop.setClass(RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
-        PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
-    clusters[2][0] = new MiniRaftClusterWithGRpc(ids[2], prop, true);
-    return Arrays.asList(clusters);
+    int i = 0;
+
+    final List<Object[]> clusters = new ArrayList<>();
+
+    if (isAll || classes.contains(MiniRaftClusterWithSimulatedRpc.class)) {
+      prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
+      add(clusters, new MiniRaftClusterWithSimulatedRpc(ids[i++], prop, true));
+    }
+    if (isAll || classes.contains(MiniRaftClusterWithHadoopRpc.class)) {
+      final Configuration conf = new Configuration();
+      conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
+      add(clusters, new MiniRaftClusterWithHadoopRpc(ids[i++], prop, conf, true));
+    }
+    if (isAll || classes.contains(MiniRaftClusterWithNetty.class)) {
+      add(clusters, new MiniRaftClusterWithNetty(ids[i++], prop, true));
+    }
+    if (isAll || classes.contains(MiniRaftClusterWithGRpc.class)) {
+      prop.setClass(RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
+          PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
+      add(clusters, new MiniRaftClusterWithGRpc(ids[i++], prop, true));
+    }
+    return clusters;
+  }
+
+  public static <S extends StateMachine> Collection<Object[]> getMiniRaftClusters(
+      Class<S> stateMachineClass, Class<?>... clusterClasses) throws IOException {
+    final RaftProperties prop = new RaftProperties();
+    prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
+        stateMachineClass, StateMachine.class);
+    return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3, clusterClasses);
   }
 }

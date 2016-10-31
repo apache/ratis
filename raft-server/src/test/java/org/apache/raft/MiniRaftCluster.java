@@ -351,6 +351,7 @@ public abstract class MiniRaftCluster {
   }
 
   public void shutdown() {
+    LOG.info("Stopping " + getClass().getSimpleName());
     servers.values().stream().filter(RaftServer::isRunning)
         .forEach(RaftServer::kill);
 
