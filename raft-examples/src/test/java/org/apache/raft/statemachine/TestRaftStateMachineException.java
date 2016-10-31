@@ -66,6 +66,7 @@ public class TestRaftStateMachineException {
         MiniRaftClusterWithSimulatedRpc.class,
         MiniRaftClusterWithHadoopRpc.class,
         MiniRaftClusterWithGRpc.class);
+    // TODO fix MiniRaftClusterWithNetty.class
   }
 
   @Parameterized.Parameter

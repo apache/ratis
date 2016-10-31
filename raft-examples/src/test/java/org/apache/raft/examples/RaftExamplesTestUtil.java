@@ -68,6 +68,11 @@ public class RaftExamplesTestUtil {
       prop.setClass(RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
           PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
       add(clusters, new MiniRaftClusterWithGRpc(ids[i++], prop, true));
+
+      //set back to default.
+      prop.setClass(RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
+          RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_DEFAULT,
+          LogAppenderFactory.class);
     }
     return clusters;
   }

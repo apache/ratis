@@ -15,9 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.hadooprpc;
+package org.apache.raft.statemachine;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
@@ -25,19 +24,19 @@ import org.apache.raft.RaftTestUtil;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.examples.RaftExamplesTestUtil;
+import org.apache.raft.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.util.LifeCycle;
-import org.apache.raft.statemachine.SimpleStateMachine;
-import org.apache.raft.statemachine.StateMachine;
-import org.apache.raft.server.storage.RaftLog;
-import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
-import org.apache.raft.statemachine.SimpleStateMachineStorage;
+import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.server.simulation.RequestHandler;
+import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorageDirectory;
+import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
+import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -70,16 +69,17 @@ public class TestRaftSnapshot {
 
   @Parameterized.Parameters
   public static Collection<Object[]> data() throws IOException {
-    final Configuration conf = new Configuration();
-    conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
-
     RaftProperties prop = new RaftProperties();
     prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
         SimpleStateMachine.class, StateMachine.class);
     prop.setLong(
         RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY,
         SNAPSHOT_TRIGGER_THRESHOLD);
-    return RaftHadoopRpcTestUtil.getMiniRaftClusters(1, conf, prop);
+    return RaftExamplesTestUtil.getMiniRaftClusters(prop, 1,
+        MiniRaftClusterWithSimulatedRpc.class,
+        MiniRaftClusterWithHadoopRpc.class);
+    // TODO fix MiniRaftClusterWithGRpc.class
+    // TODO fix MiniRaftClusterWithNetty.class
   }
 
   @Parameterized.Parameter
