@@ -17,6 +17,8 @@
  */
 package org.apache.raft.protocol;
 
+import com.google.protobuf.ByteString;
+
 /**
  * The information clients append to the raft ring.
  */
@@ -24,5 +26,5 @@ public interface Message {
   /**
    * @return the content of the message
    */
-  byte[] getContent();
+  ByteString getContent();
 }

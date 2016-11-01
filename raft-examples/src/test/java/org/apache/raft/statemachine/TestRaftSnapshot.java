@@ -127,7 +127,8 @@ public class TestRaftSnapshot {
       LogEntryProto[] entries = ((SimpleStateMachine) sm).getContent();
       for (i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
         Assert.assertEquals(i+1, entries[i].getIndex());
-        Assert.assertArrayEquals(new SimpleMessage("m" + i).getContent(),
+        Assert.assertArrayEquals(
+            new SimpleMessage("m" + i).getContent().toByteArray(),
             entries[i].getSmLogEntry().getData().toByteArray());
       }
     } finally {
@@ -191,7 +192,8 @@ public class TestRaftSnapshot {
       LogEntryProto[] entries = ((SimpleStateMachine) sm).getContent();
       for (int i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
         Assert.assertEquals(i+1, entries[i].getIndex());
-        Assert.assertArrayEquals(new SimpleMessage("m" + i).getContent(),
+        Assert.assertArrayEquals(
+            new SimpleMessage("m" + i).getContent().toByteArray(),
             entries[i].getSmLogEntry().getData().toByteArray());
       }
 

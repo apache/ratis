@@ -24,7 +24,7 @@ public interface RaftGrpcConfigKeys {
   int RAFT_GRPC_SERVER_PORT_DEFAULT = 0;
 
   String RAFT_GRPC_MESSAGE_MAXSIZE_KEY = PREFIX + ".message.maxsize";
-  int RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT = 96 * 1024 * 1024; // 96 MB
+  int RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT = 64 * 1024 * 1024; // 64 MB
 
   String RAFT_GRPC_LEADER_MAX_OUTSTANDING_APPENDS_KEY =
       PREFIX + "leader.max.outstanding.appends";

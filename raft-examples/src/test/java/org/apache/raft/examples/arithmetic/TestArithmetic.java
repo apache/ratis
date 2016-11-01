@@ -30,16 +30,12 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
 
 @RunWith(Parameterized.class)
 public class TestArithmetic {
-  static final Logger LOG = LoggerFactory.getLogger(TestArithmetic.class);
-
   static {
     GenericTestUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.ALL);
   }
@@ -101,7 +97,8 @@ public class TestArithmetic {
 
   static void assertRaftClientReply(RaftClientReply reply, Double expected) {
     Assert.assertTrue(reply.isSuccess());
-    final Expression e = Expression.Utils.bytes2Expression(reply.getMessage().getContent(), 0);
+    final Expression e = Expression.Utils.bytes2Expression(
+        reply.getMessage().getContent().toByteArray(), 0);
     Assert.assertEquals(expected, e.evaluate(null));
   }
 }

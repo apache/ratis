@@ -34,8 +34,6 @@ import org.apache.raft.util.ProtoUtils;
 
 import java.util.Arrays;
 
-import static org.apache.raft.util.ProtoUtils.toByteString;
-
 public class ClientProtoUtils {
   public static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
       String requestorId, String replyId, long seqNum, boolean success) {
@@ -115,12 +113,12 @@ public class ClientProtoUtils {
   }
 
   public static Message toMessage(final ClientMessageEntryProto p) {
-    return () -> p.getContent().toByteArray();
+    return p::getContent;
   }
 
   public static ClientMessageEntryProto toClientMessageEntryProto(Message message) {
     return ClientMessageEntryProto.newBuilder()
-        .setContent(toByteString(message.getContent())).build();
+        .setContent(message.getContent()).build();
   }
 
   public static SetConfigurationRequest toSetConfigurationRequest(

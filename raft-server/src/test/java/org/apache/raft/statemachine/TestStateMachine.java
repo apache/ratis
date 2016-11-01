@@ -45,7 +45,6 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.raft.util.ProtoUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -114,7 +113,7 @@ public class TestStateMachine {
       isLeader.set(true);
       // send the next transaction id as the "context" from SM
       return new TrxContext(this, request, RaftProtos.SMLogEntryProto.newBuilder()
-          .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
+          .setData(request.getMessage().getContent())
           .build(), transactions.incrementAndGet());
     }
 

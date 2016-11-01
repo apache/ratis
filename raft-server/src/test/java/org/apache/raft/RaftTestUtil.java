@@ -18,6 +18,7 @@
 package org.apache.raft;
 
 import com.google.common.base.Preconditions;
+import com.google.protobuf.ByteString;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
@@ -28,7 +29,6 @@ import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.util.ProtoUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +41,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
+
+import static org.apache.raft.util.ProtoUtils.toByteString;
 
 public class RaftTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
@@ -95,7 +97,7 @@ public class RaftTestUtil {
     int idxExpected = 0;
     while (idxEntries < entries.length
         && idxExpected < expectedMessages.length) {
-      if (Arrays.equals(expectedMessages[idxExpected].getContent(),
+      if (Arrays.equals(expectedMessages[idxExpected].getContent().toByteArray(),
           entries[idxEntries].getSmLogEntry().getData().toByteArray())) {
         ++idxExpected;
       }
@@ -125,7 +127,7 @@ public class RaftTestUtil {
       final LogEntryProto e = entries[i];
       Assert.assertEquals(expertedTerm, e.getTerm());
       Assert.assertEquals(startIndex + i, e.getIndex());
-      Assert.assertArrayEquals(expectedMessages[i].getContent(),
+      Assert.assertArrayEquals(expectedMessages[i].getContent().toByteArray(),
           e.getSmLogEntry().getData().toByteArray());
     }
   }
@@ -172,8 +174,8 @@ public class RaftTestUtil {
     }
 
     @Override
-    public byte[] getContent() {
-      return messageId.getBytes(Charset.forName("UTF-8"));
+    public ByteString getContent() {
+      return toByteString(messageId.getBytes(Charset.forName("UTF-8")));
     }
   }
 
@@ -205,7 +207,7 @@ public class RaftTestUtil {
     public RaftProtos.SMLogEntryProto getLogEntryContent() {
       try {
         return RaftProtos.SMLogEntryProto.newBuilder()
-            .setData(ProtoUtils.toByteString(op.getBytes("UTF-8"))).build();
+            .setData(toByteString(op.getBytes("UTF-8"))).build();
       } catch (UnsupportedEncodingException e) {
         throw new RuntimeException(e);
       }

@@ -44,7 +44,6 @@ import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
 import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.MD5FileUtil;
-import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -221,7 +220,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   public TrxContext startTransaction(RaftClientRequest request)
       throws IOException {
     return new TrxContext(this, request, RaftProtos.SMLogEntryProto.newBuilder()
-        .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
+        .setData(request.getMessage().getContent())
         .build());
   }
 

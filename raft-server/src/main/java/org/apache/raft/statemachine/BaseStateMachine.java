@@ -31,7 +31,6 @@ import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.util.LifeCycle;
-import org.apache.raft.util.ProtoUtils;
 
 /**
  * Base implementation for StateMachines.
@@ -89,7 +88,7 @@ public class BaseStateMachine implements StateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TrxContext trx) {
     // return the same message contained in the entry
-    Message msg = () -> trx.getLogEntry().get().getSmLogEntry().getData().toByteArray();
+    Message msg = () -> trx.getLogEntry().get().getSmLogEntry().getData();
     return CompletableFuture.completedFuture(msg);
   }
 
@@ -127,7 +126,7 @@ public class BaseStateMachine implements StateMachine {
       throws IOException {
     return new TrxContext(this, request,
         RaftProtos.SMLogEntryProto.newBuilder()
-            .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
+            .setData(request.getMessage().getContent())
             .build());
   }
 

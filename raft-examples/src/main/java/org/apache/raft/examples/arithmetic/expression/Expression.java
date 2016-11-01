@@ -4,6 +4,8 @@ import com.google.common.base.Preconditions;
 import org.apache.raft.examples.arithmetic.Evaluable;
 import org.apache.raft.protocol.Message;
 
+import static org.apache.raft.util.ProtoUtils.toByteString;
+
 public interface Expression extends Evaluable {
   enum Type {
     NULL, VARIABLE, DOUBLE, BINARY, UNARY;
@@ -31,7 +33,7 @@ public interface Expression extends Evaluable {
         final byte[] buf = new byte[e.length()];
         final int length = e.toBytes(buf, 0);
         Preconditions.checkState(length == buf.length);
-        return buf;
+        return toByteString(buf);
       };
     }
 

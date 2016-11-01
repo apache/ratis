@@ -17,12 +17,15 @@
  */
 package org.apache.raft.examples.arithmetic;
 
+import com.google.protobuf.ByteString;
 import org.apache.raft.examples.arithmetic.expression.Expression;
 import org.apache.raft.examples.arithmetic.expression.Variable;
 import org.apache.raft.protocol.Message;
 
 import java.nio.charset.Charset;
 import java.util.Map;
+
+import static org.apache.raft.util.ProtoUtils.toByteString;
 
 public class AssignmentMessage implements Message, Evaluable {
   public static final Charset UTF8 = Charset.forName("UTF-8");
@@ -41,7 +44,7 @@ public class AssignmentMessage implements Message, Evaluable {
   }
 
   public AssignmentMessage(Message message) {
-    this(message.getContent(), 0);
+    this(message.getContent().toByteArray(), 0);
   }
 
   public Variable getVariable() {
@@ -53,12 +56,12 @@ public class AssignmentMessage implements Message, Evaluable {
   }
 
   @Override
-  public byte[] getContent() {
+  public ByteString getContent() {
     final int length = variable.length() + expression.length();
     final byte[] bytes = new byte[length];
     final int offset = variable.toBytes(bytes, 0);
     expression.toBytes(bytes, offset);
-    return bytes;
+    return toByteString(bytes);
   }
 
   @Override

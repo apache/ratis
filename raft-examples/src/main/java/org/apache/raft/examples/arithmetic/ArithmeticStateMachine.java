@@ -49,7 +49,6 @@ import org.apache.raft.statemachine.StateMachineStorage;
 import org.apache.raft.statemachine.TermIndexTracker;
 import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.AutoCloseableLock;
-import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -166,7 +165,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   public CompletableFuture<RaftClientReply> query(
       RaftClientRequest request) {
     final Expression q = Expression.Utils.bytes2Expression(
-        request.getMessage().getContent(), 0);
+        request.getMessage().getContent().toByteArray(), 0);
     final Double result;
     try(final AutoCloseableLock readLock = readLock()) {
       result = q.evaluate(variables);
@@ -182,7 +181,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   public TrxContext startTransaction(RaftClientRequest request)
       throws IOException {
     return new TrxContext(this, request, RaftProtos.SMLogEntryProto.newBuilder()
-        .setData(ProtoUtils.toByteString(request.getMessage().getContent()))
+        .setData(request.getMessage().getContent())
         .build());
   }
 
@@ -194,7 +193,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TrxContext trx) {
     LogEntryProto entry = trx.getLogEntry().get();
-    final Message message = () -> entry.getSmLogEntry().getData().toByteArray();
+    final Message message = () -> entry.getSmLogEntry().getData();
     final AssignmentMessage assignment = new AssignmentMessage(message);
 
     final long last = entry.getIndex();
