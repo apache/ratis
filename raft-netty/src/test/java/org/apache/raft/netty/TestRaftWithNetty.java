@@ -56,6 +56,7 @@ public class TestRaftWithNetty extends RaftBasicTests {
   @Override
   @Test
   public void testWithLoad() throws Exception {
-    // TODO
+    super.testWithLoad();
+    BlockRequestHandlingInjection.getInstance().unblockAll();
   }
 }

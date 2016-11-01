@@ -101,7 +101,7 @@ public abstract class PeerProxyMap<PROXY extends Closeable> implements Closeable
   public abstract PROXY createProxy(RaftPeer peer) throws IOException;
 
   @Override
-  public final void close() {
+  public void close() {
     peers.values().forEach(PeerAndProxy::close);
   }
 }

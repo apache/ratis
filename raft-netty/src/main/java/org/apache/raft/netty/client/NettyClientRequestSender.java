@@ -28,26 +28,11 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.util.PeerProxyMap;
-import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
 
 public class NettyClientRequestSender implements RaftClientRequestSender {
-  private final PeerProxyMap<NettyRpcProxy> proxies
-      = new PeerProxyMap<NettyRpcProxy>() {
-    @Override
-    public NettyRpcProxy createProxy(RaftPeer peer)
-        throws IOException {
-      final NettyRpcProxy proxy = new NettyRpcProxy(peer);
-      try {
-        proxy.connect();
-      } catch (InterruptedException e) {
-        throw RaftUtils.toInterruptedIOException("Failed connecting to " + peer, e);
-      }
-      return proxy;
-    }
-  };
+  private final NettyRpcProxy.PeerMap proxies = new NettyRpcProxy.PeerMap();
 
   public NettyClientRequestSender(Iterable<RaftPeer> servers) {
     addServers(servers);

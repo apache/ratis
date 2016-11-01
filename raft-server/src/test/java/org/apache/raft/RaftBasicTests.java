@@ -21,7 +21,6 @@ import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.RaftServerConfigKeys;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -147,17 +146,21 @@ public abstract class RaftBasicTests {
 
   @Test
   public void testWithLoad() throws Exception {
-    LOG.info("Running testWithLoad");
-    final int NUM_CLIENTS = 10;
-    final int NUM_MESSAGES = 500;
+    testWithLoad(10, 500);
+  }
+
+  public void testWithLoad(final int numClients, final int numMessages)
+      throws Exception {
+    LOG.info("Running testWithLoad: numClients=" + numClients
+        + ", numMessages=" + numMessages);
 
     final MiniRaftCluster cluster = getCluster();
     LOG.info(cluster.printServers());
 
     final List<Client4TestWithLoad> clients
-        = Stream.iterate(0, i -> i+1).limit(NUM_CLIENTS)
+        = Stream.iterate(0, i -> i+1).limit(numClients)
         .map(i -> cluster.createClient(String.valueOf((char)('a' + i)), null))
-        .map(c -> new Client4TestWithLoad(c, NUM_MESSAGES))
+        .map(c -> new Client4TestWithLoad(c, numMessages))
         .collect(Collectors.toList());
     clients.forEach(Thread::start);
 
@@ -168,7 +171,7 @@ public abstract class RaftBasicTests {
       }
 
       final int n = clients.stream().mapToInt(c -> c.step.get()).sum();
-      if (n - lastStep < 50 * NUM_CLIENTS) { // Change leader at least 50 steps.
+      if (n - lastStep < 50 * numClients) { // Change leader at least 50 steps.
         Thread.sleep(10);
         continue;
       }

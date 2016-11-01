@@ -21,12 +21,10 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import org.apache.raft.netty.proto.NettyProtos;
 import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.RaftUtils;
 
@@ -36,16 +34,12 @@ import java.net.InetSocketAddress;
 public class NettyClient implements Closeable {
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
 
-  private final EventLoopGroup group = new NioEventLoopGroup();
-  private final ChannelInitializer<SocketChannel> initializer;
   private ChannelFuture channelFuture;
 
-  public NettyClient(ChannelInitializer<SocketChannel> initializer) {
-    this.initializer = initializer;
-  }
-
   /** Connects to the given server address. */
-  public void connect(String serverAddress) throws InterruptedException {
+  public void connect(String serverAddress, EventLoopGroup group,
+                      ChannelInitializer<SocketChannel> initializer)
+      throws InterruptedException {
     lifeCycle.transition(LifeCycle.State.STARTING);
     final InetSocketAddress address = RaftUtils.newInetSocketAddress(serverAddress);
     channelFuture  = new Bootstrap()
@@ -67,7 +61,6 @@ public class NettyClient implements Closeable {
         return; //already closing or closed.
       }
       if (lifeCycle.compareAndTransition(current, LifeCycle.State.CLOSING)) {
-        group.shutdownGracefully();
         channelFuture.channel().close();
         lifeCycle.transition(LifeCycle.State.CLOSED);
         return;

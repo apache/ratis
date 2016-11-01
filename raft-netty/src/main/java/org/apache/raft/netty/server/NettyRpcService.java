@@ -44,8 +44,6 @@ import org.apache.raft.server.RaftServerRpcService;
 import org.apache.raft.server.RequestDispatcher;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.apache.raft.util.LifeCycle;
-import org.apache.raft.util.PeerProxyMap;
-import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -65,20 +63,7 @@ public final class NettyRpcService implements RaftServerRpc {
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final ChannelFuture channelFuture;
 
-  private final PeerProxyMap<NettyRpcProxy> proxies
-      = new PeerProxyMap<NettyRpcProxy>() {
-    @Override
-    public NettyRpcProxy createProxy(RaftPeer peer)
-        throws IOException {
-      final NettyRpcProxy proxy = new NettyRpcProxy(peer);
-      try {
-        proxy.connect();
-      } catch (InterruptedException e) {
-        throw RaftUtils.toInterruptedIOException("Failed connecting to " + peer, e);
-      }
-      return proxy;
-    }
-  };
+  private final NettyRpcProxy.PeerMap proxies = new NettyRpcProxy.PeerMap();
 
   @ChannelHandler.Sharable
   class InboundHandler extends SimpleChannelInboundHandler<RaftNettyServerRequestProto> {

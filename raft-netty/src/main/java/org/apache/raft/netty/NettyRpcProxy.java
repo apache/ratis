@@ -18,14 +18,17 @@
 package org.apache.raft.netty;
 
 import io.netty.channel.*;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.protobuf.ProtobufDecoder;
 import io.netty.handler.codec.protobuf.ProtobufEncoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
-import org.apache.raft.netty.proto.NettyProtos.*;
+import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerReplyProto;
+import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.raft.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.util.PeerProxyMap;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.Closeable;
@@ -35,6 +38,28 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 
 public class NettyRpcProxy implements Closeable {
+  public static class PeerMap extends PeerProxyMap<NettyRpcProxy> {
+    private final EventLoopGroup group = new NioEventLoopGroup();
+
+    @Override
+    public NettyRpcProxy createProxy(RaftPeer peer)
+        throws IOException {
+      final NettyRpcProxy proxy = new NettyRpcProxy(peer);
+      try {
+        proxy.connect(group);
+      } catch (InterruptedException e) {
+        throw RaftUtils.toInterruptedIOException("Failed connecting to " + peer, e);
+      }
+      return proxy;
+    }
+
+    @Override
+    public void close() {
+      super.close();
+      group.shutdownGracefully();
+    }
+  }
+
   public static long getSeqNum(RaftNettyServerReplyProto proto) {
     switch (proto.getRaftNettyServerReplyCase()) {
       case REQUESTVOTEREPLY:
@@ -59,10 +84,13 @@ public class NettyRpcProxy implements Closeable {
   private final ConcurrentHashMap<Long, CompletableFuture<RaftNettyServerReplyProto>> replyMap
       = new ConcurrentHashMap<>();
 
-  private final NettyClient client;
+  private final NettyClient client = new NettyClient();
 
   public NettyRpcProxy(RaftPeer peer) {
     this.peer = peer;
+  }
+
+  public void connect(EventLoopGroup group) throws InterruptedException {
 
     final ChannelInboundHandler inboundHandler
         = new SimpleChannelInboundHandler<RaftNettyServerReplyProto>() {
@@ -92,11 +120,8 @@ public class NettyRpcProxy implements Closeable {
         p.addLast(inboundHandler);
       }
     };
-    this.client = new NettyClient(initializer);
-  }
 
-  public void connect() throws InterruptedException {
-    client.connect(peer.getAddress());
+    client.connect(peer.getAddress(), group, initializer);
   }
 
   @Override
