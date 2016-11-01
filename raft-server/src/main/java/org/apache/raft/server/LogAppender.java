@@ -36,6 +36,7 @@ import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 
 import java.io.File;
@@ -350,9 +351,11 @@ public class LogAppender extends Daemon {
         case SUCCESS:
           final long oldNextIndex = follower.getNextIndex();
           final long nextIndex = reply.getNextIndex();
-          Preconditions.checkState(nextIndex >= oldNextIndex,
-              "old next index: %s, next index in the reply: %s", oldNextIndex,
-              nextIndex);
+          if (nextIndex < oldNextIndex) {
+            throw new IllegalStateException("nextIndex=" + nextIndex
+                + " < oldNextIndex=" + oldNextIndex
+                + ", reply=" + ProtoUtils.toString(reply));
+          }
 
           if (nextIndex > oldNextIndex) {
             follower.updateMatchIndex(nextIndex - 1);

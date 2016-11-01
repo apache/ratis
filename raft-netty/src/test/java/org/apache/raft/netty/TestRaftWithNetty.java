@@ -21,6 +21,7 @@ import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.RaftBasicTests;
 import org.apache.raft.client.RaftClient;
+import org.apache.raft.server.BlockRequestHandlingInjection;
 import org.apache.raft.server.RaftServer;
 import org.junit.Test;
 
@@ -43,15 +44,18 @@ public class TestRaftWithNetty extends RaftBasicTests {
     return cluster;
   }
 
-  //TODO: implement the following tests
-
   @Override
   @Test
   public void testEnforceLeader() throws Exception {
+    super.testEnforceLeader();
+
+    MiniRaftClusterWithNetty.sendServerRequest.clear();
+    BlockRequestHandlingInjection.getInstance().unblockAll();
   }
 
   @Override
   @Test
   public void testWithLoad() throws Exception {
+    // TODO
   }
 }

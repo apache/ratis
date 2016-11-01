@@ -20,8 +20,10 @@ package org.apache.raft.netty.client;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.netty.NettyRpcProxy;
-import org.apache.raft.netty.proto.NettyProtos.*;
-import org.apache.raft.proto.RaftProtos.*;
+import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerRequestProto;
+import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.raft.proto.RaftProtos.RaftRpcRequestProto;
+import org.apache.raft.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
@@ -75,5 +77,10 @@ public class NettyClientRequestSender implements RaftClientRequestSender {
   @Override
   public void addServers(Iterable<RaftPeer> servers) {
     proxies.addPeers(servers);
+  }
+
+  @Override
+  public void close() {
+    proxies.close();
   }
 }

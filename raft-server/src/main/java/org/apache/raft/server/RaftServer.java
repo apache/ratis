@@ -585,7 +585,10 @@ public class RaftServer implements RaftServerProtocol {
         final AppendEntriesReplyProto reply = ServerProtoUtils
             .toAppendEntriesReplyProto(leaderId, getId(), currentTerm,
                 nextIndex, AppendResult.NOT_LEADER);
-        LOG.debug("{}: do not recognize leader. Reply: {}", getId(), reply);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("{}: do not recognize leader. Reply: {}",
+              getId(), ProtoUtils.toString(reply));
+        }
         return reply;
       }
       changeToFollower(leaderTerm, true);

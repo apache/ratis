@@ -95,12 +95,12 @@ public class TestRaftSnapshot {
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
     final String leaderId = cluster.getLeader().getId();
-    final RaftClient client = cluster.createClient("client", leaderId);
-
     int i = 0;
-    for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-      RaftClientReply reply = client.send(new SimpleMessage("m" + i));
-      Assert.assertTrue(reply.isSuccess());
+    try(final RaftClient client = cluster.createClient("client", leaderId)) {
+      for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+        RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+        Assert.assertTrue(reply.isSuccess());
+      }
     }
 
     // wait for the snapshot to be done
@@ -147,12 +147,13 @@ public class TestRaftSnapshot {
     try {
       RaftTestUtil.waitForLeader(cluster);
       final String leaderId = cluster.getLeader().getId();
-      final RaftClient client = cluster.createClient("client", leaderId);
 
       int i = 0;
-      for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-        RaftClientReply reply = client.send(new SimpleMessage("m" + i));
-        Assert.assertTrue(reply.isSuccess());
+      try(final RaftClient client = cluster.createClient("client", leaderId)) {
+        for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+          RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+          Assert.assertTrue(reply.isSuccess());
+        }
       }
 
       // wait for the snapshot to be done
@@ -195,9 +196,10 @@ public class TestRaftSnapshot {
       }
 
       // generate some more traffic
-      final RaftClient client = cluster.createClient("client",
-          cluster.getLeader().getId());
-      Assert.assertTrue(client.send(new SimpleMessage("test")).isSuccess());
+      try(final RaftClient client = cluster.createClient("client",
+          cluster.getLeader().getId())) {
+        Assert.assertTrue(client.send(new SimpleMessage("test")).isSuccess());
+      }
 
       // add two more peers
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(

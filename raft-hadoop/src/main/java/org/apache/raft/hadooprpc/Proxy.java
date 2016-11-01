@@ -24,21 +24,33 @@ import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.raft.util.RaftUtils;
 
+import java.io.Closeable;
 import java.io.IOException;
 
-public class HadoopUtils {
-  public static void setProtobufRpcEngine(
-      Class<?> protocol, Configuration conf) {
-    RPC.setProtocolEngine(conf, protocol, ProtobufRpcEngine.class);
-  }
-
+public class Proxy<PROTOCOL> implements Closeable {
   public static <PROTOCOL> PROTOCOL getProxy(
       Class<PROTOCOL> clazz, String addressStr, Configuration conf)
       throws IOException {
-    setProtobufRpcEngine(clazz, conf);
+    RPC.setProtocolEngine(conf, clazz, ProtobufRpcEngine.class);
     return RPC.getProxy(clazz, RPC.getProtocolVersion(clazz),
         RaftUtils.newInetSocketAddress(addressStr),
         UserGroupInformation.getCurrentUser(),
         conf, NetUtils.getSocketFactory(conf, clazz));
+  }
+
+  private final PROTOCOL protocol;
+
+  public Proxy(Class<PROTOCOL> clazz, String addressStr, Configuration conf)
+      throws IOException {
+    this.protocol = getProxy(clazz, addressStr, conf);
+  }
+
+  public PROTOCOL getProtocol() {
+    return protocol;
+  }
+
+  @Override
+  public void close() {
+    RPC.stopProxy(protocol);
   }
 }

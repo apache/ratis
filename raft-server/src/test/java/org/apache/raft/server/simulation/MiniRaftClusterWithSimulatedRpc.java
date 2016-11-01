@@ -125,9 +125,4 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   public void setBlockRequestsFrom(String src, boolean block) {
     serverRequestReply.getQueue(src).blockTakeRequestFrom.set(block);
   }
-
-  @Override
-  public void delaySendingRequests(String senderId, int delayMs) {
-    serverRequestReply.getQueue(senderId).delayTakeRequestFrom.set(delayMs);
-  }
 }

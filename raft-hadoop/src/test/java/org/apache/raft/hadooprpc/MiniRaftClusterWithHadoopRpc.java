@@ -122,9 +122,4 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   public void setBlockRequestsFrom(String src, boolean block) {
     RaftTestUtil.setBlockRequestsFrom(src, block);
   }
-
-  @Override
-  public void delaySendingRequests(String senderId, int delayMs) {
-    sendServerRequest.setDelayMs(senderId, delayMs);
-  }
 }

@@ -18,11 +18,13 @@
 package org.apache.raft.netty;
 
 import org.apache.raft.MiniRaftCluster;
+import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.netty.client.NettyClientRequestSender;
 import org.apache.raft.netty.server.NettyRpcService;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.util.RaftUtils;
@@ -35,7 +37,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MiniRaftClusterWithNetty extends MiniRaftCluster {
-    static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithNetty.class);
+  static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithNetty.class);
+
+  public static final DelayLocalExecutionInjection sendServerRequest
+      = new DelayLocalExecutionInjection(NettyRpcService.SEND_SERVER_REQUEST);
 
   public MiniRaftClusterWithNetty(int numServers, RaftProperties properties)
       throws IOException {
@@ -83,16 +88,12 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster {
   @Override
   protected void blockQueueAndSetDelay(String leaderId, int delayMs)
       throws InterruptedException {
-
+    RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequest,
+        leaderId, delayMs, getMaxTimeout());
   }
 
   @Override
   public void setBlockRequestsFrom(String src, boolean block) {
-
-  }
-
-  @Override
-  public void delaySendingRequests(String senderId, int delayMs) {
-
+    RaftTestUtil.setBlockRequestsFrom(src, block);
   }
 }

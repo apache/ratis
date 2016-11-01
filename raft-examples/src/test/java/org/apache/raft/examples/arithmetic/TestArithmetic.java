@@ -95,6 +95,7 @@ public class TestArithmetic {
       r = client.send(nullC);
       assertRaftClientReply(r, null);
     }
+    client.close();
     cluster.shutdown();
   }
 

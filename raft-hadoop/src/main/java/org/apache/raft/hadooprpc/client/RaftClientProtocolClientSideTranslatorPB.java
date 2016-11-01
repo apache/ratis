@@ -19,8 +19,9 @@ package org.apache.raft.hadooprpc.client;
 
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.ipc.RPC;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.raft.client.ClientProtoUtils;
+import org.apache.raft.hadooprpc.Proxy;
 import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
@@ -28,21 +29,16 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.util.ProtoUtils;
 
-import java.io.Closeable;
 import java.io.IOException;
 
 @InterfaceAudience.Private
 public class RaftClientProtocolClientSideTranslatorPB
-    implements RaftClientProtocol, Closeable {
-  private final RaftClientProtocolPB rpcProxy;
+    extends Proxy<RaftClientProtocolPB>
+    implements RaftClientProtocol {
 
-  public RaftClientProtocolClientSideTranslatorPB(RaftClientProtocolPB rpcProxy) {
-    this.rpcProxy = rpcProxy;
-  }
-
-  @Override
-  public void close() throws IOException {
-    RPC.stopProxy(rpcProxy);
+  public RaftClientProtocolClientSideTranslatorPB(
+      String addressStr, Configuration conf) throws IOException {
+    super(RaftClientProtocolPB.class, addressStr, conf);
   }
 
   @Override
@@ -50,8 +46,8 @@ public class RaftClientProtocolClientSideTranslatorPB
       throws IOException {
     final RaftClientRequestProto p = ClientProtoUtils.toRaftClientRequestProto(request);
     try {
-      RaftClientReplyProto replyProto = rpcProxy.submitClientRequest(null, p);
-      return ClientProtoUtils.toRaftClientReply(replyProto);
+      final RaftClientReplyProto reply = getProtocol().submitClientRequest(null, p);
+      return ClientProtoUtils.toRaftClientReply(reply);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
@@ -63,8 +59,8 @@ public class RaftClientProtocolClientSideTranslatorPB
     final SetConfigurationRequestProto p
         = ClientProtoUtils.toSetConfigurationRequestProto(request);
     try {
-      RaftClientReplyProto replyProto = rpcProxy.setConfiguration(null, p);
-      return ClientProtoUtils.toRaftClientReply(replyProto);
+      final RaftClientReplyProto reply = getProtocol().setConfiguration(null, p);
+      return ClientProtoUtils.toRaftClientReply(reply);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }

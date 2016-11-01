@@ -395,6 +395,4 @@ public abstract class MiniRaftCluster {
 
   /** Block/unblock the requests sent from the given source. */
   public abstract void setBlockRequestsFrom(String src, boolean block);
-
-  public abstract void delaySendingRequests(String senderId, int delayMs);
 }

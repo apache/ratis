@@ -204,6 +204,7 @@ public abstract class RaftReconfigurationBaseTest {
           reconf2.set(reply.isSuccess());
 
           latch.countDown();
+          client.close();
         } catch (IOException ignored) {
         }
       });
@@ -276,6 +277,7 @@ public abstract class RaftReconfigurationBaseTest {
         cluster.startServer(np.getId());
       }
       Assert.assertTrue(client.setConfiguration(c1.allPeersInNewConf).isSuccess());
+      client.close();
     } finally {
       cluster.shutdown();
     }
@@ -307,6 +309,7 @@ public abstract class RaftReconfigurationBaseTest {
         try {
           RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
           success.set(reply.isSuccess());
+          client.close();
         } catch (IOException ioe) {
           LOG.error("FAILED", ioe);
         }
@@ -357,6 +360,7 @@ public abstract class RaftReconfigurationBaseTest {
             r = client.setConfiguration(c2.allPeersInNewConf).isSuccess();
           }
           success.set(r);
+          client.close();
         } catch (IOException ignored) {
         }
       });
@@ -426,6 +430,7 @@ public abstract class RaftReconfigurationBaseTest {
       Assert.assertEquals(committedIndex, cluster.getLeader().getState()
           .getLog().getLastCommittedIndex());
       Assert.assertSame(confBefore, cluster.getLeader().getRaftConf());
+      client.close();
     } finally {
       cluster.shutdown();
     }
@@ -445,8 +450,6 @@ public abstract class RaftReconfigurationBaseTest {
       RaftTestUtil.waitForLeader(cluster);
 
       final String leaderId = cluster.getLeader().getId();
-      final RaftClient client1 = cluster.createClient("client1", leaderId);
-      final RaftClient client2 = cluster.createClient("client2", leaderId);
 
       RaftPeer[] newPeers = cluster.addNewPeers(2, true).allPeersInNewConf;
 
@@ -458,7 +461,7 @@ public abstract class RaftReconfigurationBaseTest {
       final RaftPeer[] peersInRequest2 = cluster.getPeers().toArray(new RaftPeer[0]);
       AtomicBoolean caughtException = new AtomicBoolean(false);
       new Thread(() -> {
-        try {
+        try(final RaftClient client2 = cluster.createClient("client2", leaderId)) {
           latch.await();
           LOG.info("client2 starts to change conf");
           client2.getRequestSender().sendRequest(
@@ -473,7 +476,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       AtomicBoolean confChanged = new AtomicBoolean(false);
       new Thread(() -> {
-        try {
+        try(final RaftClient client1 = cluster.createClient("client1", leaderId)) {
           LOG.info("client1 starts to change conf");
           confChanged.set(client1.setConfiguration(newPeers).isSuccess());
         } catch (IOException e) {
@@ -508,7 +511,6 @@ public abstract class RaftReconfigurationBaseTest {
       RaftTestUtil.waitForLeader(cluster);
 
       final String leaderId = cluster.getLeader().getId();
-      final RaftClient client = cluster.createClient("client1", leaderId);
 
       final RaftLog log = cluster.getServer(leaderId).getState().getLog();
       Thread.sleep(1000);
@@ -525,7 +527,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       AtomicBoolean gotNotLeader = new AtomicBoolean(false);
       new Thread(() -> {
-        try {
+        try(final RaftClient client = cluster.createClient("client1", leaderId)) {
           LOG.info("client starts to change conf");
           RaftClientReply reply = client.getRequestSender().sendRequest(
               new SetConfigurationRequest(

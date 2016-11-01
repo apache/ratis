@@ -107,6 +107,7 @@ public abstract class RaftNotLeaderExceptionBaseTest {
 
     reply = client.send(new SimpleMessage("m3"));
     Assert.assertTrue(reply.isSuccess());
+    client.close();
   }
 
   @Test
@@ -127,13 +128,14 @@ public abstract class RaftNotLeaderExceptionBaseTest {
     // trigger setConfiguration
     LOG.info("Start changing the configuration: {}",
         Arrays.asList(change.allPeersInNewConf));
-    RaftClientReply reply = cluster.createClient("client2", newLeader)
-        .setConfiguration(change.allPeersInNewConf);
-    Assert.assertTrue(reply.isSuccess());
+    try(final RaftClient c2 = cluster.createClient("client2", newLeader)) {
+      RaftClientReply reply = c2.setConfiguration(change.allPeersInNewConf);
+      Assert.assertTrue(reply.isSuccess());
+    }
     LOG.info(cluster.printServers());
 
     RaftClientRequestSender rpc = client.getRequestSender();
-    reply = null;
+    RaftClientReply reply = null;
     // it is possible that the remote peer's rpc server is not ready. need retry
     for (int i = 0; reply == null && i < 10; i++) {
       try {
@@ -158,5 +160,6 @@ public abstract class RaftNotLeaderExceptionBaseTest {
 
     reply = client.send(new SimpleMessage("m2"));
     Assert.assertTrue(reply.isSuccess());
+    client.close();
   }
 }

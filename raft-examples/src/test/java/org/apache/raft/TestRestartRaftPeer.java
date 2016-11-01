@@ -96,6 +96,7 @@ public class TestRestartRaftPeer {
     for (int i = 0; i < 10; i++) {
       Assert.assertTrue(client.send(message).isSuccess());
     }
+    client.close();
 
     // make sure the restarted follower can catchup
     boolean catchup = false;

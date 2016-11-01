@@ -157,10 +157,11 @@ public class TestStateMachine {
     startCluster();
 
     int numTrx = 100;
-    final RaftClient client = cluster.createClient("client", null);
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numTrx);
-    for (RaftTestUtil.SimpleMessage message : messages) {
-      client.send(message);
+    try(final RaftClient client = cluster.createClient("client", null)) {
+      for (RaftTestUtil.SimpleMessage message : messages) {
+        client.send(message);
+      }
     }
 
     // TODO: there eshould be a better way to ensure all data is replicated and applied
@@ -183,7 +184,4 @@ public class TestStateMachine {
       assertEquals(ll.toString(), Long.valueOf(i+1), ll.get(i));
     }
   }
-
-  // TODO: testStateMachineThrowsExceptions()
-
 }

@@ -109,4 +109,9 @@ public class ProtoUtils {
   public static String toString(RequestVoteReplyProto proto) {
     return toString(proto.getServerReply()) + "-t" + proto.getTerm();
   }
+  public static String toString(AppendEntriesReplyProto proto) {
+    return toString(proto.getServerReply()) + "-t" + proto.getTerm()
+        + ", nextIndex=" + proto.getNextIndex()
+        + ", result: " + proto.getResult();
+  }
 }

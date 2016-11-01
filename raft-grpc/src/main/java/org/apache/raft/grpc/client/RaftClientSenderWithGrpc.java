@@ -44,7 +44,7 @@ import static org.apache.raft.client.ClientProtoUtils.toRaftClientReply;
 import static org.apache.raft.client.ClientProtoUtils.toRaftClientRequestProto;
 import static org.apache.raft.client.ClientProtoUtils.toSetConfigurationRequestProto;
 
-public class RaftClientSenderWithGrpc implements RaftClientRequestSender, Closeable {
+public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
   public static final Logger LOG = LoggerFactory.getLogger(RaftClientSenderWithGrpc.class);
 
   private final PeerProxyMap<RaftClientProtocolClient> proxies
@@ -127,12 +127,6 @@ public class RaftClientSenderWithGrpc implements RaftClientRequestSender, Closea
 
   @Override
   public void close() throws IOException {
-    proxies.getPeerIds().forEach(id -> {
-      try {
-        proxies.getProxy(id).shutdown();
-      } catch (IOException e) {
-        LOG.info("Got IOException when closing proxy with id " + id, e);
-      }
-    });
+    proxies.close();
   }
 }

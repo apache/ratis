@@ -30,9 +30,10 @@ import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.raft.protocol.RaftPeer;
 
+import java.io.Closeable;
 import java.io.IOException;
 
-public class RaftClientProtocolClient {
+public class RaftClientProtocolClient implements Closeable {
   private final ManagedChannel channel;
   private final RaftClientProtocolServiceBlockingStub blockingStub;
   private final RaftClientProtocolServiceStub asyncStub;
@@ -44,7 +45,8 @@ public class RaftClientProtocolClient {
     asyncStub = RaftClientProtocolServiceGrpc.newStub(channel);
   }
 
-  public void shutdown() {
+  @Override
+  public void close() {
     channel.shutdownNow();
   }
 

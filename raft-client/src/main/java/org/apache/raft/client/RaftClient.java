@@ -25,6 +25,7 @@ import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
@@ -36,7 +37,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /** A client who sends requests to a raft service. */
-public class RaftClient {
+public class RaftClient implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftClient.class);
   public static final long DEFAULT_SEQNUM = 0;
 
@@ -181,5 +182,10 @@ public class RaftClient {
   @VisibleForTesting
   public RaftClientRequestSender getRequestSender() {
     return requestSender;
+  }
+
+  @Override
+  public void close() throws IOException {
+    requestSender.close();
   }
 }

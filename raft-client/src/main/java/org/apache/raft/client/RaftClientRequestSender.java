@@ -21,10 +21,11 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 
+import java.io.Closeable;
 import java.io.IOException;
 
 /** Send requests to a raft service. */
-public interface RaftClientRequestSender {
+public interface RaftClientRequestSender extends Closeable {
   /** Send a request. */
   RaftClientReply sendRequest(RaftClientRequest request) throws IOException;
 

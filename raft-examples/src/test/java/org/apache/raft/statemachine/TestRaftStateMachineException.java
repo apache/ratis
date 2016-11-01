@@ -78,9 +78,8 @@ public class TestRaftStateMachineException {
     RaftTestUtil.waitForLeader(cluster);
 
     final String leaderId = cluster.getLeader().getId();
-    final RaftClient client = cluster.createClient("client", leaderId);
 
-    try {
+    try(final RaftClient client = cluster.createClient("client", leaderId)) {
       client.send(new RaftTestUtil.SimpleMessage("m"));
       fail("Exception expected");
     } catch (StateMachineException e) {

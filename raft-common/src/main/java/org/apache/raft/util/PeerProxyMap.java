@@ -19,33 +19,61 @@ package org.apache.raft.util;
 
 import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.RaftPeer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /** A map from peer id to peer and its proxy. */
-public abstract class PeerProxyMap<PROXY> {
+public abstract class PeerProxyMap<PROXY extends Closeable> implements Closeable {
+  public static final Logger LOG = LoggerFactory.getLogger(PeerProxyMap.class);
+
   /** Peer and its proxy. */
-  private class PeerAndProxy {
+  private class PeerAndProxy implements Closeable {
     private final RaftPeer peer;
     private volatile PROXY proxy = null;
+    private final LifeCycle lifeCycle;
 
     PeerAndProxy(RaftPeer peer) {
       this.peer = peer;
+      this.lifeCycle = new LifeCycle(peer);
     }
 
     PROXY getProxy() throws IOException {
       if (proxy == null) {
         synchronized (this) {
           if (proxy == null) {
+            lifeCycle.transition(LifeCycle.State.STARTING);
             proxy = createProxy(peer);
+            lifeCycle.transition(LifeCycle.State.RUNNING);
           }
         }
       }
       return proxy;
+    }
+
+    @Override
+    public synchronized void close() {
+      if (lifeCycle.getCurrentState() == LifeCycle.State.NEW) {
+        lifeCycle.transition(LifeCycle.State.CLOSED);
+      } else {
+        lifeCycle.transition(LifeCycle.State.CLOSING);
+        if (proxy != null) {
+          try {
+            proxy.close();
+          } catch (IOException e) {
+            LOG.warn("Failed to close proxy for peer {}, proxy class: ",
+                peer, proxy.getClass());
+          }
+        }
+        lifeCycle.transition(LifeCycle.State.CLOSED);
+      }
     }
   }
 
@@ -71,4 +99,9 @@ public abstract class PeerProxyMap<PROXY> {
   }
 
   public abstract PROXY createProxy(RaftPeer peer) throws IOException;
+
+  @Override
+  public final void close() {
+    peers.values().forEach(PeerAndProxy::close);
+  }
 }

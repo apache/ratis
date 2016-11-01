@@ -91,10 +91,11 @@ public abstract class RaftBasicTests {
     cluster.killServer(killed);
     LOG.info(cluster.printServers());
 
-    final RaftClient client = cluster.createClient("client", null);
     final SimpleMessage[] messages = SimpleMessage.create(10);
-    for (SimpleMessage message : messages) {
-      client.send(message);
+    try(final RaftClient client = cluster.createClient("client", null)) {
+      for (SimpleMessage message : messages) {
+        client.send(message);
+      }
     }
 
     Thread.sleep(cluster.getMaxTimeout() + 100);
@@ -137,6 +138,7 @@ public abstract class RaftBasicTests {
         for (; isRunning(); ) {
           client.send(messages[step.getAndIncrement()]);
         }
+        client.close();
       } catch (IOException ioe) {
         exceptionInClientThread = ioe;
       }

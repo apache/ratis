@@ -27,6 +27,9 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * The life cycle of a machine.
  * <pre>
+ *   ----------------------------------------------------
+ *  |                                                    |
+ *  |                                                    V
  * NEW --> STARTING --> RUNNING ----- --> CLOSING --> [CLOSED]
  *          |    ^          |        |       ^
  *          |    |          V        |       |
@@ -60,7 +63,7 @@ public class LifeCycle {
       m.put(PAUSED, Collections.unmodifiableList(Arrays.asList(PAUSING)));
       m.put(EXCEPTION, Collections.unmodifiableList(Arrays.asList(STARTING, PAUSING, RUNNING)));
       m.put(CLOSING, Collections.unmodifiableList(Arrays.asList(RUNNING, EXCEPTION)));
-      m.put(CLOSED, Collections.unmodifiableList(Arrays.asList(CLOSING)));
+      m.put(CLOSED, Collections.unmodifiableList(Arrays.asList(NEW, CLOSING)));
 
       PREDECESSORS = Collections.unmodifiableMap(m);
     }
@@ -75,8 +78,8 @@ public class LifeCycle {
   private final String name;
   private final AtomicReference<State> current = new AtomicReference<>(State.NEW);
 
-  public LifeCycle(String name) {
-    this.name = name;
+  public LifeCycle(Object name) {
+    this.name = name.toString();
   }
 
   /** Transition from the current state to the given state. */

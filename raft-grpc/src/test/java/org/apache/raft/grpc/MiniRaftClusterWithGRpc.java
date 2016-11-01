@@ -103,9 +103,4 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
   public void setBlockRequestsFrom(String src, boolean block) {
     RaftTestUtil.setBlockRequestsFrom(src, block);
   }
-
-  @Override
-  public void delaySendingRequests(String senderId, int delayMs) {
-    sendServerRequestInjection.setDelayMs(senderId, delayMs);
-  }
 }
