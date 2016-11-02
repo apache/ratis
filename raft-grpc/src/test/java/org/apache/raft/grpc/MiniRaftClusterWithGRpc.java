@@ -29,7 +29,6 @@ import org.apache.raft.server.BlockRequestHandlingInjection;
 import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.LogAppenderFactory;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
@@ -118,6 +117,13 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
       setPeerRpc(peer);
     }
     start();
+  }
+
+  @Override
+  public void restartServer(String id, boolean format) throws IOException {
+    super.restartServer(id, format);
+    setPeerRpc(conf.getPeer(id));
+    getServer(id).start();
   }
 
   @Override

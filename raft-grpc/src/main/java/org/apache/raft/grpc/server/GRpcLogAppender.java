@@ -18,6 +18,7 @@
 package org.apache.raft.grpc.server;
 
 import com.google.common.base.Preconditions;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.grpc.RaftGRpcService;
@@ -37,6 +38,7 @@ import java.io.InterruptedIOException;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.raft.grpc.RaftGRpcService.GRPC_SEND_SERVER_REQUEST;
@@ -50,6 +52,12 @@ public class GRpcLogAppender extends LogAppender {
   private final int maxPendingRequestsNum;
   private volatile boolean firstResponseReceived = false;
 
+  private final AppendLogResponseHandler appendResponseHandler;
+  private final InstallSnapshotResponseHandler snapshotResponseHandler;
+
+  private volatile StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver;
+  private StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver;
+
   public GRpcLogAppender(RaftServer server, LeaderState leaderState,
       FollowerInfo f) {
     super(server, leaderState, f);
@@ -59,27 +67,22 @@ public class GRpcLogAppender extends LogAppender {
     maxPendingRequestsNum = server.getProperties().getInt(
         RaftGrpcConfigKeys.RAFT_GRPC_LEADER_MAX_OUTSTANDING_APPENDS_KEY,
         RaftGrpcConfigKeys.RAFT_GRPC_LEADER_MAX_OUTSTANDING_APPENDS_DEFAULT);
-    pendingRequests = new LinkedList<>();
+    pendingRequests = new ConcurrentLinkedQueue<>();
+
+    appendResponseHandler = new AppendLogResponseHandler();
+    snapshotResponseHandler = new InstallSnapshotResponseHandler();
   }
 
   @Override
   public void run() {
-    final StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver =
-        client.appendEntries(new AppendLogResponseHandler());
-    final InstallSnapshotResponseHandler snapshotResponseHandler =
-        new InstallSnapshotResponseHandler();
-    final StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver =
-        client.installSnapshot(snapshotResponseHandler);
     while (isAppenderRunning()) {
-      // TODO restart a stream RPC if necessary
       if (shouldSendRequest()) {
         SnapshotInfo snapshot = shouldInstallSnapshot();
         if (snapshot != null) {
-          installSnapshot(snapshot, snapshotResponseHandler,
-              snapshotRequestObserver);
+          installSnapshot(snapshot, snapshotResponseHandler);
         } else {
           // keep appending log entries or sending heartbeats
-          appendLog(appendLogRequestObserver);
+          appendLog();
         }
       }
 
@@ -107,49 +110,47 @@ public class GRpcLogAppender extends LogAppender {
         shouldWaitForFirstResponse();
   }
 
-  private void appendLog(
-      StreamObserver<AppendEntriesRequestProto> requestObserver) {
-    try {
-      AppendEntriesRequestProto pending = null;
+  private void appendLog() {
+    if (appendLogRequestObserver == null) {
+      appendLogRequestObserver = client.appendEntries(appendResponseHandler);
+    }
+    AppendEntriesRequestProto pending = null;
+    final StreamObserver<AppendEntriesRequestProto> s;
+    synchronized (this) {
       // if the queue's size >= maxSize, wait
-      synchronized (this) {
-        while (isAppenderRunning() && shouldWait()) {
-          try {
-            LOG.debug("{} wait to send the next AppendEntries to {}",
-                server.getId(), follower.getPeer().getId());
-            this.wait();
-          } catch (InterruptedException ignored) {
-          }
-        }
-
-        if (isAppenderRunning()) {
-          // prepare and enqueue the append request. note changes on follower's
-          // nextIndex and ops on pendingRequests should always be associated
-          // together and protected by the lock
-          pending = createRequest();
-          if (pending != null) {
-            Preconditions.checkState(pendingRequests.offer(pending));
-            updateNextIndex(pending);
-          }
+      while (isAppenderRunning() && shouldWait()) {
+        try {
+          LOG.debug("{} wait to send the next AppendEntries to {}",
+              server.getId(), follower.getPeer().getId());
+          this.wait();
+        } catch (InterruptedException ignored) {
         }
       }
 
-      if (pending != null && isAppenderRunning()) {
-        sendRequest(pending, requestObserver);
+      if (isAppenderRunning()) {
+        // prepare and enqueue the append request. note changes on follower's
+        // nextIndex and ops on pendingRequests should always be associated
+        // together and protected by the lock
+        pending = createRequest();
+        if (pending != null) {
+          Preconditions.checkState(pendingRequests.offer(pending));
+          updateNextIndex(pending);
+        }
       }
-    } catch (RuntimeException e) {
-      // TODO we can cancel the original RPC and restart it. In this way we can
-      // cancel all the pending requests in the channel
-      LOG.info(this + "got exception when appending log to " + follower, e);
+      s = appendLogRequestObserver;
+    }
+
+    if (pending != null && isAppenderRunning()) {
+      sendRequest(pending, s);
     }
   }
 
   private void sendRequest(AppendEntriesRequestProto request,
-      StreamObserver<AppendEntriesRequestProto> requestObserver) {
+      StreamObserver<AppendEntriesRequestProto> s) {
     CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, server.getId(),
         null, request);
 
-    requestObserver.onNext(request);
+    s.onNext(request);
     follower.updateLastRpcSendTime(Time.monotonicNow());
   }
 
@@ -214,15 +215,29 @@ public class GRpcLogAppender extends LogAppender {
      */
     @Override
     public void onError(Throwable t) {
-      LOG.info("{} got error when appending entries to {}, exception: {}",
+      if (!isAppenderRunning()) {
+        LOG.info("{} is stopped", GRpcLogAppender.this);
+        return;
+      }
+      LOG.warn("{} got error when appending entries to {}, exception: {}.",
           server.getId(), follower.getPeer().getId(), t);
-      // clear the pending requests queue and reset the next index of follower
-      // TODO reuse the requests
-      AppendEntriesRequestProto request = pendingRequests.peek();
-      if (request != null) {
-        final long nextIndex = request.hasPreviousLog() ?
-            request.getPreviousLog().getIndex() + 1 : raftLog.getStartIndex();
-        clearPendingRequests(nextIndex);
+
+      synchronized (this) {
+        if (Status.fromThrowable(t) == Status.UNKNOWN) {
+          // TODO check if need to recreate for other Status. Also add sleep to avoid tight loop
+          // recreate the StreamObserver
+          appendLogRequestObserver = client.appendEntries(appendResponseHandler);
+          // reset firstResponseReceived to false
+          firstResponseReceived = false;
+        }
+
+        // clear the pending requests queue and reset the next index of follower
+        AppendEntriesRequestProto request = pendingRequests.peek();
+        if (request != null) {
+          final long nextIndex = request.hasPreviousLog() ?
+              request.getPreviousLog().getIndex() + 1 : raftLog.getStartIndex();
+          clearPendingRequests(nextIndex);
+        }
       }
     }
 
@@ -233,7 +248,7 @@ public class GRpcLogAppender extends LogAppender {
     }
   }
 
-  private synchronized void clearPendingRequests(long newNextIndex) {
+  private void clearPendingRequests(long newNextIndex) {
     pendingRequests.clear();
     follower.decreaseNextIndex(newNextIndex);
   }
@@ -267,13 +282,12 @@ public class GRpcLogAppender extends LogAppender {
     // TODO cancel the RPC
   }
 
-  private void onInconsistency(AppendEntriesReplyProto reply) {
+  private synchronized void onInconsistency(AppendEntriesReplyProto reply) {
     AppendEntriesRequestProto request = pendingRequests.peek();
     Preconditions.checkState(request.hasPreviousLog());
     if (request.getPreviousLog().getIndex() >= reply.getNextIndex()) {
       clearPendingRequests(reply.getNextIndex());
     }
-    // TODO cancel the rpc call and restart it, so as not to send in-q requests
   }
 
   private class InstallSnapshotResponseHandler
@@ -334,6 +348,10 @@ public class GRpcLogAppender extends LogAppender {
 
     @Override
     public void onError(Throwable t) {
+      if (!isAppenderRunning()) {
+        LOG.info("{} is stopped", GRpcLogAppender.this);
+        return;
+      }
       LOG.info("{} got error when installing snapshot to {}, exception: {}",
           server.getId(), follower.getPeer().getId(), t);
       close();
@@ -347,25 +365,28 @@ public class GRpcLogAppender extends LogAppender {
     }
   }
 
+  // TODO handle connection failure
   private void installSnapshot(SnapshotInfo snapshot,
-      InstallSnapshotResponseHandler responseHandler,
-      StreamObserver<InstallSnapshotRequestProto> requestHandler) {
+      InstallSnapshotResponseHandler responseHandler) {
     LOG.info("{}: follower {}'s next index is {}," +
             " log's start index is {}, need to install snapshot",
         server.getId(), follower.getPeer(), follower.getNextIndex(),
         raftLog.getStartIndex());
 
+    snapshotRequestObserver = client.installSnapshot(snapshotResponseHandler);
     final String requestId = UUID.randomUUID().toString();
     try {
       for (InstallSnapshotRequestProto request :
           new SnapshotRequestIter(snapshot, requestId)) {
         if (isAppenderRunning()) {
-          requestHandler.onNext(request);
+          snapshotRequestObserver.onNext(request);
           follower.updateLastRpcSendTime(Time.monotonicNow());
           responseHandler.addPending(request);
+        } else {
+          break;
         }
       }
-      requestHandler.onCompleted();
+      snapshotRequestObserver.onCompleted();
     } catch (InterruptedIOException iioe) {
       LOG.info(this + " was interrupted: " + iioe);
       return;
@@ -373,6 +394,8 @@ public class GRpcLogAppender extends LogAppender {
       LOG.warn(this + ": failed to install SnapshotInfo " + snapshot.getFiles(),
           ioe);
       return;
+    } finally {
+      snapshotRequestObserver = null;
     }
 
     synchronized (this) {

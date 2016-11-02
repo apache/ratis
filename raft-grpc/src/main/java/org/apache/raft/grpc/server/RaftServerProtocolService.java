@@ -68,8 +68,8 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       @Override
       public void onError(Throwable t) {
         // for now we just log a msg
-        LOG.info("{}: appendEntries cancelled",
-            dispatcher.getRaftServer().getId());
+        LOG.info("{}: appendEntries on error. Exception: {}",
+            dispatcher.getRaftServer().getId(), t);
       }
 
       @Override
@@ -99,7 +99,8 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       @Override
       public void onError(Throwable t) {
         // TODO clean up partial downloaded snapshots
-        LOG.warn("installSnapshot cancelled");
+        LOG.info("{}: installSnapshot on error. Exception: {}",
+            dispatcher.getRaftServer().getId(), t);
       }
 
       @Override

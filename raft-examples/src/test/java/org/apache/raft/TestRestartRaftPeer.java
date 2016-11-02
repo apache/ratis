@@ -23,6 +23,7 @@ import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.RaftExamplesTestUtil;
+import org.apache.raft.grpc.MiniRaftClusterWithGRpc;
 import org.apache.raft.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
@@ -37,6 +38,8 @@ import org.junit.Test;
 import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -47,6 +50,7 @@ import java.util.Collection;
  */
 @RunWith(Parameterized.class)
 public class TestRestartRaftPeer {
+  static Logger LOG = LoggerFactory.getLogger(TestRestartRaftPeer.class);
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
@@ -62,8 +66,8 @@ public class TestRestartRaftPeer {
     prop.setInt(RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY, 1024 * 8);
     return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3,
         MiniRaftClusterWithSimulatedRpc.class,
-        MiniRaftClusterWithHadoopRpc.class);
-    // TODO fix MiniRaftClusterWithGRpc.class
+        MiniRaftClusterWithHadoopRpc.class,
+        MiniRaftClusterWithGRpc.class);
     // TODO fix MiniRaftClusterWithNetty.class
   }
 
@@ -90,6 +94,7 @@ public class TestRestartRaftPeer {
 
     // restart a follower
     String followerId = cluster.getFollowers().get(0).getId();
+    LOG.info("Restart follower {}", followerId);
     cluster.restartServer(followerId, false);
 
     // write some more messages

@@ -39,6 +39,7 @@ import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;

@@ -198,6 +198,7 @@ public abstract class RaftReconfigurationBaseTest {
           PeerChanges c2 = cluster.removePeers(2, true, asList(c1.newPeers));
           finalPeers.set(c2.allPeersInNewConf);
           deadPeers.set(c2.removedPeers);
+
           LOG.info("Start changing the configuration again: {}",
               asList(c2.allPeersInNewConf));
           reply = client.setConfiguration(c2.allPeersInNewConf);
