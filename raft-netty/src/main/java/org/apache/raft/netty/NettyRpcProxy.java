@@ -29,6 +29,7 @@ import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.raft.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.util.PeerProxyMap;
+import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.Closeable;
@@ -36,6 +37,8 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+
+import static org.apache.raft.netty.proto.NettyProtos.RaftNettyServerReplyProto.RaftNettyServerReplyCase.EXCEPTIONREPLY;
 
 public class NettyRpcProxy implements Closeable {
   public static class PeerMap extends PeerProxyMap<NettyRpcProxy> {
@@ -70,6 +73,8 @@ public class NettyRpcProxy implements Closeable {
         return proto.getInstallSnapshotReply().getServerReply().getSeqNum();
       case RAFTCLIENTREPLY:
         return proto.getRaftClientReply().getRpcReply().getSeqNum();
+      case EXCEPTIONREPLY:
+        return proto.getExceptionReply().getRpcReply().getSeqNum();
       case RAFTNETTYSERVERREPLY_NOT_SET:
         throw new IllegalArgumentException("Reply case not set in proto: "
             + proto.getRaftNettyServerReplyCase());
@@ -103,7 +108,12 @@ public class NettyRpcProxy implements Closeable {
         if (future == null) {
           throw new IllegalStateException("Request #" + seq + " not found");
         }
-        future.complete(proto);
+        if (proto.getRaftNettyServerReplyCase() == EXCEPTIONREPLY) {
+          final Object ioe = ProtoUtils.toObject(proto.getExceptionReply().getException());
+          future.completeExceptionally((IOException)ioe);
+        } else {
+          future.complete(proto);
+        }
       }
     };
     final ChannelInitializer<SocketChannel> initializer
@@ -140,9 +150,10 @@ public class NettyRpcProxy implements Closeable {
       channelFuture.await();
       return replyFuture.get();
     } catch (InterruptedException e) {
-      throw RaftUtils.toInterruptedIOException(request + " interrupted.", e);
+      throw RaftUtils.toInterruptedIOException(
+          ProtoUtils.toString(request) + " interrupted.", e);
     } catch (ExecutionException e) {
-      throw new IOException(request + " failed.", e);
+      throw RaftUtils.toIOException(e);
     }
   }
 }

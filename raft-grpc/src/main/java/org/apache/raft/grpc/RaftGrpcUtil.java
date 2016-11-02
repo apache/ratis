@@ -20,6 +20,7 @@ package org.apache.raft.grpc;
 import io.grpc.Metadata;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -56,17 +57,13 @@ public class RaftGrpcUtil {
           Class<?> clazz = Class.forName(className);
           final Exception unwrapped = instantiateException(
               clazz.asSubclass(Exception.class), status.getDescription(), se);
-          return asIOException(unwrapped);
+          return RaftUtils.asIOException(unwrapped);
         } catch (Exception e) {
           return new IOException(se);
         }
       }
     }
     return new IOException(se);
-  }
-
-  public static IOException asIOException(Throwable t) {
-    return t instanceof IOException ? (IOException) t : new IOException(t);
   }
 
   private static Exception instantiateException(Class<? extends Exception> cls,

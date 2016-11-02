@@ -23,6 +23,11 @@ package raft.netty;
 
 import "Raft.proto";
 
+message RaftNettyExceptionReplyProto {
+  raft.common.RaftRpcReplyProto rpcReply = 1;
+  bytes exception = 2;
+}
+
 message RaftNettyServerRequestProto {
   oneof raftNettyServerRequest {
     raft.common.RequestVoteRequestProto requestVoteRequest = 1;
@@ -39,5 +44,6 @@ message RaftNettyServerReplyProto {
     raft.common.AppendEntriesReplyProto appendEntriesReply = 2;
     raft.common.InstallSnapshotReplyProto installSnapshotReply = 3;
     raft.common.RaftClientReplyProto raftClientReply = 4;
+    RaftNettyExceptionReplyProto exceptionReply = 5;
   }
 }

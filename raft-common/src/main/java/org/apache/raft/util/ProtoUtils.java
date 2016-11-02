@@ -23,11 +23,35 @@ import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftPeer;
 
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
 public class ProtoUtils {
+  public static ByteString toByteString(Object obj) {
+    final ByteString.Output byteOut = ByteString.newOutput();
+    try(final ObjectOutputStream objOut = new ObjectOutputStream(byteOut)) {
+      objOut.writeObject(obj);
+    } catch (IOException e) {
+      throw new IllegalStateException(
+          "Unexpected IOException when writing an object to a ByteString.", e);
+    }
+    return byteOut.toByteString();
+  }
+
+  public static Object toObject(ByteString bytes) {
+    try(final ObjectInputStream in = new ObjectInputStream(bytes.newInput())) {
+      return in.readObject();
+    } catch (IOException e) {
+      throw new IllegalStateException(
+          "Unexpected IOException when reading an object from a ByteString.", e);
+    } catch (ClassNotFoundException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
   public static ByteString toByteString(byte[] bytes) {
     return toByteString(bytes, 0, bytes.length);
   }

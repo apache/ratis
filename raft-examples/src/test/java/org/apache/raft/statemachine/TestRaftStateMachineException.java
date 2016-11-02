@@ -23,12 +23,9 @@ import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.examples.RaftExamplesTestUtil;
-import org.apache.raft.grpc.MiniRaftClusterWithGRpc;
-import org.apache.raft.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.StateMachineException;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
 import org.junit.Assert;
@@ -62,11 +59,8 @@ public class TestRaftStateMachineException {
 
   @Parameterized.Parameters
   public static Collection<Object[]> data() throws IOException {
-    return RaftExamplesTestUtil.getMiniRaftClusters(StateMachineWithException.class,
-        MiniRaftClusterWithSimulatedRpc.class,
-        MiniRaftClusterWithHadoopRpc.class,
-        MiniRaftClusterWithGRpc.class);
-    // TODO fix MiniRaftClusterWithNetty.class
+    return RaftExamplesTestUtil.getMiniRaftClusters(
+        StateMachineWithException.class);
   }
 
   @Parameterized.Parameter
@@ -83,6 +77,7 @@ public class TestRaftStateMachineException {
       client.send(new RaftTestUtil.SimpleMessage("m"));
       fail("Exception expected");
     } catch (StateMachineException e) {
+      e.printStackTrace();
       Assert.assertTrue(e.getMessage().contains("Fake Exception"));
     }
 

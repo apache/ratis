@@ -35,6 +35,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class RaftUtils {
@@ -52,6 +53,15 @@ public abstract class RaftUtils {
     final InterruptedIOException iioe = new InterruptedIOException(message);
     iioe.initCause(e);
     return iioe;
+  }
+
+  public static IOException asIOException(Throwable t) {
+    return t instanceof IOException? (IOException)t : new IOException(t);
+  }
+
+  public static IOException toIOException(ExecutionException e) {
+    final Throwable cause = e.getCause();
+    return cause != null? asIOException(cause): new IOException(e);
   }
 
   public static InetSocketAddress newInetSocketAddress(String address) {

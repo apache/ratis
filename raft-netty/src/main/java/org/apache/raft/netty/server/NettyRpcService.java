@@ -31,19 +31,19 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.netty.NettyRpcProxy;
+import org.apache.raft.netty.proto.NettyProtos;
 import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.RaftServerRpcService;
 import org.apache.raft.server.RequestDispatcher;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.apache.raft.util.LifeCycle;
+import org.apache.raft.util.ProtoUtils;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -68,8 +68,7 @@ public final class NettyRpcService implements RaftServerRpc {
   @ChannelHandler.Sharable
   class InboundHandler extends SimpleChannelInboundHandler<RaftNettyServerRequestProto> {
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, RaftNettyServerRequestProto proto)
-        throws IOException {
+    protected void channelRead0(ChannelHandlerContext ctx, RaftNettyServerRequestProto proto) {
       final RaftNettyServerReplyProto reply = handle(proto);
       ctx.writeAndFlush(reply);
     }
@@ -137,53 +136,75 @@ public final class NettyRpcService implements RaftServerRpc {
     return (InetSocketAddress) channelFuture.channel().localAddress();
   }
 
-  RaftNettyServerReplyProto handle(RaftNettyServerRequestProto proto)
-      throws IOException {
-    switch (proto.getRaftNettyServerRequestCase()) {
-      case REQUESTVOTEREQUEST: {
-        final RequestVoteReplyProto reply = raftService.requestVote(
-            proto.getRequestVoteRequest());
-        return RaftNettyServerReplyProto.newBuilder()
-            .setRequestVoteReply(reply)
-            .build();
+  RaftNettyServerReplyProto handle(RaftNettyServerRequestProto proto) {
+    RaftRpcRequestProto rpcRequest = null;
+    try {
+      switch (proto.getRaftNettyServerRequestCase()) {
+        case REQUESTVOTEREQUEST: {
+          final RequestVoteRequestProto request = proto.getRequestVoteRequest();
+          rpcRequest = request.getServerRequest();
+          final RequestVoteReplyProto reply = raftService.requestVote(request);
+          return RaftNettyServerReplyProto.newBuilder()
+              .setRequestVoteReply(reply)
+              .build();
+        }
+        case APPENDENTRIESREQUEST: {
+          final AppendEntriesRequestProto request = proto.getAppendEntriesRequest();
+          rpcRequest = request.getServerRequest();
+          final AppendEntriesReplyProto reply = raftService.appendEntries(request);
+          return RaftNettyServerReplyProto.newBuilder()
+              .setAppendEntriesReply(reply)
+              .build();
+        }
+        case INSTALLSNAPSHOTREQUEST: {
+          final InstallSnapshotRequestProto request = proto.getInstallSnapshotRequest();
+          rpcRequest = request.getServerRequest();
+          final InstallSnapshotReplyProto reply = raftService.installSnapshot(request);
+          return RaftNettyServerReplyProto.newBuilder()
+              .setInstallSnapshotReply(reply)
+              .build();
+        }
+        case RAFTCLIENTREQUEST: {
+          final RaftClientRequestProto request = proto.getRaftClientRequest();
+          rpcRequest = request.getRpcRequest();
+          final RaftClientReply reply = raftService.submitClientRequest(
+              ClientProtoUtils.toRaftClientRequest(request));
+          return RaftNettyServerReplyProto.newBuilder()
+              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
+              .build();
+        }
+        case SETCONFIGURATIONREQUEST: {
+          final SetConfigurationRequestProto request = proto.getSetConfigurationRequest();
+          rpcRequest = request.getRpcRequest();
+          final RaftClientReply reply = raftService.setConfiguration(
+              ClientProtoUtils.toSetConfigurationRequest(request));
+          return RaftNettyServerReplyProto.newBuilder()
+              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
+              .build();
+        }
+        case RAFTNETTYSERVERREQUEST_NOT_SET:
+          throw new IllegalArgumentException("Request case not set in proto: "
+              + proto.getRaftNettyServerRequestCase());
+        default:
+          throw new UnsupportedOperationException("Request case not supported: "
+              + proto.getRaftNettyServerRequestCase());
       }
-      case APPENDENTRIESREQUEST: {
-        final AppendEntriesReplyProto reply = raftService.appendEntries(
-            proto.getAppendEntriesRequest());
-        return RaftNettyServerReplyProto.newBuilder()
-            .setAppendEntriesReply(reply)
-            .build();
-      }
-      case INSTALLSNAPSHOTREQUEST: {
-        final InstallSnapshotReplyProto reply = raftService.installSnapshot(
-            proto.getInstallSnapshotRequest());
-        return RaftNettyServerReplyProto.newBuilder()
-            .setInstallSnapshotReply(reply)
-            .build();
-      }
-      case RAFTCLIENTREQUEST: {
-        final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
-            proto.getRaftClientRequest());
-        final RaftClientReply reply = raftService.submitClientRequest(request);
-        return RaftNettyServerReplyProto.newBuilder()
-            .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
-            .build();
-      }
-      case SETCONFIGURATIONREQUEST: {
-        final SetConfigurationRequest request = ClientProtoUtils.toSetConfigurationRequest(
-            proto.getSetConfigurationRequest());
-        final RaftClientReply reply = raftService.setConfiguration(request);
-        return RaftNettyServerReplyProto.newBuilder()
-            .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
-            .build();
-      }
-      case RAFTNETTYSERVERREQUEST_NOT_SET:
-        throw new IllegalArgumentException("Request case not set in proto: "
-            + proto.getRaftNettyServerRequestCase());
-      default:
-        throw new UnsupportedOperationException("Request case not supported: "
-            + proto.getRaftNettyServerRequestCase());
+    } catch (IOException ioe) {
+      Preconditions.checkNotNull(rpcRequest);
+      return toRaftNettyServerReplyProto(rpcRequest, ioe);
     }
+  }
+
+  private static RaftNettyServerReplyProto toRaftNettyServerReplyProto(
+      RaftRpcRequestProto request, IOException e) {
+    final RaftRpcReplyProto.Builder rpcReply = ClientProtoUtils.toRaftRpcReplyProtoBuilder(
+        request.getRequestorId(),
+        request.getReplyId(),
+        request.getSeqNum(), false);
+    final NettyProtos.RaftNettyExceptionReplyProto.Builder ioe = NettyProtos.RaftNettyExceptionReplyProto.newBuilder()
+        .setRpcReply(rpcReply)
+        .setException(ProtoUtils.toByteString(e));
+    return RaftNettyServerReplyProto.newBuilder().setExceptionReply(ioe).build();
   }
 
   @Override

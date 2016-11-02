@@ -30,10 +30,10 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.util.PeerProxyMap;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Collection;
@@ -88,7 +88,7 @@ public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
               if (t instanceof StatusRuntimeException) {
                 e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
               } else {
-                e = RaftGrpcUtil.asIOException(t);
+                e = RaftUtils.asIOException(t);
               }
               replyFuture.completeExceptionally(e);
             }
@@ -111,11 +111,7 @@ public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
         throw new InterruptedIOException(
             "Interrupted while waiting for response of request " + request);
       } catch (ExecutionException e) {
-        if (e.getCause() != null) {
-          throw RaftGrpcUtil.asIOException(e.getCause());
-        } else {
-          throw new IOException(e);
-        }
+        throw RaftUtils.toIOException(e);
       }
     }
   }
