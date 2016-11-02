@@ -27,50 +27,69 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * The life cycle of a machine.
  * <pre>
- *   ----------------------------------------------------
- *  |                                                    |
- *  |                                                    V
- * NEW --> STARTING --> RUNNING ----- --> CLOSING --> [CLOSED]
- *          |    ^          |        |       ^
- *          |    |          V        |       |
- *          |   PAUSED <-- PAUSING   |       |
- *          |                  |     |       |
- *          |                  V     V       |
- *           ---------------> EXCEPTION -----
+ *   -------------------------------------------------
+ *  |           --------------------------            |
+ *  |          |                          |           |
+ *  |        PAUSED <------ PAUSING       |           |
+ *  |          |            ^     |       |           |
+ *  |          V            |     |       V           V
+ * NEW --> STARTING --> RUNNING --|--> CLOSING --> [CLOSED]
+ *             |            |     |       ^
+ *             |            V     V       |
+ *              ---------> EXCEPTION -----
  * </pre>
+ * Note that there is no transition from PAUSING to CLOSING.
  */
 public class LifeCycle {
   public static final Logger LOG = LoggerFactory.getLogger(LifeCycle.class);
 
+  /** The states in the life cycle. */
   public enum State {
+    /** The machine is newly created and holds zero resource. */
     NEW,
+    /** The machine is starting and does not yet provide any service. */
     STARTING,
+    /** The machine is running and providing service. */
     RUNNING,
+    /** The machine is pausing and stopping providing service. */
     PAUSING,
+    /** The machine is paused and does not provide any service. */
     PAUSED,
+    /** The machine catches an internal exception so that it must be closed. */
     EXCEPTION,
+    /** The machine is closing, stopping providing service and releasing resources. */
     CLOSING,
+    /** The machine is closed, a final state. */
     CLOSED;
 
     private static final Map<State, List<State>> PREDECESSORS;
 
-    static {
-      final Map<State, List<State>> m = new EnumMap<>(State.class);
-      m.put(NEW, Collections.emptyList());
-      m.put(STARTING, Collections.unmodifiableList(Arrays.asList(NEW, PAUSED)));
-      m.put(RUNNING, Collections.unmodifiableList(Arrays.asList(STARTING)));
-      m.put(PAUSING, Collections.unmodifiableList(Arrays.asList(RUNNING)));
-      m.put(PAUSED, Collections.unmodifiableList(Arrays.asList(PAUSING)));
-      m.put(EXCEPTION, Collections.unmodifiableList(Arrays.asList(STARTING, PAUSING, RUNNING)));
-      m.put(CLOSING, Collections.unmodifiableList(Arrays.asList(RUNNING, EXCEPTION)));
-      m.put(CLOSED, Collections.unmodifiableList(Arrays.asList(NEW, CLOSING)));
+    static void put(State key, Map<State, List<State>> map, State... values) {
+      map.put(key, Collections.unmodifiableList(Arrays.asList(values)));
+    }
 
-      PREDECESSORS = Collections.unmodifiableMap(m);
+    static {
+      final Map<State, List<State>> predecessors = new EnumMap<>(State.class);
+      put(NEW, predecessors);
+      put(STARTING,  predecessors, NEW, PAUSED);
+      put(RUNNING,   predecessors, STARTING);
+      put(PAUSING,   predecessors, RUNNING);
+      put(PAUSED,    predecessors, PAUSING);
+      put(EXCEPTION, predecessors, STARTING, PAUSING, RUNNING);
+      put(CLOSING,   predecessors, RUNNING, PAUSED, EXCEPTION);
+      put(CLOSED,    predecessors, NEW, CLOSING);
+
+      PREDECESSORS = Collections.unmodifiableMap(predecessors);
+    }
+
+    /** Is the given transition valid? */
+    static boolean isValid(State from, State to) {
+      return PREDECESSORS.get(to).contains(from);
     }
 
     /** Validate the given transition. */
     static void validate(State from, State to) {
-      Preconditions.checkState(PREDECESSORS.get(to).contains(from),
+      Preconditions.checkState(isValid(from, to),
           "Illegal transition: %s -> %s", from, to);
     }
   }
@@ -89,6 +108,12 @@ public class LifeCycle {
     State.validate(from, to);
   }
 
+  /**
+   * If the current state is equal to the specified from state,
+   * then transition to the give to state; otherwise, make no change.
+   *
+   * @return true iff the current state is equal to the specified from state.
+   */
   public boolean compareAndTransition(final State from, final State to) {
     if (current.compareAndSet(from, to)) {
       LOG.trace("{}: {} -> {}", name, from, to);
