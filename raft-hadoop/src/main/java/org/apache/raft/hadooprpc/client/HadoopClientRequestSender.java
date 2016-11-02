@@ -27,20 +27,13 @@ import java.io.IOException;
 import java.util.Collection;
 
 public class HadoopClientRequestSender implements RaftClientRequestSender {
-  private final Configuration conf;
 
-  private final PeerProxyMap<RaftClientProtocolClientSideTranslatorPB> proxies
-      = new PeerProxyMap<RaftClientProtocolClientSideTranslatorPB>() {
-    @Override
-    public RaftClientProtocolClientSideTranslatorPB createProxy(RaftPeer peer)
-        throws IOException {
-      return new RaftClientProtocolClientSideTranslatorPB(peer.getAddress(), conf);
-    }
-  };
+  private final PeerProxyMap<RaftClientProtocolClientSideTranslatorPB> proxies;
 
   public HadoopClientRequestSender(
-      Collection<RaftPeer> peers, Configuration conf) {
-    this.conf = conf;
+      Collection<RaftPeer> peers, final Configuration conf) {
+    this.proxies  = new PeerProxyMap<>(
+        p -> new RaftClientProtocolClientSideTranslatorPB(p.getAddress(), conf));
     proxies.addPeers(peers);
   }
 

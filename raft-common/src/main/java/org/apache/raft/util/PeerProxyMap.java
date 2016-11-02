@@ -28,10 +28,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /** A map from peer id to peer and its proxy. */
-public abstract class PeerProxyMap<PROXY extends Closeable> implements Closeable {
+public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(PeerProxyMap.class);
 
   /** Peer and its proxy. */
@@ -50,7 +49,7 @@ public abstract class PeerProxyMap<PROXY extends Closeable> implements Closeable
         synchronized (this) {
           if (proxy == null) {
             lifeCycle.transition(LifeCycle.State.STARTING);
-            proxy = createProxy(peer);
+            proxy = createProxy.apply(peer);
             lifeCycle.transition(LifeCycle.State.RUNNING);
           }
         }
@@ -80,6 +79,15 @@ public abstract class PeerProxyMap<PROXY extends Closeable> implements Closeable
   private final Map<String, PeerAndProxy> peers
       = Collections.synchronizedMap(new HashMap<>());
 
+  private final CheckedFunction<RaftPeer, PROXY, IOException> createProxy;
+
+  public PeerProxyMap(CheckedFunction<RaftPeer, PROXY, IOException> createProxy) {
+    this.createProxy = createProxy;
+  }
+  public PeerProxyMap() {
+    this.createProxy = this::createProxyImpl;
+  }
+
   public Collection<String> getPeerIds() {
     return peers.keySet();
   }
@@ -98,7 +106,9 @@ public abstract class PeerProxyMap<PROXY extends Closeable> implements Closeable
     }
   }
 
-  public abstract PROXY createProxy(RaftPeer peer) throws IOException;
+  public PROXY createProxyImpl(RaftPeer peer) throws IOException {
+    throw new UnsupportedOperationException();
+  }
 
   @Override
   public void close() {

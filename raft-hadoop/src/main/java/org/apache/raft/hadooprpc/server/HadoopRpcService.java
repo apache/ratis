@@ -46,24 +46,17 @@ public class HadoopRpcService implements RaftServerRpc {
   static final String CLASS_NAME = HadoopRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
-  private final Configuration conf;
   private final RaftServerRpcService raftService;
   private final String id;
   private final RPC.Server ipcServer;
   private final InetSocketAddress ipcServerAddress;
 
-  private final PeerProxyMap<Proxy<RaftServerProtocolPB>> proxies
-      = new PeerProxyMap<Proxy<RaftServerProtocolPB>>() {
-    @Override
-    public Proxy<RaftServerProtocolPB> createProxy(RaftPeer p)
-        throws IOException {
-      return new Proxy(RaftServerProtocolPB.class, p.getAddress(), conf);
-    }
-  };
+  private final PeerProxyMap<Proxy<RaftServerProtocolPB>> proxies;
 
-  public HadoopRpcService(RaftServer server, Configuration conf)
+  public HadoopRpcService(RaftServer server, final Configuration conf)
       throws IOException {
-    this.conf = conf;
+    this.proxies = new PeerProxyMap<>(
+        p -> new Proxy(RaftServerProtocolPB.class, p.getAddress(), conf));
     this.raftService = new RaftServerRpcService(new RequestDispatcher(server));
     this.id = server.getId();
     this.ipcServer = newRpcServer(conf);
