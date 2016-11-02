@@ -133,8 +133,9 @@ message InstallSnapshotRequestProto {
 
 message InstallSnapshotReplyProto {
   RaftRpcReplyProto serverReply = 1;
-  uint64 term = 2;
-  InstallSnapshotResult result = 3;
+  uint32 requestIndex = 2;
+  uint64 term = 3;
+  InstallSnapshotResult result = 4;
 }
 
 message ClientMessageEntryProto {

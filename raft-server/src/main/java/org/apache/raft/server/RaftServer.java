@@ -678,7 +678,7 @@ public class RaftServer implements RaftServerProtocol {
       if (!recognized) {
         final InstallSnapshotReplyProto reply = ServerProtoUtils
             .toInstallSnapshotReplyProto(leaderId, getId(), currentTerm,
-                InstallSnapshotResult.NOT_LEADER);
+                request.getRequestIndex(), InstallSnapshotResult.NOT_LEADER);
         LOG.debug("{}: do not recognize leader for installing snapshot." +
             " Reply: {}", getId(), reply);
         return reply;
@@ -715,7 +715,7 @@ public class RaftServer implements RaftServerProtocol {
           lastIncludedIndex);
     }
     return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getId(),
-        currentTerm, InstallSnapshotResult.SUCCESS);
+        currentTerm, request.getRequestIndex(), InstallSnapshotResult.SUCCESS);
   }
 
   AppendEntriesRequestProto createAppendEntriesRequest(long leaderTerm,

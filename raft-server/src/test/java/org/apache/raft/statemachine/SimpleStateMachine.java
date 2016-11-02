@@ -183,7 +183,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   public synchronized long loadSnapshot(SingleFileSnapshotInfo snapshot)
       throws IOException {
     if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
-      LOG.warn("The snapshot file {} does not exist",
+      LOG.info("The snapshot file {} does not exist",
           snapshot == null ? null : snapshot.getFile());
       return RaftServerConstants.INVALID_LOG_INDEX;
     } else {

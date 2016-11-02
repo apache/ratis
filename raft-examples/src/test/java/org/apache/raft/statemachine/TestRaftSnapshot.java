@@ -25,6 +25,7 @@ import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.RaftExamplesTestUtil;
+import org.apache.raft.grpc.MiniRaftClusterWithGRpc;
 import org.apache.raft.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.RaftClientReply;
@@ -77,8 +78,8 @@ public class TestRaftSnapshot {
         SNAPSHOT_TRIGGER_THRESHOLD);
     return RaftExamplesTestUtil.getMiniRaftClusters(prop, 1,
         MiniRaftClusterWithSimulatedRpc.class,
-        MiniRaftClusterWithHadoopRpc.class);
-    // TODO fix MiniRaftClusterWithGRpc.class
+        MiniRaftClusterWithHadoopRpc.class,
+        MiniRaftClusterWithGRpc.class);
     // TODO fix MiniRaftClusterWithNetty.class
   }
 

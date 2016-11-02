@@ -128,12 +128,13 @@ public class ServerProtoUtils {
   }
 
   public static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
-      String requestorId, String replyId, long term,
+      String requestorId, String replyId, long term, int requestIndex,
       InstallSnapshotResult result) {
     final RaftRpcReplyProto.Builder rb = ClientProtoUtils.toRaftRpcReplyProtoBuilder(requestorId,
         replyId, DEFAULT_SEQNUM, result == InstallSnapshotResult.SUCCESS);
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
-        .newBuilder().setServerReply(rb).setTerm(term).setResult(result);
+        .newBuilder().setServerReply(rb).setTerm(term).setResult(result)
+        .setRequestIndex(requestIndex);
     return builder.build();
   }
 

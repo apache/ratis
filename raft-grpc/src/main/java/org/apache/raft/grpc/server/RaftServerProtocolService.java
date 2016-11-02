@@ -61,7 +61,6 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
           final AppendEntriesReplyProto reply = dispatcher.appendEntries(request);
           responseObserver.onNext(reply);
         } catch (Exception e) {
-          // TODO test if client can get/handle exception correctly
           responseObserver.onError(e);
         }
       }
@@ -105,7 +104,6 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
 
       @Override
       public void onCompleted() {
-        // TODO we can move the rename snapshot + reloadStateMachine logic here
         responseObserver.onCompleted();
       }
     };

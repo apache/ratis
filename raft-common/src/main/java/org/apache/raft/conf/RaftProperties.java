@@ -19,6 +19,7 @@
 package org.apache.raft.conf;
 
 import com.google.common.base.Preconditions;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.util.StringInterner;
 import org.apache.hadoop.util.StringUtils;
@@ -149,6 +150,36 @@ public class RaftProperties {
     synchronized(RaftProperties.class) {
       REGISTRY.put(this, null);
     }
+  }
+
+  /**
+   * A new RaftProperties with the same settings cloned from another.
+   *
+   * @param other the RaftProperties from which to clone settings.
+   */
+  @SuppressWarnings("unchecked")
+  public RaftProperties(RaftProperties other) {
+    this.resources = (ArrayList<Resource>) other.resources.clone();
+    synchronized(other) {
+      if (other.properties != null) {
+        this.properties = (Properties)other.properties.clone();
+      }
+
+      if (other.overlay!=null) {
+        this.overlay = (Properties)other.overlay.clone();
+      }
+
+      this.updatingResource = new ConcurrentHashMap<>(other.updatingResource);
+      this.finalParameters = Collections.newSetFromMap(
+          new ConcurrentHashMap<String, Boolean>());
+      this.finalParameters.addAll(other.finalParameters);
+    }
+
+    synchronized(Configuration.class) {
+      REGISTRY.put(this, null);
+    }
+    this.classLoader = other.classLoader;
+    this.loadDefaults = other.loadDefaults;
   }
 
   /**

@@ -17,19 +17,20 @@
  */
 package org.apache.raft.grpc;
 
+import com.google.common.base.Preconditions;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.client.RaftClientSenderWithGrpc;
+import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.BlockRequestHandlingInjection;
 import org.apache.raft.server.DelayLocalExecutionInjection;
-import org.apache.raft.server.RaftConfiguration;
+import org.apache.raft.server.LogAppenderFactory;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.RaftServerConstants;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,8 +38,9 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
+
 public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
-  static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithGRpc.class);
   public static final DelayLocalExecutionInjection sendServerRequestInjection =
       new DelayLocalExecutionInjection(RaftGRpcService.GRPC_SEND_SERVER_REQUEST);
 
@@ -49,8 +51,15 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
 
   public MiniRaftClusterWithGRpc(String[] ids, RaftProperties properties,
       boolean formatted) throws IOException {
-    super(ids, properties, formatted);
+    super(ids, getPropForGrpc(properties), formatted);
     init(initRpcServices(getServers(), properties));
+  }
+
+  private static RaftProperties getPropForGrpc(RaftProperties prop) {
+    RaftProperties newProp = new RaftProperties(prop);
+    newProp.setClass(RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
+        PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
+    return newProp;
   }
 
   private static Map<RaftPeer, RaftGRpcService> initRpcServices(
@@ -84,6 +93,31 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
       }
     }
     return new ArrayList<>(peers.keySet());
+  }
+
+  private void setPeerRpc(RaftPeer peer) throws IOException {
+    RaftServer server = servers.get(peer.getId());
+    int port = RaftUtils.newInetSocketAddress(peer.getAddress()).getPort();
+    int oldPort = properties.getInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY,
+        RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_DEFAULT);
+    properties.setInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, port);
+    final RaftGRpcService rpc = new RaftGRpcService(server, properties);
+    Preconditions.checkState(
+        rpc.getInetSocketAddress().toString().contains(peer.getAddress()),
+        "address in the raft conf: %s, address in rpc server: %s",
+        peer.getAddress(), rpc.getInetSocketAddress().toString());
+    server.setServerRpc(rpc);
+    properties.setInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, oldPort);
+  }
+
+  @Override
+  public void restart(boolean format) throws IOException {
+    super.restart(format);
+
+    for (RaftPeer peer : conf.getPeers()) {
+      setPeerRpc(peer);
+    }
+    start();
   }
 
   @Override

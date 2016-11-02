@@ -99,7 +99,7 @@ public abstract class MiniRaftCluster {
   public MiniRaftCluster(String[] ids, RaftProperties properties,
       boolean formatted) {
     this.conf = initConfiguration(ids);
-    this.properties = properties;
+    this.properties = new RaftProperties(properties);
     this.testBaseDir = getBaseDirectory();
 
     conf.getPeers().forEach(

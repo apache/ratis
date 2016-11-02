@@ -25,6 +25,8 @@ import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtoc
 import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceStub;
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftPeer;
@@ -57,5 +59,10 @@ public class RaftServerProtocolClient {
   StreamObserver<AppendEntriesRequestProto> appendEntries(
       StreamObserver<AppendEntriesReplyProto> responseHandler) {
     return asyncStub.appendEntries(responseHandler);
+  }
+
+  StreamObserver<InstallSnapshotRequestProto> installSnapshot(
+      StreamObserver<InstallSnapshotReplyProto> responseHandler) {
+    return asyncStub.installSnapshot(responseHandler);
   }
 }

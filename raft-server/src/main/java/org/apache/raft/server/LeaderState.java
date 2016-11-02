@@ -353,8 +353,8 @@ public class LeaderState {
     final long progressTime = Time.monotonicNow() - server.maxTimeout;
     final long timeoutTime = Time.monotonicNow() - 3 * server.maxTimeout;
     if (follower.getLastRpcResponseTime() < timeoutTime) {
-      LOG.debug("{} detects a follower {} timeout for bootstrapping",
-          server.getId(), follower);
+      LOG.debug("{} detects a follower {} timeout for bootstrapping," +
+              " timeoutTime: {}", server.getId(), follower, timeoutTime);
       return BootStrapProgress.NOPROGRESS;
     } else if (follower.getMatchIndex() + stagingCatchupGap > committed
         && follower.getLastRpcResponseTime() > progressTime) {

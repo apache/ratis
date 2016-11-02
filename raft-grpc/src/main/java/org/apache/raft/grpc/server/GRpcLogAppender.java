@@ -24,14 +24,20 @@ import org.apache.raft.grpc.RaftGRpcService;
 import org.apache.raft.grpc.RaftGrpcConfigKeys;
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.server.FollowerInfo;
 import org.apache.raft.server.LeaderState;
 import org.apache.raft.server.LogAppender;
 import org.apache.raft.server.RaftServer;
+import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.CodeInjectionForTesting;
 
+import java.io.InterruptedIOException;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.raft.grpc.RaftGRpcService.GRPC_SEND_SERVER_REQUEST;
 
@@ -58,13 +64,23 @@ public class GRpcLogAppender extends LogAppender {
 
   @Override
   public void run() {
-    final StreamObserver<AppendEntriesRequestProto> requestObserver =
-        client.appendEntries(new ResponseHandler());
+    final StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver =
+        client.appendEntries(new AppendLogResponseHandler());
+    final InstallSnapshotResponseHandler snapshotResponseHandler =
+        new InstallSnapshotResponseHandler();
+    final StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver =
+        client.installSnapshot(snapshotResponseHandler);
     while (isAppenderRunning()) {
       // TODO restart a stream RPC if necessary
       if (shouldSendRequest()) {
-        // keep appending log entries or sending heartbeats
-        appendLog(requestObserver);
+        SnapshotInfo snapshot = shouldInstallSnapshot();
+        if (snapshot != null) {
+          installSnapshot(snapshot, snapshotResponseHandler,
+              snapshotRequestObserver);
+        } else {
+          // keep appending log entries or sending heartbeats
+          appendLog(appendLogRequestObserver);
+        }
       }
 
       if (isAppenderRunning() && !shouldSendRequest()) {
@@ -83,7 +99,7 @@ public class GRpcLogAppender extends LogAppender {
         }
       }
     }
-    requestObserver.onCompleted();
+    appendLogRequestObserver.onCompleted();
   }
 
   private boolean shouldWait() {
@@ -155,7 +171,8 @@ public class GRpcLogAppender extends LogAppender {
   /**
    * StreamObserver for handling responses from the follower
    */
-  private class ResponseHandler implements StreamObserver<AppendEntriesReplyProto> {
+  private class AppendLogResponseHandler
+      implements StreamObserver<AppendEntriesReplyProto> {
     /**
      * After receiving a appendEntries reply, do the following:
      * 1. If the reply is success, update the follower's match index and submit
@@ -257,5 +274,121 @@ public class GRpcLogAppender extends LogAppender {
       clearPendingRequests(reply.getNextIndex());
     }
     // TODO cancel the rpc call and restart it, so as not to send in-q requests
+  }
+
+  private class InstallSnapshotResponseHandler
+      implements StreamObserver<InstallSnapshotReplyProto> {
+    private final Queue<Integer> pending;
+    private final AtomicBoolean done = new AtomicBoolean(false);
+
+    InstallSnapshotResponseHandler() {
+      pending = new LinkedList<>();
+    }
+
+    synchronized void addPending(InstallSnapshotRequestProto request) {
+      pending.offer(request.getRequestIndex());
+    }
+
+    synchronized void removePending(InstallSnapshotReplyProto reply) {
+      int index = pending.poll();
+      Preconditions.checkState(index == reply.getRequestIndex());
+    }
+
+    boolean isDone() {
+      return done.get();
+    }
+
+    void close() {
+      done.set(true);
+      GRpcLogAppender.this.notifyAppend();
+    }
+
+    synchronized boolean hasAllResponse() {
+      return pending.isEmpty();
+    }
+
+    @Override
+    public void onNext(InstallSnapshotReplyProto reply) {
+      LOG.debug("{} received {} response from {}", server.getId(),
+          (!firstResponseReceived ? "the first" : "a"),
+          follower.getPeer().getId());
+
+      // update the last rpc time
+      follower.updateLastRpcResponseTime(Time.monotonicNow());
+
+      if (!firstResponseReceived) {
+        firstResponseReceived = true;
+      }
+
+      switch (reply.getResult()) {
+        case SUCCESS:
+          removePending(reply);
+          break;
+        case NOT_LEADER:
+          checkResponseTerm(reply.getTerm());
+          break;
+        case UNRECOGNIZED:
+          break;
+      }
+    }
+
+    @Override
+    public void onError(Throwable t) {
+      LOG.info("{} got error when installing snapshot to {}, exception: {}",
+          server.getId(), follower.getPeer().getId(), t);
+      close();
+    }
+
+    @Override
+    public void onCompleted() {
+      LOG.info("{} stops sending snapshots to follower {}", server.getId(),
+          follower);
+      close();
+    }
+  }
+
+  private void installSnapshot(SnapshotInfo snapshot,
+      InstallSnapshotResponseHandler responseHandler,
+      StreamObserver<InstallSnapshotRequestProto> requestHandler) {
+    LOG.info("{}: follower {}'s next index is {}," +
+            " log's start index is {}, need to install snapshot",
+        server.getId(), follower.getPeer(), follower.getNextIndex(),
+        raftLog.getStartIndex());
+
+    final String requestId = UUID.randomUUID().toString();
+    try {
+      for (InstallSnapshotRequestProto request :
+          new SnapshotRequestIter(snapshot, requestId)) {
+        if (isAppenderRunning()) {
+          requestHandler.onNext(request);
+          follower.updateLastRpcSendTime(Time.monotonicNow());
+          responseHandler.addPending(request);
+        }
+      }
+      requestHandler.onCompleted();
+    } catch (InterruptedIOException iioe) {
+      LOG.info(this + " was interrupted: " + iioe);
+      return;
+    } catch (Exception ioe) {
+      LOG.warn(this + ": failed to install SnapshotInfo " + snapshot.getFiles(),
+          ioe);
+      return;
+    }
+
+    synchronized (this) {
+      while (isAppenderRunning() && !responseHandler.isDone()) {
+        try {
+          wait();
+        } catch (InterruptedException ignored) {
+        }
+      }
+    }
+
+    if (responseHandler.hasAllResponse()) {
+      follower.updateMatchIndex(snapshot.getTermIndex().getIndex());
+      follower.updateNextIndex(snapshot.getTermIndex().getIndex() + 1);
+      LOG.info("{}: install snapshot-{} successfully on follower {}",
+          server.getId(), snapshot.getTermIndex().getIndex(), follower.getPeer());
+    }
   }
 }
