@@ -34,9 +34,9 @@ import java.util.concurrent.atomic.AtomicReference;
  *  |          |            ^     |       |           |
  *  |          V            |     |       V           V
  * NEW --> STARTING --> RUNNING --|--> CLOSING --> [CLOSED]
- *             |            |     |       ^
- *             |            V     V       |
- *              ---------> EXCEPTION -----
+ *  ^       |    |          |     |       ^
+ *  |       |    |          V     V       |
+ *   -------      -------> EXCEPTION -----
  * </pre>
  * Note that there is no transition from PAUSING to CLOSING.
  */
@@ -64,13 +64,31 @@ public class LifeCycle {
 
     private static final Map<State, List<State>> PREDECESSORS;
 
+    /** Does this object equal to one of the given states? */
+    public boolean isOneOf(State... states) {
+      return isOneOf2(states) == null;
+    }
+
+    /**
+     * @return null if this object equals to one of the given states;
+     *         otherwise, return this object.
+     */
+    private State isOneOf2(State... states) {
+      for(State e : states) {
+        if (e == this) {
+          return null;
+        }
+      }
+      return this;
+    }
+
     static void put(State key, Map<State, List<State>> map, State... values) {
       map.put(key, Collections.unmodifiableList(Arrays.asList(values)));
     }
 
     static {
       final Map<State, List<State>> predecessors = new EnumMap<>(State.class);
-      put(NEW, predecessors);
+      put(NEW,       predecessors, STARTING);
       put(STARTING,  predecessors, NEW, PAUSED);
       put(RUNNING,   predecessors, STARTING);
       put(PAUSING,   predecessors, RUNNING);
@@ -127,22 +145,14 @@ public class LifeCycle {
     return current.get();
   }
 
-  /** Does the current state equal to one of the given states? */
-  public boolean currentStateEquals(State... states) {
-    final State current = getCurrentState();
-    for (State e : states) {
-      if (current == e) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /** Assert if the current state equals to one of the expected states. */
   public void assertCurrentState(State... expected) {
-    Preconditions.checkState(currentStateEquals(expected),
-        "STATE MISMATCHED: In %s, current state %s in not one of the expected states %s",
-        name, current, Arrays.asList(expected));
+    final State c = getCurrentState().isOneOf2(expected);
+    if (c != null) {
+      throw new AssertionError("STATE MISMATCHED: In " + name
+          + ", current state " + c + " is not one of the expected states "
+          + Arrays.toString(expected));
+    }
   }
 
   @Override
@@ -150,9 +160,25 @@ public class LifeCycle {
     return name + ":" + getCurrentState();
   }
 
+  /** Run the given start method and transition the current state accordingly. */
+  public <T extends Throwable> void startAndTransition(
+      Class<? extends Exception> exceptionClass, CheckedRunnable<T> startImpl)
+      throws T {
+    transition(State.STARTING);
+    try {
+      startImpl.run();
+      transition(State.RUNNING);
+    } catch (Throwable t) {
+      transition(exceptionClass != null && exceptionClass.isInstance(t)?
+          State.NEW: State.EXCEPTION);
+      throw t;
+    }
+  }
+
   /**
    * Check the current state and, if applicable, run the given close method.
-   * This method can be called multiple time but the close method will
+   * This method can be called multiple times
+   * while the given close method will only be executed once.
    */
   public <T extends Throwable> void checkStateAndClose(
       CheckedRunnable<T> closeImpl) throws T {
@@ -161,15 +187,22 @@ public class LifeCycle {
     }
 
     for(;;) {
-      final LifeCycle.State current = getCurrentState();
-      if (current == State.CLOSING || current == State.CLOSED) {
+      final LifeCycle.State c = getCurrentState()
+          .isOneOf2(State.CLOSING, State.CLOSED);
+      if (c == null) {
         return; //already closing or closed.
       }
 
-      if (compareAndTransition(current, State.CLOSING)) {
-        closeImpl.run();
+      if (compareAndTransition(c, State.CLOSING)) {
+        try {
+          closeImpl.run();
+        } finally {
+          transition(State.CLOSED);
+        }
         return;
       }
+
+      // lifecycle state is changed, retry.
     }
   }
 }

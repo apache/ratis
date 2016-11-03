@@ -99,15 +99,13 @@ public final class NettyRpcService implements RaftServerRpc {
         .channel(NioServerSocketChannel.class)
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(initializer)
-        .bind(port)
-        .syncUninterruptibly();
+        .bind(port);
   }
 
   @Override
   public void start() {
-    lifeCycle.transition(LifeCycle.State.STARTING);
-    channelFuture.awaitUninterruptibly();
-    lifeCycle.transition(LifeCycle.State.RUNNING);
+    lifeCycle.startAndTransition(null,
+        () -> channelFuture.syncUninterruptibly());
   }
 
   @Override
@@ -116,7 +114,6 @@ public final class NettyRpcService implements RaftServerRpc {
       bossGroup.shutdownGracefully();
       workerGroup.shutdownGracefully();
       channelFuture.channel().close().awaitUninterruptibly();
-      lifeCycle.transition(LifeCycle.State.CLOSED);
       proxies.close();
     });
   }

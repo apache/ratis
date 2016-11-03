@@ -35,7 +35,7 @@ public class TestLifeCycle {
     final Map<LifeCycle.State, List<LifeCycle.State>> successors
         = new EnumMap<>(LifeCycle.State.class);
     put(NEW,       successors, STARTING, CLOSED);
-    put(STARTING,  successors, RUNNING, EXCEPTION);
+    put(STARTING,  successors, NEW, RUNNING, EXCEPTION);
     put(RUNNING,   successors, CLOSING, PAUSING, EXCEPTION);
     put(PAUSING,   successors, PAUSED, EXCEPTION);
     put(PAUSED,    successors, STARTING, CLOSING);

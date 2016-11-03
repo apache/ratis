@@ -96,16 +96,17 @@ public class SimpleStateMachine extends BaseStateMachine {
   public synchronized void initialize(RaftProperties properties,
       RaftStorage raftStorage) throws IOException {
     LOG.info("Initializing the StateMachine");
-    lifeCycle.transition(LifeCycle.State.STARTING);
-    super.initialize(properties, raftStorage);
-    this.storage.init(raftStorage);
-    loadSnapshot(this.storage.findLatestSnapshot());
+    lifeCycle.startAndTransition(null, () -> {
+      super.initialize(properties, raftStorage);
+      storage.init(raftStorage);
+      loadSnapshot(storage.findLatestSnapshot());
 
-    if (properties.getBoolean(RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY,
-        RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT)) {
-      checkpointer.start();
-    }
-    lifeCycle.transition(LifeCycle.State.RUNNING);
+      if (properties.getBoolean(
+          RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY,
+          RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT)) {
+        checkpointer.start();
+      }
+    });
   }
 
   @Override
@@ -230,7 +231,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public void close() throws IOException {
+  public void close() {
     lifeCycle.checkStateAndClose(() -> {
       running = false;
       checkpointer.interrupt();

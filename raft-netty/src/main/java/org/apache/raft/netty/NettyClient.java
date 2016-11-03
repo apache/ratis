@@ -17,6 +17,7 @@
  */
 package org.apache.raft.netty;
 
+import com.google.common.base.Preconditions;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -40,27 +41,29 @@ public class NettyClient implements Closeable {
   public void connect(String serverAddress, EventLoopGroup group,
                       ChannelInitializer<SocketChannel> initializer)
       throws InterruptedException {
-    lifeCycle.transition(LifeCycle.State.STARTING);
     final InetSocketAddress address = RaftUtils.newInetSocketAddress(serverAddress);
-    channelFuture  = new Bootstrap()
-        .group(group)
-        .channel(NioSocketChannel.class)
-        .handler(new LoggingHandler(LogLevel.INFO))
-        .handler(initializer)
-        .connect(address)
-        .sync();
-    lifeCycle.transition(LifeCycle.State.RUNNING);
+    Preconditions.checkNotNull(address,
+        "Failed to create InetSocketAddress from %s.", serverAddress);
+
+    lifeCycle.startAndTransition(InterruptedException.class,
+        () -> channelFuture = new Bootstrap()
+            .group(group)
+            .channel(NioSocketChannel.class)
+            .handler(new LoggingHandler(LogLevel.INFO))
+            .handler(initializer)
+            .connect(address)
+            .sync());
   }
 
   @Override
   public void close() {
     lifeCycle.checkStateAndClose(() -> {
       channelFuture.channel().close();
-      lifeCycle.transition(LifeCycle.State.CLOSED);
     });
   }
 
   public ChannelFuture writeAndFlush(Object msg) {
+    lifeCycle.assertCurrentState(LifeCycle.State.RUNNING);
     return channelFuture.channel().writeAndFlush(msg);
   }
 }

@@ -211,7 +211,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
   }
 
   public boolean isAlive() {
-    return !lifeCycle.currentStateEquals(CLOSING, CLOSED);
+    return !lifeCycle.getCurrentState().isOneOf(CLOSING, CLOSED);
   }
 
   public boolean isFollower() {
