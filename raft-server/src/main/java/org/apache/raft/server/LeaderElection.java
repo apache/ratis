@@ -169,7 +169,7 @@ class LeaderElection extends Daemon {
           case SHUTDOWN:
             LOG.info("{} received shutdown response when requesting votes.",
                 server.getId());
-            server.kill();
+            server.close();
             return;
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:

@@ -126,7 +126,7 @@ public abstract class MiniRaftCluster {
 
   public void restart(boolean format) throws IOException {
     servers.values().stream().filter(RaftServer::isAlive)
-        .forEach(RaftServer::kill);
+        .forEach(RaftServer::close);
     List<String> idList = new ArrayList<>(servers.keySet());
     for (String id : idList) {
       servers.remove(id);
@@ -258,7 +258,7 @@ public abstract class MiniRaftCluster {
   }
 
   public void killServer(String id) {
-    servers.get(id).kill();
+    servers.get(id).close();
   }
 
   public String printServers() {
@@ -345,7 +345,7 @@ public abstract class MiniRaftCluster {
   public void shutdown() {
     LOG.info("Stopping " + getClass().getSimpleName());
     servers.values().stream().filter(RaftServer::isAlive)
-        .forEach(RaftServer::kill);
+        .forEach(RaftServer::close);
 
     if (ExitUtil.terminateCalled()) {
       LOG.error("Test resulted in an unexpected exit",

@@ -149,4 +149,27 @@ public class LifeCycle {
   public String toString() {
     return name + ":" + getCurrentState();
   }
+
+  /**
+   * Check the current state and, if applicable, run the given close method.
+   * This method can be called multiple time but the close method will
+   */
+  public <T extends Throwable> void checkStateAndClose(
+      CheckedRunnable<T> closeImpl) throws T {
+    if (compareAndTransition(State.NEW, State.CLOSED)) {
+      return;
+    }
+
+    for(;;) {
+      final LifeCycle.State current = getCurrentState();
+      if (current == State.CLOSING || current == State.CLOSED) {
+        return; //already closing or closed.
+      }
+
+      if (compareAndTransition(current, State.CLOSING)) {
+        closeImpl.run();
+        return;
+      }
+    }
+  }
 }

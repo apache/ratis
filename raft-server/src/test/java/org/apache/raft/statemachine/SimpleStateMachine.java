@@ -231,10 +231,10 @@ public class SimpleStateMachine extends BaseStateMachine {
 
   @Override
   public void close() throws IOException {
-    lifeCycle.transition(LifeCycle.State.CLOSING);
-    running = false;
-    checkpointer.interrupt();
-    lifeCycle.transition(LifeCycle.State.CLOSED);
+    lifeCycle.checkStateAndClose(() -> {
+      running = false;
+      checkpointer.interrupt();
+    });
   }
 
   @VisibleForTesting

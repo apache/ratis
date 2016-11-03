@@ -59,10 +59,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
 
     @Override
     public synchronized void close() {
-      if (lifeCycle.getCurrentState() == LifeCycle.State.NEW) {
-        lifeCycle.transition(LifeCycle.State.CLOSED);
-      } else {
-        lifeCycle.transition(LifeCycle.State.CLOSING);
+      lifeCycle.checkStateAndClose(() -> {
         if (proxy != null) {
           try {
             proxy.close();
@@ -71,8 +68,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
                 peer, proxy.getClass());
           }
         }
-        lifeCycle.transition(LifeCycle.State.CLOSED);
-      }
+      });
     }
   }
 

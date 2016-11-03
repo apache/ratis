@@ -54,20 +54,10 @@ public class NettyClient implements Closeable {
 
   @Override
   public void close() {
-    for(;;) {
-      final LifeCycle.State current = lifeCycle.getCurrentState();
-      if (current == LifeCycle.State.CLOSING
-          || current == LifeCycle.State.CLOSED) {
-        return; //already closing or closed.
-      }
-      if (lifeCycle.compareAndTransition(current, LifeCycle.State.CLOSING)) {
-        channelFuture.channel().close();
-        lifeCycle.transition(LifeCycle.State.CLOSED);
-        return;
-      }
-
-      // lifecycle state is changed, retry.
-    }
+    lifeCycle.checkStateAndClose(() -> {
+      channelFuture.channel().close();
+      lifeCycle.transition(LifeCycle.State.CLOSED);
+    });
   }
 
   public ChannelFuture writeAndFlush(Object msg) {

@@ -46,6 +46,7 @@ import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
@@ -60,7 +61,7 @@ import static org.apache.raft.util.LifeCycle.State.*;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
-public class RaftServer implements RaftServerProtocol {
+public class RaftServer implements RaftServerProtocol, Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 
   private static final String CLASS_NAME = RaftServer.class.getSimpleName();
@@ -193,24 +194,24 @@ public class RaftServer implements RaftServerProtocol {
     return getState().getRaftConf();
   }
 
-  public boolean isAlive() {
-    return !lifeCycle.currentStateEquals(CLOSING, CLOSED);
+  @Override
+  public void close() {
+    lifeCycle.checkStateAndClose(() -> {
+      try {
+        shutdownHeartbeatMonitor();
+        shutdownElectionDaemon();
+        shutdownLeaderState();
+
+        serverRpc.shutdown();
+        state.close();
+      } catch (Exception ignored) {
+        LOG.warn("Failed to kill " + state.getSelfId(), ignored);
+      }
+    });
   }
 
-  public void kill() {
-    lifeCycle.transition(CLOSING);
-    try {
-      shutdownHeartbeatMonitor();
-      shutdownElectionDaemon();
-      shutdownLeaderState();
-
-      serverRpc.shutdown();
-      state.close();
-    } catch (Exception ignored) {
-      LOG.warn("Failed to kill " + state.getSelfId(), ignored);
-    } finally {
-      lifeCycle.transition(CLOSED);
-    }
+  public boolean isAlive() {
+    return !lifeCycle.currentStateEquals(CLOSING, CLOSED);
   }
 
   public boolean isFollower() {

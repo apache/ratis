@@ -112,23 +112,13 @@ public final class NettyRpcService implements RaftServerRpc {
 
   @Override
   public void shutdown() {
-    for(;;) {
-      final LifeCycle.State current = lifeCycle.getCurrentState();
-      if (current == LifeCycle.State.CLOSING
-          || current == LifeCycle.State.CLOSED) {
-        return; //already closing or closed.
-      }
-      if (lifeCycle.compareAndTransition(current, LifeCycle.State.CLOSING)) {
-        bossGroup.shutdownGracefully();
-        workerGroup.shutdownGracefully();
-        channelFuture.channel().close().awaitUninterruptibly();
-        lifeCycle.transition(LifeCycle.State.CLOSED);
-        proxies.close();
-        return;
-      }
-
-      // lifecycle state is changed, retry.
-    }
+    lifeCycle.checkStateAndClose(() -> {
+      bossGroup.shutdownGracefully();
+      workerGroup.shutdownGracefully();
+      channelFuture.channel().close().awaitUninterruptibly();
+      lifeCycle.transition(LifeCycle.State.CLOSED);
+      proxies.close();
+    });
   }
 
   @Override

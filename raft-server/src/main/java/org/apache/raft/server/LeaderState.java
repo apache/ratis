@@ -453,7 +453,7 @@ public class LeaderState {
           }
           // the pending request handler will send NotLeaderException for
           // pending client requests when it stops
-          server.kill();
+          server.close();
         }
       }
     }
