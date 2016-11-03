@@ -124,8 +124,8 @@ public class SimulatedServerRpc implements RaftServerRpc {
   final RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply> serverHandlerImpl
       = new RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply>() {
     @Override
-    public boolean isRunning() {
-      return getRaftServer().isRunning();
+    public boolean isAlive() {
+      return getRaftServer().isAlive();
     }
 
     @Override
@@ -148,8 +148,8 @@ public class SimulatedServerRpc implements RaftServerRpc {
   final RequestHandler.HandlerInterface<RaftClientRequest, RaftClientReply> clientHandlerImpl
       = new RequestHandler.HandlerInterface<RaftClientRequest, RaftClientReply>() {
     @Override
-    public boolean isRunning() {
-      return getRaftServer().isRunning();
+    public boolean isAlive() {
+      return getRaftServer().isAlive();
     }
 
     @Override

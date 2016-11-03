@@ -125,7 +125,7 @@ public abstract class MiniRaftCluster {
   }
 
   public void restart(boolean format) throws IOException {
-    servers.values().stream().filter(RaftServer::isRunning)
+    servers.values().stream().filter(RaftServer::isAlive)
         .forEach(RaftServer::kill);
     List<String> idList = new ArrayList<>(servers.keySet());
     for (String id : idList) {
@@ -288,7 +288,7 @@ public abstract class MiniRaftCluster {
   public RaftServer getLeader() {
     final List<RaftServer> leaders = new ArrayList<>();
     servers.values().stream()
-        .filter(s -> s.isRunning() && s.isLeader())
+        .filter(s -> s.isAlive() && s.isLeader())
         .forEach(s -> {
       if (leaders.isEmpty()) {
         leaders.add(s);
@@ -319,7 +319,7 @@ public abstract class MiniRaftCluster {
 
   public List<RaftServer> getFollowers() {
     return servers.values().stream()
-        .filter(s -> s.isRunning() && s.isFollower())
+        .filter(s -> s.isAlive() && s.isFollower())
         .collect(Collectors.toList());
   }
 
@@ -344,7 +344,7 @@ public abstract class MiniRaftCluster {
 
   public void shutdown() {
     LOG.info("Stopping " + getClass().getSimpleName());
-    servers.values().stream().filter(RaftServer::isRunning)
+    servers.values().stream().filter(RaftServer::isAlive)
         .forEach(RaftServer::kill);
 
     if (ExitUtil.terminateCalled()) {

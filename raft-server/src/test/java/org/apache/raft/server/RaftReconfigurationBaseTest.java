@@ -218,7 +218,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       // check configuration manager's internal state
       // each reconf will generate two configurations: (old, new) and (new)
-      cluster.getServers().stream().filter(RaftServer::isRunning)
+      cluster.getServers().stream().filter(RaftServer::isAlive)
           .forEach(server -> {
         ConfigurationManager confManager =
             (ConfigurationManager) Whitebox.getInternalState(server.getState(),

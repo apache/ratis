@@ -110,7 +110,7 @@ public class RaftTestUtil {
                                       SimpleMessage... expectedMessages) {
     final int size = servers.size();
     final long count = servers.stream()
-        .filter(RaftServer::isRunning)
+        .filter(RaftServer::isAlive)
         .map(s -> s.getState().getLog().getEntries(0, Long.MAX_VALUE))
         .filter(e -> logEntriesContains(e, expectedMessages))
         .count();
@@ -262,7 +262,7 @@ public class RaftTestUtil {
         Assert.assertTrue(server.getRaftConf().hasNoChange(peers));
       } else {
         Assert.assertFalse(server.getId() + " is still running: " + server,
-            server.isRunning());
+            server.isAlive());
       }
     }
     Assert.assertEquals(peers.length, numIncluded + deadIncluded);

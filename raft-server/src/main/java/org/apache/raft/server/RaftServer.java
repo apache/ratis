@@ -40,6 +40,7 @@ import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.CodeInjectionForTesting;
+import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
@@ -52,10 +53,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
 import static org.apache.raft.server.protocol.ServerProtoUtils.toTermIndex;
+import static org.apache.raft.util.LifeCycle.State.*;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -67,25 +68,15 @@ public class RaftServer implements RaftServerProtocol {
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
 
-  private enum RunningState {
-    // TODO add BEFORESTART state for GRpc
-    /**
-     * the peer does not belong to any configuration yet, need to catchup
-     */
-    INITIALIZING,
-    RUNNING,
-    STOPPED
-  }
 
   public final int minTimeout;
   public final int maxTimeout;
 
+  private final LifeCycle lifeCycle;
   private final ServerState state;
   private final StateMachine stateMachine;
   private final RaftProperties properties;
   private volatile Role role;
-  private final AtomicReference<RunningState> runningState
-      = new AtomicReference<>(RunningState.INITIALIZING);
 
   /** used when the peer is follower, to monitor election timeout */
   private volatile FollowerState heartbeatMonitor;
@@ -102,6 +93,7 @@ public class RaftServer implements RaftServerProtocol {
 
   public RaftServer(String id, RaftConfiguration raftConf,
       RaftProperties properties, StateMachine stateMachine) throws IOException {
+    this.lifeCycle = new LifeCycle(id);
     minTimeout = properties.getInt(
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_KEY,
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT);
@@ -154,6 +146,7 @@ public class RaftServer implements RaftServerProtocol {
   }
 
   public void start() {
+    lifeCycle.transition(STARTING);
     state.start();
     RaftConfiguration conf = getRaftConf();
     if (conf != null && conf.contains(getId())) {
@@ -165,27 +158,16 @@ public class RaftServer implements RaftServerProtocol {
     }
   }
 
-  private void changeRunningState(RunningState oldState, RunningState newState) {
-    final boolean changed = runningState.compareAndSet(oldState, newState);
-    Preconditions.checkState(changed, "%s running state: %s", getId(),
-        runningState.get());
-  }
-
-  private void changeRunningState(RunningState newState) {
-    runningState.set(newState);
-  }
-
   /**
    * The peer belongs to the current configuration, should start as a follower
    */
   private void startAsFollower() {
-    changeRunningState(RunningState.INITIALIZING, RunningState.RUNNING);
-
     role = Role.FOLLOWER;
     heartbeatMonitor = new FollowerState(this);
     heartbeatMonitor.start();
 
     serverRpc.start();
+    lifeCycle.transition(RUNNING);
   }
 
   /**
@@ -211,13 +193,12 @@ public class RaftServer implements RaftServerProtocol {
     return getState().getRaftConf();
   }
 
-  public boolean isRunning() {
-    return runningState.get() != RunningState.STOPPED;
+  public boolean isAlive() {
+    return !lifeCycle.currentStateEquals(CLOSING, CLOSED);
   }
 
   public void kill() {
-    changeRunningState(RunningState.STOPPED);
-
+    lifeCycle.transition(CLOSING);
     try {
       shutdownHeartbeatMonitor();
       shutdownElectionDaemon();
@@ -226,13 +207,9 @@ public class RaftServer implements RaftServerProtocol {
       serverRpc.shutdown();
       state.close();
     } catch (Exception ignored) {
-    }
-  }
-
-  private void assertRunningState(RunningState... allowedStates)
-      throws RaftException {
-    if (!Arrays.asList(allowedStates).contains(runningState.get())) {
-      throw new RaftException(getId() + " is not running.");
+      LOG.warn("Failed to kill " + state.getSelfId(), ignored);
+    } finally {
+      lifeCycle.transition(CLOSED);
     }
   }
 
@@ -338,7 +315,7 @@ public class RaftServer implements RaftServerProtocol {
 
   @Override
   public String toString() {
-    return role + " " + state + " " + runningState;
+    return role + " " + state + " " + lifeCycle.getCurrentState();
   }
 
   /**
@@ -356,7 +333,7 @@ public class RaftServer implements RaftServerProtocol {
   }
 
   NotLeaderException generateNotLeaderException() {
-    if (runningState.get() != RunningState.RUNNING) {
+    if (lifeCycle.getCurrentState() != RUNNING) {
       return new NotLeaderException(getId(), null, RaftPeer.EMPTY_PEERS);
     }
     String leaderId = state.getLeaderId();
@@ -380,7 +357,7 @@ public class RaftServer implements RaftServerProtocol {
       RaftClientRequest request, TrxContext entry)
       throws RaftException {
     LOG.debug("{}: receive client request({})", getId(), request);
-    assertRunningState(RunningState.RUNNING);
+    lifeCycle.assertCurrentState(RUNNING);
     CompletableFuture<RaftClientReply> reply;
 
     final PendingRequest pending;
@@ -406,7 +383,7 @@ public class RaftServer implements RaftServerProtocol {
   public CompletableFuture<RaftClientReply> setConfiguration(
       SetConfigurationRequest request) throws IOException {
     LOG.debug("{}: receive setConfiguration({})", getId(), request);
-    assertRunningState(RunningState.RUNNING);
+    lifeCycle.assertCurrentState(RUNNING);
     CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
     if (reply != null) {
       return reply;
@@ -479,7 +456,7 @@ public class RaftServer implements RaftServerProtocol {
         candidateId, candidateTerm, candidateLastEntry);
     LOG.debug("{}: receive requestVote({}, {}, {})",
         getId(), candidateId, candidateTerm, candidateLastEntry);
-    assertRunningState(RunningState.RUNNING);
+    lifeCycle.assertCurrentState(RUNNING);
 
     final long startTime = Time.monotonicNow();
     boolean voteGranted = false;
@@ -568,7 +545,7 @@ public class RaftServer implements RaftServerProtocol {
           leaderId, leaderTerm, previous, leaderCommit, initializing,
           ServerProtoUtils.toString(entries));
     }
-    assertRunningState(RunningState.RUNNING, RunningState.INITIALIZING);
+    lifeCycle.assertCurrentState(STARTING, RUNNING);
 
     try {
       validateEntries(leaderTerm, previous, entries);
@@ -594,13 +571,11 @@ public class RaftServer implements RaftServerProtocol {
       changeToFollower(leaderTerm, true);
       state.setLeader(leaderId);
 
-      if (runningState.get() == RunningState.INITIALIZING && !initializing) {
-        LOG.debug("{} changes its state from INITIALIZING to RUNNING", getId());
-        changeRunningState(RunningState.INITIALIZING, RunningState.RUNNING);
+      if (!initializing && lifeCycle.compareAndTransition(STARTING, RUNNING)) {
         heartbeatMonitor = new FollowerState(this);
         heartbeatMonitor.start();
       }
-      if (runningState.get() == RunningState.RUNNING) {
+      if (lifeCycle.getCurrentState() == RUNNING) {
         heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), true);
       }
 
@@ -633,7 +608,7 @@ public class RaftServer implements RaftServerProtocol {
       nextIndex = entries[entries.length - 1].getIndex() + 1;
     }
     synchronized (this) {
-      if (runningState.get() == RunningState.RUNNING && isFollower()
+      if (lifeCycle.getCurrentState() == RUNNING && isFollower()
           && getState().getCurrentTerm() == currentTerm) {
         // reset election timer to avoid punishing the leader for our own
         // long disk writes
@@ -665,7 +640,7 @@ public class RaftServer implements RaftServerProtocol {
     CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(), leaderId, request);
     LOG.debug("{}: receive installSnapshot({})", getId(), request);
 
-    assertRunningState(RunningState.RUNNING, RunningState.INITIALIZING);
+    lifeCycle.assertCurrentState(STARTING, RUNNING);
 
     final long currentTerm;
     final long leaderTerm = request.getLeaderTerm();
@@ -686,7 +661,7 @@ public class RaftServer implements RaftServerProtocol {
       changeToFollower(leaderTerm, true);
       state.setLeader(leaderId);
 
-      if (runningState.get() == RunningState.RUNNING) {
+      if (lifeCycle.getCurrentState() == RUNNING) {
         heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), true);
       }
 
@@ -706,7 +681,7 @@ public class RaftServer implements RaftServerProtocol {
       if (request.getDone()) {
         state.reloadStateMachine(lastIncludedIndex, leaderTerm);
       }
-      if (runningState.get() == RunningState.RUNNING) {
+      if (lifeCycle.getCurrentState() == RUNNING) {
         heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
       }
     }

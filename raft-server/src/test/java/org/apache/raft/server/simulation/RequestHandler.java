@@ -35,7 +35,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
   interface HandlerInterface<REQUEST extends RaftRpcMessage,
       REPLY extends RaftRpcMessage> {
 
-    boolean isRunning();
+    boolean isAlive();
 
     REPLY handleRequest(REQUEST r) throws IOException;
   }
@@ -111,7 +111,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
 
     @Override
     public void run() {
-      while (handlerImpl.isRunning()) {
+      while (handlerImpl.isAlive()) {
         try {
           handleRequest(rpc.takeRequest(serverId));
         } catch (InterruptedIOException e) {
@@ -122,7 +122,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
           LOG.error(this + " has " + e);
           LOG.trace("TRACE", e);
         } catch(Throwable t) {
-          if (!handlerImpl.isRunning()) {
+          if (!handlerImpl.isAlive()) {
             LOG.info(this + " is stopped.");
             break;
           }

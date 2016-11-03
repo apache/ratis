@@ -88,9 +88,10 @@ public class LifeCycle {
     }
 
     /** Validate the given transition. */
-    static void validate(State from, State to) {
+    static void validate(Object name, State from, State to) {
+      LOG.trace("{}: {} -> {}", name, from, to);
       Preconditions.checkState(isValid(from, to),
-          "Illegal transition: %s -> %s", from, to);
+          "ILLEGAL TRANSITION: In %s, %s -> %s", name, from, to);
     }
   }
 
@@ -104,8 +105,7 @@ public class LifeCycle {
   /** Transition from the current state to the given state. */
   public void transition(final State to) {
     final State from = current.getAndSet(to);
-    LOG.trace("{}: {} -> {}", name, from, to);
-    State.validate(from, to);
+    State.validate(name, from, to);
   }
 
   /**
@@ -116,8 +116,7 @@ public class LifeCycle {
    */
   public boolean compareAndTransition(final State from, final State to) {
     if (current.compareAndSet(from, to)) {
-      LOG.trace("{}: {} -> {}", name, from, to);
-      State.validate(from, to);
+      State.validate(name, from, to);
       return true;
     }
     return false;
@@ -126,5 +125,28 @@ public class LifeCycle {
   /** @return the current state. */
   public State getCurrentState() {
     return current.get();
+  }
+
+  /** Does the current state equal to one of the given states? */
+  public boolean currentStateEquals(State... states) {
+    final State current = getCurrentState();
+    for (State e : states) {
+      if (current == e) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Assert if the current state equals to one of the expected states. */
+  public void assertCurrentState(State... expected) {
+    Preconditions.checkState(currentStateEquals(expected),
+        "STATE MISMATCHED: In %s, current state %s in not one of the expected states %s",
+        name, current, Arrays.asList(expected));
+  }
+
+  @Override
+  public String toString() {
+    return name + ":" + getCurrentState();
   }
 }
