@@ -57,7 +57,6 @@ import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
 public abstract class RaftReconfigurationBaseTest {
   static {
     GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(MemoryRaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }

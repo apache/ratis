@@ -34,7 +34,6 @@ import org.apache.raft.server.RaftServer;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.CodeInjectionForTesting;
 
-import java.io.InterruptedIOException;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.UUID;
@@ -224,6 +223,8 @@ public class GRpcLogAppender extends LogAppender {
 
       synchronized (this) {
         if (Status.fromThrowable(t) == Status.UNKNOWN) {
+          LOG.debug("{} restarts Append call to {} due to error {}",
+              server.getId(), follower.getPeer().getId(), t);
           // TODO check if need to recreate for other Status. Also add sleep to avoid tight loop
           // recreate the StreamObserver
           appendLogRequestObserver = client.appendEntries(appendResponseHandler);
@@ -279,7 +280,7 @@ public class GRpcLogAppender extends LogAppender {
 
   private void onNotLeader(AppendEntriesReplyProto reply) {
     checkResponseTerm(reply.getTerm());
-    // TODO cancel the RPC
+    // the running loop will end and the connection will onComplete
   }
 
   private synchronized void onInconsistency(AppendEntriesReplyProto reply) {
@@ -365,7 +366,6 @@ public class GRpcLogAppender extends LogAppender {
     }
   }
 
-  // TODO handle connection failure
   private void installSnapshot(SnapshotInfo snapshot,
       InstallSnapshotResponseHandler responseHandler) {
     LOG.info("{}: follower {}'s next index is {}," +
@@ -387,12 +387,10 @@ public class GRpcLogAppender extends LogAppender {
         }
       }
       snapshotRequestObserver.onCompleted();
-    } catch (InterruptedIOException iioe) {
-      LOG.info(this + " was interrupted: " + iioe);
-      return;
-    } catch (Exception ioe) {
-      LOG.warn(this + ": failed to install SnapshotInfo " + snapshot.getFiles(),
-          ioe);
+    } catch (Exception e) {
+      LOG.warn("{} failed to install snapshot {}. Exception: {}", this,
+          snapshot.getFiles(), e);
+      snapshotRequestObserver.onError(e);
       return;
     } finally {
       snapshotRequestObserver = null;
