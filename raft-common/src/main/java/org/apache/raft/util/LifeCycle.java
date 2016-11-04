@@ -150,7 +150,7 @@ public class LifeCycle {
   public void assertCurrentState(State... expected) {
     final State c = getCurrentState().isOneOf2(expected);
     if (c != null) {
-      throw new AssertionError("STATE MISMATCHED: In " + name
+      throw new IllegalStateException("STATE MISMATCHED: In " + name
           + ", current state " + c + " is not one of the expected states "
           + Arrays.toString(expected));
     }

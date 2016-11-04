@@ -44,7 +44,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       final RequestVoteReplyProto reply = dispatcher.requestVote(request);
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
-    } catch (Exception e) {
+    } catch (Throwable e) {
       LOG.info(dispatcher.getRaftServer().getId() +
           " got exception when handling requestVote " + request, e);
       responseObserver.onError(e);
@@ -60,7 +60,9 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
         try {
           final AppendEntriesReplyProto reply = dispatcher.appendEntries(request);
           responseObserver.onNext(reply);
-        } catch (Exception e) {
+        } catch (Throwable e) {
+          LOG.info(dispatcher.getRaftServer().getId() +
+              " got exception when handling appendEntries " + request, e);
           responseObserver.onError(e);
         }
       }
