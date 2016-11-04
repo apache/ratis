@@ -122,7 +122,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
           if (exception != null) {
             // TODO: the exception may be from either raft or state machine.
             // Currently we skip all the following responses when getting an
-            // exception from the state machine. Is it correct?
+            // exception from the state machine.
             responseObserver.onError(RaftGrpcUtil.wrapException(exception));
           } else {
             final long replySeq = reply.getSeqNum();
@@ -154,7 +154,9 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
             }
           }
         });
-      } catch (Exception e) {
+      } catch (Throwable e) {
+        LOG.info("{} got exception when handling client append request {}: {}",
+            dispatcher.getRaftServer().getId(), request.getRpcRequest(), e);
         responseObserver.onError(RaftGrpcUtil.wrapException(e));
       }
     }

@@ -18,6 +18,7 @@
 package org.apache.raft.grpc.server;
 
 import io.grpc.stub.StreamObserver;
+import org.apache.raft.grpc.RaftGrpcUtil;
 import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
@@ -45,9 +46,9 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
     } catch (Throwable e) {
-      LOG.info(dispatcher.getRaftServer().getId() +
-          " got exception when handling requestVote " + request, e);
-      responseObserver.onError(e);
+      LOG.info("{} got exception when handling requestVote {}: {}",
+          dispatcher.getRaftServer().getId(), request.getServerRequest(), e);
+      responseObserver.onError(RaftGrpcUtil.wrapException(e));
     }
   }
 
@@ -61,9 +62,9 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
           final AppendEntriesReplyProto reply = dispatcher.appendEntries(request);
           responseObserver.onNext(reply);
         } catch (Throwable e) {
-          LOG.info(dispatcher.getRaftServer().getId() +
-              " got exception when handling appendEntries " + request, e);
-          responseObserver.onError(e);
+          LOG.info("{} got exception when handling appendEntries {}: {}",
+              dispatcher.getRaftServer().getId(), request.getServerRequest(), e);
+          responseObserver.onError(RaftGrpcUtil.wrapException(e));
         }
       }
 
@@ -93,20 +94,23 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
           final InstallSnapshotReplyProto reply =
               dispatcher.installSnapshot(request);
           responseObserver.onNext(reply);
-        } catch (Exception e) {
-          responseObserver.onError(e);
+        } catch (Throwable e) {
+          LOG.info("{} got exception when handling installSnapshot {}: {}",
+              dispatcher.getRaftServer().getId(), request.getServerRequest(), e);
+          responseObserver.onError(RaftGrpcUtil.wrapException(e));
         }
       }
 
       @Override
       public void onError(Throwable t) {
-        // TODO clean up partial downloaded snapshots
         LOG.info("{}: installSnapshot on error. Exception: {}",
             dispatcher.getRaftServer().getId(), t);
       }
 
       @Override
       public void onCompleted() {
+        LOG.info("{}: installSnapshot completed",
+            dispatcher.getRaftServer().getId());
         responseObserver.onCompleted();
       }
     };

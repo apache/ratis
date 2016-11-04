@@ -40,6 +40,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.grpc.Status.fromThrowable;
 import static org.apache.raft.grpc.RaftGRpcService.GRPC_SEND_SERVER_REQUEST;
 
 /**
@@ -93,7 +94,7 @@ public class GRpcLogAppender extends LogAppender {
           synchronized (this) {
             try {
               LOG.debug("{} decides to wait {}ms before appending to {}",
-                  server.getId(), waitTime, follower.getPeer().getId());
+                  server.getId(), waitTime, follower.getPeer());
               wait(waitTime);
             } catch (InterruptedException ignored) {
             }
@@ -120,7 +121,7 @@ public class GRpcLogAppender extends LogAppender {
       while (isAppenderRunning() && shouldWait()) {
         try {
           LOG.debug("{} wait to send the next AppendEntries to {}",
-              server.getId(), follower.getPeer().getId());
+              server.getId(), follower.getPeer());
           this.wait();
         } catch (InterruptedException ignored) {
         }
@@ -185,7 +186,7 @@ public class GRpcLogAppender extends LogAppender {
     public void onNext(AppendEntriesReplyProto reply) {
       LOG.debug("{} received {} response from {}", server.getId(),
           (!firstResponseReceived ? "the first" : "a"),
-          follower.getPeer().getId());
+          follower.getPeer());
 
       // update the last rpc time
       follower.updateLastRpcResponseTime(Time.monotonicNow());
@@ -222,10 +223,11 @@ public class GRpcLogAppender extends LogAppender {
           server.getId(), follower.getPeer().getId(), t);
 
       synchronized (this) {
-        if (Status.fromThrowable(t) == Status.UNKNOWN) {
+        final Status cause = Status.fromThrowable(t);
+        if (cause != null && cause.getCode() == Status.Code.INTERNAL) {
+          // TODO check other Status. Add sleep to avoid tight loop
           LOG.debug("{} restarts Append call to {} due to error {}",
-              server.getId(), follower.getPeer().getId(), t);
-          // TODO check if need to recreate for other Status. Also add sleep to avoid tight loop
+              server.getId(), follower.getPeer(), t);
           // recreate the StreamObserver
           appendLogRequestObserver = client.appendEntries(appendResponseHandler);
           // reset firstResponseReceived to false
@@ -326,7 +328,7 @@ public class GRpcLogAppender extends LogAppender {
     public void onNext(InstallSnapshotReplyProto reply) {
       LOG.debug("{} received {} response from {}", server.getId(),
           (!firstResponseReceived ? "the first" : "a"),
-          follower.getPeer().getId());
+          follower.getPeer());
 
       // update the last rpc time
       follower.updateLastRpcResponseTime(Time.monotonicNow());
@@ -354,7 +356,7 @@ public class GRpcLogAppender extends LogAppender {
         return;
       }
       LOG.info("{} got error when installing snapshot to {}, exception: {}",
-          server.getId(), follower.getPeer().getId(), t);
+          server.getId(), follower.getPeer(), t);
       close();
     }
 
