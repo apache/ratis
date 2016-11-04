@@ -45,6 +45,18 @@ public abstract class MiniRaftCluster {
   public static final DelayLocalExecutionInjection logSyncDelay =
       new DelayLocalExecutionInjection(RaftLog.LOG_SYNC);
 
+  public static abstract class Factory<CLUSTER extends MiniRaftCluster> {
+    public abstract CLUSTER newCluster(
+        String[] ids, RaftProperties prop, boolean formatted)
+        throws IOException;
+
+    public CLUSTER newCluster(
+        int numServer, RaftProperties prop, boolean formatted)
+        throws IOException {
+      return newCluster(generateIds(numServer, 0), prop, formatted);
+    }
+  }
+
   public static class PeerChanges {
     public final RaftPeer[] allPeersInNewConf;
     public final RaftPeer[] newPeers;
@@ -124,7 +136,7 @@ public abstract class MiniRaftCluster {
     servers.put(id, newRaftServer(id, conf, format));
   }
 
-  public void restart(boolean format) throws IOException {
+  public final void restart(boolean format) throws IOException {
     servers.values().stream().filter(RaftServer::isAlive)
         .forEach(RaftServer::close);
     List<String> idList = new ArrayList<>(servers.keySet());
@@ -132,7 +144,12 @@ public abstract class MiniRaftCluster {
       servers.remove(id);
       servers.put(id, newRaftServer(id, conf, format));
     }
+
+    setPeerRpc();
+    start();
   }
+
+  protected abstract void setPeerRpc() throws IOException;
 
   public int getMaxTimeout() {
     return properties.getInt(

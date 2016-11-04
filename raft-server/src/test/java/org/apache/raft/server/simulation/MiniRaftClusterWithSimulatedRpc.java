@@ -32,6 +32,16 @@ import java.util.Collections;
 public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithSimulatedRpc.class);
 
+  public static final Factory<MiniRaftClusterWithSimulatedRpc> FACTORY
+      = new Factory<MiniRaftClusterWithSimulatedRpc>() {
+    @Override
+    public MiniRaftClusterWithSimulatedRpc newCluster(
+        String[] ids, RaftProperties prop, boolean formatted) {
+      prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
+      return new MiniRaftClusterWithSimulatedRpc(ids, prop, formatted);
+    }
+  };
+
   private SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
   private SimulatedClientRequestReply client2serverRequestReply;
 
@@ -66,10 +76,8 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   }
 
   @Override
-  public void restart(boolean format) throws IOException {
-    super.restart(format);
+  protected void setPeerRpc() {
     initRpc();
-    start();
   }
 
   private void addPeersToRpc(Collection<RaftPeer> peers) {

@@ -40,6 +40,15 @@ import java.util.Map;
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
 
 public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
+  public static final Factory<MiniRaftClusterWithGRpc> FACTORY
+      = new Factory<MiniRaftClusterWithGRpc>() {
+    @Override
+    public MiniRaftClusterWithGRpc newCluster(
+        String[] ids, RaftProperties prop, boolean formatted) throws IOException {
+      return new MiniRaftClusterWithGRpc(ids, prop, formatted);
+    }
+  };
+
   public static final DelayLocalExecutionInjection sendServerRequestInjection =
       new DelayLocalExecutionInjection(RaftGRpcService.GRPC_SEND_SERVER_REQUEST);
 
@@ -94,6 +103,13 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
     return new ArrayList<>(peers.keySet());
   }
 
+  @Override
+  protected void setPeerRpc() throws IOException {
+    for(RaftPeer p : conf.getPeers()) {
+      setPeerRpc(p);
+    }
+  }
+
   private void setPeerRpc(RaftPeer peer) throws IOException {
     RaftServer server = servers.get(peer.getId());
     int port = RaftUtils.newInetSocketAddress(peer.getAddress()).getPort();
@@ -107,16 +123,6 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
         peer.getAddress(), rpc.getInetSocketAddress().toString());
     server.setServerRpc(rpc);
     properties.setInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, oldPort);
-  }
-
-  @Override
-  public void restart(boolean format) throws IOException {
-    super.restart(format);
-
-    for (RaftPeer peer : conf.getPeers()) {
-      setPeerRpc(peer);
-    }
-    start();
   }
 
   @Override

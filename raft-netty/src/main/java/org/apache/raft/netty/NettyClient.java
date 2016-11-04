@@ -19,6 +19,7 @@ package org.apache.raft.netty;
 
 import com.google.common.base.Preconditions;
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
@@ -35,7 +36,7 @@ import java.net.InetSocketAddress;
 public class NettyClient implements Closeable {
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
 
-  private ChannelFuture channelFuture;
+  private Channel channel;
 
   /** Connects to the given server address. */
   public void connect(String serverAddress, EventLoopGroup group,
@@ -46,24 +47,25 @@ public class NettyClient implements Closeable {
         "Failed to create InetSocketAddress from %s.", serverAddress);
 
     lifeCycle.startAndTransition(InterruptedException.class,
-        () -> channelFuture = new Bootstrap()
+        () -> channel = new Bootstrap()
             .group(group)
             .channel(NioSocketChannel.class)
             .handler(new LoggingHandler(LogLevel.INFO))
             .handler(initializer)
             .connect(address)
-            .sync());
+            .sync()
+            .channel());
   }
 
   @Override
   public void close() {
     lifeCycle.checkStateAndClose(() -> {
-      channelFuture.channel().close();
+      channel.close().syncUninterruptibly();
     });
   }
 
   public ChannelFuture writeAndFlush(Object msg) {
     lifeCycle.assertCurrentState(LifeCycle.State.RUNNING);
-    return channelFuture.channel().writeAndFlush(msg);
+    return channel.writeAndFlush(msg);
   }
 }

@@ -17,25 +17,24 @@
  */
 package org.apache.raft.examples;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.MiniRaftClusterWithGRpc;
-import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.raft.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.raft.netty.MiniRaftClusterWithNetty;
-import org.apache.raft.server.LogAppenderFactory;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.raft.server.simulation.SimulatedRequestReply;
 import org.apache.raft.statemachine.StateMachine;
 
 import java.io.IOException;
 import java.util.*;
 
 public class RaftExamplesTestUtil {
-  private static void add(Collection<Object[]> clusters, MiniRaftCluster c) {
-    clusters.add(new Object[]{c});
+  private static void add(
+      Collection<Object[]> clusters, MiniRaftCluster.Factory factory,
+      String[] ids, RaftProperties properties)
+      throws IOException {
+    clusters.add(new Object[]{factory.newCluster(ids, properties, true)});
   }
 
   public static Collection<Object[]> getMiniRaftClusters(
@@ -59,19 +58,16 @@ public class RaftExamplesTestUtil {
     final List<Object[]> clusters = new ArrayList<>();
 
     if (isAll || classes.contains(MiniRaftClusterWithSimulatedRpc.class)) {
-      prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
-      add(clusters, new MiniRaftClusterWithSimulatedRpc(ids.next(), prop, true));
+      add(clusters, MiniRaftClusterWithSimulatedRpc.FACTORY, ids.next(), prop);
     }
     if (isAll || classes.contains(MiniRaftClusterWithHadoopRpc.class)) {
-      final Configuration conf = new Configuration();
-      conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
-      add(clusters, new MiniRaftClusterWithHadoopRpc(ids.next(), prop, conf, true));
+      add(clusters, MiniRaftClusterWithHadoopRpc.FACTORY, ids.next(), prop);
     }
     if (isAll || classes.contains(MiniRaftClusterWithNetty.class)) {
-      add(clusters, new MiniRaftClusterWithNetty(ids.next(), prop, true));
+      add(clusters, MiniRaftClusterWithNetty.FACTORY, ids.next(), prop);
     }
     if (isAll || classes.contains(MiniRaftClusterWithGRpc.class)) {
-      add(clusters, new MiniRaftClusterWithGRpc(ids.next(), prop, true));
+      add(clusters, MiniRaftClusterWithGRpc.FACTORY, ids.next(), prop);
     }
     return clusters;
   }

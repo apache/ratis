@@ -28,8 +28,6 @@ import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.util.RaftUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -37,13 +35,19 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class MiniRaftClusterWithNetty extends MiniRaftCluster {
-  static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithNetty.class);
+  public static final Factory<MiniRaftClusterWithNetty> FACTORY
+      = new Factory<MiniRaftClusterWithNetty>() {
+    @Override
+    public MiniRaftClusterWithNetty newCluster(
+        String[] ids, RaftProperties prop, boolean formatted) {
+      return new MiniRaftClusterWithNetty(ids, prop, formatted);
+    }
+  };
 
   public static final DelayLocalExecutionInjection sendServerRequest
       = new DelayLocalExecutionInjection(NettyRpcService.SEND_SERVER_REQUEST);
 
-  public MiniRaftClusterWithNetty(int numServers, RaftProperties properties)
-      throws IOException {
+  public MiniRaftClusterWithNetty(int numServers, RaftProperties properties) {
     this(generateIds(numServers, 0), properties, true);
   }
 
@@ -54,8 +58,14 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster {
   }
 
   private static String getAddress(String id, RaftConfiguration conf) {
-    final String address = conf.getPeer(id).getAddress();
-    return address != null? address: "0.0.0.0:0";
+    final RaftPeer peer = conf.getPeer(id);
+    if (peer != null) {
+      final String address = peer.getAddress();
+      if (address != null) {
+        return address;
+      }
+    }
+    return "0.0.0.0:0";
   }
 
   private static Map<RaftPeer, NettyRpcService> initRpcServices(
@@ -70,6 +80,21 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster {
     }
 
     return peerRpcs;
+  }
+
+  @Override
+  protected void setPeerRpc() throws IOException {
+    for(RaftPeer p : conf.getPeers()) {
+      setPeerRpc(p);
+    }
+  }
+
+  private void setPeerRpc(RaftPeer peer) throws IOException {
+    final RaftServer s = servers.get(peer.getId());
+    final String address = getAddress(s.getId(), conf);
+    final int port = RaftUtils.newInetSocketAddress(address).getPort();
+    final NettyRpcService rpc = new NettyRpcService(port, s);
+    s.setServerRpc(rpc);
   }
 
   @Override

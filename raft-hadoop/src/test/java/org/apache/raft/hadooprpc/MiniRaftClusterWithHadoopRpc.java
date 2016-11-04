@@ -39,6 +39,18 @@ import java.util.Map;
 
 public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithHadoopRpc.class);
+
+  public static final Factory<MiniRaftClusterWithHadoopRpc> FACTORY
+      = new Factory<MiniRaftClusterWithHadoopRpc>() {
+    @Override
+    public MiniRaftClusterWithHadoopRpc newCluster(
+        String[] ids, RaftProperties prop, boolean formatted) throws IOException {
+      final Configuration conf = new Configuration();
+      conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
+      return new MiniRaftClusterWithHadoopRpc(ids, prop, conf, formatted);
+    }
+  };
+
   public static final DelayLocalExecutionInjection sendServerRequest =
       new DelayLocalExecutionInjection(HadoopRpcService.SEND_SERVER_REQUEST);
 
@@ -68,6 +80,13 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
     return peerRpcs;
   }
 
+  @Override
+  protected void setPeerRpc() throws IOException {
+    for(RaftPeer p : conf.getPeers()) {
+      setPeerRpc(p);
+    }
+  }
+
   private void setPeerRpc(RaftPeer peer) throws IOException {
     Configuration hconf = new Configuration(hadoopConf);
     hconf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, peer.getAddress());
@@ -79,16 +98,6 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
         "address in the raft conf: %s, address in rpc server: %s",
         peer.getAddress(), rpc.getInetSocketAddress().toString());
     server.setServerRpc(rpc);
-  }
-
-  @Override
-  public void restart(boolean format) throws IOException {
-    super.restart(format);
-
-    for (RaftPeer peer : conf.getPeers()) {
-      setPeerRpc(peer);
-    }
-    start();
   }
 
   @Override

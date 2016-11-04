@@ -118,6 +118,7 @@ public class LifeCycle {
 
   public LifeCycle(Object name) {
     this.name = name.toString();
+    LOG.trace("{}: {}", name, current);
   }
 
   /** Transition from the current state to the given state. */

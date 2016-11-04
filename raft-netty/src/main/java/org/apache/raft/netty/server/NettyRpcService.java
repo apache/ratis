@@ -102,6 +102,10 @@ public final class NettyRpcService implements RaftServerRpc {
         .bind(port);
   }
 
+  private Channel getChannel() {
+    return channelFuture.awaitUninterruptibly().channel();
+  }
+
   @Override
   public void start() {
     lifeCycle.startAndTransition(null,
@@ -113,14 +117,15 @@ public final class NettyRpcService implements RaftServerRpc {
     lifeCycle.checkStateAndClose(() -> {
       bossGroup.shutdownGracefully();
       workerGroup.shutdownGracefully();
-      channelFuture.channel().close().awaitUninterruptibly();
+      final ChannelFuture f = getChannel().close();
       proxies.close();
+      f.syncUninterruptibly();
     });
   }
 
   @Override
   public InetSocketAddress getInetSocketAddress() {
-    return (InetSocketAddress) channelFuture.channel().localAddress();
+    return (InetSocketAddress)getChannel().localAddress();
   }
 
   RaftNettyServerReplyProto handle(RaftNettyServerRequestProto proto) {

@@ -147,7 +147,7 @@ public class NettyRpcProxy implements Closeable {
     final ChannelFuture channelFuture = client.writeAndFlush(proto);
 
     try {
-      channelFuture.await();
+      channelFuture.sync();
       return replyFuture.get();
     } catch (InterruptedException e) {
       throw RaftUtils.toInterruptedIOException(
