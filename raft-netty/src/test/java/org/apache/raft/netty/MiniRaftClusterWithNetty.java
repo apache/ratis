@@ -34,7 +34,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-public class MiniRaftClusterWithNetty extends MiniRaftCluster {
+public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithNetty> FACTORY
       = new Factory<MiniRaftClusterWithNetty>() {
     @Override
@@ -68,14 +68,19 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster {
     return "0.0.0.0:0";
   }
 
+  private static NettyRpcService newNettyRpcService(
+      RaftServer s, RaftConfiguration conf) {
+    final String address = getAddress(s.getId(), conf);
+    final int port = RaftUtils.newInetSocketAddress(address).getPort();
+    return new NettyRpcService(port, s);
+  }
+
   private static Map<RaftPeer, NettyRpcService> initRpcServices(
       Collection<RaftServer> servers, RaftConfiguration conf) {
     final Map<RaftPeer, NettyRpcService> peerRpcs = new HashMap<>();
 
     for (RaftServer s : servers) {
-      final String address = getAddress(s.getId(), conf);
-      final int port = RaftUtils.newInetSocketAddress(address).getPort();
-      final NettyRpcService rpc = new NettyRpcService(port, s);
+      final NettyRpcService rpc = newNettyRpcService(s, conf);
       peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
     }
 
@@ -83,18 +88,11 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster {
   }
 
   @Override
-  protected void setPeerRpc() throws IOException {
-    for(RaftPeer p : conf.getPeers()) {
-      setPeerRpc(p);
-    }
-  }
-
-  private void setPeerRpc(RaftPeer peer) throws IOException {
+  protected RaftServer setPeerRpc(RaftPeer peer) throws IOException {
     final RaftServer s = servers.get(peer.getId());
-    final String address = getAddress(s.getId(), conf);
-    final int port = RaftUtils.newInetSocketAddress(address).getPort();
-    final NettyRpcService rpc = new NettyRpcService(port, s);
+    final NettyRpcService rpc = newNettyRpcService(s, conf);
     s.setServerRpc(rpc);
+    return s;
   }
 
   @Override
@@ -115,10 +113,5 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster {
       throws InterruptedException {
     RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequest,
         leaderId, delayMs, getMaxTimeout());
-  }
-
-  @Override
-  public void setBlockRequestsFrom(String src, boolean block) {
-    RaftTestUtil.setBlockRequestsFrom(src, block);
   }
 }

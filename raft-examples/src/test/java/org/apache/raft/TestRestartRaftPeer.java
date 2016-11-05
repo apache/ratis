@@ -23,11 +23,8 @@ import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.RaftExamplesTestUtil;
-import org.apache.raft.grpc.MiniRaftClusterWithGRpc;
-import org.apache.raft.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.statemachine.SimpleStateMachine;
@@ -64,11 +61,7 @@ public class TestRestartRaftPeer {
     prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
         SimpleStateMachine.class, StateMachine.class);
     prop.setInt(RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY, 1024 * 8);
-    return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3,
-        MiniRaftClusterWithSimulatedRpc.class,
-        MiniRaftClusterWithHadoopRpc.class,
-        MiniRaftClusterWithGRpc.class);
-    // TODO fix MiniRaftClusterWithNetty.class
+    return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3);
   }
 
   @Parameterized.Parameter
@@ -105,17 +98,17 @@ public class TestRestartRaftPeer {
 
     // make sure the restarted follower can catchup
     boolean catchup = false;
+    long lastAppliedIndex = 0;
     for (int i = 0; i < 10 && !catchup; i++) {
       Thread.sleep(500);
-      catchup =
-          cluster.getServer(followerId).getState().getLastAppliedIndex() >= 20;
+      lastAppliedIndex = cluster.getServer(followerId).getState().getLastAppliedIndex();
+      catchup = lastAppliedIndex >= 20;
     }
-    Assert.assertTrue(catchup);
+    Assert.assertTrue("lastAppliedIndex=" + lastAppliedIndex, catchup);
 
     // make sure the restarted peer's log segments is correct
     cluster.restartServer(followerId, false);
     Assert.assertTrue(cluster.getServer(followerId).getState().getLog()
         .getLastEntry().getIndex() >= 20);
   }
-
 }

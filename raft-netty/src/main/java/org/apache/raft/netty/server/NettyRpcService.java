@@ -47,6 +47,7 @@ import org.apache.raft.util.ProtoUtils;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.channels.ClosedChannelException;
 
 /**
  * A netty server endpoint that acts as the communication layer.
@@ -238,8 +239,14 @@ public final class NettyRpcService implements RaftServerRpc {
   private RaftNettyServerReplyProto sendRaftNettyServerRequestProto(
       RaftRpcRequestProto request, RaftNettyServerRequestProto proto)
       throws IOException {
-    final NettyRpcProxy p = proxies.getProxy(request.getReplyId());
-    return p.send(request, proto);
+    final String id = request.getReplyId();
+    final NettyRpcProxy p = proxies.getProxy(id);
+    try {
+      return p.send(request, proto);
+    } catch (ClosedChannelException cce) {
+      proxies.resetProxy(id);
+      throw cce;
+    }
   }
 
   @Override

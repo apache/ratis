@@ -24,10 +24,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** A map from peer id to peer and its proxy. */
 public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
@@ -42,6 +40,10 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     PeerAndProxy(RaftPeer peer) {
       this.peer = peer;
       this.lifeCycle = new LifeCycle(peer);
+    }
+
+    RaftPeer getPeer() {
+      return peer;
     }
 
     PROXY getProxy() throws IOException {
@@ -71,8 +73,8 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     }
   }
 
-  private final Map<String, PeerAndProxy> peers
-      = Collections.synchronizedMap(new HashMap<>());
+  private final Map<String, PeerAndProxy> peers = new ConcurrentHashMap<>();
+  private final Object resetLock = new Object();
 
   private final CheckedFunction<RaftPeer, PROXY, IOException> createProxy;
 
@@ -83,21 +85,30 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     this.createProxy = this::createProxyImpl;
   }
 
-  public Collection<String> getPeerIds() {
-    return peers.keySet();
-  }
-
   public PROXY getProxy(String id) throws IOException {
-    // create new proxy based on new RaftConfiguration. So here the proxy
-    // should be available.
-    final PeerAndProxy p = Preconditions.checkNotNull(peers.get(id),
-        "Server %s not found; peers=%s", id, getPeerIds());
+    PeerAndProxy p = peers.get(id);
+    if (p == null) {
+      synchronized (resetLock) {
+        p = peers.get(id);
+      }
+    }
+    Preconditions.checkNotNull(p, "Server %s not found; peers=%s",
+        id, peers.keySet());
     return p.getProxy();
   }
 
   public void addPeers(Iterable<RaftPeer> newPeers) {
     for(RaftPeer p : newPeers) {
       peers.put(p.getId(), new PeerAndProxy(p));
+    }
+  }
+
+  public void resetProxy(String id) {
+    synchronized (resetLock) {
+      final PeerAndProxy pp = peers.remove(id);
+      final RaftPeer peer = pp.getPeer();
+      pp.close();
+      peers.put(id, new PeerAndProxy(peer));
     }
   }
 

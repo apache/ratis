@@ -39,7 +39,7 @@ import java.util.Map;
 
 import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
 
-public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
+public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithGRpc> FACTORY
       = new Factory<MiniRaftClusterWithGRpc>() {
     @Override
@@ -104,13 +104,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
   }
 
   @Override
-  protected void setPeerRpc() throws IOException {
-    for(RaftPeer p : conf.getPeers()) {
-      setPeerRpc(p);
-    }
-  }
-
-  private void setPeerRpc(RaftPeer peer) throws IOException {
+  protected RaftServer setPeerRpc(RaftPeer peer) throws IOException {
     RaftServer server = servers.get(peer.getId());
     int port = RaftUtils.newInetSocketAddress(peer.getAddress()).getPort();
     int oldPort = properties.getInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY,
@@ -123,13 +117,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
         peer.getAddress(), rpc.getInetSocketAddress().toString());
     server.setServerRpc(rpc);
     properties.setInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, oldPort);
-  }
-
-  @Override
-  public void restartServer(String id, boolean format) throws IOException {
-    super.restartServer(id, format);
-    setPeerRpc(conf.getPeer(id));
-    getServer(id).start();
+    return server;
   }
 
   @Override
@@ -143,10 +131,5 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster {
       throws InterruptedException {
     RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequestInjection,
         leaderId, delayMs, getMaxTimeout());
-  }
-
-  @Override
-  public void setBlockRequestsFrom(String src, boolean block) {
-    RaftTestUtil.setBlockRequestsFrom(src, block);
   }
 }

@@ -37,7 +37,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
+public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithHadoopRpc.class);
 
   public static final Factory<MiniRaftClusterWithHadoopRpc> FACTORY
@@ -81,13 +81,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
   }
 
   @Override
-  protected void setPeerRpc() throws IOException {
-    for(RaftPeer p : conf.getPeers()) {
-      setPeerRpc(p);
-    }
-  }
-
-  private void setPeerRpc(RaftPeer peer) throws IOException {
+  protected RaftServer setPeerRpc(RaftPeer peer) throws IOException {
     Configuration hconf = new Configuration(hadoopConf);
     hconf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, peer.getAddress());
 
@@ -98,13 +92,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
         "address in the raft conf: %s, address in rpc server: %s",
         peer.getAddress(), rpc.getInetSocketAddress().toString());
     server.setServerRpc(rpc);
-  }
-
-  @Override
-  public void restartServer(String id, boolean format) throws IOException {
-    super.restartServer(id, format);
-    setPeerRpc(conf.getPeer(id));
-    getServer(id).start();
+    return server;
   }
 
   @Override
@@ -125,10 +113,5 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster {
       throws InterruptedException {
     RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequest,
         leaderId, delayMs, getMaxTimeout());
-  }
-
-  @Override
-  public void setBlockRequestsFrom(String src, boolean block) {
-    RaftTestUtil.setBlockRequestsFrom(src, block);
   }
 }

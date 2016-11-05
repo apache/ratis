@@ -57,6 +57,32 @@ public abstract class MiniRaftCluster {
     }
   }
 
+  public static abstract class RpcBase extends MiniRaftCluster {
+    public RpcBase(String[] ids, RaftProperties properties, boolean formatted) {
+      super(ids, properties, formatted);
+    }
+
+    protected abstract RaftServer setPeerRpc(RaftPeer peer) throws IOException;
+
+    @Override
+    protected void setPeerRpc() throws IOException {
+      for (RaftPeer p : conf.getPeers()) {
+        setPeerRpc(p);
+      }
+    }
+
+    @Override
+    public void restartServer(String id, boolean format) throws IOException {
+      super.restartServer(id, format);
+      setPeerRpc(conf.getPeer(id)).start();
+    }
+
+    @Override
+    public void setBlockRequestsFrom(String src, boolean block) {
+      RaftTestUtil.setBlockRequestsFrom(src, block);
+    }
+  }
+
   public static class PeerChanges {
     public final RaftPeer[] allPeersInNewConf;
     public final RaftPeer[] newPeers;
