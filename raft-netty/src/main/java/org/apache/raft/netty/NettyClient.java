@@ -46,7 +46,7 @@ public class NettyClient implements Closeable {
     Preconditions.checkNotNull(address,
         "Failed to create InetSocketAddress from %s.", serverAddress);
 
-    lifeCycle.startAndTransition(InterruptedException.class,
+    lifeCycle.startAndTransition(
         () -> channel = new Bootstrap()
             .group(group)
             .channel(NioSocketChannel.class)
@@ -54,7 +54,8 @@ public class NettyClient implements Closeable {
             .handler(initializer)
             .connect(address)
             .sync()
-            .channel());
+            .channel(),
+        InterruptedException.class);
   }
 
   @Override

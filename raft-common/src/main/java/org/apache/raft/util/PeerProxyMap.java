@@ -50,8 +50,8 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
       if (proxy == null) {
         synchronized (this) {
           if (proxy == null) {
-            lifeCycle.startAndTransition(IOException.class,
-                () -> proxy = createProxy.apply(peer));
+            lifeCycle.startAndTransition(
+                () -> proxy = createProxy.apply(peer), IOException.class);
           }
         }
       }

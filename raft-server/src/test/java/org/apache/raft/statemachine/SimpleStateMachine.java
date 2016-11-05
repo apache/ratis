@@ -96,7 +96,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   public synchronized void initialize(RaftProperties properties,
       RaftStorage raftStorage) throws IOException {
     LOG.info("Initializing the StateMachine");
-    lifeCycle.startAndTransition(null, () -> {
+    lifeCycle.startAndTransition(() -> {
       super.initialize(properties, raftStorage);
       storage.init(raftStorage);
       loadSnapshot(storage.findLatestSnapshot());

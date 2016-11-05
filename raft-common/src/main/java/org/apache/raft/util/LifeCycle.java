@@ -163,18 +163,19 @@ public class LifeCycle {
 
   /** Run the given start method and transition the current state accordingly. */
   public <T extends Throwable> void startAndTransition(
-      Class<? extends Exception> exceptionClass, CheckedRunnable<T> startImpl)
+      CheckedRunnable<T> startImpl, Class<? extends Throwable>... exceptionClasses)
       throws T {
     transition(State.STARTING);
     try {
       startImpl.run();
       transition(State.RUNNING);
     } catch (Throwable t) {
-      transition(exceptionClass != null && exceptionClass.isInstance(t)?
+      transition(RaftUtils.isInstance(t, exceptionClasses)?
           State.NEW: State.EXCEPTION);
       throw t;
     }
   }
+
 
   /**
    * Check the current state and, if applicable, run the given close method.

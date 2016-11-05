@@ -109,8 +109,7 @@ public final class NettyRpcService implements RaftServerRpc {
 
   @Override
   public void start() {
-    lifeCycle.startAndTransition(null,
-        () -> channelFuture.syncUninterruptibly());
+    lifeCycle.startAndTransition(() -> channelFuture.syncUninterruptibly());
   }
 
   @Override

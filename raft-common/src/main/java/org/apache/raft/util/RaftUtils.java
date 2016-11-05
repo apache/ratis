@@ -149,6 +149,16 @@ public abstract class RaftUtils {
     return u;
   }
 
+  /** Is the given object an instance of one of the given classes? */
+  public static boolean isInstance(Object obj, Class<?>... classes) {
+    for(Class<?> c : classes) {
+      if (c.isInstance(obj)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Create an object for the given class and initialize it from conf
    *
