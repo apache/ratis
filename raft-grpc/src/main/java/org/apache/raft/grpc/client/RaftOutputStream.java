@@ -17,14 +17,13 @@
  */
 package org.apache.raft.grpc.client;
 
-import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.util.ProtoUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Collection;
 
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_SIZE_DEFAULT;
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY;
@@ -34,22 +33,19 @@ public class RaftOutputStream extends OutputStream {
   private final byte buf[];
   private int count;
   private long seqNum = 0;
-  private final RaftPeer target;
-  private final String sourceId;
+  private final String clientId;
   private final AppendStreamer streamer;
 
   private boolean closed = false;
 
-  // TODO change target and recreate AppendStreamer after hitting NotLeaderException/Exception
-
-  public RaftOutputStream(RaftProperties prop, String sourceId, RaftPeer target) {
+  public RaftOutputStream(RaftProperties prop, String clientId,
+      Collection<RaftPeer> peers, String leaderId) {
     final int bufferSize = prop.getInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY,
         RAFT_OUTPUTSTREAM_BUFFER_SIZE_DEFAULT);
     buf = new byte[bufferSize];
     count = 0;
-    this.target = target;
-    this.sourceId = sourceId;
-    streamer = new AppendStreamer(new RaftClientProtocolClient(target), prop);
+    this.clientId = clientId;
+    streamer = new AppendStreamer(prop, peers, leaderId, clientId);
   }
 
   @Override
@@ -84,12 +80,7 @@ public class RaftOutputStream extends OutputStream {
 
   private void flushToStreamer() throws IOException {
     if (count > 0) {
-      // wrap the current buffer into a RaftClientRequestProto
-      // TODO avoid the byte array copy after upgrading to protobuf 3.1
-      RaftClientRequestProto request = ClientProtoUtils
-          .genRaftClientRequestProto(sourceId, target.getId(), seqNum++,
-              ProtoUtils.toByteString(buf, 0, count), false);
-      streamer.write(request);
+      streamer.write(ProtoUtils.toByteString(buf, 0, count), seqNum++);
       count = 0;
     }
   }
@@ -110,7 +101,7 @@ public class RaftOutputStream extends OutputStream {
 
   @Override
   public String toString() {
-    return "RaftOutputStream-" + target;
+    return "RaftOutputStream-" + clientId;
   }
 
   private void checkClosed() throws IOException {

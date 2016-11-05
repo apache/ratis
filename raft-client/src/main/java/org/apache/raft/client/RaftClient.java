@@ -67,12 +67,8 @@ public class RaftClient implements Closeable {
     return clientId;
   }
 
-  protected RaftPeer getCurrentLeader() {
-    return peers.get(leaderId);
-  }
-
   /** @return the next peer after the given leader. */
-  static String nextLeader(final String leaderId, final Iterator<String> i) {
+  public static String nextLeader(final String leaderId, final Iterator<String> i) {
     final String first = i.next();
     for(String previous = first; i.hasNext(); ) {
       final String current = i.next();

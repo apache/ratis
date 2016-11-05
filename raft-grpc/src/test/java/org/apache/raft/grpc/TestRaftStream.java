@@ -19,7 +19,6 @@ package org.apache.raft.grpc;
 
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.client.RaftOutputStream;
-import org.apache.raft.grpc.client.RaftWriter;
 import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.LogAppenderFactory;
@@ -94,9 +93,8 @@ public class TestRaftStream {
     RaftServer leader = waitForLeader(cluster);
 
     int count = 1;
-    RaftWriter writer = new RaftWriter("writer-1", cluster.getPeers(),
-        leader.getId(), prop);
-    try (RaftOutputStream out = writer.write()) {
+    try (RaftOutputStream out = new RaftOutputStream(prop, "writer-1",
+        cluster.getPeers(), leader.getId())) {
       for (int i = 0; i < 500; i++) { // generate 500 requests
         out.write(genContent(count++));
       }
@@ -135,9 +133,8 @@ public class TestRaftStream {
     cluster.start();
 
     RaftServer leader = waitForLeader(cluster);
-    RaftWriter writer = new RaftWriter("writer", cluster.getPeers(),
-        leader.getId(), prop);
-    RaftOutputStream out = writer.write();
+    RaftOutputStream out = new RaftOutputStream(prop, "writer",
+        cluster.getPeers(), leader.getId());
 
     int[] lengths = new int[]{1, 500, 1023, 1024, 1025, 2048, 3000, 3072};
     ByteValue[] values = new ByteValue[lengths.length];
@@ -215,9 +212,8 @@ public class TestRaftStream {
     cluster.start();
     RaftServer leader = waitForLeader(cluster);
 
-    RaftWriter writer = new RaftWriter("writer", cluster.getPeers(),
-        leader.getId(), prop);
-    RaftOutputStream out = writer.write();
+    RaftOutputStream out = new RaftOutputStream(prop, "writer",
+        cluster.getPeers(), leader.getId());
 
     byte[] b1 = new byte[ByteValue.BUFFERSIZE / 2];
     Arrays.fill(b1, (byte) 1);
@@ -261,4 +257,6 @@ public class TestRaftStream {
     }
     Assert.assertArrayEquals(expected, actual);
   }
+
+  // TODO test error handling (NotLeaderException and other Exceptions)
 }

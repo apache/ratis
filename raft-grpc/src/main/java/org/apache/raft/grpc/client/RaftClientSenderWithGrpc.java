@@ -77,7 +77,7 @@ public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
             @Override
             public void onError(Throwable t) {
               // This implementation is used as RaftClientRequestSender. Retry
-              // logic on NotLeaderException/IOException is in RaftClient.
+              // logic on Exception is in RaftClient.
               final IOException e;
               if (t instanceof StatusRuntimeException) {
                 e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
