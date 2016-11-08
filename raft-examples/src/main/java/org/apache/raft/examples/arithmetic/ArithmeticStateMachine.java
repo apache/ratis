@@ -17,48 +17,35 @@
  */
 package org.apache.raft.examples.arithmetic;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.examples.arithmetic.expression.Expression;
+import org.apache.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.server.protocol.TermIndex;
+import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.statemachine.*;
+import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
+import org.apache.raft.util.AutoCloseableLock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.apache.raft.examples.arithmetic.expression.Expression;
-import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.protocol.Message;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftServerConstants;
-import org.apache.raft.server.protocol.TermIndex;
-import org.apache.raft.server.storage.RaftStorage;
-import org.apache.raft.statemachine.BaseStateMachine;
-import org.apache.raft.statemachine.SimpleStateMachineStorage;
-import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
-import org.apache.raft.statemachine.StateMachineStorage;
-import org.apache.raft.statemachine.TermIndexTracker;
-import org.apache.raft.statemachine.TrxContext;
-import org.apache.raft.util.AutoCloseableLock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class ArithmeticStateMachine extends BaseStateMachine {
   static final Logger LOG = LoggerFactory.getLogger(ArithmeticStateMachine.class);
 
-  private RaftConfiguration conf;
-  private SimpleStateMachineStorage storage;
   private final Map<String, Double> variables = new ConcurrentHashMap<>();
-  private TermIndexTracker termIndexTracker = new TermIndexTracker();
+
+  private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
+  private final TermIndexTracker termIndexTracker = new TermIndexTracker();
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
@@ -70,10 +57,6 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     return AutoCloseableLock.acquire(lock.writeLock());
   }
 
-  public ArithmeticStateMachine() {
-    this.storage  = new SimpleStateMachineStorage();
-  }
-
   void reset() {
     variables.clear();
     termIndexTracker.reset();
@@ -83,12 +66,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   public void initialize(RaftProperties properties, RaftStorage raftStorage) throws IOException {
     super.initialize(properties, raftStorage);
     this.storage.init(raftStorage);
-    SingleFileSnapshotInfo snapshot = this.storage.findLatestSnapshot();
-    loadSnapshot(snapshot);
-  }
-
-  @Override
-  public void pause() {
+    loadSnapshot(storage.getLatestSnapshot());
   }
 
   @Override
@@ -147,16 +125,6 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public void setRaftConfiguration(RaftConfiguration conf) {
-    this.conf = conf;
-  }
-
-  @Override
-  public RaftConfiguration getRaftConfiguration() {
-    return conf;
-  }
-
-  @Override
   public StateMachineStorage getStateMachineStorage() {
     return storage;
   }
@@ -178,32 +146,24 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public TrxContext startTransaction(RaftClientRequest request)
-      throws IOException {
-    return new TrxContext(this, request, RaftProtos.SMLogEntryProto.newBuilder()
-        .setData(request.getMessage().getContent())
-        .build());
-  }
-
-  @Override
   public void close() {
     reset();
   }
 
   @Override
   public CompletableFuture<Message> applyTransaction(TrxContext trx) {
-    LogEntryProto entry = trx.getLogEntry().get();
-    final Message message = () -> entry.getSmLogEntry().getData();
-    final AssignmentMessage assignment = new AssignmentMessage(message);
+    final LogEntryProto entry = trx.getLogEntry().get();
+    final AssignmentMessage assignment = new AssignmentMessage(
+        () -> entry.getSmLogEntry().getData());
 
-    final long last = entry.getIndex();
+    final long index = entry.getIndex();
     final Double result;
     try(final AutoCloseableLock writeLock = writeLock()) {
       result = assignment.evaluate(variables);
-      termIndexTracker.update(new TermIndex(entry.getTerm(), entry.getIndex()));
+      termIndexTracker.update(new TermIndex(entry.getTerm(), index));
     }
     final Expression r = Expression.Utils.double2Expression(result);
-    LOG.debug("{}: {} = {}, variables={}", last, assignment, r, variables);
+    LOG.debug("{}: {} = {}, variables={}", index, assignment, r, variables);
     return CompletableFuture.completedFuture(Expression.Utils.toMessage(r));
   }
 }

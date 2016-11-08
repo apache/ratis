@@ -66,20 +66,12 @@ public class LifeCycle {
 
     /** Does this object equal to one of the given states? */
     public boolean isOneOf(State... states) {
-      return isOneOf2(states) == null;
-    }
-
-    /**
-     * @return null if this object equals to one of the given states;
-     *         otherwise, return this object.
-     */
-    private State isOneOf2(State... states) {
       for(State e : states) {
         if (e == this) {
-          return null;
+          return true;
         }
       }
-      return this;
+      return false;
     }
 
     static void put(State key, Map<State, List<State>> map, State... values) {
@@ -148,8 +140,8 @@ public class LifeCycle {
 
   /** Assert if the current state equals to one of the expected states. */
   public void assertCurrentState(State... expected) {
-    final State c = getCurrentState().isOneOf2(expected);
-    if (c != null) {
+    final State c = getCurrentState();
+    if (!c.isOneOf(expected)) {
       throw new IllegalStateException("STATE MISMATCHED: In " + name
           + ", current state " + c + " is not one of the expected states "
           + Arrays.toString(expected));
@@ -189,9 +181,8 @@ public class LifeCycle {
     }
 
     for(;;) {
-      final LifeCycle.State c = getCurrentState()
-          .isOneOf2(State.CLOSING, State.CLOSED);
-      if (c == null) {
+      final State c = getCurrentState();
+      if (c.isOneOf(State.CLOSING, State.CLOSED)) {
         return; //already closing or closed.
       }
 

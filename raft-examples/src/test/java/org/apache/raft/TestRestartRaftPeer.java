@@ -58,7 +58,7 @@ public class TestRestartRaftPeer {
   @Parameterized.Parameters
   public static Collection<Object[]> data() throws IOException {
     RaftProperties prop = new RaftProperties();
-    prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
+    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine.class, StateMachine.class);
     prop.setInt(RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY, 1024 * 8);
     return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3);

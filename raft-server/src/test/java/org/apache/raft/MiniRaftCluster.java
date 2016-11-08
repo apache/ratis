@@ -27,6 +27,7 @@ import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.*;
 import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.statemachine.BaseStateMachine;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
@@ -44,6 +45,10 @@ public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
   public static final DelayLocalExecutionInjection logSyncDelay =
       new DelayLocalExecutionInjection(RaftLog.LOG_SYNC);
+
+  public static final String CLASS_NAME = MiniRaftCluster.class.getSimpleName();
+  public static final String STATEMACHINE_CLASS_KEY = CLASS_NAME + ".statemachine.class";
+  public static final Class<? extends StateMachine> STATEMACHINE_CLASS_DEFAULT = BaseStateMachine.class;
 
   public static abstract class Factory<CLUSTER extends MiniRaftCluster> {
     public abstract CLUSTER newCluster(
@@ -196,17 +201,18 @@ public abstract class MiniRaftCluster {
         formatDir(dirStr);
       }
       properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY, dirStr);
-      s = new RaftServer(id, conf, properties, getStateMachine(properties));
+      s = new RaftServer(id, conf, properties, getStateMachine4Test(properties));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
     return s;
   }
 
-  private StateMachine getStateMachine(RaftProperties properties) {
+  static StateMachine getStateMachine4Test(RaftProperties properties) {
     final Class<? extends StateMachine> smClass = properties.getClass(
-        RAFT_SERVER_STATEMACHINE_CLASS_KEY,
-        RAFT_SERVER_STATEMACHINE_CLASS_DEFAULT, StateMachine.class);
+        STATEMACHINE_CLASS_KEY,
+        STATEMACHINE_CLASS_DEFAULT,
+        StateMachine.class);
     return RaftUtils.newInstance(smClass);
   }
 

@@ -70,7 +70,7 @@ public abstract class RaftSnapshotBaseTest {
   @Before
   public void setup() throws IOException {
     final RaftProperties prop = new RaftProperties();
-    prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
+    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine.class, StateMachine.class);
     prop.setLong(
         RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY,

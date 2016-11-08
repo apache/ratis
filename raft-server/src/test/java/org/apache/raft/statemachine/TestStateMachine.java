@@ -17,22 +17,6 @@
  */
 package org.apache.raft.statemachine;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
-
 import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
@@ -45,12 +29,21 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.Timeout;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+
+import static org.junit.Assert.*;
 
 /**
  * Test StateMachine related functionality
@@ -152,7 +145,9 @@ public class TestStateMachine {
   @Test
   public void testTransactionContextIsPassedBack() throws Throwable {
     // tests that the TrxContext set by the StateMachine in Leader is passed back to the SM
-    properties.set(RAFT_SERVER_STATEMACHINE_CLASS_KEY, SMTransactionContext.class.getName());
+    properties.setClass(
+        MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        SMTransactionContext.class, StateMachine.class);
     startCluster();
 
     int numTrx = 100;

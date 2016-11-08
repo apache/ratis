@@ -22,7 +22,6 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.MiniRaftClusterWithGRpc;
 import org.apache.raft.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.raft.netty.MiniRaftClusterWithNetty;
-import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.statemachine.StateMachine;
 
@@ -75,7 +74,7 @@ public class RaftExamplesTestUtil {
   public static <S extends StateMachine> Collection<Object[]> getMiniRaftClusters(
       Class<S> stateMachineClass, Class<?>... clusterClasses) throws IOException {
     final RaftProperties prop = new RaftProperties();
-    prop.setClass(RaftServerConfigKeys.RAFT_SERVER_STATEMACHINE_CLASS_KEY,
+    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         stateMachineClass, StateMachine.class);
     return getMiniRaftClusters(prop, 3, clusterClasses);
   }
