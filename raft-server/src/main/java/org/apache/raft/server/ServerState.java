@@ -17,8 +17,12 @@
  */
 package org.apache.raft.server;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY;
+
+import java.io.Closeable;
+import java.io.IOException;
+
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
@@ -34,11 +38,8 @@ import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.ProtoUtils;
 
-import java.io.Closeable;
-import java.io.IOException;
-
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
@@ -211,7 +212,7 @@ public class ServerState implements Closeable {
     return log;
   }
 
-  long applyLog(TrxContext operation) {
+  long applyLog(TrxContext operation) throws IOException {
     return log.append(currentTerm, operation);
   }
 

@@ -69,7 +69,7 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public void notifyNotLeader(Collection<TrxContext> pendingEntries) {
+  public void notifyNotLeader(Collection<TrxContext> pendingEntries) throws IOException {
     // do nothing
   }
 
@@ -81,12 +81,12 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public TrxContext applyTransactionSerial(TrxContext trx) {
+  public TrxContext applyTransactionSerial(TrxContext trx) throws IOException {
     return trx;
   }
 
   @Override
-  public CompletableFuture<Message> applyTransaction(TrxContext trx) {
+  public CompletableFuture<Message> applyTransaction(TrxContext trx) throws IOException {
     // return the same message contained in the entry
     Message msg = () -> trx.getLogEntry().get().getSmLogEntry().getData();
     return CompletableFuture.completedFuture(msg);
@@ -131,12 +131,12 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public TrxContext cancelTransaction(TrxContext trx) {
+  public TrxContext cancelTransaction(TrxContext trx) throws IOException {
     return trx;
   }
 
   @Override
-  public TrxContext preAppendTransaction(TrxContext trx) {
+  public TrxContext preAppendTransaction(TrxContext trx) throws IOException {
     return trx;
   }
 

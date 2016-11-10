@@ -17,6 +17,9 @@
  */
 package org.apache.raft.server;
 
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
@@ -28,9 +31,6 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
-
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Each RPC request is first handled by the RequestDispatcher:
@@ -71,6 +71,9 @@ public class RequestDispatcher {
       return stateMachine.query(request);
     }
 
+    // TODO: this client request will not be added to pending requests
+    // until later which means that any failure in between will leave partial state in the
+    // state machine. We should call cancelTransaction() for failed requests
     TrxContext entry = stateMachine.startTransaction(request);
     if (entry.getException().isPresent()) {
       Exception ex = entry.getException().get();

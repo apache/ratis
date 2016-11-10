@@ -120,11 +120,10 @@ public interface StateMachine extends Closeable {
    * This is called before the transaction passed from the StateMachine is appended to the raft log.
    * This method will be called from log append and having the same strict serial order that the
    * transactions will have in the RAFT log. Since this is called serially in the critical path of
-   * log append, it is important to do only required operations here. Cannot throw an exception at
-   * this stage.
+   * log append, it is important to do only required operations here.
    * @return The Transaction context.
    */
-  TrxContext preAppendTransaction(TrxContext trx);
+  TrxContext preAppendTransaction(TrxContext trx) throws IOException;
 
   /**
    * Called to notify the state machine that the Transaction passed cannot be appended (or synced).
@@ -132,7 +131,7 @@ public interface StateMachine extends Closeable {
    * @param trx the transaction to cancel
    * @return cancelled transaction
    */
-  TrxContext cancelTransaction(TrxContext trx);
+  TrxContext cancelTransaction(TrxContext trx) throws IOException;
 
   /**
    * Called for transactions that have been committed to the RAFT log. This step is called
@@ -143,7 +142,7 @@ public interface StateMachine extends Closeable {
    *            of the raft peers
    * @return The Transaction context.
    */
-  TrxContext applyTransactionSerial(TrxContext trx);
+  TrxContext applyTransactionSerial(TrxContext trx) throws IOException;
 
   /**
    * Apply a committed log entry to the state machine. This method can be called concurrently with
@@ -153,10 +152,10 @@ public interface StateMachine extends Closeable {
    *            of the raft peers
    */
   // TODO: We do not need to return CompletableFuture
-  CompletableFuture<Message> applyTransaction(TrxContext trx);
+  CompletableFuture<Message> applyTransaction(TrxContext trx) throws IOException;
 
   /**
    * Notify the state machine that the raft peer is no longer leader.
    */
-  void notifyNotLeader(Collection<TrxContext> pendingEntries);
+  void notifyNotLeader(Collection<TrxContext> pendingEntries) throws IOException;
 }

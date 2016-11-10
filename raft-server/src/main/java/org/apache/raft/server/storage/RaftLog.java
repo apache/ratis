@@ -125,16 +125,18 @@ public abstract class RaftLog implements Closeable {
    * Used by the leader.
    * @return the index of the new log entry.
    */
-  public long append(long term, TrxContext operation) {
+  public long append(long term, TrxContext operation) throws IOException {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
-      final LogEntryProto e = ProtoUtils.toLogEntryProto(
-          operation.getSMLogEntry().get(), term, nextIndex);
 
       // This is called here to guarantee strict serialization of callback executions in case
       // the SM wants to attach a logic depending on ordered execution in the log commit order.
       operation = operation.preAppendTransaction();
+
+      // build the log entry after calling the StateMachine
+      final LogEntryProto e = ProtoUtils.toLogEntryProto(
+          operation.getSMLogEntry().get(), term, nextIndex);
 
       appendEntry(e);
       operation.setLogEntry(e);

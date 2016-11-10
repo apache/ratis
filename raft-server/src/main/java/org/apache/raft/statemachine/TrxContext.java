@@ -61,7 +61,7 @@ public class TrxContext {
   /**
    * Committed LogEntry.
    */
-  protected Optional<RaftProtos.LogEntryProto> logEntry = Optional.empty();
+  protected Optional<RaftProtos.LogEntryProto> logEntry;
 
   private TrxContext(StateMachine stateMachine) {
     this.stateMachine = stateMachine;
@@ -80,6 +80,19 @@ public class TrxContext {
    * Construct a TrxContext from a client request. Used by the state machine to start a transaction
    * and send the Log entry representing the SM data to be applied to the raft log.
    */
+  public TrxContext(StateMachine stateMachine, RaftClientRequest clientRequest) {
+    this(stateMachine);
+    this.clientRequest = Optional.of(clientRequest);
+    this.smLogEntryProto = Optional.empty();
+    this.exception = Optional.empty();
+    this.stateMachineContext = Optional.ofNullable(stateMachineContext);
+    this.logEntry = Optional.empty();
+  }
+
+  /**
+   * Construct a TrxContext from a client request. Used by the state machine to start a transaction
+   * and send the Log entry representing the SM data to be applied to the raft log.
+   */
   public TrxContext(StateMachine stateMachine, RaftClientRequest clientRequest,
                     RaftProtos.SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
     this(stateMachine);
@@ -87,6 +100,7 @@ public class TrxContext {
     this.smLogEntryProto = Optional.of(smLogEntryProto);
     this.exception = Optional.empty();
     this.stateMachineContext = Optional.ofNullable(stateMachineContext);
+    this.logEntry = Optional.empty();
   }
 
   /**
@@ -109,6 +123,7 @@ public class TrxContext {
     this.smLogEntryProto = Optional.empty();
     this.exception = Optional.empty();
     this.stateMachineContext = Optional.ofNullable(stateMachineContext);
+    this.logEntry = Optional.empty();
   }
 
   /**
@@ -137,25 +152,38 @@ public class TrxContext {
     return this.exception;
   }
 
+  public TrxContext setStateMachineContext(Object stateMachineContext) {
+    this.stateMachineContext = Optional.ofNullable(stateMachineContext);
+    return this;
+  }
+
   public Optional<Object> getStateMachineContext() {
     return stateMachineContext;
   }
 
-  public void setLogEntry(RaftProtos.LogEntryProto logEntry) {
+  public TrxContext setLogEntry(RaftProtos.LogEntryProto logEntry) {
     this.logEntry = Optional.of(logEntry);
+    return this;
+  }
+
+  public TrxContext setSmLogEntryProto(RaftProtos.SMLogEntryProto smLogEntryProto) {
+    this.smLogEntryProto = Optional.of(smLogEntryProto);
+    return this;
   }
 
   public Optional<RaftProtos.LogEntryProto> getLogEntry() {
     return logEntry;
   }
 
-  private void setException(IOException ioe) {
+  private TrxContext setException(IOException ioe) {
     assert !this.exception.isPresent();
     this.exception = Optional.of(ioe);
+    return this;
   }
 
-  public void setShouldCommit(boolean shouldCommit) {
+  public TrxContext setShouldCommit(boolean shouldCommit) {
     this.shouldCommit = shouldCommit;
+    return this;
   }
 
   public boolean shouldCommit() {
@@ -169,11 +197,10 @@ public class TrxContext {
    * This is called before the transaction passed from the StateMachine is appended to the raft log.
    * This method will be called from log append and having the same strict serial order that the
    * Transactions will have in the RAFT log. Since this is called serially in the critical path of
-   * log append, it is important to do only required operations here. Cannot throw an exception at
-   * this stage.
+   * log append, it is important to do only required operations here.
    * @return The Transaction context.
    */
-  public TrxContext preAppendTransaction() {
+  public TrxContext preAppendTransaction() throws IOException {
     return stateMachine.preAppendTransaction(this);
   }
 
@@ -182,7 +209,7 @@ public class TrxContext {
    * The exception field will indicate whether there was an exception or not.
    * @return cancelled transaction
    */
-  public TrxContext cancelTransaction() {
+  public TrxContext cancelTransaction() throws IOException {
     // TODO: This is not called from Raft server / log yet. When an IOException happens, we should
     // call this to let the SM know that Transaction cannot be synced
     return stateMachine.cancelTransaction(this);

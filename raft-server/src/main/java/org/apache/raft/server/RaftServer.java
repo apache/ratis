@@ -382,7 +382,12 @@ public class RaftServer implements RaftServerProtocol, Closeable {
       }
 
       // append the message to its local log
-      final long entryIndex = state.applyLog(entry);
+      final long entryIndex;
+      try {
+        entryIndex = state.applyLog(entry);
+      } catch (IOException e) {
+        throw new RaftException(e);
+      }
 
       // put the request into the pending queue
       pending = leaderState.addPendingRequest(entryIndex, request, entry);

@@ -17,19 +17,22 @@
  */
 package org.apache.raft.server;
 
-import com.google.common.base.Preconditions;
-import org.apache.raft.protocol.*;
-import org.apache.raft.server.protocol.TermIndex;
-import org.apache.raft.statemachine.TrxContext;
-import org.slf4j.Logger;
-
+import java.io.IOException;
 import java.util.Collection;
-import java.util.Deque;
-import java.util.LinkedList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
+
+import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.protocol.RaftException;
+import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.statemachine.TrxContext;
+import org.slf4j.Logger;
+
+import com.google.common.base.Preconditions;
 
 class PendingRequests {
   private static final Logger LOG = RaftServer.LOG;
@@ -109,7 +112,7 @@ class PendingRequests {
    * The leader state is stopped. Send NotLeaderException to all the pending
    * requests since they have not got applied to the state machine yet.
    */
-  void sendNotLeaderResponses() {
+  void sendNotLeaderResponses() throws IOException {
     LOG.info("{} sends responses before shutting down PendingRequestsHandler",
         server.getId());
 

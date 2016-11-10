@@ -17,28 +17,47 @@
  */
 package org.apache.raft.server;
 
-import com.google.common.base.Preconditions;
-import org.apache.hadoop.util.Daemon;
-import org.apache.hadoop.util.Time;
-import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.protocol.*;
-import org.apache.raft.server.storage.RaftLog;
-import org.apache.raft.statemachine.TrxContext;
-import org.apache.raft.util.ProtoUtils;
-import org.slf4j.Logger;
+import static org.apache.raft.server.LeaderState.StateUpdateEventType.STAGINGPROGRESS;
+import static org.apache.raft.server.LeaderState.StateUpdateEventType.STEPDOWN;
+import static org.apache.raft.server.LeaderState.StateUpdateEventType.UPDATECOMMIT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_RPC_SLEEP_TIME_MS_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_RPC_SLEEP_TIME_MS_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SNAPSHOT_CHUNK_MAX_SIZE_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SNAPSHOT_CHUNK_MAX_SIZE_KEY;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static org.apache.raft.server.LeaderState.StateUpdateEventType.*;
-import static org.apache.raft.server.RaftServerConfigKeys.*;
+import org.apache.hadoop.util.Daemon;
+import org.apache.hadoop.util.Time;
+import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.proto.RaftProtos;
+import org.apache.raft.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.protocol.ReconfigurationTimeoutException;
+import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.util.ProtoUtils;
+import org.slf4j.Logger;
+
+import com.google.common.base.Preconditions;
 
 /**
  * States for leader only. It contains three different types of processors:
@@ -152,7 +171,11 @@ public class LeaderState {
       sender.stopSender();
       sender.interrupt();
     }
-    pendingRequests.sendNotLeaderResponses();
+    try {
+      pendingRequests.sendNotLeaderResponses();
+    } catch (IOException e) {
+      LOG.warn("Caught exception in sendNotLeaderResponses", e);
+    }
   }
 
   void notifySenders() {
