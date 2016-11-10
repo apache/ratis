@@ -17,6 +17,8 @@
  */
 package org.apache.raft.grpc;
 
+import org.apache.raft.RaftClientConfigKeys;
+
 public interface RaftGrpcConfigKeys {
   String PREFIX = "raft.grpc";
 
@@ -36,4 +38,10 @@ public interface RaftGrpcConfigKeys {
 
   String RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY = "raft.outputstream.buffer.size";
   int RAFT_OUTPUTSTREAM_BUFFER_SIZE_DEFAULT = 64 * 1024;
+
+  String RAFT_OUTPUTSTREAM_MAX_RETRY_TIMES_KEY = "raft.outputstream.max.retry.times";
+  int RAFT_OUTPUTSTREAM_MAX_RETRY_TIMES_DEFAULT = 5;
+
+  String RAFT_OUTPUTSTREAM_RETRY_INTERVAL_KEY = "raft.outputstream.retry.interval";
+  long RAFT_OUTPUTSTREAM_RETRY_INTERVAL_DEFAULT = RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_DEFAULT;
 }

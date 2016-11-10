@@ -66,6 +66,16 @@ public class RaftGrpcUtil {
     return new IOException(se);
   }
 
+  public static IOException unwrapIOException(Throwable t) {
+    final IOException e;
+    if (t instanceof StatusRuntimeException) {
+      e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
+    } else {
+      e = RaftUtils.asIOException(t);
+    }
+    return e;
+  }
+
   private static Exception instantiateException(Class<? extends Exception> cls,
       String message, Exception from) throws Exception {
     Constructor<? extends Exception> cn = cls.getConstructor(String.class);

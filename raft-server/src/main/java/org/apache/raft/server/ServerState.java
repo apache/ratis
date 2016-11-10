@@ -311,6 +311,8 @@ public class ServerState implements Closeable {
   @Override
   public void close() throws IOException {
     stateMachineUpdater.stop();
+    RaftServer.LOG.info("{} closes. The last applied log index is {}",
+        getSelfId(), getLastAppliedIndex());
     storage.close();
   }
 

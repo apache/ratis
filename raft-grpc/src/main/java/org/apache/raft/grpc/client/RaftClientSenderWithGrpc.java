@@ -48,7 +48,7 @@ public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
   public static final Logger LOG = LoggerFactory.getLogger(RaftClientSenderWithGrpc.class);
 
   private final PeerProxyMap<RaftClientProtocolClient> proxies
-      = new PeerProxyMap<>(p -> new RaftClientProtocolClient(p));
+      = new PeerProxyMap<>(RaftClientProtocolClient::new);
 
   public RaftClientSenderWithGrpc(Collection<RaftPeer> peers) {
     addServers(peers);

@@ -19,18 +19,19 @@ package org.apache.raft.grpc.client;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.ByteString;
-import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+import org.apache.hadoop.util.Daemon;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.grpc.RaftGrpcConfigKeys;
 import org.apache.raft.grpc.RaftGrpcUtil;
+import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.protocol.NotLeaderException;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,65 +39,90 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Deque;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.Map;
-import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.raft.client.ClientProtoUtils.toRaftRpcRequestProtoBuilder;
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_DEFAULT;
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_KEY;
 
-class AppendStreamer implements Closeable {
-  static final Logger LOG = LoggerFactory.getLogger(AppendStreamer.class);
+public class AppendStreamer implements Closeable {
+  public static final Logger LOG = LoggerFactory.getLogger(AppendStreamer.class);
 
-  private static class RaftPeerAndProxy {
-    private final RaftPeer peer;
-    private RaftClientProtocolClient proxy;
+  enum RunningState {RUNNING, LOOK_FOR_LEADER, CLOSED, ERROR}
 
-    RaftPeerAndProxy(RaftPeer peer) {
-      this.peer = peer;
+  private static class ExceptionAndRetry {
+    private final AtomicReference<IOException> latestException =
+        new AtomicReference<>(); // TODO record latest exception for each peer
+    private final AtomicInteger retryTimes = new AtomicInteger(0);
+    private final int maxRetryTimes;
+    private final long retryInterval;
+
+    ExceptionAndRetry(RaftProperties prop) {
+      maxRetryTimes = prop.getInt(
+          RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_MAX_RETRY_TIMES_KEY,
+          RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_MAX_RETRY_TIMES_DEFAULT);
+      retryInterval = prop.getTimeDuration(
+          RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_RETRY_INTERVAL_KEY,
+          RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_RETRY_INTERVAL_DEFAULT,
+          TimeUnit.MILLISECONDS);
     }
 
-    synchronized RaftClientProtocolClient getProxy() {
-      if (proxy == null) {
-        proxy = new RaftClientProtocolClient(peer);
-      }
-      return proxy;
+    void setLatestException(IOException e) {
+      latestException.set(e);
+      retryTimes.incrementAndGet();
     }
 
-    void close() {
-      if (proxy != null) {
-        proxy.close();
-      }
+    IOException getLatestException() {
+      return latestException.get();
+    }
+
+    boolean shouldRetry() { // TODO fail the whole Streamer if exceeds max retry times
+      return retryTimes.get() <= maxRetryTimes;
     }
   }
 
-  private volatile StreamObserver<RaftClientRequestProto> requestObserver;
-  private final Queue<RaftClientRequestProto> pendingRequests;
+  private final Deque<RaftClientRequestProto> dataQueue;
+  private final Deque<RaftClientRequestProto> ackQueue;
   private final int maxPendingNum;
 
   private final Map<String, RaftPeerAndProxy> peers;
-  private volatile String leaderId;
+  private String leaderId;
+  private volatile RaftPeerAndProxy leaderProxy;
   private final String clientId;
 
-  private volatile boolean running = true;
+  private volatile RunningState running = RunningState.RUNNING;
+  private final ExceptionAndRetry exceptionAndRetry;
+  private final Sender senderThread;
 
   AppendStreamer(RaftProperties prop, Collection<RaftPeer> peers,
       String leaderId, String clientId) {
     this.clientId = clientId;
-    this.maxPendingNum = prop.getInt(
+    maxPendingNum = prop.getInt(
         RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_KEY,
         RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_DEFAULT);
-    this.pendingRequests = new LinkedList<>();
+    dataQueue = new ConcurrentLinkedDeque<>();
+    ackQueue = new ConcurrentLinkedDeque<>();
+    exceptionAndRetry = new ExceptionAndRetry(prop);
 
     this.peers = peers.stream().collect(
         Collectors.toMap(RaftPeer::getId, RaftPeerAndProxy::new));
     refreshLeaderProxy(leaderId, null);
+
+    senderThread = new Sender();
+    senderThread.setName(this.toString() + "-sender");
+    senderThread.start();
   }
 
-  private void refreshLeaderProxy(String suggested, String oldLeader) {
+  private synchronized void refreshLeaderProxy(String suggested,
+      String oldLeader) {
     if (suggested != null) {
       leaderId = suggested;
     } else {
@@ -106,20 +132,29 @@ class AppendStreamer implements Closeable {
         leaderId = RaftClient.nextLeader(oldLeader, peers.keySet().iterator());
       }
     }
-    requestObserver = peers.get(suggested).getProxy()
-        .append(new ResponseHandler(leaderId));
+    LOG.debug("{} switches leader from {} to {}. suggested leader: {}", this,
+          oldLeader, leaderId, suggested);
+    if (leaderProxy != null) {
+      leaderProxy.closeObserver(false);
+    }
+    leaderProxy = peers.get(leaderId);
+  }
+
+  private boolean isRunning() {
+    return running == RunningState.RUNNING ||
+        running == RunningState.LOOK_FOR_LEADER;
   }
 
   private void checkState() throws IOException {
-    if (!running) {
-      throw new IOException("The AppendStreamer has been closed");
+    if (!isRunning()) {
+      throwException("The AppendStreamer has been closed");
     }
   }
 
   synchronized void write(ByteString content, long seqNum)
       throws IOException {
     checkState();
-    while (running && pendingRequests.size() >= maxPendingNum) {
+    while (isRunning() && dataQueue.size() >= maxPendingNum) {
       try {
         wait();
       } catch (InterruptedException ignored) {
@@ -128,40 +163,45 @@ class AppendStreamer implements Closeable {
     // wrap the current buffer into a RaftClientRequestProto
     final RaftClientRequestProto request = ClientProtoUtils
         .genRaftClientRequestProto(clientId, leaderId, seqNum, content, false);
-    if (running) {
-      requestObserver.onNext(request);
-      pendingRequests.offer(request);
+    if (isRunning()) {
+      dataQueue.offer(request);
+      this.notifyAll();
     } else {
-      throw new IOException(this + " got closed");
+      throwException(this + " got closed.");
     }
   }
 
   synchronized void flush() throws IOException {
     checkState();
-    if (pendingRequests.isEmpty()) {
+    if (dataQueue.isEmpty() && ackQueue.isEmpty()) {
       return;
     }
     // wait for the pending Q to become empty
-    while (running && !pendingRequests.isEmpty()) {
+    while (isRunning() && (!dataQueue.isEmpty() || !ackQueue.isEmpty())) {
       try {
         wait();
       } catch (InterruptedException ignored) {
       }
     }
-    if (!running && !pendingRequests.isEmpty()) {
-      throw new IOException(this + " got closed before finishing flush");
+    if (!isRunning() && (!dataQueue.isEmpty() || !ackQueue.isEmpty())) {
+      throwException(this + " got closed before finishing flush");
     }
   }
 
   @Override
-  public synchronized void close() throws IOException {
-    if (!running) {
+  public void close() throws IOException {
+    if (!isRunning()) {
       return;
     }
-    requestObserver.onCompleted();
-
     flush();
-    running = false;
+
+    running = RunningState.CLOSED;
+    senderThread.interrupt();
+    try {
+      senderThread.join();
+    } catch (InterruptedException ignored) {
+    }
+    peers.entrySet().forEach(entry -> entry.getValue().close());
   }
 
   @Override
@@ -169,79 +209,214 @@ class AppendStreamer implements Closeable {
     return this.getClass().getSimpleName() + "-" + clientId;
   }
 
-  /** the response handler for stream RPC */
-  private class ResponseHandler implements StreamObserver<RaftClientReplyProto> {
-    private final String leaderId;
+  private class RaftPeerAndProxy {
+    private final RaftPeer peer;
+    private RaftClientProtocolClient proxy;
+    private ResponseHandler responseHandler;
+    private StreamObserver<RaftClientRequestProto> requestObserver;
 
-    ResponseHandler(String leaderId) {
-      this.leaderId = leaderId;
+
+    RaftPeerAndProxy(RaftPeer peer) {
+      this.peer = peer;
+    }
+
+    private RaftClientProtocolClient getOrCreateProxy() {
+      if (proxy == null) {
+        LOG.debug("Creating proxy for {}", peer);
+        proxy = new RaftClientProtocolClient(peer);
+      }
+      return proxy;
+    }
+
+    synchronized void closeObserver(boolean onError) {
+      if (!onError && requestObserver != null) {
+        try {
+          responseHandler.active = false;
+          requestObserver.onCompleted();
+        } catch (Exception ignored) {
+        }
+      }
+      requestObserver = null;
+    }
+
+    synchronized StreamObserver<RaftClientRequestProto> getRequestObserver() {
+      if (requestObserver == null) {
+        responseHandler = new ResponseHandler(peer.getId());
+        requestObserver = getOrCreateProxy().append(responseHandler);
+      }
+      return requestObserver;
+    }
+
+    synchronized void close() {
+      closeObserver(false);
+      if (proxy != null) {
+        proxy.close();
+      }
+      proxy = null;
     }
 
     @Override
     public String toString() {
-      return AppendStreamer.this + "-ResponseHandler-" + leaderId;
+      return peer.toString();
+    }
+  }
+
+  private class Sender extends Daemon {
+    @Override
+    public void run() {
+      while (isRunning()) {
+
+        synchronized (AppendStreamer.this) {
+          while (isRunning() && shouldWait()) {
+            try {
+              AppendStreamer.this.wait();
+            } catch (InterruptedException ignored) {
+            }
+          }
+          if (running == RunningState.RUNNING) {
+            RaftClientRequestProto next = dataQueue.poll();
+            leaderProxy.getRequestObserver().onNext(next);
+            ackQueue.offer(next);
+          }
+        }
+      }
+    }
+
+    private boolean shouldWait() {
+      // the sender should wait if any of the following is true
+      // 1) there is no data to send
+      // 2) there are too many outstanding pending requests
+      // 3) Error/NotLeaderException just happened, we're still waiting for
+      //    the first response to confirm the new leader
+      return dataQueue.isEmpty() || ackQueue.size() >= maxPendingNum ||
+          running == RunningState.LOOK_FOR_LEADER;
+    }
+  }
+
+  /** the response handler for stream RPC */
+  private class ResponseHandler implements StreamObserver<RaftClientReplyProto> {
+    private final String targetLeader;
+    // once handled the first NotLeaderException or Error, the handler should
+    // be inactive and should not make any further action.
+    private volatile boolean active = true;
+
+    ResponseHandler(String targetLeader) {
+      this.targetLeader = targetLeader;
+    }
+
+    @Override
+    public String toString() {
+      return AppendStreamer.this + "-ResponseHandler-" + targetLeader;
     }
 
     @Override
     public void onNext(RaftClientReplyProto reply) {
+      if (!active) {
+        return;
+      }
       synchronized (AppendStreamer.this) {
         RaftClientRequestProto pending = Preconditions.checkNotNull(
-            pendingRequests.peek());
+            ackQueue.peek());
         if (reply.getRpcReply().getSuccess()) {
           Preconditions.checkState(pending.getRpcRequest().getSeqNum() ==
               reply.getRpcReply().getSeqNum());
-          pendingRequests.poll();
+          ackQueue.poll();
+          LOG.trace("{} received success ack for request {}", this,
+              ClientProtoUtils.toString(pending.getRpcRequest()));
+          // we've identified the correct leader
+          if (running == RunningState.LOOK_FOR_LEADER) {
+            running = RunningState.RUNNING;
+          }
         } else {
           // this may be a NotLeaderException
           RaftClientReply r = ClientProtoUtils.toRaftClientReply(reply);
           if (r.isNotLeader()) {
-            if (requestObserver != null) {
-              requestObserver.onCompleted();
-            }
-            // handle NotLeaderException: refresh leader and RaftConfiguration
-            final NotLeaderException nle = r.getNotLeaderException();
-
-            refreshPeers(nle.getPeers());
-            refreshLeaderProxy(nle.getSuggestedLeader().getId(), leaderId);
-            resendPendingRequests();
+            LOG.debug("{} received a NotLeaderException from {}", this,
+                r.getReplierId());
+            handleNotLeaderException(r.getNotLeaderException(), targetLeader);
+            active = false;
           }
         }
-        AppendStreamer.this.notify();
+        AppendStreamer.this.notifyAll();
       }
     }
 
     @Override
     public void onError(Throwable t) {
-      handleError(t);
+      if (active) {
+        synchronized (AppendStreamer.this) {
+          handleError(t, this);
+          AppendStreamer.this.notifyAll();
+        }
+        active = false;
+      }
     }
 
     @Override
     public void onCompleted() {
-      LOG.info("{} onCompleted", this);
-      Preconditions.checkState(pendingRequests.isEmpty());
+      LOG.info("{} onCompleted, pending requests #: {}", this,
+          ackQueue.size());
     }
   }
 
-  private void handleError(Throwable t) {
-    final IOException e;
-    if (t instanceof StatusRuntimeException) {
-      e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
+  private void throwException(String msg) throws IOException {
+    if (running == RunningState.ERROR) {
+      throw exceptionAndRetry.getLatestException();
     } else {
-      e = RaftUtils.asIOException(t);
-    }
-    LOG.warn("{} got error: {}", this, e);
-    synchronized (AppendStreamer.this) {
-      // TODO add upper limit for total retry numbers: if exceeded, set the exception and close the streamer
-      refreshLeaderProxy(null, leaderId);
-      resendPendingRequests();
-      AppendStreamer.this.notify();
+      throw new IOException(msg);
     }
   }
 
-  private void resendPendingRequests() {
-    // resend all the pending requests
-    for (RaftClientRequestProto request : pendingRequests) {
-      requestObserver.onNext(request);
+  private void handleNotLeaderException(NotLeaderException nle,
+      String oldLeader) {
+    Preconditions.checkState(Thread.holdsLock(AppendStreamer.this));
+    // handle NotLeaderException: refresh leader and RaftConfiguration
+    refreshPeers(nle.getPeers());
+
+    refreshLeader(nle.getSuggestedLeader().getId(), oldLeader);
+  }
+
+  private void handleError(Throwable t, ResponseHandler handler) {
+    Preconditions.checkState(Thread.holdsLock(AppendStreamer.this));
+    final IOException e = RaftGrpcUtil.unwrapIOException(t);
+
+    exceptionAndRetry.setLatestException(e);
+    LOG.debug("{} got error: {}. Total retry times {}, max retry times {}.",
+        handler, e, exceptionAndRetry.retryTimes.get(),
+        exceptionAndRetry.maxRetryTimes);
+
+    refreshLeader(null, leaderId);
+  }
+
+  private void refreshLeader(String suggestedLeader, String oldLeader) {
+    running = RunningState.LOOK_FOR_LEADER;
+    refreshLeaderProxy(suggestedLeader, oldLeader);
+    reQueuePendingRequests(leaderId);
+
+    final RaftClientRequestProto request = Preconditions.checkNotNull(
+        dataQueue.poll());
+    ackQueue.offer(request);
+    try {
+      Thread.sleep(exceptionAndRetry.retryInterval);
+    } catch (InterruptedException ignored) {
+    }
+    leaderProxy.getRequestObserver().onNext(request);
+  }
+
+  private void reQueuePendingRequests(String newLeader) {
+    if (isRunning()) {
+      // resend all the pending requests
+      while (!ackQueue.isEmpty()) {
+        RaftClientRequestProto oldRequest = ackQueue.pollLast();
+        RaftProtos.RaftRpcRequestProto r = oldRequest.getRpcRequest();
+        RaftClientRequestProto newRequest = RaftClientRequestProto.newBuilder()
+            .setMessage(oldRequest.getMessage())
+            .setReadOnly(oldRequest.getReadOnly())
+            .setRpcRequest(
+                toRaftRpcRequestProtoBuilder(clientId, newLeader, r.getSeqNum()))
+            .build();
+        dataQueue.offerFirst(newRequest);
+      }
     }
   }
 
@@ -263,6 +438,8 @@ class AppendStreamer implements Closeable {
       newPeersMap.entrySet().forEach(entry ->
           peers.putIfAbsent(entry.getKey(),
               new RaftPeerAndProxy(entry.getValue())));
+
+      LOG.debug("refreshed peers: {}", peers);
     }
   }
 }

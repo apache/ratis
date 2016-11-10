@@ -138,4 +138,9 @@ public class ClientProtoUtils {
             Arrays.asList(request.getPeersInNewConf())))
         .build();
   }
+
+  public static String toString(RaftRpcRequestProto request) {
+    return request.getRequestorId() + "->" + request.getReplyId() + ", seq# "
+        + request.getSeqNum();
+  }
 }

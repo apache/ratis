@@ -176,7 +176,8 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     @Override
     public void onError(Throwable t) {
       // for now we just log a msg
-      LOG.warn("client Append cancelled", t);
+      LOG.warn("{} onError: client Append cancelled",
+          dispatcher.getRaftServer().getId(), t);
       synchronized (pendingList) {
         pendingList.clear();
       }

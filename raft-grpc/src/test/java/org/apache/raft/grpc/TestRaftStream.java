@@ -17,7 +17,11 @@
  */
 package org.apache.raft.grpc;
 
+import org.apache.hadoop.test.GenericTestUtils;
+import org.apache.log4j.Level;
+import org.apache.raft.RaftTestUtil;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.grpc.client.AppendStreamer;
 import org.apache.raft.grpc.client.RaftOutputStream;
 import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.raft.proto.RaftProtos.LogEntryProto;
@@ -38,6 +42,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
@@ -47,6 +54,10 @@ import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPEND
 import static org.junit.Assert.fail;
 
 public class TestRaftStream {
+  static {
+    GenericTestUtils.setLogLevel(AppendStreamer.LOG, Level.ALL);
+    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+  }
   static final Logger LOG = LoggerFactory.getLogger(TestRaftStream.class);
 
   private static final RaftProperties prop = new RaftProperties();
@@ -258,5 +269,60 @@ public class TestRaftStream {
     Assert.assertArrayEquals(expected, actual);
   }
 
-  // TODO test error handling (NotLeaderException and other Exceptions)
+  /**
+   * Write while leader is killed
+   */
+  @Test
+  public void testKillLeader() throws Exception {
+    LOG.info("Running testChangeLeader");
+
+    prop.setInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY, 4);
+    cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, prop);
+    cluster.start();
+    final RaftServer leader = waitForLeader(cluster);
+
+    final AtomicBoolean running  = new AtomicBoolean(true);
+    final AtomicBoolean success = new AtomicBoolean(false);
+    final AtomicInteger result = new AtomicInteger(0);
+    final CountDownLatch latch = new CountDownLatch(1);
+
+    new Thread() {
+      @Override
+      public void run() {
+        LOG.info("Writer thread starts");
+        int count = 0;
+        try (RaftOutputStream out = new RaftOutputStream(prop, "writer",
+            cluster.getPeers(), leader.getId())) {
+          while (running.get()) {
+            out.write(toBytes(count++));
+            Thread.sleep(10);
+          }
+          success.set(true);
+          result.set(count);
+        } catch (Exception e) {
+          LOG.info("Got exception when writing", e);
+          success.set(false);
+        } finally {
+          latch.countDown();
+        }
+      }
+    }.start();
+
+    // force change the leader
+    RaftTestUtil.waitAndKillLeader(cluster, true);
+    final RaftServer newLeader = waitForLeader(cluster);
+    Assert.assertNotEquals(leader.getId(), newLeader.getId());
+    Thread.sleep(500);
+
+    running.set(false);
+    latch.await(5, TimeUnit.SECONDS);
+    Assert.assertTrue(success.get());
+    // total number of tx should be >= result + 2, where 2 means two NoOp from
+    // leaders. It may be larger than result+2 because the client may resend
+    // requests and we do not have retry cache on servers yet.
+    LOG.info("last applied index: {}. total number of requests: {}",
+        newLeader.getState().getLastAppliedIndex(), result.get());
+    Assert.assertTrue(
+        newLeader.getState().getLastAppliedIndex() >= result.get() + 1);
+  }
 }
