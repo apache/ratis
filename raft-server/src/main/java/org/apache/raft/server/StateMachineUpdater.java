@@ -192,7 +192,7 @@ class StateMachineUpdater implements Runnable {
               this + ": the StateMachineUpdater is wrongly interrupted", LOG);
         }
       } catch (Throwable t) {
-        LOG.warn("the StateMachineUpdater hits Throwable", t);
+        LOG.warn("{}: the StateMachineUpdater hits Throwable, {}", this, t);
         RaftUtils.terminate(t,
             this + ": the StateMachineUpdater hits Throwable", LOG);
       }

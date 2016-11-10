@@ -17,8 +17,22 @@
  */
 package org.apache.raft.server;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
+import static org.apache.raft.server.protocol.ServerProtoUtils.toTermIndex;
+import static org.apache.raft.util.LifeCycle.State.CLOSED;
+import static org.apache.raft.util.LifeCycle.State.CLOSING;
+import static org.apache.raft.util.LifeCycle.State.RUNNING;
+import static org.apache.raft.util.LifeCycle.State.STARTING;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.OptionalLong;
+import java.util.concurrent.CompletableFuture;
+
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.util.Time;
@@ -29,12 +43,21 @@ import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
+import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.raft.protocol.*;
-import org.apache.raft.server.protocol.*;
+import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.NotLeaderException;
+import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.protocol.RaftException;
+import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.protocol.ReconfigurationInProgressException;
+import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.server.protocol.RaftServerProtocol;
+import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
@@ -46,18 +69,8 @@ import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.OptionalLong;
-import java.util.concurrent.CompletableFuture;
-
-import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
-import static org.apache.raft.server.protocol.ServerProtoUtils.toTermIndex;
-import static org.apache.raft.util.LifeCycle.State.*;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -625,8 +638,8 @@ public class RaftServer implements RaftServerProtocol, Closeable {
   }
 
   private boolean containPrevious(TermIndex previous) {
-    LOG.debug("prev:{}, latestSnapshot:{}, getLatestInstalledSnapshot:{}",
-        previous, state.getLatestSnapshot(), state.getLatestInstalledSnapshot());
+    LOG.debug("{}: prev:{}, latestSnapshot:{}, getLatestInstalledSnapshot:{}",
+        getId(), previous, state.getLatestSnapshot(), state.getLatestInstalledSnapshot());
     return state.getLog().contains(previous)
         ||  (state.getLatestSnapshot() != null
              && state.getLatestSnapshot().getTermIndex().equals(previous))
