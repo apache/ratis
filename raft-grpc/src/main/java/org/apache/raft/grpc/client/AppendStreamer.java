@@ -19,7 +19,6 @@ package org.apache.raft.grpc.client;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.ByteString;
-import io.grpc.stub.StreamObserver;
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.client.RaftClient;
@@ -32,6 +31,7 @@ import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.protocol.NotLeaderException;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.util.PeerProxyMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,12 +40,11 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -59,8 +58,7 @@ public class AppendStreamer implements Closeable {
   enum RunningState {RUNNING, LOOK_FOR_LEADER, CLOSED, ERROR}
 
   private static class ExceptionAndRetry {
-    private final AtomicReference<IOException> latestException =
-        new AtomicReference<>(); // TODO record latest exception for each peer
+    private final Map<String, IOException> exceptionMap = new HashMap<>();
     private final AtomicInteger retryTimes = new AtomicInteger(0);
     private final int maxRetryTimes;
     private final long retryInterval;
@@ -75,16 +73,16 @@ public class AppendStreamer implements Closeable {
           TimeUnit.MILLISECONDS);
     }
 
-    void setLatestException(IOException e) {
-      latestException.set(e);
+    void addException(String peer, IOException e) {
+      exceptionMap.put(peer, e);
       retryTimes.incrementAndGet();
     }
 
-    IOException getLatestException() {
-      return latestException.get();
+    IOException getCombinedException() {
+      return new IOException("Exceptions: " + exceptionMap);
     }
 
-    boolean shouldRetry() { // TODO fail the whole Streamer if exceeds max retry times
+    boolean shouldRetry() {
       return retryTimes.get() <= maxRetryTimes;
     }
   }
@@ -93,9 +91,10 @@ public class AppendStreamer implements Closeable {
   private final Deque<RaftClientRequestProto> ackQueue;
   private final int maxPendingNum;
 
-  private final Map<String, RaftPeerAndProxy> peers;
+  private final PeerProxyMap<RaftClientProtocolProxy> proxyMap;
+  private final Map<String, RaftPeer> peers;
   private String leaderId;
-  private volatile RaftPeerAndProxy leaderProxy;
+  private volatile RaftClientProtocolProxy leaderProxy;
   private final String clientId;
 
   private volatile RunningState running = RunningState.RUNNING;
@@ -113,7 +112,10 @@ public class AppendStreamer implements Closeable {
     exceptionAndRetry = new ExceptionAndRetry(prop);
 
     this.peers = peers.stream().collect(
-        Collectors.toMap(RaftPeer::getId, RaftPeerAndProxy::new));
+        Collectors.toMap(RaftPeer::getId, Function.identity()));
+    proxyMap = new PeerProxyMap<>(
+        raftPeer -> new RaftClientProtocolProxy(raftPeer, ResponseHandler::new));
+    proxyMap.addPeers(peers);
     refreshLeaderProxy(leaderId, null);
 
     senderThread = new Sender();
@@ -135,9 +137,14 @@ public class AppendStreamer implements Closeable {
     LOG.debug("{} switches leader from {} to {}. suggested leader: {}", this,
           oldLeader, leaderId, suggested);
     if (leaderProxy != null) {
-      leaderProxy.closeObserver(false);
+      leaderProxy.closeCurrentSession();
     }
-    leaderProxy = peers.get(leaderId);
+    try {
+      leaderProxy = proxyMap.getProxy(leaderId);
+    } catch (IOException e) {
+      LOG.error("Should not hit IOException here", e);
+      refreshLeader(null, leaderId);
+    }
   }
 
   private boolean isRunning() {
@@ -160,10 +167,10 @@ public class AppendStreamer implements Closeable {
       } catch (InterruptedException ignored) {
       }
     }
-    // wrap the current buffer into a RaftClientRequestProto
-    final RaftClientRequestProto request = ClientProtoUtils
-        .genRaftClientRequestProto(clientId, leaderId, seqNum, content, false);
     if (isRunning()) {
+      // wrap the current buffer into a RaftClientRequestProto
+      final RaftClientRequestProto request = ClientProtoUtils
+          .genRaftClientRequestProto(clientId, leaderId, seqNum, content, false);
       dataQueue.offer(request);
       this.notifyAll();
     } else {
@@ -201,64 +208,12 @@ public class AppendStreamer implements Closeable {
       senderThread.join();
     } catch (InterruptedException ignored) {
     }
-    peers.entrySet().forEach(entry -> entry.getValue().close());
+    proxyMap.close();
   }
 
   @Override
   public String toString() {
     return this.getClass().getSimpleName() + "-" + clientId;
-  }
-
-  private class RaftPeerAndProxy {
-    private final RaftPeer peer;
-    private RaftClientProtocolClient proxy;
-    private ResponseHandler responseHandler;
-    private StreamObserver<RaftClientRequestProto> requestObserver;
-
-
-    RaftPeerAndProxy(RaftPeer peer) {
-      this.peer = peer;
-    }
-
-    private RaftClientProtocolClient getOrCreateProxy() {
-      if (proxy == null) {
-        LOG.debug("Creating proxy for {}", peer);
-        proxy = new RaftClientProtocolClient(peer);
-      }
-      return proxy;
-    }
-
-    synchronized void closeObserver(boolean onError) {
-      if (!onError && requestObserver != null) {
-        try {
-          responseHandler.active = false;
-          requestObserver.onCompleted();
-        } catch (Exception ignored) {
-        }
-      }
-      requestObserver = null;
-    }
-
-    synchronized StreamObserver<RaftClientRequestProto> getRequestObserver() {
-      if (requestObserver == null) {
-        responseHandler = new ResponseHandler(peer.getId());
-        requestObserver = getOrCreateProxy().append(responseHandler);
-      }
-      return requestObserver;
-    }
-
-    synchronized void close() {
-      closeObserver(false);
-      if (proxy != null) {
-        proxy.close();
-      }
-      proxy = null;
-    }
-
-    @Override
-    public String toString() {
-      return peer.toString();
-    }
   }
 
   private class Sender extends Daemon {
@@ -275,7 +230,7 @@ public class AppendStreamer implements Closeable {
           }
           if (running == RunningState.RUNNING) {
             RaftClientRequestProto next = dataQueue.poll();
-            leaderProxy.getRequestObserver().onNext(next);
+            leaderProxy.onNext(next);
             ackQueue.offer(next);
           }
         }
@@ -294,19 +249,20 @@ public class AppendStreamer implements Closeable {
   }
 
   /** the response handler for stream RPC */
-  private class ResponseHandler implements StreamObserver<RaftClientReplyProto> {
-    private final String targetLeader;
+  private class ResponseHandler implements
+      RaftClientProtocolProxy.CloseableStreamObserver {
+    private final String targetId;
     // once handled the first NotLeaderException or Error, the handler should
     // be inactive and should not make any further action.
     private volatile boolean active = true;
 
-    ResponseHandler(String targetLeader) {
-      this.targetLeader = targetLeader;
+    ResponseHandler(RaftPeer target) {
+      targetId = target.getId();
     }
 
     @Override
     public String toString() {
-      return AppendStreamer.this + "-ResponseHandler-" + targetLeader;
+      return AppendStreamer.this + "-ResponseHandler-" + targetId;
     }
 
     @Override
@@ -333,8 +289,7 @@ public class AppendStreamer implements Closeable {
           if (r.isNotLeader()) {
             LOG.debug("{} received a NotLeaderException from {}", this,
                 r.getReplierId());
-            handleNotLeaderException(r.getNotLeaderException(), targetLeader);
-            active = false;
+            handleNotLeader(r.getNotLeaderException(), targetId);
           }
         }
         AppendStreamer.this.notifyAll();
@@ -348,7 +303,6 @@ public class AppendStreamer implements Closeable {
           handleError(t, this);
           AppendStreamer.this.notifyAll();
         }
-        active = false;
       }
     }
 
@@ -357,17 +311,22 @@ public class AppendStreamer implements Closeable {
       LOG.info("{} onCompleted, pending requests #: {}", this,
           ackQueue.size());
     }
+
+    @Override // called by handleError and handleNotLeader
+    public void close() throws IOException {
+      active = false;
+    }
   }
 
   private void throwException(String msg) throws IOException {
     if (running == RunningState.ERROR) {
-      throw exceptionAndRetry.getLatestException();
+      throw exceptionAndRetry.getCombinedException();
     } else {
       throw new IOException(msg);
     }
   }
 
-  private void handleNotLeaderException(NotLeaderException nle,
+  private void handleNotLeader(NotLeaderException nle,
       String oldLeader) {
     Preconditions.checkState(Thread.holdsLock(AppendStreamer.this));
     // handle NotLeaderException: refresh leader and RaftConfiguration
@@ -380,12 +339,17 @@ public class AppendStreamer implements Closeable {
     Preconditions.checkState(Thread.holdsLock(AppendStreamer.this));
     final IOException e = RaftGrpcUtil.unwrapIOException(t);
 
-    exceptionAndRetry.setLatestException(e);
+    exceptionAndRetry.addException(handler.targetId, e);
     LOG.debug("{} got error: {}. Total retry times {}, max retry times {}.",
         handler, e, exceptionAndRetry.retryTimes.get(),
         exceptionAndRetry.maxRetryTimes);
 
-    refreshLeader(null, leaderId);
+    leaderProxy.onError();
+    if (exceptionAndRetry.shouldRetry()) {
+      refreshLeader(null, leaderId);
+    } else {
+      running = RunningState.ERROR;
+    }
   }
 
   private void refreshLeader(String suggestedLeader, String oldLeader) {
@@ -400,7 +364,7 @@ public class AppendStreamer implements Closeable {
       Thread.sleep(exceptionAndRetry.retryInterval);
     } catch (InterruptedException ignored) {
     }
-    leaderProxy.getRequestObserver().onNext(request);
+    leaderProxy.onNext(request);
   }
 
   private void reQueuePendingRequests(String newLeader) {
@@ -422,22 +386,12 @@ public class AppendStreamer implements Closeable {
 
   private void refreshPeers(RaftPeer[] newPeers) {
     if (newPeers != null && newPeers.length > 0) {
-      Map<String, RaftPeer> newPeersMap = Arrays.stream(newPeers)
-          .collect(Collectors.toMap(RaftPeer::getId, Function.identity()));
-
-      Iterator<Map.Entry<String, RaftPeerAndProxy>> iter =
-          peers.entrySet().iterator();
-      while (iter.hasNext()) {
-        Map.Entry<String, RaftPeerAndProxy> entry = iter.next();
-        if (!newPeersMap.containsKey(entry.getKey())) {
-          entry.getValue().close();
-          iter.remove();
-        }
-      }
-
-      newPeersMap.entrySet().forEach(entry ->
-          peers.putIfAbsent(entry.getKey(),
-              new RaftPeerAndProxy(entry.getValue())));
+      // we only add new peers, we do not remove any peer even if it no longer
+      // belongs to the current raft conf
+      Arrays.stream(newPeers).forEach(peer -> {
+        peers.putIfAbsent(peer.getId(), peer);
+        proxyMap.putIfAbsent(peer);
+      });
 
       LOG.debug("refreshed peers: {}", peers);
     }

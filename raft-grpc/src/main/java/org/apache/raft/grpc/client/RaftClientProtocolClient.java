@@ -34,11 +34,13 @@ import java.io.Closeable;
 import java.io.IOException;
 
 public class RaftClientProtocolClient implements Closeable {
+  private final RaftPeer target;
   private final ManagedChannel channel;
   private final RaftClientProtocolServiceBlockingStub blockingStub;
   private final RaftClientProtocolServiceStub asyncStub;
 
   public RaftClientProtocolClient(RaftPeer target) {
+    this.target = target;
     channel = ManagedChannelBuilder.forTarget(target.getAddress())
         .usePlaintext(true).build();
     blockingStub = RaftClientProtocolServiceGrpc.newBlockingStub(channel);
@@ -63,5 +65,9 @@ public class RaftClientProtocolClient implements Closeable {
   StreamObserver<RaftClientRequestProto> append(
       StreamObserver<RaftClientReplyProto> responseHandler) {
     return asyncStub.append(responseHandler);
+  }
+
+  public RaftPeer getTarget() {
+    return target;
   }
 }

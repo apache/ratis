@@ -103,6 +103,10 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     }
   }
 
+  public void putIfAbsent(RaftPeer p) {
+    peers.putIfAbsent(p.getId(), new PeerAndProxy(p));
+  }
+
   public void resetProxy(String id) {
     synchronized (resetLock) {
       final PeerAndProxy pp = peers.remove(id);

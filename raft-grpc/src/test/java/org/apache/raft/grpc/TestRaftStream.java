@@ -56,7 +56,6 @@ import static org.junit.Assert.fail;
 public class TestRaftStream {
   static {
     GenericTestUtils.setLogLevel(AppendStreamer.LOG, Level.ALL);
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
   }
   static final Logger LOG = LoggerFactory.getLogger(TestRaftStream.class);
 
