@@ -17,7 +17,7 @@
  */
 package org.apache.raft.util;
 
-import java.util.function.Function;
+import javatil.function.Function;
 
 /** Function with a throws-clause. */
 @FunctionalInterface
