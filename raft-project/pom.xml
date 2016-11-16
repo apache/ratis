@@ -42,7 +42,6 @@
     <!-- Set the Release year during release -->
     <release-year>2016</release-year>
 
-    <failIfNoTests>false</failIfNoTests>
     <maven.test.redirectTestOutputToFile>true
     </maven.test.redirectTestOutputToFile>
     <test.exclude>_</test.exclude>
@@ -56,8 +55,6 @@
     <test.build.dir>${project.build.directory}/test-dir</test.build.dir>
     <test.build.data>${test.build.dir}</test.build.data>
 
-    <raft.common.build.dir>${basedir}/../../raft-common/target</raft.common.build.dir>
-
     <!-- com.google.re2j version -->
     <re2j.version>1.0</re2j.version>
 
@@ -65,31 +62,15 @@
     <findbugs.version>3.0.0</findbugs.version>
 
     <tomcat.version>6.0.44</tomcat.version>
-    <!-- Plugin versions and config -->
-    <maven-surefire-plugin.argLine>-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError
-    </maven-surefire-plugin.argLine>
-    <maven-surefire-plugin.version>2.17</maven-surefire-plugin.version>
-    <maven-surefire-report-plugin.version>${maven-surefire-plugin.version}
-    </maven-surefire-report-plugin.version>
-    <maven-failsafe-plugin.version>${maven-surefire-plugin.version}
-    </maven-failsafe-plugin.version>
 
-    <maven-clean-plugin.version>2.5</maven-clean-plugin.version>
-    <maven-install-plugin.version>2.5.1</maven-install-plugin.version>
-    <maven-resources-plugin.version>2.6</maven-resources-plugin.version>
-    <maven-jar-plugin.version>2.5</maven-jar-plugin.version>
-    <maven-source-plugin.version>2.3</maven-source-plugin.version>
-    <maven-project-info-reports-plugin.version>2.7
-    </maven-project-info-reports-plugin.version>
     <maven-pdf-plugin.version>1.2</maven-pdf-plugin.version>
     <build-helper-maven-plugin.version>1.9</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>1.3.1</exec-maven-plugin.version>
     <make-maven-plugin.version>1.0-beta-1</make-maven-plugin.version>
     <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
-    <surefire.fork.timeout>900</surefire.fork.timeout>
     <grpc-java-version>1.0.1</grpc-java-version>
     <protobuf-java-version>3.1.0</protobuf-java-version>
-    <guava-version>19.0</guava-version>
+    <guava.version>19.0</guava.version>
     <hadoop.version>2.7.2</hadoop.version>
     <jackson.version>1.9.13</jackson.version>
     <log4j.version>1.2.17</log4j.version>
@@ -183,7 +164,7 @@
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>${guava-version}</version>
+        <version>${guava.version}</version>
       </dependency>
 
       <dependency>
@@ -337,11 +318,6 @@
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-surefire-plugin</artifactId>
-          <version>${maven-surefire-plugin.version}</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-install-plugin</artifactId>
           <version>${maven-install-plugin.version}</version>
         </plugin>
@@ -353,7 +329,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
-	  <version>${maven-javadoc-plugin.version}</version>
+          <version>${maven-javadoc-plugin.version}</version>
           <configuration>
             <additionalparam>-Xmaxwarns 10000</additionalparam>
           </configuration>
@@ -372,11 +348,6 @@
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>make-maven-plugin</artifactId>
           <version>${make-maven-plugin.version}</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>${maven-project-info-reports-plugin.version}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -428,42 +399,6 @@
         </executions>
       </plugin>
 
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <configuration>
-          <reuseForks>false</reuseForks>
-          <forkedProcessTimeoutInSeconds>${surefire.fork.timeout}
-          </forkedProcessTimeoutInSeconds>
-          <argLine>${maven-surefire-plugin.argLine}</argLine>
-          <environmentVariables>
-            <WAKA_HOME>${raft.common.build.dir}</WAKA_HOME>
-          </environmentVariables>
-          <systemPropertyVariables>
-
-            <raft.log.dir>${project.build.directory}/log</raft.log.dir>
-            <raft.tmp.dir>${project.build.directory}/tmp</raft.tmp.dir>
-
-            <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
-
-            <test.build.dir>${test.build.dir}</test.build.dir>
-            <test.build.data>${test.build.data}</test.build.data>
-            <test.build.webapps>${test.build.webapps}</test.build.webapps>
-            <test.cache.data>${test.cache.data}</test.cache.data>
-            <test.build.classes>${test.build.classes}</test.build.classes>
-
-            <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
-          </systemPropertyVariables>
-          <includes>
-            <include>**/Test*.java</include>
-          </includes>
-          <excludes>
-            <exclude>**/${test.exclude}.java</exclude>
-            <exclude>${test.exclude.pattern}</exclude>
-            <exclude>**/Test*$*.java</exclude>
-          </excludes>
-        </configuration>
-      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-pdf-plugin</artifactId>
@@ -537,21 +472,6 @@
         <bundle.snappy.in.bin>true</bundle.snappy.in.bin>
         <bundle.openssl.in.bin>true</bundle.openssl.in.bin>
       </properties>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <configuration>
-              <environmentVariables>
-                <!-- Specify where to look for the native DLL on Windows -->
-                <PATH>${env.PATH};${raft.common.build.dir}/bin;${openssl.lib}
-                </PATH>
-              </environmentVariables>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
     </profile>
     <profile>
       <id>test-patch</id>
