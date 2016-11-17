@@ -134,7 +134,7 @@ class StateMachineUpdater implements Runnable {
         if (state == State.RELOAD) {
           Preconditions.checkState(stateMachine.getLifeCycleState() == LifeCycle.State.PAUSED);
 
-          stateMachine.reinitialize(properties, storage);
+          stateMachine.reinitialize(server.getId(), properties, storage);
 
           SnapshotInfo snapshot = stateMachine.getLatestSnapshot();
           Preconditions.checkState(snapshot != null && snapshot.getIndex() > lastAppliedIndex,

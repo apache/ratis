@@ -109,7 +109,7 @@ public class ServerState implements Closeable {
 
   private long initStatemachine(StateMachine sm, RaftProperties properties)
       throws IOException {
-    sm.initialize(properties, storage);
+    sm.initialize(selfId, properties, storage);
     storage.setStateMachineStorage(sm.getStateMachineStorage());
     SnapshotInfo snapshot = sm.getLatestSnapshot();
 

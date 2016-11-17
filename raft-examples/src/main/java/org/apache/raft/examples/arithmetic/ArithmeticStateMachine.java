@@ -63,16 +63,18 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public void initialize(RaftProperties properties, RaftStorage raftStorage) throws IOException {
-    super.initialize(properties, raftStorage);
+  public void initialize(String id, RaftProperties properties, RaftStorage raftStorage)
+      throws IOException {
+    super.initialize(id, properties, raftStorage);
     this.storage.init(raftStorage);
     loadSnapshot(storage.getLatestSnapshot());
   }
 
   @Override
-  public void reinitialize(RaftProperties properties, RaftStorage storage) throws IOException {
+  public void reinitialize(String id, RaftProperties properties, RaftStorage storage)
+      throws IOException {
     close();
-    this.initialize(properties, storage);
+    this.initialize(id, properties, storage);
   }
 
   @Override

@@ -93,11 +93,11 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public synchronized void initialize(RaftProperties properties,
+  public synchronized void initialize(String id, RaftProperties properties,
       RaftStorage raftStorage) throws IOException {
-    LOG.info("Initializing the StateMachine");
+    LOG.info("Initializing " + getClass().getSimpleName() + ":" + id);
     lifeCycle.startAndTransition(() -> {
-      super.initialize(properties, raftStorage);
+      super.initialize(id, properties, raftStorage);
       storage.init(raftStorage);
       loadSnapshot(storage.findLatestSnapshot());
 
@@ -116,10 +116,10 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public synchronized void reinitialize(RaftProperties properties,
+  public synchronized void reinitialize(String id, RaftProperties properties,
       RaftStorage storage) throws IOException {
-    LOG.info("Reinitializing the StateMachine");
-    initialize(properties, storage);
+    LOG.info("Reinitializing " + getClass().getSimpleName() + ":" + id);
+    initialize(id, properties, storage);
   }
 
   @Override

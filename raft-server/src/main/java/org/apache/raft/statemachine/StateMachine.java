@@ -37,7 +37,8 @@ public interface StateMachine extends Closeable {
    * responsible reading the latest snapshot from the file system (if any) and initialize itself
    * with the latest term and index there including all the edits.
    */
-  void initialize(RaftProperties properties, RaftStorage storage) throws IOException;
+  void initialize(String id, RaftProperties properties, RaftStorage storage)
+      throws IOException;
 
   /**
    * Returns the lifecycle state for this StateMachine.
@@ -56,7 +57,8 @@ public interface StateMachine extends Closeable {
    * state machine is responsible reading the latest snapshot from the file system (if any) and
    * initialize itself with the latest term and index there including all the edits.
    */
-  void reinitialize(RaftProperties properties, RaftStorage storage) throws IOException;
+  void reinitialize(String id, RaftProperties properties, RaftStorage storage)
+      throws IOException;
 
   /**
    * Dump the in-memory state into a snapshot file in the RaftStorage. The

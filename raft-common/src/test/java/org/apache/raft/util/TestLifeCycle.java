@@ -35,9 +35,9 @@ public class TestLifeCycle {
     final Map<LifeCycle.State, List<LifeCycle.State>> successors
         = new EnumMap<>(LifeCycle.State.class);
     put(NEW,       successors, STARTING, CLOSED);
-    put(STARTING,  successors, NEW, RUNNING, EXCEPTION);
+    put(STARTING,  successors, NEW, RUNNING, CLOSING, EXCEPTION);
     put(RUNNING,   successors, CLOSING, PAUSING, EXCEPTION);
-    put(PAUSING,   successors, PAUSED, EXCEPTION);
+    put(PAUSING,   successors, PAUSED, CLOSING, EXCEPTION);
     put(PAUSED,    successors, STARTING, CLOSING);
     put(EXCEPTION, successors, CLOSING);
     put(CLOSING ,  successors, CLOSED);
@@ -46,7 +46,8 @@ public class TestLifeCycle {
     final List<LifeCycle.State> states = Arrays.asList(LifeCycle.State.values());
     states.stream().forEach(
         from -> states.forEach(
-            to -> Assert.assertEquals(successors.get(from).contains(to),
+            to -> Assert.assertEquals(from + " -> " + to,
+                successors.get(from).contains(to),
                 isValid(from, to))));
   }
 }

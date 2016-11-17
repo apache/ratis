@@ -28,11 +28,12 @@ import java.util.concurrent.atomic.AtomicReference;
  * The life cycle of a machine.
  * <pre>
  *   -------------------------------------------------
- *  |           --------------------------            |
- *  |          |                          |           |
- *  |        PAUSED <------ PAUSING       |           |
- *  |          |            ^     |       |           |
- *  |          V            |     |       V           V
+ *  |        --------------------------------         |
+ *  |       |     ------------------------   |        |
+ *  |       |    |                        |  |        |
+ *  |       |  PAUSED <---- PAUSING----   |  |        |
+ *  |       |    |          ^     |    |  |  |        |
+ *  |       |    V          |     |    V  V  V        V
  * NEW --> STARTING --> RUNNING --|--> CLOSING --> [CLOSED]
  *  ^       |    |          |     |       ^
  *  |       |    |          V     V       |
@@ -86,7 +87,7 @@ public class LifeCycle {
       put(PAUSING,   predecessors, RUNNING);
       put(PAUSED,    predecessors, PAUSING);
       put(EXCEPTION, predecessors, STARTING, PAUSING, RUNNING);
-      put(CLOSING,   predecessors, RUNNING, PAUSED, EXCEPTION);
+      put(CLOSING,   predecessors, STARTING, RUNNING, PAUSING, PAUSED, EXCEPTION);
       put(CLOSED,    predecessors, NEW, CLOSING);
 
       PREDECESSORS = Collections.unmodifiableMap(predecessors);
@@ -99,18 +100,26 @@ public class LifeCycle {
 
     /** Validate the given transition. */
     static void validate(Object name, State from, State to) {
-      LOG.trace("{}: {} -> {}", name, from, to);
+      LOG.debug("{}: {} -> {}", name, from, to);
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("TRACE", new Throwable());
+      }
+
       Preconditions.checkState(isValid(from, to),
           "ILLEGAL TRANSITION: In %s, %s -> %s", name, from, to);
     }
   }
 
-  private final String name;
+  private volatile String name;
   private final AtomicReference<State> current = new AtomicReference<>(State.NEW);
 
   public LifeCycle(Object name) {
     this.name = name.toString();
-    LOG.trace("{}: {}", name, current);
+    LOG.debug("{}: {}", name, current);
+  }
+
+  public void setName(String name) {
+    this.name = name;
   }
 
   /** Transition from the current state to the given state. */

@@ -48,7 +48,9 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public void initialize(RaftProperties properties, RaftStorage storage) throws IOException {
+  public void initialize(String id, RaftProperties properties, RaftStorage storage)
+      throws IOException {
+    lifeCycle.setName(getClass().getSimpleName() + ":" + id);
     this.properties = properties;
     this.storage = storage;
   }
@@ -77,7 +79,8 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public void reinitialize(RaftProperties properties, RaftStorage storage) throws IOException {
+  public void reinitialize(String id, RaftProperties properties, RaftStorage storage)
+      throws IOException {
   }
 
   @Override
