@@ -20,15 +20,11 @@ package org.apache.raft;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang.RandomStringUtils;
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.BlockRequestHandlingInjection;
-import org.apache.raft.server.DelayLocalExecutionInjection;
-import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.*;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -204,9 +200,9 @@ public class RaftTestUtil {
       return op.hashCode();
     }
 
-    public RaftProtos.SMLogEntryProto getLogEntryContent() {
+    public SMLogEntryProto getLogEntryContent() {
       try {
-        return RaftProtos.SMLogEntryProto.newBuilder()
+        return SMLogEntryProto.newBuilder()
             .setData(toByteString(op.getBytes("UTF-8"))).build();
       } catch (UnsupportedEncodingException e) {
         throw new RuntimeException(e);

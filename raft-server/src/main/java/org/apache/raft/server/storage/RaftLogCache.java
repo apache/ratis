@@ -19,10 +19,10 @@ package org.apache.raft.server.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.LogSegment.LogRecord;
 import org.apache.raft.server.storage.LogSegment.SegmentFileInfo;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 
 import java.util.*;
 

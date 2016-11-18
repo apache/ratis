@@ -18,10 +18,10 @@
 package org.apache.raft.server.simulation;
 
 import com.google.common.base.Preconditions;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.raft.protocol.RaftRpcMessage;
+import org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.shaded.proto.RaftProtos.RequestVoteReplyProto;
 
 public class RaftServerReply extends RaftRpcMessage {
   private final AppendEntriesReplyProto appendEntries;

@@ -20,14 +20,14 @@ package org.apache.raft.netty.client;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.netty.NettyRpcProxy;
-import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerRequestProto;
-import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
-import org.apache.raft.proto.RaftProtos.RaftRpcRequestProto;
-import org.apache.raft.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.RaftRpcRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.raft.shaded.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 
 import java.io.IOException;
 

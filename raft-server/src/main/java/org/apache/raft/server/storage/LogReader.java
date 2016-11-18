@@ -24,8 +24,8 @@ import org.apache.commons.io.Charsets;
 import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 
 import java.io.*;
 import java.util.zip.Checksum;

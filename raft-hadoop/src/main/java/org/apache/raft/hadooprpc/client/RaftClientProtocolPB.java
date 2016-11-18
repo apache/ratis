@@ -22,7 +22,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.ipc.ProtocolInfo;
 import org.apache.hadoop.security.KerberosInfo;
 import org.apache.raft.hadooprpc.HadoopConstants;
-import org.apache.raft.proto.RaftClientProtocolProtos;
+import org.apache.raft.shaded.proto.hadoop.HadoopProtos.RaftClientProtocolService;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -33,5 +33,5 @@ import org.apache.raft.proto.RaftClientProtocolProtos;
     protocolName = HadoopConstants.RAFT_CLIENT_PROTOCOL_NAME,
     protocolVersion = 1)
 public interface RaftClientProtocolPB extends
-    RaftClientProtocolProtos.RaftClientProtocolService.BlockingInterface {
+    RaftClientProtocolService.BlockingInterface {
 }

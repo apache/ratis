@@ -17,7 +17,27 @@
  */
 package org.apache.raft.statemachine;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import org.apache.hadoop.io.MD5Hash;
+import org.apache.hadoop.util.Daemon;
+import org.apache.raft.RaftTestUtil.SimpleMessage;
+import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.protocol.Message;
+import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.server.protocol.TermIndex;
+import org.apache.raft.server.storage.LogInputStream;
+import org.apache.raft.server.storage.LogOutputStream;
+import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
+import org.apache.raft.util.LifeCycle;
+import org.apache.raft.util.MD5FileUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,28 +47,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import org.apache.hadoop.io.MD5Hash;
-import org.apache.hadoop.util.Daemon;
-import org.apache.raft.RaftTestUtil.SimpleMessage;
-import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.protocol.Message;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.server.RaftServerConstants;
-import org.apache.raft.server.protocol.TermIndex;
-import org.apache.raft.server.storage.LogInputStream;
-import org.apache.raft.server.storage.LogOutputStream;
-import org.apache.raft.server.storage.RaftStorage;
-import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
-import org.apache.raft.util.LifeCycle;
-import org.apache.raft.util.MD5FileUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -220,7 +219,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   @Override
   public TrxContext startTransaction(RaftClientRequest request)
       throws IOException {
-    return new TrxContext(this, request, RaftProtos.SMLogEntryProto.newBuilder()
+    return new TrxContext(this, request, SMLogEntryProto.newBuilder()
         .setData(request.getMessage().getContent())
         .build());
   }

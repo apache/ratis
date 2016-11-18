@@ -22,13 +22,13 @@ import io.grpc.stub.StreamObserver;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.grpc.RaftGrpcUtil;
-import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
-import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
-import org.apache.raft.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.raft.util.PeerProxyMap;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
@@ -40,9 +40,7 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static org.apache.raft.client.ClientProtoUtils.toRaftClientReply;
-import static org.apache.raft.client.ClientProtoUtils.toRaftClientRequestProto;
-import static org.apache.raft.client.ClientProtoUtils.toSetConfigurationRequestProto;
+import static org.apache.raft.client.ClientProtoUtils.*;
 
 public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
   public static final Logger LOG = LoggerFactory.getLogger(RaftClientSenderWithGrpc.class);

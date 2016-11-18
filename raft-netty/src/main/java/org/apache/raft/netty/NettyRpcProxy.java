@@ -24,10 +24,10 @@ import io.netty.handler.codec.protobuf.ProtobufDecoder;
 import io.netty.handler.codec.protobuf.ProtobufEncoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
-import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerReplyProto;
-import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerRequestProto;
-import org.apache.raft.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.shaded.proto.RaftProtos.RaftRpcRequestProto;
+import org.apache.raft.shaded.proto.netty.NettyProtos.RaftNettyServerReplyProto;
+import org.apache.raft.shaded.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.raft.util.PeerProxyMap;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;
@@ -39,7 +39,8 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static org.apache.raft.netty.proto.NettyProtos.RaftNettyServerReplyProto.RaftNettyServerReplyCase.EXCEPTIONREPLY;
+import static org.apache.raft.shaded.proto.netty.NettyProtos.RaftNettyServerReplyProto.RaftNettyServerReplyCase.EXCEPTIONREPLY;
+
 
 public class NettyRpcProxy implements Closeable {
   public static class PeerMap extends PeerProxyMap<NettyRpcProxy> {

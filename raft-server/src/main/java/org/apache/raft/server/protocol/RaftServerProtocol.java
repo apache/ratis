@@ -19,12 +19,7 @@ package org.apache.raft.server.protocol;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 
 import java.io.IOException;
 

@@ -19,16 +19,17 @@ package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.CodedOutputStream;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.apache.raft.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
 /**
  * In-memory cache for a log segment file. All the updates will be first written
@@ -108,7 +109,7 @@ class LogSegment implements Comparable<Long> {
         }
         segment.append(next);
         if (confManager != null &&
-            next.getLogEntryBodyCase() == LogEntryBodyCase.CONFIGURATIONENTRY) {
+            next.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
           confManager.addConfiguration(next.getIndex(),
               ServerProtoUtils.toRaftConfiguration(next.getIndex(),
                   next.getConfigurationEntry()));

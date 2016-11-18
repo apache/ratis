@@ -21,11 +21,13 @@ import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.raft.client.ClientProtoUtils;
-import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 
 import java.io.IOException;
 

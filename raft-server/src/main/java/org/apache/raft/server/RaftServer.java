@@ -17,48 +17,18 @@
  */
 package org.apache.raft.server;
 
-import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
-import static org.apache.raft.server.protocol.ServerProtoUtils.toTermIndex;
-import static org.apache.raft.util.LifeCycle.State.CLOSED;
-import static org.apache.raft.util.LifeCycle.State.CLOSING;
-import static org.apache.raft.util.LifeCycle.State.RUNNING;
-import static org.apache.raft.util.LifeCycle.State.STARTING;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.OptionalLong;
-import java.util.concurrent.CompletableFuture;
-
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
-import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.raft.protocol.Message;
-import org.apache.raft.protocol.NotLeaderException;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.protocol.RaftException;
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.protocol.ReconfigurationInProgressException;
-import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.RaftServerProtocol;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
@@ -69,8 +39,18 @@ import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.OptionalLong;
+import java.util.concurrent.CompletableFuture;
+
+import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
+import static org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
+import static org.apache.raft.util.LifeCycle.State.*;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -466,7 +446,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
       throws IOException {
     final String candidateId = r.getServerRequest().getRequestorId();
     return requestVote(candidateId, r.getCandidateTerm(),
-        toTermIndex(r.getCandidateLastEntry()));
+        ServerProtoUtils.toTermIndex(r.getCandidateLastEntry()));
   }
 
   private RequestVoteReplyProto requestVote(String candidateId,
@@ -548,7 +528,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
     final LogEntryProto[] entries = r.getEntriesList()
         .toArray(new LogEntryProto[r.getEntriesCount()]);
     final TermIndex previous = r.hasPreviousLog() ?
-        toTermIndex(r.getPreviousLog()) : null;
+        ServerProtoUtils.toTermIndex(r.getPreviousLog()) : null;
     return appendEntries(r.getServerRequest().getRequestorId(),
         r.getLeaderTerm(), previous, r.getLeaderCommit(), r.getInitializing(),
         entries);
@@ -578,9 +558,8 @@ public class RaftServer implements RaftServerProtocol, Closeable {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
-        final AppendEntriesReplyProto reply = ServerProtoUtils
-            .toAppendEntriesReplyProto(leaderId, getId(), currentTerm,
-                nextIndex, AppendResult.NOT_LEADER);
+        final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
+            leaderId, getId(), currentTerm, nextIndex, NOT_LEADER);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: do not recognize leader. Reply: {}",
               getId(), ProtoUtils.toString(reply));
@@ -607,8 +586,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
       if (previous != null && !containPrevious(previous)) {
         final AppendEntriesReplyProto reply =
             ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(),
-                currentTerm, Math.min(nextIndex, previous.getIndex()),
-                AppendResult.INCONSISTENCY);
+                currentTerm, Math.min(nextIndex, previous.getIndex()), INCONSISTENCY);
         LOG.debug("{}: inconsistency entries. Leader previous:{}, Reply:{}",
             getId(), previous, ServerProtoUtils.toString(reply));
         return reply;
@@ -634,9 +612,8 @@ public class RaftServer implements RaftServerProtocol, Closeable {
         heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
       }
     }
-    final AppendEntriesReplyProto reply = ServerProtoUtils
-        .toAppendEntriesReplyProto(leaderId, getId(), currentTerm, nextIndex,
-            AppendResult.SUCCESS);
+    final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
+        leaderId, getId(), currentTerm, nextIndex, SUCCESS);
     LOG.debug("{}: succeeded to handle AppendEntries. Reply: {}", getId(),
         ServerProtoUtils.toString(reply));
     return reply;
@@ -722,7 +699,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
 
   synchronized InstallSnapshotRequestProto createInstallSnapshotRequest(
       String targetId, String requestId, int requestIndex, SnapshotInfo snapshot,
-      List<RaftProtos.FileChunkProto> chunks, boolean done) {
+      List<FileChunkProto> chunks, boolean done) {
     OptionalLong totalSize = snapshot.getFiles().stream()
         .mapToLong(FileInfo::getFileSize).reduce(Long::sum);
     assert totalSize.isPresent();

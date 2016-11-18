@@ -18,9 +18,9 @@
 package org.apache.raft.grpc.client;
 
 import io.grpc.stub.StreamObserver;
-import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
-import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
 
 import java.io.Closeable;
 import java.io.IOException;

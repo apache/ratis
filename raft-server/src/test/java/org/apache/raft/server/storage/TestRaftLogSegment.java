@@ -19,16 +19,14 @@ package org.apache.raft.server.storage;
 
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.raft.RaftTestUtil;
-import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.RaftTestUtil.SimpleOperation;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.protocol.Message;
-import org.apache.raft.util.ProtoUtils;
+import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServerConstants.StartupOption;
-import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.raft.util.ProtoUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -148,7 +146,7 @@ public class TestRaftLogSegment {
   public void testAppendWithGap() throws Exception {
     LogSegment segment = LogSegment.newOpenSegment(1000);
     SimpleOperation op = new SimpleOperation("m");
-    final RaftProtos.SMLogEntryProto m = op.getLogEntryContent();
+    final SMLogEntryProto m = op.getLogEntryContent();
     try {
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1001);
       segment.appendToOpenSegment(entry);

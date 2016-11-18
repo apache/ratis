@@ -17,12 +17,13 @@
  */
 package org.apache.raft.statemachine;
 
+import org.apache.raft.protocol.RaftClientRequest;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Optional;
-
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.protocol.RaftClientRequest;
 
 /**
  * Context for a transaction. The transaction might have originated from a client request, or it
@@ -48,7 +49,7 @@ public class TrxContext {
   protected Optional<Exception> exception;
 
   /** Data from the StateMachine */
-  protected Optional<RaftProtos.SMLogEntryProto> smLogEntryProto;
+  protected Optional<SMLogEntryProto> smLogEntryProto;
 
   /** Context specific to the State machine. The StateMachine can use this object to carry state
    * between startTransaction() and applyLogEntries() */
@@ -61,7 +62,7 @@ public class TrxContext {
   /**
    * Committed LogEntry.
    */
-  protected Optional<RaftProtos.LogEntryProto> logEntry;
+  protected Optional<LogEntryProto> logEntry;
 
   private TrxContext(StateMachine stateMachine) {
     this.stateMachine = stateMachine;
@@ -72,7 +73,7 @@ public class TrxContext {
    * and send the Log entry representing the SM data to be applied to the raft log.
    */
   public TrxContext(StateMachine stateMachine,
-                    RaftClientRequest clientRequest, RaftProtos.SMLogEntryProto smLogEntryProto) {
+      RaftClientRequest clientRequest, SMLogEntryProto smLogEntryProto) {
     this(stateMachine, clientRequest, smLogEntryProto, null);
   }
 
@@ -94,7 +95,7 @@ public class TrxContext {
    * and send the Log entry representing the SM data to be applied to the raft log.
    */
   public TrxContext(StateMachine stateMachine, RaftClientRequest clientRequest,
-                    RaftProtos.SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
+      SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
     this(stateMachine);
     this.clientRequest = Optional.of(clientRequest);
     this.smLogEntryProto = Optional.of(smLogEntryProto);
@@ -131,7 +132,7 @@ public class TrxContext {
    * state machine
    * @param logEntry the log entry to be applied
    */
-  public TrxContext(StateMachine stateMachine, RaftProtos.LogEntryProto logEntry) {
+  public TrxContext(StateMachine stateMachine, LogEntryProto logEntry) {
     this(stateMachine);
     this.clientRequest = Optional.empty();
     this.smLogEntryProto = Optional.of(logEntry.getSmLogEntry());
@@ -144,7 +145,7 @@ public class TrxContext {
     return this.clientRequest;
   }
 
-  public Optional<RaftProtos.SMLogEntryProto> getSMLogEntry() {
+  public Optional<SMLogEntryProto> getSMLogEntry() {
     return this.smLogEntryProto;
   }
 
@@ -161,17 +162,17 @@ public class TrxContext {
     return stateMachineContext;
   }
 
-  public TrxContext setLogEntry(RaftProtos.LogEntryProto logEntry) {
+  public TrxContext setLogEntry(LogEntryProto logEntry) {
     this.logEntry = Optional.of(logEntry);
     return this;
   }
 
-  public TrxContext setSmLogEntryProto(RaftProtos.SMLogEntryProto smLogEntryProto) {
+  public TrxContext setSmLogEntryProto(SMLogEntryProto smLogEntryProto) {
     this.smLogEntryProto = Optional.of(smLogEntryProto);
     return this;
   }
 
-  public Optional<RaftProtos.LogEntryProto> getLogEntry() {
+  public Optional<LogEntryProto> getLogEntry() {
     return logEntry;
   }
 

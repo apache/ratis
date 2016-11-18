@@ -26,14 +26,8 @@ import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.protocol.ReconfigurationInProgressException;
-import org.apache.raft.protocol.ReconfigurationTimeoutException;
-import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.protocol.*;
 import org.apache.raft.server.simulation.RequestHandler;
-import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
 import org.junit.Assert;
 import org.junit.Test;
@@ -53,6 +47,7 @@ import static java.util.Arrays.asList;
 import static org.apache.raft.MiniRaftCluster.logSyncDelay;
 import static org.apache.raft.RaftTestUtil.waitAndCheckNewConf;
 import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
+import static org.apache.raft.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
 public abstract class RaftReconfigurationBaseTest {
   static {
@@ -545,7 +540,7 @@ public abstract class RaftReconfigurationBaseTest {
         Thread.sleep(500);
       }
       Assert.assertEquals(1, log.getLatestFlushedIndex());
-      Assert.assertEquals(LogEntryBodyCase.CONFIGURATIONENTRY,
+      Assert.assertEquals(CONFIGURATIONENTRY,
           log.getLastEntry().getLogEntryBodyCase());
 
       // unblock the old leader
@@ -563,8 +558,7 @@ public abstract class RaftReconfigurationBaseTest {
       for (int i = 0; i < 10 && !newState; i++) {
         Thread.sleep(500);
         newState = log.getLastCommittedIndex() == 1 &&
-            log.getLastEntry().getLogEntryBodyCase() !=
-                LogEntryBodyCase.CONFIGURATIONENTRY;
+            log.getLastEntry().getLogEntryBodyCase() != CONFIGURATIONENTRY;
       }
       Assert.assertTrue(newState);
     } finally {

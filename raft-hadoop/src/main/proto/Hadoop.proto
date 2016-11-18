@@ -16,20 +16,29 @@
  * limitations under the License.
  */
 syntax = "proto3";
-option java_package = "org.apache.raft.grpc.proto";
-option java_outer_classname = "RaftServerProtocolProtos";
+option java_package = "org.apache.raft.shaded.proto.hadoop";
+option java_outer_classname = "HadoopProtos";
+option java_generic_services = true;
 option java_generate_equals_and_hash = true;
-package raft.grpc;
+package raft.hadoop;
 
 import "Raft.proto";
 
+service RaftClientProtocolService {
+  rpc submitClientRequest(raft.common.RaftClientRequestProto)
+      returns(raft.common.RaftClientReplyProto);
+
+  rpc setConfiguration(raft.common.SetConfigurationRequestProto)
+      returns(raft.common.RaftClientReplyProto);
+}
+
 service RaftServerProtocolService {
   rpc requestVote(raft.common.RequestVoteRequestProto)
-      returns(raft.common.RequestVoteReplyProto) {}
+      returns(raft.common.RequestVoteReplyProto);
 
-  rpc appendEntries(stream raft.common.AppendEntriesRequestProto)
-      returns(stream raft.common.AppendEntriesReplyProto) {}
+  rpc appendEntries(raft.common.AppendEntriesRequestProto)
+      returns(raft.common.AppendEntriesReplyProto);
 
-  rpc installSnapshot(stream raft.common.InstallSnapshotRequestProto)
-      returns(raft.common.InstallSnapshotReplyProto) {}
+  rpc installSnapshot(raft.common.InstallSnapshotRequestProto)
+      returns(raft.common.InstallSnapshotReplyProto);
 }

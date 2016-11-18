@@ -18,18 +18,8 @@
 package org.apache.raft.client;
 
 import com.google.protobuf.ByteString;
-import org.apache.raft.proto.RaftProtos.ClientMessageEntryProto;
-import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
-import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
-import org.apache.raft.proto.RaftProtos.RaftRpcReplyProto;
-import org.apache.raft.proto.RaftProtos.RaftRpcRequestProto;
-import org.apache.raft.proto.RaftProtos.SetConfigurationRequestProto;
-import org.apache.raft.protocol.Message;
-import org.apache.raft.protocol.NotLeaderException;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.protocol.*;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.util.ProtoUtils;
 
 import java.util.Arrays;

@@ -25,23 +25,19 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.RaftGrpcConfigKeys;
 import org.apache.raft.grpc.RaftGrpcUtil;
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
-import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.protocol.NotLeaderException;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.raft.util.PeerProxyMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -372,7 +368,7 @@ public class AppendStreamer implements Closeable {
       // resend all the pending requests
       while (!ackQueue.isEmpty()) {
         RaftClientRequestProto oldRequest = ackQueue.pollLast();
-        RaftProtos.RaftRpcRequestProto r = oldRequest.getRpcRequest();
+        RaftRpcRequestProto r = oldRequest.getRpcRequest();
         RaftClientRequestProto newRequest = RaftClientRequestProto.newBuilder()
             .setMessage(oldRequest.getMessage())
             .setReadOnly(oldRequest.getReadOnly())

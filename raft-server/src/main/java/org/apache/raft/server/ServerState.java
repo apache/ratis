@@ -17,29 +17,24 @@
  */
 package org.apache.raft.server;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY;
-
-import java.io.Closeable;
-import java.io.IOException;
-
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
-import org.apache.raft.server.storage.MemoryRaftLog;
-import org.apache.raft.server.storage.RaftLog;
-import org.apache.raft.server.storage.RaftStorage;
-import org.apache.raft.server.storage.SegmentedRaftLog;
-import org.apache.raft.server.storage.SnapshotManager;
+import org.apache.raft.server.storage.*;
+import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.ProtoUtils;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import java.io.Closeable;
+import java.io.IOException;
+
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY;
 
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.

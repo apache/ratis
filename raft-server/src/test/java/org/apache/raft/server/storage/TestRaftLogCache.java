@@ -18,8 +18,8 @@
 package org.apache.raft.server.storage;
 
 import org.apache.raft.RaftTestUtil.SimpleOperation;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.storage.RaftLogCache.TruncationSegments;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.ProtoUtils;
 import org.junit.Assert;
 import org.junit.Before;

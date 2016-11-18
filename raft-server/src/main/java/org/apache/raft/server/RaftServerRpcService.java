@@ -17,18 +17,9 @@
  */
 package org.apache.raft.server;
 
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.raft.protocol.NotLeaderException;
-import org.apache.raft.protocol.RaftClientProtocol;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.RaftServerProtocol;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -17,17 +17,14 @@
  */
 package org.apache.raft.server;
 
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
@@ -36,7 +33,11 @@ import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+
+import static org.apache.raft.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
+import static org.apache.raft.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.SMLOGENTRY;
 
 /**
  * This class tracks the log entries that have been committed in a quorum and
@@ -148,13 +149,13 @@ class StateMachineUpdater implements Runnable {
         while (lastAppliedIndex < committedIndex) {
           final LogEntryProto next = raftLog.get(lastAppliedIndex + 1);
           if (next != null) {
-            if (next.getLogEntryBodyCase() == LogEntryBodyCase.CONFIGURATIONENTRY) {
+            if (next.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
               // the reply should have already been set. only need to record
               // the new conf in the state machine.
               stateMachine.setRaftConfiguration(
                   ServerProtoUtils.toRaftConfiguration(next.getIndex(),
                       next.getConfigurationEntry()));
-            } else if (next.getLogEntryBodyCase() == LogEntryBodyCase.SMLOGENTRY) {
+            } else if (next.getLogEntryBodyCase() == SMLOGENTRY) {
               // check whether there is a TransactionContext because we are the leader.
               TrxContext trx = server.getTransactionContext(next.getIndex());
               if (trx == null) {

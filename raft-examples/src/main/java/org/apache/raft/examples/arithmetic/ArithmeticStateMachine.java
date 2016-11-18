@@ -19,13 +19,13 @@ package org.apache.raft.examples.arithmetic;
 
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.arithmetic.expression.Expression;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.statemachine.*;
 import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
 import org.apache.raft.util.AutoCloseableLock;

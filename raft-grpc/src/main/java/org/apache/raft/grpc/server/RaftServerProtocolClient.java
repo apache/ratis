@@ -20,16 +20,11 @@ package org.apache.raft.grpc.server;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc;
-import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceBlockingStub;
-import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceStub;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.shaded.proto.RaftProtos.*;
+import org.apache.raft.shaded.proto.grpc.RaftServerProtocolServiceGrpc;
+import org.apache.raft.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceBlockingStub;
+import org.apache.raft.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceStub;
 
 /**
  * This is a RaftClient implementation that supports streaming data to the raft

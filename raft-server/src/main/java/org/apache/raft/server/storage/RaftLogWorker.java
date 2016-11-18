@@ -21,12 +21,12 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.LogSegment.SegmentFileInfo;
 import org.apache.raft.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.raft.server.storage.SegmentedRaftLog.Task;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,10 +37,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_FORCE_SYNC_NUM_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_FORCE_SYNC_NUM_KEY;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.*;
 import static org.apache.raft.util.RaftUtils.deleteFile;
 
 /**

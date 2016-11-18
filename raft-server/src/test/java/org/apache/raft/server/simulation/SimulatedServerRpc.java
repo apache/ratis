@@ -18,12 +18,6 @@
 package org.apache.raft.server.simulation;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
@@ -31,6 +25,7 @@ import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.RequestDispatcher;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

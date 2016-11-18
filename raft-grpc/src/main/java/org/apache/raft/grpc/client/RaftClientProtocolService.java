@@ -21,20 +21,16 @@ import com.google.common.base.Preconditions;
 import io.grpc.stub.StreamObserver;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.grpc.RaftGrpcUtil;
-import org.apache.raft.grpc.proto.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceImplBase;
-import org.apache.raft.proto.RaftProtos.RaftClientReplyProto;
-import org.apache.raft.proto.RaftProtos.RaftClientRequestProto;
-import org.apache.raft.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.server.RequestDispatcher;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
+import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.raft.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceImplBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase {

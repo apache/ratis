@@ -20,12 +20,7 @@ package org.apache.raft.server;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
@@ -88,7 +83,7 @@ public class RequestDispatcher {
     return server.setConfiguration(request);
   }
 
-  public RaftProtos.RequestVoteReplyProto requestVote(
+  public RequestVoteReplyProto requestVote(
       RequestVoteRequestProto request) throws IOException {
     return server.requestVote(request);
   }

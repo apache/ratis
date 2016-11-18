@@ -17,10 +17,10 @@
  */
 package org.apache.raft.server.simulation;
 
-import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.protocol.RaftRpcMessage;
+import org.apache.raft.shaded.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.RequestVoteRequestProto;
 
 class RaftServerRequest extends RaftRpcMessage {
   private final AppendEntriesRequestProto appendEntries;

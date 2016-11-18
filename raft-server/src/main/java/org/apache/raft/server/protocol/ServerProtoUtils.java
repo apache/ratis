@@ -18,21 +18,9 @@
 package org.apache.raft.server.protocol;
 
 import org.apache.raft.client.ClientProtoUtils;
-import org.apache.raft.proto.RaftProtos;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
-import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.raft.proto.RaftProtos.FileChunkProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotResult;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.proto.RaftProtos.RaftRpcReplyProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.raft.proto.RaftProtos.TermIndexProto;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.util.ProtoUtils;
 
 import java.util.Arrays;
@@ -40,6 +28,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
+import static org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
 
 public class ServerProtoUtils {
   public static TermIndex toTermIndex(TermIndexProto p) {
@@ -76,16 +65,16 @@ public class ServerProtoUtils {
         + reply.getSuccess();
   }
 
-  public static RaftProtos.RaftConfigurationProto toRaftConfigurationProto(
+  public static RaftConfigurationProto toRaftConfigurationProto(
       RaftConfiguration conf) {
-    return RaftProtos.RaftConfigurationProto.newBuilder()
+    return RaftConfigurationProto.newBuilder()
         .addAllPeers(ProtoUtils.toRaftPeerProtos(conf.getPeersInConf()))
         .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPeersInOldConf()))
         .build();
   }
 
   public static RaftConfiguration toRaftConfiguration(
-      long index, RaftProtos.RaftConfigurationProto proto) {
+      long index, RaftConfigurationProto proto) {
     final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(proto.getPeersList());
     if (proto.getOldPeersCount() > 0) {
       final RaftPeer[] oldPeers = ProtoUtils.toRaftPeerArray(proto.getPeersList());
@@ -157,9 +146,9 @@ public class ServerProtoUtils {
 
   public static AppendEntriesReplyProto toAppendEntriesReplyProto(
       String requestorId, String replyId, long term,
-      long nextIndex, AppendResult appendResult) {
+      long nextIndex, AppendEntriesReplyProto.AppendResult appendResult) {
     RaftRpcReplyProto.Builder rb = ClientProtoUtils.toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, DEFAULT_SEQNUM, appendResult == AppendResult.SUCCESS);
+        replyId, DEFAULT_SEQNUM, appendResult == SUCCESS);
     final AppendEntriesReplyProto.Builder b = AppendEntriesReplyProto.newBuilder();
     b.setServerReply(rb).setTerm(term).setNextIndex(nextIndex)
         .setResult(appendResult);

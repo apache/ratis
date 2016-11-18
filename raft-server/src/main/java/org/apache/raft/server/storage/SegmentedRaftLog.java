@@ -21,11 +21,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
+import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.AutoCloseableLock;
 import org.apache.raft.util.CodeInjectionForTesting;
 

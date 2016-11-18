@@ -18,19 +18,19 @@
 
 package org.apache.raft.statemachine;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
-
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorage;
+import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.raft.util.LifeCycle;
+
+import java.io.IOException;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Base implementation for StateMachines.
@@ -128,7 +128,7 @@ public class BaseStateMachine implements StateMachine {
   public TrxContext startTransaction(RaftClientRequest request)
       throws IOException {
     return new TrxContext(this, request,
-        RaftProtos.SMLogEntryProto.newBuilder()
+        SMLogEntryProto.newBuilder()
             .setData(request.getMessage().getContent())
             .build());
   }

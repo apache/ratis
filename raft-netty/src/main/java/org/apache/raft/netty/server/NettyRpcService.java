@@ -31,10 +31,8 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.netty.NettyRpcProxy;
-import org.apache.raft.netty.proto.NettyProtos;
-import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerReplyProto;
-import org.apache.raft.netty.proto.NettyProtos.RaftNettyServerRequestProto;
-import org.apache.raft.proto.RaftProtos.*;
+import org.apache.raft.shaded.proto.netty.NettyProtos.*;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
@@ -193,7 +191,7 @@ public final class NettyRpcService implements RaftServerRpc {
         request.getRequestorId(),
         request.getReplyId(),
         request.getSeqNum(), false);
-    final NettyProtos.RaftNettyExceptionReplyProto.Builder ioe = NettyProtos.RaftNettyExceptionReplyProto.newBuilder()
+    final RaftNettyExceptionReplyProto.Builder ioe = RaftNettyExceptionReplyProto.newBuilder()
         .setRpcReply(rpcReply)
         .setException(ProtoUtils.toByteString(e));
     return RaftNettyServerReplyProto.newBuilder().setExceptionReply(ioe).build();

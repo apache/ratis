@@ -23,14 +23,14 @@ import io.grpc.stub.StreamObserver;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.grpc.RaftGRpcService;
 import org.apache.raft.grpc.RaftGrpcConfigKeys;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.server.FollowerInfo;
 import org.apache.raft.server.LeaderState;
 import org.apache.raft.server.LogAppender;
 import org.apache.raft.server.RaftServer;
+import org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.raft.shaded.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.CodeInjectionForTesting;
 
@@ -40,7 +40,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.grpc.Status.fromThrowable;
 import static org.apache.raft.grpc.RaftGRpcService.GRPC_SEND_SERVER_REQUEST;
 
 /**

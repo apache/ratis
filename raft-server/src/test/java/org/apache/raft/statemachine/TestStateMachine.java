@@ -23,12 +23,12 @@ import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.proto.RaftProtos;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
+import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.junit.*;
 import org.junit.rules.Timeout;
 
@@ -105,7 +105,7 @@ public class TestStateMachine {
       // only leader will get this call
       isLeader.set(true);
       // send the next transaction id as the "context" from SM
-      return new TrxContext(this, request, RaftProtos.SMLogEntryProto.newBuilder()
+      return new TrxContext(this, request, SMLogEntryProto.newBuilder()
           .setData(request.getMessage().getContent())
           .build(), transactions.incrementAndGet());
     }

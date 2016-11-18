@@ -19,14 +19,9 @@ package org.apache.raft.grpc.server;
 
 import io.grpc.stub.StreamObserver;
 import org.apache.raft.grpc.RaftGrpcUtil;
-import org.apache.raft.grpc.proto.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
-import org.apache.raft.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.raft.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.raft.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.raft.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.server.RequestDispatcher;
+import org.apache.raft.shaded.proto.RaftProtos.*;
+import org.apache.raft.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

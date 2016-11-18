@@ -19,8 +19,8 @@ package org.apache.raft.util;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ServiceException;
-import org.apache.raft.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;

@@ -20,8 +20,8 @@ package org.apache.raft.hadooprpc.server;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.raft.proto.RaftProtos.*;
-import org.apache.raft.server.protocol.*;
+import org.apache.raft.server.protocol.RaftServerProtocol;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 
 import java.io.IOException;
 
