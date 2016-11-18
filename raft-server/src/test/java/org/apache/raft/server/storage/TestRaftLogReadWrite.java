@@ -17,7 +17,6 @@
  */
 package org.apache.raft.server.storage;
 
-import com.google.protobuf.CodedOutputStream;
 import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.raft.RaftTestUtil;
@@ -26,6 +25,7 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServerConstants.StartupOption;
+import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;

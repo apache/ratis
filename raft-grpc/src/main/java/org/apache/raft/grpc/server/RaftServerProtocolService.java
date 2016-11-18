@@ -17,9 +17,9 @@
  */
 package org.apache.raft.grpc.server;
 
-import io.grpc.stub.StreamObserver;
 import org.apache.raft.grpc.RaftGrpcUtil;
 import org.apache.raft.server.RequestDispatcher;
+import org.apache.raft.shaded.io.grpc.stub.StreamObserver;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
 import org.slf4j.Logger;

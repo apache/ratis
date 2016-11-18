@@ -17,10 +17,10 @@
  */
 package org.apache.raft.server.storage;
 
-import com.google.protobuf.CodedOutputStream;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
 import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

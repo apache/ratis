@@ -19,7 +19,6 @@ package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import com.google.protobuf.ByteString;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.util.Daemon;
 import org.apache.hadoop.util.Time;
@@ -28,6 +27,7 @@ import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.shaded.com.google.protobuf.ByteString;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.ProtoUtils;

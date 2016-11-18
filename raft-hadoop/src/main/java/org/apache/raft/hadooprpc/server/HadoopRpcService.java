@@ -18,18 +18,19 @@
 package org.apache.raft.hadooprpc.server;
 
 import com.google.common.base.Preconditions;
-import com.google.protobuf.BlockingService;
-import com.google.protobuf.ServiceException;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.ipc.ProtobufRpcEngine;
+import org.apache.hadoop.ipc.ProtobufRpcEngineShaded;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.raft.hadooprpc.Proxy;
 import org.apache.raft.hadooprpc.client.RaftClientProtocolPB;
 import org.apache.raft.hadooprpc.client.RaftClientProtocolServerSideTranslatorPB;
-import org.apache.raft.shaded.proto.RaftProtos.*;
-import org.apache.raft.shaded.proto.hadoop.HadoopProtos.*;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.*;
+import org.apache.raft.shaded.com.google.protobuf.BlockingService;
+import org.apache.raft.shaded.com.google.protobuf.ServiceException;
+import org.apache.raft.shaded.proto.RaftProtos.*;
+import org.apache.raft.shaded.proto.hadoop.HadoopProtos.RaftClientProtocolService;
+import org.apache.raft.shaded.proto.hadoop.HadoopProtos.RaftServerProtocolService;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.apache.raft.util.PeerProxyMap;
 import org.apache.raft.util.ProtoUtils;
@@ -80,7 +81,7 @@ public class HadoopRpcService implements RaftServerRpc {
     final BlockingService service
         = RaftServerProtocolService.newReflectiveBlockingService(
             new RaftServerProtocolServerSideTranslatorPB(raftService));
-    RPC.setProtocolEngine(conf, RaftServerProtocolPB.class, ProtobufRpcEngine.class);
+    RPC.setProtocolEngine(conf, RaftServerProtocolPB.class, ProtobufRpcEngineShaded.class);
     return new RPC.Builder(conf)
         .setProtocol(RaftServerProtocolPB.class)
         .setInstance(service)
@@ -93,7 +94,7 @@ public class HadoopRpcService implements RaftServerRpc {
 
   private void addRaftClientProtocol(Configuration conf) {
     final Class<?> protocol = RaftClientProtocolPB.class;
-    RPC.setProtocolEngine(conf,protocol, ProtobufRpcEngine.class);
+    RPC.setProtocolEngine(conf,protocol, ProtobufRpcEngineShaded.class);
 
     final BlockingService service
         = RaftClientProtocolService.newReflectiveBlockingService(

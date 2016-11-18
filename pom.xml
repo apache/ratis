@@ -63,6 +63,7 @@
   </properties>
 
   <modules>
+    <module>raft-proto-shaded</module>
     <module>raft-project</module>
   </modules>
 

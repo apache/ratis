@@ -17,10 +17,10 @@
  */
 package org.apache.raft.grpc.server;
 
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.stub.StreamObserver;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.shaded.io.grpc.ManagedChannel;
+import org.apache.raft.shaded.io.grpc.ManagedChannelBuilder;
+import org.apache.raft.shaded.io.grpc.stub.StreamObserver;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.shaded.proto.grpc.RaftServerProtocolServiceGrpc;
 import org.apache.raft.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceBlockingStub;

@@ -17,8 +17,6 @@
  */
 package org.apache.raft.grpc.client;
 
-import io.grpc.StatusRuntimeException;
-import io.grpc.stub.StreamObserver;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.grpc.RaftGrpcUtil;
@@ -26,6 +24,8 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.shaded.io.grpc.StatusRuntimeException;
+import org.apache.raft.shaded.io.grpc.stub.StreamObserver;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.shaded.proto.RaftProtos.SetConfigurationRequestProto;

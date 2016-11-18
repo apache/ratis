@@ -18,18 +18,18 @@
 package org.apache.raft.grpc;
 
 import com.google.common.base.Preconditions;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
-import io.grpc.netty.NettyServerBuilder;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.client.RaftClientProtocolService;
 import org.apache.raft.grpc.server.RaftServerProtocolClient;
 import org.apache.raft.grpc.server.RaftServerProtocolService;
-import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.RequestDispatcher;
+import org.apache.raft.shaded.io.grpc.Server;
+import org.apache.raft.shaded.io.grpc.ServerBuilder;
+import org.apache.raft.shaded.io.grpc.netty.NettyServerBuilder;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

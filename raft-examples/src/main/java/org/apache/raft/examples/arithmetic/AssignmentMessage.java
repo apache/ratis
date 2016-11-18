@@ -17,10 +17,10 @@
  */
 package org.apache.raft.examples.arithmetic;
 
-import com.google.protobuf.ByteString;
 import org.apache.raft.examples.arithmetic.expression.Expression;
 import org.apache.raft.examples.arithmetic.expression.Variable;
 import org.apache.raft.protocol.Message;
+import org.apache.raft.shaded.com.google.protobuf.ByteString;
 
 import java.nio.charset.Charset;
 import java.util.Map;

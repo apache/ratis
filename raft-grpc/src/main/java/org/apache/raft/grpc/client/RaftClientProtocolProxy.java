@@ -17,8 +17,8 @@
  */
 package org.apache.raft.grpc.client;
 
-import io.grpc.stub.StreamObserver;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.shaded.io.grpc.stub.StreamObserver;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
 

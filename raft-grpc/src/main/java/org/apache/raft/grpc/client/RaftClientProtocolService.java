@@ -18,11 +18,11 @@
 package org.apache.raft.grpc.client;
 
 import com.google.common.base.Preconditions;
-import io.grpc.stub.StreamObserver;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.grpc.RaftGrpcUtil;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.server.RequestDispatcher;
+import org.apache.raft.shaded.io.grpc.stub.StreamObserver;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.shaded.proto.RaftProtos.SetConfigurationRequestProto;

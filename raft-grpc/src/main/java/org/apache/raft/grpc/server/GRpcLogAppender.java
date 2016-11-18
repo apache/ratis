@@ -18,8 +18,6 @@
 package org.apache.raft.grpc.server;
 
 import com.google.common.base.Preconditions;
-import io.grpc.Status;
-import io.grpc.stub.StreamObserver;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.grpc.RaftGRpcService;
 import org.apache.raft.grpc.RaftGrpcConfigKeys;
@@ -27,6 +25,8 @@ import org.apache.raft.server.FollowerInfo;
 import org.apache.raft.server.LeaderState;
 import org.apache.raft.server.LogAppender;
 import org.apache.raft.server.RaftServer;
+import org.apache.raft.shaded.io.grpc.Status;
+import org.apache.raft.shaded.io.grpc.stub.StreamObserver;
 import org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotReplyProto;

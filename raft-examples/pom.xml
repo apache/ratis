@@ -28,6 +28,12 @@
 
   <dependencies>
     <dependency>
+      <artifactId>raft-proto-shaded</artifactId>
+      <groupId>com.hortonworks.raft</groupId>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
       <artifactId>raft-common</artifactId>
       <groupId>com.hortonworks.raft</groupId>
       <scope>provided</scope>
@@ -107,12 +113,6 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
-      <scope>compile</scope>
     </dependency>
 
     <dependency>

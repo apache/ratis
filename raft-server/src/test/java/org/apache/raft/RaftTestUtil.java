@@ -18,11 +18,11 @@
 package org.apache.raft;
 
 import com.google.common.base.Preconditions;
-import com.google.protobuf.ByteString;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.*;
+import org.apache.raft.shaded.com.google.protobuf.ByteString;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.raft.util.CheckedRunnable;

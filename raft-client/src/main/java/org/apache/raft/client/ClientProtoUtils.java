@@ -17,8 +17,8 @@
  */
 package org.apache.raft.client;
 
-import com.google.protobuf.ByteString;
 import org.apache.raft.protocol.*;
+import org.apache.raft.shaded.com.google.protobuf.ByteString;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.util.ProtoUtils;
 

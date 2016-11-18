@@ -18,13 +18,13 @@
 package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
 import org.apache.commons.io.Charsets;
 import org.apache.hadoop.fs.ChecksumException;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
 import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.shaded.com.google.protobuf.CodedInputStream;
+import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 
 import java.io.*;

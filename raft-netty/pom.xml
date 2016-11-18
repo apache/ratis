@@ -28,6 +28,12 @@
 
   <dependencies>
     <dependency>
+      <artifactId>raft-proto-shaded</artifactId>
+      <groupId>com.hortonworks.raft</groupId>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
       <artifactId>raft-common</artifactId>
       <groupId>com.hortonworks.raft</groupId>
       <scope>provided</scope>
@@ -74,12 +80,6 @@
     </dependency>
 
     <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
-      <scope>compile</scope>
-    </dependency>
-
-    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <scope>test</scope>
@@ -103,27 +103,4 @@
       <type>test-jar</type>
     </dependency>
   </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.xolstice.maven.plugins</groupId>
-        <artifactId>protobuf-maven-plugin</artifactId>
-        <version>0.5.0</version>
-        <configuration>
-          <protocArtifact>com.google.protobuf:protoc:${protobuf-java-version}:exe:${os.detected.classifier}</protocArtifact>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>compile</goal>
-              <goal>test-compile</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
-
 </project>
-    

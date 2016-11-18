@@ -28,6 +28,12 @@
 
   <dependencies>
     <dependency>
+      <artifactId>raft-proto-shaded</artifactId>
+      <groupId>com.hortonworks.raft</groupId>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
@@ -35,12 +41,6 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
-      <scope>compile</scope>
     </dependency>
 
     <dependency>
@@ -59,25 +59,4 @@
       <artifactId>hadoop-common</artifactId>
     </dependency>
   </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.xolstice.maven.plugins</groupId>
-        <artifactId>protobuf-maven-plugin</artifactId>
-	<version>${maven-xolstice-plugin.version}</version>
-        <configuration>
-          <protocArtifact>com.google.protobuf:protoc:${protobuf-java-version}:exe:${os.detected.classifier}</protocArtifact>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>compile</goal>
-              <goal>test-compile</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
 </project>

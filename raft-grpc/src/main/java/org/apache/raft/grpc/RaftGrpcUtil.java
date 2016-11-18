@@ -17,9 +17,9 @@
  */
 package org.apache.raft.grpc;
 
-import io.grpc.Metadata;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
+import org.apache.raft.shaded.io.grpc.Metadata;
+import org.apache.raft.shaded.io.grpc.Status;
+import org.apache.raft.shaded.io.grpc.StatusRuntimeException;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;

@@ -18,7 +18,6 @@
 package org.apache.raft.grpc.client;
 
 import com.google.common.base.Preconditions;
-import com.google.protobuf.ByteString;
 import org.apache.hadoop.util.Daemon;
 import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.client.RaftClient;
@@ -28,6 +27,7 @@ import org.apache.raft.grpc.RaftGrpcUtil;
 import org.apache.raft.protocol.NotLeaderException;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.shaded.com.google.protobuf.ByteString;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.shaded.proto.RaftProtos.RaftRpcRequestProto;

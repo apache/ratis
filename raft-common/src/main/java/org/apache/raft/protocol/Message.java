@@ -17,7 +17,7 @@
  */
 package org.apache.raft.protocol;
 
-import com.google.protobuf.ByteString;
+import org.apache.raft.shaded.com.google.protobuf.ByteString;
 
 /**
  * The information clients append to the raft ring.
