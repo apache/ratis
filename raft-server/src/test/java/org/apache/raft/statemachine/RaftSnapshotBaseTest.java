@@ -33,7 +33,6 @@ import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorageDirectory;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -56,7 +55,6 @@ public abstract class RaftSnapshotBaseTest {
     GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(LifeCycle.LOG, Level.ALL);
   }
 
   static final Logger LOG = LoggerFactory.getLogger(RaftSnapshotBaseTest.class);

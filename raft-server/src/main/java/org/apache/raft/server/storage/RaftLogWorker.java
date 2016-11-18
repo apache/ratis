@@ -265,7 +265,8 @@ class RaftLogWorker implements Runnable {
 
       File openFile = storage.getStorageDir()
           .getOpenLogFile(segmentToClose.getStartIndex());
-      Preconditions.checkState(openFile.exists());
+      Preconditions.checkState(openFile.exists(),
+          "File %s does not exist.", openFile);
       if (segmentToClose.numOfEntries() > 0) {
         // finalize the current open segment
         File dstFile = storage.getStorageDir().getClosedLogFile(

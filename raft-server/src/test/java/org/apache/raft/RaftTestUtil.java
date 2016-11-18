@@ -25,6 +25,7 @@ import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.*;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.raft.util.CheckedRunnable;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -235,10 +236,35 @@ public class RaftTestUtil {
     }
   }
 
+  public static <T extends Throwable> void attempt(
+      int n, long sleepMs, CheckedRunnable<T> runnable)
+      throws T, InterruptedException {
+    for(int i = 1; i <= n; i++) {
+      LOG.info("Attempt #" + i + "/" + n +  ": sleep " + sleepMs + "ms");
+      if (sleepMs > 0) {
+        Thread.sleep(sleepMs);
+      }
+      try {
+        runnable.run();
+        return;
+      } catch (Throwable t) {
+        if (i == n) {
+          throw t;
+        }
+        LOG.warn("Attempt #" + i + "/" + n + ": Ignoring " + t + " and retry.");
+      }
+    }
+  }
+
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,
       RaftPeer[] peers, int numOfRemovedPeers, Collection<String> deadPeers)
       throws Exception {
-    Thread.sleep(cluster.getMaxTimeout() * (numOfRemovedPeers + 2));
+    final long sleepMs = cluster.getMaxTimeout() * (numOfRemovedPeers + 2);
+    attempt(3, sleepMs, () -> waitAndCheckNewConf(cluster, peers, deadPeers));
+  }
+  private static void waitAndCheckNewConf(MiniRaftCluster cluster,
+      RaftPeer[] peers, Collection<String> deadPeers)
+      throws Exception {
     LOG.info(cluster.printServers());
     Assert.assertNotNull(cluster.getLeader());
 

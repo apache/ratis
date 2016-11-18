@@ -39,8 +39,6 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
-import static org.apache.raft.server.LeaderElection.Result.PASSED;
-
 class LeaderElection extends Daemon {
   public static final Logger LOG = LoggerFactory.getLogger(LeaderElection.class);
 
@@ -54,6 +52,7 @@ class LeaderElection extends Daemon {
     int i = 0;
     for(Exception e : exceptions) {
       LOG.info("  " + i++ + ": " + e);
+      LOG.trace("TRACE", e);
     }
     return new ResultAndTerm(result, newTerm);
   }
@@ -230,11 +229,12 @@ class LeaderElection extends Daemon {
         if (r.getServerReply().getSuccess()) {
           votedPeers.add(r.getServerReply().getReplyId());
           if (conf.hasMajorities(votedPeers, server.getId())) {
-            return logAndReturn(PASSED, responses, exceptions, -1);
+            return logAndReturn(Result.PASSED, responses, exceptions, -1);
           }
         }
       } catch(ExecutionException e) {
         LOG.info("Got exception when requesting votes: " + e);
+        LOG.trace("TRACE", e);
         exceptions.add(e);
       }
       waitForNum--;
