@@ -323,6 +323,25 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
           <version>${maven-jar-plugin.version}</version>
+          <executions>
+            <execution>
+              <phase>prepare-package</phase>
+              <goals>
+                <!--This goal will install a -test.jar when we do install
+                    See http://maven.apache.org/guides/mini/guide-attached-tests.html
+                 -->
+                <goal>test-jar</goal>
+              </goals>
+            </execution>
+          </executions>
+          <configuration>
+            <classifier>jar</classifier>
+            <skipIfEmpty>true</skipIfEmpty>
+            <excludes>
+              <exclude>log4j.properties</exclude>
+              <exclude>*.jar</exclude>
+            </excludes>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -405,26 +424,6 @@
           </outputDirectory>
           <includeReports>false</includeReports>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>depcheck</id>
-            <configuration>
-              <rules>
-                <DependencyConvergence>
-                  <uniqueVersions>true</uniqueVersions>
-                </DependencyConvergence>
-              </rules>
-            </configuration>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <phase>verify</phase>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

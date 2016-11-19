@@ -131,29 +131,6 @@
             </execution>
           </executions>
         </plugin>
-        <!-- General configuration for submodules who want to build a test jar -->
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-jar-plugin</artifactId>
-          <executions>
-            <execution>
-              <phase>prepare-package</phase>
-              <goals>
-                  <!--This goal will install a -test.jar when we do install
-                      See http://maven.apache.org/guides/mini/guide-attached-tests.html
-                   -->
-                <goal>test-jar</goal>
-              </goals>
-            </execution>
-          </executions>
-          <configuration>
-            <skipIfEmpty>true</skipIfEmpty>
-            <excludes>
-              <exclude>log4j.properties</exclude>
-              <exclude>*.jar</exclude>
-            </excludes>
-          </configuration>
-        </plugin>
 
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
