@@ -50,28 +50,18 @@
     <!-- number of threads/forks to use when running tests in parallel, see parallel-tests profile -->
     <testsThreadCount>4</testsThreadCount>
 
-    <commons-daemon.version>1.0.13</commons-daemon.version>
-
     <test.build.dir>${project.build.directory}/test-dir</test.build.dir>
     <test.build.data>${test.build.dir}</test.build.data>
 
-    <!-- com.google.re2j version -->
-    <re2j.version>1.0</re2j.version>
-
-    <curator.version>2.7.1</curator.version>
     <findbugs.version>3.0.0</findbugs.version>
-
-    <tomcat.version>6.0.44</tomcat.version>
 
     <maven-pdf-plugin.version>1.2</maven-pdf-plugin.version>
     <build-helper-maven-plugin.version>1.9</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>1.3.1</exec-maven-plugin.version>
     <make-maven-plugin.version>1.0-beta-1</make-maven-plugin.version>
     <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
-    <guava.version>19.0</guava.version>
+
     <hadoop.version>2.7.2</hadoop.version>
-    <jackson.version>1.9.13</jackson.version>
-    <log4j.version>1.2.17</log4j.version>
   </properties>
 
   <dependencyManagement>
@@ -168,7 +158,7 @@
       <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>${guava.version}</version>
+        <version>20.0</version>
       </dependency>
 
       <dependency>
@@ -198,106 +188,6 @@
         <artifactId>hadoop-common</artifactId>
         <version>${hadoop.version}</version>
         <type>test-jar</type>
-      </dependency>
-      <dependency>
-        <groupId>commons-logging</groupId>
-        <artifactId>commons-logging</artifactId>
-        <version>1.2</version>
-        <exclusions>
-          <exclusion>
-            <groupId>avalon-framework</groupId>
-            <artifactId>avalon-framework</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>logkit</groupId>
-            <artifactId>logkit</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
-      <dependency>
-        <groupId>commons-codec</groupId>
-        <artifactId>commons-codec</artifactId>
-        <version>1.9</version>
-      </dependency>
-      <dependency>
-        <groupId>commons-lang</groupId>
-        <artifactId>commons-lang</artifactId>
-        <version>2.6</version>
-      </dependency>
-      <dependency>
-        <groupId>commons-collections</groupId>
-        <artifactId>commons-collections</artifactId>
-        <version>3.2.2</version>
-      </dependency>
-      <!-- While jackson is also a dependency of jersey it
-     can bring in jars from different, incompatible versions. We force
-     the same version with these dependencies -->
-      <dependency>
-        <groupId>org.codehaus.jackson</groupId>
-        <artifactId>jackson-core-asl</artifactId>
-        <version>${jackson.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.codehaus.jackson</groupId>
-        <artifactId>jackson-mapper-asl</artifactId>
-        <version>${jackson.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.codehaus.jackson</groupId>
-        <artifactId>jackson-jaxrs</artifactId>
-        <version>${jackson.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.codehaus.jackson</groupId>
-        <artifactId>jackson-xc</artifactId>
-        <version>${jackson.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.httpcomponents</groupId>
-        <artifactId>httpclient</artifactId>
-        <version>4.3.6</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.httpcomponents</groupId>
-        <artifactId>httpcore</artifactId>
-        <version>4.4.4</version>
-      </dependency>
-      <dependency>
-        <groupId>log4j</groupId>
-        <artifactId>log4j</artifactId>
-        <version>${log4j.version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>com.sun.jdmk</groupId>
-            <artifactId>jmxtools</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>com.sun.jmx</groupId>
-            <artifactId>jmxri</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>javax.mail</groupId>
-            <artifactId>mail</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>javax.jms</groupId>
-            <artifactId>jmx</artifactId>
-          </exclusion>
-          <exclusion>
-            <groupId>javax.jms</groupId>
-            <artifactId>jms</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
-      
-      <dependency>
-        <groupId>com.google.code.gson</groupId>
-        <artifactId>gson</artifactId>
-        <version>2.3</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
