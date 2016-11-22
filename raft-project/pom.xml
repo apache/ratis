@@ -213,17 +213,6 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
           <version>${maven-jar-plugin.version}</version>
-          <executions>
-            <execution>
-              <phase>prepare-package</phase>
-              <goals>
-                <!--This goal will install a -test.jar when we do install
-                    See http://maven.apache.org/guides/mini/guide-attached-tests.html
-                 -->
-                <goal>test-jar</goal>
-              </goals>
-            </execution>
-          </executions>
           <configuration>
             <classifier>jar</classifier>
             <skipIfEmpty>true</skipIfEmpty>
