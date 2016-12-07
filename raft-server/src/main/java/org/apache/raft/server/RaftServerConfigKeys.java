@@ -104,7 +104,7 @@ public interface RaftServerConfigKeys {
   int RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT = 10; // a small number for test
 
   String RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_KEY = "raft.server.log.appender.buffer.capacity";
-  int RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_DEFAULT = 512; // 512 entries
+  int RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_DEFAULT = 4 * 1024 * 1024; // 4MB
 
   String RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_KEY = "raft.server.log.appender.batch.enabled";
   boolean RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_DEFAULT = false;

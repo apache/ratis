@@ -53,7 +53,7 @@ public class LogAppender extends Daemon {
   private final LeaderState leaderState;
   protected final RaftLog raftLog;
   protected final FollowerInfo follower;
-  private final int maxBufferEntryNum;
+  private final int maxBufferSize;
   private final boolean batchSending;
   private final LogEntryBuffer buffer;
   private final long leaderTerm;
@@ -65,7 +65,7 @@ public class LogAppender extends Daemon {
     this.server = server;
     this.leaderState = leaderState;
     this.raftLog = server.getState().getLog();
-    this.maxBufferEntryNum = server.getProperties().getInt(
+    this.maxBufferSize = server.getProperties().getInt(
         RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_KEY,
         RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_DEFAULT);
     this.batchSending = server.getProperties().getBoolean(
@@ -106,22 +106,20 @@ public class LogAppender extends Daemon {
    * A buffer for log entries with size limitation.
    */
   private class LogEntryBuffer {
-    private final List<LogEntryProto> buf = new ArrayList<>(maxBufferEntryNum);
+    private final List<LogEntryProto> buf = new ArrayList<>();
+    private int totalSize = 0;
 
-    void addEntries(LogEntryProto... entries) {
-      Collections.addAll(buf, entries);
+    void addEntry(LogEntryProto entry) {
+      buf.add(entry);
+      totalSize += entry.getSerializedSize();
     }
 
     boolean isFull() {
-      return buf.size() >= maxBufferEntryNum;
+      return totalSize >= maxBufferSize;
     }
 
     boolean isEmpty() {
       return buf.isEmpty();
-    }
-
-    int getRemainingSlots() {
-      return maxBufferEntryNum - buf.size();
     }
 
     AppendEntriesRequestProto getAppendRequest(TermIndex previous) {
@@ -129,6 +127,7 @@ public class LogAppender extends Daemon {
           .createAppendEntriesRequest(leaderTerm, follower.getPeer().getId(),
               previous, buf, !follower.isAttendingVote());
       buf.clear();
+      totalSize = 0;
       return request;
     }
 
@@ -155,19 +154,23 @@ public class LogAppender extends Daemon {
   protected AppendEntriesRequestProto createRequest() {
     final TermIndex previous = getPrevious();
     final long leaderNext = raftLog.getNextIndex();
-    final long next = follower.getNextIndex() + buffer.getPendingEntryNum();
+    long next = follower.getNextIndex() + buffer.getPendingEntryNum();
     boolean toSend = false;
-    if (leaderNext > next) {
-      int num = Math.min(buffer.getRemainingSlots(), (int) (leaderNext - next));
-      buffer.addEntries(raftLog.getEntries(next, next + num));
+
+    if (leaderNext == next && !buffer.isEmpty()) {
+      // no new entries, then send out the entries in the buffer
+      toSend = true;
+    } else if (leaderNext > next) {
+      while (leaderNext > next && !buffer.isFull()) {
+        // stop adding entry once the buffer size is >= the max size
+        buffer.addEntry(raftLog.get(next++));
+      }
       if (buffer.isFull() || !batchSending) {
         // buffer is full or batch sending is disabled, send out a request
         toSend = true;
       }
-    } else if (!buffer.isEmpty()) {
-      // no new entries, then send out the entries in the buffer
-      toSend = true;
     }
+
     if (toSend || shouldHeartbeat()) {
       return buffer.getAppendRequest(previous);
     }

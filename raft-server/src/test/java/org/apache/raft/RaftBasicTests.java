@@ -149,7 +149,7 @@ public abstract class RaftBasicTests {
     testWithLoad(10, 500);
   }
 
-  public void testWithLoad(final int numClients, final int numMessages)
+  private void testWithLoad(final int numClients, final int numMessages)
       throws Exception {
     LOG.info("Running testWithLoad: numClients=" + numClients
         + ", numMessages=" + numMessages);
@@ -199,6 +199,5 @@ public abstract class RaftBasicTests {
     }
 
     LOG.info("Leader change count=" + count + cluster.printAllLogs());
-
   }
 }
