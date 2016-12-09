@@ -33,6 +33,7 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -185,5 +186,26 @@ public abstract class RaftUtils {
   public static int getRandomBetween(int min, int max) {
     Preconditions.checkArgument(max > min);
     return ThreadLocalRandom.current().nextInt(max -min) + min;
+  }
+
+  /**
+   *  @return the next string in the iteration right after the given string;
+   *          if the given string is not in the iteration, return the first string.
+   */
+  public static String next(final String given, final Iterable<String> iteration) {
+    Preconditions.checkNotNull(given);
+    Preconditions.checkNotNull(iteration);
+    final Iterator<String> i = iteration.iterator();
+    Preconditions.checkArgument(i.hasNext());
+
+    final String first = i.next();
+    for(String current = first; i.hasNext(); ) {
+      final String next = i.next();
+      if (given.equals(current)) {
+        return next;
+      }
+      current = next;
+    }
+    return first;
   }
 }

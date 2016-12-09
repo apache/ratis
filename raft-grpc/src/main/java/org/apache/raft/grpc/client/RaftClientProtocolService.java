@@ -18,7 +18,7 @@
 package org.apache.raft.grpc.client;
 
 import com.google.common.base.Preconditions;
-import org.apache.raft.client.ClientProtoUtils;
+import org.apache.raft.client.impl.ClientProtoUtils;
 import org.apache.raft.grpc.RaftGrpcUtil;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.server.RequestDispatcher;

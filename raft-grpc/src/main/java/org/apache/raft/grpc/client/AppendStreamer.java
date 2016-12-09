@@ -19,8 +19,6 @@ package org.apache.raft.grpc.client;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.util.Daemon;
-import org.apache.raft.client.ClientProtoUtils;
-import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.RaftGrpcConfigKeys;
 import org.apache.raft.grpc.RaftGrpcUtil;
@@ -32,6 +30,7 @@ import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.shaded.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.raft.util.PeerProxyMap;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +43,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.apache.raft.client.ClientProtoUtils.toRaftRpcRequestProtoBuilder;
+import static org.apache.raft.client.impl.ClientProtoUtils.*;
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_DEFAULT;
 import static org.apache.raft.grpc.RaftGrpcConfigKeys.RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_KEY;
 
@@ -127,7 +126,7 @@ public class AppendStreamer implements Closeable {
       if (oldLeader == null) {
         leaderId = peers.keySet().iterator().next();
       } else {
-        leaderId = RaftClient.nextLeader(oldLeader, peers.keySet().iterator());
+        leaderId = RaftUtils.next(oldLeader, peers.keySet());
       }
     }
     LOG.debug("{} switches leader from {} to {}. suggested leader: {}", this,
@@ -165,8 +164,8 @@ public class AppendStreamer implements Closeable {
     }
     if (isRunning()) {
       // wrap the current buffer into a RaftClientRequestProto
-      final RaftClientRequestProto request = ClientProtoUtils
-          .genRaftClientRequestProto(clientId, leaderId, seqNum, content, false);
+      final RaftClientRequestProto request = genRaftClientRequestProto(
+          clientId, leaderId, seqNum, content, false);
       dataQueue.offer(request);
       this.notifyAll();
     } else {
@@ -274,14 +273,14 @@ public class AppendStreamer implements Closeable {
               reply.getRpcReply().getSeqNum());
           ackQueue.poll();
           LOG.trace("{} received success ack for request {}", this,
-              ClientProtoUtils.toString(pending.getRpcRequest()));
+              pending.getRpcRequest());
           // we've identified the correct leader
           if (running == RunningState.LOOK_FOR_LEADER) {
             running = RunningState.RUNNING;
           }
         } else {
           // this may be a NotLeaderException
-          RaftClientReply r = ClientProtoUtils.toRaftClientReply(reply);
+          RaftClientReply r = toRaftClientReply(reply);
           if (r.isNotLeader()) {
             LOG.debug("{} received a NotLeaderException from {}", this,
                 r.getReplierId());
@@ -372,8 +371,8 @@ public class AppendStreamer implements Closeable {
         RaftClientRequestProto newRequest = RaftClientRequestProto.newBuilder()
             .setMessage(oldRequest.getMessage())
             .setReadOnly(oldRequest.getReadOnly())
-            .setRpcRequest(
-                toRaftRpcRequestProtoBuilder(clientId, newLeader, r.getSeqNum()))
+            .setRpcRequest(toRaftRpcRequestProtoBuilder(
+                clientId, newLeader, r.getSeqNum()))
             .build();
         dataQueue.offerFirst(newRequest);
       }

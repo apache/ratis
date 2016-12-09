@@ -22,6 +22,7 @@ import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.util.ExitUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
+import org.apache.raft.client.impl.RaftClientImpl;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.*;
@@ -387,7 +388,7 @@ public abstract class MiniRaftCluster {
   }
 
   public RaftClient createClient(String clientId, String leaderId) {
-    return new RaftClient(clientId, conf.getPeers(),
+    return new RaftClientImpl(clientId, conf.getPeers(),
         getRaftClientRequestSender(), leaderId, properties);
   }
 

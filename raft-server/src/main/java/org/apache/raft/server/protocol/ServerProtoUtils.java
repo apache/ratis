@@ -17,7 +17,7 @@
  */
 package org.apache.raft.server.protocol;
 
-import org.apache.raft.client.ClientProtoUtils;
+import org.apache.raft.client.impl.ClientProtoUtils;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.shaded.proto.RaftProtos.*;

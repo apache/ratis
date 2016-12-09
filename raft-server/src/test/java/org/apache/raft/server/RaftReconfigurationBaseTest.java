@@ -25,6 +25,7 @@ import org.apache.raft.RaftTestUtil;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
+import org.apache.raft.client.impl.RaftClientImpl;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.simulation.RequestHandler;
@@ -242,7 +243,7 @@ public abstract class RaftReconfigurationBaseTest {
           asList(c1.allPeersInNewConf));
       Assert.assertFalse(cluster.getLeader().getRaftConf().inTransitionState());
 
-      final RaftClientRequestSender sender = client.getRequestSender();
+      final RaftClientRequestSender sender = ((RaftClientImpl)client).getRequestSender();
       final SetConfigurationRequest request = new SetConfigurationRequest(
           "client", leaderId, DEFAULT_SEQNUM, c1.allPeersInNewConf);
       try {
@@ -459,9 +460,9 @@ public abstract class RaftReconfigurationBaseTest {
         try(final RaftClient client2 = cluster.createClient("client2", leaderId)) {
           latch.await();
           LOG.info("client2 starts to change conf");
-          client2.getRequestSender().sendRequest(
-              new SetConfigurationRequest("client2", leaderId, DEFAULT_SEQNUM,
-                  peersInRequest2));
+          final RaftClientRequestSender sender2 = ((RaftClientImpl)client2).getRequestSender();
+          sender2.sendRequest(new SetConfigurationRequest(
+              "client2", leaderId, DEFAULT_SEQNUM, peersInRequest2));
         } catch (ReconfigurationInProgressException e) {
           caughtException.set(true);
         } catch (Exception e) {
@@ -524,9 +525,9 @@ public abstract class RaftReconfigurationBaseTest {
       new Thread(() -> {
         try(final RaftClient client = cluster.createClient("client1", leaderId)) {
           LOG.info("client starts to change conf");
-          RaftClientReply reply = client.getRequestSender().sendRequest(
-              new SetConfigurationRequest(
-                  "client", leaderId, DEFAULT_SEQNUM, change.allPeersInNewConf));
+          final RaftClientRequestSender sender = ((RaftClientImpl)client).getRequestSender();
+          RaftClientReply reply = sender.sendRequest(new SetConfigurationRequest(
+              "client", leaderId, DEFAULT_SEQNUM, change.allPeersInNewConf));
           if (reply.isNotLeader()) {
             gotNotLeader.set(true);
           }

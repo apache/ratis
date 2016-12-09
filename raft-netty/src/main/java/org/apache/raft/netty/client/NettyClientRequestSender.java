@@ -17,7 +17,7 @@
  */
 package org.apache.raft.netty.client;
 
-import org.apache.raft.client.ClientProtoUtils;
+import org.apache.raft.client.impl.ClientProtoUtils;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.netty.NettyRpcProxy;
 import org.apache.raft.protocol.RaftClientReply;

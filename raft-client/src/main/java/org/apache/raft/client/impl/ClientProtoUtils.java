@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.client;
+package org.apache.raft.client.impl;
 
 import org.apache.raft.protocol.*;
 import org.apache.raft.shaded.com.google.protobuf.ByteString;
@@ -127,10 +127,5 @@ public class ClientProtoUtils {
         .addAllPeers(ProtoUtils.toRaftPeerProtos(
             Arrays.asList(request.getPeersInNewConf())))
         .build();
-  }
-
-  public static String toString(RaftRpcRequestProto request) {
-    return request.getRequestorId() + "->" + request.getReplyId() + ", seq# "
-        + request.getSeqNum();
   }
 }

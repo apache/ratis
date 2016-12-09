@@ -17,7 +17,7 @@
  */
 package org.apache.raft.grpc;
 
-import org.apache.raft.RaftClientConfigKeys;
+import org.apache.raft.client.RaftClientConfigKeys;
 
 public interface RaftGrpcConfigKeys {
   String PREFIX = "raft.grpc";

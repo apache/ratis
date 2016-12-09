@@ -19,7 +19,7 @@ package org.apache.raft.hadooprpc.client;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.raft.client.ClientProtoUtils;
+import org.apache.raft.client.impl.ClientProtoUtils;
 import org.apache.raft.hadooprpc.Proxy;
 import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.protocol.RaftClientReply;

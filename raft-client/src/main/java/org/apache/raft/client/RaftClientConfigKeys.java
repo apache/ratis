@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft;
+package org.apache.raft.client;
 
 public interface RaftClientConfigKeys {
   String RAFT_RPC_TIMEOUT_MS_KEY = "raft.rpc.timeout.ms";

@@ -17,7 +17,6 @@
  */
 package org.apache.raft.grpc.client;
 
-import org.apache.raft.client.ClientProtoUtils;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.grpc.RaftGrpcUtil;
 import org.apache.raft.protocol.RaftClientReply;
@@ -40,7 +39,7 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static org.apache.raft.client.ClientProtoUtils.*;
+import static org.apache.raft.client.impl.ClientProtoUtils.*;
 
 public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
   public static final Logger LOG = LoggerFactory.getLogger(RaftClientSenderWithGrpc.class);
@@ -98,7 +97,7 @@ public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
 
       // TODO: timeout support
       try {
-        return ClientProtoUtils.toRaftClientReply(replyFuture.get());
+        return toRaftClientReply(replyFuture.get());
       } catch (InterruptedException e) {
         throw new InterruptedIOException(
             "Interrupted while waiting for response of request " + request);

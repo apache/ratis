@@ -22,6 +22,7 @@ import org.apache.log4j.Level;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
+import org.apache.raft.client.impl.RaftClientImpl;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
@@ -88,7 +89,7 @@ public abstract class RaftNotLeaderExceptionBaseTest {
     String newLeader = RaftTestUtil.changeLeader(cluster, leaderId);
     Assert.assertNotEquals(leaderId, newLeader);
 
-    RaftClientRequestSender rpc = client.getRequestSender();
+    RaftClientRequestSender rpc = ((RaftClientImpl)client).getRequestSender();
     reply= null;
     for (int i = 0; reply == null && i < 10; i++) {
       try {
@@ -134,7 +135,7 @@ public abstract class RaftNotLeaderExceptionBaseTest {
     }
     LOG.info(cluster.printServers());
 
-    RaftClientRequestSender rpc = client.getRequestSender();
+    RaftClientRequestSender rpc = ((RaftClientImpl)client).getRequestSender();
     RaftClientReply reply = null;
     // it is possible that the remote peer's rpc server is not ready. need retry
     for (int i = 0; reply == null && i < 10; i++) {
