@@ -31,6 +31,7 @@ import org.apache.raft.protocol.*;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.slf4j.Logger;
@@ -59,6 +60,12 @@ public abstract class RaftReconfigurationBaseTest {
   static final Logger LOG = LoggerFactory.getLogger(RaftReconfigurationBaseTest.class);
 
   protected static final RaftProperties prop = new RaftProperties();
+
+  @BeforeClass
+  public static void setup() {
+    // set a small gap for tests
+    prop.setInt(RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_KEY, 10);
+  }
 
   public abstract MiniRaftCluster getCluster(int peerNum) throws IOException;
 

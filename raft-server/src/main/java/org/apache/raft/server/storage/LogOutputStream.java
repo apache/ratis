@@ -34,6 +34,7 @@ public class LogOutputStream implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(LogOutputStream.class);
 
   private static final ByteBuffer fill;
+  private static final int WRITE_BUFFER_SIZE = 64 * 1024;
   private static final int BUFFER_SIZE = 1024 * 1024; // 1 MB
   static {
     fill = ByteBuffer.allocateDirect(BUFFER_SIZE);
@@ -44,8 +45,8 @@ public class LogOutputStream implements Closeable {
   }
 
   private File file;
-  private FileOutputStream out; // file stream for storing edit logs
   private FileChannel fc; // channel of the file stream for sync
+  private BufferedWriteChannel out; // buffered FileChannel for writing
   private final Checksum checksum;
   private final int segmentMaxSize;
 
@@ -55,9 +56,9 @@ public class LogOutputStream implements Closeable {
     this.checksum = DataChecksum.newCrc32();
     this.segmentMaxSize = segmentMaxSize;
     RandomAccessFile rp = new RandomAccessFile(file, "rw");
-    out = new FileOutputStream(rp.getFD());
     fc = rp.getChannel();
     fc.position(fc.size());
+    out = new BufferedWriteChannel(fc, WRITE_BUFFER_SIZE);
 
     if (!append) {
       create();
@@ -105,6 +106,7 @@ public class LogOutputStream implements Closeable {
   @Override
   public void close() throws IOException {
     try {
+      out.flush(false);
       if (fc != null && fc.isOpen()) {
         fc.truncate(fc.position());
       }
@@ -123,7 +125,7 @@ public class LogOutputStream implements Closeable {
     if (out == null) {
       throw new IOException("Trying to use aborted output stream");
     }
-    fc.force(false); // metadata updates not needed
+    out.flush(true);
   }
 
   private void preallocate() throws IOException {

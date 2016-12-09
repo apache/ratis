@@ -19,8 +19,6 @@ package org.apache.raft.server;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.raft.statemachine.BaseStateMachine;
-import org.apache.raft.statemachine.StateMachine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +68,8 @@ public interface RaftServerConfigKeys {
 
   /** whether trigger snapshot when log size exceeds limit */
   String RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY = "raft.server.auto.snapshot.enabled";
-  boolean RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_DEFAULT = true;
+  /** by default let the state machine to decide when to do checkpoint */
+  boolean RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_DEFAULT = false;
 
   /** log size limit (in number of log entries) that triggers the snapshot */
   String RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY = "raft.server.snapshot.trigger.threshold";
@@ -101,7 +100,7 @@ public interface RaftServerConfigKeys {
    * treat the peer as caught-up.
    */
   String RAFT_SERVER_STAGING_CATCHUP_GAP_KEY = "raft.server.staging.catchup.gap";
-  int RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT = 10; // a small number for test
+  int RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT = 1000; // increase this number when write throughput is high
 
   String RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_KEY = "raft.server.log.appender.buffer.capacity";
   int RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_DEFAULT = 4 * 1024 * 1024; // 4MB

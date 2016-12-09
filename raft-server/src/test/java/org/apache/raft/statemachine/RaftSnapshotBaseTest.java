@@ -27,7 +27,6 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorageDirectory;
@@ -47,6 +46,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.apache.raft.RaftTestUtil.waitAndCheckNewConf;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY;
 import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
 
 public abstract class RaftSnapshotBaseTest {
@@ -70,9 +71,9 @@ public abstract class RaftSnapshotBaseTest {
     final RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine.class, StateMachine.class);
-    prop.setLong(
-        RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY,
+    prop.setLong(RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY,
         SNAPSHOT_TRIGGER_THRESHOLD);
+    prop.setBoolean(RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY, true);
     this.cluster = initCluster(1, prop);
     cluster.start();
   }
