@@ -17,7 +17,6 @@
  */
 package org.apache.raft;
 
-import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
@@ -29,6 +28,7 @@ import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -46,10 +46,10 @@ import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
 
 public abstract class RaftNotLeaderExceptionBaseTest {
   static {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   public static final Logger LOG =

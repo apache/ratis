@@ -17,7 +17,6 @@
  */
 package org.apache.raft.server;
 
-import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.MiniRaftCluster.PeerChanges;
@@ -30,6 +29,7 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
+import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -53,9 +53,9 @@ import static org.apache.raft.shaded.proto.RaftProtos.LogEntryProto.LogEntryBody
 
 public abstract class RaftReconfigurationBaseTest {
   static {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
   static final Logger LOG = LoggerFactory.getLogger(RaftReconfigurationBaseTest.class);
 

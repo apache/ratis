@@ -17,7 +17,6 @@
  */
 package org.apache.raft.statemachine;
 
-import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
@@ -29,6 +28,7 @@ import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.raft.util.RaftUtils;
 import org.junit.*;
 import org.junit.rules.Timeout;
 
@@ -50,8 +50,8 @@ import static org.junit.Assert.*;
  */
 public class TestStateMachine {
   static {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 5;

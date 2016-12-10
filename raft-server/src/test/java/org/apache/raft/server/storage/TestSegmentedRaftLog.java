@@ -18,7 +18,6 @@
 package org.apache.raft.server.storage;
 
 import org.apache.hadoop.fs.FileUtil;
-import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
@@ -29,6 +28,7 @@ import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.ProtoUtils;
+import org.apache.raft.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -47,7 +47,7 @@ import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREAL
 
 public class TestSegmentedRaftLog {
   static {
-    GenericTestUtils.setLogLevel(RaftLogWorker.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftLogWorker.LOG, Level.DEBUG);
   }
 
   private static final String peerId = "s0";

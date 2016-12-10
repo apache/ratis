@@ -18,7 +18,6 @@
 package org.apache.raft.examples.arithmetic;
 
 
-import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
@@ -26,6 +25,7 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.examples.RaftExamplesTestUtil;
 import org.apache.raft.examples.arithmetic.expression.*;
 import org.apache.raft.protocol.RaftClientReply;
+import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,7 +37,7 @@ import java.util.Collection;
 @RunWith(Parameterized.class)
 public class TestArithmetic {
   static {
-    GenericTestUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.ALL);
+    RaftUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.ALL);
   }
 
   @Parameterized.Parameters

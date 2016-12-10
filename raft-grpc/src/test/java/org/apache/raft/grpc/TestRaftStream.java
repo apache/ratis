@@ -17,7 +17,6 @@
  */
 package org.apache.raft.grpc;
 
-import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.conf.RaftProperties;
@@ -28,6 +27,7 @@ import org.apache.raft.server.LogAppenderFactory;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -50,7 +50,7 @@ import static org.junit.Assert.fail;
 
 public class TestRaftStream {
   static {
-    GenericTestUtils.setLogLevel(AppendStreamer.LOG, Level.ALL);
+    RaftUtils.setLogLevel(AppendStreamer.LOG, Level.ALL);
   }
   static final Logger LOG = LoggerFactory.getLogger(TestRaftStream.class);
 

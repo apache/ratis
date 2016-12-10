@@ -17,12 +17,12 @@
  */
 package org.apache.raft.grpc;
 
-import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.raft.grpc.server.RaftServerProtocolService;
 import org.apache.raft.server.LogAppenderFactory;
 import org.apache.raft.server.RaftReconfigurationBaseTest;
+import org.apache.raft.util.RaftUtils;
 import org.junit.BeforeClass;
 
 import java.io.IOException;
@@ -31,7 +31,7 @@ import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPEND
 
 public class TestRaftReconfigurationWithGRpc extends RaftReconfigurationBaseTest {
   static {
-    GenericTestUtils.setLogLevel(RaftServerProtocolService.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServerProtocolService.LOG, Level.DEBUG);
   }
 
   @BeforeClass

@@ -21,6 +21,8 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.util.ExitUtil;
+import org.apache.log4j.Level;
+import org.apache.log4j.LogManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -207,5 +209,9 @@ public abstract class RaftUtils {
       current = next;
     }
     return first;
+  }
+
+  public static void setLogLevel(Logger logger, Level level) {
+    LogManager.getLogger(logger.getName()).setLevel(level);
   }
 }

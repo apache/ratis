@@ -17,7 +17,6 @@
  */
 package org.apache.raft;
 
-import org.apache.hadoop.test.GenericTestUtils;
 import org.apache.log4j.Level;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
@@ -27,6 +26,7 @@ import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.statemachine.SimpleStateMachine;
 import org.apache.raft.statemachine.StateMachine;
+import org.apache.raft.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Rule;
@@ -46,9 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_KEY;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.*;
 
 /**
  * Enable raft.server.log.appender.batch.enabled and test LogAppender
@@ -57,9 +55,9 @@ import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPEND
 public class TestBatchAppend {
   static Logger LOG = LoggerFactory.getLogger(TestBatchAppend.class);
   static {
-    GenericTestUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
-    GenericTestUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   @Parameterized.Parameters
