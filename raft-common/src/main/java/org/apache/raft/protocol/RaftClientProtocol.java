@@ -17,13 +17,8 @@
  */
 package org.apache.raft.protocol;
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
-
 import java.io.IOException;
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
 public interface RaftClientProtocol {
   RaftClientReply submitClientRequest(RaftClientRequest request) throws IOException;
 

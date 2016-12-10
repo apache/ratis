@@ -19,8 +19,6 @@ package org.apache.raft.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
@@ -52,8 +50,6 @@ import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
 import static org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
 import static org.apache.raft.util.LifeCycle.State.*;
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
 public class RaftServer implements RaftServerProtocol, Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServer.class);
 

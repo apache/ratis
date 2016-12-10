@@ -17,14 +17,10 @@
  */
 package org.apache.raft.server.protocol;
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 
 import java.io.IOException;
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
 public interface RaftServerProtocol {
 
   RequestVoteReplyProto requestVote(RequestVoteRequestProto request) throws IOException;
