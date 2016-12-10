@@ -47,8 +47,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
-
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
  * entries in a list. Mainly used for test.
@@ -69,6 +67,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
   private SimpleStateMachineStorage storage;
   private TermIndexTracker termIndexTracker;
+  private final RaftProperties properties = new RaftProperties();
 
   public SimpleStateMachine() {
     this.storage  = new SimpleStateMachineStorage();
@@ -143,8 +142,7 @@ public class SimpleStateMachine extends BaseStateMachine {
         termIndex.getIndex());
     LOG.debug("Taking a snapshot with t:{}, i:{}, file:{}", termIndex.getTerm(),
         termIndex.getIndex(), snapshotFile);
-    try (LogOutputStream out = new LogOutputStream(snapshotFile, false,
-        RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT)) {
+    try (LogOutputStream out = new LogOutputStream(snapshotFile, false, properties)) {
       for (final LogEntryProto entry : list) {
         if (entry.getIndex() > endIndex) {
           break;

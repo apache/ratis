@@ -76,7 +76,13 @@ public interface RaftServerConfigKeys {
   long RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_DEFAULT = 400000;
 
   String RAFT_LOG_SEGMENT_MAX_SIZE_KEY = "raft.log.segment.max.size";
-  int RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT = 1024 * 1024 * 8;
+  long RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT = 1024L * 1024 * 1024 * 2; // 2GB
+
+  String RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY = "raft.log.segment.preallocated.size";
+  int RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_DEFAULT = 1024 * 1024 * 16; // 16MB
+
+  String RAFT_LOG_WRITE_BUFFER_SIZE_KEY = "raft.log.write.buffer.size";
+  int RAFT_LOG_WRITE_BUFFER_SIZE_DEFAULT = 64 * 1024;
 
   String RAFT_SNAPSHOT_CHUNK_MAX_SIZE_KEY = "raft.snapshot.chunk.max.size";
   int RAFT_SNAPSHOT_CHUNK_MAX_SIZE_DEFAULT = 1024 * 1024 * 16;

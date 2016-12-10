@@ -22,7 +22,6 @@ import org.apache.raft.RaftTestUtil;
 import org.apache.raft.RaftTestUtil.SimpleOperation;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServerConstants.StartupOption;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
@@ -38,7 +37,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_WRITE_BUFFER_SIZE_KEY;
+import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
 import static org.apache.raft.server.storage.LogSegment.getEntrySize;
 
 /**
@@ -69,10 +71,7 @@ public class TestRaftLogSegment {
         storage.getStorageDir().getClosedLogFile(start, start + size - 1);
 
     LogEntryProto[] entries = new LogEntryProto[size];
-    int maxSize = properties.getInt(
-        RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
-        RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
-    try (LogOutputStream out = new LogOutputStream(file, false, maxSize)) {
+    try (LogOutputStream out = new LogOutputStream(file, false, properties)) {
       for (int i = 0; i < size; i++) {
         SimpleOperation op = new SimpleOperation("m" + i);
         entries[i] = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
@@ -107,7 +106,7 @@ public class TestRaftLogSegment {
     // load an open segment
     File openSegmentFile = prepareLog(true, 0, 100, 0);
     LogSegment openSegment = LogSegment.loadSegment(openSegmentFile, 0,
-        RaftServerConstants.INVALID_LOG_INDEX, true, null);
+        INVALID_LOG_INDEX, true, null);
     checkLogSegment(openSegment, 0, 99, true, openSegmentFile.length(), 0);
 
     // load a closed segment (1000-1099)
@@ -123,13 +122,14 @@ public class TestRaftLogSegment {
     final long start = 1000;
     LogSegment segment = LogSegment.newOpenSegment(start);
     long size = SegmentedRaftLog.HEADER_BYTES.length;
+    final long max = 8 * 1024 * 1024;
     checkLogSegment(segment, start, start - 1, true, size, 0);
 
     // append till full
     long term = 0;
     int i = 0;
     List<LogEntryProto> list = new ArrayList<>();
-    while (size < RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT) {
+    while (size < max) {
       SimpleOperation op = new SimpleOperation("m" + i);
       LogEntryProto entry = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
           term, i++ + start);
@@ -138,7 +138,7 @@ public class TestRaftLogSegment {
     }
 
     segment.appendToOpenSegment(list.toArray(new LogEntryProto[list.size()]));
-    Assert.assertTrue(segment.getTotalSize() >= RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
+    Assert.assertTrue(segment.getTotalSize() >= max);
     checkLogSegment(segment, start, i - 1 + start, true, size, term);
   }
 
@@ -208,6 +208,16 @@ public class TestRaftLogSegment {
         SegmentedRaftLog.HEADER_BYTES.length, term);
   }
 
+  private RaftProperties getProperties(long maxSegmentSize,
+      long preallocatedSize) {
+    RaftProperties p = new RaftProperties();
+    p.setLong(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
+        maxSegmentSize);
+    p.setLong(RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY,
+        preallocatedSize);
+    return p;
+  }
+
   @Test
   public void testPreallocateSegment() throws Exception {
     RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
@@ -215,16 +225,21 @@ public class TestRaftLogSegment {
     final int[] maxSizes = new int[]{1024, 1025, 1024 * 1024 - 1, 1024 * 1024,
         1024 * 1024 + 1, 2 * 1024 * 1024 - 1, 2 * 1024 * 1024,
         2 * 1024 * 1024 + 1, 8 * 1024 * 1024};
+    final int[] preallocated = new int[]{512, 1024, 1025, 1024 * 1024,
+        1024 * 1024 + 1, 2 * 1024 * 1024};
 
-    // make sure preallocation is correct with different max segment size
+    // make sure preallocation is correct with different max/pre-allocated size
     for (int max : maxSizes) {
-      try (LogOutputStream ignored = new LogOutputStream(file, false, max)) {
-        Assert.assertEquals(file.length(), max);
-      }
-      try (LogInputStream in = new LogInputStream(file, 0,
-          RaftServerConstants.INVALID_LOG_INDEX, true)) {
-        LogEntryProto entry = in.nextEntry();
-        Assert.assertNull(entry);
+      for (int a : preallocated) {
+        try (LogOutputStream ignored =
+                 new LogOutputStream(file, false, getProperties(max, a))) {
+          Assert.assertEquals(file.length(), Math.min(max, a));
+        }
+        try (LogInputStream in =
+                 new LogInputStream(file, 0, INVALID_LOG_INDEX, true)) {
+          LogEntryProto entry = in.nextEntry();
+          Assert.assertNull(entry);
+        }
       }
     }
 
@@ -232,7 +247,8 @@ public class TestRaftLogSegment {
     final byte[] content = new byte[1024 * 2];
     Arrays.fill(content, (byte) 1);
     final long size;
-    try (LogOutputStream out = new LogOutputStream(file, false, 1024)) {
+    try (LogOutputStream out = new LogOutputStream(file, false,
+        getProperties(1024, 1024))) {
       SimpleOperation op = new SimpleOperation(new String(content));
       LogEntryProto entry = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
           0, 0);
@@ -242,11 +258,48 @@ public class TestRaftLogSegment {
     Assert.assertEquals(file.length(),
         size + SegmentedRaftLog.HEADER_BYTES.length);
     try (LogInputStream in = new LogInputStream(file, 0,
-        RaftServerConstants.INVALID_LOG_INDEX, true)) {
+        INVALID_LOG_INDEX, true)) {
       LogEntryProto entry = in.nextEntry();
       Assert.assertArrayEquals(content,
           entry.getSmLogEntry().getData().toByteArray());
       Assert.assertNull(in.nextEntry());
     }
+  }
+
+  /**
+   * Keep appending and check if pre-allocation is correct
+   */
+  @Test
+  public void testPreallocationAndAppend() throws Exception {
+    final long max = 2 * 1024 * 1024;
+    properties.setLong(RAFT_LOG_SEGMENT_MAX_SIZE_KEY, max);
+    properties.setLong(RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY, 16 * 1024);
+    properties.setLong(RAFT_LOG_WRITE_BUFFER_SIZE_KEY, 10 * 1024);
+    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
+    final File file = storage.getStorageDir().getOpenLogFile(0);
+
+    final byte[] content = new byte[1024];
+    Arrays.fill(content, (byte) 1);
+    SimpleOperation op = new SimpleOperation(new String(content));
+    LogEntryProto entry = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
+        0, 0);
+    final long entrySize = LogSegment.getEntrySize(entry);
+
+    long totalSize = SegmentedRaftLog.HEADER_BYTES.length;
+    long preallocated = 16 * 1024;
+    try (LogOutputStream out = new LogOutputStream(file, false, properties)) {
+      Assert.assertEquals(preallocated, file.length());
+      while (totalSize + entrySize < max) {
+        totalSize += entrySize;
+        out.write(entry);
+        if (totalSize > preallocated) {
+          Assert.assertEquals("totalSize==" + totalSize,
+              preallocated + 16 * 1024, file.length());
+          preallocated += 16 * 1024;
+        }
+      }
+    }
+
+    Assert.assertEquals(totalSize, file.length());
   }
 }

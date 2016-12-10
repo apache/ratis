@@ -80,6 +80,7 @@ public class BufferedWriteChannel extends BufferedChannelBase {
     if (writeBuffer.remaining() == 0) {
       flushInternal();
     }
+    position++;
   }
 
   public void write(byte[] b) throws IOException {
@@ -92,6 +93,7 @@ public class BufferedWriteChannel extends BufferedChannelBase {
         flushInternal();
       }
     }
+    position += b.length;
   }
 
   /**

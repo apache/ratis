@@ -44,7 +44,9 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY;
 
 /**
  * Test basic functionality of LogReader, LogInputStream, and LogOutputStream.
@@ -53,17 +55,15 @@ public class TestRaftLogReadWrite {
   private static final Logger LOG = LoggerFactory.getLogger(TestRaftLogReadWrite.class);
 
   private File storageDir;
-  private final RaftProperties properties = new RaftProperties();
+  private RaftProperties properties;
   private int segmentMaxSize;
 
   @Before
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftLogReadWrite.class);
+    properties = new RaftProperties();
     properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY,
         RaftUtils.fileAsURI(storageDir).toString());
-    segmentMaxSize = properties.getInt(
-        RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
-        RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
   }
 
   @After
@@ -110,7 +110,7 @@ public class TestRaftLogReadWrite {
 
     final LogEntryProto[] entries = new LogEntryProto[100];
     try (LogOutputStream out =
-             new LogOutputStream(openSegment, false, segmentMaxSize)) {
+             new LogOutputStream(openSegment, false, properties)) {
       size += writeMessages(entries, out);
     } finally {
       storage.close();
@@ -129,7 +129,7 @@ public class TestRaftLogReadWrite {
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
     LogEntryProto[] entries = new LogEntryProto[200];
     try (LogOutputStream out =
-             new LogOutputStream(openSegment, false, segmentMaxSize)) {
+             new LogOutputStream(openSegment, false, properties)) {
       for (int i = 0; i < 100; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
         entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
@@ -138,7 +138,7 @@ public class TestRaftLogReadWrite {
     }
 
     try (LogOutputStream out =
-             new LogOutputStream(openSegment, true, segmentMaxSize)) {
+             new LogOutputStream(openSegment, true, properties)) {
       for (int i = 100; i < 200; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
         entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
@@ -164,12 +164,13 @@ public class TestRaftLogReadWrite {
     long size = SegmentedRaftLog.HEADER_BYTES.length;
 
     LogEntryProto[] entries = new LogEntryProto[100];
-    LogOutputStream out = new LogOutputStream(openSegment, false, segmentMaxSize);
+    LogOutputStream out = new LogOutputStream(openSegment, false, properties);
     size += writeMessages(entries, out);
     out.flush();
 
     // make sure the file contains padding
-    Assert.assertEquals(RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT, openSegment.length());
+    Assert.assertEquals(RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_DEFAULT,
+        openSegment.length());
 
     // check if the reader can correctly read the log file
     LogEntryProto[] readEntries = readLog(openSegment, 0,
@@ -186,11 +187,14 @@ public class TestRaftLogReadWrite {
    */
   @Test
   public void testReadWithCorruptPadding() throws IOException {
+    properties.setLong(RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY, 4 * 1024 * 1024);
+    properties.setLong(RAFT_LOG_SEGMENT_MAX_SIZE_KEY, 16 * 1024 * 1024);
+
     RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
 
     LogEntryProto[] entries = new LogEntryProto[10];
-    LogOutputStream out = new LogOutputStream(openSegment, false, segmentMaxSize);
+    LogOutputStream out = new LogOutputStream(openSegment, false, properties);
     for (int i = 0; i < 10; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
       entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
@@ -199,12 +203,12 @@ public class TestRaftLogReadWrite {
     out.flush();
 
     // make sure the file contains padding
-    Assert.assertEquals(RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT, openSegment.length());
+    Assert.assertEquals(4 * 1024 * 1024, openSegment.length());
 
     try (FileOutputStream fout = new FileOutputStream(openSegment, true)) {
       ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[]{-1, 1});
       fout.getChannel()
-          .write(byteBuffer, RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT - 10);
+          .write(byteBuffer, 16 * 1024 * 1024 - 10);
     }
 
     List<LogEntryProto> list = new ArrayList<>();
@@ -237,7 +241,7 @@ public class TestRaftLogReadWrite {
     RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
     try (LogOutputStream out =
-             new LogOutputStream(openSegment, false, segmentMaxSize)) {
+             new LogOutputStream(openSegment, false, properties)) {
       for (int i = 0; i < 100; i++) {
         LogEntryProto entry = ProtoUtils.toLogEntryProto(
             new SimpleOperation("m" + i).getLogEntryContent(), 0, i);

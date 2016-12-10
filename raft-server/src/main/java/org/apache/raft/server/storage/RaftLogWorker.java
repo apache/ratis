@@ -68,16 +68,16 @@ class RaftLogWorker implements Runnable {
   private volatile long flushedIndex;
 
   private final int forceSyncNum;
-  private final int segmentMaxSize;
+
+  private final  RaftProperties properties;
 
   RaftLogWorker(RaftServer raftServer, RaftStorage storage,
       RaftProperties properties) {
     this.raftServer = raftServer;
     this.storage = storage;
+    this.properties = properties;
     this.forceSyncNum = properties.getInt(RAFT_LOG_FORCE_SYNC_NUM_KEY,
         RAFT_LOG_FORCE_SYNC_NUM_DEFAULT);
-    this.segmentMaxSize = properties.getInt(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
-        RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
     workerThread = new Thread(this, this.getClass().getSimpleName());
   }
 
@@ -86,7 +86,7 @@ class RaftLogWorker implements Runnable {
     flushedIndex = latestIndex;
     if (openSegmentFile != null) {
       Preconditions.checkArgument(openSegmentFile.exists());
-      out = new LogOutputStream(openSegmentFile, true, segmentMaxSize);
+      out = new LogOutputStream(openSegmentFile, true, properties);
     }
     workerThread.start();
   }
@@ -299,7 +299,7 @@ class RaftLogWorker implements Runnable {
       Preconditions.checkState(!openFile.exists(), "open file %s exists for %s",
           openFile.getAbsolutePath(), RaftLogWorker.this.toString());
       Preconditions.checkState(out == null && pendingFlushNum == 0);
-      out = new LogOutputStream(openFile, false, segmentMaxSize);
+      out = new LogOutputStream(openFile, false, properties);
     }
 
     @Override

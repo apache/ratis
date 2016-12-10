@@ -98,13 +98,13 @@ public class SegmentedRaftLog extends RaftLog {
   private final RaftStorage storage;
   private final RaftLogCache cache;
   private final RaftLogWorker fileLogWorker;
-  private final int segmentMaxSize;
+  private final long segmentMaxSize;
 
   public SegmentedRaftLog(String selfId, RaftServer server, RaftStorage storage,
       long lastIndexInSnapshot, RaftProperties properties) throws IOException {
     super(selfId);
     this.storage = storage;
-    this.segmentMaxSize = properties.getInt(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
+    this.segmentMaxSize = properties.getLong(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
         RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
     cache = new RaftLogCache();
     fileLogWorker = new RaftLogWorker(server, storage, properties);

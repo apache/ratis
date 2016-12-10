@@ -19,6 +19,7 @@ package org.apache.raft.server.storage;
 
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
+import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
@@ -30,11 +31,17 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.zip.Checksum;
 
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_WRITE_BUFFER_SIZE_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_WRITE_BUFFER_SIZE_KEY;
+
 public class LogOutputStream implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(LogOutputStream.class);
 
   private static final ByteBuffer fill;
-  private static final int WRITE_BUFFER_SIZE = 64 * 1024;
   private static final int BUFFER_SIZE = 1024 * 1024; // 1 MB
   static {
     fill = ByteBuffer.allocateDirect(BUFFER_SIZE);
@@ -48,17 +55,28 @@ public class LogOutputStream implements Closeable {
   private FileChannel fc; // channel of the file stream for sync
   private BufferedWriteChannel out; // buffered FileChannel for writing
   private final Checksum checksum;
-  private final int segmentMaxSize;
 
-  public LogOutputStream(File file, boolean append, int segmentMaxSize)
+  private final long segmentMaxSize;
+  private final long preallocatedSize;
+  private long preallocatedPos;
+
+  public LogOutputStream(File file, boolean append, RaftProperties properties)
       throws IOException {
     this.file = file;
     this.checksum = DataChecksum.newCrc32();
-    this.segmentMaxSize = segmentMaxSize;
+    this.segmentMaxSize = properties.getLong(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
+        RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
+    this.preallocatedSize = properties.getLong(
+        RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY,
+        RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_DEFAULT);
     RandomAccessFile rp = new RandomAccessFile(file, "rw");
     fc = rp.getChannel();
     fc.position(fc.size());
-    out = new BufferedWriteChannel(fc, WRITE_BUFFER_SIZE);
+    preallocatedPos = fc.size();
+
+    int bufferSize = properties.getInt(RAFT_LOG_WRITE_BUFFER_SIZE_KEY,
+        RAFT_LOG_WRITE_BUFFER_SIZE_DEFAULT);
+    out = new BufferedWriteChannel(fc, bufferSize);
 
     if (!append) {
       create();
@@ -74,6 +92,9 @@ public class LogOutputStream implements Closeable {
     final int serialized = entry.getSerializedSize();
     final int bufferSize = CodedOutputStream.computeUInt32SizeNoTag(serialized)
         + serialized;
+
+    preallocateIfNecessary(bufferSize + 4);
+
     byte[] buf = new byte[bufferSize];
     CodedOutputStream cout = CodedOutputStream.newInstance(buf);
     cout.writeUInt32NoTag(serialized);
@@ -97,8 +118,9 @@ public class LogOutputStream implements Closeable {
   private void create() throws IOException {
     fc.truncate(0);
     fc.position(0);
-
+    preallocatedPos = 0;
     preallocate(); // preallocate file
+
     out.write(SegmentedRaftLog.HEADER_BYTES);
     flush();
   }
@@ -130,16 +152,23 @@ public class LogOutputStream implements Closeable {
 
   private void preallocate() throws IOException {
     fill.position(0);
-    // preallocate a segment with max size
+    long targetSize = Math.min(segmentMaxSize - fc.size(), preallocatedSize);
     int allocated = 0;
-    while (allocated < segmentMaxSize) {
-      int size = Math.min(BUFFER_SIZE, segmentMaxSize - allocated);
+    while (allocated < targetSize) {
+      int size = (int) Math.min(BUFFER_SIZE, targetSize - allocated);
       ByteBuffer buffer = fill.slice();
       buffer.limit(size);
-      IOUtils.writeFully(fc, buffer, fc.size());
+      IOUtils.writeFully(fc, buffer, preallocatedPos);
+      preallocatedPos += size;
       allocated += size;
     }
-    LOG.debug("Pre-allocated {} bytes for the log segment", fill.capacity());
+    LOG.debug("Pre-allocated {} bytes for the log segment", allocated);
+  }
+
+  private void preallocateIfNecessary(int size) throws IOException {
+    if (out.position() + size > preallocatedPos) {
+      preallocate();
+    }
   }
 
   @Override
