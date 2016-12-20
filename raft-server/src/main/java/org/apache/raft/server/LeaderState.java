@@ -116,7 +116,7 @@ public class LeaderState {
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
-    final Timestamp t = new Timestamp().addTimeMs(-server.maxTimeout);
+    final Timestamp t = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
     final long nextIndex = raftLog.getNextIndex();
     senders = new ArrayList<>(others.size());
     for (RaftPeer p : others) {
@@ -239,7 +239,7 @@ public class LeaderState {
    * RpcSender list.
    */
   void addSenders(Collection<RaftPeer> newMembers) {
-    final Timestamp t = new Timestamp().addTimeMs(-server.maxTimeout);
+    final Timestamp t = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
     final long nextIndex = raftLog.getNextIndex();
     for (RaftPeer peer : newMembers) {
       FollowerInfo f = new FollowerInfo(peer, t, nextIndex, false);
@@ -299,7 +299,7 @@ public class LeaderState {
 
       while (running) {
         try {
-          StateUpdateEvent event = eventQ.poll(server.maxTimeout,
+          StateUpdateEvent event = eventQ.poll(server.getMaxTimeoutMs(),
               TimeUnit.MILLISECONDS);
           synchronized (server) {
             if (running) {
@@ -354,8 +354,8 @@ public class LeaderState {
   private BootStrapProgress checkProgress(FollowerInfo follower,
       long committed) {
     Preconditions.checkArgument(!follower.isAttendingVote());
-    final Timestamp progressTime = new Timestamp().addTimeMs(-server.maxTimeout);
-    final Timestamp timeoutTime = new Timestamp().addTimeMs(-3*server.maxTimeout);
+    final Timestamp progressTime = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
+    final Timestamp timeoutTime = new Timestamp().addTimeMs(-3*server.getMaxTimeoutMs());
     if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
       LOG.debug("{} detects a follower {} timeout for bootstrapping," +
               " timeoutTime: {}", server.getId(), follower, timeoutTime);
@@ -452,7 +452,7 @@ public class LeaderState {
               server.getId(), conf);
           try {
             // leave some time for all RPC senders to send out new conf entry
-            Thread.sleep(server.minTimeout);
+            Thread.sleep(server.getMinTimeoutMs());
           } catch (InterruptedException ignored) {
           }
           // the pending request handler will send NotLeaderException for

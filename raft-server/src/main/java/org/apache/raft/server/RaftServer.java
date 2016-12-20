@@ -58,8 +58,8 @@ public class RaftServer implements RaftServerProtocol, Closeable {
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
 
 
-  public final int minTimeout;
-  public final int maxTimeout;
+  private final int minTimeoutMs;
+  private final int maxTimeoutMs;
 
   private final LifeCycle lifeCycle;
   private final ServerState state;
@@ -83,18 +83,30 @@ public class RaftServer implements RaftServerProtocol, Closeable {
   public RaftServer(String id, RaftConfiguration raftConf,
       RaftProperties properties, StateMachine stateMachine) throws IOException {
     this.lifeCycle = new LifeCycle(id);
-    minTimeout = properties.getInt(
+    minTimeoutMs = properties.getInt(
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_KEY,
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT);
-    maxTimeout = properties.getInt(
+    maxTimeoutMs = properties.getInt(
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MAX_MS_KEY,
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MAX_MS_DEFAULT);
-    Preconditions.checkArgument(maxTimeout > minTimeout,
-        "max timeout: %s, min timeout: %s", maxTimeout, minTimeout);
+    Preconditions.checkArgument(maxTimeoutMs > minTimeoutMs,
+        "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.properties = properties;
     this.stateMachine = stateMachine;
     this.state = new ServerState(id, raftConf, properties, this, stateMachine);
     appenderFactory = initAppenderFactory();
+  }
+
+  public int getMinTimeoutMs() {
+    return minTimeoutMs;
+  }
+
+  public int getMaxTimeoutMs() {
+    return maxTimeoutMs;
+  }
+
+  public int getRandomTimeoutMs() {
+    return RaftUtils.getRandomBetween(minTimeoutMs, maxTimeoutMs);
   }
 
   public StateMachine getStateMachine() {

@@ -465,7 +465,7 @@ public class LogAppender extends Daemon {
    * @return the time in milliseconds that the leader should send a heartbeat.
    */
   protected long getHeartbeatRemainingTime(Timestamp lastTime) {
-    return server.minTimeout / 2 - lastTime.elapsedTimeMs();
+    return server.getMinTimeoutMs() / 2 - lastTime.elapsedTimeMs();
   }
 
   protected void checkResponseTerm(long responseTerm) {

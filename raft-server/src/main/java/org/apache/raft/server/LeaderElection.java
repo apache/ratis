@@ -27,7 +27,6 @@ import org.apache.raft.shaded.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.ProtoUtils;
-import org.apache.raft.util.RaftUtils;
 import org.apache.raft.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -197,8 +196,7 @@ class LeaderElection extends Daemon {
 
   private ResultAndTerm waitForResults(final long electionTerm,
       final int submitted) throws InterruptedException {
-    final Timestamp timeout = new Timestamp().addTimeMs(
-        RaftUtils.getRandomBetween(server.minTimeout, server.maxTimeout));
+    final Timestamp timeout = new Timestamp().addTimeMs(server.getRandomTimeoutMs());
     final List<RequestVoteReplyProto> responses = new ArrayList<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;
