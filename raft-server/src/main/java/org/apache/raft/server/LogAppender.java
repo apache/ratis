@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.util.Daemon;
-import org.apache.hadoop.util.Time;
 import org.apache.raft.server.LeaderState.StateUpdateEventType;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
@@ -31,6 +30,7 @@ import org.apache.raft.shaded.com.google.protobuf.ByteString;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.ProtoUtils;
+import org.apache.raft.util.Timestamp;
 import org.slf4j.Logger;
 
 import java.io.File;
@@ -197,10 +197,10 @@ public class LogAppender extends Daemon {
           return null;
         }
 
-        follower.updateLastRpcSendTime(Time.monotonicNow());
+        follower.updateLastRpcSendTime();
         final AppendEntriesReplyProto r = server.getServerRpc()
             .sendAppendEntries(request);
-        follower.updateLastRpcResponseTime(Time.monotonicNow());
+        follower.updateLastRpcResponseTime();
 
         return r;
       } catch (InterruptedIOException iioe) {
@@ -328,9 +328,9 @@ public class LogAppender extends Daemon {
     try {
       for (InstallSnapshotRequestProto request :
           new SnapshotRequestIter(snapshot, requestId)) {
-        follower.updateLastRpcSendTime(Time.monotonicNow());
+        follower.updateLastRpcSendTime();
         reply = server.getServerRpc().sendInstallSnapshot(request);
-        follower.updateLastRpcResponseTime(Time.monotonicNow());
+        follower.updateLastRpcResponseTime();
 
         if (!reply.getServerReply().getSuccess()) {
           return reply;
@@ -464,8 +464,8 @@ public class LogAppender extends Daemon {
   /**
    * @return the time in milliseconds that the leader should send a heartbeat.
    */
-  protected long getHeartbeatRemainingTime(long lastTime) {
-    return lastTime + server.minTimeout / 2 - Time.monotonicNow();
+  protected long getHeartbeatRemainingTime(Timestamp lastTime) {
+    return server.minTimeout / 2 - lastTime.elapsedTimeMs();
   }
 
   protected void checkResponseTerm(long responseTerm) {

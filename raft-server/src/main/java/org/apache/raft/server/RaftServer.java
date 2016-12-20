@@ -19,7 +19,6 @@ package org.apache.raft.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.RaftServerProtocol;
@@ -414,9 +413,9 @@ public class RaftServer implements RaftServerProtocol, Closeable {
     return pending.getFuture();
   }
 
-  private boolean shouldWithholdVotes(long now) {
+  private boolean shouldWithholdVotes() {
     return isLeader() || (isFollower() && state.hasLeader()
-        && heartbeatMonitor.shouldWithholdVotes(now));
+        && heartbeatMonitor.shouldWithholdVotes());
   }
 
   /**
@@ -453,12 +452,11 @@ public class RaftServer implements RaftServerProtocol, Closeable {
         getId(), candidateId, candidateTerm, candidateLastEntry);
     lifeCycle.assertCurrentState(RUNNING);
 
-    final long startTime = Time.monotonicNow();
     boolean voteGranted = false;
     boolean shouldShutdown = false;
     final RequestVoteReplyProto reply;
     synchronized (this) {
-      if (shouldWithholdVotes(startTime)) {
+      if (shouldWithholdVotes()) {
         LOG.info("{} Withhold vote from server {} with term {}. " +
             "This server:{}, last rpc time from leader {} is {}", getId(),
             candidateId, candidateTerm, this, this.getState().getLeaderId(),
@@ -467,7 +465,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
         boolean termUpdated = changeToFollower(candidateTerm, false);
         // see Section 5.4.1 Election restriction
         if (state.isLogUpToDate(candidateLastEntry)) {
-          heartbeatMonitor.updateLastRpcTime(startTime, false);
+          heartbeatMonitor.updateLastRpcTime(false);
           state.grantVote(candidateId);
           voteGranted = true;
         }
@@ -570,7 +568,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
         heartbeatMonitor.start();
       }
       if (lifeCycle.getCurrentState() == RUNNING) {
-        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), true);
+        heartbeatMonitor.updateLastRpcTime(true);
       }
 
       // We need to check if "previous" is in the local peer. Note that it is
@@ -605,7 +603,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
           && getState().getCurrentTerm() == currentTerm) {
         // reset election timer to avoid punishing the leader for our own
         // long disk writes
-        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
+        heartbeatMonitor.updateLastRpcTime(false);
       }
     }
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
@@ -654,7 +652,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
       state.setLeader(leaderId);
 
       if (lifeCycle.getCurrentState() == RUNNING) {
-        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), true);
+        heartbeatMonitor.updateLastRpcTime(true);
       }
 
       // Check and append the snapshot chunk. We simply put this in lock
@@ -674,7 +672,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
         state.reloadStateMachine(lastIncludedIndex, leaderTerm);
       }
       if (lifeCycle.getCurrentState() == RUNNING) {
-        heartbeatMonitor.updateLastRpcTime(Time.monotonicNow(), false);
+        heartbeatMonitor.updateLastRpcTime(false);
       }
     }
     if (request.getDone()) {

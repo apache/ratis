@@ -18,8 +18,8 @@
 package org.apache.raft.server;
 
 import org.apache.hadoop.util.Daemon;
-import org.apache.hadoop.util.Time;
 import org.apache.raft.util.RaftUtils;
+import org.apache.raft.util.Timestamp;
 import org.slf4j.Logger;
 
 /**
@@ -30,7 +30,7 @@ class FollowerState extends Daemon {
 
   private final RaftServer server;
 
-  private volatile long lastRpcTime = Time.monotonicNow();
+  private volatile Timestamp lastRpcTime = new Timestamp();
   private volatile boolean monitorRunning = true;
   private volatile boolean inLogSync = false;
 
@@ -38,18 +38,18 @@ class FollowerState extends Daemon {
     this.server = server;
   }
 
-  void updateLastRpcTime(long now, boolean inLogSync) {
-    LOG.trace("{} update last rpc time to {}", server.getId(), now);
-    lastRpcTime = now;
+  void updateLastRpcTime(boolean inLogSync) {
+    lastRpcTime = new Timestamp();
+    LOG.trace("{} update last rpc time to {}", server.getId(), lastRpcTime);
     this.inLogSync = inLogSync;
   }
 
-  long getLastRpcTime() {
+  Timestamp getLastRpcTime() {
     return lastRpcTime;
   }
 
-  boolean shouldWithholdVotes(long now) {
-    return lastRpcTime + server.minTimeout > now;
+  boolean shouldWithholdVotes() {
+    return lastRpcTime.elapsedTimeMs() < server.minTimeout;
   }
 
   void stopRunning() {
@@ -68,11 +68,9 @@ class FollowerState extends Daemon {
           break;
         }
         synchronized (server) {
-          final long now = Time.monotonicNow();
-          if (!inLogSync && now >= lastRpcTime + electionTimeout) {
-            LOG.info("{} changes to {} at {}, LastRpcTime:{}, electionTimeout:{}",
-                server.getId(), Role.CANDIDATE, now, lastRpcTime,
-                electionTimeout);
+          if (!inLogSync && lastRpcTime.elapsedTimeMs() >= electionTimeout) {
+            LOG.info("{} changes to {}, lastRpcTime:{}, electionTimeout:{}",
+                server.getId(), Role.CANDIDATE, lastRpcTime, electionTimeout);
             // election timeout, should become a candidate
             server.changeToCandidate();
             break;

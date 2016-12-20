@@ -18,7 +18,6 @@
 package org.apache.raft.grpc.server;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.util.Time;
 import org.apache.raft.grpc.RaftGRpcService;
 import org.apache.raft.grpc.RaftGrpcConfigKeys;
 import org.apache.raft.server.FollowerInfo;
@@ -150,7 +149,7 @@ public class GRpcLogAppender extends LogAppender {
         null, request);
 
     s.onNext(request);
-    follower.updateLastRpcSendTime(Time.monotonicNow());
+    follower.updateLastRpcSendTime();
   }
 
   private void updateNextIndex(AppendEntriesRequestProto request) {
@@ -188,7 +187,7 @@ public class GRpcLogAppender extends LogAppender {
           follower.getPeer());
 
       // update the last rpc time
-      follower.updateLastRpcResponseTime(Time.monotonicNow());
+      follower.updateLastRpcResponseTime();
 
       if (!firstResponseReceived) {
         firstResponseReceived = true;
@@ -330,7 +329,7 @@ public class GRpcLogAppender extends LogAppender {
           follower.getPeer());
 
       // update the last rpc time
-      follower.updateLastRpcResponseTime(Time.monotonicNow());
+      follower.updateLastRpcResponseTime();
 
       if (!firstResponseReceived) {
         firstResponseReceived = true;
@@ -381,7 +380,7 @@ public class GRpcLogAppender extends LogAppender {
           new SnapshotRequestIter(snapshot, requestId)) {
         if (isAppenderRunning()) {
           snapshotRequestObserver.onNext(request);
-          follower.updateLastRpcSendTime(Time.monotonicNow());
+          follower.updateLastRpcSendTime();
           responseHandler.addPending(request);
         } else {
           break;

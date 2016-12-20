@@ -18,22 +18,24 @@
 package org.apache.raft.server;
 
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.util.Timestamp;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class FollowerInfo {
   private final RaftPeer peer;
-  private final AtomicLong lastRpcResponseTime;
-  private final AtomicLong lastRpcSendTime;
+  private final AtomicReference<Timestamp> lastRpcResponseTime;
+  private final AtomicReference<Timestamp> lastRpcSendTime;
   private long nextIndex;
   private final AtomicLong matchIndex;
   private volatile boolean attendVote;
 
-  FollowerInfo(RaftPeer peer, long lastRpcTime, long nextIndex,
+  FollowerInfo(RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
       boolean attendVote) {
     this.peer = peer;
-    this.lastRpcResponseTime = new AtomicLong(lastRpcTime);
-    this.lastRpcSendTime = new AtomicLong(lastRpcTime);
+    this.lastRpcResponseTime = new AtomicReference<>(lastRpcTime);
+    this.lastRpcSendTime = new AtomicReference<>(lastRpcTime);
     this.nextIndex = nextIndex;
     this.matchIndex = new AtomicLong(0);
     this.attendVote = attendVote;
@@ -65,8 +67,8 @@ public class FollowerInfo {
   public String toString() {
     return peer.getId() + "(next=" + nextIndex + ", match=" + matchIndex + "," +
         " attendVote=" + attendVote +
-        ", lastRpcSendTime=" + lastRpcSendTime.get() +
-        ", lastRpcResponseTime=" + lastRpcResponseTime.get() + ")";
+        ", lastRpcSendTime=" + lastRpcSendTime +
+        ", lastRpcResponseTime=" + lastRpcResponseTime + ")";
   }
 
   void startAttendVote() {
@@ -81,19 +83,21 @@ public class FollowerInfo {
     return peer;
   }
 
-  public void updateLastRpcResponseTime(long time) {
-    lastRpcResponseTime.set(time);
+  /** Update lastRpcResponseTime to the current time. */
+  public void updateLastRpcResponseTime() {
+    lastRpcResponseTime.set(new Timestamp());
   }
 
-  public long getLastRpcResponseTime() {
+  public Timestamp getLastRpcResponseTime() {
     return lastRpcResponseTime.get();
   }
 
-  public void updateLastRpcSendTime(long time) {
-    lastRpcSendTime.set(time);
+  /** Update lastRpcSendTime to the current time. */
+  public void updateLastRpcSendTime() {
+    lastRpcSendTime.set(new Timestamp());
   }
 
-  public long getLastRpcTime() {
-    return Math.max(lastRpcResponseTime.get(), lastRpcSendTime.get());
+  public Timestamp getLastRpcTime() {
+    return Timestamp.latest(lastRpcResponseTime.get(), lastRpcSendTime.get());
   }
 }

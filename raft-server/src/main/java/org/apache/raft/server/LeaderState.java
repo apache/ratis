@@ -19,7 +19,6 @@ package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.util.Daemon;
-import org.apache.hadoop.util.Time;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.storage.RaftLog;
@@ -27,6 +26,7 @@ import org.apache.raft.shaded.proto.RaftProtos.LeaderNoOp;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.ProtoUtils;
+import org.apache.raft.util.Timestamp;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -116,7 +116,7 @@ public class LeaderState {
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
-    final long t = Time.monotonicNow() - server.maxTimeout;
+    final Timestamp t = new Timestamp().addTimeMs(-server.maxTimeout);
     final long nextIndex = raftLog.getNextIndex();
     senders = new ArrayList<>(others.size());
     for (RaftPeer p : others) {
@@ -239,7 +239,7 @@ public class LeaderState {
    * RpcSender list.
    */
   void addSenders(Collection<RaftPeer> newMembers) {
-    final long t = Time.monotonicNow() - server.maxTimeout;
+    final Timestamp t = new Timestamp().addTimeMs(-server.maxTimeout);
     final long nextIndex = raftLog.getNextIndex();
     for (RaftPeer peer : newMembers) {
       FollowerInfo f = new FollowerInfo(peer, t, nextIndex, false);
@@ -354,14 +354,14 @@ public class LeaderState {
   private BootStrapProgress checkProgress(FollowerInfo follower,
       long committed) {
     Preconditions.checkArgument(!follower.isAttendingVote());
-    final long progressTime = Time.monotonicNow() - server.maxTimeout;
-    final long timeoutTime = Time.monotonicNow() - 3 * server.maxTimeout;
-    if (follower.getLastRpcResponseTime() < timeoutTime) {
+    final Timestamp progressTime = new Timestamp().addTimeMs(-server.maxTimeout);
+    final Timestamp timeoutTime = new Timestamp().addTimeMs(-3*server.maxTimeout);
+    if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
       LOG.debug("{} detects a follower {} timeout for bootstrapping," +
               " timeoutTime: {}", server.getId(), follower, timeoutTime);
       return BootStrapProgress.NOPROGRESS;
     } else if (follower.getMatchIndex() + stagingCatchupGap > committed
-        && follower.getLastRpcResponseTime() > progressTime) {
+        && follower.getLastRpcResponseTime().compareTo(progressTime) > 0) {
       return BootStrapProgress.CAUGHTUP;
     } else {
       return BootStrapProgress.PROGRESSING;

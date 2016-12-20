@@ -20,7 +20,6 @@ package org.apache.raft.server;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.hadoop.util.Daemon;
-import org.apache.hadoop.util.Time;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
@@ -29,6 +28,7 @@ import org.apache.raft.shaded.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;
+import org.apache.raft.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -197,15 +197,14 @@ class LeaderElection extends Daemon {
 
   private ResultAndTerm waitForResults(final long electionTerm,
       final int submitted) throws InterruptedException {
-    final long startTime = Time.monotonicNow();
-    final long timeout = startTime +
-        RaftUtils.getRandomBetween(server.minTimeout, server.maxTimeout);
+    final Timestamp timeout = new Timestamp().addTimeMs(
+        RaftUtils.getRandomBetween(server.minTimeout, server.maxTimeout));
     final List<RequestVoteReplyProto> responses = new ArrayList<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;
     Collection<String> votedPeers = new ArrayList<>();
     while (waitForNum > 0 && running && server.isCandidate()) {
-      final long waitTime = timeout - Time.monotonicNow();
+      final long waitTime = -timeout.elapsedTimeMs();
       if (waitTime <= 0) {
         return logAndReturn(Result.TIMEOUT, responses, exceptions, -1);
       }

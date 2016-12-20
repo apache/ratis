@@ -18,12 +18,12 @@
 package org.apache.raft.server.simulation;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.util.Time;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.RaftRpcMessage;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.util.RaftUtils;
+import org.apache.raft.util.Timestamp;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -72,8 +72,8 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     REPLY request(REQUEST request) throws InterruptedException, IOException {
       requestQueue.put(request);
       synchronized (this) {
-        final long startTime = Time.monotonicNow();
-        while (Time.monotonicNow() - startTime < TIMEOUT &&
+        final Timestamp startTime = new Timestamp();
+        while (startTime.elapsedTimeMs() < TIMEOUT &&
             !replyMap.containsKey(request)) {
           this.wait(TIMEOUT); // no need to be precise here
         }
