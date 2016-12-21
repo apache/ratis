@@ -23,7 +23,7 @@ import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.AutoCloseableLock;
-import org.apache.raft.util.CodeInjectionForTesting;
+import org.apache.raft.util.test.CodeInjectionForTesting;
 
 import java.util.ArrayList;
 import java.util.List;

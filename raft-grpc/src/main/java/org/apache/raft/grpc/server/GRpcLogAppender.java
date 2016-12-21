@@ -31,7 +31,7 @@ import org.apache.raft.shaded.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.statemachine.SnapshotInfo;
-import org.apache.raft.util.CodeInjectionForTesting;
+import org.apache.raft.util.test.CodeInjectionForTesting;
 
 import java.util.LinkedList;
 import java.util.Queue;

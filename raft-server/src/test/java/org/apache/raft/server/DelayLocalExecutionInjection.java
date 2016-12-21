@@ -18,7 +18,7 @@
 package org.apache.raft.server;
 
 import org.apache.raft.RaftTestUtil;
-import org.apache.raft.util.CodeInjectionForTesting;
+import org.apache.raft.util.test.CodeInjectionForTesting;
 
 import java.util.Arrays;
 import java.util.Map;

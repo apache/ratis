@@ -19,7 +19,6 @@ package org.apache.raft;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FileUtil;
-import org.apache.hadoop.util.ExitUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.client.impl.RaftClientImpl;
@@ -30,6 +29,7 @@ import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.statemachine.BaseStateMachine;
 import org.apache.raft.statemachine.StateMachine;
+import org.apache.raft.util.test.ExitUtils;
 import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
@@ -141,7 +141,7 @@ public abstract class MiniRaftCluster {
     conf.getPeers().forEach(
         p -> servers.put(p.getId(), newRaftServer(p.getId(), conf, formatted)));
 
-    ExitUtil.disableSystemExit();
+    ExitUtils.disableSystemExit();
   }
 
   protected <RPC extends  RaftServerRpc> void init(Map<RaftPeer, RPC> peers) {
@@ -397,9 +397,9 @@ public abstract class MiniRaftCluster {
     servers.values().stream().filter(RaftServer::isAlive)
         .forEach(RaftServer::close);
 
-    if (ExitUtil.terminateCalled()) {
+    if (ExitUtils.isTerminated()) {
       LOG.error("Test resulted in an unexpected exit",
-          ExitUtil.getFirstExitException());
+          ExitUtils.getFirstExitException());
       throw new AssertionError("Test resulted in an unexpected exit");
     }
   }

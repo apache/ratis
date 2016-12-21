@@ -27,6 +27,8 @@ package org.apache.raft.util;
 public class Timestamp implements Comparable<Timestamp> {
   private static final long NANOSECONDS_PER_MILLISECOND = 1000000;
 
+  private static final long START_TIME = System.nanoTime();
+
   /** @return the latest timestamp. */
   public static Timestamp latest(Timestamp a, Timestamp b) {
     return a.compareTo(b) > 0? a: b;
@@ -77,6 +79,6 @@ public class Timestamp implements Comparable<Timestamp> {
 
   @Override
   public String toString() {
-    return nanos + "ns";
+    return (nanos - START_TIME)/NANOSECONDS_PER_MILLISECOND + "ms";
   }
 }

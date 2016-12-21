@@ -18,8 +18,8 @@
 
 package org.apache.raft.util;
 
-import org.apache.hadoop.util.ExitUtil;
 import org.apache.hadoop.util.Shell;
+import org.apache.raft.util.test.ExitUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +42,7 @@ public class NativeLibraryChecker {
         (args.length == 1 &&
             !(args[0].equals("-a") || args[0].equals("-h")))) {
       System.err.println(usage);
-      ExitUtil.terminate(1);
+      ExitUtils.terminate(1, "Illegal arguments.");
     }
     if (args.length == 1) {
       if (args[0].equals("-h")) {
@@ -82,7 +82,7 @@ public class NativeLibraryChecker {
 
     if ((!nativeRaftLoaded) || (Shell.WINDOWS && (!winutilsExists))) {
       // return 1 to indicated check failed
-      ExitUtil.terminate(1);
+      ExitUtils.terminate(1, "Failed to load native library.");
     }
   }
 }

@@ -29,7 +29,7 @@ import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
-import org.apache.raft.util.CodeInjectionForTesting;
+import org.apache.raft.util.test.CodeInjectionForTesting;
 import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.RaftUtils;

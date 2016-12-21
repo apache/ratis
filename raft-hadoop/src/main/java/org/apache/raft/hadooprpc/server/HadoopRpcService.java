@@ -31,7 +31,7 @@ import org.apache.raft.shaded.com.google.protobuf.ServiceException;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.shaded.proto.hadoop.HadoopProtos.RaftClientProtocolService;
 import org.apache.raft.shaded.proto.hadoop.HadoopProtos.RaftServerProtocolService;
-import org.apache.raft.util.CodeInjectionForTesting;
+import org.apache.raft.util.test.CodeInjectionForTesting;
 import org.apache.raft.util.PeerProxyMap;
 import org.apache.raft.util.ProtoUtils;
 import org.slf4j.Logger;

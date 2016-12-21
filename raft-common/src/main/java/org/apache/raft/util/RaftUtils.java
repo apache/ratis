@@ -20,9 +20,9 @@ package org.apache.raft.util;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.util.ExitUtil;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
+import org.apache.raft.util.test.ExitUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -101,7 +101,7 @@ public abstract class RaftUtils {
 
   public static void terminate(Throwable t, String message, Logger LOG) {
     LOG.error(message, t);
-    ExitUtil.terminate(1, message);
+    ExitUtils.terminate(1, message);
   }
 
   /**
