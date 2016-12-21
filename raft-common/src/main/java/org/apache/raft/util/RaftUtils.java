@@ -18,7 +18,6 @@
 package org.apache.raft.util;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.fs.FileUtil;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.slf4j.Logger;
@@ -124,7 +123,7 @@ public abstract class RaftUtils {
   }
 
   public static void deleteDir(File d) {
-    FileUtil.fullyDelete(d);
+    FileUtils.fullyDelete(d);
   }
 
   public static void terminate(Throwable t, String message, Logger LOG) {
