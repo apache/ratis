@@ -22,7 +22,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MD5Hash;
-import org.apache.hadoop.util.StringUtils;
 
 import java.io.*;
 import java.security.DigestInputStream;
@@ -135,7 +134,7 @@ public abstract class MD5FileUtil {
    */
   public static void saveMD5File(File dataFile, MD5Hash digest)
       throws IOException {
-    final String digestString = StringUtils.byteToHexString(digest.getDigest());
+    final String digestString = StringUtils.bytes2HexString(digest.getDigest());
     saveMD5File(dataFile, digestString);
   }
 

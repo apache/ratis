@@ -43,8 +43,13 @@ public class Timestamp implements Comparable<Timestamp> {
     this(System.nanoTime());
   }
 
-  public Timestamp addTimeMs(long ms) {
-    return new Timestamp(nanos + ms*NANOSECONDS_PER_MILLISECOND);
+  /**
+   * @param milliseconds the time period to be added.
+   * @return a new {@link Timestamp} whose value is calculated
+   *         by adding the given milliseconds to this timestamp.
+   */
+  public Timestamp addTimeMs(long milliseconds) {
+    return new Timestamp(nanos + milliseconds * NANOSECONDS_PER_MILLISECOND);
   }
 
   /**
@@ -58,8 +63,9 @@ public class Timestamp implements Comparable<Timestamp> {
   }
 
   /**
-   * Compare two timestamps.
-   * This method takes care the possibility of numerical overflow.
+   * Compare two timestamps, t0 (this) and t1 (that).
+   * This method uses {@code t0 - t1 < 0}, not {@code t0 < t1},
+   * in order to take care the possibility of numerical overflow.
    *
    * @see System#nanoTime()
    */

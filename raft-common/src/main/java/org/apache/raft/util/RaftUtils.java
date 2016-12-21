@@ -43,7 +43,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class RaftUtils {
   public static final Logger LOG = LoggerFactory.getLogger(RaftUtils.class);
-  private static final Class<?>[] EMPTY_CLASS_ARRAY = new Class[]{};
+  private static final Class<?>[] EMPTY_CLASS_ARRAY = {};
+
   /**
    * Cache of constructors for each class. Pins the classes so they
    * can't be garbage collected until ReflectionUtils can be collected.

@@ -19,10 +19,8 @@
 package org.apache.raft.conf;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.net.NetUtils;
-import org.apache.hadoop.util.StringInterner;
-import org.apache.hadoop.util.StringUtils;
+import org.apache.raft.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.*;
@@ -175,7 +173,7 @@ public class RaftProperties {
       this.finalParameters.addAll(other.finalParameters);
     }
 
-    synchronized(Configuration.class) {
+    synchronized(RaftProperties.class) {
       REGISTRY.put(this, null);
     }
     this.classLoader = other.classLoader;
@@ -642,27 +640,6 @@ public class RaftProperties {
     return Long.parseLong(valueString);
   }
 
-  /**
-   * Get the value of the <code>name</code> property as a <code>long</code> or
-   * human readable format. If no such property exists, the provided default
-   * value is returned, or if the specified value is not a valid
-   * <code>long</code> or human readable format, then an error is thrown. You
-   * can use the following suffix (case insensitive): k(kilo), m(mega), g(giga),
-   * t(tera), p(peta), e(exa)
-   *
-   * @param name property name.
-   * @param defaultValue default value.
-   * @throws NumberFormatException when the value is invalid
-   * @return property value as a <code>long</code>,
-   *         or <code>defaultValue</code>.
-   */
-  public long getLongBytes(String name, long defaultValue) {
-    String valueString = getTrimmed(name);
-    if (valueString == null)
-      return defaultValue;
-    return StringUtils.TraditionalBinaryPrefix.string2long(valueString);
-  }
-
   private String getHexDigits(String value) {
     boolean negative = false;
     String str = value;
@@ -761,17 +738,7 @@ public class RaftProperties {
    */
   public boolean getBoolean(String name, boolean defaultValue) {
     String valueString = getTrimmed(name);
-    if (null == valueString || valueString.isEmpty()) {
-      return defaultValue;
-    }
-
-    if (StringUtils.equalsIgnoreCase("true", valueString)) {
-      return true;
-    } else if (StringUtils.equalsIgnoreCase("false", valueString)) {
-      return false;
-    } else {
-      return defaultValue;
-    }
+    return StringUtils.string2boolean(valueString, defaultValue);
   }
 
   /**
@@ -1114,70 +1081,6 @@ public class RaftProperties {
 
   /**
    * Get the comma delimited values of the <code>name</code> property as
-   * a collection of <code>String</code>s.
-   * If no such property is specified then empty collection is returned.
-   * <p>
-   * This is an optimized version of {@link #getStrings(String)}
-   *
-   * @param name property name.
-   * @return property value as a collection of <code>String</code>s.
-   */
-  public Collection<String> getStringCollection(String name) {
-    String valueString = get(name);
-    return StringUtils.getStringCollection(valueString);
-  }
-
-  /**
-   * Get the comma delimited values of the <code>name</code> property as
-   * an array of <code>String</code>s.
-   * If no such property is specified then <code>null</code> is returned.
-   *
-   * @param name property name.
-   * @return property value as an array of <code>String</code>s,
-   *         or <code>null</code>.
-   */
-  public String[] getStrings(String name) {
-    String valueString = get(name);
-    return StringUtils.getStrings(valueString);
-  }
-
-  /**
-   * Get the comma delimited values of the <code>name</code> property as
-   * an array of <code>String</code>s.
-   * If no such property is specified then default value is returned.
-   *
-   * @param name property name.
-   * @param defaultValue The default value
-   * @return property value as an array of <code>String</code>s,
-   *         or default value.
-   */
-  public String[] getStrings(String name, String... defaultValue) {
-    String valueString = get(name);
-    if (valueString == null) {
-      return defaultValue;
-    } else {
-      return StringUtils.getStrings(valueString);
-    }
-  }
-
-  /**
-   * Get the comma delimited values of the <code>name</code> property as
-   * a collection of <code>String</code>s, trimmed of the leading and trailing whitespace.
-   * If no such property is specified then empty <code>Collection</code> is returned.
-   *
-   * @param name property name.
-   * @return property value as a collection of <code>String</code>s, or empty <code>Collection</code>
-   */
-  public Collection<String> getTrimmedStringCollection(String name) {
-    String valueString = get(name);
-    if (null == valueString) {
-      return new ArrayList<>();
-    }
-    return StringUtils.getTrimmedStringCollection(valueString);
-  }
-
-  /**
-   * Get the comma delimited values of the <code>name</code> property as
    * an array of <code>String</code>s, trimmed of the leading and trailing whitespace.
    * If no such property is specified then an empty array is returned.
    *
@@ -1190,35 +1093,6 @@ public class RaftProperties {
     return StringUtils.getTrimmedStrings(valueString);
   }
 
-  /**
-   * Get the comma delimited values of the <code>name</code> property as
-   * an array of <code>String</code>s, trimmed of the leading and trailing whitespace.
-   * If no such property is specified then default value is returned.
-   *
-   * @param name property name.
-   * @param defaultValue The default value
-   * @return property value as an array of trimmed <code>String</code>s,
-   *         or default value.
-   */
-  public String[] getTrimmedStrings(String name, String... defaultValue) {
-    String valueString = get(name);
-    if (null == valueString) {
-      return defaultValue;
-    } else {
-      return StringUtils.getTrimmedStrings(valueString);
-    }
-  }
-
-  /**
-   * Set the array of string values for the <code>name</code> property as
-   * as comma delimited values.
-   *
-   * @param name property name.
-   * @param values The values
-   */
-  public void setStrings(String name, String... values) {
-    set(name, StringUtils.arrayToString(values));
-  }
 
   /**
    * Get the socket address for <code>hostProperty</code> as a
@@ -1658,16 +1532,16 @@ public class RaftProperties {
 
         Attr propAttr = prop.getAttributeNode("name");
         if (propAttr != null)
-          attr = StringInterner.weakIntern(propAttr.getValue());
+          attr = StringUtils.weakIntern(propAttr.getValue());
         propAttr = prop.getAttributeNode("value");
         if (propAttr != null)
-          value = StringInterner.weakIntern(propAttr.getValue());
+          value = StringUtils.weakIntern(propAttr.getValue());
         propAttr = prop.getAttributeNode("final");
         if (propAttr != null)
           finalParameter = "true".equals(propAttr.getValue());
         propAttr = prop.getAttributeNode("source");
         if (propAttr != null)
-          source.add(StringInterner.weakIntern(propAttr.getValue()));
+          source.add(StringUtils.weakIntern(propAttr.getValue()));
 
         NodeList fields = prop.getChildNodes();
         for (int j = 0; j < fields.getLength(); j++) {
@@ -1676,15 +1550,15 @@ public class RaftProperties {
             continue;
           Element field = (Element)fieldNode;
           if ("name".equals(field.getTagName()) && field.hasChildNodes())
-            attr = StringInterner.weakIntern(
+            attr = StringUtils.weakIntern(
                 ((Text)field.getFirstChild()).getData().trim());
           if ("value".equals(field.getTagName()) && field.hasChildNodes())
-            value = StringInterner.weakIntern(
+            value = StringUtils.weakIntern(
                 ((Text)field.getFirstChild()).getData());
           if ("final".equals(field.getTagName()) && field.hasChildNodes())
             finalParameter = "true".equals(((Text)field.getFirstChild()).getData());
           if ("source".equals(field.getTagName()) && field.hasChildNodes())
-            source.add(StringInterner.weakIntern(
+            source.add(StringUtils.weakIntern(
                 ((Text)field.getFirstChild()).getData()));
         }
         source.add(name);
