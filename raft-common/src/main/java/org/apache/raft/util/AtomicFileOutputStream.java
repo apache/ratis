@@ -17,8 +17,8 @@
  */
 package org.apache.raft.util;
 
-import org.apache.hadoop.io.nativeio.NativeIO;
-import org.apache.hadoop.io.nativeio.NativeIOException;
+import org.apache.raft.io.nativeio.NativeIO;
+import org.apache.raft.io.nativeio.NativeIOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -84,7 +84,7 @@ void errno_enum_init(JNIEnv *env) {
     "valueOf", "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/Enum;");
   PASS_EXCEPTIONS(env);
 
-  errno_class = (*env)->FindClass(env, "org/apache/hadoop/io/nativeio/Errno");
+  errno_class = (*env)->FindClass(env, "org/apache/raft/io/nativeio/Errno");
   PASS_EXCEPTIONS(env);
   errno_class = (*env)->NewGlobalRef(env, errno_class);
 }

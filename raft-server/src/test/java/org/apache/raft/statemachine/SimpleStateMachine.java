@@ -19,9 +19,9 @@ package org.apache.raft.statemachine;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.io.MD5Hash;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.io.MD5Hash;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;

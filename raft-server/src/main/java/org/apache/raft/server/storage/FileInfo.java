@@ -17,7 +17,7 @@
  */
 package org.apache.raft.server.storage;
 
-import org.apache.hadoop.io.MD5Hash;
+import org.apache.raft.io.MD5Hash;
 
 import java.nio.file.Path;
 

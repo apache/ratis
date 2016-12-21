@@ -125,10 +125,7 @@ public abstract class NetUtils {
   /**
    * Create a socket address with the given host and port.  The hostname
    * might be replaced with another host that was set via
-   * {@link StaticResolution#put(String, String)}.  The value of
-   * hadoop.security.token.service.use_ip will determine whether the
-   * standard java host resolver is used, or if the fully qualified resolver
-   * is used.
+   * {@link StaticResolution#put(String, String)}.
    * @param host the hostname or IP use to instantiate the object
    * @param port the port number
    * @return InetSocketAddress

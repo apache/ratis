@@ -18,7 +18,7 @@
 package org.apache.raft.util;
 
 import com.google.common.base.Charsets;
-import org.apache.hadoop.io.MD5Hash;
+import org.apache.raft.io.MD5Hash;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +37,7 @@ public abstract class MD5FileUtil {
 
   public static final String MD5_SUFFIX = ".md5";
   private static final Pattern LINE_REGEX =
-      Pattern.compile("([0-9a-f]{32}) [ \\*](.+)");
+      Pattern.compile("([0-9a-f]{32}) [ *](.+)");
 
   /**
    * Verify that the previously saved md5 for the given file matches
