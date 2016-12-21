@@ -29,7 +29,7 @@ import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.statemachine.BaseStateMachine;
 import org.apache.raft.statemachine.StateMachine;
-import org.apache.raft.util.test.ExitUtils;
+import org.apache.raft.util.ExitUtils;
 import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;

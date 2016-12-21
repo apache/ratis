@@ -72,10 +72,17 @@ public class StringUtils {
   }
 
   public static boolean string2boolean(String s, boolean defaultValue) {
-    return s == null || s.isEmpty()? defaultValue
-        : "true".equalsIgnoreCase(s)? true
-        : "false".equalsIgnoreCase(s)? false
-        : defaultValue;
+    if (s == null || s.isEmpty()) {
+      return defaultValue;
+    }
+
+    if ("true".equalsIgnoreCase(s)) {
+      return true;
+    } else if ("false".equalsIgnoreCase(s)) {
+      return false;
+    } else {
+      return defaultValue;
+    }
   }
 
   /**

@@ -27,7 +27,7 @@ import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.AutoCloseableLock;
-import org.apache.raft.util.test.CodeInjectionForTesting;
+import org.apache.raft.util.CodeInjectionForTesting;
 
 import java.io.File;
 import java.io.IOException;

@@ -17,7 +17,7 @@
  */
 package org.apache.raft.io.nativeio;
 
-import org.apache.hadoop.util.Shell;
+import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
 
@@ -61,7 +61,7 @@ public class NativeIOException extends IOException {
 
   @Override
   public String toString() {
-    if (Shell.WINDOWS)
+    if (RaftUtils.WINDOWS)
       return errorCode + ": " + super.getMessage();
     else
       return errno.toString() + ": " + super.getMessage();

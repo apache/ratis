@@ -41,7 +41,7 @@ import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.shaded.proto.netty.NettyProtos.RaftNettyExceptionReplyProto;
 import org.apache.raft.shaded.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.raft.shaded.proto.netty.NettyProtos.RaftNettyServerRequestProto;
-import org.apache.raft.util.test.CodeInjectionForTesting;
+import org.apache.raft.util.CodeInjectionForTesting;
 import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.ProtoUtils;
 

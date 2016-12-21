@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
-import org.apache.raft.util.test.ExitUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,6 +39,51 @@ import java.util.concurrent.ThreadLocalRandom;
 public abstract class RaftUtils {
   public static final Logger LOG = LoggerFactory.getLogger(RaftUtils.class);
   private static final Class<?>[] EMPTY_CLASS_ARRAY = {};
+
+  // OSType detection
+  public enum OSType {
+    OS_TYPE_LINUX,
+    OS_TYPE_WIN,
+    OS_TYPE_SOLARIS,
+    OS_TYPE_MAC,
+    OS_TYPE_FREEBSD,
+    OS_TYPE_OTHER
+  }
+
+  /**
+   * Get the type of the operating system, as determined from parsing
+   * the <code>os.name</code> property.
+   */
+  private static OSType osType = getOSType();
+
+  private static OSType getOSType() {
+    String osName = System.getProperty("os.name");
+    if (osName.startsWith("Windows")) {
+      return OSType.OS_TYPE_WIN;
+    } else if (osName.contains("SunOS") || osName.contains("Solaris")) {
+      return OSType.OS_TYPE_SOLARIS;
+    } else if (osName.contains("Mac")) {
+      return OSType.OS_TYPE_MAC;
+    } else if (osName.contains("FreeBSD")) {
+      return OSType.OS_TYPE_FREEBSD;
+    } else if (osName.startsWith("Linux")) {
+      return OSType.OS_TYPE_LINUX;
+    } else {
+      // Some other form of Unix
+      return OSType.OS_TYPE_OTHER;
+    }
+  }
+
+  // Helper static vars for each platform
+  public static boolean WINDOWS = (osType == OSType.OS_TYPE_WIN);
+  public static boolean SOLARIS = (osType == OSType.OS_TYPE_SOLARIS);
+  public static boolean MAC     = (osType == OSType.OS_TYPE_MAC);
+  public static boolean FREEBSD = (osType == OSType.OS_TYPE_FREEBSD);
+  public static boolean LINUX   = (osType == OSType.OS_TYPE_LINUX);
+  public static boolean OTHER   = (osType == OSType.OS_TYPE_OTHER);
+
+  public static boolean PPC_64
+      = System.getProperties().getProperty("os.arch").contains("ppc64");
 
   /**
    * Cache of constructors for each class. Pins the classes so they

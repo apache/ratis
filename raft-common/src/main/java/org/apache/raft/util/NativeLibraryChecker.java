@@ -18,12 +18,8 @@
 
 package org.apache.raft.util;
 
-import org.apache.hadoop.util.Shell;
-import org.apache.raft.util.test.ExitUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 
 public class NativeLibraryChecker {
   public static final Logger LOG = LoggerFactory.getLogger(NativeLibraryChecker.class);
@@ -51,36 +47,16 @@ public class NativeLibraryChecker {
       }
     }
     boolean nativeRaftLoaded = NativeCodeLoader.isNativeCodeLoaded();
-    boolean winutilsExists = false;
-
     String raftLibraryName = "";
-    String winutilsPath = null;
 
     if (nativeRaftLoaded) {
       raftLibraryName = NativeCodeLoader.getLibraryName();
     }
 
-    if (Shell.WINDOWS) {
-      // winutils.exe is required on Windows
-      try {
-        winutilsPath = Shell.getWinUtilsFile().getCanonicalPath();
-        winutilsExists = true;
-      } catch (IOException e) {
-        LOG.debug("No Winutils: ", e);
-        winutilsPath = e.getMessage();
-        winutilsExists = false;
-      }
-      System.out.printf("winutils: %b %s%n", winutilsExists, winutilsPath);
-    }
-
     System.out.println("Native library checking:");
     System.out.printf("raft:  %b %s%n", nativeRaftLoaded, raftLibraryName);
 
-    if (Shell.WINDOWS) {
-      System.out.printf("winutils: %b %s%n", winutilsExists, winutilsPath);
-    }
-
-    if ((!nativeRaftLoaded) || (Shell.WINDOWS && (!winutilsExists))) {
+    if (!nativeRaftLoaded) {
       // return 1 to indicated check failed
       ExitUtils.terminate(1, "Failed to load native library.");
     }

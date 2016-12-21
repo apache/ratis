@@ -30,7 +30,7 @@ import org.apache.raft.shaded.io.grpc.Server;
 import org.apache.raft.shaded.io.grpc.ServerBuilder;
 import org.apache.raft.shaded.io.grpc.netty.NettyServerBuilder;
 import org.apache.raft.shaded.proto.RaftProtos.*;
-import org.apache.raft.util.test.CodeInjectionForTesting;
+import org.apache.raft.util.CodeInjectionForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
