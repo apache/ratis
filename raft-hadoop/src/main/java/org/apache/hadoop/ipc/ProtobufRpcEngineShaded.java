@@ -34,8 +34,6 @@ import org.apache.hadoop.security.token.SecretManager;
 import org.apache.hadoop.security.token.TokenIdentifier;
 import org.apache.hadoop.util.ProtoUtil;
 import org.apache.hadoop.util.Time;
-import org.apache.htrace.Trace;
-import org.apache.htrace.TraceScope;
 import org.apache.raft.shaded.com.google.protobuf.*;
 import org.apache.raft.shaded.com.google.protobuf.Descriptors.MethodDescriptor;
 import org.apache.raft.shaded.org.apache.hadoop.ipc.protobuf.ProtobufRpcEngineProtos.RequestHeaderProto;
@@ -200,14 +198,6 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
             + method.getName() + "]");
       }
 
-      TraceScope traceScope = null;
-      // if Tracing is on then start a new span for this rpc.
-      // guard it in the if statement to make sure there isn't
-      // any extra string manipulation.
-      if (Trace.isTracing()) {
-        traceScope = Trace.startSpan(RpcClientUtil.methodToTraceString(method));
-      }
-
       RequestHeaderProto rpcRequestHeader = constructRpcRequestHeader(method);
       
       if (LOG.isTraceEnabled()) {
@@ -230,13 +220,7 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
               remoteId + ": " + method.getName() +
                 " {" + e + "}");
         }
-        if (Trace.isTracing()) {
-          traceScope.getSpan().addTimelineAnnotation(
-              "Call got exception: " + e.getMessage());
-        }
         throw new ServiceException(e);
-      } finally {
-        if (traceScope != null) traceScope.close();
       }
 
       if (LOG.isDebugEnabled()) {

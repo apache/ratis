@@ -61,7 +61,7 @@
     <make-maven-plugin.version>1.0-beta-1</make-maven-plugin.version>
     <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
 
-    <hadoop.version>2.7.2</hadoop.version>
+    <hadoop.version>3.0.0-alpha1</hadoop.version>
   </properties>
 
   <dependencyManagement>

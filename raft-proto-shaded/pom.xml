@@ -37,7 +37,7 @@
     <!--Version of grpc to be shaded -->
     <shaded.grpc.version>1.0.1</shaded.grpc.version>
     <!--Version of Hadoop to be shaded -->
-    <shaded.hadoop.version>2.7.2</shaded.hadoop.version>
+    <shaded.hadoop.version>3.0.0-alpha1</shaded.hadoop.version>
   </properties>
 
   <build>
@@ -280,6 +280,7 @@
                       <exclude>com.google.code.findbugs</exclude>
                       <exclude>com.google.code.gson:gson</exclude>
                       <exclude>com.google.guava:guava</exclude>
+		      com.google.re2j:re2j
 
                       <exclude>com.jamesmurty.utils:java-xmlbuilder</exclude>
                       <exclude>com.jcraft:jsch</exclude>
@@ -287,8 +288,9 @@
                       <exclude>com.sun.jersey:jersey-core</exclude>
                       <exclude>com.sun.jersey:jersey-json</exclude>
                       <exclude>com.sun.jersey:jersey-server</exclude>
+                      <exclude>com.sun.jersey:jersey-servlet</exclude>
                       <exclude>com.sun.xml.bind:jaxb-impl</exclude>
-
+ 
                       <exclude>com.thoughtworks.paranamer:paranamer</exclude>
 
                       <exclude>commons-beanutils:commons-beanutils-core</exclude>
@@ -318,6 +320,8 @@
                       <exclude>javax.servlet:servlet-api</exclude>
                       <exclude>javax.xml.bind:jaxb-api</exclude>
                       <exclude>javax.xml.stream:stax-api</exclude>
+		      <exclude>javax.servlet:javax.servlet-api</exclude>
+                      <exclude>javax.ws.rs:jsr311-api</exclude>
 
                       <exclude>log4j:log4j</exclude>
                       <exclude>net.java.dev.jets3t:jets3t</exclude>
@@ -347,11 +351,37 @@
 
                       <exclude>org.mortbay.jetty:jetty-util</exclude>
                       <exclude>org.mortbay.jetty:jetty</exclude>
+                      <exclude>org.eclipse.jetty:jetty-server</exclude>
+                      <exclude>org.eclipse.jetty:jetty-util</exclude>
+                      <exclude>org.eclipse.jetty:jetty-servlet</exclude>
+                      <exclude>org.eclipse.jetty:jetty-webapp</exclude>
+                      <exclude>org.eclipse.jetty:jetty-util-ajax</exclude>
+		      <exclude>org.mortbay.jetty:jetty-sslengine</exclude>
+
                       <exclude>org.slf4j:slf4j-api</exclude>
                       <exclude>org.slf4j:slf4j-log4j12</exclude>
                       <exclude>org.tukaani:xz</exclude>
                       <exclude>org.xerial.snappy:snappy-java</exclude>
                       <exclude>xmlenc:xmlenc</exclude>
+
+                      <exclude>com.nimbusds:nimbus-jose-jwt</exclude>
+                      <exclude>net.jcip:jcip-annotations</exclude>
+                      <exclude>net.minidev:json-smart</exclude>
+
+                      <exclude>org.apache.htrace:htrace-core4</exclude>
+                      <exclude>org.apache.kerby:kerb-simplekdc</exclude>
+                      <exclude>org.apache.kerby:kerby-config</exclude>
+                      <exclude>org.apache.kerby:kerb-core</exclude>
+                      <exclude>org.apache.kerby:kerby-asn1</exclude>
+                      <exclude>org.apache.kerby:kerby-pkix</exclude>
+                      <exclude>org.apache.kerby:kerby-util</exclude>
+                      <exclude>org.apache.kerby:kerb-client</exclude>
+                      <exclude>org.apache.kerby:kerb-common</exclude>
+                      <exclude>org.apache.kerby:kerb-util</exclude>
+                      <exclude>org.apache.kerby:kerb-crypto</exclude>
+                      <exclude>org.apache.kerby:kerb-server</exclude>
+                      <exclude>org.apache.kerby:kerb-identity</exclude>
+                      <exclude>org.apache.kerby:kerb-admin</exclude>
                     </excludes>
                   </artifactSet>
                 </configuration>
