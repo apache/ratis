@@ -18,7 +18,6 @@
 package org.apache.raft.grpc.client;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.RaftGrpcConfigKeys;
 import org.apache.raft.grpc.RaftGrpcUtil;
@@ -29,6 +28,7 @@ import org.apache.raft.shaded.com.google.protobuf.ByteString;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.raft.shaded.proto.RaftProtos.RaftRpcRequestProto;
+import org.apache.raft.util.Daemon;
 import org.apache.raft.util.PeerProxyMap;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;

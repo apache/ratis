@@ -18,13 +18,13 @@
 package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.shaded.proto.RaftProtos.LeaderNoOp;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.util.Daemon;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.Timestamp;
 import org.slf4j.Logger;

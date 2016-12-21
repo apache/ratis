@@ -17,7 +17,7 @@
  */
 package org.apache.raft.server;
 
-import org.apache.hadoop.util.Daemon;
+import org.apache.raft.util.Daemon;
 import org.apache.raft.util.Timestamp;
 import org.slf4j.Logger;
 
@@ -79,7 +79,7 @@ class FollowerState extends Daemon {
         LOG.trace("TRACE", e);
         return;
       } catch (Exception e) {
-        LOG.warn(this + " caught an excpetion", e);
+        LOG.warn(this + " caught an exception", e);
       }
     }
   }

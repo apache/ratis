@@ -17,8 +17,8 @@
  */
 package org.apache.raft.server.simulation;
 
-import org.apache.hadoop.util.Daemon;
 import org.apache.raft.protocol.RaftRpcMessage;
+import org.apache.raft.util.Daemon;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

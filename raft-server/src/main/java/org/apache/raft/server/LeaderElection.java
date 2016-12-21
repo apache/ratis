@@ -19,13 +19,13 @@ package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import org.apache.hadoop.util.Daemon;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.shaded.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.raft.statemachine.SnapshotInfo;
+import org.apache.raft.util.Daemon;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.Timestamp;
 import org.slf4j.Logger;

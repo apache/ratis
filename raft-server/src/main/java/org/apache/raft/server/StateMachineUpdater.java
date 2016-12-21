@@ -18,7 +18,6 @@
 package org.apache.raft.server;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.util.Daemon;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.server.protocol.ServerProtoUtils;
@@ -28,6 +27,7 @@ import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.util.Daemon;
 import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;

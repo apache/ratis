@@ -22,7 +22,7 @@ package org.apache.raft.util;
  *
  * This class takes care the possibility of numerical overflow.
  *
- * This class is thread safe.
+ * The objects of this class are immutable.
  */
 public class Timestamp implements Comparable<Timestamp> {
   private static final long NANOSECONDS_PER_MILLISECOND = 1000000;
