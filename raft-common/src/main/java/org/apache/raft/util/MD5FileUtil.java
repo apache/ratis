@@ -18,10 +18,9 @@
 package org.apache.raft.util;
 
 import com.google.common.base.Charsets;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MD5Hash;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.security.DigestInputStream;
@@ -30,7 +29,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public abstract class MD5FileUtil {
-  private static final Log LOG = LogFactory.getLog(MD5FileUtil.class);
+  public static final Logger LOG = LoggerFactory.getLogger(MD5FileUtil.class);
 
   // TODO: we should provide something like Hadoop's checksum fs for the local filesystem
   // so that individual state machines do not have to deal with checksumming/corruption prevention.
@@ -74,7 +73,7 @@ public abstract class MD5FileUtil {
     } catch (IOException ioe) {
       throw new IOException("Error reading md5 file at " + md5File, ioe);
     } finally {
-      IOUtils.cleanup(LOG, reader);
+      RaftUtils.cleanup(LOG, reader);
     }
 
     Matcher matcher = LINE_REGEX.matcher(md5Line);
@@ -119,11 +118,11 @@ public abstract class MD5FileUtil {
     try {
       MessageDigest digester = MD5Hash.getDigester();
       DigestInputStream dis = new DigestInputStream(in, digester);
-      IOUtils.copyBytes(dis, new IOUtils.NullOutputStream(), 128*1024);
+      RaftUtils.readFully(dis, 128*1024);
 
       return new MD5Hash(digester.digest());
     } finally {
-      IOUtils.closeStream(in);
+      RaftUtils.cleanup(LOG, in);
     }
   }
 

@@ -20,12 +20,12 @@ package org.apache.raft.server.storage;
 import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
 import org.apache.hadoop.fs.ChecksumException;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.shaded.com.google.protobuf.CodedInputStream;
 import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.util.RaftUtils;
 
 import java.io.*;
 import java.util.zip.Checksum;
@@ -197,9 +197,9 @@ public class LogReader implements Closeable {
         // want to reposition the mark one byte before the error
         if (numRead != -1) {
           in.reset();
-          IOUtils.skipFully(in, idx);
+          RaftUtils.skipFully(in, idx);
           in.mark(temp.length + 1);
-          IOUtils.skipFully(in, 1);
+          RaftUtils.skipFully(in, 1);
         }
       }
     }
@@ -247,7 +247,7 @@ public class LogReader implements Closeable {
     checkBufferSize(totalLength);
     in.reset();
     in.mark(maxOpSize);
-    IOUtils.readFully(in, temp, 0, totalLength);
+    RaftUtils.readFully(in, temp, 0, totalLength);
 
     // verify checksum
     checksum.reset();
@@ -282,11 +282,11 @@ public class LogReader implements Closeable {
 
   void skipFully(long length) throws IOException {
     limiter.clearLimit();
-    IOUtils.skipFully(limiter, length);
+    RaftUtils.skipFully(limiter, length);
   }
 
   @Override
   public void close() throws IOException {
-    IOUtils.cleanup(null, in);
+    RaftUtils.cleanup(null, in);
   }
 }

@@ -18,7 +18,6 @@
 package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServer;
@@ -259,7 +258,7 @@ class RaftLogWorker implements Runnable {
 
     @Override
     public void execute() throws IOException {
-      IOUtils.cleanup(null, out);
+      RaftUtils.cleanup(null, out);
       out = null;
       Preconditions.checkState(segmentToClose != null);
 
@@ -317,7 +316,7 @@ class RaftLogWorker implements Runnable {
 
     @Override
     void execute() throws IOException {
-      IOUtils.cleanup(null, out);
+      RaftUtils.cleanup(null, out);
       out = null;
       if (segments.toTruncate != null) {
         File fileToTruncate = segments.toTruncate.isOpen ?

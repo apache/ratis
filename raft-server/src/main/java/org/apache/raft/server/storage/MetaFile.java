@@ -18,8 +18,8 @@
 package org.apache.raft.server.storage;
 
 import com.google.common.base.Charsets;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.raft.util.AtomicFileOutputStream;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,7 +123,7 @@ class MetaFile {
         LOG.warn("Cannot load term/votedFor properties from {}", file, e);
         throw e;
       } finally {
-        IOUtils.cleanup(null, br);
+        RaftUtils.cleanup(LOG, br);
       }
     }
   }

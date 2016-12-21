@@ -17,11 +17,10 @@
  */
 package org.apache.raft.util;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.hadoop.io.nativeio.NativeIOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 
@@ -42,8 +41,7 @@ public class AtomicFileOutputStream extends FilterOutputStream {
 
   public static final String TMP_EXTENSION = ".tmp";
 
-  private final static Log LOG = LogFactory.getLog(
-      AtomicFileOutputStream.class);
+  public static final Logger LOG = LoggerFactory.getLogger(AtomicFileOutputStream.class);
 
   private final File origFile;
   private final File tmpFile;
@@ -85,7 +83,7 @@ public class AtomicFileOutputStream extends FilterOutputStream {
       } else {
         if (!triedToClose) {
           // If we failed when flushing, try to close it to not leak an FD
-          IOUtils.closeStream(out);
+          RaftUtils.cleanup(LOG, out);
         }
         // close wasn't successful, try to delete the tmp file
         if (!tmpFile.delete()) {

@@ -18,7 +18,6 @@
 package org.apache.raft.util;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.hadoop.util.DataChecksum;
 import org.apache.raft.protocol.ChecksumException;
 
 import java.nio.ByteBuffer;
@@ -138,6 +137,6 @@ class NativeCrc32 {
 
   // Copy the constants over from DataChecksum so that javah will pick them up
   // and make them available in the native code header.
-  public static final int CHECKSUM_CRC32 = DataChecksum.CHECKSUM_CRC32;
-  public static final int CHECKSUM_CRC32C = DataChecksum.CHECKSUM_CRC32C;
+  public static final int CHECKSUM_CRC32 = 1;  //DataChecksum.CHECKSUM_CRC32
+  public static final int CHECKSUM_CRC32C = 2; //DataChecksum.CHECKSUM_CRC32C
 }

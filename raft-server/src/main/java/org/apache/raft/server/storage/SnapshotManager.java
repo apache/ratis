@@ -18,7 +18,6 @@
 package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.io.MD5Hash;
 import org.apache.raft.shaded.proto.RaftProtos.FileChunkProto;
 import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
@@ -98,7 +97,7 @@ public class SnapshotManager {
         // write data to the file
         out.write(chunk.getData().toByteArray());
       } finally {
-        IOUtils.cleanup(null, out);
+        RaftUtils.cleanup(null, out);
       }
 
       // rename the temp snapshot file if this is the last chunk. also verify

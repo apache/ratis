@@ -18,10 +18,10 @@
 package org.apache.raft.io.nativeio;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.Shell;
 import org.apache.raft.protocol.AlreadyExistsException;
 import org.apache.raft.util.NativeCodeLoader;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Unsafe;
@@ -795,10 +795,7 @@ public class NativeIO {
           position += transferred;
         }
       } finally {
-        IOUtils.cleanup(null, output);
-        IOUtils.cleanup(null, fos);
-        IOUtils.cleanup(null, input);
-        IOUtils.cleanup(null, fis);
+        RaftUtils.cleanup(LOG, output, fos, input, fis);
       }
     }
   }

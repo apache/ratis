@@ -17,7 +17,6 @@
  */
 package org.apache.raft.server;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.raft.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,18 +114,15 @@ public interface RaftServerConfigKeys {
   boolean RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_DEFAULT = false;
 
   /** An utility class to get conf values. */
-  class Get {
+  abstract class Get {
     static Logger LOG = LoggerFactory.getLogger(RaftServerConfigKeys.class);
 
-    private final Configuration conf;
     private final Ipc.Getters ipc = new Ipc.Getters(this);
 
-    public Get(Configuration conf) {
-      this.conf = conf;
-    }
+    protected abstract int getInt(String key, int defaultValue);
 
     int getInt(String key, int defaultValue, Integer min, Integer max) {
-      final int value = conf.getInt(key, defaultValue);
+      final int value = getInt(key, defaultValue);
       final String s = key + " = " + value;
       if (min != null && value < min) {
         throw new IllegalArgumentException(s + " < min = " + min);
@@ -138,8 +134,10 @@ public interface RaftServerConfigKeys {
       return value;
     }
 
+    protected abstract String getTrimmed(String key, String defaultValue);
+
     InetSocketAddress getInetSocketAddress(String key, String defaultValue) {
-      final String address = conf.getTrimmed(key, defaultValue);
+      final String address = getTrimmed(key, defaultValue);
       LOG.info(key + " = " + address);
       return NetUtils.createSocketAddr(address);
     }

@@ -19,8 +19,8 @@ package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import org.apache.hadoop.io.IOUtils;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -204,7 +204,7 @@ public class LogInputStream implements Closeable {
     try {
       return scanEditLog(in, maxTxIdToScan);
     } finally {
-      IOUtils.closeStream(in);
+      RaftUtils.cleanup(LOG, in);
     }
   }
 

@@ -17,26 +17,24 @@
  */
 package org.apache.raft.server.storage;
 
-import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.Closeable;
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.zip.Checksum;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_WRITE_BUFFER_SIZE_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_WRITE_BUFFER_SIZE_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.*;
 
 public class LogOutputStream implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(LogOutputStream.class);
@@ -133,7 +131,7 @@ public class LogOutputStream implements Closeable {
         fc.truncate(fc.position());
       }
     } finally {
-      IOUtils.cleanup(null, fc, out);
+      RaftUtils.cleanup(LOG, fc, out);
       fc = null;
       out = null;
     }
@@ -158,7 +156,7 @@ public class LogOutputStream implements Closeable {
       int size = (int) Math.min(BUFFER_SIZE, targetSize - allocated);
       ByteBuffer buffer = fill.slice();
       buffer.limit(size);
-      IOUtils.writeFully(fc, buffer, preallocatedPos);
+      RaftUtils.writeFully(fc, buffer, preallocatedPos);
       preallocatedPos += size;
       allocated += size;
     }

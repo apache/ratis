@@ -73,8 +73,19 @@ public class HadoopRpcService implements RaftServerRpc {
     return ipcServerAddress;
   }
 
-  private RPC.Server newRpcServer(Configuration conf) throws IOException {
-    final RaftServerConfigKeys.Get get = new RaftServerConfigKeys.Get(conf);
+  private RPC.Server newRpcServer(final Configuration conf) throws IOException {
+    final RaftServerConfigKeys.Get get = new RaftServerConfigKeys.Get() {
+      @Override
+      protected int getInt(String key, int defaultValue) {
+        return conf.getInt(key, defaultValue);
+      }
+
+      @Override
+      protected String getTrimmed(String key, String defaultValue) {
+        return conf.getTrimmed(key, defaultValue);
+      }
+    };
+
     final int handlerCount = get.ipc().handlers();
     final InetSocketAddress address = get.ipc().address();
 
