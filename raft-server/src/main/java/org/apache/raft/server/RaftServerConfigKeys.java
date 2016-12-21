@@ -18,7 +18,7 @@
 package org.apache.raft.server;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.net.NetUtils;
+import org.apache.raft.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

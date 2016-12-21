@@ -29,7 +29,7 @@ import org.apache.raft.server.BlockRequestHandlingInjection;
 import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.LogAppenderFactory;
 import org.apache.raft.server.RaftServer;
-import org.apache.raft.util.RaftUtils;
+import org.apache.raft.util.NetUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -106,7 +106,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   @Override
   protected RaftServer setPeerRpc(RaftPeer peer) throws IOException {
     RaftServer server = servers.get(peer.getId());
-    int port = RaftUtils.newInetSocketAddress(peer.getAddress()).getPort();
+    int port = NetUtils.newInetSocketAddress(peer.getAddress()).getPort();
     int oldPort = properties.getInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY,
         RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_DEFAULT);
     properties.setInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, port);

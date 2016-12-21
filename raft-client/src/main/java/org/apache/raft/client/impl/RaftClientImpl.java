@@ -18,12 +18,13 @@
 package org.apache.raft.client.impl;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.raft.client.RaftClientConfigKeys;
 import org.apache.raft.client.RaftClient;
+import org.apache.raft.client.RaftClientConfigKeys;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
 import org.apache.raft.util.RaftUtils;
+import org.apache.raft.util.StringUtils;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -150,7 +151,7 @@ public final class RaftClientImpl implements RaftClient {
     LOG.debug("{}: Failed with {}", clientId, ioe);
     final String oldLeader = request.getReplierId();
     if (newLeader == null && oldLeader.equals(leaderId)) {
-      newLeader = RaftUtils.next(oldLeader, peers.keySet());
+      newLeader = StringUtils.next(oldLeader, peers.keySet());
     }
     if (newLeader != null && oldLeader.equals(leaderId)) {
       LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);

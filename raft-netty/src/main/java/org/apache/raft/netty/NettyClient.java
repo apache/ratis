@@ -28,7 +28,7 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import org.apache.raft.util.LifeCycle;
-import org.apache.raft.util.RaftUtils;
+import org.apache.raft.util.NetUtils;
 
 import java.io.Closeable;
 import java.net.InetSocketAddress;
@@ -42,7 +42,7 @@ public class NettyClient implements Closeable {
   public void connect(String serverAddress, EventLoopGroup group,
                       ChannelInitializer<SocketChannel> initializer)
       throws InterruptedException {
-    final InetSocketAddress address = RaftUtils.newInetSocketAddress(serverAddress);
+    final InetSocketAddress address = NetUtils.newInetSocketAddress(serverAddress);
     Preconditions.checkNotNull(address,
         "Failed to create InetSocketAddress from %s.", serverAddress);
 

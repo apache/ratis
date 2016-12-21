@@ -31,6 +31,7 @@ import org.apache.raft.shaded.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.raft.util.Daemon;
 import org.apache.raft.util.PeerProxyMap;
 import org.apache.raft.util.RaftUtils;
+import org.apache.raft.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,7 +127,7 @@ public class AppendStreamer implements Closeable {
       if (oldLeader == null) {
         leaderId = peers.keySet().iterator().next();
       } else {
-        leaderId = RaftUtils.next(oldLeader, peers.keySet());
+        leaderId = StringUtils.next(oldLeader, peers.keySet());
       }
     }
     LOG.debug("{} switches leader from {} to {}. suggested leader: {}", this,

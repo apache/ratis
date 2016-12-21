@@ -19,7 +19,6 @@ package org.apache.raft.util;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FileUtil;
-import org.apache.hadoop.net.NetUtils;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.raft.util.test.ExitUtils;
@@ -31,11 +30,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.lang.reflect.Constructor;
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -66,18 +63,6 @@ public abstract class RaftUtils {
   public static IOException toIOException(ExecutionException e) {
     final Throwable cause = e.getCause();
     return cause != null? asIOException(cause): new IOException(e);
-  }
-
-  public static InetSocketAddress newInetSocketAddress(String address) {
-    if (address.charAt(0) == '/') {
-      address = address.substring(1);
-    }
-    try {
-      return NetUtils.createSocketAddr(address);
-    } catch (Exception e) {
-      LOG.trace("", e);
-      return null;
-    }
   }
 
   public static void truncateFile(File f, long target) throws IOException {
@@ -189,27 +174,6 @@ public abstract class RaftUtils {
   public static int getRandomBetween(int min, int max) {
     Preconditions.checkArgument(max > min);
     return ThreadLocalRandom.current().nextInt(max -min) + min;
-  }
-
-  /**
-   *  @return the next string in the iteration right after the given string;
-   *          if the given string is not in the iteration, return the first string.
-   */
-  public static String next(final String given, final Iterable<String> iteration) {
-    Preconditions.checkNotNull(given);
-    Preconditions.checkNotNull(iteration);
-    final Iterator<String> i = iteration.iterator();
-    Preconditions.checkArgument(i.hasNext());
-
-    final String first = i.next();
-    for(String current = first; i.hasNext(); ) {
-      final String next = i.next();
-      if (given.equals(current)) {
-        return next;
-      }
-      current = next;
-    }
-    return first;
   }
 
   public static void setLogLevel(Logger logger, Level level) {

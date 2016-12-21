@@ -22,7 +22,6 @@ import org.apache.hadoop.ipc.ProtobufRpcEngineShaded;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.raft.util.RaftUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -33,7 +32,7 @@ public class Proxy<PROTOCOL> implements Closeable {
       throws IOException {
     RPC.setProtocolEngine(conf, clazz, ProtobufRpcEngineShaded.class);
     return RPC.getProxy(clazz, RPC.getProtocolVersion(clazz),
-        RaftUtils.newInetSocketAddress(addressStr),
+        org.apache.raft.util.NetUtils.newInetSocketAddress(addressStr),
         UserGroupInformation.getCurrentUser(),
         conf, NetUtils.getSocketFactory(conf, clazz));
   }

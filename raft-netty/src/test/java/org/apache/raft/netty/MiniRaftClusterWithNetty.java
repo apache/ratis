@@ -27,6 +27,7 @@ import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.DelayLocalExecutionInjection;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServer;
+import org.apache.raft.util.NetUtils;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
@@ -71,7 +72,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   private static NettyRpcService newNettyRpcService(
       RaftServer s, RaftConfiguration conf) {
     final String address = getAddress(s.getId(), conf);
-    final int port = RaftUtils.newInetSocketAddress(address).getPort();
+    final int port = NetUtils.newInetSocketAddress(address).getPort();
     return new NettyRpcService(port, s);
   }
 
