@@ -177,12 +177,6 @@
         <artifactId>mockito-all</artifactId>
         <version>1.8.5</version>
       </dependency>
-
-      <dependency>
-        <groupId>org.apache.hadoop</groupId>
-        <artifactId>hadoop-common</artifactId>
-        <version>${hadoop.version}</version>
-      </dependency>
     </dependencies>
   </dependencyManagement>
 
