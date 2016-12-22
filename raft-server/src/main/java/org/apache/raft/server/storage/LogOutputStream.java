@@ -17,11 +17,11 @@
  */
 package org.apache.raft.server.storage;
 
-import org.apache.hadoop.util.DataChecksum;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.util.PureJavaCrc32C;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,7 +61,7 @@ public class LogOutputStream implements Closeable {
   public LogOutputStream(File file, boolean append, RaftProperties properties)
       throws IOException {
     this.file = file;
-    this.checksum = DataChecksum.newCrc32();
+    this.checksum = new PureJavaCrc32C();
     this.segmentMaxSize = properties.getLong(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
         RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
     this.preallocatedSize = properties.getLong(

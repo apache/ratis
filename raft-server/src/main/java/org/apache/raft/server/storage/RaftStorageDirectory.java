@@ -21,9 +21,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import org.apache.hadoop.fs.FileUtil;
-import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.util.AtomicFileOutputStream;
+import org.apache.raft.util.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,9 +120,9 @@ public class RaftStorageDirectory {
 
   void clearDirectory(File dir) throws IOException {
     if (dir.exists()) {
-      File[] files = FileUtil.listFiles(dir);
+      File[] files = FileUtils.listFiles(dir);
       LOG.info("Will remove files: " + Arrays.toString(files));
-      if (!(FileUtil.fullyDelete(dir)))
+      if (!(FileUtils.fullyDelete(dir)))
         throw new IOException("Cannot remove directory: " + dir);
     }
     if (!dir.mkdirs())
@@ -246,7 +245,7 @@ public class RaftStorageDirectory {
         LOG.warn(rootPath + "is not a directory");
         return StorageState.NON_EXISTENT;
       }
-      if (!FileUtil.canWrite(root)) {
+      if (!FileUtils.canWrite(root)) {
         LOG.warn("Cannot access storage directory " + rootPath);
         return StorageState.NON_EXISTENT;
       }

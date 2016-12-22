@@ -17,7 +17,6 @@
  */
 package org.apache.raft.server.storage;
 
-import org.apache.hadoop.fs.FileUtil;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.RaftTestUtil.SimpleOperation;
 import org.apache.raft.conf.RaftProperties;
@@ -25,6 +24,7 @@ import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerConstants.StartupOption;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.raft.util.FileUtils;
 import org.apache.raft.util.ProtoUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -60,7 +60,7 @@ public class TestRaftLogSegment {
   @After
   public void tearDown() throws Exception {
     if (storageDir != null) {
-      FileUtil.fullyDelete(storageDir.getParentFile());
+      FileUtils.fullyDelete(storageDir.getParentFile());
     }
   }
 

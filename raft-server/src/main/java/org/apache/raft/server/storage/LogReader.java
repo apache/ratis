@@ -19,12 +19,12 @@ package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
-import org.apache.hadoop.fs.ChecksumException;
-import org.apache.hadoop.util.DataChecksum;
+import org.apache.raft.protocol.ChecksumException;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.shaded.com.google.protobuf.CodedInputStream;
 import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.util.PureJavaCrc32C;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.*;
@@ -130,7 +130,7 @@ public class LogReader implements Closeable {
     this.limiter = new LimitedInputStream(
         new BufferedInputStream(new FileInputStream(file)));
     in = new DataInputStream(limiter);
-    checksum = DataChecksum.newCrc32();
+    checksum = new PureJavaCrc32C();
   }
 
   String readLogHeader() throws IOException {

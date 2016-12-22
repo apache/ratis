@@ -17,6 +17,7 @@
  */
 package org.apache.raft.util;
 
+import org.apache.raft.io.nativeio.NativeIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -164,5 +165,43 @@ public class FileUtils {
       }
     }
     return u;
+  }
+
+  /**
+   * A wrapper for {@link File#listFiles()}. This java.io API returns null
+   * when a dir is not a directory or for any I/O error. Instead of having
+   * null check everywhere File#listFiles() is used, we will add utility API
+   * to get around this problem. For the majority of cases where we prefer
+   * an IOException to be thrown.
+   * @param dir directory for which listing should be performed
+   * @return list of files or empty list
+   * @exception IOException for invalid directory or for a bad disk.
+   */
+  public static File[] listFiles(File dir) throws IOException {
+    File[] files = dir.listFiles();
+    if(files == null) {
+      throw new IOException("Invalid directory or I/O error occurred for dir: "
+          + dir.toString());
+    }
+    return files;
+  }
+
+  /**
+   * Platform independent implementation for {@link File#canWrite()}
+   * @param f input file
+   * @return On Unix, same as {@link File#canWrite()}
+   *         On Windows, true if process has write access on the path
+   */
+  public static boolean canWrite(File f) {
+    if (RaftUtils.WINDOWS) {
+      try {
+        return NativeIO.Windows.access(f.getCanonicalPath(),
+            NativeIO.Windows.AccessRight.ACCESS_WRITE);
+      } catch (IOException e) {
+        return false;
+      }
+    } else {
+      return f.canWrite();
+    }
   }
 }

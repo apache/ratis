@@ -123,13 +123,13 @@ class NativeCrc32 {
       ByteBuffer data, int dataOffset, int dataLength,
       String fileName, long basePos) throws ChecksumException;
   
-    private static native void nativeComputeChunkedSums(
+  private static native void nativeComputeChunkedSums(
       int bytesPerSum, int checksumType,
       ByteBuffer sums, int sumsOffset,
       ByteBuffer data, int dataOffset, int dataLength,
       String fileName, long basePos, boolean verify);
 
-    private static native void nativeComputeChunkedSumsByteArray(
+  private static native void nativeComputeChunkedSumsByteArray(
       int bytesPerSum, int checksumType,
       byte[] sums, int sumsOffset,
       byte[] data, int dataOffset, int dataLength,

@@ -18,8 +18,8 @@
 package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.io.nativeio.NativeIO;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.LogSegment.SegmentFileInfo;

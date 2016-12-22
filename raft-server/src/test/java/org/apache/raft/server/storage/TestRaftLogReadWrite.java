@@ -17,11 +17,10 @@
  */
 package org.apache.raft.server.storage;
 
-import org.apache.hadoop.fs.ChecksumException;
-import org.apache.hadoop.fs.FileUtil;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.RaftTestUtil.SimpleOperation;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.protocol.ChecksumException;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServerConstants.StartupOption;
 import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
@@ -66,7 +65,7 @@ public class TestRaftLogReadWrite {
   @After
   public void tearDown() throws Exception {
     if (storageDir != null) {
-      FileUtil.fullyDelete(storageDir.getParentFile());
+      FileUtils.fullyDelete(storageDir.getParentFile());
     }
   }
 

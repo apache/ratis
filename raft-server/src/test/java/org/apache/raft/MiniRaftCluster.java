@@ -18,7 +18,6 @@
 package org.apache.raft;
 
 import com.google.common.base.Preconditions;
-import org.apache.hadoop.fs.FileUtil;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.client.impl.RaftClientImpl;
@@ -30,6 +29,7 @@ import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.statemachine.BaseStateMachine;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.util.ExitUtils;
+import org.apache.raft.util.FileUtils;
 import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
@@ -113,7 +113,7 @@ public abstract class MiniRaftCluster {
 
   private static void formatDir(String dirStr) {
     final File serverDir = new File(dirStr);
-    Preconditions.checkState(FileUtil.fullyDelete(serverDir),
+    Preconditions.checkState(FileUtils.fullyDelete(serverDir),
         "Failed to format directory %s", dirStr);
     LOG.info("Formatted directory {}", dirStr);
   }

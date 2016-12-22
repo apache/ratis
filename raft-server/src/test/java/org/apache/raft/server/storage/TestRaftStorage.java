@@ -17,15 +17,15 @@
  */
 package org.apache.raft.server.storage;
 
-import org.apache.hadoop.fs.FileUtil;
-import org.apache.hadoop.io.nativeio.NativeIO;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.conf.RaftProperties;
+import org.apache.raft.io.nativeio.NativeIO;
 import org.apache.raft.server.RaftServerConstants.StartupOption;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.raft.statemachine.SimpleStateMachineStorage;
+import org.apache.raft.util.FileUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -53,13 +53,13 @@ public class TestRaftStorage {
   @After
   public void tearDown() throws Exception {
     if (storageDir != null) {
-      FileUtil.fullyDelete(storageDir.getParentFile());
+      FileUtils.fullyDelete(storageDir.getParentFile());
     }
   }
 
   @Test
   public void testNotExistent() throws IOException {
-    FileUtil.fullyDelete(storageDir);
+    FileUtils.fullyDelete(storageDir);
 
     // we will format the empty directory
     RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
@@ -73,7 +73,7 @@ public class TestRaftStorage {
     }
 
     storage.close();
-    FileUtil.fullyDelete(storageDir);
+    FileUtils.fullyDelete(storageDir);
     Assert.assertTrue(storageDir.createNewFile());
     try {
       new RaftStorage(properties, StartupOption.REGULAR);

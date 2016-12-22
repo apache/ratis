@@ -280,27 +280,24 @@ public class TestRaftStream {
     final AtomicInteger result = new AtomicInteger(0);
     final CountDownLatch latch = new CountDownLatch(1);
 
-    new Thread() {
-      @Override
-      public void run() {
-        LOG.info("Writer thread starts");
-        int count = 0;
-        try (RaftOutputStream out = new RaftOutputStream(prop, "writer",
-            cluster.getPeers(), leader.getId())) {
-          while (running.get()) {
-            out.write(toBytes(count++));
-            Thread.sleep(10);
-          }
-          success.set(true);
-          result.set(count);
-        } catch (Exception e) {
-          LOG.info("Got exception when writing", e);
-          success.set(false);
-        } finally {
-          latch.countDown();
+    new Thread(() -> {
+      LOG.info("Writer thread starts");
+      int count = 0;
+      try (RaftOutputStream out = new RaftOutputStream(prop, "writer",
+          cluster.getPeers(), leader.getId())) {
+        while (running.get()) {
+          out.write(toBytes(count++));
+          Thread.sleep(10);
         }
+        success.set(true);
+        result.set(count);
+      } catch (Exception e) {
+        LOG.info("Got exception when writing", e);
+        success.set(false);
+      } finally {
+        latch.countDown();
       }
-    }.start();
+    }).start();
 
     // force change the leader
     RaftTestUtil.waitAndKillLeader(cluster, true);
