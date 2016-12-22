@@ -181,7 +181,7 @@ public class LifeCycle {
   /**
    * Check the current state and, if applicable, run the given close method.
    * This method can be called multiple times
-   * while the given close method will only be executed once.
+   * while the given close method will only be executed at most once.
    */
   public <T extends Throwable> void checkStateAndClose(
       CheckedRunnable<T> closeImpl) throws T {

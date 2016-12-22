@@ -19,7 +19,7 @@ package org.apache.raft.server.simulation;
 
 import org.apache.raft.protocol.RaftRpcMessage;
 import org.apache.raft.util.Daemon;
-import org.apache.raft.util.RaftUtils;
+import org.apache.raft.util.ExitUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,7 +126,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
             LOG.info(this + " is stopped.");
             break;
           }
-          RaftUtils.terminate(t, this + " is terminating due to", LOG);
+          ExitUtils.terminate(1, this + " is terminating.", t, LOG);
         }
       }
     }

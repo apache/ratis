@@ -25,11 +25,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.lang.reflect.Constructor;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.Files;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -53,7 +50,7 @@ public abstract class RaftUtils {
    * Get the type of the operating system, as determined from parsing
    * the <code>os.name</code> property.
    */
-  private static OSType osType = getOSType();
+  private static final OSType osType = getOSType();
 
   private static OSType getOSType() {
     String osName = System.getProperty("os.name");
@@ -74,14 +71,14 @@ public abstract class RaftUtils {
   }
 
   // Helper static vars for each platform
-  public static boolean WINDOWS = (osType == OSType.OS_TYPE_WIN);
-  public static boolean SOLARIS = (osType == OSType.OS_TYPE_SOLARIS);
-  public static boolean MAC     = (osType == OSType.OS_TYPE_MAC);
-  public static boolean FREEBSD = (osType == OSType.OS_TYPE_FREEBSD);
-  public static boolean LINUX   = (osType == OSType.OS_TYPE_LINUX);
-  public static boolean OTHER   = (osType == OSType.OS_TYPE_OTHER);
+  public static final boolean WINDOWS = (osType == OSType.OS_TYPE_WIN);
+  public static final boolean SOLARIS = (osType == OSType.OS_TYPE_SOLARIS);
+  public static final boolean MAC     = (osType == OSType.OS_TYPE_MAC);
+  public static final boolean FREEBSD = (osType == OSType.OS_TYPE_FREEBSD);
+  public static final boolean LINUX   = (osType == OSType.OS_TYPE_LINUX);
+  public static final boolean OTHER   = (osType == OSType.OS_TYPE_OTHER);
 
-  public static boolean PPC_64
+  public static final boolean PPC_64
       = System.getProperties().getProperty("os.arch").contains("ppc64");
 
   /**
@@ -105,79 +102,6 @@ public abstract class RaftUtils {
   public static IOException toIOException(ExecutionException e) {
     final Throwable cause = e.getCause();
     return cause != null? asIOException(cause): new IOException(e);
-  }
-
-  public static void truncateFile(File f, long target) throws IOException {
-    try (FileOutputStream out = new FileOutputStream(f, true)) {
-      out.getChannel().truncate(target);
-    }
-  }
-
-  public static void deleteFile(File f) throws IOException {
-    try {
-      Files.delete(f.toPath());
-    } catch (IOException e) {
-      LOG.warn("Could not delete " + f);
-      throw e;
-    }
-  }
-
-  public static void deleteDir(File d) {
-    FileUtils.fullyDelete(d);
-  }
-
-  public static void terminate(Throwable t, String message, Logger LOG) {
-    LOG.error(message, t);
-    ExitUtils.terminate(1, message);
-  }
-
-  /**
-   * Interprets the passed string as a URI. In case of error it
-   * assumes the specified string is a file.
-   *
-   * @param s the string to interpret
-   * @return the resulting URI
-   */
-  public static URI stringAsURI(String s) throws IOException {
-    URI u = null;
-    // try to make a URI
-    try {
-      u = new URI(s);
-    } catch (URISyntaxException e){
-      LOG.error("Syntax error in URI " + s
-          + ". Please check hdfs configuration.", e);
-    }
-
-    // if URI is null or scheme is undefined, then assume it's file://
-    if(u == null || u.getScheme() == null){
-      LOG.warn("Path " + s + " should be specified as a URI "
-          + "in configuration files. Please update configuration.");
-      u = fileAsURI(new File(s));
-    }
-    return u;
-  }
-
-  /**
-   * Converts the passed File to a URI. This method trims the trailing slash if
-   * one is appended because the underlying file is in fact a directory that
-   * exists.
-   *
-   * @param f the file to convert
-   * @return the resulting URI
-   */
-  public static URI fileAsURI(File f) throws IOException {
-    URI u = f.getCanonicalFile().toURI();
-
-    // trim the trailing slash, if it's present
-    if (u.getPath().endsWith("/")) {
-      String uriAsString = u.toString();
-      try {
-        u = new URI(uriAsString.substring(0, uriAsString.length() - 1));
-      } catch (URISyntaxException e) {
-        throw new IOException(e);
-      }
-    }
-    return u;
   }
 
   /** Is the given object an instance of one of the given classes? */

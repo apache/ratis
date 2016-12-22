@@ -22,7 +22,7 @@ import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.protocol.ServerProtoUtils;
 import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.util.RaftUtils;
+import org.apache.raft.util.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -120,7 +120,7 @@ class LogSegment implements Comparable<Long> {
 
     // truncate padding if necessary
     if (file.length() > segment.getTotalSize()) {
-      RaftUtils.truncateFile(file, segment.getTotalSize());
+      FileUtils.truncateFile(file, segment.getTotalSize());
     }
 
     Preconditions.checkState(start == segment.records.get(0).entry.getIndex());

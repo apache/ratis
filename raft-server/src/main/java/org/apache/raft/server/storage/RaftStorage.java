@@ -23,7 +23,7 @@ import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachineStorage;
-import org.apache.raft.util.RaftUtils;
+import org.apache.raft.util.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +49,7 @@ public class RaftStorage implements Closeable {
     final String dir = prop.get(RAFT_SERVER_STORAGE_DIR_KEY,
         RAFT_SERVER_STORAGE_DIR_DEFAULT);
     storageDir = new RaftStorageDirectory(
-        new File(RaftUtils.stringAsURI(dir).getPath()));
+        new File(FileUtils.stringAsURI(dir).getPath()));
     if (option == RaftServerConstants.StartupOption.FORMAT) {
       if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
         throw new IOException("Cannot format " + storageDir);
@@ -135,5 +135,10 @@ public class RaftStorage implements Closeable {
 
   public StateMachineStorage getStateMachineStorage() {
     return stateMachineStorage;
+  }
+
+  @Override
+  public String toString() {
+    return getStorageDir() + "";
   }
 }

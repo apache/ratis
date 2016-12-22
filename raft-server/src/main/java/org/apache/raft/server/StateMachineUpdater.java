@@ -28,8 +28,8 @@ import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
 import org.apache.raft.util.Daemon;
+import org.apache.raft.util.ExitUtils;
 import org.apache.raft.util.LifeCycle;
-import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -186,16 +186,14 @@ class StateMachineUpdater implements Runnable {
         }
       } catch (InterruptedException e) {
         if (!isRunning()) {
-          LOG.info("{}: the StateMachineUpdater is interrupted and will exit.",
-              this);
+          LOG.info("{}: the StateMachineUpdater is interrupted and will exit.", this);
         } else {
-          RaftUtils.terminate(e,
-              this + ": the StateMachineUpdater is wrongly interrupted", LOG);
+          final String s = this + ": the StateMachineUpdater is wrongly interrupted";
+          ExitUtils.terminate(1, s, e, LOG);
         }
       } catch (Throwable t) {
-        LOG.warn("{}: the StateMachineUpdater hits Throwable, {}", this, t);
-        RaftUtils.terminate(t,
-            this + ": the StateMachineUpdater hits Throwable", LOG);
+        final String s = this + ": the StateMachineUpdater hits Throwable";
+        ExitUtils.terminate(2, s, t, LOG);
       }
     }
   }

@@ -38,7 +38,7 @@ public class NativeLibraryChecker {
         (args.length == 1 &&
             !(args[0].equals("-a") || args[0].equals("-h")))) {
       System.err.println(usage);
-      ExitUtils.terminate(1, "Illegal arguments.");
+      ExitUtils.terminate(1, "Illegal arguments.", LOG);
     }
     if (args.length == 1) {
       if (args[0].equals("-h")) {
@@ -58,7 +58,7 @@ public class NativeLibraryChecker {
 
     if (!nativeRaftLoaded) {
       // return 1 to indicated check failed
-      ExitUtils.terminate(1, "Failed to load native library.");
+      ExitUtils.terminate(1, "Failed to load native library.", LOG);
     }
   }
 }

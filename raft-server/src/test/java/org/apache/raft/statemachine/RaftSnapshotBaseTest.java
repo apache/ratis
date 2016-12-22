@@ -31,6 +31,7 @@ import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.server.storage.RaftStorageDirectory;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.util.FileUtils;
 import org.apache.raft.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -174,7 +175,7 @@ public abstract class RaftSnapshotBaseTest {
 
     // delete the log segments from the leader
     for (LogPathAndIndex path : logs) {
-      RaftUtils.deleteFile(path.path.toFile());
+      FileUtils.deleteFile(path.path.toFile());
     }
 
     // restart the peer

@@ -26,6 +26,8 @@ import org.apache.raft.server.storage.LogSegment.SegmentFileInfo;
 import org.apache.raft.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.raft.server.storage.SegmentedRaftLog.Task;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.util.ExitUtils;
+import org.apache.raft.util.FileUtils;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,8 +38,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.raft.server.RaftServerConfigKeys.*;
-import static org.apache.raft.util.RaftUtils.deleteFile;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_FORCE_SYNC_NUM_DEFAULT;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_FORCE_SYNC_NUM_KEY;
 
 /**
  * This class takes the responsibility of all the raft log related I/O ops for a
@@ -77,7 +79,8 @@ class RaftLogWorker implements Runnable {
     this.properties = properties;
     this.forceSyncNum = properties.getInt(RAFT_LOG_FORCE_SYNC_NUM_KEY,
         RAFT_LOG_FORCE_SYNC_NUM_DEFAULT);
-    workerThread = new Thread(this, this.getClass().getSimpleName());
+    workerThread = new Thread(this,
+        getClass().getSimpleName() + " for " + storage);
   }
 
   void start(long latestIndex, File openSegmentFile) throws IOException {
@@ -132,7 +135,7 @@ class RaftLogWorker implements Runnable {
         LOG.info("Got InterruptedException when adding task " + task
             + ". The RaftLogWorker already stopped.");
       } else {
-        terminate(t);
+        ExitUtils.terminate(2, "Failed to add IO task " + task, t, LOG);
       }
     }
     return task;
@@ -140,11 +143,6 @@ class RaftLogWorker implements Runnable {
 
   boolean isAlive() {
     return running && workerThread.isAlive();
-  }
-
-  private void terminate(Throwable t) {
-    String message = "Exception while handling raft log: " + t;
-    RaftUtils.terminate(t, message, LOG);
   }
 
   @Override
@@ -172,7 +170,7 @@ class RaftLogWorker implements Runnable {
             + " tasks remaining in the queue.");
       } catch (Throwable t) {
         // TODO avoid terminating the jvm by supporting multiple log directories
-        terminate(t);
+        ExitUtils.terminate(1, Thread.currentThread().getName() + " failed.", t, LOG);
       }
     }
   }
@@ -274,7 +272,7 @@ class RaftLogWorker implements Runnable {
 
         NativeIO.renameTo(openFile, dstFile);
       } else { // delete the file of the empty segment
-        deleteFile(openFile);
+        FileUtils.deleteFile(openFile);
       }
       updateFlushedIndex();
     }
@@ -325,7 +323,7 @@ class RaftLogWorker implements Runnable {
             storage.getStorageDir().getClosedLogFile(
                 segments.toTruncate.startIndex,
                 segments.toTruncate.endIndex);
-        RaftUtils.truncateFile(fileToTruncate, segments.toTruncate.targetLength);
+        FileUtils.truncateFile(fileToTruncate, segments.toTruncate.targetLength);
 
         // rename the file
         File dstFile = storage.getStorageDir().getClosedLogFile(
@@ -346,7 +344,7 @@ class RaftLogWorker implements Runnable {
             delFile = storage.getStorageDir()
                 .getClosedLogFile(del.startIndex, del.endIndex);
           }
-          deleteFile(delFile);
+          FileUtils.deleteFile(delFile);
           minStart = Math.min(minStart, del.startIndex);
         }
         if (segments.toTruncate == null) {

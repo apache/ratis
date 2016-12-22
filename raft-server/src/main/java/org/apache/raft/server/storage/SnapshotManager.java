@@ -23,6 +23,7 @@ import org.apache.raft.shaded.proto.RaftProtos.FileChunkProto;
 import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
+import org.apache.raft.util.FileUtils;
 import org.apache.raft.util.MD5FileUtil;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
@@ -83,7 +84,7 @@ public class SnapshotManager {
         // same last index.
         if (chunk.getOffset() == 0) {
           if (tmpSnapshotFile.exists()) {
-            RaftUtils.deleteDir(tmpSnapshotFile);
+            FileUtils.fullyDelete(tmpSnapshotFile);
           }
           // create the temp snapshot file and put padding inside
           out = new FileOutputStream(tmpSnapshotFile);

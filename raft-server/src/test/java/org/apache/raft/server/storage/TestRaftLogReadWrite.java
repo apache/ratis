@@ -22,13 +22,12 @@ import org.apache.hadoop.fs.FileUtil;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.RaftTestUtil.SimpleOperation;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.RaftServerConstants;
 import org.apache.raft.server.RaftServerConstants.StartupOption;
 import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.raft.util.FileUtils;
 import org.apache.raft.util.ProtoUtils;
-import org.apache.raft.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -44,9 +43,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_DEFAULT;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY;
+import static org.apache.raft.server.RaftServerConfigKeys.*;
 
 /**
  * Test basic functionality of LogReader, LogInputStream, and LogOutputStream.
@@ -62,8 +59,8 @@ public class TestRaftLogReadWrite {
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftLogReadWrite.class);
     properties = new RaftProperties();
-    properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY,
-        RaftUtils.fileAsURI(storageDir).toString());
+    properties.set(RAFT_SERVER_STORAGE_DIR_KEY,
+        FileUtils.fileAsURI(storageDir).toString());
   }
 
   @After

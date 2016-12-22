@@ -18,19 +18,16 @@
 package org.apache.raft.util;
 
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Facilitates hooking process termination for tests and debugging. */
 public class ExitUtils {
-  public static final Logger LOG = LoggerFactory.getLogger(ExitUtils.class);
-
   public static class ExitException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     public final int status;
 
-    public ExitException(int status, String message) {
-      super(message);
+    public ExitException(int status, String message, Throwable throwable) {
+      super(message, throwable);
       this.status = status;
     }
   }
@@ -53,7 +50,7 @@ public class ExitUtils {
     firstExitException = null;
   }
 
-  /** @return true if {@link #terminate(int, String)} has been invoked. */
+  /** @return true if {@link #terminate(int, String, Throwable, Logger)} has been invoked. */
   public static boolean isTerminated() {
     // Either this member is set or System.exit is actually invoked.
     return firstExitException != null;
@@ -72,16 +69,30 @@ public class ExitUtils {
    * @param message message used to create the {@code ExitException}
    * @throws ExitException if System.exit is disabled for test purposes
    */
-  public static void terminate(int status, String message) throws ExitException {
-    LOG.info("Terminating with exit status " + status + ": " + message);
+  public static void terminate(
+      int status, String message, Throwable throwable, Logger log)
+      throws ExitException {
+    if (log != null) {
+      final String s = "Terminating with exit status " + status + ": " + message;
+      if (status == 0) {
+        log.info(s, throwable);
+      } else {
+        log.error(s, throwable);
+      }
+    }
+
     if (!systemExitDisabled) {
       System.exit(status);
     }
 
-    final ExitException ee = new ExitException(status, message);
+    final ExitException ee = new ExitException(status, message, throwable);
     if (firstExitException == null) {
       firstExitException = ee;
     }
     throw ee;
+  }
+
+  public static void terminate(int status, String message, Logger log) {
+    terminate(status, message, null, log);
   }
 }
