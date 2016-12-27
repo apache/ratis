@@ -17,15 +17,18 @@
  */
 package org.apache.raft.server;
 
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-
+import org.apache.raft.protocol.*;
+import org.apache.raft.server.protocol.RaftServerProtocol;
 import org.apache.raft.shaded.proto.RaftProtos.*;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.util.RaftUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Each RPC request is first handled by the RequestDispatcher:
@@ -38,17 +41,15 @@ import org.apache.raft.statemachine.TrxContext;
  * state machine returns the content of the raft log entry, which is then passed
  * to the RaftServer for replication.
  */
-public class RequestDispatcher {
+public class RequestDispatcher implements RaftClientProtocol, RaftServerProtocol {
+  static final Logger LOG = LoggerFactory.getLogger(RequestDispatcher.class);
+
   private final RaftServer server;
   private final StateMachine stateMachine;
 
   public RequestDispatcher(RaftServer server) {
     this.server = server;
     this.stateMachine = server.getStateMachine();
-  }
-
-  public RaftServer getRaftServer() {
-    return server;
   }
 
   public CompletableFuture<RaftClientReply> handleClientRequest(
@@ -71,28 +72,64 @@ public class RequestDispatcher {
     // state machine. We should call cancelTransaction() for failed requests
     TrxContext entry = stateMachine.startTransaction(request);
     if (entry.getException().isPresent()) {
-      Exception ex = entry.getException().get();
-      throw ex instanceof IOException ? (IOException)ex : new IOException(ex);
+      throw RaftUtils.asIOException(entry.getException().get());
     }
 
     return server.appendTransaction(request, entry);
   }
 
-  public CompletableFuture<RaftClientReply> setConfiguration(
+  @Override
+  public RaftClientReply submitClientRequest(RaftClientRequest request)
+      throws IOException {
+    return waitForReply(server.getId(), request, handleClientRequest(request));
+  }
+
+  public CompletableFuture<RaftClientReply> setConfigurationAsync(
       SetConfigurationRequest request) throws IOException {
     return server.setConfiguration(request);
   }
 
-  public RequestVoteReplyProto requestVote(
-      RequestVoteRequestProto request) throws IOException {
+  @Override
+  public RaftClientReply setConfiguration(SetConfigurationRequest request)
+      throws IOException {
+    return waitForReply(server.getId(), request, setConfigurationAsync(request));
+  }
+
+  private static RaftClientReply waitForReply(String serverId,
+      RaftClientRequest request, CompletableFuture<RaftClientReply> future)
+      throws IOException {
+    try {
+      return future.get();
+    } catch (InterruptedException e) {
+      final String s = serverId + ": Interrupted when waiting for reply, request=" + request;
+      LOG.info(s, e);
+      throw RaftUtils.toInterruptedIOException(s, e);
+    } catch (ExecutionException e) {
+      final Throwable cause = e.getCause();
+      if (cause == null) {
+        throw new IOException(e);
+      }
+      if (cause instanceof NotLeaderException) {
+        return new RaftClientReply(request, (NotLeaderException)cause);
+      } else {
+        throw RaftUtils.asIOException(cause);
+      }
+    }
+  }
+
+  @Override
+  public RequestVoteReplyProto requestVote(RequestVoteRequestProto request)
+      throws IOException {
     return server.requestVote(request);
   }
 
+  @Override
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request)
       throws IOException {
     return server.appendEntries(request);
   }
 
+  @Override
   public InstallSnapshotReplyProto installSnapshot(
       InstallSnapshotRequestProto request) throws IOException {
     return server.installSnapshot(request);

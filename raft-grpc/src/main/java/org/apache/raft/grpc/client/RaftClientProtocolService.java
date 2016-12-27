@@ -64,9 +64,11 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
   }
   private static final PendingAppend COMPLETED = new PendingAppend(Long.MAX_VALUE);
 
+  private final String id;
   private final RequestDispatcher dispatcher;
 
-  public RaftClientProtocolService(RequestDispatcher dispatcher) {
+  public RaftClientProtocolService(String id, RequestDispatcher dispatcher) {
+    this.id = id;
     this.dispatcher = dispatcher;
   }
 
@@ -74,7 +76,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
   public void setConfiguration(SetConfigurationRequestProto request,
       StreamObserver<RaftClientReplyProto> responseObserver) {
     try {
-      CompletableFuture<RaftClientReply> future = dispatcher.setConfiguration(
+      CompletableFuture<RaftClientReply> future = dispatcher.setConfigurationAsync(
           ClientProtoUtils.toSetConfigurationRequest(request));
       future.whenCompleteAsync((reply, exception) -> {
         if (exception != null) {
@@ -152,7 +154,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
         });
       } catch (Throwable e) {
         LOG.info("{} got exception when handling client append request {}: {}",
-            dispatcher.getRaftServer().getId(), request.getRpcRequest(), e);
+            id, request.getRpcRequest(), e);
         responseObserver.onError(RaftGrpcUtil.wrapException(e));
       }
     }
@@ -172,8 +174,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     @Override
     public void onError(Throwable t) {
       // for now we just log a msg
-      LOG.warn("{} onError: client Append cancelled",
-          dispatcher.getRaftServer().getId(), t);
+      LOG.warn("{} onError: client Append cancelled", id, t);
       synchronized (pendingList) {
         pendingList.clear();
       }

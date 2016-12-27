@@ -46,7 +46,7 @@ public class HadoopRpcService implements RaftServerRpc {
   static final String CLASS_NAME = HadoopRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
-  private final RaftServerRpcService raftService;
+  private final RequestDispatcher raftService;
   private final String id;
   private final RPC.Server ipcServer;
   private final InetSocketAddress ipcServerAddress;
@@ -57,7 +57,7 @@ public class HadoopRpcService implements RaftServerRpc {
       throws IOException {
     this.proxies = new PeerProxyMap<>(
         p -> new Proxy(RaftServerProtocolPB.class, p.getAddress(), conf));
-    this.raftService = new RaftServerRpcService(new RequestDispatcher(server));
+    this.raftService = new RequestDispatcher(server);
     this.id = server.getId();
     this.ipcServer = newRpcServer(conf);
     this.ipcServerAddress = ipcServer.getListenerAddress();

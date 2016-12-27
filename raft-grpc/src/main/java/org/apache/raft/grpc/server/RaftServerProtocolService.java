@@ -27,9 +27,12 @@ import org.slf4j.LoggerFactory;
 
 public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerProtocolService.class);
+
+  private final String id;
   private final RequestDispatcher dispatcher;
 
-  public RaftServerProtocolService(RequestDispatcher dispatcher) {
+  public RaftServerProtocolService(String id, RequestDispatcher dispatcher) {
+    this.id = id;
     this.dispatcher = dispatcher;
   }
 
@@ -42,7 +45,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       responseObserver.onCompleted();
     } catch (Throwable e) {
       LOG.info("{} got exception when handling requestVote {}: {}",
-          dispatcher.getRaftServer().getId(), request.getServerRequest(), e);
+          id, request.getServerRequest(), e);
       responseObserver.onError(RaftGrpcUtil.wrapException(e));
     }
   }
@@ -58,7 +61,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
           responseObserver.onNext(reply);
         } catch (Throwable e) {
           LOG.info("{} got exception when handling appendEntries {}: {}",
-              dispatcher.getRaftServer().getId(), request.getServerRequest(), e);
+              id, request.getServerRequest(), e);
           responseObserver.onError(RaftGrpcUtil.wrapException(e));
         }
       }
@@ -66,14 +69,12 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       @Override
       public void onError(Throwable t) {
         // for now we just log a msg
-        LOG.info("{}: appendEntries on error. Exception: {}",
-            dispatcher.getRaftServer().getId(), t);
+        LOG.info("{}: appendEntries on error. Exception: {}", id, t);
       }
 
       @Override
       public void onCompleted() {
-        LOG.info("{}: appendEntries completed",
-            dispatcher.getRaftServer().getId());
+        LOG.info("{}: appendEntries completed", id);
         responseObserver.onCompleted();
       }
     };
@@ -91,21 +92,19 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
           responseObserver.onNext(reply);
         } catch (Throwable e) {
           LOG.info("{} got exception when handling installSnapshot {}: {}",
-              dispatcher.getRaftServer().getId(), request.getServerRequest(), e);
+              id, request.getServerRequest(), e);
           responseObserver.onError(RaftGrpcUtil.wrapException(e));
         }
       }
 
       @Override
       public void onError(Throwable t) {
-        LOG.info("{}: installSnapshot on error. Exception: {}",
-            dispatcher.getRaftServer().getId(), t);
+        LOG.info("{}: installSnapshot on error. Exception: {}", id, t);
       }
 
       @Override
       public void onCompleted() {
-        LOG.info("{}: installSnapshot completed",
-            dispatcher.getRaftServer().getId());
+        LOG.info("{}: installSnapshot completed", id);
         responseObserver.onCompleted();
       }
     };

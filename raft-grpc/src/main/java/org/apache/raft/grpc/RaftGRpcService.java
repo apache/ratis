@@ -64,8 +64,8 @@ public class RaftGRpcService implements RaftServerRpc {
     final RequestDispatcher dispatcher = new RequestDispatcher(raftServer);
     selfId = raftServer.getId();
     server = ((NettyServerBuilder) serverBuilder).maxMessageSize(maxMessageSize)
-        .addService(new RaftServerProtocolService(dispatcher))
-        .addService(new RaftClientProtocolService(dispatcher))
+        .addService(new RaftServerProtocolService(selfId, dispatcher))
+        .addService(new RaftClientProtocolService(selfId, dispatcher))
         .build();
 
     // start service to determine the port (in case port is configured as 0)

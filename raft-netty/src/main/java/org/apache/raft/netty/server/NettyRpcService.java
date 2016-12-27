@@ -31,7 +31,6 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
-import org.apache.raft.server.RaftServerRpcService;
 import org.apache.raft.server.RequestDispatcher;
 import org.apache.raft.shaded.io.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.apache.raft.shaded.io.netty.handler.codec.protobuf.ProtobufEncoder;
@@ -57,7 +56,7 @@ public final class NettyRpcService implements RaftServerRpc {
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
-  private final RaftServerRpcService raftService;
+  private final RequestDispatcher raftService;
   private final String id;
 
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
@@ -77,7 +76,7 @@ public final class NettyRpcService implements RaftServerRpc {
 
   /** Constructs a netty server with the given port. */
   public NettyRpcService(int port, RaftServer server) {
-    this.raftService = new RaftServerRpcService(new RequestDispatcher(server));
+    this.raftService = new RequestDispatcher(server);
     this.id = server.getId();
 
     final ChannelInitializer<SocketChannel> initializer

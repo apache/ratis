@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 public class SimulatedServerRpc implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(SimulatedServerRpc.class);
 
+  private final RaftServer server;
   private final RequestDispatcher dispatcher;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
@@ -48,15 +49,12 @@ public class SimulatedServerRpc implements RaftServerRpc {
   public SimulatedServerRpc(RaftServer server,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
       SimulatedRequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
+    this.server = server;
     this.dispatcher = new RequestDispatcher(server);
-    this.serverHandler = new RequestHandler<>(getRaftServer().getId(),
+    this.serverHandler = new RequestHandler<>(server.getId(),
         "serverHandler", serverRequestReply, serverHandlerImpl, 3);
-    this.clientHandler = new RequestHandler<>(getRaftServer().getId(),
+    this.clientHandler = new RequestHandler<>(server.getId(),
         "clientHandler", clientRequestReply, clientHandlerImpl, 3);
-  }
-
-  private RaftServer getRaftServer() {
-    return dispatcher.getRaftServer();
   }
 
   @Override
@@ -120,7 +118,7 @@ public class SimulatedServerRpc implements RaftServerRpc {
       = new RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply>() {
     @Override
     public boolean isAlive() {
-      return getRaftServer().isAlive();
+      return server.isAlive();
     }
 
     @Override
@@ -144,7 +142,7 @@ public class SimulatedServerRpc implements RaftServerRpc {
       = new RequestHandler.HandlerInterface<RaftClientRequest, RaftClientReply>() {
     @Override
     public boolean isAlive() {
-      return getRaftServer().isAlive();
+      return server.isAlive();
     }
 
     @Override
@@ -152,7 +150,7 @@ public class SimulatedServerRpc implements RaftServerRpc {
         throws IOException {
       final CompletableFuture<RaftClientReply> future;
       if (request instanceof SetConfigurationRequest) {
-        future = dispatcher.setConfiguration((SetConfigurationRequest) request);
+        future = dispatcher.setConfigurationAsync((SetConfigurationRequest) request);
       } else {
         future = dispatcher.handleClientRequest(request);
       }
