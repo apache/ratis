@@ -23,7 +23,7 @@ import org.apache.raft.protocol.*;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.shaded.proto.RaftProtos.LeaderNoOp;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.statemachine.TransactionContext;
 import org.apache.raft.util.Daemon;
 import org.apache.raft.util.ProtoUtils;
 import org.apache.raft.util.Timestamp;
@@ -212,7 +212,7 @@ public class LeaderState {
   }
 
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
-      TrxContext entry) {
+      TransactionContext entry) {
     return pendingRequests.addPendingRequest(index, request, entry);
   }
 
@@ -523,7 +523,7 @@ public class LeaderState {
     pendingRequests.replyPendingRequest(logIndex, message);
   }
 
-  TrxContext getTransactionContext(long index) {
+  TransactionContext getTransactionContext(long index) {
     return pendingRequests.getTransactionContext(index);
   }
 

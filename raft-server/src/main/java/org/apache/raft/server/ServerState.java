@@ -27,7 +27,7 @@ import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
-import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.statemachine.TransactionContext;
 import org.apache.raft.util.ProtoUtils;
 
 import java.io.Closeable;
@@ -207,7 +207,7 @@ public class ServerState implements Closeable {
     return log;
   }
 
-  long applyLog(TrxContext operation) throws IOException {
+  long applyLog(TransactionContext operation) throws IOException {
     return log.append(currentTerm, operation);
   }
 

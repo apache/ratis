@@ -115,7 +115,7 @@ public interface StateMachine extends Closeable {
    * should be rejected.
    * @throws IOException thrown by the state machine while validation
    */
-  TrxContext startTransaction(RaftClientRequest request)
+  TransactionContext startTransaction(RaftClientRequest request)
       throws IOException;
 
   /**
@@ -125,7 +125,7 @@ public interface StateMachine extends Closeable {
    * log append, it is important to do only required operations here.
    * @return The Transaction context.
    */
-  TrxContext preAppendTransaction(TrxContext trx) throws IOException;
+  TransactionContext preAppendTransaction(TransactionContext trx) throws IOException;
 
   /**
    * Called to notify the state machine that the Transaction passed cannot be appended (or synced).
@@ -133,7 +133,7 @@ public interface StateMachine extends Closeable {
    * @param trx the transaction to cancel
    * @return cancelled transaction
    */
-  TrxContext cancelTransaction(TrxContext trx) throws IOException;
+  TransactionContext cancelTransaction(TransactionContext trx) throws IOException;
 
   /**
    * Called for transactions that have been committed to the RAFT log. This step is called
@@ -144,7 +144,7 @@ public interface StateMachine extends Closeable {
    *            of the raft peers
    * @return The Transaction context.
    */
-  TrxContext applyTransactionSerial(TrxContext trx) throws IOException;
+  TransactionContext applyTransactionSerial(TransactionContext trx) throws IOException;
 
   /**
    * Apply a committed log entry to the state machine. This method can be called concurrently with
@@ -154,10 +154,10 @@ public interface StateMachine extends Closeable {
    *            of the raft peers
    */
   // TODO: We do not need to return CompletableFuture
-  CompletableFuture<Message> applyTransaction(TrxContext trx) throws IOException;
+  CompletableFuture<Message> applyTransaction(TransactionContext trx) throws IOException;
 
   /**
    * Notify the state machine that the raft peer is no longer leader.
    */
-  void notifyNotLeader(Collection<TrxContext> pendingEntries) throws IOException;
+  void notifyNotLeader(Collection<TransactionContext> pendingEntries) throws IOException;
 }

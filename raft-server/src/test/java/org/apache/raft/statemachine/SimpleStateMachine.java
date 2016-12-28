@@ -121,7 +121,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<Message> applyTransaction(TrxContext trx) {
+  public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     LogEntryProto entry = trx.getLogEntry().get();
     list.add(entry);
     termIndexTracker.update(new TermIndex(entry.getTerm(), entry.getIndex()));
@@ -215,15 +215,15 @@ public class SimpleStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public TrxContext startTransaction(RaftClientRequest request)
+  public TransactionContext startTransaction(RaftClientRequest request)
       throws IOException {
-    return new TrxContext(this, request, SMLogEntryProto.newBuilder()
+    return new TransactionContext(this, request, SMLogEntryProto.newBuilder()
         .setData(request.getMessage().getContent())
         .build());
   }
 
   @Override
-  public void notifyNotLeader(Collection<TrxContext> pendingEntries) {
+  public void notifyNotLeader(Collection<TransactionContext> pendingEntries) {
     // do nothing
   }
 

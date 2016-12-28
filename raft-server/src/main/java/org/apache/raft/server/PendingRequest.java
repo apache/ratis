@@ -22,18 +22,18 @@ import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.statemachine.TransactionContext;
 
 import java.util.concurrent.CompletableFuture;
 
 public class PendingRequest implements Comparable<PendingRequest> {
   private final Long index;
   private final RaftClientRequest request;
-  private final TrxContext entry;
+  private final TransactionContext entry;
   private final CompletableFuture<RaftClientReply> future;
 
   PendingRequest(long index, RaftClientRequest request,
-                 TrxContext entry) {
+                 TransactionContext entry) {
     this.index = index;
     this.request = request;
     this.entry = entry;
@@ -56,7 +56,7 @@ public class PendingRequest implements Comparable<PendingRequest> {
     return future;
   }
 
-  TrxContext getEntry() {
+  TransactionContext getEntry() {
     return entry;
   }
 

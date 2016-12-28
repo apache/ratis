@@ -28,7 +28,7 @@ import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
-import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.statemachine.TransactionContext;
 import org.apache.raft.util.CodeInjectionForTesting;
 import org.apache.raft.util.LifeCycle;
 import org.apache.raft.util.ProtoUtils;
@@ -355,7 +355,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
    * Handle a normal update request from client.
    */
   public CompletableFuture<RaftClientReply> appendTransaction(
-      RaftClientRequest request, TrxContext entry)
+      RaftClientRequest request, TransactionContext entry)
       throws RaftException {
     LOG.debug("{}: receive client request({})", getId(), request);
     lifeCycle.assertCurrentState(RUNNING);
@@ -737,7 +737,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
     }
   }
 
-  TrxContext getTransactionContext(long index) {
+  TransactionContext getTransactionContext(long index) {
     if (leaderState != null) { // is leader and is running
       return leaderState.getTransactionContext(index);
     }

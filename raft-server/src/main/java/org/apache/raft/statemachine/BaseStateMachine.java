@@ -71,7 +71,7 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public void notifyNotLeader(Collection<TrxContext> pendingEntries) throws IOException {
+  public void notifyNotLeader(Collection<TransactionContext> pendingEntries) throws IOException {
     // do nothing
   }
 
@@ -84,12 +84,12 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public TrxContext applyTransactionSerial(TrxContext trx) throws IOException {
+  public TransactionContext applyTransactionSerial(TransactionContext trx) throws IOException {
     return trx;
   }
 
   @Override
-  public CompletableFuture<Message> applyTransaction(TrxContext trx) throws IOException {
+  public CompletableFuture<Message> applyTransaction(TransactionContext trx) throws IOException {
     // return the same message contained in the entry
     Message msg = () -> trx.getLogEntry().get().getSmLogEntry().getData();
     return CompletableFuture.completedFuture(msg);
@@ -125,21 +125,21 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public TrxContext startTransaction(RaftClientRequest request)
+  public TransactionContext startTransaction(RaftClientRequest request)
       throws IOException {
-    return new TrxContext(this, request,
+    return new TransactionContext(this, request,
         SMLogEntryProto.newBuilder()
             .setData(request.getMessage().getContent())
             .build());
   }
 
   @Override
-  public TrxContext cancelTransaction(TrxContext trx) throws IOException {
+  public TransactionContext cancelTransaction(TransactionContext trx) throws IOException {
     return trx;
   }
 
   @Override
-  public TrxContext preAppendTransaction(TrxContext trx) throws IOException {
+  public TransactionContext preAppendTransaction(TransactionContext trx) throws IOException {
     return trx;
   }
 

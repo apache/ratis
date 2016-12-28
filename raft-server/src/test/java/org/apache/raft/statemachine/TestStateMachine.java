@@ -101,17 +101,17 @@ public class TestStateMachine {
     ConcurrentLinkedQueue<Long> applied = new ConcurrentLinkedQueue<>();
 
     @Override
-    public TrxContext startTransaction(RaftClientRequest request) throws IOException {
+    public TransactionContext startTransaction(RaftClientRequest request) throws IOException {
       // only leader will get this call
       isLeader.set(true);
       // send the next transaction id as the "context" from SM
-      return new TrxContext(this, request, SMLogEntryProto.newBuilder()
+      return new TransactionContext(this, request, SMLogEntryProto.newBuilder()
           .setData(request.getMessage().getContent())
           .build(), transactions.incrementAndGet());
     }
 
     @Override
-    public CompletableFuture<Message> applyTransaction(TrxContext trx) {
+    public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
       try {
         assertTrue(trx.getLogEntry().isPresent());
         assertTrue(trx.getSMLogEntry().isPresent());

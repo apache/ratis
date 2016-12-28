@@ -29,7 +29,7 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftException;
 import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.statemachine.TransactionContext;
 import org.slf4j.Logger;
 
 import com.google.common.base.Preconditions;
@@ -47,7 +47,7 @@ class PendingRequests {
   }
 
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
-      TrxContext entry) {
+      TransactionContext entry) {
     // externally synced for now
     Preconditions.checkArgument(!request.isReadOnly());
     Preconditions.checkState(last == null || index == last.getIndex() + 1);
@@ -55,7 +55,7 @@ class PendingRequests {
   }
 
   private PendingRequest add(long index, RaftClientRequest request,
-      TrxContext entry) {
+      TransactionContext entry) {
     final PendingRequest pending = new PendingRequest(index, request, entry);
     pendingRequests.put(index, pending);
     last = pending;
@@ -86,7 +86,7 @@ class PendingRequests {
     pendingSetConf = null;
   }
 
-  TrxContext getTransactionContext(long index) {
+  TransactionContext getTransactionContext(long index) {
     PendingRequest pendingRequest = pendingRequests.get(index);
     // it is possible that the pendingRequest is null if this peer just becomes
     // the new leader and commits transactions received by the previous leader
@@ -116,7 +116,7 @@ class PendingRequests {
     LOG.info("{} sends responses before shutting down PendingRequestsHandler",
         server.getId());
 
-    Collection<TrxContext> pendingEntries = pendingRequests.values().stream()
+    Collection<TransactionContext> pendingEntries = pendingRequests.values().stream()
         .map(PendingRequest::getEntry).collect(Collectors.toList());
     // notify the state machine about stepping down
     server.getStateMachine().notifyNotLeader(pendingEntries);

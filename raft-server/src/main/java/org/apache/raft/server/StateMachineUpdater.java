@@ -26,7 +26,7 @@ import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachine;
-import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.statemachine.TransactionContext;
 import org.apache.raft.util.Daemon;
 import org.apache.raft.util.ExitUtils;
 import org.apache.raft.util.LifeCycle;
@@ -157,9 +157,9 @@ class StateMachineUpdater implements Runnable {
                       next.getConfigurationEntry()));
             } else if (next.getLogEntryBodyCase() == SMLOGENTRY) {
               // check whether there is a TransactionContext because we are the leader.
-              TrxContext trx = server.getTransactionContext(next.getIndex());
+              TransactionContext trx = server.getTransactionContext(next.getIndex());
               if (trx == null) {
-                trx = new TrxContext(stateMachine, next);
+                trx = new TransactionContext(stateMachine, next);
               }
 
               // Let the StateMachine inject logic for committed transactions in sequential order.

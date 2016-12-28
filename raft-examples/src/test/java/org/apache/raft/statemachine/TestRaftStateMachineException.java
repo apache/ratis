@@ -50,7 +50,7 @@ public class TestRaftStateMachineException {
 
   protected static class StateMachineWithException extends SimpleStateMachine {
     @Override
-    public CompletableFuture<Message> applyTransaction(TrxContext trx) {
+    public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
       CompletableFuture<Message> future = new CompletableFuture<>();
       future.completeExceptionally(new StateMachineException("Fake Exception"));
       return future;

@@ -21,7 +21,7 @@ import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.RaftServerProtocol;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.statemachine.StateMachine;
-import org.apache.raft.statemachine.TrxContext;
+import org.apache.raft.statemachine.TransactionContext;
 import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +70,7 @@ public class RequestDispatcher implements RaftClientProtocol, RaftServerProtocol
     // TODO: this client request will not be added to pending requests
     // until later which means that any failure in between will leave partial state in the
     // state machine. We should call cancelTransaction() for failed requests
-    TrxContext entry = stateMachine.startTransaction(request);
+    TransactionContext entry = stateMachine.startTransaction(request);
     if (entry.getException().isPresent()) {
       throw RaftUtils.asIOException(entry.getException().get());
     }
