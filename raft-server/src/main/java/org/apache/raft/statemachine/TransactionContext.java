@@ -26,118 +26,110 @@ import java.util.Collection;
 import java.util.Optional;
 
 /**
- * Context for a transaction. The transaction might have originated from a client request, or it
- * maybe coming from another replica of the state machine through the RAFT log. TrxContext can be
- * either created from the StateMachine or can be created by the StateMachineUpdater. In the first
- * case, the StateMachine receives a
- * {@link StateMachine#startTransaction(RaftClientRequest)} request, and
- * should return a TrxContext with the changes from the SM. The same context will come back to the
- * SM via {@link StateMachine#applyTransaction(TransactionContext)} call
- * or {@link StateMachine#notifyNotLeader(Collection)} call. In the second
- * case, if the StateMachine is a follower, the TrxContext will be a committed entry coming from
+ * Context for a transaction.
+ * The transaction might have originated from a client request, or it
+ * maybe coming from another replica of the state machine through the RAFT log.
+ * {@link TransactionContext} can be created from
+ * either the {@link StateMachine} or the state machine updater.
+ *
+ * In the first case, the {@link StateMachine} is a leader. When it receives
+ * a {@link StateMachine#startTransaction(RaftClientRequest)} request, it returns
+ * a {@link TransactionContext} with the changes from the {@link StateMachine}.
+ * The same context will be passed back to the {@link StateMachine}
+ * via the {@link StateMachine#applyTransaction(TransactionContext)} call
+ * or the {@link StateMachine#notifyNotLeader(Collection)} call.
+ *
+ * In the second case, the {@link StateMachine} is a follower.
+ * The {@link TransactionContext} will be a committed entry coming from
  * the RAFT log from the leader.
  */
 public class TransactionContext {
 
-  /** The StateMachine that originated the Transaction. */
-  protected final StateMachine stateMachine;
+  /** The {@link StateMachine} that originated the transaction. */
+  private final StateMachine stateMachine;
 
   /** Original request from the client */
-  protected Optional<RaftClientRequest> clientRequest;
+  private Optional<RaftClientRequest> clientRequest = Optional.empty();
 
-  /** Exception from the StateMachine or log */
-  protected Optional<Exception> exception;
+  /** Exception from the {@link StateMachine} or from the log */
+  private Optional<Exception> exception = Optional.empty();
 
-  /** Data from the StateMachine */
-  protected Optional<SMLogEntryProto> smLogEntryProto;
-
-  /** Context specific to the State machine. The StateMachine can use this object to carry state
-   * between startTransaction() and applyLogEntries() */
-  protected Optional<Object> stateMachineContext;
-
-  /** Whether to commit the transaction to the RAFT Log. In some cases the SM may want to indicate
-   * that the transaction should not be committed */
-  protected boolean shouldCommit = true;
+  /** Data from the {@link StateMachine} */
+  private Optional<SMLogEntryProto> smLogEntryProto = Optional.empty();
 
   /**
-   * Committed LogEntry.
+   * Context specific to the state machine.
+   * The {@link StateMachine} can use this object to carry state between
+   * {@link StateMachine#startTransaction(RaftClientRequest)} and
+   * {@link StateMachine#applyTransaction(TransactionContext)}.
    */
-  protected Optional<LogEntryProto> logEntry;
+  private Optional<Object> stateMachineContext = Optional.empty();
+
+  /**
+   * Whether to commit the transaction to the RAFT Log.
+   * In some cases the {@link StateMachine} may want to indicate
+   * that the transaction should not be committed
+   */
+  private boolean shouldCommit = true;
+
+  /** Committed LogEntry. */
+  private Optional<LogEntryProto> logEntry = Optional.empty();
 
   private TransactionContext(StateMachine stateMachine) {
     this.stateMachine = stateMachine;
   }
 
-  /**
-   * Construct a TrxContext from a client request. Used by the state machine to start a transaction
-   * and send the Log entry representing the SM data to be applied to the raft log.
-   */
-  public TransactionContext(StateMachine stateMachine,
-                            RaftClientRequest clientRequest, SMLogEntryProto smLogEntryProto) {
+  /** The same as this(stateMachine, clientRequest, smLogEntryProto, null). */
+  public TransactionContext(
+      StateMachine stateMachine, RaftClientRequest clientRequest,
+      SMLogEntryProto smLogEntryProto) {
     this(stateMachine, clientRequest, smLogEntryProto, null);
   }
 
   /**
-   * Construct a TrxContext from a client request. Used by the state machine to start a transaction
-   * and send the Log entry representing the SM data to be applied to the raft log.
+   * Construct a {@link TransactionContext} from a client request.
+   * Used by the state machine to start a transaction
+   * and send the Log entry representing the transaction data
+   * to be applied to the raft log.
    */
-  public TransactionContext(StateMachine stateMachine, RaftClientRequest clientRequest) {
-    this(stateMachine);
-    this.clientRequest = Optional.of(clientRequest);
-    this.smLogEntryProto = Optional.empty();
-    this.exception = Optional.empty();
-    this.stateMachineContext = Optional.ofNullable(stateMachineContext);
-    this.logEntry = Optional.empty();
-  }
-
-  /**
-   * Construct a TrxContext from a client request. Used by the state machine to start a transaction
-   * and send the Log entry representing the SM data to be applied to the raft log.
-   */
-  public TransactionContext(StateMachine stateMachine, RaftClientRequest clientRequest,
-                            SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
+  public TransactionContext(
+      StateMachine stateMachine, RaftClientRequest clientRequest,
+      SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
     this(stateMachine);
     this.clientRequest = Optional.of(clientRequest);
     this.smLogEntryProto = Optional.of(smLogEntryProto);
-    this.exception = Optional.empty();
     this.stateMachineContext = Optional.ofNullable(stateMachineContext);
-    this.logEntry = Optional.empty();
   }
 
-  /**
-   * Construct a TrxContext from a client request to signal a failure. RAFT server will fail this
-   * request on behalf of the SM.
-   */
-  public TransactionContext(StateMachine stateMachine, RaftClientRequest clientRequest,
-                            Exception exception) {
+  /** The same as this(stateMachine, clientRequest, exception, null). */
+  public TransactionContext(
+      StateMachine stateMachine, RaftClientRequest clientRequest,
+      Exception exception) {
     this(stateMachine, clientRequest, exception, null);
   }
 
   /**
-   * Construct a TrxContext from a client request to signal a failure. RAFT server will fail this
-   * request on behalf of the SM.
+   * Construct a {@link TransactionContext} from a client request to signal
+   * an exception so that the RAFT server will fail the request on behalf
+   * of the {@link StateMachine}.
    */
-  public TransactionContext(StateMachine stateMachine, RaftClientRequest clientRequest, Exception exception,
-                            Object stateMachineContext) {
+  public TransactionContext(
+      StateMachine stateMachine, RaftClientRequest clientRequest,
+      Exception exception, Object stateMachineContext) {
     this(stateMachine);
     this.clientRequest = Optional.of(clientRequest);
-    this.smLogEntryProto = Optional.empty();
-    this.exception = Optional.empty();
+    this.exception = Optional.of(exception);
     this.stateMachineContext = Optional.ofNullable(stateMachineContext);
-    this.logEntry = Optional.empty();
   }
 
   /**
-   * Construct a TrxContext from a LogEntry. Used by followers for applying committed entries to the
-   * state machine
+   * Construct a {@link TransactionContext} from a {@link LogEntryProto}.
+   * Used by followers for applying committed entries to the state machine.
    * @param logEntry the log entry to be applied
    */
   public TransactionContext(StateMachine stateMachine, LogEntryProto logEntry) {
     this(stateMachine);
-    this.clientRequest = Optional.empty();
     this.smLogEntryProto = Optional.of(logEntry.getSmLogEntry());
-    this.exception = Optional.empty();
-    this.stateMachineContext = Optional.empty();
     this.logEntry = Optional.of(logEntry);
   }
 
