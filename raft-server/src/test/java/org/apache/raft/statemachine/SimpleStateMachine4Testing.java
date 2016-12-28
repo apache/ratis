@@ -53,9 +53,9 @@ import java.util.concurrent.CompletableFuture;
  *
  * For snapshot it simply merges all the log segments together.
  */
-public class SimpleStateMachine extends BaseStateMachine {
+public class SimpleStateMachine4Testing extends BaseStateMachine {
   static volatile int SNAPSHOT_THRESHOLD = 100;
-  static final Logger LOG = LoggerFactory.getLogger(SimpleStateMachine.class);
+  static final Logger LOG = LoggerFactory.getLogger(SimpleStateMachine4Testing.class);
   public static final String RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY
       = "raft.test.simple.state.machine.take.snapshot";
   public static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
@@ -69,7 +69,7 @@ public class SimpleStateMachine extends BaseStateMachine {
   private TermIndexTracker termIndexTracker;
   private final RaftProperties properties = new RaftProperties();
 
-  public SimpleStateMachine() {
+  public SimpleStateMachine4Testing() {
     this.storage  = new SimpleStateMachineStorage();
     this.termIndexTracker = new TermIndexTracker();
     checkpointer = new Daemon(() -> {

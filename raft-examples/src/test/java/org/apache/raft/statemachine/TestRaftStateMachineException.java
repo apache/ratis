@@ -48,7 +48,7 @@ public class TestRaftStateMachineException {
     RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  protected static class StateMachineWithException extends SimpleStateMachine {
+  protected static class StateMachineWithException extends SimpleStateMachine4Testing {
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
       CompletableFuture<Message> future = new CompletableFuture<>();

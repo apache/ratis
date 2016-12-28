@@ -70,7 +70,7 @@ public abstract class RaftSnapshotBaseTest {
   public void setup() throws IOException {
     final RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        SimpleStateMachine.class, StateMachine.class);
+        SimpleStateMachine4Testing.class, StateMachine.class);
     prop.setLong(RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY,
         SNAPSHOT_TRIGGER_THRESHOLD);
     prop.setBoolean(RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY, true);
@@ -123,7 +123,7 @@ public abstract class RaftSnapshotBaseTest {
       Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,
           cluster.getLeader().getState().getLog().getLastCommittedIndex());
       sm = cluster.getLeader().getStateMachine();
-      LogEntryProto[] entries = ((SimpleStateMachine) sm).getContent();
+      LogEntryProto[] entries = ((SimpleStateMachine4Testing) sm).getContent();
       for (i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
         Assert.assertEquals(i+1, entries[i].getIndex());
         Assert.assertArrayEquals(
@@ -187,7 +187,7 @@ public abstract class RaftSnapshotBaseTest {
       Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,
           cluster.getLeader().getState().getLog().getLastCommittedIndex());
       StateMachine sm = cluster.getLeader().getStateMachine();
-      LogEntryProto[] entries = ((SimpleStateMachine) sm).getContent();
+      LogEntryProto[] entries = ((SimpleStateMachine4Testing) sm).getContent();
       for (int i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
         Assert.assertEquals(i+1, entries[i].getIndex());
         Assert.assertArrayEquals(

@@ -93,7 +93,7 @@ public class TestStateMachine {
     return properties;
   }
 
-  public static class SMTransactionContext extends SimpleStateMachine {
+  public static class SMTransactionContext extends SimpleStateMachine4Testing {
     AtomicReference<Throwable> throwable = new AtomicReference<>(null);
     AtomicLong transactions = new AtomicLong(0);
     AtomicBoolean isLeader = new AtomicBoolean(false);

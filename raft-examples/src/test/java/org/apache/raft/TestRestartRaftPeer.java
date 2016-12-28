@@ -26,7 +26,7 @@ import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
-import org.apache.raft.statemachine.SimpleStateMachine;
+import org.apache.raft.statemachine.SimpleStateMachine4Testing;
 import org.apache.raft.statemachine.StateMachine;
 import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
@@ -59,7 +59,7 @@ public class TestRestartRaftPeer {
   public static Collection<Object[]> data() throws IOException {
     RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        SimpleStateMachine.class, StateMachine.class);
+        SimpleStateMachine4Testing.class, StateMachine.class);
     prop.setInt(RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY, 1024 * 8);
     return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3);
   }
