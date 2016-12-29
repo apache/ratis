@@ -102,9 +102,9 @@ public abstract class MiniRaftCluster {
   }
 
   public static RaftConfiguration initConfiguration(String[] ids) {
-    return new RaftConfiguration(Arrays.stream(ids)
-        .map(RaftPeer::new)
-        .collect(Collectors.toList()));
+    return RaftConfiguration.newBuilder()
+        .setConf(Arrays.stream(ids).map(RaftPeer::new).collect(Collectors.toList()))
+        .build();
   }
 
   private static String getBaseDirectory() {
@@ -146,7 +146,7 @@ public abstract class MiniRaftCluster {
 
   protected <RPC extends  RaftServerRpc> void init(Map<RaftPeer, RPC> peers) {
     LOG.info("peers = " + peers.keySet());
-    conf = new RaftConfiguration(peers.keySet());
+    conf = RaftConfiguration.newBuilder().setConf(peers.keySet()).build();
     for (Map.Entry<RaftPeer, RPC> entry : peers.entrySet()) {
       final RaftServer server = servers.get(entry.getKey().getId());
       server.setInitialConf(conf);
@@ -263,7 +263,7 @@ public abstract class MiniRaftCluster {
 
     final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
     newPeers.addAll(conf.getPeers());
-    conf = new RaftConfiguration(newPeers, 0);
+    conf = RaftConfiguration.newBuilder().setConf(newPeers).setLogEntryIndex(0).build();
     RaftPeer[] p = newPeers.toArray(new RaftPeer[newPeers.size()]);
     return new PeerChanges(p, np, new RaftPeer[0]);
   }
@@ -301,7 +301,7 @@ public abstract class MiniRaftCluster {
         removed++;
       }
     }
-    conf = new RaftConfiguration(peers, 0);
+    conf = RaftConfiguration.newBuilder().setConf(peers).setLogEntryIndex(0).build();
     RaftPeer[] p = peers.toArray(new RaftPeer[peers.size()]);
     return new PeerChanges(p, new RaftPeer[0],
         removedPeers.toArray(new RaftPeer[removedPeers.size()]));

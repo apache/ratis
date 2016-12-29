@@ -225,7 +225,7 @@ class LeaderElection extends Daemon {
         }
         if (r.getServerReply().getSuccess()) {
           votedPeers.add(r.getServerReply().getReplyId());
-          if (conf.hasMajorities(votedPeers, server.getId())) {
+          if (conf.hasMajority(votedPeers, server.getId())) {
             return logAndReturn(Result.PASSED, responses, exceptions, -1);
           }
         }

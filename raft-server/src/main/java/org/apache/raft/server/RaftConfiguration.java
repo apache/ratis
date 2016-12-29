@@ -21,10 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.RaftPeer;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -32,15 +29,95 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * The configuration is stable if there is no on-going peer change. Otherwise,
  * the configuration is transitional, i.e. in the middle of a peer change.
+ *
+ * The objects of this class are immutable.
  */
 public class RaftConfiguration {
-  public static RaftConfiguration composeOldNewConf(RaftPeer[] peers,
-      RaftPeer[] old, long index) {
-    Preconditions.checkArgument(peers != null && peers.length > 0);
-    Preconditions.checkArgument(old != null && old.length > 0);
-    return new RaftConfiguration(
-        new PeerConfiguration(Arrays.asList(peers)),
-        new PeerConfiguration(Arrays.asList(old)), index);
+  /** Create a {@link Builder}. */
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  /** To build {@link RaftConfiguration} objects. */
+  public static class Builder {
+    private PeerConfiguration oldConf;
+    private PeerConfiguration conf;
+    private long logEntryIndex = RaftServerConstants.INVALID_LOG_INDEX;
+
+    private boolean forceStable = false;
+    private boolean forceTransitional = false;
+
+    private Builder() {}
+
+    public Builder setConf(PeerConfiguration conf) {
+      Preconditions.checkNotNull(conf);
+      Preconditions.checkState(this.conf == null, "conf is already set.");
+      this.conf = conf;
+      return this;
+    }
+
+    public Builder setConf(Iterable<RaftPeer> peers) {
+      return setConf(new PeerConfiguration(peers));
+    }
+
+    public Builder setConf(RaftPeer[] peers) {
+      return setConf(Arrays.asList(peers));
+    }
+
+    Builder setConf(RaftConfiguration transitionalConf) {
+      Preconditions.checkNotNull(transitionalConf);
+      Preconditions.checkState(transitionalConf.isTransitional());
+
+      Preconditions.checkState(!forceTransitional);
+      forceStable = true;
+      return setConf(transitionalConf.conf);
+    }
+
+
+    public Builder setOldConf(PeerConfiguration oldConf) {
+      Preconditions.checkNotNull(oldConf);
+      Preconditions.checkState(this.oldConf == null, "oldConf is already set.");
+      this.oldConf = oldConf;
+      return this;
+    }
+
+    public Builder setOldConf(Iterable<RaftPeer> oldPeers) {
+      return setOldConf(new PeerConfiguration(oldPeers));
+    }
+
+    public Builder setOldConf(RaftPeer[] oldPeers) {
+      return setOldConf(Arrays.asList(oldPeers));
+    }
+
+    Builder setOldConf(RaftConfiguration stableConf) {
+      Preconditions.checkNotNull(stableConf);
+      Preconditions.checkState(stableConf.isStable());
+
+      Preconditions.checkState(!forceStable);
+      forceTransitional = true;
+      return setOldConf(stableConf.conf);
+    }
+
+    public Builder setLogEntryIndex(long logEntryIndex) {
+      Preconditions.checkArgument(
+          logEntryIndex != RaftServerConstants.INVALID_LOG_INDEX);
+      Preconditions.checkState(
+          this.logEntryIndex == RaftServerConstants.INVALID_LOG_INDEX,
+          "logEntryIndex is already set.");
+      this.logEntryIndex = logEntryIndex;
+      return this;
+    }
+
+    /** Build a {@link RaftConfiguration}. */
+    public RaftConfiguration build() {
+      if (forceTransitional) {
+        Preconditions.checkState(oldConf != null);
+      }
+      if (forceStable) {
+        Preconditions.checkState(oldConf == null);
+      }
+      return new RaftConfiguration(conf, oldConf, logEntryIndex);
+    }
   }
 
   /** Non-null only if this configuration is transitional. */
@@ -54,36 +131,12 @@ public class RaftConfiguration {
   /** The index of the corresponding log entry for this configuration. */
   private final long logEntryIndex;
 
-  public RaftConfiguration(Iterable<RaftPeer> peers) {
-    this(peers, RaftServerConstants.INVALID_LOG_INDEX);
-  }
-
-  public RaftConfiguration(RaftPeer[] peers, long index) {
-    this(Arrays.asList(peers), index);
-  }
-
-  public RaftConfiguration(Iterable<RaftPeer> peers, long index) {
-    this.conf = new PeerConfiguration(peers);
-    this.oldConf = null;
-    this.logEntryIndex = index;
-  }
-
-  private RaftConfiguration(PeerConfiguration newConf, PeerConfiguration old,
-                            long index) {
-    this.conf = newConf;
-    this.oldConf = old;
-    this.logEntryIndex = index;
-  }
-
-  public RaftConfiguration generateOldNewConf(PeerConfiguration newConf,
-      long index) {
-    Preconditions.checkState(isStable());
-    return new RaftConfiguration(newConf, this.conf, index);
-  }
-
-  public RaftConfiguration generateNewConf(long index) {
-    Preconditions.checkState(isTransitional());
-    return new RaftConfiguration(conf.getPeers(), index);
+  private RaftConfiguration(PeerConfiguration conf, PeerConfiguration oldConf,
+      long logEntryIndex) {
+    Preconditions.checkNotNull(conf);
+    this.conf = conf;
+    this.oldConf = oldConf;
+    this.logEntryIndex = logEntryIndex;
   }
 
   /** Is this configuration transitional, i.e. in the middle of a peer change? */
@@ -108,6 +161,10 @@ public class RaftConfiguration {
     return containsInConf(peerId) && (oldConf == null || containsInOldConf(peerId));
   }
 
+  /**
+   * @return the peer corresponding to the given id;
+   *         or return null if the peer is not in this configuration.
+   */
   public RaftPeer getPeer(String id) {
     if (id == null) {
       return null;
@@ -121,6 +178,7 @@ public class RaftConfiguration {
     return null;
   }
 
+  /** @return all the peers from the conf, and the old conf if it exists. */
   public Collection<RaftPeer> getPeers() {
     final Collection<RaftPeer> peers = new ArrayList<>(conf.getPeers());
     if (oldConf != null) {
@@ -130,6 +188,10 @@ public class RaftConfiguration {
     return peers;
   }
 
+  /**
+   * @return all the peers other than the given self id from the conf,
+   *         and the old conf if it exists.
+   */
   public Collection<RaftPeer> getOtherPeers(String selfId) {
     Collection<RaftPeer> others = conf.getOtherPeers(selfId);
     if (oldConf != null) {
@@ -140,8 +202,8 @@ public class RaftConfiguration {
     return others;
   }
 
-  public boolean hasMajorities(Collection<String> others,
-      String selfId) {
+  /** @return true if the self id together with the others are in the majority. */
+  public boolean hasMajority(Collection<String> others, String selfId) {
     Preconditions.checkArgument(!others.contains(selfId));
     return conf.hasMajority(others, selfId) &&
         (oldConf == null || oldConf.hasMajority(others, selfId));
@@ -153,7 +215,7 @@ public class RaftConfiguration {
   }
 
   @VisibleForTesting
-  public boolean hasNoChange(RaftPeer[] newMembers) {
+  boolean hasNoChange(RaftPeer[] newMembers) {
     if (!isStable() || conf.size() != newMembers.length) {
       return false;
     }
@@ -190,7 +252,7 @@ public class RaftConfiguration {
   }
 
   public Collection<RaftPeer> getPeersInOldConf() {
-    return oldConf != null ? oldConf.getPeers() : new ArrayList<>(0);
+    return oldConf != null ? oldConf.getPeers() : Collections.emptyList();
   }
 
   public Collection<RaftPeer> getPeersInConf() {

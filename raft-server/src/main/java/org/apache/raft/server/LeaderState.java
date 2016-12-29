@@ -472,7 +472,10 @@ public class LeaderState {
    */
   private void replicateNewConf() {
     final RaftConfiguration conf = server.getRaftConf();
-    RaftConfiguration newConf = conf.generateNewConf(raftLog.getNextIndex());
+    final RaftConfiguration newConf = RaftConfiguration.newBuilder()
+        .setConf(conf)
+        .setLogEntryIndex(raftLog.getNextIndex())
+        .build();
     // stop the LogAppender if the corresponding follower is no longer in the conf
     updateSenders(newConf);
     long index = raftLog.append(server.getState().getCurrentTerm(), newConf);
@@ -543,7 +546,11 @@ public class LeaderState {
 
     RaftConfiguration generateOldNewConf(RaftConfiguration current,
         long logIndex) {
-      return current.generateOldNewConf(newConf, logIndex);
+      return RaftConfiguration.newBuilder()
+          .setConf(newConf)
+          .setOldConf(current)
+          .setLogEntryIndex(logIndex)
+          .build();
     }
 
     Collection<RaftPeer> getNewPeers() {

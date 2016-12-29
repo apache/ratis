@@ -22,6 +22,11 @@ import org.apache.raft.protocol.RaftPeer;
 
 import java.util.*;
 
+/**
+ * The peer configuration of a raft cluster.
+ *
+ * The objects of this class are immutable.
+ */
 class PeerConfiguration {
   private final Map<String, RaftPeer> peers;
 

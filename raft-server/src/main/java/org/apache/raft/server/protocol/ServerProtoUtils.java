@@ -18,7 +18,6 @@
 package org.apache.raft.server.protocol;
 
 import org.apache.raft.client.impl.ClientProtoUtils;
-import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.util.ProtoUtils;
@@ -75,13 +74,13 @@ public class ServerProtoUtils {
 
   public static RaftConfiguration toRaftConfiguration(
       long index, RaftConfigurationProto proto) {
-    final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(proto.getPeersList());
+    final RaftConfiguration.Builder b = RaftConfiguration.newBuilder()
+        .setConf(ProtoUtils.toRaftPeerArray(proto.getPeersList()))
+        .setLogEntryIndex(index);
     if (proto.getOldPeersCount() > 0) {
-      final RaftPeer[] oldPeers = ProtoUtils.toRaftPeerArray(proto.getPeersList());
-      return RaftConfiguration.composeOldNewConf(peers, oldPeers, index);
-    } else {
-      return new RaftConfiguration(peers, index);
+      b.setOldConf(ProtoUtils.toRaftPeerArray(proto.getOldPeersList()));
     }
+    return b.build();
   }
 
   public static LogEntryProto toLogEntryProto(

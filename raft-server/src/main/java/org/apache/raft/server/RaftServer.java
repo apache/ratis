@@ -335,7 +335,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
 
   NotLeaderException generateNotLeaderException() {
     if (lifeCycle.getCurrentState() != RUNNING) {
-      return new NotLeaderException(getId(), null, RaftPeer.EMPTY_PEERS);
+      return new NotLeaderException(getId(), null, null);
     }
     String leaderId = state.getLeaderId();
     if (leaderId == null || leaderId.equals(state.getSelfId())) {
