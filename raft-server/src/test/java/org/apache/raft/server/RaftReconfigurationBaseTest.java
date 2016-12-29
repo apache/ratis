@@ -47,8 +47,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
 import static org.apache.raft.MiniRaftCluster.logSyncDelay;
-import static org.apache.raft.RaftTestUtil.waitAndCheckNewConf;
 import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
+import static org.apache.raft.server.RaftServerTestUtil.waitAndCheckNewConf;
 import static org.apache.raft.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
 public abstract class RaftReconfigurationBaseTest {
@@ -248,7 +248,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       LOG.info("Start changing the configuration: {}",
           asList(c1.allPeersInNewConf));
-      Assert.assertFalse(cluster.getLeader().getRaftConf().inTransitionState());
+      Assert.assertFalse(cluster.getLeader().getRaftConf().isTransitional());
 
       final RaftClientRequestSender sender = ((RaftClientImpl)client).getRequestSender();
       final SetConfigurationRequest request = new SetConfigurationRequest(
@@ -372,7 +372,7 @@ public abstract class RaftReconfigurationBaseTest {
       // the leader cannot generate the (old, new) conf, and it will keep
       // bootstrapping the 2 new peers since they have not started yet
       LOG.info(cluster.printServers());
-      Assert.assertFalse(cluster.getLeader().getRaftConf().inTransitionState());
+      Assert.assertFalse(cluster.getLeader().getRaftConf().isTransitional());
 
       // only the first empty entry got committed
       final long committedIndex = cluster.getLeader().getState().getLog()

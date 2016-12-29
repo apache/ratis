@@ -36,7 +36,7 @@ class PeerConfiguration {
   }
 
   Collection<RaftPeer> getPeers() {
-    return new ArrayList<>(peers.values());
+    return Collections.unmodifiableCollection(peers.values());
   }
 
   int size() {

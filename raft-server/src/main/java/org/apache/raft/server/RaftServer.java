@@ -405,7 +405,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
 
       final RaftConfiguration current = getRaftConf();
       // make sure there is no other raft reconfiguration in progress
-      if (!current.inStableState() || leaderState.inStagingState() ||
+      if (!current.isStable() || leaderState.inStagingState() ||
           !state.isCurrentConfCommitted()) {
         throw new ReconfigurationInProgressException(
             "Reconfiguration is already in progress: " + current);
@@ -441,7 +441,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
   private boolean shouldSendShutdown(String candidateId,
       TermIndex candidateLastEntry) {
     return isLeader()
-        && getRaftConf().inStableState()
+        && getRaftConf().isStable()
         && getState().isConfCommitted()
         && !getRaftConf().containsInConf(candidateId)
         && candidateLastEntry.getIndex() < getRaftConf().getLogEntryIndex()

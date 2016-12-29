@@ -254,7 +254,7 @@ public class LeaderState {
    * Update the RpcSender list based on the current configuration
    */
   private void updateSenders(RaftConfiguration conf) {
-    Preconditions.checkState(conf.inStableState() && !inStagingState());
+    Preconditions.checkState(conf.isStable() && !inStagingState());
     Iterator<LogAppender> iterator = senders.iterator();
     while (iterator.hasNext()) {
       LogAppender sender = iterator.next();
@@ -278,7 +278,7 @@ public class LeaderState {
     synchronized (server) {
       if (running) {
         final RaftConfiguration conf = server.getRaftConf();
-        if (conf.inTransitionState() && server.getState().isConfCommitted()) {
+        if (conf.isTransitional() && server.getState().isConfCommitted()) {
           // the configuration is in transitional state, and has been committed
           // so it is time to generate and replicate (new) conf.
           replicateNewConf();
@@ -409,7 +409,7 @@ public class LeaderState {
         conf.containsInConf(selfId));
     final long oldLastCommitted = raftLog.getLastCommittedIndex();
     final LogEntryProto[] entriesToCommit;
-    if (!conf.inTransitionState()) {
+    if (!conf.isTransitional()) {
       // copy the entries that may get committed out of the raftlog, to prevent
       // the possible race that the log gets purged after the statemachine does
       // a snapshot
@@ -441,7 +441,7 @@ public class LeaderState {
   private void checkAndUpdateConfiguration(LogEntryProto[] entriesToCheck) {
     final RaftConfiguration conf = server.getRaftConf();
     if (committedConf(entriesToCheck)) {
-      if (conf.inTransitionState()) {
+      if (conf.isTransitional()) {
         replicateNewConf();
       } else { // the (new) log entry has been committed
         LOG.debug("{} sends success to setConfiguration request", server.getId());
@@ -503,7 +503,7 @@ public class LeaderState {
         .map(LogAppender::getFollower)
         .collect(Collectors.toList());
     lists.add(listForNew);
-    if (conf.inTransitionState()) {
+    if (conf.isTransitional()) {
       List<FollowerInfo> listForOld = senders.stream()
           .filter(sender -> conf.containsInOldConf(sender.getFollower().getPeer().getId()))
           .map(LogAppender::getFollower)

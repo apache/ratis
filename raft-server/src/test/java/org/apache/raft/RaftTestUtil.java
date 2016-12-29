@@ -20,8 +20,10 @@ package org.apache.raft;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.raft.protocol.Message;
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.*;
+import org.apache.raft.server.BlockRequestHandlingInjection;
+import org.apache.raft.server.DelayLocalExecutionInjection;
+import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.shaded.com.google.protobuf.ByteString;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
@@ -254,40 +256,6 @@ public class RaftTestUtil {
         LOG.warn("Attempt #" + i + "/" + n + ": Ignoring " + t + " and retry.");
       }
     }
-  }
-
-  public static void waitAndCheckNewConf(MiniRaftCluster cluster,
-      RaftPeer[] peers, int numOfRemovedPeers, Collection<String> deadPeers)
-      throws Exception {
-    final long sleepMs = cluster.getMaxTimeout() * (numOfRemovedPeers + 2);
-    attempt(3, sleepMs, () -> waitAndCheckNewConf(cluster, peers, deadPeers));
-  }
-  private static void waitAndCheckNewConf(MiniRaftCluster cluster,
-      RaftPeer[] peers, Collection<String> deadPeers)
-      throws Exception {
-    LOG.info(cluster.printServers());
-    Assert.assertNotNull(cluster.getLeader());
-
-    int numIncluded = 0;
-    int deadIncluded = 0;
-    RaftConfiguration current = new RaftConfiguration(peers, 0);
-    for (RaftServer server : cluster.getServers()) {
-      if (deadPeers != null && deadPeers.contains(server.getId())) {
-        if (current.containsInConf(server.getId())) {
-          deadIncluded++;
-        }
-        continue;
-      }
-      if (current.containsInConf(server.getId())) {
-        numIncluded++;
-        Assert.assertTrue(server.getRaftConf().inStableState());
-        Assert.assertTrue(server.getRaftConf().hasNoChange(peers));
-      } else {
-        Assert.assertFalse(server.getId() + " is still running: " + server,
-            server.isAlive());
-      }
-    }
-    Assert.assertEquals(peers.length, numIncluded + deadIncluded);
   }
 
   public static String changeLeader(MiniRaftCluster cluster, String oldLeader)

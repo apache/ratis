@@ -27,13 +27,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * The configuration of the raft cluster.
+ *
+ * The configuration is stable if there is no on-going peer change. Otherwise,
+ * the configuration is transitional, i.e. in the middle of a peer change.
+ */
 public class RaftConfiguration {
-
-  public enum State {
-    STABLE,            // stable, no configuration change
-    TRANSITIONAL,      // in the middle of a configuration change
-  }
-
   public static RaftConfiguration composeOldNewConf(RaftPeer[] peers,
       RaftPeer[] old, long index) {
     Preconditions.checkArgument(peers != null && peers.length > 0);
@@ -43,21 +43,15 @@ public class RaftConfiguration {
         new PeerConfiguration(Arrays.asList(old)), index);
   }
 
-  /**
-   * The state of the raft ring.
-   */
-  private final State state;
-  /**
-   * non-null while in TRANSITIONAL state
-   */
+  /** Non-null only if this configuration is transitional. */
   private final PeerConfiguration oldConf;
   /**
-   * the new configuration while in TRANSITIONAL state,
-   * or the current configuration in STABLE/STAGING state
+   * The current peer configuration while this configuration is stable;
+   * or the new peer configuration while this configuration is transitional.
    */
   private final PeerConfiguration conf;
 
-  /** the index of the corresponding log entry */
+  /** The index of the corresponding log entry for this configuration. */
   private final long logEntryIndex;
 
   public RaftConfiguration(Iterable<RaftPeer> peers) {
@@ -71,7 +65,6 @@ public class RaftConfiguration {
   public RaftConfiguration(Iterable<RaftPeer> peers, long index) {
     this.conf = new PeerConfiguration(peers);
     this.oldConf = null;
-    this.state = State.STABLE;
     this.logEntryIndex = index;
   }
 
@@ -79,43 +72,40 @@ public class RaftConfiguration {
                             long index) {
     this.conf = newConf;
     this.oldConf = old;
-    this.state = State.TRANSITIONAL;
     this.logEntryIndex = index;
   }
 
   public RaftConfiguration generateOldNewConf(PeerConfiguration newConf,
       long index) {
-    Preconditions.checkState(inStableState());
+    Preconditions.checkState(isStable());
     return new RaftConfiguration(newConf, this.conf, index);
   }
 
   public RaftConfiguration generateNewConf(long index) {
-    Preconditions.checkState(inTransitionState());
+    Preconditions.checkState(isTransitional());
     return new RaftConfiguration(conf.getPeers(), index);
   }
 
-  public State getState() {
-    return this.state;
+  /** Is this configuration transitional, i.e. in the middle of a peer change? */
+  public boolean isTransitional() {
+    return oldConf != null;
   }
 
-  public boolean inTransitionState() {
-    return this.state == State.TRANSITIONAL;
+  /** Is this configuration stable, i.e. no on-going peer change? */
+  public boolean isStable() {
+    return oldConf == null;
   }
 
-  public boolean inStableState() {
-    return this.state == State.STABLE;
-  }
-
-  public boolean containsInConf(String peerId) {
+  boolean containsInConf(String peerId) {
     return conf.contains(peerId);
   }
 
-  public boolean containsInOldConf(String peerId) {
+  boolean containsInOldConf(String peerId) {
     return oldConf != null && oldConf.contains(peerId);
   }
 
   public boolean contains(String peerId) {
-    return conf.contains(peerId) && (oldConf == null || containsInOldConf(peerId));
+    return containsInConf(peerId) && (oldConf == null || containsInOldConf(peerId));
   }
 
   public RaftPeer getPeer(String id) {
@@ -132,7 +122,7 @@ public class RaftConfiguration {
   }
 
   public Collection<RaftPeer> getPeers() {
-    Collection<RaftPeer> peers = conf.getPeers();
+    final Collection<RaftPeer> peers = new ArrayList<>(conf.getPeers());
     if (oldConf != null) {
       oldConf.getPeers().stream().filter(p -> !peers.contains(p))
           .forEach(peers::add);
@@ -164,7 +154,7 @@ public class RaftConfiguration {
 
   @VisibleForTesting
   public boolean hasNoChange(RaftPeer[] newMembers) {
-    if (!inStableState() || conf.size() != newMembers.length) {
+    if (!isStable() || conf.size() != newMembers.length) {
       return false;
     }
     for (RaftPeer peer : newMembers) {
