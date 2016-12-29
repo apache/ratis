@@ -197,7 +197,7 @@ public class LeaderState {
     final PendingRequest pending = pendingRequests.addConfRequest(request);
 
     ConfigurationStagingState stagingState = new ConfigurationStagingState(
-        peersToBootStrap, new SimpleConfiguration(Arrays.asList(peersInNewConf)));
+        peersToBootStrap, new PeerConfiguration(Arrays.asList(peersInNewConf)));
     Collection<RaftPeer> newPeers = stagingState.getNewPeers();
     // set the staging state
     this.stagingState = stagingState;
@@ -529,10 +529,10 @@ public class LeaderState {
 
   private class ConfigurationStagingState {
     private final Map<String, RaftPeer> newPeers;
-    private final SimpleConfiguration newConf;
+    private final PeerConfiguration newConf;
 
     ConfigurationStagingState(Collection<RaftPeer> newPeers,
-        SimpleConfiguration newConf) {
+        PeerConfiguration newConf) {
       Map<String, RaftPeer> map = new HashMap<>();
       for (RaftPeer peer : newPeers) {
         map.put(peer.getId(), peer);

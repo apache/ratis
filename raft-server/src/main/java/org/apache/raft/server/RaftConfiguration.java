@@ -20,7 +20,6 @@ package org.apache.raft.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.util.RaftUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,8 +39,8 @@ public class RaftConfiguration {
     Preconditions.checkArgument(peers != null && peers.length > 0);
     Preconditions.checkArgument(old != null && old.length > 0);
     return new RaftConfiguration(
-        new SimpleConfiguration(Arrays.asList(peers)),
-        new SimpleConfiguration(Arrays.asList(old)), index);
+        new PeerConfiguration(Arrays.asList(peers)),
+        new PeerConfiguration(Arrays.asList(old)), index);
   }
 
   /**
@@ -51,12 +50,12 @@ public class RaftConfiguration {
   /**
    * non-null while in TRANSITIONAL state
    */
-  private final SimpleConfiguration oldConf;
+  private final PeerConfiguration oldConf;
   /**
    * the new configuration while in TRANSITIONAL state,
    * or the current configuration in STABLE/STAGING state
    */
-  private final SimpleConfiguration conf;
+  private final PeerConfiguration conf;
 
   /** the index of the corresponding log entry */
   private final long logEntryIndex;
@@ -70,21 +69,21 @@ public class RaftConfiguration {
   }
 
   public RaftConfiguration(Iterable<RaftPeer> peers, long index) {
-    this.conf = new SimpleConfiguration(peers);
+    this.conf = new PeerConfiguration(peers);
     this.oldConf = null;
     this.state = State.STABLE;
     this.logEntryIndex = index;
   }
 
-  private RaftConfiguration(SimpleConfiguration newConf, SimpleConfiguration old,
-      long index) {
+  private RaftConfiguration(PeerConfiguration newConf, PeerConfiguration old,
+                            long index) {
     this.conf = newConf;
     this.oldConf = old;
     this.state = State.TRANSITIONAL;
     this.logEntryIndex = index;
   }
 
-  public RaftConfiguration generateOldNewConf(SimpleConfiguration newConf,
+  public RaftConfiguration generateOldNewConf(PeerConfiguration newConf,
       long index) {
     Preconditions.checkState(inStableState());
     return new RaftConfiguration(newConf, this.conf, index);

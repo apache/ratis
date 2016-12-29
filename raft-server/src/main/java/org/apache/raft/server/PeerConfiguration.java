@@ -22,10 +22,10 @@ import org.apache.raft.protocol.RaftPeer;
 
 import java.util.*;
 
-class SimpleConfiguration {
+class PeerConfiguration {
   private final Map<String, RaftPeer> peers;
 
-  SimpleConfiguration(Iterable<RaftPeer> peers) {
+  PeerConfiguration(Iterable<RaftPeer> peers) {
     Preconditions.checkNotNull(peers);
     Map<String, RaftPeer> map = new HashMap<>();
     for(RaftPeer p : peers) {
