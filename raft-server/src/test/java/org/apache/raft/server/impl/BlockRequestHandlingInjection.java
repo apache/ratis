@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.server.impl;
 
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.util.CodeInjectionForTesting;

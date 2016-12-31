@@ -21,7 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.raft.RaftBasicTests;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.impl.RaftServer;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;

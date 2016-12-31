@@ -17,7 +17,7 @@
  */
 package org.apache.raft.statemachine;
 
-import org.apache.raft.server.RaftConfiguration;
+import org.apache.raft.server.impl.RaftConfiguration;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 

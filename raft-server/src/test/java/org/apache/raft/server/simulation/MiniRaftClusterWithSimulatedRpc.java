@@ -21,7 +21,7 @@ import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.impl.RaftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -21,7 +21,7 @@ import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftNotLeaderExceptionBaseTest;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
-import org.apache.raft.server.LogAppenderFactory;
+import org.apache.raft.server.impl.LogAppenderFactory;
 
 import java.io.IOException;
 

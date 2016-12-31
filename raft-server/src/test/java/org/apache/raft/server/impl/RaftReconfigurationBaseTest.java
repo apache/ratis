@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.server.impl;
 
 import org.apache.log4j.Level;
 import org.apache.raft.MiniRaftCluster;
@@ -27,6 +27,7 @@ import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.client.impl.RaftClientImpl;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
+import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.util.RaftUtils;
@@ -47,8 +48,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
 import static org.apache.raft.MiniRaftCluster.logSyncDelay;
-import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
-import static org.apache.raft.server.RaftServerTestUtil.waitAndCheckNewConf;
+import static org.apache.raft.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
+import static org.apache.raft.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
 import static org.apache.raft.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
 public abstract class RaftReconfigurationBaseTest {

@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.server.impl;
 
 import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
@@ -37,8 +37,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static org.apache.raft.server.LeaderState.StateUpdateEventType.*;
 import static org.apache.raft.server.RaftServerConfigKeys.*;
+import static org.apache.raft.server.impl.LeaderState.StateUpdateEventType.*;
 
 /**
  * States for leader only. It contains three different types of processors:

@@ -21,7 +21,7 @@ package org.apache.raft.statemachine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import org.apache.raft.io.MD5Hash;
-import org.apache.raft.server.RaftConfiguration;
+import org.apache.raft.server.impl.RaftConfiguration;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.server.storage.RaftStorage;

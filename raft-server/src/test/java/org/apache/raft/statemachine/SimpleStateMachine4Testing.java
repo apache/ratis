@@ -25,7 +25,7 @@ import org.apache.raft.io.MD5Hash;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.server.impl.RaftServerConstants;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;

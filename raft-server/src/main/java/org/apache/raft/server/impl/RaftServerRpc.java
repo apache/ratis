@@ -15,32 +15,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.server.impl;
 
-import org.apache.raft.client.RaftClient;
+import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.shaded.proto.RaftProtos.*;
 
-public interface RaftServerConstants {
-  long INVALID_LOG_INDEX = -1;
-  byte LOG_TERMINATE_BYTE = 0;
-  long DEFAULT_SEQNUM = RaftClient.DEFAULT_SEQNUM;
+import java.io.IOException;
+import java.net.InetSocketAddress;
 
-  enum StartupOption {
-    FORMAT("format"),
-    REGULAR("regular");
+public interface RaftServerRpc {
+  void start();
 
-    private final String option;
+  void shutdown();
 
-    StartupOption(String arg) {
-      this.option = arg;
-    }
+  InetSocketAddress getInetSocketAddress();
 
-    public static StartupOption getOption(String arg) {
-      for (StartupOption s : StartupOption.values()) {
-        if (s.option.equals(arg)) {
-          return s;
-        }
-      }
-      return REGULAR;
-    }
-  }
+  AppendEntriesReplyProto sendAppendEntries(
+      AppendEntriesRequestProto request) throws IOException;
+
+  InstallSnapshotReplyProto sendInstallSnapshot(
+      InstallSnapshotRequestProto request) throws IOException;
+
+  RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
+      throws IOException;
+
+  /** add information of the given peers */
+  void addPeers(Iterable<RaftPeer> peers);
 }

@@ -15,7 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.server.impl;
+
+import com.google.common.base.Preconditions;
+import org.apache.raft.protocol.*;
+import org.apache.raft.statemachine.TransactionContext;
+import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -23,16 +28,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
-
-import org.apache.raft.protocol.Message;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.protocol.RaftException;
-import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.statemachine.TransactionContext;
-import org.slf4j.Logger;
-
-import com.google.common.base.Preconditions;
 
 class PendingRequests {
   private static final Logger LOG = RaftServer.LOG;

@@ -24,11 +24,10 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.netty.client.NettyClientRequestSender;
 import org.apache.raft.netty.server.NettyRpcService;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.DelayLocalExecutionInjection;
-import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.impl.DelayLocalExecutionInjection;
+import org.apache.raft.server.impl.RaftConfiguration;
+import org.apache.raft.server.impl.RaftServer;
 import org.apache.raft.util.NetUtils;
-import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
 import java.util.Collection;

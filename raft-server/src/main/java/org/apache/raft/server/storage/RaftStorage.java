@@ -19,7 +19,7 @@ package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.server.impl.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.raft.statemachine.SnapshotInfo;
 import org.apache.raft.statemachine.StateMachineStorage;

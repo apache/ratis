@@ -23,7 +23,11 @@ import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.client.impl.RaftClientImpl;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.*;
+import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.impl.DelayLocalExecutionInjection;
+import org.apache.raft.server.impl.RaftConfiguration;
+import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerRpc;
 import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.statemachine.BaseStateMachine;
@@ -40,7 +44,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.apache.raft.server.RaftServerConfigKeys.*;
+import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT;
 
 public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);

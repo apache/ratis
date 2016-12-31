@@ -15,14 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.server.impl;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
+import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.protocol.RaftServerProtocol;
-import org.apache.raft.server.impl.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.shaded.proto.RaftProtos.*;
@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
-import static org.apache.raft.server.LeaderState.UPDATE_COMMIT_EVENT;
 import static org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
 import static org.apache.raft.util.LifeCycle.State.*;
 
@@ -722,7 +721,7 @@ public class RaftServer implements RaftServerProtocol, Closeable {
 
   public synchronized void submitLocalSyncEvent() {
     if (isLeader() && leaderState != null) {
-      leaderState.submitUpdateStateEvent(UPDATE_COMMIT_EVENT);
+      leaderState.submitUpdateStateEvent(LeaderState.UPDATE_COMMIT_EVENT);
     }
   }
 

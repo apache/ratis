@@ -20,8 +20,8 @@ package org.apache.raft.grpc;
 import org.apache.log4j.Level;
 import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.raft.grpc.server.RaftServerProtocolService;
-import org.apache.raft.server.LogAppenderFactory;
-import org.apache.raft.server.RaftReconfigurationBaseTest;
+import org.apache.raft.server.impl.LogAppenderFactory;
+import org.apache.raft.server.impl.RaftReconfigurationBaseTest;
 import org.apache.raft.util.RaftUtils;
 import org.junit.BeforeClass;
 

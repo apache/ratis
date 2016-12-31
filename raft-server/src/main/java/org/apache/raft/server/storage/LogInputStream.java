@@ -29,7 +29,7 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 
-import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
+import static org.apache.raft.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
 public class LogInputStream implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(LogInputStream.class);

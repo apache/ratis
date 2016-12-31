@@ -17,6 +17,7 @@
  */
 package org.apache.raft.server;
 
+import org.apache.raft.server.impl.LogAppenderFactory;
 import org.apache.raft.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

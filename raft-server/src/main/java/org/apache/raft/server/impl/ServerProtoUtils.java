@@ -18,7 +18,6 @@
 package org.apache.raft.server.impl;
 
 import org.apache.raft.client.impl.ClientProtoUtils;
-import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.util.ProtoUtils;
@@ -27,7 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.apache.raft.server.RaftServerConstants.DEFAULT_SEQNUM;
+import static org.apache.raft.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 import static org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
 
 public class ServerProtoUtils {

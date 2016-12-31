@@ -18,7 +18,7 @@
 package org.apache.raft.netty;
 
 import org.apache.raft.MiniRaftCluster;
-import org.apache.raft.server.RaftReconfigurationBaseTest;
+import org.apache.raft.server.impl.RaftReconfigurationBaseTest;
 
 import java.io.IOException;
 

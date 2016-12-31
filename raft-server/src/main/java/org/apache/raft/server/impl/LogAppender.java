@@ -15,13 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.server.impl;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import org.apache.commons.io.IOUtils;
-import org.apache.raft.server.LeaderState.StateUpdateEventType;
-import org.apache.raft.server.impl.ServerProtoUtils;
+import org.apache.raft.server.impl.LeaderState.StateUpdateEventType;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.server.storage.RaftLog;
@@ -41,7 +40,7 @@ import java.nio.file.Path;
 import java.util.*;
 
 import static org.apache.raft.server.RaftServerConfigKeys.*;
-import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
+import static org.apache.raft.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
 /**
  * A daemon thread appending log entries to a follower peer.

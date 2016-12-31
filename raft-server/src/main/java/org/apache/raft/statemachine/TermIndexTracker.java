@@ -20,7 +20,7 @@ package org.apache.raft.statemachine;
 import com.google.common.base.Preconditions;
 import org.apache.raft.server.protocol.TermIndex;
 
-import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
+import static org.apache.raft.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
 /**
  * Tracks the term index that is applied to the StateMachine for simple state machines with

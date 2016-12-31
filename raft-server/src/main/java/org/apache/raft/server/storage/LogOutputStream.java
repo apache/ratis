@@ -18,7 +18,7 @@
 package org.apache.raft.server.storage;
 
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.server.impl.RaftServerConstants;
 import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.PureJavaCrc32C;

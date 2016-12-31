@@ -18,7 +18,7 @@
 package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
-import org.apache.raft.server.ConfigurationManager;
+import org.apache.raft.server.impl.ConfigurationManager;
 import org.apache.raft.server.impl.ServerProtoUtils;
 import org.apache.raft.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;

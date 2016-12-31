@@ -21,7 +21,7 @@ import org.apache.raft.RaftTestUtil;
 import org.apache.raft.RaftTestUtil.SimpleOperation;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.RaftServerConstants.StartupOption;
+import org.apache.raft.server.impl.RaftServerConstants.StartupOption;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.raft.util.FileUtils;
@@ -37,10 +37,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY;
-import static org.apache.raft.server.RaftServerConfigKeys.RAFT_LOG_WRITE_BUFFER_SIZE_KEY;
-import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
+import static org.apache.raft.server.RaftServerConfigKeys.*;
+import static org.apache.raft.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 import static org.apache.raft.server.storage.LogSegment.getEntrySize;
 
 /**

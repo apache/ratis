@@ -19,14 +19,14 @@ package org.apache.raft.server.storage;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.server.impl.RaftServerConstants;
 import org.apache.raft.server.storage.LogSegment.LogRecord;
 import org.apache.raft.server.storage.LogSegment.SegmentFileInfo;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 
 import java.util.*;
 
-import static org.apache.raft.server.RaftServerConstants.INVALID_LOG_INDEX;
+import static org.apache.raft.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
 /**
  * In-memory RaftLog Cache. Currently we provide a simple implementation that

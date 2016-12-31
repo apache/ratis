@@ -18,7 +18,7 @@
 package org.apache.raft.server.simulation;
 
 import org.apache.raft.MiniRaftCluster;
-import org.apache.raft.server.RaftReconfigurationBaseTest;
+import org.apache.raft.server.impl.RaftReconfigurationBaseTest;
 
 import java.io.IOException;
 

@@ -15,12 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.server.impl;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.impl.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.shaded.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.RequestVoteRequestProto;

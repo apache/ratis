@@ -20,7 +20,7 @@ package org.apache.raft.hadooprpc;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.RaftReconfigurationBaseTest;
+import org.apache.raft.server.impl.RaftReconfigurationBaseTest;
 
 import java.io.IOException;
 

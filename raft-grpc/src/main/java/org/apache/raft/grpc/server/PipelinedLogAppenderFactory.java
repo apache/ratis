@@ -17,11 +17,11 @@
  */
 package org.apache.raft.grpc.server;
 
-import org.apache.raft.server.FollowerInfo;
-import org.apache.raft.server.LeaderState;
-import org.apache.raft.server.LogAppender;
-import org.apache.raft.server.LogAppenderFactory;
-import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.impl.FollowerInfo;
+import org.apache.raft.server.impl.LeaderState;
+import org.apache.raft.server.impl.LogAppender;
+import org.apache.raft.server.impl.LogAppenderFactory;
+import org.apache.raft.server.impl.RaftServer;
 
 public class PipelinedLogAppenderFactory implements LogAppenderFactory {
   @Override

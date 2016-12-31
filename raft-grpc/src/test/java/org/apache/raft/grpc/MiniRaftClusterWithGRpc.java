@@ -25,10 +25,10 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.grpc.client.RaftClientSenderWithGrpc;
 import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.BlockRequestHandlingInjection;
-import org.apache.raft.server.DelayLocalExecutionInjection;
-import org.apache.raft.server.LogAppenderFactory;
-import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.impl.BlockRequestHandlingInjection;
+import org.apache.raft.server.impl.DelayLocalExecutionInjection;
+import org.apache.raft.server.impl.LogAppenderFactory;
+import org.apache.raft.server.impl.RaftServer;
 import org.apache.raft.util.NetUtils;
 
 import java.io.IOException;

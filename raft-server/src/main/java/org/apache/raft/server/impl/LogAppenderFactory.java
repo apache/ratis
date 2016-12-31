@@ -15,30 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.server.impl;
 
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.shaded.proto.RaftProtos.*;
+public interface LogAppenderFactory {
+  LogAppender getLogAppender(RaftServer server, LeaderState state,
+      FollowerInfo f);
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-
-public interface RaftServerRpc {
-  void start();
-
-  void shutdown();
-
-  InetSocketAddress getInetSocketAddress();
-
-  AppendEntriesReplyProto sendAppendEntries(
-      AppendEntriesRequestProto request) throws IOException;
-
-  InstallSnapshotReplyProto sendInstallSnapshot(
-      InstallSnapshotRequestProto request) throws IOException;
-
-  RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
-      throws IOException;
-
-  /** add information of the given peers */
-  void addPeers(Iterable<RaftPeer> peers);
+  class SynchronousLogAppenderFactory implements LogAppenderFactory {
+    @Override
+    public LogAppender getLogAppender(RaftServer server, LeaderState state,
+        FollowerInfo f) {
+      return new LogAppender(server, state, f);
+    }
+  }
 }

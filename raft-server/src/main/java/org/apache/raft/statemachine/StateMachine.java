@@ -17,19 +17,19 @@
  */
 package org.apache.raft.statemachine;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
-
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.impl.RaftConfiguration;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.util.LifeCycle;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 public interface StateMachine extends Closeable {
   /**

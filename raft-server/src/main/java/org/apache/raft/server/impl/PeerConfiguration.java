@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.server.impl;
 
 import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.RaftPeer;

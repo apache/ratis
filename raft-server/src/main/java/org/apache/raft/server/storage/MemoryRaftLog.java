@@ -18,8 +18,8 @@
 package org.apache.raft.server.storage;
 
 import com.google.common.base.Preconditions;
-import org.apache.raft.server.RaftConfiguration;
-import org.apache.raft.server.RaftServerConstants;
+import org.apache.raft.server.impl.RaftConfiguration;
+import org.apache.raft.server.impl.RaftServerConstants;
 import org.apache.raft.server.impl.ServerProtoUtils;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.AutoCloseableLock;
