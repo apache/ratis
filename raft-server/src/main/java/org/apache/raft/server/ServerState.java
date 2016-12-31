@@ -20,7 +20,7 @@ package org.apache.raft.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.server.impl.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.*;
 import org.apache.raft.shaded.proto.RaftProtos.InstallSnapshotRequestProto;

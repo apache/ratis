@@ -21,7 +21,7 @@ import com.google.common.base.Preconditions;
 import org.apache.raft.server.ConfigurationManager;
 import org.apache.raft.server.RaftConfiguration;
 import org.apache.raft.server.RaftServerConstants;
-import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.server.impl.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.statemachine.TransactionContext;

@@ -22,7 +22,7 @@ import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
 import org.apache.raft.server.protocol.RaftServerProtocol;
-import org.apache.raft.server.protocol.ServerProtoUtils;
+import org.apache.raft.server.impl.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.shaded.proto.RaftProtos.*;

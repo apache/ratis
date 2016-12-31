@@ -15,10 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server.protocol;
+package org.apache.raft.server.impl;
 
 import org.apache.raft.client.impl.ClientProtoUtils;
 import org.apache.raft.server.RaftConfiguration;
+import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.util.ProtoUtils;
 
