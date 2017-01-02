@@ -187,7 +187,7 @@ class LeaderElection extends Daemon {
       final RequestVoteRequestProto r = server.createRequestVoteRequest(
           peer.getId(), electionTerm, lastEntry);
       service.submit(
-          () -> server.getServerRpc().sendRequestVote(r));
+          () -> server.getServerRpc().requestVote(r));
       submitted++;
     }
     return submitted;

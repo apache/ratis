@@ -90,14 +90,14 @@ public class RaftGRpcService implements RaftServerRpc {
       @Override
       public void run() {
         System.err.println("*** shutting down gRPC server since JVM is shutting down");
-        RaftGRpcService.this.shutdown();
+        RaftGRpcService.this.close();
         System.err.println("*** server shut down");
       }
     });
   }
 
   @Override
-  public void shutdown() {
+  public void close() {
     if (server != null) {
       server.shutdown();
     }
@@ -110,21 +110,21 @@ public class RaftGRpcService implements RaftServerRpc {
   }
 
   @Override
-  public AppendEntriesReplyProto sendAppendEntries(
+  public AppendEntriesReplyProto appendEntries(
       AppendEntriesRequestProto request) throws IOException {
     throw new UnsupportedOperationException(
         "Blocking AppendEntries call is not supported");
   }
 
   @Override
-  public InstallSnapshotReplyProto sendInstallSnapshot(
+  public InstallSnapshotReplyProto installSnapshot(
       InstallSnapshotRequestProto request) throws IOException {
     throw new UnsupportedOperationException(
         "Blocking InstallSnapshot call is not supported");
   }
 
   @Override
-  public RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
+  public RequestVoteReplyProto requestVote(RequestVoteRequestProto request)
       throws IOException {
     CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, selfId,
         null, request);

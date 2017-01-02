@@ -285,7 +285,7 @@ public class ServerState implements Closeable {
           final RaftConfiguration conf = ServerProtoUtils.toRaftConfiguration(
               entry.getIndex(), entry.getConfigurationEntry());
           configurationManager.addConfiguration(entry.getIndex(), conf);
-          server.addPeersToRPC(conf.getPeers());
+          server.getServerRpc().addPeers(conf.getPeers());
         }
       }
     }

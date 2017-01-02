@@ -18,26 +18,21 @@
 package org.apache.raft.server;
 
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.shaded.proto.RaftProtos.*;
+import org.apache.raft.server.protocol.RaftServerProtocol;
 
-import java.io.IOException;
+import java.io.Closeable;
 import java.net.InetSocketAddress;
 
-public interface RaftServerRpc {
+/**
+ * An server-side interface for supporting different RPC implementations
+ * such as Netty, gRPC and Hadoop.
+ */
+public interface RaftServerRpc extends RaftServerProtocol, Closeable {
+  /** Start the RPC service. */
   void start();
 
-  void shutdown();
-
+  /** @return the address where this RPC server is listening to. */
   InetSocketAddress getInetSocketAddress();
-
-  AppendEntriesReplyProto sendAppendEntries(
-      AppendEntriesRequestProto request) throws IOException;
-
-  InstallSnapshotReplyProto sendInstallSnapshot(
-      InstallSnapshotRequestProto request) throws IOException;
-
-  RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
-      throws IOException;
 
   /** add information of the given peers */
   void addPeers(Iterable<RaftPeer> peers);

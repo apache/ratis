@@ -132,12 +132,13 @@ public class RaftServerImpl implements RaftServer {
     this.state.setInitialConf(conf);
   }
 
+  @Override
   public void setServerRpc(RaftServerRpc serverRpc) {
     this.serverRpc = serverRpc;
     // add peers into rpc service
     RaftConfiguration conf = getRaftConf();
     if (conf != null) {
-      addPeersToRPC(conf.getPeers());
+      serverRpc.addPeers(conf.getPeers());
     }
   }
 
@@ -201,7 +202,7 @@ public class RaftServerImpl implements RaftServer {
         shutdownElectionDaemon();
         shutdownLeaderState();
 
-        serverRpc.shutdown();
+        serverRpc.close();
         state.close();
       } catch (Exception ignored) {
         LOG.warn("Failed to kill " + state.getSelfId(), ignored);
@@ -418,7 +419,7 @@ public class RaftServerImpl implements RaftServer {
       }
 
       // add new peers into the rpc service
-      addPeersToRPC(Arrays.asList(peersInNewConf));
+      getServerRpc().addPeers(Arrays.asList(peersInNewConf));
       // add staging state into the leaderState
       pending = leaderState.startSetConfiguration(request);
     }
@@ -724,10 +725,6 @@ public class RaftServerImpl implements RaftServer {
     if (isLeader() && leaderState != null) {
       leaderState.submitUpdateStateEvent(LeaderState.UPDATE_COMMIT_EVENT);
     }
-  }
-
-  public void addPeersToRPC(Iterable<RaftPeer> peers) {
-    serverRpc.addPeers(peers);
   }
 
   synchronized void replyPendingRequest(long logIndex,

@@ -112,7 +112,7 @@ public final class NettyRpcService implements RaftServerRpc {
   }
 
   @Override
-  public void shutdown() {
+  public void close() {
     lifeCycle.checkStateAndClose(() -> {
       bossGroup.shutdownGracefully();
       workerGroup.shutdownGracefully();
@@ -199,7 +199,7 @@ public final class NettyRpcService implements RaftServerRpc {
   }
 
   @Override
-  public RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request) throws IOException {
+  public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) throws IOException {
     Preconditions.checkArgument(id.equals(request.getServerRequest().getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
 
@@ -211,7 +211,7 @@ public final class NettyRpcService implements RaftServerRpc {
   }
 
   @Override
-  public AppendEntriesReplyProto sendAppendEntries(AppendEntriesRequestProto request) throws IOException {
+  public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request) throws IOException {
     Preconditions.checkArgument(id.equals(request.getServerRequest().getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
 
@@ -223,7 +223,7 @@ public final class NettyRpcService implements RaftServerRpc {
   }
 
   @Override
-  public InstallSnapshotReplyProto sendInstallSnapshot(InstallSnapshotRequestProto request) throws IOException {
+  public InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException {
     Preconditions.checkArgument(id.equals(request.getServerRequest().getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
 

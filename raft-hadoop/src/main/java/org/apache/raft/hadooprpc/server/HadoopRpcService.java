@@ -122,12 +122,12 @@ public class HadoopRpcService implements RaftServerRpc {
   }
 
   @Override
-  public void shutdown() {
+  public void close() {
     ipcServer.stop();
   }
 
   @Override
-  public AppendEntriesReplyProto sendAppendEntries(
+  public AppendEntriesReplyProto appendEntries(
       AppendEntriesRequestProto request) throws IOException {
     Preconditions.checkArgument(id.equals(request.getServerRequest().getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
@@ -142,7 +142,7 @@ public class HadoopRpcService implements RaftServerRpc {
   }
 
   @Override
-  public InstallSnapshotReplyProto sendInstallSnapshot(
+  public InstallSnapshotReplyProto installSnapshot(
       InstallSnapshotRequestProto request) throws IOException {
     Preconditions.checkArgument(id.equals(request.getServerRequest().getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
@@ -157,7 +157,7 @@ public class HadoopRpcService implements RaftServerRpc {
   }
 
   @Override
-  public RequestVoteReplyProto sendRequestVote(
+  public RequestVoteReplyProto requestVote(
       RequestVoteRequestProto request) throws IOException {
     Preconditions.checkArgument(id.equals(request.getServerRequest().getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);

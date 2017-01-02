@@ -69,7 +69,7 @@ class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
-  public void shutdown() {
+  public void close() {
     try {
       interruptAndJoin();
       executor.shutdown();
@@ -86,7 +86,7 @@ class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
-  public AppendEntriesReplyProto sendAppendEntries(AppendEntriesRequestProto request)
+  public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request)
       throws IOException {
     RaftServerReply reply = serverHandler.getRpc()
         .sendRequest(new RaftServerRequest(request));
@@ -94,7 +94,7 @@ class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
-  public InstallSnapshotReplyProto sendInstallSnapshot(InstallSnapshotRequestProto request)
+  public InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request)
       throws IOException {
     RaftServerReply reply = serverHandler.getRpc()
         .sendRequest(new RaftServerRequest(request));
@@ -102,7 +102,7 @@ class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
-  public RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
+  public RequestVoteReplyProto requestVote(RequestVoteRequestProto request)
       throws IOException {
     RaftServerReply reply = serverHandler.getRpc()
         .sendRequest(new RaftServerRequest(request));

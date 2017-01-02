@@ -198,7 +198,7 @@ public class LogAppender extends Daemon {
 
         follower.updateLastRpcSendTime();
         final AppendEntriesReplyProto r = server.getServerRpc()
-            .sendAppendEntries(request);
+            .appendEntries(request);
         follower.updateLastRpcResponseTime();
 
         return r;
@@ -328,7 +328,7 @@ public class LogAppender extends Daemon {
       for (InstallSnapshotRequestProto request :
           new SnapshotRequestIter(snapshot, requestId)) {
         follower.updateLastRpcSendTime();
-        reply = server.getServerRpc().sendInstallSnapshot(request);
+        reply = server.getServerRpc().installSnapshot(request);
         follower.updateLastRpcResponseTime();
 
         if (!reply.getServerReply().getSuccess()) {
