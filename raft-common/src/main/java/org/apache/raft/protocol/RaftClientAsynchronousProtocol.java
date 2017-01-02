@@ -15,23 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server;
+package org.apache.raft.protocol;
 
-import org.apache.raft.protocol.RaftClientAsynchronousProtocol;
-import org.apache.raft.protocol.RaftClientProtocol;
-import org.apache.raft.server.protocol.RaftServerProtocol;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
-import java.io.Closeable;
+/** Asynchronous version of {@link RaftClientProtocol}. */
+public interface RaftClientAsynchronousProtocol {
+  CompletableFuture<RaftClientReply> submitClientRequestAsync(
+      RaftClientRequest request) throws IOException;
 
-/** Raft server interface */
-public interface RaftServer extends Closeable, RaftServerProtocol,
-    RaftClientProtocol, RaftClientAsynchronousProtocol {
-  /** @return the server ID. */
-  String getId();
-
-  /** Set server RPC service. */
-  void setServerRpc(RaftServerRpc serverRpc);
-
-  /** Start this server. */
-  void start();
+  CompletableFuture<RaftClientReply> setConfigurationAsync(
+      SetConfigurationRequest request) throws IOException;
 }

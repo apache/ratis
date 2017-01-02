@@ -44,6 +44,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
 import static org.apache.raft.util.LifeCycle.State.*;
@@ -146,6 +147,7 @@ public class RaftServerImpl implements RaftServer {
     return serverRpc;
   }
 
+  @Override
   public void start() {
     lifeCycle.transition(STARTING);
     state.start();
@@ -186,11 +188,12 @@ public class RaftServerImpl implements RaftServer {
     return this.state;
   }
 
+  @Override
   public String getId() {
     return getState().getSelfId();
   }
 
-  public RaftConfiguration getRaftConf() {
+  RaftConfiguration getRaftConf() {
     return getState().getRaftConf();
   }
 
@@ -323,7 +326,7 @@ public class RaftServerImpl implements RaftServer {
   /**
    * @return null if the server is in leader state.
    */
-  CompletableFuture<RaftClientReply> checkLeaderState(
+  private CompletableFuture<RaftClientReply> checkLeaderState(
       RaftClientRequest request) {
     if (!isLeader()) {
       NotLeaderException exception = generateNotLeaderException();
@@ -355,7 +358,7 @@ public class RaftServerImpl implements RaftServer {
   /**
    * Handle a normal update request from client.
    */
-  public CompletableFuture<RaftClientReply> appendTransaction(
+  private CompletableFuture<RaftClientReply> appendTransaction(
       RaftClientRequest request, TransactionContext entry)
       throws RaftException {
     LOG.debug("{}: receive client request({})", getId(), request);
@@ -384,10 +387,71 @@ public class RaftServerImpl implements RaftServer {
     return pending.getFuture();
   }
 
+  @Override
+  public CompletableFuture<RaftClientReply> submitClientRequestAsync(
+      RaftClientRequest request) throws IOException {
+    // first check the server's leader state
+    CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
+    if (reply != null) {
+      return reply;
+    }
+
+    // let the state machine handle read-only request from client
+    if (request.isReadOnly()) {
+      // TODO: We might not be the leader anymore by the time this completes. See the RAFT paper,
+      // section 8 (last part)
+      return stateMachine.query(request);
+    }
+
+    // TODO: this client request will not be added to pending requests
+    // until later which means that any failure in between will leave partial state in the
+    // state machine. We should call cancelTransaction() for failed requests
+    TransactionContext entry = stateMachine.startTransaction(request);
+    if (entry.getException().isPresent()) {
+      throw RaftUtils.asIOException(entry.getException().get());
+    }
+
+    return appendTransaction(request, entry);
+  }
+
+  @Override
+  public RaftClientReply submitClientRequest(RaftClientRequest request)
+      throws IOException {
+    return waitForReply(getId(), request, submitClientRequestAsync(request));
+  }
+
+  private static RaftClientReply waitForReply(String id, RaftClientRequest request,
+      CompletableFuture<RaftClientReply> future) throws IOException {
+    try {
+      return future.get();
+    } catch (InterruptedException e) {
+      final String s = id + ": Interrupted when waiting for reply, request=" + request;
+      LOG.info(s, e);
+      throw RaftUtils.toInterruptedIOException(s, e);
+    } catch (ExecutionException e) {
+      final Throwable cause = e.getCause();
+      if (cause == null) {
+        throw new IOException(e);
+      }
+      if (cause instanceof NotLeaderException) {
+        return new RaftClientReply(request, (NotLeaderException)cause);
+      } else {
+        throw RaftUtils.asIOException(cause);
+      }
+    }
+  }
+
+  @Override
+  public RaftClientReply setConfiguration(SetConfigurationRequest request)
+      throws IOException {
+    return waitForReply(getId(), request, setConfigurationAsync(request));
+  }
+
   /**
    * Handle a raft configuration change request from client.
    */
-  public CompletableFuture<RaftClientReply> setConfiguration(
+  @Override
+  public CompletableFuture<RaftClientReply> setConfigurationAsync(
       SetConfigurationRequest request) throws IOException {
     LOG.debug("{}: receive setConfiguration({})", getId(), request);
     lifeCycle.assertCurrentState(RUNNING);

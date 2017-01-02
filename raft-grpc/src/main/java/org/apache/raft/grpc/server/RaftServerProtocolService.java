@@ -18,7 +18,7 @@
 package org.apache.raft.grpc.server;
 
 import org.apache.raft.grpc.RaftGrpcUtil;
-import org.apache.raft.server.impl.RequestDispatcher;
+import org.apache.raft.server.protocol.RaftServerProtocol;
 import org.apache.raft.shaded.io.grpc.stub.StreamObserver;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
@@ -29,18 +29,18 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerProtocolService.class);
 
   private final String id;
-  private final RequestDispatcher dispatcher;
+  private final RaftServerProtocol server;
 
-  public RaftServerProtocolService(String id, RequestDispatcher dispatcher) {
+  public RaftServerProtocolService(String id, RaftServerProtocol server) {
     this.id = id;
-    this.dispatcher = dispatcher;
+    this.server = server;
   }
 
   @Override
   public void requestVote(RequestVoteRequestProto request,
       StreamObserver<RequestVoteReplyProto> responseObserver) {
     try {
-      final RequestVoteReplyProto reply = dispatcher.requestVote(request);
+      final RequestVoteReplyProto reply = server.requestVote(request);
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
     } catch (Throwable e) {
@@ -57,7 +57,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       @Override
       public void onNext(AppendEntriesRequestProto request) {
         try {
-          final AppendEntriesReplyProto reply = dispatcher.appendEntries(request);
+          final AppendEntriesReplyProto reply = server.appendEntries(request);
           responseObserver.onNext(reply);
         } catch (Throwable e) {
           LOG.info("{} got exception when handling appendEntries {}: {}",
@@ -87,8 +87,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       @Override
       public void onNext(InstallSnapshotRequestProto request) {
         try {
-          final InstallSnapshotReplyProto reply =
-              dispatcher.installSnapshot(request);
+          final InstallSnapshotReplyProto reply = server.installSnapshot(request);
           responseObserver.onNext(reply);
         } catch (Throwable e) {
           LOG.info("{} got exception when handling installSnapshot {}: {}",

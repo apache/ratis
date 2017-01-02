@@ -25,7 +25,6 @@ import org.apache.raft.grpc.server.RaftServerProtocolService;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
-import org.apache.raft.server.impl.RequestDispatcher;
 import org.apache.raft.shaded.io.grpc.Server;
 import org.apache.raft.shaded.io.grpc.ServerBuilder;
 import org.apache.raft.shaded.io.grpc.netty.NettyServerBuilder;
@@ -61,11 +60,10 @@ public class RaftGRpcService implements RaftServerRpc {
         RaftGrpcConfigKeys.RAFT_GRPC_MESSAGE_MAXSIZE_KEY,
         RaftGrpcConfigKeys.RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT);
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);
-    final RequestDispatcher dispatcher = new RequestDispatcher(raftServer);
     selfId = raftServer.getId();
     server = ((NettyServerBuilder) serverBuilder).maxMessageSize(maxMessageSize)
-        .addService(new RaftServerProtocolService(selfId, dispatcher))
-        .addService(new RaftClientProtocolService(selfId, dispatcher))
+        .addService(new RaftServerProtocolService(selfId, raftServer))
+        .addService(new RaftClientProtocolService(selfId, raftServer))
         .build();
 
     // start service to determine the port (in case port is configured as 0)

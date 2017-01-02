@@ -18,13 +18,10 @@
 package org.apache.raft.server.simulation;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.protocol.RaftClientRequest;
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.protocol.SetConfigurationRequest;
-import org.apache.raft.server.impl.RaftServerImpl;
+import org.apache.raft.protocol.*;
 import org.apache.raft.server.RaftServerRpc;
-import org.apache.raft.server.impl.RequestDispatcher;
+import org.apache.raft.server.impl.RaftServerImpl;
+import org.apache.raft.server.protocol.RaftServerProtocol;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +37,6 @@ class SimulatedServerRpc implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(SimulatedServerRpc.class);
 
   private final RaftServerImpl server;
-  private final RequestDispatcher dispatcher;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
   private final ExecutorService executor = Executors.newFixedThreadPool(3,
@@ -50,7 +46,6 @@ class SimulatedServerRpc implements RaftServerRpc {
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
       SimulatedRequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
     this.server = server;
-    this.dispatcher = new RequestDispatcher(server);
     this.serverHandler = new RequestHandler<>(server.getId(),
         "serverHandler", serverRequestReply, serverHandlerImpl, 3);
     this.clientHandler = new RequestHandler<>(server.getId(),
@@ -125,13 +120,11 @@ class SimulatedServerRpc implements RaftServerRpc {
     public RaftServerReply handleRequest(RaftServerRequest r)
         throws IOException {
       if (r.isAppendEntries()) {
-        return new RaftServerReply(
-            dispatcher.appendEntries(r.getAppendEntries()));
+        return new RaftServerReply(server.appendEntries(r.getAppendEntries()));
       } else if (r.isRequestVote()) {
-        return new RaftServerReply(dispatcher.requestVote(r.getRequestVote()));
+        return new RaftServerReply(server.requestVote(r.getRequestVote()));
       } else if (r.isInstallSnapshot()) {
-        return new RaftServerReply(
-            dispatcher.installSnapshot(r.getInstallSnapshot()));
+        return new RaftServerReply(server.installSnapshot(r.getInstallSnapshot()));
       } else {
         throw new IllegalStateException("unexpected state");
       }
@@ -150,9 +143,9 @@ class SimulatedServerRpc implements RaftServerRpc {
         throws IOException {
       final CompletableFuture<RaftClientReply> future;
       if (request instanceof SetConfigurationRequest) {
-        future = dispatcher.setConfigurationAsync((SetConfigurationRequest) request);
+        future = server.setConfigurationAsync((SetConfigurationRequest) request);
       } else {
-        future = dispatcher.handleClientRequest(request);
+        future = server.submitClientRequestAsync(request);
       }
 
       future.whenCompleteAsync((reply, exception) -> {

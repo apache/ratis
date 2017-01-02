@@ -20,8 +20,8 @@ package org.apache.raft.grpc.client;
 import com.google.common.base.Preconditions;
 import org.apache.raft.client.impl.ClientProtoUtils;
 import org.apache.raft.grpc.RaftGrpcUtil;
+import org.apache.raft.protocol.RaftClientAsynchronousProtocol;
 import org.apache.raft.protocol.RaftClientReply;
-import org.apache.raft.server.impl.RequestDispatcher;
 import org.apache.raft.shaded.io.grpc.stub.StreamObserver;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.raft.shaded.proto.RaftProtos.RaftClientRequestProto;
@@ -65,18 +65,18 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
   private static final PendingAppend COMPLETED = new PendingAppend(Long.MAX_VALUE);
 
   private final String id;
-  private final RequestDispatcher dispatcher;
+  private final RaftClientAsynchronousProtocol client;
 
-  public RaftClientProtocolService(String id, RequestDispatcher dispatcher) {
+  public RaftClientProtocolService(String id, RaftClientAsynchronousProtocol client) {
     this.id = id;
-    this.dispatcher = dispatcher;
+    this.client = client;
   }
 
   @Override
   public void setConfiguration(SetConfigurationRequestProto request,
       StreamObserver<RaftClientReplyProto> responseObserver) {
     try {
-      CompletableFuture<RaftClientReply> future = dispatcher.setConfigurationAsync(
+      CompletableFuture<RaftClientReply> future = client.setConfigurationAsync(
           ClientProtoUtils.toSetConfigurationRequest(request));
       future.whenCompleteAsync((reply, exception) -> {
         if (exception != null) {
@@ -114,8 +114,8 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
           pendingList.add(p);
         }
 
-        CompletableFuture<RaftClientReply> future = dispatcher
-            .handleClientRequest(ClientProtoUtils.toRaftClientRequest(request));
+        CompletableFuture<RaftClientReply> future = client.submitClientRequestAsync(
+            ClientProtoUtils.toRaftClientRequest(request));
         future.whenCompleteAsync((reply, exception) -> {
           if (exception != null) {
             // TODO: the exception may be from either raft or state machine.

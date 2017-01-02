@@ -31,7 +31,6 @@ import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerRpc;
-import org.apache.raft.server.impl.RequestDispatcher;
 import org.apache.raft.shaded.io.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.apache.raft.shaded.io.netty.handler.codec.protobuf.ProtobufEncoder;
 import org.apache.raft.shaded.io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
@@ -56,7 +55,7 @@ public final class NettyRpcService implements RaftServerRpc {
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
-  private final RequestDispatcher raftService;
+  private final RaftServer server;
   private final String id;
 
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
@@ -76,7 +75,7 @@ public final class NettyRpcService implements RaftServerRpc {
 
   /** Constructs a netty server with the given port. */
   public NettyRpcService(int port, RaftServer server) {
-    this.raftService = new RequestDispatcher(server);
+    this.server = server;
     this.id = server.getId();
 
     final ChannelInitializer<SocketChannel> initializer
@@ -134,7 +133,7 @@ public final class NettyRpcService implements RaftServerRpc {
         case REQUESTVOTEREQUEST: {
           final RequestVoteRequestProto request = proto.getRequestVoteRequest();
           rpcRequest = request.getServerRequest();
-          final RequestVoteReplyProto reply = raftService.requestVote(request);
+          final RequestVoteReplyProto reply = server.requestVote(request);
           return RaftNettyServerReplyProto.newBuilder()
               .setRequestVoteReply(reply)
               .build();
@@ -142,7 +141,7 @@ public final class NettyRpcService implements RaftServerRpc {
         case APPENDENTRIESREQUEST: {
           final AppendEntriesRequestProto request = proto.getAppendEntriesRequest();
           rpcRequest = request.getServerRequest();
-          final AppendEntriesReplyProto reply = raftService.appendEntries(request);
+          final AppendEntriesReplyProto reply = server.appendEntries(request);
           return RaftNettyServerReplyProto.newBuilder()
               .setAppendEntriesReply(reply)
               .build();
@@ -150,7 +149,7 @@ public final class NettyRpcService implements RaftServerRpc {
         case INSTALLSNAPSHOTREQUEST: {
           final InstallSnapshotRequestProto request = proto.getInstallSnapshotRequest();
           rpcRequest = request.getServerRequest();
-          final InstallSnapshotReplyProto reply = raftService.installSnapshot(request);
+          final InstallSnapshotReplyProto reply = server.installSnapshot(request);
           return RaftNettyServerReplyProto.newBuilder()
               .setInstallSnapshotReply(reply)
               .build();
@@ -158,7 +157,7 @@ public final class NettyRpcService implements RaftServerRpc {
         case RAFTCLIENTREQUEST: {
           final RaftClientRequestProto request = proto.getRaftClientRequest();
           rpcRequest = request.getRpcRequest();
-          final RaftClientReply reply = raftService.submitClientRequest(
+          final RaftClientReply reply = server.submitClientRequest(
               ClientProtoUtils.toRaftClientRequest(request));
           return RaftNettyServerReplyProto.newBuilder()
               .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
@@ -167,7 +166,7 @@ public final class NettyRpcService implements RaftServerRpc {
         case SETCONFIGURATIONREQUEST: {
           final SetConfigurationRequestProto request = proto.getSetConfigurationRequest();
           rpcRequest = request.getRpcRequest();
-          final RaftClientReply reply = raftService.setConfiguration(
+          final RaftClientReply reply = server.setConfiguration(
               ClientProtoUtils.toSetConfigurationRequest(request));
           return RaftNettyServerReplyProto.newBuilder()
               .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
