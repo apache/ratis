@@ -25,15 +25,15 @@ import org.slf4j.Logger;
  * Used when the peer is a follower. Used to track the election timeout.
  */
 class FollowerState extends Daemon {
-  static final Logger LOG = RaftServer.LOG;
+  static final Logger LOG = RaftServerImpl.LOG;
 
-  private final RaftServer server;
+  private final RaftServerImpl server;
 
   private volatile Timestamp lastRpcTime = new Timestamp();
   private volatile boolean monitorRunning = true;
   private volatile boolean inLogSync = false;
 
-  FollowerState(RaftServer server) {
+  FollowerState(RaftServerImpl server) {
     this.server = server;
   }
 

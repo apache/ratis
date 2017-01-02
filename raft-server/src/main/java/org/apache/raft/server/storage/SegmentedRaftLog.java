@@ -22,7 +22,7 @@ import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.server.impl.ConfigurationManager;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.impl.RaftServerConstants;
 import org.apache.raft.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
@@ -100,8 +100,8 @@ public class SegmentedRaftLog extends RaftLog {
   private final RaftLogWorker fileLogWorker;
   private final long segmentMaxSize;
 
-  public SegmentedRaftLog(String selfId, RaftServer server, RaftStorage storage,
-      long lastIndexInSnapshot, RaftProperties properties) throws IOException {
+  public SegmentedRaftLog(String selfId, RaftServerImpl server, RaftStorage storage,
+                          long lastIndexInSnapshot, RaftProperties properties) throws IOException {
     super(selfId);
     this.storage = storage;
     this.segmentMaxSize = properties.getLong(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,

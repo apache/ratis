@@ -27,7 +27,7 @@ import org.apache.raft.hadooprpc.client.HadoopClientRequestSender;
 import org.apache.raft.hadooprpc.server.HadoopRpcService;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.impl.DelayLocalExecutionInjection;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,10 +70,10 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   }
 
   private static Map<RaftPeer, HadoopRpcService> initRpcServices(
-      Collection<RaftServer> servers, Configuration hadoopConf) throws IOException {
+      Collection<RaftServerImpl> servers, Configuration hadoopConf) throws IOException {
     final Map<RaftPeer, HadoopRpcService> peerRpcs = new HashMap<>();
 
-    for(RaftServer s : servers) {
+    for(RaftServerImpl s : servers) {
       final HadoopRpcService rpc = new HadoopRpcService(s, hadoopConf);
       peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
     }
@@ -81,11 +81,11 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   }
 
   @Override
-  protected RaftServer setPeerRpc(RaftPeer peer) throws IOException {
+  protected RaftServerImpl setPeerRpc(RaftPeer peer) throws IOException {
     Configuration hconf = new Configuration(hadoopConf);
     hconf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, peer.getAddress());
 
-    RaftServer server = servers.get(peer.getId());
+    RaftServerImpl server = servers.get(peer.getId());
     final HadoopRpcService rpc = new HadoopRpcService(server, hconf);
     Preconditions.checkState(
         rpc.getInetSocketAddress().toString().contains(peer.getAddress()),
@@ -97,7 +97,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
 
   @Override
   public Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
-      Collection<RaftServer> newServers, boolean startService)
+                                          Collection<RaftServerImpl> newServers, boolean startService)
       throws IOException {
     return addNewPeers(initRpcServices(newServers, hadoopConf),
         newServers, startService);

@@ -23,7 +23,7 @@ import org.apache.raft.grpc.client.RaftClientProtocolService;
 import org.apache.raft.grpc.server.RaftServerProtocolClient;
 import org.apache.raft.grpc.server.RaftServerProtocolService;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.impl.RaftServerRpc;
 import org.apache.raft.server.impl.RequestDispatcher;
 import org.apache.raft.shaded.io.grpc.Server;
@@ -54,7 +54,7 @@ public class RaftGRpcService implements RaftServerRpc {
       Collections.synchronizedMap(new HashMap<>());
   private final String selfId;
 
-  public RaftGRpcService(RaftServer raftServer, RaftProperties properties) {
+  public RaftGRpcService(RaftServerImpl raftServer, RaftProperties properties) {
     int port = properties.getInt(RAFT_GRPC_SERVER_PORT_KEY,
         RAFT_GRPC_SERVER_PORT_DEFAULT);
     int maxMessageSize = properties.getInt(

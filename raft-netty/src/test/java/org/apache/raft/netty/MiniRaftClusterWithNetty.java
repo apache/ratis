@@ -26,7 +26,7 @@ import org.apache.raft.netty.server.NettyRpcService;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.impl.DelayLocalExecutionInjection;
 import org.apache.raft.server.impl.RaftConfiguration;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.util.NetUtils;
 
 import java.io.IOException;
@@ -69,17 +69,17 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   }
 
   private static NettyRpcService newNettyRpcService(
-      RaftServer s, RaftConfiguration conf) {
+      RaftServerImpl s, RaftConfiguration conf) {
     final String address = getAddress(s.getId(), conf);
     final int port = NetUtils.newInetSocketAddress(address).getPort();
     return new NettyRpcService(port, s);
   }
 
   private static Map<RaftPeer, NettyRpcService> initRpcServices(
-      Collection<RaftServer> servers, RaftConfiguration conf) {
+      Collection<RaftServerImpl> servers, RaftConfiguration conf) {
     final Map<RaftPeer, NettyRpcService> peerRpcs = new HashMap<>();
 
-    for (RaftServer s : servers) {
+    for (RaftServerImpl s : servers) {
       final NettyRpcService rpc = newNettyRpcService(s, conf);
       peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
     }
@@ -88,8 +88,8 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   }
 
   @Override
-  protected RaftServer setPeerRpc(RaftPeer peer) throws IOException {
-    final RaftServer s = servers.get(peer.getId());
+  protected RaftServerImpl setPeerRpc(RaftPeer peer) throws IOException {
+    final RaftServerImpl s = servers.get(peer.getId());
     final NettyRpcService rpc = newNettyRpcService(s, conf);
     s.setServerRpc(rpc);
     return s;
@@ -97,7 +97,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
 
   @Override
   protected Collection<RaftPeer> addNewPeers(
-      Collection<RaftPeer> newPeers, Collection<RaftServer> newServers,
+      Collection<RaftPeer> newPeers, Collection<RaftServerImpl> newServers,
       boolean startService) throws IOException {
     return addNewPeers(initRpcServices(newServers, conf),
         newServers, startService);

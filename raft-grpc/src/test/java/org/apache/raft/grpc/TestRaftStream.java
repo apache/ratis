@@ -24,7 +24,7 @@ import org.apache.raft.grpc.client.AppendStreamer;
 import org.apache.raft.grpc.client.RaftOutputStream;
 import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.raft.server.impl.LogAppenderFactory;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.util.RaftUtils;
@@ -95,7 +95,7 @@ public class TestRaftStream {
     cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, prop);
 
     cluster.start();
-    RaftServer leader = waitForLeader(cluster);
+    RaftServerImpl leader = waitForLeader(cluster);
 
     int count = 1;
     try (RaftOutputStream out = new RaftOutputStream(prop, "writer-1",
@@ -137,7 +137,7 @@ public class TestRaftStream {
     cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, prop);
     cluster.start();
 
-    RaftServer leader = waitForLeader(cluster);
+    RaftServerImpl leader = waitForLeader(cluster);
     RaftOutputStream out = new RaftOutputStream(prop, "writer",
         cluster.getPeers(), leader.getId());
 
@@ -215,7 +215,7 @@ public class TestRaftStream {
 
     cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, prop);
     cluster.start();
-    RaftServer leader = waitForLeader(cluster);
+    RaftServerImpl leader = waitForLeader(cluster);
 
     RaftOutputStream out = new RaftOutputStream(prop, "writer",
         cluster.getPeers(), leader.getId());
@@ -273,7 +273,7 @@ public class TestRaftStream {
     prop.setInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY, 4);
     cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, prop);
     cluster.start();
-    final RaftServer leader = waitForLeader(cluster);
+    final RaftServerImpl leader = waitForLeader(cluster);
 
     final AtomicBoolean running  = new AtomicBoolean(true);
     final AtomicBoolean success = new AtomicBoolean(false);
@@ -301,7 +301,7 @@ public class TestRaftStream {
 
     // force change the leader
     RaftTestUtil.waitAndKillLeader(cluster, true);
-    final RaftServer newLeader = waitForLeader(cluster);
+    final RaftServerImpl newLeader = waitForLeader(cluster);
     Assert.assertNotEquals(leader.getId(), newLeader.getId());
     Thread.sleep(500);
 

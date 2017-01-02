@@ -44,10 +44,10 @@ import java.util.concurrent.ExecutionException;
 public class RequestDispatcher implements RaftClientProtocol, RaftServerProtocol {
   static final Logger LOG = LoggerFactory.getLogger(RequestDispatcher.class);
 
-  private final RaftServer server;
+  private final RaftServerImpl server;
   private final StateMachine stateMachine;
 
-  public RequestDispatcher(RaftServer server) {
+  public RequestDispatcher(RaftServerImpl server) {
     this.server = server;
     this.stateMachine = server.getStateMachine();
   }

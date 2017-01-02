@@ -25,7 +25,7 @@ import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.raft.util.RaftUtils;
@@ -50,7 +50,7 @@ import static org.junit.Assert.*;
  */
 public class TestStateMachine {
   static {
-    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
@@ -161,14 +161,14 @@ public class TestStateMachine {
     // TODO: there eshould be a better way to ensure all data is replicated and applied
     Thread.sleep(cluster.getMaxTimeout() + 100);
 
-    for (RaftServer raftServer : cluster.getServers()) {
+    for (RaftServerImpl raftServer : cluster.getServers()) {
       SMTransactionContext sm = ((SMTransactionContext)raftServer.getStateMachine());
       sm.rethrowIfException();
       assertEquals(numTrx, sm.numApplied.get());
     }
 
     // check leader
-    RaftServer raftServer = cluster.getLeader();
+    RaftServerImpl raftServer = cluster.getLeader();
     // assert every transaction has obtained context in leader
     SMTransactionContext sm = ((SMTransactionContext)raftServer.getStateMachine());
     List<Long> ll = sm.applied.stream().collect(Collectors.toList());

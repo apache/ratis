@@ -46,7 +46,7 @@ public class RaftServerTestUtil {
     int deadIncluded = 0;
     final RaftConfiguration current = RaftConfiguration.newBuilder()
         .setConf(peers).setLogEntryIndex(0).build();
-    for (RaftServer server : cluster.getServers()) {
+    for (RaftServerImpl server : cluster.getServers()) {
       if (deadPeers != null && deadPeers.contains(server.getId())) {
         if (current.containsInConf(server.getId())) {
           deadIncluded++;

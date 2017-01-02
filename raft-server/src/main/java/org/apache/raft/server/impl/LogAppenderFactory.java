@@ -18,13 +18,13 @@
 package org.apache.raft.server.impl;
 
 public interface LogAppenderFactory {
-  LogAppender getLogAppender(RaftServer server, LeaderState state,
-      FollowerInfo f);
+  LogAppender getLogAppender(RaftServerImpl server, LeaderState state,
+                             FollowerInfo f);
 
   class SynchronousLogAppenderFactory implements LogAppenderFactory {
     @Override
-    public LogAppender getLogAppender(RaftServer server, LeaderState state,
-        FollowerInfo f) {
+    public LogAppender getLogAppender(RaftServerImpl server, LeaderState state,
+                                      FollowerInfo f) {
       return new LogAppender(server, state, f);
     }
   }

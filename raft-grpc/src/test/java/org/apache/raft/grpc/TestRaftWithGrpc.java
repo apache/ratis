@@ -22,7 +22,7 @@ import org.apache.raft.RaftBasicTests;
 import org.apache.raft.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.raft.server.impl.BlockRequestHandlingInjection;
 import org.apache.raft.server.impl.LogAppenderFactory;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.util.RaftUtils;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -34,7 +34,7 @@ import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPEND
 
 public class TestRaftWithGrpc extends RaftBasicTests {
   static {
-    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithGRpc cluster;

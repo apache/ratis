@@ -23,7 +23,7 @@ import org.apache.raft.grpc.RaftGrpcConfigKeys;
 import org.apache.raft.server.impl.FollowerInfo;
 import org.apache.raft.server.impl.LeaderState;
 import org.apache.raft.server.impl.LogAppender;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.shaded.io.grpc.Status;
 import org.apache.raft.shaded.io.grpc.stub.StreamObserver;
 import org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto;
@@ -56,8 +56,8 @@ public class GRpcLogAppender extends LogAppender {
   private volatile StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver;
   private StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver;
 
-  public GRpcLogAppender(RaftServer server, LeaderState leaderState,
-      FollowerInfo f) {
+  public GRpcLogAppender(RaftServerImpl server, LeaderState leaderState,
+                         FollowerInfo f) {
     super(server, leaderState, f);
 
     RaftGRpcService rpcService = (RaftGRpcService) server.getServerRpc();

@@ -28,7 +28,7 @@ import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.server.impl.BlockRequestHandlingInjection;
 import org.apache.raft.server.impl.DelayLocalExecutionInjection;
 import org.apache.raft.server.impl.LogAppenderFactory;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.util.NetUtils;
 
 import java.io.IOException;
@@ -71,10 +71,10 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   }
 
   private static Map<RaftPeer, RaftGRpcService> initRpcServices(
-      Collection<RaftServer> servers, RaftProperties prop) throws IOException {
+      Collection<RaftServerImpl> servers, RaftProperties prop) throws IOException {
     final Map<RaftPeer, RaftGRpcService> peerRpcs = new HashMap<>();
 
-    for (RaftServer s : servers) {
+    for (RaftServerImpl s : servers) {
       final RaftGRpcService rpc = new RaftGRpcService(s, prop);
       peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
     }
@@ -88,11 +88,11 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
 
   @Override
   protected Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
-      Collection<RaftServer> newServers, boolean startService)
+                                             Collection<RaftServerImpl> newServers, boolean startService)
       throws IOException {
     final Map<RaftPeer, RaftGRpcService> peers = initRpcServices(newServers, properties);
     for (Map.Entry<RaftPeer, RaftGRpcService> entry : peers.entrySet()) {
-      RaftServer server = servers.get(entry.getKey().getId());
+      RaftServerImpl server = servers.get(entry.getKey().getId());
       server.setServerRpc(entry.getValue());
       if (!startService) {
         BlockRequestHandlingInjection.getInstance().blockReplier(server.getId());
@@ -104,8 +104,8 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   }
 
   @Override
-  protected RaftServer setPeerRpc(RaftPeer peer) throws IOException {
-    RaftServer server = servers.get(peer.getId());
+  protected RaftServerImpl setPeerRpc(RaftPeer peer) throws IOException {
+    RaftServerImpl server = servers.get(peer.getId());
     int port = NetUtils.newInetSocketAddress(peer.getAddress()).getPort();
     int oldPort = properties.getInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY,
         RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_DEFAULT);

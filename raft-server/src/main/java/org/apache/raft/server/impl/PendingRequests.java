@@ -30,14 +30,14 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 class PendingRequests {
-  private static final Logger LOG = RaftServer.LOG;
+  private static final Logger LOG = RaftServerImpl.LOG;
 
   private PendingRequest pendingSetConf;
-  private final RaftServer server;
+  private final RaftServerImpl server;
   private final ConcurrentMap<Long, PendingRequest> pendingRequests = new ConcurrentHashMap<>();
   private PendingRequest last = null;
 
-  PendingRequests(RaftServer server) {
+  PendingRequests(RaftServerImpl server) {
     this.server = server;
   }
 

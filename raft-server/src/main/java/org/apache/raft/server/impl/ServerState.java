@@ -40,7 +40,7 @@ import static org.apache.raft.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY
  */
 public class ServerState implements Closeable {
   private final String selfId;
-  private final RaftServer server;
+  private final RaftServerImpl server;
   /** Raft log */
   private final RaftLog log;
   /** Raft configuration */
@@ -74,7 +74,7 @@ public class ServerState implements Closeable {
   private TermIndex latestInstalledSnapshot;
 
   ServerState(String id, RaftConfiguration conf, RaftProperties prop,
-      RaftServer server, StateMachine stateMachine) throws IOException {
+              RaftServerImpl server, StateMachine stateMachine) throws IOException {
     this.selfId = id;
     this.server = server;
     configurationManager = new ConfigurationManager(conf);
@@ -128,7 +128,7 @@ public class ServerState implements Closeable {
    * note we do not apply log entries to the state machine here since we do not
    * know whether they have been committed.
    */
-  private RaftLog initLog(String id, RaftProperties prop, RaftServer server,
+  private RaftLog initLog(String id, RaftProperties prop, RaftServerImpl server,
       long lastIndexInSnapshot) throws IOException {
     final RaftLog log;
     if (prop.getBoolean(RAFT_SERVER_USE_MEMORY_LOG_KEY,
@@ -273,7 +273,7 @@ public class ServerState implements Closeable {
 
   public void setRaftConf(long logIndex, RaftConfiguration conf) {
     configurationManager.addConfiguration(logIndex, conf);
-    RaftServer.LOG.info("{}: successfully update the configuration {}",
+    RaftServerImpl.LOG.info("{}: successfully update the configuration {}",
         getSelfId(), conf);
   }
 
@@ -306,7 +306,7 @@ public class ServerState implements Closeable {
   @Override
   public void close() throws IOException {
     stateMachineUpdater.stop();
-    RaftServer.LOG.info("{} closes. The last applied log index is {}",
+    RaftServerImpl.LOG.info("{} closes. The last applied log index is {}",
         getSelfId(), getLastAppliedIndex());
     storage.close();
   }

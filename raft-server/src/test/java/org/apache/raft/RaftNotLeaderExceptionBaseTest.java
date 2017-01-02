@@ -25,7 +25,7 @@ import org.apache.raft.client.impl.RaftClientImpl;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.util.RaftUtils;
@@ -42,7 +42,7 @@ import static org.apache.raft.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
 public abstract class RaftNotLeaderExceptionBaseTest {
   static {
-    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);

@@ -29,9 +29,9 @@ public class BlockRequestHandlingInjection implements CodeInjectionForTesting.Co
       new BlockRequestHandlingInjection();
 
   static {
-    CodeInjectionForTesting.put(RaftServer.REQUEST_VOTE, INSTANCE);
-    CodeInjectionForTesting.put(RaftServer.APPEND_ENTRIES, INSTANCE);
-    CodeInjectionForTesting.put(RaftServer.INSTALL_SNAPSHOT, INSTANCE);
+    CodeInjectionForTesting.put(RaftServerImpl.REQUEST_VOTE, INSTANCE);
+    CodeInjectionForTesting.put(RaftServerImpl.APPEND_ENTRIES, INSTANCE);
+    CodeInjectionForTesting.put(RaftServerImpl.INSTALL_SNAPSHOT, INSTANCE);
   }
 
   public static BlockRequestHandlingInjection getInstance() {

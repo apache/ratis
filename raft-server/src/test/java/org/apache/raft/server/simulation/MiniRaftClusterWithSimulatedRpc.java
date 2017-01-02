@@ -21,7 +21,7 @@ import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.client.RaftClientRequestSender;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +70,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     setRpcServers(getServers());
   }
 
-  private void setRpcServers(Collection<RaftServer> newServers) {
+  private void setRpcServers(Collection<RaftServerImpl> newServers) {
     newServers.forEach(s -> s.setServerRpc(
         new SimulatedServerRpc(s, serverRequestReply, client2serverRequestReply)));
   }
@@ -88,7 +88,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   @Override
   public void restartServer(String id, boolean format) throws IOException {
     super.restartServer(id, format);
-    RaftServer s = getServer(id);
+    RaftServerImpl s = getServer(id);
     addPeersToRpc(Collections.singletonList(conf.getPeer(id)));
     s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
         client2serverRequestReply));
@@ -97,11 +97,11 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
 
   @Override
   public Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
-      Collection<RaftServer> newServers, boolean startService) {
+                                          Collection<RaftServerImpl> newServers, boolean startService) {
     addPeersToRpc(newPeers);
     setRpcServers(newServers);
     if (startService) {
-      newServers.forEach(RaftServer::start);
+      newServers.forEach(RaftServerImpl::start);
     }
     return newPeers;
   }

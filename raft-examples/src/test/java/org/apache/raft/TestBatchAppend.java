@@ -22,7 +22,7 @@ import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.RaftExamplesTestUtil;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.statemachine.SimpleStateMachine4Testing;
 import org.apache.raft.statemachine.StateMachine;
@@ -55,7 +55,7 @@ import static org.apache.raft.server.RaftServerConfigKeys.*;
 public class TestBatchAppend {
   static Logger LOG = LoggerFactory.getLogger(TestBatchAppend.class);
   static {
-    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }

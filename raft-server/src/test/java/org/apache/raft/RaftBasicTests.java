@@ -20,7 +20,7 @@ package org.apache.raft;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.junit.*;
 import org.junit.rules.Timeout;
 import org.slf4j.Logger;
@@ -80,7 +80,7 @@ public abstract class RaftBasicTests {
   public void testBasicAppendEntries() throws Exception {
     LOG.info("Running testBasicAppendEntries");
     final MiniRaftCluster cluster = getCluster();
-    RaftServer leader = waitForLeader(cluster);
+    RaftServerImpl leader = waitForLeader(cluster);
     final long term = leader.getState().getCurrentTerm();
     final String killed = cluster.getFollowers().get(3).getId();
     cluster.killServer(killed);
@@ -96,7 +96,7 @@ public abstract class RaftBasicTests {
     Thread.sleep(cluster.getMaxTimeout() + 100);
     LOG.info(cluster.printAllLogs());
 
-    cluster.getServers().stream().filter(RaftServer::isAlive)
+    cluster.getServers().stream().filter(RaftServerImpl::isAlive)
         .map(s -> s.getState().getLog().getEntries(1, Long.MAX_VALUE))
         .forEach(e -> RaftTestUtil.assertLogEntries(e, 1, term, messages));
   }
@@ -174,7 +174,7 @@ public abstract class RaftBasicTests {
       lastStep = n;
       count++;
 
-      RaftServer leader = cluster.getLeader();
+      RaftServerImpl leader = cluster.getLeader();
       if (leader != null) {
         final String oldLeader = leader.getId();
         LOG.info("Block all requests sent by leader " + oldLeader);

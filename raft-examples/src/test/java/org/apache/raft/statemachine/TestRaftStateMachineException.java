@@ -24,7 +24,7 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.examples.RaftExamplesTestUtil;
 import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.StateMachineException;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.simulation.RequestHandler;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.util.RaftUtils;
@@ -42,7 +42,7 @@ import static org.junit.Assert.fail;
 @RunWith(Parameterized.class)
 public class TestRaftStateMachineException {
   static {
-    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);

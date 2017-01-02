@@ -49,7 +49,7 @@ import static org.apache.raft.server.impl.LeaderState.StateUpdateEventType.*;
  *                           corresponding log entries are committed
  */
 public class LeaderState {
-  private static final Logger LOG = RaftServer.LOG;
+  private static final Logger LOG = RaftServerImpl.LOG;
 
   enum StateUpdateEventType {
     STEPDOWN, UPDATECOMMIT, STAGINGPROGRESS
@@ -74,7 +74,7 @@ public class LeaderState {
   static final StateUpdateEvent STAGING_PROGRESS_EVENT =
       new StateUpdateEvent(StateUpdateEventType.STAGINGPROGRESS, -1);
 
-  private final RaftServer server;
+  private final RaftServerImpl server;
   private final RaftLog raftLog;
   private final long currentTerm;
   private volatile ConfigurationStagingState stagingState;
@@ -94,7 +94,7 @@ public class LeaderState {
   private final int snapshotChunkMaxSize;
   private final int syncInterval;
 
-  LeaderState(RaftServer server, RaftProperties properties) {
+  LeaderState(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
 
     stagingCatchupGap = properties.getInt(

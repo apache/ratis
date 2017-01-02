@@ -21,12 +21,12 @@ import org.apache.raft.server.impl.FollowerInfo;
 import org.apache.raft.server.impl.LeaderState;
 import org.apache.raft.server.impl.LogAppender;
 import org.apache.raft.server.impl.LogAppenderFactory;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 
 public class PipelinedLogAppenderFactory implements LogAppenderFactory {
   @Override
-  public LogAppender getLogAppender(RaftServer server, LeaderState state,
-      FollowerInfo f) {
+  public LogAppender getLogAppender(RaftServerImpl server, LeaderState state,
+                                    FollowerInfo f) {
     return new GRpcLogAppender(server, state, f);
   }
 }

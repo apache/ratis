@@ -46,9 +46,9 @@ import static org.apache.raft.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
  * A daemon thread appending log entries to a follower peer.
  */
 public class LogAppender extends Daemon {
-  public static final Logger LOG = RaftServer.LOG;
+  public static final Logger LOG = RaftServerImpl.LOG;
 
-  protected final RaftServer server;
+  protected final RaftServerImpl server;
   private final LeaderState leaderState;
   protected final RaftLog raftLog;
   protected final FollowerInfo follower;
@@ -59,7 +59,7 @@ public class LogAppender extends Daemon {
 
   private volatile boolean sending = true;
 
-  public LogAppender(RaftServer server, LeaderState leaderState, FollowerInfo f) {
+  public LogAppender(RaftServerImpl server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
     this.server = server;
     this.leaderState = leaderState;

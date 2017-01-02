@@ -20,7 +20,7 @@ package org.apache.raft.server.storage;
 import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.io.nativeio.NativeIO;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.impl.RaftServerConstants;
 import org.apache.raft.server.storage.LogSegment.SegmentFileInfo;
 import org.apache.raft.server.storage.RaftLogCache.TruncationSegments;
@@ -56,7 +56,7 @@ class RaftLogWorker implements Runnable {
 
   private final RaftStorage storage;
   private LogOutputStream out;
-  private final RaftServer raftServer;
+  private final RaftServerImpl raftServer;
 
   /**
    * The number of entries that have been written into the LogOutputStream but
@@ -72,8 +72,8 @@ class RaftLogWorker implements Runnable {
 
   private final  RaftProperties properties;
 
-  RaftLogWorker(RaftServer raftServer, RaftStorage storage,
-      RaftProperties properties) {
+  RaftLogWorker(RaftServerImpl raftServer, RaftStorage storage,
+                RaftProperties properties) {
     this.raftServer = raftServer;
     this.storage = storage;
     this.properties = properties;

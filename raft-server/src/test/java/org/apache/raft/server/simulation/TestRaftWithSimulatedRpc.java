@@ -21,7 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.raft.RaftBasicTests;
 import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
-import org.apache.raft.server.impl.RaftServer;
+import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.util.RaftUtils;
 
 import java.io.IOException;
@@ -29,7 +29,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class TestRaftWithSimulatedRpc extends RaftBasicTests {
   static {
-    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 

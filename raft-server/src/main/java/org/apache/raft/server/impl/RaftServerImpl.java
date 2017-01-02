@@ -48,10 +48,10 @@ import java.util.concurrent.CompletableFuture;
 import static org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
 import static org.apache.raft.util.LifeCycle.State.*;
 
-public class RaftServer implements RaftServerProtocol, Closeable {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftServer.class);
+public class RaftServerImpl implements RaftServerProtocol, Closeable {
+  public static final Logger LOG = LoggerFactory.getLogger(RaftServerImpl.class);
 
-  private static final String CLASS_NAME = RaftServer.class.getSimpleName();
+  private static final String CLASS_NAME = RaftServerImpl.class.getSimpleName();
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
@@ -79,8 +79,8 @@ public class RaftServer implements RaftServerProtocol, Closeable {
 
   private final LogAppenderFactory appenderFactory;
 
-  public RaftServer(String id, RaftConfiguration raftConf,
-      RaftProperties properties, StateMachine stateMachine) throws IOException {
+  public RaftServerImpl(String id, RaftConfiguration raftConf,
+                        RaftProperties properties, StateMachine stateMachine) throws IOException {
     this.lifeCycle = new LifeCycle(id);
     minTimeoutMs = properties.getInt(
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_KEY,

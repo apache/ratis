@@ -67,7 +67,7 @@ class LeaderElection extends Daemon {
     }
   }
 
-  private final RaftServer server;
+  private final RaftServerImpl server;
   private ExecutorCompletionService<RequestVoteReplyProto> service;
   private ExecutorService executor;
   private volatile boolean running;
@@ -79,7 +79,7 @@ class LeaderElection extends Daemon {
   private final RaftConfiguration conf;
   private final Collection<RaftPeer> others;
 
-  LeaderElection(RaftServer server) {
+  LeaderElection(RaftServerImpl server) {
     this.server = server;
     conf = server.getRaftConf();
     others = conf.getOtherPeers(server.getId());

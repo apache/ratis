@@ -57,7 +57,7 @@ class StateMachineUpdater implements Runnable {
 
   private final RaftProperties properties;
   private final StateMachine stateMachine;
-  private final RaftServer server;
+  private final RaftServerImpl server;
   private final RaftLog raftLog;
 
   private volatile long lastAppliedIndex;
@@ -69,7 +69,7 @@ class StateMachineUpdater implements Runnable {
   private final Thread updater;
   private volatile State state = State.RUNNING;
 
-  StateMachineUpdater(StateMachine stateMachine, RaftServer server,
+  StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
       RaftLog raftLog, long lastAppliedIndex, RaftProperties properties) {
     this.properties = properties;
     this.stateMachine = stateMachine;

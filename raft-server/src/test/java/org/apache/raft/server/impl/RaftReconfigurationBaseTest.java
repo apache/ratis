@@ -54,7 +54,7 @@ import static org.apache.raft.shaded.proto.RaftProtos.LogEntryProto.LogEntryBody
 
 public abstract class RaftReconfigurationBaseTest {
   static {
-    RaftUtils.setLogLevel(RaftServer.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
     RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
@@ -221,7 +221,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       // check configuration manager's internal state
       // each reconf will generate two configurations: (old, new) and (new)
-      cluster.getServers().stream().filter(RaftServer::isAlive)
+      cluster.getServers().stream().filter(RaftServerImpl::isAlive)
           .forEach(server -> {
         ConfigurationManager confManager =
             (ConfigurationManager) Whitebox.getInternalState(server.getState(),
