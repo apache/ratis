@@ -25,9 +25,9 @@ import org.apache.raft.hadooprpc.Proxy;
 import org.apache.raft.hadooprpc.client.RaftClientProtocolPB;
 import org.apache.raft.hadooprpc.client.RaftClientProtocolServerSideTranslatorPB;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.*;
-import org.apache.raft.server.impl.RaftServerImpl;
-import org.apache.raft.server.impl.RaftServerRpc;
+import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.RaftServerConfigKeys;
+import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.impl.RequestDispatcher;
 import org.apache.raft.shaded.com.google.protobuf.BlockingService;
 import org.apache.raft.shaded.com.google.protobuf.ServiceException;
@@ -56,7 +56,7 @@ public class HadoopRpcService implements RaftServerRpc {
 
   private final PeerProxyMap<Proxy<RaftServerProtocolPB>> proxies;
 
-  public HadoopRpcService(RaftServerImpl server, final Configuration conf)
+  public HadoopRpcService(RaftServer server, final Configuration conf)
       throws IOException {
     this.proxies = new PeerProxyMap<>(
         p -> new Proxy(RaftServerProtocolPB.class, p.getAddress(), conf));

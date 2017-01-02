@@ -29,8 +29,8 @@ import org.apache.raft.client.impl.ClientProtoUtils;
 import org.apache.raft.netty.NettyRpcProxy;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.server.impl.RaftServerImpl;
-import org.apache.raft.server.impl.RaftServerRpc;
+import org.apache.raft.server.RaftServer;
+import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.impl.RequestDispatcher;
 import org.apache.raft.shaded.io.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.apache.raft.shaded.io.netty.handler.codec.protobuf.ProtobufEncoder;
@@ -75,7 +75,7 @@ public final class NettyRpcService implements RaftServerRpc {
   }
 
   /** Constructs a netty server with the given port. */
-  public NettyRpcService(int port, RaftServerImpl server) {
+  public NettyRpcService(int port, RaftServer server) {
     this.raftService = new RequestDispatcher(server);
     this.id = server.getId();
 

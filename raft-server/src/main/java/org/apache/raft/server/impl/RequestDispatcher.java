@@ -17,7 +17,9 @@
  */
 package org.apache.raft.server.impl;
 
+import com.google.common.base.Preconditions;
 import org.apache.raft.protocol.*;
+import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.protocol.RaftServerProtocol;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.apache.raft.statemachine.StateMachine;
@@ -47,9 +49,10 @@ public class RequestDispatcher implements RaftClientProtocol, RaftServerProtocol
   private final RaftServerImpl server;
   private final StateMachine stateMachine;
 
-  public RequestDispatcher(RaftServerImpl server) {
-    this.server = server;
-    this.stateMachine = server.getStateMachine();
+  public RequestDispatcher(RaftServer server) {
+    Preconditions.checkArgument(server instanceof RaftServerImpl);
+    this.server = (RaftServerImpl)server;
+    this.stateMachine = this.server.getStateMachine();
   }
 
   public CompletableFuture<RaftClientReply> handleClientRequest(

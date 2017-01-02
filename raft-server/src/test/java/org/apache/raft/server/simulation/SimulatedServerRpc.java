@@ -23,7 +23,7 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.protocol.RaftPeer;
 import org.apache.raft.protocol.SetConfigurationRequest;
 import org.apache.raft.server.impl.RaftServerImpl;
-import org.apache.raft.server.impl.RaftServerRpc;
+import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.impl.RequestDispatcher;
 import org.apache.raft.shaded.proto.RaftProtos.*;
 import org.slf4j.Logger;
@@ -36,7 +36,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class SimulatedServerRpc implements RaftServerRpc {
+class SimulatedServerRpc implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(SimulatedServerRpc.class);
 
   private final RaftServerImpl server;
@@ -46,7 +46,7 @@ public class SimulatedServerRpc implements RaftServerRpc {
   private final ExecutorService executor = Executors.newFixedThreadPool(3,
       new ThreadFactoryBuilder().setDaemon(true).build());
 
-  public SimulatedServerRpc(RaftServerImpl server,
+  SimulatedServerRpc(RaftServerImpl server,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
       SimulatedRequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
     this.server = server;

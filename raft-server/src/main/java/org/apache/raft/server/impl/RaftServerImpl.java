@@ -21,8 +21,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.*;
+import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.RaftServerConfigKeys;
-import org.apache.raft.server.protocol.RaftServerProtocol;
+import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.shaded.proto.RaftProtos.*;
@@ -36,7 +37,6 @@ import org.apache.raft.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
@@ -48,7 +48,7 @@ import java.util.concurrent.CompletableFuture;
 import static org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
 import static org.apache.raft.util.LifeCycle.State.*;
 
-public class RaftServerImpl implements RaftServerProtocol, Closeable {
+public class RaftServerImpl implements RaftServer {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerImpl.class);
 
   private static final String CLASS_NAME = RaftServerImpl.class.getSimpleName();
@@ -209,6 +209,7 @@ public class RaftServerImpl implements RaftServerProtocol, Closeable {
     });
   }
 
+  @VisibleForTesting
   public boolean isAlive() {
     return !lifeCycle.getCurrentState().isOneOf(CLOSING, CLOSED);
   }

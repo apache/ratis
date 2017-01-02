@@ -27,7 +27,7 @@ import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.impl.DelayLocalExecutionInjection;
 import org.apache.raft.server.impl.RaftConfiguration;
 import org.apache.raft.server.impl.RaftServerImpl;
-import org.apache.raft.server.impl.RaftServerRpc;
+import org.apache.raft.server.RaftServerRpc;
 import org.apache.raft.server.storage.MemoryRaftLog;
 import org.apache.raft.server.storage.RaftLog;
 import org.apache.raft.statemachine.BaseStateMachine;

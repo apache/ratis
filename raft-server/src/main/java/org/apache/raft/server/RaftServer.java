@@ -15,30 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server.impl;
+package org.apache.raft.server;
 
-import org.apache.raft.protocol.RaftPeer;
-import org.apache.raft.shaded.proto.RaftProtos.*;
+import org.apache.raft.server.protocol.RaftServerProtocol;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
+import java.io.Closeable;
 
-public interface RaftServerRpc {
+/** Raft server interface */
+public interface RaftServer extends RaftServerProtocol, Closeable {
+  /** @return the server ID. */
+  String getId();
+
+  /** Set server RPC service. */
+  void setServerRpc(RaftServerRpc serverRpc);
+
+  /** Start this server. */
   void start();
-
-  void shutdown();
-
-  InetSocketAddress getInetSocketAddress();
-
-  AppendEntriesReplyProto sendAppendEntries(
-      AppendEntriesRequestProto request) throws IOException;
-
-  InstallSnapshotReplyProto sendInstallSnapshot(
-      InstallSnapshotRequestProto request) throws IOException;
-
-  RequestVoteReplyProto sendRequestVote(RequestVoteRequestProto request)
-      throws IOException;
-
-  /** add information of the given peers */
-  void addPeers(Iterable<RaftPeer> peers);
 }
