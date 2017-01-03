@@ -308,11 +308,12 @@ public class LeaderState {
           }
           // the updated configuration does not need to be sync'ed here
         } catch (InterruptedException e) {
+          final String s = server.getId() + " " + getClass().getSimpleName()
+              + " thread is interrupted ";
           if (!running) {
-            LOG.info("The LeaderState gets is stopped");
+            LOG.info(s + " gracefully; server=" + server);
           } else {
-            LOG.warn("The leader election thread of peer {} is interrupted. "
-                + "Currently role: {}.", server.getId(), server.getRole());
+            LOG.warn(s + " UNEXPECTEDLY; server=" + server, e);
             throw new RuntimeException(e);
           }
         } catch (IOException e) {

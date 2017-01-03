@@ -25,6 +25,7 @@ import org.apache.raft.client.RaftClient;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.SetConfigurationRequest;
+import org.apache.raft.server.RaftServer;
 import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.impl.RaftServerTestUtil;
 import org.apache.raft.server.simulation.RequestHandler;
@@ -60,6 +61,28 @@ public abstract class RaftSnapshotBaseTest {
 
   static final Logger LOG = LoggerFactory.getLogger(RaftSnapshotBaseTest.class);
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 10;
+
+  static File getSnapshotFile(MiniRaftCluster cluster, int i) {
+    final RaftServerImpl leader = cluster.getLeader();
+    final SimpleStateMachine4Testing sm = SimpleStateMachine4Testing.get(leader);
+    return sm.getStateMachineStorage().getSnapshotFile(
+        leader.getState().getCurrentTerm(), i);
+  }
+
+  static void assertLeaderContent(MiniRaftCluster cluster)
+      throws InterruptedException {
+    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,
+        leader.getState().getLog().getLastCommittedIndex());
+    final LogEntryProto[] entries = SimpleStateMachine4Testing.get(leader).getContent();
+
+    for (int i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
+      Assert.assertEquals(i+1, entries[i].getIndex());
+      Assert.assertArrayEquals(
+          new SimpleMessage("m" + i).getContent().toByteArray(),
+          entries[i].getSmLogEntry().getData().toByteArray());
+    }
+  }
 
   private MiniRaftCluster cluster;
 
@@ -103,9 +126,7 @@ public abstract class RaftSnapshotBaseTest {
     }
 
     // wait for the snapshot to be done
-    StateMachine sm = cluster.getLeader().getStateMachine();
-    File snapshotFile = ((SimpleStateMachineStorage)sm.getStateMachineStorage())
-        .getSnapshotFile(cluster.getLeader().getState().getCurrentTerm(), i);
+    final File snapshotFile = getSnapshotFile(cluster, i);
 
     int retries = 0;
     do {
@@ -117,19 +138,8 @@ public abstract class RaftSnapshotBaseTest {
     // restart the peer and check if it can correctly load snapshot
     cluster.restart(false);
     try {
-      RaftTestUtil.waitForLeader(cluster);
-
       // 200 messages + two leader elections --> last committed = 201
-      Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,
-          cluster.getLeader().getState().getLog().getLastCommittedIndex());
-      sm = cluster.getLeader().getStateMachine();
-      LogEntryProto[] entries = ((SimpleStateMachine4Testing) sm).getContent();
-      for (i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-        Assert.assertEquals(i+1, entries[i].getIndex());
-        Assert.assertArrayEquals(
-            new SimpleMessage("m" + i).getContent().toByteArray(),
-            entries[i].getSmLogEntry().getData().toByteArray());
-      }
+      assertLeaderContent(cluster);
     } finally {
       cluster.shutdown();
     }
@@ -158,9 +168,7 @@ public abstract class RaftSnapshotBaseTest {
       // wait for the snapshot to be done
       RaftStorageDirectory storageDirectory = cluster.getLeader().getState()
           .getStorage().getStorageDir();
-      StateMachine sm = cluster.getLeader().getStateMachine();
-      File snapshotFile = ((SimpleStateMachineStorage) sm.getStateMachineStorage())
-          .getSnapshotFile(cluster.getLeader().getState().getCurrentTerm(), i);
+      final File snapshotFile = getSnapshotFile(cluster, i);
       logs = storageDirectory.getLogSegmentFiles();
 
       int retries = 0;
@@ -182,18 +190,7 @@ public abstract class RaftSnapshotBaseTest {
     LOG.info("Restarting the cluster");
     cluster.restart(false);
     try {
-      RaftTestUtil.waitForLeader(cluster);
-
-      Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,
-          cluster.getLeader().getState().getLog().getLastCommittedIndex());
-      StateMachine sm = cluster.getLeader().getStateMachine();
-      LogEntryProto[] entries = ((SimpleStateMachine4Testing) sm).getContent();
-      for (int i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-        Assert.assertEquals(i+1, entries[i].getIndex());
-        Assert.assertArrayEquals(
-            new SimpleMessage("m" + i).getContent().toByteArray(),
-            entries[i].getSmLogEntry().getData().toByteArray());
-      }
+      assertLeaderContent(cluster);
 
       // generate some more traffic
       try(final RaftClient client = cluster.createClient("client",

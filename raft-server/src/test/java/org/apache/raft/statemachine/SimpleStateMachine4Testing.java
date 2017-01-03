@@ -17,7 +17,6 @@
  */
 package org.apache.raft.statemachine;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.raft.RaftTestUtil.SimpleMessage;
 import org.apache.raft.conf.RaftProperties;
@@ -26,6 +25,8 @@ import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientReply;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.impl.RaftServerConstants;
+import org.apache.raft.server.impl.RaftServerImpl;
+import org.apache.raft.server.impl.RaftServerTestUtil;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;
@@ -59,6 +60,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public static final String RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY
       = "raft.test.simple.state.machine.take.snapshot";
   public static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
+
+  public static SimpleStateMachine4Testing get(RaftServerImpl s) {
+    return (SimpleStateMachine4Testing)RaftServerTestUtil.getStateMachine(s);
+  }
 
   private final List<LogEntryProto> list =
       Collections.synchronizedList(new ArrayList<>());
@@ -174,7 +179,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public StateMachineStorage getStateMachineStorage() {
+  public SimpleStateMachineStorage getStateMachineStorage() {
     return storage;
   }
 
@@ -235,7 +240,6 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     });
   }
 
-  @VisibleForTesting
   public LogEntryProto[] getContent() {
     return list.toArray(new LogEntryProto[list.size()]);
   }

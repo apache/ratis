@@ -20,6 +20,8 @@ package org.apache.raft.server.impl;
 import org.apache.raft.MiniRaftCluster;
 import org.apache.raft.RaftTestUtil;
 import org.apache.raft.protocol.RaftPeer;
+import org.apache.raft.server.RaftServer;
+import org.apache.raft.statemachine.StateMachine;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,5 +65,9 @@ public class RaftServerTestUtil {
       }
     }
     Assert.assertEquals(peers.length, numIncluded + deadIncluded);
+  }
+
+  public static StateMachine getStateMachine(RaftServerImpl s) {
+    return s.getStateMachine();
   }
 }

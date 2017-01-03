@@ -26,6 +26,7 @@ import org.apache.raft.protocol.Message;
 import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.RaftServerConfigKeys;
 import org.apache.raft.server.impl.RaftServerImpl;
+import org.apache.raft.server.impl.RaftServerTestUtil;
 import org.apache.raft.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.raft.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.raft.util.RaftUtils;
@@ -93,7 +94,11 @@ public class TestStateMachine {
     return properties;
   }
 
-  public static class SMTransactionContext extends SimpleStateMachine4Testing {
+  static class SMTransactionContext extends SimpleStateMachine4Testing {
+    public static SMTransactionContext get(RaftServerImpl s) {
+      return (SMTransactionContext)RaftServerTestUtil.getStateMachine(s);
+    }
+
     AtomicReference<Throwable> throwable = new AtomicReference<>(null);
     AtomicLong transactions = new AtomicLong(0);
     AtomicBoolean isLeader = new AtomicBoolean(false);
@@ -162,7 +167,7 @@ public class TestStateMachine {
     Thread.sleep(cluster.getMaxTimeout() + 100);
 
     for (RaftServerImpl raftServer : cluster.getServers()) {
-      SMTransactionContext sm = ((SMTransactionContext)raftServer.getStateMachine());
+      final SMTransactionContext sm = SMTransactionContext.get(raftServer);
       sm.rethrowIfException();
       assertEquals(numTrx, sm.numApplied.get());
     }
@@ -170,7 +175,7 @@ public class TestStateMachine {
     // check leader
     RaftServerImpl raftServer = cluster.getLeader();
     // assert every transaction has obtained context in leader
-    SMTransactionContext sm = ((SMTransactionContext)raftServer.getStateMachine());
+    final SMTransactionContext sm = SMTransactionContext.get(raftServer);
     List<Long> ll = sm.applied.stream().collect(Collectors.toList());
     Collections.sort(ll);
     assertEquals(ll.toString(), ll.size(), numTrx);

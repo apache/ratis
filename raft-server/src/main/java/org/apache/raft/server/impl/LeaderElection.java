@@ -104,8 +104,8 @@ class LeaderElection extends Daemon {
     } catch (InterruptedException e) {
       // the leader election thread is interrupted. The peer may already step
       // down to a follower. The leader election should skip.
-      LOG.info("The leader election thread of peer {} is interrupted. " +
-          "Currently role: {}.", server.getId(), server.getRole());
+      LOG.info(server.getId() + " " + getClass().getSimpleName()
+          + " thread is interrupted gracefully; server=" + server);
     } catch (IOException e) {
       LOG.warn("Failed to persist votedFor/term. Exit the leader election.", e);
       stopRunning();

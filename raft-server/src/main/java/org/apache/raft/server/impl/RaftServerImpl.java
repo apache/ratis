@@ -58,6 +58,11 @@ public class RaftServerImpl implements RaftServer {
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
 
 
+  /** Role of raft peer */
+  enum Role {
+    LEADER, CANDIDATE, FOLLOWER
+  }
+
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
 
@@ -97,19 +102,19 @@ public class RaftServerImpl implements RaftServer {
     appenderFactory = initAppenderFactory();
   }
 
-  public int getMinTimeoutMs() {
+  int getMinTimeoutMs() {
     return minTimeoutMs;
   }
 
-  public int getMaxTimeoutMs() {
+  int getMaxTimeoutMs() {
     return maxTimeoutMs;
   }
 
-  public int getRandomTimeoutMs() {
+  int getRandomTimeoutMs() {
     return RaftUtils.getRandomBetween(minTimeoutMs, maxTimeoutMs);
   }
 
-  public StateMachine getStateMachine() {
+  StateMachine getStateMachine() {
     return this.stateMachine;
   }
 
@@ -228,10 +233,6 @@ public class RaftServerImpl implements RaftServer {
 
   public boolean isLeader() {
     return role == Role.LEADER;
-  }
-
-  Role getRole() {
-    return role;
   }
 
   /**

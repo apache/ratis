@@ -67,8 +67,8 @@ class FollowerState extends Daemon {
         }
         synchronized (server) {
           if (!inLogSync && lastRpcTime.elapsedTimeMs() >= electionTimeout) {
-            LOG.info("{} changes to {}, lastRpcTime:{}, electionTimeout:{}",
-                server.getId(), Role.CANDIDATE, lastRpcTime, electionTimeout);
+            LOG.info("{} changes to CANDIDATE, lastRpcTime:{}, electionTimeout:{}ms",
+                server.getId(), lastRpcTime, electionTimeout);
             // election timeout, should become a candidate
             server.changeToCandidate();
             break;

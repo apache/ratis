@@ -140,12 +140,12 @@ public class RaftConfiguration {
   }
 
   /** Is this configuration transitional, i.e. in the middle of a peer change? */
-  public boolean isTransitional() {
+  boolean isTransitional() {
     return oldConf != null;
   }
 
   /** Is this configuration stable, i.e. no on-going peer change? */
-  public boolean isStable() {
+  boolean isStable() {
     return oldConf == null;
   }
 
@@ -157,7 +157,7 @@ public class RaftConfiguration {
     return oldConf != null && oldConf.contains(peerId);
   }
 
-  public boolean contains(String peerId) {
+  boolean contains(String peerId) {
     return containsInConf(peerId) && (oldConf == null || containsInOldConf(peerId));
   }
 
@@ -203,7 +203,7 @@ public class RaftConfiguration {
   }
 
   /** @return true if the self id together with the others are in the majority. */
-  public boolean hasMajority(Collection<String> others, String selfId) {
+  boolean hasMajority(Collection<String> others, String selfId) {
     Preconditions.checkArgument(!others.contains(selfId));
     return conf.hasMajority(others, selfId) &&
         (oldConf == null || oldConf.hasMajority(others, selfId));
@@ -251,11 +251,11 @@ public class RaftConfiguration {
     return peers.get(index);
   }
 
-  public Collection<RaftPeer> getPeersInOldConf() {
+  Collection<RaftPeer> getPeersInOldConf() {
     return oldConf != null ? oldConf.getPeers() : Collections.emptyList();
   }
 
-  public Collection<RaftPeer> getPeersInConf() {
+  Collection<RaftPeer> getPeersInConf() {
     return conf.getPeers();
   }
 }
