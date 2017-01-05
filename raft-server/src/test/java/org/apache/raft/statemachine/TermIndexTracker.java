@@ -26,7 +26,7 @@ import static org.apache.raft.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
  * Tracks the term index that is applied to the StateMachine for simple state machines with
  * no concurrent snapshoting capabilities.
  */
-public class TermIndexTracker {
+class TermIndexTracker {
   static final TermIndex INIT_TERMINDEX =
       new TermIndex(INVALID_LOG_INDEX, INVALID_LOG_INDEX);
 

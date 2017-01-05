@@ -17,6 +17,7 @@
  */
 package org.apache.raft.examples.arithmetic;
 
+import com.google.common.base.Preconditions;
 import org.apache.raft.conf.RaftProperties;
 import org.apache.raft.examples.arithmetic.expression.Expression;
 import org.apache.raft.protocol.Message;
@@ -37,6 +38,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ArithmeticStateMachine extends BaseStateMachine {
@@ -45,7 +47,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   private final Map<String, Double> variables = new ConcurrentHashMap<>();
 
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
-  private final TermIndexTracker termIndexTracker = new TermIndexTracker();
+  private final AtomicReference<TermIndex> latestTermIndex = new AtomicReference<>();
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
@@ -59,7 +61,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
 
   void reset() {
     variables.clear();
-    termIndexTracker.reset();
+    latestTermIndex.set(null);
   }
 
   @Override
@@ -83,7 +85,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     final TermIndex last;
     try(final AutoCloseableLock readLock = readLock()) {
       copy = new HashMap<>(variables);
-      last = termIndexTracker.getLatestTermIndex();
+      last = latestTermIndex.get();
     }
 
     File snapshotFile =  new File(SimpleStateMachineStorage.getSnapshotFileName(
@@ -118,7 +120,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
       if (reload) {
         reset();
       }
-      termIndexTracker.init(last);
+      latestTermIndex.set(last);
       variables.putAll((Map<String, Double>) in.readObject());
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
@@ -162,10 +164,18 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     final Double result;
     try(final AutoCloseableLock writeLock = writeLock()) {
       result = assignment.evaluate(variables);
-      termIndexTracker.update(new TermIndex(entry.getTerm(), index));
+      updateLatestTermIndex(entry.getTerm(), index);
     }
     final Expression r = Expression.Utils.double2Expression(result);
     LOG.debug("{}: {} = {}, variables={}", index, assignment, r, variables);
     return CompletableFuture.completedFuture(Expression.Utils.toMessage(r));
+  }
+
+  private void updateLatestTermIndex(long term, long index) {
+    final TermIndex newTI = new TermIndex(term, index);
+    final TermIndex oldTI = latestTermIndex.getAndSet(newTI);
+    if (oldTI != null) {
+      Preconditions.checkArgument(newTI.compareTo(oldTI) >= 0);
+    }
   }
 }

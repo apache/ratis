@@ -68,15 +68,14 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private final List<LogEntryProto> list =
       Collections.synchronizedList(new ArrayList<>());
   private final Daemon checkpointer;
-  private volatile boolean running = true;
-  private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
-  private SimpleStateMachineStorage storage;
-  private TermIndexTracker termIndexTracker;
+  private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
+  private final TermIndexTracker termIndexTracker = new TermIndexTracker();
   private final RaftProperties properties = new RaftProperties();
 
-  public SimpleStateMachine4Testing() {
-    this.storage  = new SimpleStateMachineStorage();
-    this.termIndexTracker = new TermIndexTracker();
+  private volatile boolean running = true;
+  private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
+
+  SimpleStateMachine4Testing() {
     checkpointer = new Daemon(() -> {
       while (running) {
         try {
