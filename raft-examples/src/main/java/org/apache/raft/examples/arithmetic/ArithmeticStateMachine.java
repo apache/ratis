@@ -28,7 +28,6 @@ import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.RaftStorage;
 import org.apache.raft.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.raft.statemachine.*;
-import org.apache.raft.statemachine.SimpleStateMachineStorage.SingleFileSnapshotInfo;
 import org.apache.raft.util.AutoCloseableLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

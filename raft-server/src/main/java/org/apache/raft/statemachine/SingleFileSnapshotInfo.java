@@ -15,45 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.raft.server.storage;
+package org.apache.raft.statemachine;
 
-import org.apache.raft.io.MD5Hash;
+import org.apache.raft.server.storage.FileInfo;
 
-import java.nio.file.Path;
+import java.util.Arrays;
 
 /**
- * Metadata about a file.
+ * Each snapshot only has a single file.
  *
  * The objects of this class are immutable.
  */
-public class FileInfo {
-  private final Path path;
-  private final MD5Hash fileDigest;
-  private final long fileSize;
-
-  public FileInfo(Path path, MD5Hash fileDigest) {
-    this.path = path;
-    this.fileDigest = fileDigest;
-    this.fileSize = path.toFile().length();
+public class SingleFileSnapshotInfo extends FileListSnapshotInfo {
+  public SingleFileSnapshotInfo(FileInfo fileInfo, long term, long endIndex) {
+    super(Arrays.asList(fileInfo), term, endIndex);
   }
 
-  @Override
-  public String toString() {
-    return path.toString();
-  }
-
-  /** @return the path of the file. */
-  public Path getPath() {
-    return path;
-  }
-
-  /** @return the MD5 file digest of the file. */
-  public MD5Hash getFileDigest() {
-    return fileDigest;
-  }
-
-  /** @return the size of the file. */
-  public long getFileSize() {
-    return fileSize;
+  /** @return the file associated with the snapshot. */
+  public FileInfo getFile() {
+    return getFiles().get(0);
   }
 }

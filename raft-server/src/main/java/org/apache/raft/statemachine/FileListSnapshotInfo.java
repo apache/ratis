@@ -17,23 +17,24 @@
  */
 package org.apache.raft.statemachine;
 
-import org.apache.raft.server.impl.RaftConfiguration;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 
+import java.util.Collections;
 import java.util.List;
 
-public class SnapshotInfoImpl implements SnapshotInfo {
+/**
+ * Each snapshot has a list of files.
+ *
+ * The objects of this class are immutable.
+ */
+public class FileListSnapshotInfo implements SnapshotInfo {
+  private final TermIndex termIndex;
+  private final List<FileInfo> files;
 
-  protected final RaftConfiguration raftConfiguration;
-  protected final List<FileInfo> files;
-  protected final TermIndex termIndex;
-
-  public SnapshotInfoImpl(RaftConfiguration raftConfiguration,
-                          List<FileInfo> files, long term, long index) {
-    this.raftConfiguration = raftConfiguration;
-    this.files = files;
+  public FileListSnapshotInfo(List<FileInfo> files, long term, long index) {
     this.termIndex = TermIndex.newTermIndex(term, index);
+    this.files = Collections.unmodifiableList(files);
   }
 
   @Override
@@ -57,12 +58,7 @@ public class SnapshotInfoImpl implements SnapshotInfo {
   }
 
   @Override
-  public RaftConfiguration getRaftConfiguration() {
-    return raftConfiguration;
-  }
-
-  @Override
   public String toString() {
-    return raftConfiguration + "." + files + "." + termIndex;
+    return termIndex + ":" + files;
   }
 }

@@ -19,9 +19,7 @@ package org.apache.raft.statemachine;
 
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
 import org.apache.raft.io.MD5Hash;
-import org.apache.raft.server.impl.RaftConfiguration;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 import org.apache.raft.server.storage.RaftStorage;
@@ -55,17 +53,6 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   private File smDir = null;
 
   private volatile SingleFileSnapshotInfo currentSnapshot = null;
-
-  public static class SingleFileSnapshotInfo extends SnapshotInfoImpl {
-    protected  SingleFileSnapshotInfo(RaftConfiguration raftConfiguration,
-                                      Path path, MD5Hash fileDigest, long term, long endIndex) {
-      super(raftConfiguration, Lists.newArrayList(new FileInfo(path, fileDigest)), term, endIndex);
-    }
-
-    public FileInfo getFile() {
-      return getFiles().get(0);
-    }
-  }
 
   public void init(RaftStorage raftStorage) throws IOException {
     this.raftStorage = raftStorage;
@@ -120,10 +107,11 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
         Matcher matcher = SNAPSHOT_REGEX.matcher(path.getFileName().toString());
         if (matcher.matches()) {
           final long endIndex = Long.parseLong(matcher.group(2));
-          if (latest == null || endIndex > latest.termIndex.getIndex()) {
+          if (latest == null || endIndex > latest.getIndex()) {
             final long term = Long.parseLong(matcher.group(1));
             MD5Hash fileDigest = MD5FileUtil.readStoredMd5ForFile(path.toFile());
-            latest = new SingleFileSnapshotInfo(null, path, fileDigest, term, endIndex);
+            final FileInfo fileInfo = new FileInfo(path, fileDigest);
+            latest = new SingleFileSnapshotInfo(fileInfo, term, endIndex);
           }
         }
       }

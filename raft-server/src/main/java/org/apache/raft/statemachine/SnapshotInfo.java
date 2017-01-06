@@ -17,7 +17,6 @@
  */
 package org.apache.raft.statemachine;
 
-import org.apache.raft.server.impl.RaftConfiguration;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.FileInfo;
 
@@ -56,10 +55,4 @@ public interface SnapshotInfo {
    * @return a list of Files corresponding to the this snapshot.
    */
   List<FileInfo> getFiles();
-
-  /**
-   * Returns the RaftConfiguration corresponding to this snapshot.
-   * @return the RaftConfiguration corresponding to this snapshot.
-   */
-  RaftConfiguration getRaftConfiguration();
 }
