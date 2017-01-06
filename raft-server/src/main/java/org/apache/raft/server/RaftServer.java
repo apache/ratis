@@ -20,6 +20,7 @@ package org.apache.raft.server;
 import org.apache.raft.protocol.RaftClientAsynchronousProtocol;
 import org.apache.raft.protocol.RaftClientProtocol;
 import org.apache.raft.server.protocol.RaftServerProtocol;
+import org.apache.raft.statemachine.StateMachine;
 
 import java.io.Closeable;
 
@@ -34,4 +35,10 @@ public interface RaftServer extends Closeable, RaftServerProtocol,
 
   /** Start this server. */
   void start();
+
+  /**
+   * Returns the StateMachine instance.
+   * @return the StateMachine instance.
+   */
+  StateMachine getStateMachine();
 }

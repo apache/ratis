@@ -31,6 +31,11 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * StateMachine is the entry point for the custom implementation of replicated state as defined in
+ * the "State Machine Approach" in the literature
+ * (see https://en.wikipedia.org/wiki/State_machine_replication).
+ */
 public interface StateMachine extends Closeable {
   /**
    * Initializes the State Machine with the given properties and storage. The state machine is

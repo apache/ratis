@@ -114,7 +114,8 @@ public class RaftServerImpl implements RaftServer {
     return RaftUtils.getRandomBetween(minTimeoutMs, maxTimeoutMs);
   }
 
-  StateMachine getStateMachine() {
+  @Override
+  public StateMachine getStateMachine() {
     return this.stateMachine;
   }
 

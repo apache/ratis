@@ -97,7 +97,7 @@ public class TransactionContext {
       SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
     this(stateMachine);
     this.clientRequest = Optional.of(clientRequest);
-    this.smLogEntryProto = Optional.of(smLogEntryProto);
+    this.smLogEntryProto = Optional.ofNullable(smLogEntryProto);
     this.stateMachineContext = Optional.ofNullable(stateMachineContext);
   }
 
