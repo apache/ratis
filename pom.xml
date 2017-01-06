@@ -17,10 +17,10 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>raft-main</artifactId>
-  <groupId>com.hortonworks.raft</groupId>
+  <artifactId>ratis-main</artifactId>
+  <groupId>org.apache.ratis</groupId>
   <version>1.0-SNAPSHOT</version>
-  <name>Raft Main</name>
+  <name>Ratis Main</name>
   <packaging>pom</packaging>
 
   <licenses>
@@ -63,8 +63,8 @@
   </properties>
 
   <modules>
-    <module>raft-proto-shaded</module>
-    <module>raft-project</module>
+    <module>ratis-proto-shaded</module>
+    <module>ratis-project</module>
   </modules>
 
   <build>
@@ -142,8 +142,8 @@
             <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
             <argLine>-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError</argLine>
             <systemPropertyVariables>
-              <raft.log.dir>${project.build.directory}/log</raft.log.dir>
-              <raft.tmp.dir>${project.build.directory}/tmp</raft.tmp.dir>
+              <ratis.log.dir>${project.build.directory}/log</ratis.log.dir>
+              <ratis.tmp.dir>${project.build.directory}/tmp</ratis.tmp.dir>
 
               <java.net.preferIPv4Stack>true</java.net.preferIPv4Stack>
             </systemPropertyVariables>
