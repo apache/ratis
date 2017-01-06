@@ -33,7 +33,7 @@ public class SnapshotInfoImpl implements SnapshotInfo {
                           List<FileInfo> files, long term, long index) {
     this.raftConfiguration = raftConfiguration;
     this.files = files;
-    this.termIndex = new TermIndex(term, index);
+    this.termIndex = TermIndex.newTermIndex(term, index);
   }
 
   @Override

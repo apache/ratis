@@ -101,8 +101,7 @@ public abstract class RaftLog implements Closeable {
       return false;
     }
     LogEntryProto entry = get(ti.getIndex());
-    TermIndex local = entry == null ? null :
-        new TermIndex(entry.getTerm(), entry.getIndex());
+    TermIndex local = ServerProtoUtils.toTermIndex(entry);
     return ti.equals(local);
   }
 

@@ -89,7 +89,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     }
     final long term = Long.parseLong(m.group(1));
     final long index = Long.parseLong(m.group(2));
-    return new TermIndex(term, index);
+    return TermIndex.newTermIndex(term, index);
   }
 
   protected static String getTmpSnapshotFileName(long term, long endIndex) {

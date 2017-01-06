@@ -27,6 +27,7 @@ import org.apache.raft.protocol.RaftClientRequest;
 import org.apache.raft.server.impl.RaftServerConstants;
 import org.apache.raft.server.impl.RaftServerImpl;
 import org.apache.raft.server.impl.RaftServerTestUtil;
+import org.apache.raft.server.impl.ServerProtoUtils;
 import org.apache.raft.server.protocol.TermIndex;
 import org.apache.raft.server.storage.LogInputStream;
 import org.apache.raft.server.storage.LogOutputStream;
@@ -127,8 +128,9 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     LogEntryProto entry = trx.getLogEntry().get();
+    Preconditions.checkNotNull(entry);
     list.add(entry);
-    termIndexTracker.update(new TermIndex(entry.getTerm(), entry.getIndex()));
+    termIndexTracker.update(ServerProtoUtils.toTermIndex(entry));
     return CompletableFuture.completedFuture(
         new SimpleMessage(entry.getIndex() + " OK"));
   }
@@ -197,8 +199,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
           list.add(entry);
-          termIndexTracker.update(
-              new TermIndex(entry.getTerm(), entry.getIndex()));
+          termIndexTracker.update(ServerProtoUtils.toTermIndex(entry));
         }
       }
       Preconditions.checkState(

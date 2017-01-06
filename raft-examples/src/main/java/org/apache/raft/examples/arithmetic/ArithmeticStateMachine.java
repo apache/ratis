@@ -172,7 +172,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   private void updateLatestTermIndex(long term, long index) {
-    final TermIndex newTI = new TermIndex(term, index);
+    final TermIndex newTI = TermIndex.newTermIndex(term, index);
     final TermIndex oldTI = latestTermIndex.getAndSet(newTI);
     if (oldTI != null) {
       Preconditions.checkArgument(newTI.compareTo(oldTI) >= 0);

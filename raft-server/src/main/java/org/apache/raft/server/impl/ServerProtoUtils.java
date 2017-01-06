@@ -29,9 +29,10 @@ import java.util.stream.Collectors;
 import static org.apache.raft.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 import static org.apache.raft.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
 
+/** Server proto utilities for internal use. */
 public class ServerProtoUtils {
   public static TermIndex toTermIndex(TermIndexProto p) {
-    return p == null? null: new TermIndex(p.getTerm(), p.getIndex());
+    return p == null? null: TermIndex.newTermIndex(p.getTerm(), p.getIndex());
   }
 
   public static TermIndexProto toTermIndexProto(TermIndex ti) {
@@ -43,7 +44,7 @@ public class ServerProtoUtils {
 
   public static TermIndex toTermIndex(LogEntryProto entry) {
     return entry == null ? null :
-        new TermIndex(entry.getTerm(), entry.getIndex());
+        TermIndex.newTermIndex(entry.getTerm(), entry.getIndex());
   }
 
   public static String toString(LogEntryProto... entries) {

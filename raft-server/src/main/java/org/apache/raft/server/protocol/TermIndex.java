@@ -17,56 +17,20 @@
  */
 package org.apache.raft.server.protocol;
 
-import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.raft.server.impl.ServerUtils;
 
-public class TermIndex implements Comparable<TermIndex> {
-  private final long term;
-  private final long index; //log index; first index is 1.
+/** The term and the log index defined in the Raft consensus algorithm. */
+public interface TermIndex extends Comparable<TermIndex> {
+  /** @return the term. */
+  long getTerm();
 
-  public TermIndex(long term, long logIndex) {
-    this.term = term;
-    this.index = logIndex;
-  }
+  /** @return the index. */
+  long getIndex();
 
-  public TermIndex(TermIndex other) {
-    this(other.getTerm(), other.getIndex());
-  }
-
-  public long getTerm() {
-    return term;
-  }
-
-  public long getIndex() {
-    return index;
-  }
-
-  @Override
-  public int compareTo(TermIndex that) {
-    final int diff = Long.compare(this.term, that.term);
-    return diff != 0 ? diff : Long.compare(this.index, that.index);
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (o instanceof TermIndex) {
-      final TermIndex ti = (TermIndex) o;
-      return this == ti ||
-          (this.term == ti.getTerm() && this.index == ti.getIndex());
-    }
-    return false;
-  }
-
-  @Override
-  public int hashCode() {
-    return new HashCodeBuilder().append(term).append(index).hashCode();
-  }
-
-  private static String toString(long n) {
-    return n < 0 ? "~" : "" + n;
-  }
-
-  @Override
-  public String toString() {
-    return "(t:" + toString(term) + ", i:" + toString(index) + ")";
+  /** Create a new {@link TermIndex} instance. */
+  static TermIndex newTermIndex(long term, long index) {
+    return ServerUtils.newTermIndex(term, index);
   }
 }
+
+

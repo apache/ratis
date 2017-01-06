@@ -28,7 +28,7 @@ import static org.apache.raft.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
  */
 class TermIndexTracker {
   static final TermIndex INIT_TERMINDEX =
-      new TermIndex(INVALID_LOG_INDEX, INVALID_LOG_INDEX);
+      TermIndex.newTermIndex(INVALID_LOG_INDEX, INVALID_LOG_INDEX);
 
   private TermIndex current = INIT_TERMINDEX;
 
