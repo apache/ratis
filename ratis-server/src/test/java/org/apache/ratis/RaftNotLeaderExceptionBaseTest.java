@@ -21,7 +21,6 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRequestSender;
-import org.apache.ratis.client.impl.RaftClientImpl;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
@@ -34,11 +33,11 @@ import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
 public abstract class RaftNotLeaderExceptionBaseTest {
   static {
@@ -85,7 +84,7 @@ public abstract class RaftNotLeaderExceptionBaseTest {
     String newLeader = RaftTestUtil.changeLeader(cluster, leaderId);
     Assert.assertNotEquals(leaderId, newLeader);
 
-    RaftClientRequestSender rpc = ((RaftClientImpl)client).getRequestSender();
+    RaftClientRequestSender rpc = client.getRequestSender();
     reply= null;
     for (int i = 0; reply == null && i < 10; i++) {
       try {
@@ -131,7 +130,7 @@ public abstract class RaftNotLeaderExceptionBaseTest {
     }
     LOG.info(cluster.printServers());
 
-    RaftClientRequestSender rpc = ((RaftClientImpl)client).getRequestSender();
+    RaftClientRequestSender rpc = client.getRequestSender();
     RaftClientReply reply = null;
     // it is possible that the remote peer's rpc server is not ready. need retry
     for (int i = 0; reply == null && i < 10; i++) {

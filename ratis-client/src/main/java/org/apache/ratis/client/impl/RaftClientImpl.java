@@ -17,12 +17,8 @@
  */
 package org.apache.ratis.client.impl;
 
-import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.RaftClientRequestSender;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.RaftUtils;
 import org.apache.ratis.util.StringUtils;
@@ -37,9 +33,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /** A client who sends requests to a raft service. */
-public final class RaftClientImpl implements RaftClient {
-  public static final long DEFAULT_SEQNUM = 0;
-
+final class RaftClientImpl implements RaftClient {
   private final String clientId;
   private final RaftClientRequestSender requestSender;
   private final Map<String, RaftPeer> peers;
@@ -47,18 +41,15 @@ public final class RaftClientImpl implements RaftClient {
 
   private volatile String leaderId;
 
-  public RaftClientImpl(
-      String clientId, Collection<RaftPeer> peers,
-      RaftClientRequestSender requestSender, String leaderId,
-      RaftProperties properties) {
+  RaftClientImpl(
+      String clientId, Collection<RaftPeer> peers, String leaderId,
+      RaftClientRequestSender requestSender, int retryInterval) {
     this.clientId = clientId;
     this.requestSender = requestSender;
     this.peers = peers.stream().collect(
         Collectors.toMap(RaftPeer::getId, Function.identity()));
     this.leaderId = leaderId != null? leaderId : peers.iterator().next().getId();
-    this.retryInterval = properties.getInt(
-        RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_KEY,
-        RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_DEFAULT);
+    this.retryInterval = retryInterval;
   }
 
   @Override
@@ -160,7 +151,7 @@ public final class RaftClientImpl implements RaftClient {
     }
   }
 
-  @VisibleForTesting
+  @Override
   public RaftClientRequestSender getRequestSender() {
     return requestSender;
   }

@@ -17,20 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import static java.util.Arrays.asList;
-import static org.apache.ratis.MiniRaftCluster.logSyncDelay;
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
-import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
-import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.apache.log4j.Level;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.MiniRaftCluster.PeerChanges;
@@ -38,13 +24,8 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRequestSender;
-import org.apache.ratis.client.impl.RaftClientImpl;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.ReconfigurationInProgressException;
-import org.apache.ratis.protocol.ReconfigurationTimeoutException;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.simulation.RequestHandler;
 import org.apache.ratis.server.storage.RaftLog;
@@ -55,6 +36,20 @@ import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static java.util.Arrays.asList;
+import static org.apache.ratis.MiniRaftCluster.logSyncDelay;
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
+import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
+import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
 public abstract class RaftReconfigurationBaseTest {
   static {
@@ -255,7 +250,7 @@ public abstract class RaftReconfigurationBaseTest {
           asList(c1.allPeersInNewConf));
       Assert.assertFalse(cluster.getLeader().getRaftConf().isTransitional());
 
-      final RaftClientRequestSender sender = ((RaftClientImpl)client).getRequestSender();
+      final RaftClientRequestSender sender = client.getRequestSender();
       final SetConfigurationRequest request = new SetConfigurationRequest(
           "client", leaderId, DEFAULT_SEQNUM, c1.allPeersInNewConf);
       try {
@@ -472,7 +467,7 @@ public abstract class RaftReconfigurationBaseTest {
         try(final RaftClient client2 = cluster.createClient("client2", leaderId)) {
           latch.await();
           LOG.info("client2 starts to change conf");
-          final RaftClientRequestSender sender2 = ((RaftClientImpl)client2).getRequestSender();
+          final RaftClientRequestSender sender2 = client2.getRequestSender();
           sender2.sendRequest(new SetConfigurationRequest(
               "client2", leaderId, DEFAULT_SEQNUM, peersInRequest2));
         } catch (ReconfigurationInProgressException e) {
@@ -537,7 +532,7 @@ public abstract class RaftReconfigurationBaseTest {
       new Thread(() -> {
         try(final RaftClient client = cluster.createClient("client1", leaderId)) {
           LOG.info("client starts to change conf");
-          final RaftClientRequestSender sender = ((RaftClientImpl)client).getRequestSender();
+          final RaftClientRequestSender sender = client.getRequestSender();
           RaftClientReply reply = sender.sendRequest(new SetConfigurationRequest(
               "client", leaderId, DEFAULT_SEQNUM, change.allPeersInNewConf));
           if (reply.isNotLeader()) {

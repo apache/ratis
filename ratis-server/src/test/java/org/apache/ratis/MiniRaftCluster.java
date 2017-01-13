@@ -18,10 +18,8 @@
 package org.apache.ratis;
 
 import com.google.common.base.Preconditions;
-
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRequestSender;
-import org.apache.ratis.client.impl.RaftClientImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -40,12 +38,12 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT;
 
 public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
@@ -393,8 +391,13 @@ public abstract class MiniRaftCluster {
   }
 
   public RaftClient createClient(String clientId, String leaderId) {
-    return new RaftClientImpl(clientId, conf.getPeers(),
-        getRaftClientRequestSender(), leaderId, properties);
+    return RaftClient.newBuilder()
+        .setClientId(clientId)
+        .setServers(conf.getPeers())
+        .setLeaderId(leaderId)
+        .setRequestSender(getRaftClientRequestSender())
+        .setProperties(properties)
+        .build();
   }
 
   public void shutdown() {
