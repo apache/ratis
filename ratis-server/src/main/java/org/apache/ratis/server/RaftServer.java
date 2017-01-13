@@ -17,12 +17,18 @@
  */
 package org.apache.ratis.server;
 
+import com.google.common.base.Preconditions;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftClientProtocol;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.statemachine.StateMachine;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Raft server interface */
 public interface RaftServer extends Closeable, RaftServerProtocol,
@@ -41,4 +47,52 @@ public interface RaftServer extends Closeable, RaftServerProtocol,
    * @return the StateMachine instance.
    */
   StateMachine getStateMachine();
+
+  /** @return a {@link Builder}. */
+  static Builder newBuilder() {
+    return new Builder();
+  }
+
+  /** To build {@link RaftServer} objects. */
+  class Builder {
+    private static final AtomicInteger COUNT = new AtomicInteger();
+
+    private String serverId = RaftServer.class.getSimpleName() + COUNT.incrementAndGet();
+    private StateMachine stateMachine;
+    private Iterable<RaftPeer> peers;
+    private RaftProperties properties;
+
+    /** @return a {@link RaftServer} object. */
+    public RaftServer build() throws IOException {
+      Preconditions.checkNotNull(stateMachine);
+      Preconditions.checkNotNull(peers);
+      Preconditions.checkNotNull(properties);
+
+      return ServerImplUtils.newRaftServer(serverId, stateMachine, peers, properties);
+    }
+
+    /** Set the server ID. */
+    public Builder setServerId(String serverId) {
+      this.serverId = serverId;
+      return this;
+    }
+
+    /** Set the {@link StateMachine} of the server. */
+    public Builder setStateMachine(StateMachine stateMachine) {
+      this.stateMachine = stateMachine;
+      return this;
+    }
+
+    /** Set all the peers (including the server being built) in the Raft cluster. */
+    public Builder setPeers(Iterable<RaftPeer> peers) {
+      this.peers = peers;
+      return this;
+    }
+
+    /** Set {@link RaftProperties}. */
+    public Builder setProperties(RaftProperties properties) {
+      this.properties = properties;
+      return this;
+    }
+  }
 }

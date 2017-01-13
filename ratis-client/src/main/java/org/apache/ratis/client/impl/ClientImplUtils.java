@@ -23,7 +23,7 @@ import org.apache.ratis.protocol.RaftPeer;
 
 import java.util.Collection;
 
-/** Utilities for the client implementation. */
+/** Client utilities for internal use. */
 public class ClientImplUtils {
   public static RaftClient newRaftClient(
       String clientId, Collection< RaftPeer > peers, String leaderId,

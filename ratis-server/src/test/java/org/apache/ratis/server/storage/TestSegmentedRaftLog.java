@@ -36,6 +36,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.ConfigurationManager;
 import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.ProtoUtils;
@@ -69,8 +70,8 @@ public class TestSegmentedRaftLog {
   private File storageDir;
   private RaftProperties properties;
   private RaftStorage storage;
-  private final ConfigurationManager cm = new ConfigurationManager(
-      MiniRaftCluster.initConfiguration(MiniRaftCluster.generateIds(3, 0)));
+  private final ConfigurationManager cm = RaftServerTestUtil.newConfigurationManager(
+      MiniRaftCluster.initConfiguration(3));
 
   @Before
   public void setup() throws Exception {

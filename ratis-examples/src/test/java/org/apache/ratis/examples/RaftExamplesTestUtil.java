@@ -24,11 +24,16 @@ import org.apache.ratis.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.ratis.netty.MiniRaftClusterWithNetty;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.statemachine.StateMachine;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class RaftExamplesTestUtil {
+  public static final Logger LOG = LoggerFactory.getLogger(RaftExamplesTestUtil.class);
+
   private static void add(
       Collection<Object[]> clusters, MiniRaftCluster.Factory factory,
       String[] ids, RaftProperties properties)
@@ -68,6 +73,10 @@ public class RaftExamplesTestUtil {
     if (isAll || classes.contains(MiniRaftClusterWithGRpc.class)) {
       add(clusters, MiniRaftClusterWithGRpc.FACTORY, ids.next(), prop);
     }
+    for(int i = 0; i < clusters.size(); i++) {
+      LOG.info(i + ": " + clusters.get(i)[0].getClass().getSimpleName());
+    }
+    LOG.info("#clusters = " + clusters.size());
     return clusters;
   }
 

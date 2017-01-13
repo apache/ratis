@@ -38,7 +38,7 @@ public class ConfigurationManager {
    */
   private RaftConfiguration currentConf;
 
-  public ConfigurationManager(RaftConfiguration initialConf) {
+  ConfigurationManager(RaftConfiguration initialConf) {
     setInitialConf(initialConf);
   }
 

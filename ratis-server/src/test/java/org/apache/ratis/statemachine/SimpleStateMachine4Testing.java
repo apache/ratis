@@ -63,7 +63,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
 
   public static SimpleStateMachine4Testing get(RaftServerImpl s) {
-    return (SimpleStateMachine4Testing)RaftServerTestUtil.getStateMachine(s);
+    return (SimpleStateMachine4Testing)s.getStateMachine();
   }
 
   private final List<LogEntryProto> list =

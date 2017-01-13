@@ -27,6 +27,7 @@ import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.storage.MemoryRaftLog;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.statemachine.BaseStateMachine;
@@ -104,6 +105,10 @@ public abstract class MiniRaftCluster {
     }
   }
 
+  public static RaftConfiguration initConfiguration(int numServers) {
+    return initConfiguration(generateIds(numServers, 0));
+  }
+
   public static RaftConfiguration initConfiguration(String[] ids) {
     return RaftConfiguration.newBuilder()
         .setConf(Arrays.stream(ids).map(RaftPeer::new).collect(Collectors.toList()))
@@ -142,7 +147,7 @@ public abstract class MiniRaftCluster {
     this.testBaseDir = getBaseDirectory();
 
     conf.getPeers().forEach(
-        p -> servers.put(p.getId(), newRaftServer(p.getId(), conf, formatted)));
+        p -> servers.put(p.getId(), newRaftServer(p.getId(), formatted)));
 
     ExitUtils.disableSystemExit();
   }
@@ -168,7 +173,7 @@ public abstract class MiniRaftCluster {
   public void restartServer(String id, boolean format) throws IOException {
     killServer(id);
     servers.remove(id);
-    servers.put(id, newRaftServer(id, conf, format));
+    servers.put(id, newRaftServer(id, format));
   }
 
   public final void restart(boolean format) throws IOException {
@@ -177,7 +182,7 @@ public abstract class MiniRaftCluster {
     List<String> idList = new ArrayList<>(servers.keySet());
     for (String id : idList) {
       servers.remove(id);
-      servers.put(id, newRaftServer(id, conf, format));
+      servers.put(id, newRaftServer(id, format));
     }
 
     setPeerRpc();
@@ -196,8 +201,7 @@ public abstract class MiniRaftCluster {
     return conf;
   }
 
-  private RaftServerImpl newRaftServer(String id, RaftConfiguration conf,
-                                       boolean format) {
+  private RaftServerImpl newRaftServer(String id, boolean format) {
     final RaftServerImpl s;
     try {
       final String dirStr = testBaseDir + id;
@@ -205,7 +209,8 @@ public abstract class MiniRaftCluster {
         formatDir(dirStr);
       }
       properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY, dirStr);
-      s = new RaftServerImpl(id, conf, properties, getStateMachine4Test(properties));
+      final StateMachine stateMachine = getStateMachine4Test(properties);
+      s = ServerImplUtils.newRaftServer(id, stateMachine, conf, properties);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
@@ -255,7 +260,7 @@ public abstract class MiniRaftCluster {
     // create and add new RaftServers
     final List<RaftServerImpl> newServers = new ArrayList<>(ids.length);
     for (RaftPeer p : newPeers) {
-      RaftServerImpl newServer = newRaftServer(p.getId(), conf, true);
+      RaftServerImpl newServer = newRaftServer(p.getId(), true);
       Preconditions.checkArgument(!servers.containsKey(p.getId()));
       servers.put(p.getId(), newServer);
       newServers.add(newServer);

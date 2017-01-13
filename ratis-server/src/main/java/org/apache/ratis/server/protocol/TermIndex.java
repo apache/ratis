@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.protocol;
 
-import org.apache.ratis.server.impl.ServerUtils;
+import org.apache.ratis.server.impl.ServerImplUtils;
 
 /** The term and the log index defined in the Raft consensus algorithm. */
 public interface TermIndex extends Comparable<TermIndex> {
@@ -29,7 +29,7 @@ public interface TermIndex extends Comparable<TermIndex> {
 
   /** Create a new {@link TermIndex} instance. */
   static TermIndex newTermIndex(long term, long index) {
-    return ServerUtils.newTermIndex(term, index);
+    return ServerImplUtils.newTermIndex(term, index);
   }
 }
 

@@ -102,7 +102,7 @@ public class TestStateMachine {
 
   static class SMTransactionContext extends SimpleStateMachine4Testing {
     public static SMTransactionContext get(RaftServerImpl s) {
-      return (SMTransactionContext)RaftServerTestUtil.getStateMachine(s);
+      return (SMTransactionContext)s.getStateMachine();
     }
 
     AtomicReference<Throwable> throwable = new AtomicReference<>(null);

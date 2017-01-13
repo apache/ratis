@@ -69,7 +69,8 @@ public class RaftServerTestUtil {
     Assert.assertEquals(peers.length, numIncluded + deadIncluded);
   }
 
-  public static StateMachine getStateMachine(RaftServerImpl s) {
-    return s.getStateMachine();
+  public static ConfigurationManager newConfigurationManager(
+      RaftConfiguration initialConf) {
+    return new ConfigurationManager(initialConf);
   }
 }

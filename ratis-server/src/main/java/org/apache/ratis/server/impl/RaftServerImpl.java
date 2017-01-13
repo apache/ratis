@@ -25,10 +25,7 @@ import static org.apache.ratis.util.LifeCycle.State.STARTING;
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.OptionalLong;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -104,8 +101,9 @@ public class RaftServerImpl implements RaftServer {
 
   private final LogAppenderFactory appenderFactory;
 
-  public RaftServerImpl(String id, RaftConfiguration raftConf,
-                        RaftProperties properties, StateMachine stateMachine) throws IOException {
+  RaftServerImpl(String id, StateMachine stateMachine,
+                 RaftConfiguration raftConf, RaftProperties properties)
+      throws IOException {
     this.lifeCycle = new LifeCycle(id);
     minTimeoutMs = properties.getInt(
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_KEY,
