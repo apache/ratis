@@ -216,8 +216,8 @@ class LogSegment implements Comparable<Long> {
 
   @Override
   public String toString() {
-    return isOpen() ? "log-" + startIndex + "-inprogress" :
-        "log-" + startIndex + "-" + endIndex;
+    return isOpen() ? "log_" + "inprogress_" + startIndex :
+        "log-" + startIndex + "_" + endIndex;
   }
 
   @Override

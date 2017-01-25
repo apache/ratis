@@ -221,7 +221,6 @@ class RaftLogWorker implements Runnable {
     return addIOTask(new TruncateLog(ts));
   }
 
-  // TODO we can add another level of buffer for writing here
   private class WriteLog extends Task {
     private final LogEntryProto entry;
 
