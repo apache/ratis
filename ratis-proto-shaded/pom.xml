@@ -1,0 +1,426 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <artifactId>ratis-main</artifactId>
+    <groupId>org.apache.ratis</groupId>
+    <version>1.0-SNAPSHOT</version>
+    <relativePath>..</relativePath>
+  </parent>
+
+  <artifactId>ratis-proto-shaded</artifactId>
+  <name>Ratis Proto Shaded</name>
+  <properties>
+    <maven.javadoc.skip>true</maven.javadoc.skip>
+    <!--The Default target dir-->
+    <classes.dir>${project.build.directory}/classes</classes.dir>
+    <!--The Default location for sources-->
+    <sources.dir>src/main/java</sources.dir>
+
+    <!--Version of protobuf to be shaded -->
+    <shaded.protobuf.version>3.1.0</shaded.protobuf.version>
+    <!--Version of grpc to be shaded -->
+    <shaded.grpc.version>1.0.1</shaded.grpc.version>
+    <!--Version of Hadoop to be shaded -->
+    <shaded.hadoop.version>3.0.0-alpha1</shaded.hadoop.version>
+  </properties>
+
+  <build>
+    <!--I want to override these in profile so define them
+         with variables up here-->
+    <sourceDirectory>${sources.dir}</sourceDirectory>
+    <outputDirectory>${classes.dir}</outputDirectory>
+    <plugins>
+      <!-- Make a jar and put the sources in the jar -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>${maven-source-plugin.version}</version>
+      </plugin>
+      <plugin>
+        <!--Make it so assembly:single does nothing in here-->
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>${maven-assembly-plugin.version}</version>
+        <configuration>
+          <skipAssembly>true</skipAssembly>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <!-- Always skip the second part executions
+             since we only run simple unit tests in this module -->
+        <executions>
+          <execution>
+            <id>secondPartTestsExecution</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <skip>true</skip>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>${shaded.protobuf.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf.nano</groupId>
+      <artifactId>protobuf-javanano</artifactId>
+      <version>${shaded.protobuf.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-netty</artifactId>
+      <version>${shaded.grpc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-protobuf</artifactId>
+      <version>${shaded.grpc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-stub</artifactId>
+      <version>${shaded.grpc.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>${shaded.hadoop.version}</version>
+    </dependency>
+  </dependencies>
+
+  <profiles>
+    <!-- Skip the tests in this module -->
+    <profile>
+      <id>skip-proto-shaded-tests</id>
+      <activation>
+        <property>
+          <name>skip-proto-shaded-tests</name>
+        </property>
+      </activation>
+      <properties>
+        <surefire.skipFirstPart>true</surefire.skipFirstPart>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>compile-protobuf</id>
+      <!--
+         Generate and shade proto files. Drops generated java files
+         under src/main/java. Check in the generated files so available
+         at build time. Run this profile/step everytime you change proto
+         files or update the protobuf version.
+
+         The below does a bunch of ugly stuff. It purges current content
+         of the generated and shaded com.google.protobuf java files first.
+         It does this because later we apply patches later and patches
+         fail they've already been applied. We remove too because we
+         overlay the shaded protobuf and if files have been removed or
+         added, it'll be more plain if we have first done this delete.
+
+         Next up we generate proto, build a jar, shade it (which
+         includes the referenced protobuf), undo it over the src/main/java
+         directory, and then apply patches.
+
+         The result needs to be checked in.
+      -->
+      <activation>
+        <property>
+          <name>compile-protobuf</name>
+        </property>
+      </activation>
+      <properties>
+        <profile.id>compile-protobuf</profile.id>
+        <sources.dir>${project.build.directory}/protoc-generated-sources</sources.dir>
+        <classes.dir>${project.build.directory}/protoc-generated-classes</classes.dir>
+        <!--When the compile for this profile runs, make sure it makes jars that
+             can be related back to this shading profile. Give them a shading prefix.
+         -->
+        <jar.finalName>${profile.id}.${project.artifactId}-${project.version}</jar.finalName>
+      </properties>
+      <build>
+        <finalName>${jar.finalName}</finalName>
+        <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <version>${maven-clean-plugin.version}</version>
+            <executions>
+              <execution>
+                <id>pre-compile-protoc</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>clean</goal>
+                </goals>
+                <configuration>
+                  <filesets>
+                    <fileset>
+                      <directory>
+                        ${basedir}/src/main/java/
+                      </directory>
+                      <followSymlinks>false</followSymlinks>
+                    </fileset>
+                  </filesets>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.xolstice.maven.plugins</groupId>
+            <artifactId>protobuf-maven-plugin</artifactId>
+            <version>${maven-xolstice-plugin.version}</version>
+            <configuration>
+              <protocArtifact>
+                com.google.protobuf:protoc:${shaded.protobuf.version}:exe:${os.detected.classifier}
+              </protocArtifact>
+            </configuration>
+            <executions>
+              <execution>
+                <id>1</id>
+                <goals>
+                  <goal>compile</goal>
+                  <goal>test-compile</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>2</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>compile-custom</goal>
+                  <goal>test-compile-custom</goal>
+                </goals>
+                <configuration>
+                  <pluginId>grpc-java</pluginId>
+                  <pluginArtifact>
+                    io.grpc:protoc-gen-grpc-java:${shaded.grpc.version}:exe:${os.detected.classifier}
+                  </pluginArtifact>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-shade-plugin</artifactId>
+            <version>2.4.3</version>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>shade</goal>
+                </goals>
+                <configuration>
+                  <shadeSourcesContent>true</shadeSourcesContent>
+                  <createSourcesJar>true</createSourcesJar>
+                  <relocations>
+                    <relocation>
+                      <pattern>com.google.protobuf</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.protobuf</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>io.grpc</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.io.grpc</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>io.netty.handler.codec.protobuf</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.io.netty.handler.codec.protobuf</shadedPattern>
+                    </relocation>
+
+                    <relocation>
+                      <pattern>org.apache.hadoop.ipc.protobuf</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.org.apache.hadoop.ipc.protobuf</shadedPattern>
+                    </relocation>
+                  </relocations>
+
+                  <filters>
+                    <filter>
+                      <artifact>io.netty:netty-codec</artifact>
+                      <includes>
+                        <include>io/netty/handler/codec/protobuf/**</include>
+                      </includes>
+                    </filter>
+                    <filter>
+                      <artifact>org.apache.hadoop:hadoop-common</artifact>
+                      <includes>
+                        <include>org/apache/hadoop/ipc/protobuf/**</include>
+                      </includes>
+                    </filter>
+                  </filters>
+
+                  <artifactSet>
+                    <excludes>
+                      <exclude>asm:asm</exclude>
+
+                      <exclude>com.google.code.findbugs</exclude>
+                      <exclude>com.google.code.gson:gson</exclude>
+                      <exclude>com.google.guava:guava</exclude>
+		      com.google.re2j:re2j
+
+                      <exclude>com.jamesmurty.utils:java-xmlbuilder</exclude>
+                      <exclude>com.jcraft:jsch</exclude>
+
+                      <exclude>com.sun.jersey:jersey-core</exclude>
+                      <exclude>com.sun.jersey:jersey-json</exclude>
+                      <exclude>com.sun.jersey:jersey-server</exclude>
+                      <exclude>com.sun.jersey:jersey-servlet</exclude>
+                      <exclude>com.sun.xml.bind:jaxb-impl</exclude>
+ 
+                      <exclude>com.thoughtworks.paranamer:paranamer</exclude>
+
+                      <exclude>commons-beanutils:commons-beanutils-core</exclude>
+                      <exclude>commons-beanutils:commons-beanutils</exclude>
+                      <exclude>commons-cli:commons-cli</exclude>
+                      <exclude>commons-codec:commons-codec</exclude>
+                      <exclude>commons-collections:commons-collections</exclude>
+                      <exclude>commons-configuration:commons-configuration</exclude>
+                      <exclude>commons-digester:commons-digester</exclude>
+                      <exclude>commons-httpclient:commons-httpclient</exclude>
+                      <exclude>commons-io:commons-io</exclude>
+                      <exclude>commons-lang:commons-lang</exclude>
+                      <exclude>commons-logging:commons-logging</exclude>
+                      <exclude>commons-net:commons-net</exclude>
+
+                      <exclude>io.netty:netty-buffer</exclude>
+                      <exclude>io.netty:netty-codec-http2</exclude>
+                      <exclude>io.netty:netty-codec-http</exclude>
+                      <exclude>io.netty:netty-common</exclude>
+                      <exclude>io.netty:netty-handler</exclude>
+                      <exclude>io.netty:netty-resolver</exclude>
+                      <exclude>io.netty:netty-transport</exclude>
+                      <exclude>io.netty:netty</exclude>
+
+                      <exclude>javax.activation:activation</exclude>
+                      <exclude>javax.servlet.jsp:jsp-api</exclude>
+                      <exclude>javax.servlet:servlet-api</exclude>
+                      <exclude>javax.xml.bind:jaxb-api</exclude>
+                      <exclude>javax.xml.stream:stax-api</exclude>
+		      <exclude>javax.servlet:javax.servlet-api</exclude>
+                      <exclude>javax.ws.rs:jsr311-api</exclude>
+
+                      <exclude>log4j:log4j</exclude>
+                      <exclude>net.java.dev.jets3t:jets3t</exclude>
+
+                      <exclude>org.apache.avro:avro</exclude>
+                      <exclude>org.apache.commons:commons-compress</exclude>
+                      <exclude>org.apache.commons:commons-math3</exclude>
+                      <exclude>org.apache.curator:curator-client</exclude>
+                      <exclude>org.apache.curator:curator-framework</exclude>
+                      <exclude>org.apache.curator:curator-recipes</exclude>
+                      <exclude>org.apache.directory.api:api-asn1-api</exclude>
+                      <exclude>org.apache.directory.api:api-util</exclude>
+                      <exclude>org.apache.directory.server:apacheds-i18n</exclude>
+                      <exclude>org.apache.directory.server:apacheds-kerberos-codec</exclude>
+                      <exclude>org.apache.hadoop:hadoop-annotations</exclude>
+                      <exclude>org.apache.hadoop:hadoop-auth</exclude>
+                      <exclude>org.apache.htrace:htrace-core</exclude>
+                      <exclude>org.apache.httpcomponents:httpclient</exclude>
+                      <exclude>org.apache.httpcomponents:httpcore</exclude>
+                      <exclude>org.apache.zookeeper:zookeeper</exclude>
+
+                      <exclude>org.codehaus.jackson:jackson-core-asl</exclude>
+                      <exclude>org.codehaus.jackson:jackson-jaxrs</exclude>
+                      <exclude>org.codehaus.jackson:jackson-mapper-asl</exclude>
+                      <exclude>org.codehaus.jackson:jackson-xc</exclude>
+                      <exclude>org.codehaus.jettison:jettison</exclude>
+
+                      <exclude>org.mortbay.jetty:jetty-util</exclude>
+                      <exclude>org.mortbay.jetty:jetty</exclude>
+                      <exclude>org.eclipse.jetty:jetty-server</exclude>
+                      <exclude>org.eclipse.jetty:jetty-util</exclude>
+                      <exclude>org.eclipse.jetty:jetty-servlet</exclude>
+                      <exclude>org.eclipse.jetty:jetty-webapp</exclude>
+                      <exclude>org.eclipse.jetty:jetty-util-ajax</exclude>
+		      <exclude>org.mortbay.jetty:jetty-sslengine</exclude>
+
+                      <exclude>org.slf4j:slf4j-api</exclude>
+                      <exclude>org.slf4j:slf4j-log4j12</exclude>
+                      <exclude>org.tukaani:xz</exclude>
+                      <exclude>org.xerial.snappy:snappy-java</exclude>
+                      <exclude>xmlenc:xmlenc</exclude>
+
+                      <exclude>com.nimbusds:nimbus-jose-jwt</exclude>
+                      <exclude>net.jcip:jcip-annotations</exclude>
+                      <exclude>net.minidev:json-smart</exclude>
+
+                      <exclude>org.apache.htrace:htrace-core4</exclude>
+                      <exclude>org.apache.kerby:kerb-simplekdc</exclude>
+                      <exclude>org.apache.kerby:kerby-config</exclude>
+                      <exclude>org.apache.kerby:kerb-core</exclude>
+                      <exclude>org.apache.kerby:kerby-asn1</exclude>
+                      <exclude>org.apache.kerby:kerby-pkix</exclude>
+                      <exclude>org.apache.kerby:kerby-util</exclude>
+                      <exclude>org.apache.kerby:kerb-client</exclude>
+                      <exclude>org.apache.kerby:kerb-common</exclude>
+                      <exclude>org.apache.kerby:kerb-util</exclude>
+                      <exclude>org.apache.kerby:kerb-crypto</exclude>
+                      <exclude>org.apache.kerby:kerb-server</exclude>
+                      <exclude>org.apache.kerby:kerb-identity</exclude>
+                      <exclude>org.apache.kerby:kerb-admin</exclude>
+                    </excludes>
+                  </artifactSet>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <!--Now unpack the shaded jar made above so the shaded classes
+             are available to subsequent modules-->
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-dependency-plugin</artifactId>
+            <version>${maven-dependency-plugin.version}</version>
+            <executions>
+              <execution>
+                <id>unpack</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>unpack</goal>
+                </goals>
+                <configuration>
+                  <artifactItems>
+                    <artifactItem>
+                      <groupId>${project.groupId}</groupId>
+                      <artifactId>${project.artifactId}</artifactId>
+                      <version>${project.version}</version>
+                      <classifier>sources</classifier>
+                      <type>jar</type>
+                      <overWrite>true</overWrite>
+                      <outputDirectory>${basedir}/src/main/java
+                      </outputDirectory>
+                      <includes>**/*.java</includes>
+                    </artifactItem>
+                  </artifactItems>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>

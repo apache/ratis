@@ -1,0 +1,165 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto3";
+option java_package = "org.apache.ratis.shaded.proto";
+option java_outer_classname = "RaftProtos";
+option java_generate_equals_and_hash = true;
+package ratis.common;
+
+message RaftPeerProto {
+  string id = 1;      // id of the peer
+  string address = 2; // e.g. IP address, hostname etc.
+}
+
+message RaftConfigurationProto {
+  repeated RaftPeerProto peers = 1; // the peers in the current or new conf
+  repeated RaftPeerProto oldPeers = 2; // the peers in the old conf
+}
+
+message SMLogEntryProto {
+  // TODO: This is not super efficient if the SM itself uses PB to serialize its own data for a
+  // log entry. Data will be copied twice. We should directly support having any Message from SM
+  bytes data = 1;
+}
+
+message LeaderNoOp {
+  // empty
+}
+
+message LogEntryProto {
+  uint64 term = 1;
+  uint64 index = 2;
+
+  oneof LogEntryBody {
+    SMLogEntryProto smLogEntry = 3;
+    RaftConfigurationProto configurationEntry = 4;
+    LeaderNoOp noOp = 5;
+  }
+}
+
+message TermIndexProto {
+  uint64 term = 1;
+  uint64 index = 2;
+}
+
+message RaftRpcRequestProto {
+  string requestorId = 1;
+  string replyId = 2;
+  uint64 seqNum = 3;
+}
+
+message RaftRpcReplyProto {
+  string requestorId = 1;
+  string replyId = 2;
+  uint64 seqNum = 3;
+  bool success = 4;
+}
+
+message FileChunkProto {
+  string filename = 1; // relative to root
+  uint64 totalSize = 2;
+  bytes fileDigest = 3;
+  uint32 chunkIndex = 4;
+  uint64 offset = 5;
+  bytes data = 6;
+  bool done = 7;
+}
+
+enum InstallSnapshotResult {
+  SUCCESS = 0;
+  NOT_LEADER = 1;
+}
+
+message RequestVoteRequestProto {
+  RaftRpcRequestProto serverRequest = 1;
+  uint64 candidateTerm = 2;
+  TermIndexProto candidateLastEntry = 3;
+}
+
+message RequestVoteReplyProto {
+  RaftRpcReplyProto serverReply = 1;
+  uint64 term = 2;
+  bool shouldShutdown = 3;
+}
+
+message AppendEntriesRequestProto {
+  RaftRpcRequestProto serverRequest = 1;
+  uint64 leaderTerm = 2;
+  TermIndexProto previousLog = 3;
+  repeated LogEntryProto entries = 4;
+  uint64 leaderCommit = 5;
+  bool initializing = 6;
+}
+
+message AppendEntriesReplyProto {
+  enum AppendResult {
+    SUCCESS = 0;
+    NOT_LEADER = 1; // the requester's term is not large enough
+    INCONSISTENCY = 2; // gap between the local log and the entries
+  }
+
+  RaftRpcReplyProto serverReply = 1;
+  uint64 term = 2;
+  uint64 nextIndex = 3;
+  AppendResult result = 4;
+}
+
+message InstallSnapshotRequestProto {
+  RaftRpcRequestProto serverRequest = 1;
+  string requestId = 2; // an identifier for chunked-requests.
+  uint32 requestIndex = 3; // the index for this request chunk. Starts from 0.
+  RaftConfigurationProto raftConfiguration = 4;
+  uint64 leaderTerm = 5;
+  TermIndexProto termIndex = 6;
+  repeated FileChunkProto fileChunks = 7;
+  uint64 totalSize = 8;
+  bool done = 9; // whether this is the final chunk for the same req.
+}
+
+message InstallSnapshotReplyProto {
+  RaftRpcReplyProto serverReply = 1;
+  uint32 requestIndex = 2;
+  uint64 term = 3;
+  InstallSnapshotResult result = 4;
+}
+
+message ClientMessageEntryProto {
+  bytes content = 1;
+}
+
+// normal client request
+message RaftClientRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+  ClientMessageEntryProto message = 2;
+  bool readOnly = 3;
+}
+
+message RaftClientReplyProto {
+  RaftRpcReplyProto rpcReply = 1;
+  ClientMessageEntryProto message = 2;
+  // the following 3 fields are used to indicate the server is not leader
+  bool isNotLeader = 3;
+  RaftPeerProto suggestedLeader = 4;
+  repeated RaftPeerProto peersInConf = 5;
+}
+
+// setConfiguration request
+message SetConfigurationRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+  repeated RaftPeerProto peers = 2;
+}
