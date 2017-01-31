@@ -55,6 +55,27 @@ public final class NettyRpcService implements RaftServerRpc {
   static final String CLASS_NAME = NettyRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
+  public static class Builder extends RaftServerRpc.Builder<Builder, NettyRpcService> {
+    private Builder() {
+      super(0);
+    }
+
+    @Override
+    public Builder getThis() {
+      return this;
+    }
+
+    @Override
+    public NettyRpcService build() {
+      return new NettyRpcService(getServer(), getPort());
+    }
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
   private final RaftServer server;
   private final String id;
@@ -75,7 +96,7 @@ public final class NettyRpcService implements RaftServerRpc {
   }
 
   /** Constructs a netty server with the given port. */
-  public NettyRpcService(int port, RaftServer server) {
+  private NettyRpcService(RaftServer server, int port) {
     this.server = server;
     this.id = server.getId();
 

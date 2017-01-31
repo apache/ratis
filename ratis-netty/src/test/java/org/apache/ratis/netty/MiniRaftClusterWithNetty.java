@@ -72,7 +72,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
       RaftServerImpl s, RaftConfiguration conf) {
     final String address = getAddress(s.getId(), conf);
     final int port = NetUtils.newInetSocketAddress(address).getPort();
-    return new NettyRpcService(port, s);
+    return NettyRpcService.newBuilder().setServer(s).setPort(port).build();
   }
 
   private static Map<RaftPeer, NettyRpcService> initRpcServices(

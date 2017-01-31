@@ -78,7 +78,10 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
     final Map<RaftPeer, RaftGRpcService> peerRpcs = new HashMap<>();
 
     for (RaftServerImpl s : servers) {
-      final RaftGRpcService rpc = new RaftGRpcService(s, prop);
+      final RaftGRpcService rpc = RaftGRpcService.newBuilder()
+          .setFromRaftProperties(prop)
+          .setServer(s)
+          .build();
       peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
     }
     return peerRpcs;
@@ -113,7 +116,10 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
     int oldPort = properties.getInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY,
         RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_DEFAULT);
     properties.setInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, port);
-    final RaftGRpcService rpc = new RaftGRpcService(server, properties);
+    final RaftGRpcService rpc = RaftGRpcService.newBuilder()
+        .setFromRaftProperties(properties)
+        .setServer(server)
+        .build();
     Preconditions.checkState(
         rpc.getInetSocketAddress().toString().contains(peer.getAddress()),
         "address in the raft conf: %s, address in rpc server: %s",

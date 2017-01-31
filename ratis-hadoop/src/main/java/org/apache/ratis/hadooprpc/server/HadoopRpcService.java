@@ -17,9 +17,7 @@
  */
 package org.apache.ratis.hadooprpc.server;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-
+import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.ProtobufRpcEngineShaded;
 import org.apache.hadoop.ipc.RPC;
@@ -34,12 +32,7 @@ import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.shaded.com.google.protobuf.BlockingService;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.hadoop.HadoopProtos.RaftClientProtocolService;
 import org.apache.ratis.shaded.proto.hadoop.HadoopProtos.RaftServerProtocolService;
 import org.apache.ratis.util.CodeInjectionForTesting;
@@ -48,7 +41,8 @@ import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
+import java.io.IOException;
+import java.net.InetSocketAddress;
 
 /** Server side Hadoop RPC service. */
 public class HadoopRpcService implements RaftServerRpc {
@@ -56,13 +50,44 @@ public class HadoopRpcService implements RaftServerRpc {
   static final String CLASS_NAME = HadoopRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
+  public static class Builder extends RaftServerRpc.Builder<Builder, HadoopRpcService> {
+    private Configuration conf;
+
+    private Builder() {
+      super(0);
+    }
+
+    public Configuration getConf() {
+      return conf;
+    }
+
+    public Builder setConf(Configuration conf) {
+      this.conf = conf;
+      return this;
+    }
+
+    @Override
+    public Builder getThis() {
+      return this;
+    }
+
+    @Override
+    public HadoopRpcService build() throws IOException {
+      return new HadoopRpcService(getServer(), getConf());
+    }
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
   private final String id;
   private final RPC.Server ipcServer;
   private final InetSocketAddress ipcServerAddress;
 
   private final PeerProxyMap<Proxy<RaftServerProtocolPB>> proxies;
 
-  public HadoopRpcService(RaftServer server, final Configuration conf)
+  private HadoopRpcService(RaftServer server, final Configuration conf)
       throws IOException {
     this.proxies = new PeerProxyMap<>(
         p -> new Proxy(RaftServerProtocolPB.class, p.getAddress(), conf));

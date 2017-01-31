@@ -18,11 +18,6 @@
 package org.apache.ratis.grpc;
 
 import com.google.common.base.Preconditions;
-
-import org.apache.ratis.shaded.io.grpc.Server;
-import org.apache.ratis.shaded.io.grpc.ServerBuilder;
-import org.apache.ratis.shaded.io.grpc.netty.NettyServerBuilder;
-import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.RaftClientProtocolService;
 import org.apache.ratis.grpc.server.RaftServerProtocolClient;
@@ -30,12 +25,14 @@ import org.apache.ratis.grpc.server.RaftServerProtocolService;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.shaded.io.grpc.Server;
+import org.apache.ratis.shaded.io.grpc.ServerBuilder;
+import org.apache.ratis.shaded.io.grpc.netty.NettyServerBuilder;
+import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.ExitUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.ratis.grpc.RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_DEFAULT;
-import static org.apache.ratis.grpc.RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -43,10 +40,52 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.ratis.grpc.RaftGrpcConfigKeys.*;
+
+/** A grpc implementation of {@link RaftServerRpc}. */
 public class RaftGRpcService implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(RaftGRpcService.class);
   public static final String GRPC_SEND_SERVER_REQUEST =
       RaftGRpcService.class.getSimpleName() + ".sendRequest";
+
+  public static class Builder extends RaftServerRpc.Builder<Builder,RaftGRpcService> {
+    private int maxMessageSize = RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT;
+
+    private Builder() {
+      super(RAFT_GRPC_SERVER_PORT_DEFAULT);
+    }
+
+    public int getMaxMessageSize() {
+      return maxMessageSize;
+    }
+
+    public Builder setMaxMessageSize(int maxMessageSize) {
+      this.maxMessageSize = maxMessageSize;
+      return this;
+    }
+
+    public Builder setFromRaftProperties(RaftProperties properties) {
+      setPort(properties.getInt(RAFT_GRPC_SERVER_PORT_KEY,
+          RAFT_GRPC_SERVER_PORT_DEFAULT));
+      setMaxMessageSize(properties.getInt(RAFT_GRPC_MESSAGE_MAXSIZE_KEY,
+          RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT));
+      return this;
+    }
+
+    @Override
+    public Builder getThis() {
+      return this;
+    }
+
+    @Override
+    public RaftGRpcService build() {
+      return new RaftGRpcService(getServer(), getPort(), getMaxMessageSize());
+    }
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
 
   private final Server server;
   private final InetSocketAddress address;
@@ -54,12 +93,7 @@ public class RaftGRpcService implements RaftServerRpc {
       Collections.synchronizedMap(new HashMap<>());
   private final String selfId;
 
-  public RaftGRpcService(RaftServer raftServer, RaftProperties properties) {
-    int port = properties.getInt(RAFT_GRPC_SERVER_PORT_KEY,
-        RAFT_GRPC_SERVER_PORT_DEFAULT);
-    int maxMessageSize = properties.getInt(
-        RaftGrpcConfigKeys.RAFT_GRPC_MESSAGE_MAXSIZE_KEY,
-        RaftGrpcConfigKeys.RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT);
+  private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize) {
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);
     selfId = raftServer.getId();
     server = ((NettyServerBuilder) serverBuilder).maxMessageSize(maxMessageSize)
@@ -82,8 +116,7 @@ public class RaftGRpcService implements RaftServerRpc {
     try {
       server.start();
     } catch (IOException e) {
-      LOG.error("Failed to start Grpc server", e);
-      System.exit(1);
+      ExitUtils.terminate(1, "Failed to start Grpc server", e, LOG);
     }
     Runtime.getRuntime().addShutdownHook(new Thread() {
       @Override

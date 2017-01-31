@@ -74,7 +74,10 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
     final Map<RaftPeer, HadoopRpcService> peerRpcs = new HashMap<>();
 
     for(RaftServerImpl s : servers) {
-      final HadoopRpcService rpc = new HadoopRpcService(s, hadoopConf);
+      final HadoopRpcService rpc = HadoopRpcService.newBuilder()
+          .setServer(s)
+          .setConf(hadoopConf)
+          .build();
       peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
     }
     return peerRpcs;
@@ -86,7 +89,10 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
     hconf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, peer.getAddress());
 
     RaftServerImpl server = servers.get(peer.getId());
-    final HadoopRpcService rpc = new HadoopRpcService(server, hconf);
+    final HadoopRpcService rpc = HadoopRpcService.newBuilder()
+        .setServer(server)
+        .setConf(hconf)
+        .build();
     Preconditions.checkState(
         rpc.getInetSocketAddress().toString().contains(peer.getAddress()),
         "address in the raft conf: %s, address in rpc server: %s",
