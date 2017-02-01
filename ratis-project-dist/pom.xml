@@ -19,14 +19,14 @@
   <parent>
     <artifactId>ratis-project</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.1-SNAPSHOT</version>
     <relativePath>../ratis-project</relativePath>
   </parent>
 
   <artifactId>ratis-project-dist</artifactId>
   <groupId>org.apache.ratis</groupId>
   <name>Ratis Project Dist POM</name>
-  <version>1.0-SNAPSHOT</version>
+  <version>0.1-SNAPSHOT</version>
 
   <packaging>pom</packaging>
 
