@@ -24,7 +24,7 @@ import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
 
 import com.google.common.base.Preconditions;
 
-public class RaftServerReply extends RaftRpcMessage {
+public class RaftServerReply implements RaftRpcMessage {
   private final AppendEntriesReplyProto appendEntries;
   private final RequestVoteReplyProto requestVote;
   private final InstallSnapshotReplyProto installSnapshot;
@@ -79,22 +79,22 @@ public class RaftServerReply extends RaftRpcMessage {
   @Override
   public String getRequestorId() {
     if (isAppendEntries()) {
-      return appendEntries.getServerReply().getRequestorId();
+      return appendEntries.getServerReply().getRequestorId().toStringUtf8();
     } else if (isRequestVote()) {
-      return requestVote.getServerReply().getRequestorId();
+      return requestVote.getServerReply().getRequestorId().toStringUtf8();
     } else {
-      return installSnapshot.getServerReply().getRequestorId();
+      return installSnapshot.getServerReply().getRequestorId().toStringUtf8();
     }
   }
 
   @Override
   public String getReplierId() {
     if (isAppendEntries()) {
-      return appendEntries.getServerReply().getReplyId();
+      return appendEntries.getServerReply().getReplyId().toStringUtf8();
     } else if (isRequestVote()) {
-      return requestVote.getServerReply().getReplyId();
+      return requestVote.getServerReply().getReplyId().toStringUtf8();
     } else {
-      return installSnapshot.getServerReply().getReplyId();
+      return installSnapshot.getServerReply().getReplyId().toStringUtf8();
     }
   }
 }

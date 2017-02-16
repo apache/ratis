@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 
-import java.util.Iterator;
 import java.util.Locale;
 
 public class StringUtils {
@@ -83,26 +82,5 @@ public class StringUtils {
     } else {
       return defaultValue;
     }
-  }
-
-  /**
-   *  @return the next string in the iteration right after the given string;
-   *          if the given string is not in the iteration, return the first string.
-   */
-  public static String next(final String given, final Iterable<String> iteration) {
-    Preconditions.checkNotNull(given);
-    Preconditions.checkNotNull(iteration);
-    final Iterator<String> i = iteration.iterator();
-    Preconditions.checkArgument(i.hasNext());
-
-    final String first = i.next();
-    for(String current = first; i.hasNext(); ) {
-      final String next = i.next();
-      if (given.equals(current)) {
-        return next;
-      }
-      current = next;
-    }
-    return first;
   }
 }

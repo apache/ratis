@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.ConfigurationManager;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -55,12 +56,12 @@ public abstract class RaftLog implements Closeable {
    */
   protected final AtomicLong lastCommitted =
       new AtomicLong(RaftServerConstants.INVALID_LOG_INDEX);
-  private final String selfId;
+  private final RaftPeerId selfId;
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
   private volatile boolean isOpen = false;
 
-  public RaftLog(String selfId) {
+  public RaftLog(RaftPeerId selfId) {
     this.selfId = selfId;
   }
 
@@ -236,7 +237,7 @@ public abstract class RaftLog implements Closeable {
    * in the RaftPeer's lock. Later we can use an IO task queue to enforce the
    * order.
    */
-  public abstract void writeMetadata(long term, String votedFor)
+  public abstract void writeMetadata(long term, RaftPeerId votedFor)
       throws IOException;
 
   public abstract Metadata loadMetadata() throws IOException;
@@ -249,15 +250,15 @@ public abstract class RaftLog implements Closeable {
   }
 
   public static class Metadata {
-    private final String votedFor;
+    private final RaftPeerId votedFor;
     private final long term;
 
-    public Metadata(String votedFor, long term) {
+    public Metadata(RaftPeerId votedFor, long term) {
       this.votedFor = votedFor;
       this.term = term;
     }
 
-    public String getVotedFor() {
+    public RaftPeerId getVotedFor() {
       return votedFor;
     }
 
@@ -287,7 +288,7 @@ public abstract class RaftLog implements Closeable {
     isOpen = false;
   }
 
-  public String getSelfId() {
+  public RaftPeerId getSelfId() {
     return selfId;
   }
 }

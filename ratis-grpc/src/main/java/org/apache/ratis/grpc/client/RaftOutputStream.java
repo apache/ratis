@@ -25,7 +25,9 @@ import java.io.OutputStream;
 import java.util.Collection;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.ProtoUtils;
 
 public class RaftOutputStream extends OutputStream {
@@ -33,13 +35,13 @@ public class RaftOutputStream extends OutputStream {
   private final byte buf[];
   private int count;
   private long seqNum = 0;
-  private final String clientId;
+  private final ClientId clientId;
   private final AppendStreamer streamer;
 
   private boolean closed = false;
 
-  public RaftOutputStream(RaftProperties prop, String clientId,
-      Collection<RaftPeer> peers, String leaderId) {
+  public RaftOutputStream(RaftProperties prop, ClientId clientId,
+      Collection<RaftPeer> peers, RaftPeerId leaderId) {
     final int bufferSize = prop.getInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY,
         RAFT_OUTPUTSTREAM_BUFFER_SIZE_DEFAULT);
     buf = new byte[bufferSize];

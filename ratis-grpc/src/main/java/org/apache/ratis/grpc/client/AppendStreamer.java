@@ -19,6 +19,8 @@ package org.apache.ratis.grpc.client;
 
 import com.google.common.base.Preconditions;
 
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
@@ -32,7 +34,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.RaftUtils;
-import org.apache.ratis.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,7 +56,7 @@ public class AppendStreamer implements Closeable {
   enum RunningState {RUNNING, LOOK_FOR_LEADER, CLOSED, ERROR}
 
   private static class ExceptionAndRetry {
-    private final Map<String, IOException> exceptionMap = new HashMap<>();
+    private final Map<RaftPeerId, IOException> exceptionMap = new HashMap<>();
     private final AtomicInteger retryTimes = new AtomicInteger(0);
     private final int maxRetryTimes;
     private final long retryInterval;
@@ -70,7 +71,7 @@ public class AppendStreamer implements Closeable {
           TimeUnit.MILLISECONDS);
     }
 
-    void addException(String peer, IOException e) {
+    void addException(RaftPeerId peer, IOException e) {
       exceptionMap.put(peer, e);
       retryTimes.incrementAndGet();
     }
@@ -89,17 +90,17 @@ public class AppendStreamer implements Closeable {
   private final int maxPendingNum;
 
   private final PeerProxyMap<RaftClientProtocolProxy> proxyMap;
-  private final Map<String, RaftPeer> peers;
-  private String leaderId;
+  private final Map<RaftPeerId, RaftPeer> peers;
+  private RaftPeerId leaderId;
   private volatile RaftClientProtocolProxy leaderProxy;
-  private final String clientId;
+  private final ClientId clientId;
 
   private volatile RunningState running = RunningState.RUNNING;
   private final ExceptionAndRetry exceptionAndRetry;
   private final Sender senderThread;
 
   AppendStreamer(RaftProperties prop, Collection<RaftPeer> peers,
-      String leaderId, String clientId) {
+      RaftPeerId leaderId, ClientId clientId) {
     this.clientId = clientId;
     maxPendingNum = prop.getInt(
         RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_KEY,
@@ -120,15 +121,15 @@ public class AppendStreamer implements Closeable {
     senderThread.start();
   }
 
-  private synchronized void refreshLeaderProxy(String suggested,
-      String oldLeader) {
+  private synchronized void refreshLeaderProxy(RaftPeerId suggested,
+      RaftPeerId oldLeader) {
     if (suggested != null) {
       leaderId = suggested;
     } else {
       if (oldLeader == null) {
         leaderId = peers.keySet().iterator().next();
       } else {
-        leaderId = StringUtils.next(oldLeader, peers.keySet());
+        leaderId = RaftUtils.next(oldLeader, peers.keySet());
       }
     }
     LOG.debug("{} switches leader from {} to {}. suggested leader: {}", this,
@@ -248,7 +249,7 @@ public class AppendStreamer implements Closeable {
   /** the response handler for stream RPC */
   private class ResponseHandler implements
       RaftClientProtocolProxy.CloseableStreamObserver {
-    private final String targetId;
+    private final RaftPeerId targetId;
     // once handled the first NotLeaderException or Error, the handler should
     // be inactive and should not make any further action.
     private volatile boolean active = true;
@@ -285,7 +286,7 @@ public class AppendStreamer implements Closeable {
           RaftClientReply r = toRaftClientReply(reply);
           if (r.isNotLeader()) {
             LOG.debug("{} received a NotLeaderException from {}", this,
-                r.getReplierId());
+                r.getServerId());
             handleNotLeader(r.getNotLeaderException(), targetId);
           }
         }
@@ -324,7 +325,7 @@ public class AppendStreamer implements Closeable {
   }
 
   private void handleNotLeader(NotLeaderException nle,
-      String oldLeader) {
+      RaftPeerId oldLeader) {
     Preconditions.checkState(Thread.holdsLock(AppendStreamer.this));
     // handle NotLeaderException: refresh leader and RaftConfiguration
     refreshPeers(nle.getPeers());
@@ -349,7 +350,7 @@ public class AppendStreamer implements Closeable {
     }
   }
 
-  private void refreshLeader(String suggestedLeader, String oldLeader) {
+  private void refreshLeader(RaftPeerId suggestedLeader, RaftPeerId oldLeader) {
     running = RunningState.LOOK_FOR_LEADER;
     refreshLeaderProxy(suggestedLeader, oldLeader);
     reQueuePendingRequests(leaderId);
@@ -364,7 +365,7 @@ public class AppendStreamer implements Closeable {
     leaderProxy.onNext(request);
   }
 
-  private void reQueuePendingRequests(String newLeader) {
+  private void reQueuePendingRequests(RaftPeerId newLeader) {
     if (isRunning()) {
       // resend all the pending requests
       while (!ackQueue.isEmpty()) {
@@ -374,7 +375,7 @@ public class AppendStreamer implements Closeable {
             .setMessage(oldRequest.getMessage())
             .setReadOnly(oldRequest.getReadOnly())
             .setRpcRequest(toRaftRpcRequestProtoBuilder(
-                clientId, newLeader, r.getSeqNum()))
+                clientId.toBytes(), newLeader.toBytes(), r.getSeqNum()))
             .build();
         dataQueue.offerFirst(newRequest);
       }

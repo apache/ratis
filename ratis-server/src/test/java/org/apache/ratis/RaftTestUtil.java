@@ -30,6 +30,8 @@ import java.util.function.IntSupplier;
 
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
@@ -74,7 +76,7 @@ public class RaftTestUtil {
     LOG.info(cluster.printServers());
 
     final RaftServerImpl leader = cluster.getLeader();
-    Assert.assertEquals(leaderId, leader.getId());
+    Assert.assertEquals(leaderId, leader.getId().toString());
     return leader;
   }
 
@@ -88,7 +90,7 @@ public class RaftTestUtil {
       LOG.info("killing leader = " + leader);
       cluster.killServer(leader.getId());
     }
-    return leader != null ? leader.getId() : null;
+    return leader != null ? leader.getId().toString() : null;
   }
 
   public static boolean logEntriesContains(LogEntryProto[] entries,
@@ -259,14 +261,14 @@ public class RaftTestUtil {
     }
   }
 
-  public static String changeLeader(MiniRaftCluster cluster, String oldLeader)
+  public static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
       throws InterruptedException {
-    cluster.setBlockRequestsFrom(oldLeader, true);
-    String newLeader = oldLeader;
+    cluster.setBlockRequestsFrom(oldLeader.toString(), true);
+    RaftPeerId newLeader = oldLeader;
     for(int i = 0; i < 10 && newLeader.equals(oldLeader); i++) {
       newLeader = RaftTestUtil.waitForLeader(cluster).getId();
     }
-    cluster.setBlockRequestsFrom(oldLeader, false);
+    cluster.setBlockRequestsFrom(oldLeader.toString(), false);
     return newLeader;
   }
 
@@ -284,12 +286,12 @@ public class RaftTestUtil {
     }
 
     // delay RaftServerRequest for other servers
-    servers.stream().filter(s -> !s.getId().equals(leaderId))
+    servers.stream().filter(s -> !s.getId().toString().equals(leaderId))
         .forEach(s -> {
           if (block) {
-            injection.setDelayMs(s.getId(), delayMs);
+            injection.setDelayMs(s.getId().toString(), delayMs);
           } else {
-            injection.removeDelay(s.getId());
+            injection.removeDelay(s.getId().toString());
           }
         });
 

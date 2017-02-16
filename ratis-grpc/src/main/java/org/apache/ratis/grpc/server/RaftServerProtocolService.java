@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
@@ -33,10 +34,10 @@ import org.slf4j.LoggerFactory;
 public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerProtocolService.class);
 
-  private final String id;
+  private final RaftPeerId id;
   private final RaftServerProtocol server;
 
-  public RaftServerProtocolService(String id, RaftServerProtocol server) {
+  public RaftServerProtocolService(RaftPeerId id, RaftServerProtocol server) {
     this.id = id;
     this.server = server;
   }

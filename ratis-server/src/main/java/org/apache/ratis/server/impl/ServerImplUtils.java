@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.StateMachine;
@@ -29,7 +30,7 @@ import java.io.IOException;
 /** Server utilities for internal use. */
 public class ServerImplUtils {
   public static RaftServer newRaftServer(
-      String id, StateMachine stateMachine,
+      RaftPeerId id, StateMachine stateMachine,
       Iterable<RaftPeer> peers, RaftProperties properties) throws IOException {
     return newRaftServer(id, stateMachine,
         RaftConfiguration.newBuilder().setConf(peers).build(),
@@ -37,7 +38,7 @@ public class ServerImplUtils {
   }
 
   public static RaftServerImpl newRaftServer(
-      String id, StateMachine stateMachine,
+      RaftPeerId id, StateMachine stateMachine,
       RaftConfiguration conf, RaftProperties properties) throws IOException {
     return new RaftServerImpl(id, stateMachine, conf, properties);
   }

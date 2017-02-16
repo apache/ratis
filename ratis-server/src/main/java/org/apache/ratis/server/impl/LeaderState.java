@@ -46,6 +46,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.ReconfigurationTimeoutException;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.storage.RaftLog;
@@ -418,12 +419,12 @@ public class LeaderState {
     }
   }
 
-  boolean isBootStrappingPeer(String peerId) {
+  boolean isBootStrappingPeer(RaftPeerId peerId) {
     return inStagingState() && getStagingState().contains(peerId);
   }
 
   private void updateLastCommitted() {
-    final String selfId = server.getId();
+    final RaftPeerId selfId = server.getId();
     final RaftConfiguration conf = server.getRaftConf();
     long majorityInNewConf = computeLastCommitted(voterLists.get(0),
         conf.containsInConf(selfId));
@@ -551,12 +552,12 @@ public class LeaderState {
   }
 
   private class ConfigurationStagingState {
-    private final Map<String, RaftPeer> newPeers;
+    private final Map<RaftPeerId, RaftPeer> newPeers;
     private final PeerConfiguration newConf;
 
     ConfigurationStagingState(Collection<RaftPeer> newPeers,
         PeerConfiguration newConf) {
-      Map<String, RaftPeer> map = new HashMap<>();
+      Map<RaftPeerId, RaftPeer> map = new HashMap<>();
       for (RaftPeer peer : newPeers) {
         map.put(peer.getId(), peer);
       }
@@ -577,7 +578,7 @@ public class LeaderState {
       return newPeers.values();
     }
 
-    boolean contains(String peerId) {
+    boolean contains(RaftPeerId peerId) {
       return newPeers.containsKey(peerId);
     }
 

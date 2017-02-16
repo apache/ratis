@@ -23,12 +23,11 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.RaftExamplesTestUtil;
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.simulation.RequestHandler;
 import org.apache.ratis.server.storage.RaftLog;
-import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
-import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.RaftUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -73,9 +72,9 @@ public class TestRaftStateMachineException {
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
 
-    final String leaderId = cluster.getLeader().getId();
+    final RaftPeerId leaderId = cluster.getLeader().getId();
 
-    try(final RaftClient client = cluster.createClient("client", leaderId)) {
+    try(final RaftClient client = cluster.createClient(leaderId)) {
       client.send(new RaftTestUtil.SimpleMessage("m"));
       fail("Exception expected");
     } catch (StateMachineException e) {

@@ -22,7 +22,7 @@ import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteRequestProto;
 
-class RaftServerRequest extends RaftRpcMessage {
+class RaftServerRequest implements RaftRpcMessage {
   private final AppendEntriesRequestProto appendEntries;
   private final RequestVoteRequestProto requestVote;
   private final InstallSnapshotRequestProto installSnapshot;
@@ -77,22 +77,22 @@ class RaftServerRequest extends RaftRpcMessage {
   @Override
   public String getRequestorId() {
     if (isAppendEntries()) {
-      return appendEntries.getServerRequest().getRequestorId();
+      return appendEntries.getServerRequest().getRequestorId().toStringUtf8();
     } else if (isRequestVote()) {
-      return requestVote.getServerRequest().getRequestorId();
+      return requestVote.getServerRequest().getRequestorId().toStringUtf8();
     } else {
-      return installSnapshot.getServerRequest().getRequestorId();
+      return installSnapshot.getServerRequest().getRequestorId().toStringUtf8();
     }
   }
 
   @Override
   public String getReplierId() {
     if (isAppendEntries()) {
-      return appendEntries.getServerRequest().getReplyId();
+      return appendEntries.getServerRequest().getReplyId().toStringUtf8();
     } else if (isRequestVote()) {
-      return requestVote.getServerRequest().getReplyId();
+      return requestVote.getServerRequest().getReplyId().toStringUtf8();
     } else {
-      return installSnapshot.getServerRequest().getReplyId();
+      return installSnapshot.getServerRequest().getReplyId().toStringUtf8();
     }
   }
 }

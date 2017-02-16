@@ -18,12 +18,11 @@
 package org.apache.ratis;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.RaftExamplesTestUtil;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.simulation.RequestHandler;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
@@ -95,9 +94,9 @@ public class TestBatchAppend {
     private final SimpleMessage[] msgs;
     private final AtomicBoolean succeed = new AtomicBoolean(false);
 
-    Sender(String clientId, String leaderId, CountDownLatch latch, int numMsg) {
+    Sender(RaftPeerId leaderId, CountDownLatch latch, int numMsg) {
       this.latch = latch;
-      this.client = cluster.createClient(clientId, leaderId);
+      this.client = cluster.createClient(leaderId);
       msgs = generateMsgs(numMsg);
     }
 
@@ -144,12 +143,12 @@ public class TestBatchAppend {
     final int numClients = 5;
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
-    final String leaderId = cluster.getLeader().getId();
+    final RaftPeerId leaderId = cluster.getLeader().getId();
 
     // start several clients and write concurrently
     CountDownLatch latch = new CountDownLatch(1);
     final List<Sender> senders = Stream.iterate(0, i -> i+1).limit(numClients)
-        .map(i -> new Sender("c" + i, leaderId, latch, numMsgs))
+        .map(i -> new Sender(leaderId, latch, numMsgs))
         .collect(Collectors.toList());
     senders.forEach(Thread::start);
 

@@ -20,6 +20,7 @@ package org.apache.ratis.util;
 import com.google.common.base.Preconditions;
 
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,7 +75,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     }
   }
 
-  private final Map<String, PeerAndProxy> peers = new ConcurrentHashMap<>();
+  private final Map<RaftPeerId, PeerAndProxy> peers = new ConcurrentHashMap<>();
   private final Object resetLock = new Object();
 
   private final CheckedFunction<RaftPeer, PROXY, IOException> createProxy;
@@ -86,7 +87,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     this.createProxy = this::createProxyImpl;
   }
 
-  public PROXY getProxy(String id) throws IOException {
+  public PROXY getProxy(RaftPeerId id) throws IOException {
     PeerAndProxy p = peers.get(id);
     if (p == null) {
       synchronized (resetLock) {
@@ -108,7 +109,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     peers.putIfAbsent(p.getId(), new PeerAndProxy(p));
   }
 
-  public void resetProxy(String id) {
+  public void resetProxy(RaftPeerId id) {
     synchronized (resetLock) {
       final PeerAndProxy pp = peers.remove(id);
       final RaftPeer peer = pp.getPeer();

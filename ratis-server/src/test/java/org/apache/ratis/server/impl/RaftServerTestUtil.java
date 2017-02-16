@@ -20,10 +20,6 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.RaftConfiguration;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.statemachine.StateMachine;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +47,7 @@ public class RaftServerTestUtil {
     final RaftConfiguration current = RaftConfiguration.newBuilder()
         .setConf(peers).setLogEntryIndex(0).build();
     for (RaftServerImpl server : cluster.getServers()) {
-      if (deadPeers != null && deadPeers.contains(server.getId())) {
+      if (deadPeers != null && deadPeers.contains(server.getId().toString())) {
         if (current.containsInConf(server.getId())) {
           deadIncluded++;
         }

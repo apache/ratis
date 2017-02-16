@@ -27,6 +27,7 @@ import java.util.List;
 
 import org.apache.commons.io.Charsets;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.ConfigurationManager;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -101,8 +102,9 @@ public class SegmentedRaftLog extends RaftLog {
   private final RaftLogWorker fileLogWorker;
   private final long segmentMaxSize;
 
-  public SegmentedRaftLog(String selfId, RaftServerImpl server, RaftStorage storage,
-                          long lastIndexInSnapshot, RaftProperties properties) throws IOException {
+  public SegmentedRaftLog(RaftPeerId selfId, RaftServerImpl server,
+      RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties)
+      throws IOException {
     super(selfId);
     this.storage = storage;
     this.segmentMaxSize = properties.getLong(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
@@ -295,13 +297,14 @@ public class SegmentedRaftLog extends RaftLog {
    * This operation is protected by the RaftServer's lock
    */
   @Override
-  public void writeMetadata(long term, String votedFor) throws IOException {
-    storage.getMetaFile().set(term, votedFor);
+  public void writeMetadata(long term, RaftPeerId votedFor) throws IOException {
+    storage.getMetaFile().set(term, votedFor != null ? votedFor.toString() : null);
   }
 
   @Override
   public Metadata loadMetadata() throws IOException {
-    return new Metadata(storage.getMetaFile().getVotedFor(),
+    return new Metadata(
+        RaftPeerId.getRaftPeerId(storage.getMetaFile().getVotedFor()),
         storage.getMetaFile().getTerm());
   }
 

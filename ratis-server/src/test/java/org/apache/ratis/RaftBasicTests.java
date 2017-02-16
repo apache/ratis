@@ -20,6 +20,7 @@ package org.apache.ratis;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.junit.*;
 import org.junit.rules.Timeout;
@@ -82,12 +83,12 @@ public abstract class RaftBasicTests {
     final MiniRaftCluster cluster = getCluster();
     RaftServerImpl leader = waitForLeader(cluster);
     final long term = leader.getState().getCurrentTerm();
-    final String killed = cluster.getFollowers().get(3).getId();
+    final RaftPeerId killed = cluster.getFollowers().get(3).getId();
     cluster.killServer(killed);
     LOG.info(cluster.printServers());
 
     final SimpleMessage[] messages = SimpleMessage.create(10);
-    try(final RaftClient client = cluster.createClient("client", null)) {
+    try(final RaftClient client = cluster.createClient(null)) {
       for (SimpleMessage message : messages) {
         client.send(message);
       }
@@ -120,7 +121,7 @@ public abstract class RaftBasicTests {
 
     Client4TestWithLoad(RaftClient client, int numMessages) {
       this.client = client;
-      this.messages = SimpleMessage.create(numMessages, client.getId());
+      this.messages = SimpleMessage.create(numMessages, client.getId().toString());
     }
 
     boolean isRunning() {
@@ -155,7 +156,7 @@ public abstract class RaftBasicTests {
 
     final List<Client4TestWithLoad> clients
         = Stream.iterate(0, i -> i+1).limit(numClients)
-        .map(i -> cluster.createClient(String.valueOf((char)('a' + i)), null))
+        .map(i -> cluster.createClient(null))
         .map(c -> new Client4TestWithLoad(c, numMessages))
         .collect(Collectors.toList());
     clients.forEach(Thread::start);
@@ -176,9 +177,9 @@ public abstract class RaftBasicTests {
 
       RaftServerImpl leader = cluster.getLeader();
       if (leader != null) {
-        final String oldLeader = leader.getId();
+        final RaftPeerId oldLeader = leader.getId();
         LOG.info("Block all requests sent by leader " + oldLeader);
-        String newLeader = RaftTestUtil.changeLeader(cluster, oldLeader);
+        RaftPeerId newLeader = RaftTestUtil.changeLeader(cluster, oldLeader);
         LOG.info("Changed leader from " + oldLeader + " to " + newLeader);
         Assert.assertFalse(newLeader.equals(oldLeader));
       }

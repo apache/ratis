@@ -26,39 +26,48 @@ import java.util.Arrays;
 
 public class ClientProtoUtils {
   public static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
-      String requestorId, String replyId, long seqNum, boolean success) {
+      byte[] requestorId, byte[] replyId, long seqNum, boolean success) {
     return RaftRpcReplyProto.newBuilder()
-        .setRequestorId(requestorId).setReplyId(replyId).setSeqNum(seqNum)
+        .setRequestorId(ProtoUtils.toByteString(requestorId))
+        .setReplyId(ProtoUtils.toByteString(replyId))
+        .setSeqNum(seqNum)
         .setSuccess(success);
   }
 
   public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      String requesterId, String replyId, long seqNum) {
+      byte[] requesterId, byte[] replyId, long seqNum) {
     return RaftRpcRequestProto.newBuilder()
-        .setRequestorId(requesterId).setReplyId(replyId).setSeqNum(seqNum);
+        .setRequestorId(ProtoUtils.toByteString(requesterId))
+        .setReplyId(ProtoUtils.toByteString(replyId))
+        .setSeqNum(seqNum);
   }
 
   public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
-    return new RaftClientRequest(p.getRpcRequest().getRequestorId(),
-        p.getRpcRequest().getReplyId(), p.getRpcRequest().getSeqNum(),
+    ClientId clientId = new ClientId(
+        p.getRpcRequest().getRequestorId().toByteArray());
+    RaftPeerId serverId = new RaftPeerId(
+        p.getRpcRequest().getReplyId());
+    return new RaftClientRequest(clientId, serverId,
+        p.getRpcRequest().getSeqNum(),
         toMessage(p.getMessage()), p.getReadOnly());
   }
 
   public static RaftClientRequestProto toRaftClientRequestProto(
       RaftClientRequest request) {
     return RaftClientRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request.getRequestorId(),
-            request.getReplierId(), request.getSeqNum()))
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request.getClientId().toBytes(),
+            request.getServerId().toBytes(), request.getSeqNum()))
         .setMessage(toClientMessageEntryProto(request.getMessage()))
         .setReadOnly(request.isReadOnly())
         .build();
   }
 
   public static RaftClientRequestProto genRaftClientRequestProto(
-      String requestorId, String replierId, long seqNum, ByteString content,
+      ClientId clientId, RaftPeerId serverId, long seqNum, ByteString content,
       boolean readOnly) {
     return RaftClientRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(requestorId, replierId, seqNum))
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(clientId.toBytes(),
+            serverId.toBytes(), seqNum))
         .setMessage(ClientMessageEntryProto.newBuilder().setContent(content))
         .setReadOnly(readOnly)
         .build();
@@ -68,8 +77,8 @@ public class ClientProtoUtils {
       RaftClientReply reply) {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
-      b.setRpcReply(toRaftRpcReplyProtoBuilder(reply.getRequestorId(),
-          reply.getReplierId(), reply.getSeqNum(), reply.isSuccess()));
+      b.setRpcReply(toRaftRpcReplyProtoBuilder(reply.getClientId().toBytes(),
+          reply.getServerId().toBytes(), reply.getSeqNum(), reply.isSuccess()));
       if (reply.getMessage() != null) {
         b.setMessage(toClientMessageEntryProto(reply.getMessage()));
       }
@@ -96,9 +105,11 @@ public class ClientProtoUtils {
           ProtoUtils.toRaftPeer(replyProto.getSuggestedLeader()) : null;
       final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(
           replyProto.getPeersInConfList());
-      e = new NotLeaderException(rp.getReplyId(), suggestedLeader, peers);
+      e = new NotLeaderException(new RaftPeerId(rp.getReplyId()),
+          suggestedLeader, peers);
     }
-    return new RaftClientReply(rp.getRequestorId(), rp.getReplyId(),
+    return new RaftClientReply(new ClientId(rp.getRequestorId().toByteArray()),
+        new RaftPeerId(rp.getReplyId()),
         rp.getSeqNum(), rp.getSuccess(), toMessage(replyProto.getMessage()), e);
   }
 
@@ -115,15 +126,19 @@ public class ClientProtoUtils {
       SetConfigurationRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
     final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(p.getPeersList());
-    return new SetConfigurationRequest(m.getRequestorId(), m.getReplyId(),
+    return new SetConfigurationRequest(
+        new ClientId(m.getRequestorId().toByteArray()),
+        new RaftPeerId(m.getReplyId()),
         p.getRpcRequest().getSeqNum(), peers);
   }
 
   public static SetConfigurationRequestProto toSetConfigurationRequestProto(
       SetConfigurationRequest request) {
     return SetConfigurationRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request.getRequestorId(),
-            request.getReplierId(), request.getSeqNum()))
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(
+            request.getClientId().toBytes(),
+            request.getServerId().toBytes(),
+            request.getSeqNum()))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(
             Arrays.asList(request.getPeersInNewConf())))
         .build();

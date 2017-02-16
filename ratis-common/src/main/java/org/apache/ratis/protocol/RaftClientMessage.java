@@ -17,24 +17,35 @@
  */
 package org.apache.ratis.protocol;
 
-public class NotLeaderException extends RaftException {
-  private final RaftPeer suggestedLeader;
-  /** the client may need to update its RaftPeer list */
-  private final RaftPeer[] peers;
+public abstract class RaftClientMessage implements RaftRpcMessage {
+  private final ClientId clientId;
+  private final RaftPeerId serverId;
 
-  public NotLeaderException(RaftPeerId id, RaftPeer suggestedLeader,
-      RaftPeer[] peers) {
-    super("Server " + id + " is not the leader (" + suggestedLeader
-        + "). Request must be sent to leader.");
-    this.suggestedLeader = suggestedLeader;
-    this.peers = peers == null ? RaftPeer.EMPTY_PEERS : peers;
+  public RaftClientMessage(ClientId clientId, RaftPeerId serverId) {
+    this.clientId = clientId;
+    this.serverId = serverId;
   }
 
-  public RaftPeer getSuggestedLeader() {
-    return suggestedLeader;
+  @Override
+  public String getRequestorId() {
+    return clientId.toString();
   }
 
-  public RaftPeer[] getPeers() {
-    return peers;
+  @Override
+  public String getReplierId() {
+    return serverId.toString();
+  }
+
+  public ClientId getClientId() {
+    return clientId;
+  }
+
+  public RaftPeerId getServerId() {
+    return serverId;
+  }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() + "(" + clientId + "->" + serverId + ")";
   }
 }

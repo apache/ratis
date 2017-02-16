@@ -36,6 +36,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftException;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.ReconfigurationInProgressException;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.RaftServer;
@@ -101,7 +102,7 @@ public class RaftServerImpl implements RaftServer {
 
   private final LogAppenderFactory appenderFactory;
 
-  RaftServerImpl(String id, StateMachine stateMachine,
+  RaftServerImpl(RaftPeerId id, StateMachine stateMachine,
                  RaftConfiguration raftConf, RaftProperties properties)
       throws IOException {
     this.lifeCycle = new LifeCycle(id);
@@ -212,7 +213,7 @@ public class RaftServerImpl implements RaftServer {
   }
 
   @Override
-  public String getId() {
+  public RaftPeerId getId() {
     return getState().getSelfId();
   }
 
@@ -360,7 +361,7 @@ public class RaftServerImpl implements RaftServer {
     if (lifeCycle.getCurrentState() != RUNNING) {
       return new NotLeaderException(getId(), null, null);
     }
-    String leaderId = state.getLeaderId();
+    RaftPeerId leaderId = state.getLeaderId();
     if (leaderId == null || leaderId.equals(state.getSelfId())) {
       // No idea about who is the current leader. Or the peer is the current
       // leader, but it is about to step down
@@ -439,8 +440,9 @@ public class RaftServerImpl implements RaftServer {
     return waitForReply(getId(), request, submitClientRequestAsync(request));
   }
 
-  private static RaftClientReply waitForReply(String id, RaftClientRequest request,
-      CompletableFuture<RaftClientReply> future) throws IOException {
+  private static RaftClientReply waitForReply(RaftPeerId id,
+      RaftClientRequest request, CompletableFuture<RaftClientReply> future)
+      throws IOException {
     try {
       return future.get();
     } catch (InterruptedException e) {
@@ -522,7 +524,7 @@ public class RaftServerImpl implements RaftServer {
    * 3. candidate id is not included in conf
    * 4. candidate's last entry's index < conf's index
    */
-  private boolean shouldSendShutdown(String candidateId,
+  private boolean shouldSendShutdown(RaftPeerId candidateId,
       TermIndex candidateLastEntry) {
     return isLeader()
         && getRaftConf().isStable()
@@ -535,12 +537,13 @@ public class RaftServerImpl implements RaftServer {
   @Override
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto r)
       throws IOException {
-    final String candidateId = r.getServerRequest().getRequestorId();
+    final RaftPeerId candidateId =
+        new RaftPeerId(r.getServerRequest().getRequestorId());
     return requestVote(candidateId, r.getCandidateTerm(),
         ServerProtoUtils.toTermIndex(r.getCandidateLastEntry()));
   }
 
-  private RequestVoteReplyProto requestVote(String candidateId,
+  private RequestVoteReplyProto requestVote(RaftPeerId candidateId,
       long candidateTerm, TermIndex candidateLastEntry) throws IOException {
     CodeInjectionForTesting.execute(REQUEST_VOTE, getId(),
         candidateId, candidateTerm, candidateLastEntry);
@@ -619,16 +622,17 @@ public class RaftServerImpl implements RaftServer {
         .toArray(new LogEntryProto[r.getEntriesCount()]);
     final TermIndex previous = r.hasPreviousLog() ?
         ServerProtoUtils.toTermIndex(r.getPreviousLog()) : null;
-    return appendEntries(r.getServerRequest().getRequestorId(),
+    return appendEntries(new RaftPeerId(r.getServerRequest().getRequestorId()),
         r.getLeaderTerm(), previous, r.getLeaderCommit(), r.getInitializing(),
         entries);
   }
 
-  private AppendEntriesReplyProto appendEntries(String leaderId, long leaderTerm,
+  private AppendEntriesReplyProto appendEntries(RaftPeerId leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
       LogEntryProto... entries) throws IOException {
     CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(),
-        leaderId, leaderTerm, previous, leaderCommit, initializing, entries);
+        leaderId, leaderTerm, previous, leaderCommit, initializing,
+        entries);
     if (LOG.isDebugEnabled()) {
       LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {}, {})", getId(),
           leaderId, leaderTerm, previous, leaderCommit, initializing,
@@ -722,8 +726,10 @@ public class RaftServerImpl implements RaftServer {
   @Override
   public InstallSnapshotReplyProto installSnapshot(
       InstallSnapshotRequestProto request) throws IOException {
-    final String leaderId = request.getServerRequest().getRequestorId();
-    CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(), leaderId, request);
+    final RaftPeerId leaderId =
+        new RaftPeerId(request.getServerRequest().getRequestorId());
+    CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(),
+        leaderId, request);
     LOG.debug("{}: receive installSnapshot({})", getId(), request);
 
     lifeCycle.assertCurrentState(STARTING, RUNNING);
@@ -780,7 +786,7 @@ public class RaftServerImpl implements RaftServer {
   }
 
   AppendEntriesRequestProto createAppendEntriesRequest(long leaderTerm,
-      String targetId, TermIndex previous, List<LogEntryProto> entries,
+      RaftPeerId targetId, TermIndex previous, List<LogEntryProto> entries,
       boolean initializing) {
     return ServerProtoUtils.toAppendEntriesRequestProto(getId(), targetId,
         leaderTerm, entries, state.getLog().getLastCommittedIndex(),
@@ -788,8 +794,8 @@ public class RaftServerImpl implements RaftServer {
   }
 
   synchronized InstallSnapshotRequestProto createInstallSnapshotRequest(
-      String targetId, String requestId, int requestIndex, SnapshotInfo snapshot,
-      List<FileChunkProto> chunks, boolean done) {
+      RaftPeerId targetId, String requestId, int requestIndex,
+      SnapshotInfo snapshot, List<FileChunkProto> chunks, boolean done) {
     OptionalLong totalSize = snapshot.getFiles().stream()
         .mapToLong(FileInfo::getFileSize).reduce(Long::sum);
     assert totalSize.isPresent();
@@ -798,8 +804,8 @@ public class RaftServerImpl implements RaftServer {
         chunks, totalSize.getAsLong(), done);
   }
 
-  synchronized RequestVoteRequestProto createRequestVoteRequest(String targetId,
-      long term, TermIndex lastEntry) {
+  synchronized RequestVoteRequestProto createRequestVoteRequest(
+      RaftPeerId targetId, long term, TermIndex lastEntry) {
     return ServerProtoUtils.toRequestVoteRequestProto(getId(), targetId, term,
         lastEntry);
   }

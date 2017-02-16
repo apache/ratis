@@ -24,6 +24,7 @@ import java.io.Closeable;
 import java.io.IOException;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.MemoryRaftLog;
 import org.apache.ratis.server.storage.RaftLog;
@@ -44,7 +45,7 @@ import com.google.common.base.Preconditions;
  * Common states of a raft peer. Protected by RaftServer's lock.
  */
 public class ServerState implements Closeable {
-  private final String selfId;
+  private final RaftPeerId selfId;
   private final RaftServerImpl server;
   /** Raft log */
   private final RaftLog log;
@@ -65,11 +66,11 @@ public class ServerState implements Closeable {
    * The server ID of the leader for this term. Null means either there is
    * no leader for this term yet or this server does not know who it is yet.
    */
-  private String leaderId;
+  private RaftPeerId leaderId;
   /**
    * Candidate that this peer granted vote for in current term (or null if none)
    */
-  private String votedFor;
+  private RaftPeerId votedFor;
 
   /**
    * Latest installed snapshot for this server. This maybe different than StateMachine's latest
@@ -78,8 +79,9 @@ public class ServerState implements Closeable {
    */
   private TermIndex latestInstalledSnapshot;
 
-  ServerState(String id, RaftConfiguration conf, RaftProperties prop,
-              RaftServerImpl server, StateMachine stateMachine) throws IOException {
+  ServerState(RaftPeerId id, RaftConfiguration conf, RaftProperties prop,
+              RaftServerImpl server, StateMachine stateMachine)
+      throws IOException {
     this.selfId = id;
     this.server = server;
     configurationManager = new ConfigurationManager(conf);
@@ -133,8 +135,8 @@ public class ServerState implements Closeable {
    * note we do not apply log entries to the state machine here since we do not
    * know whether they have been committed.
    */
-  private RaftLog initLog(String id, RaftProperties prop, RaftServerImpl server,
-      long lastIndexInSnapshot) throws IOException {
+  private RaftLog initLog(RaftPeerId id, RaftProperties prop,
+      RaftServerImpl server, long lastIndexInSnapshot) throws IOException {
     final RaftLog log;
     if (prop.getBoolean(RAFT_SERVER_USE_MEMORY_LOG_KEY,
         RAFT_SERVER_USE_MEMORY_LOG_DEFAULT)) {
@@ -152,8 +154,7 @@ public class ServerState implements Closeable {
   }
 
   @VisibleForTesting
-
-  public String getSelfId() {
+  public RaftPeerId getSelfId() {
     return this.selfId;
   }
 
@@ -165,7 +166,7 @@ public class ServerState implements Closeable {
     currentTerm = term;
   }
 
-  String getLeaderId() {
+  RaftPeerId getLeaderId() {
     return leaderId;
   }
 
@@ -194,12 +195,12 @@ public class ServerState implements Closeable {
   /**
    * Vote for a candidate and update the local state.
    */
-  void grantVote(String candidateId) {
+  void grantVote(RaftPeerId candidateId) {
     votedFor = candidateId;
     leaderId = null;
   }
 
-  void setLeader(String leaderId) {
+  void setLeader(RaftPeerId leaderId) {
     this.leaderId = leaderId;
   }
 
@@ -220,7 +221,7 @@ public class ServerState implements Closeable {
    * If accept, update the current state.
    * @return true if the check passes
    */
-  boolean recognizeLeader(String leaderId, long leaderTerm) {
+  boolean recognizeLeader(RaftPeerId leaderId, long leaderTerm) {
     if (leaderTerm < currentTerm) {
       return false;
     } else if (leaderTerm > currentTerm || this.leaderId == null) {
@@ -238,7 +239,7 @@ public class ServerState implements Closeable {
   /**
    * Check if the candidate's term is acceptable
    */
-  boolean recognizeCandidate(String candidateId,
+  boolean recognizeCandidate(RaftPeerId candidateId,
       long candidateTerm) {
     if (candidateTerm > currentTerm) {
       return true;

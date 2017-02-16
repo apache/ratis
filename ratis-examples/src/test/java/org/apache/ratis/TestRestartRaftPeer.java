@@ -18,12 +18,11 @@
 package org.apache.ratis;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.RaftExamplesTestUtil;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.simulation.RequestHandler;
@@ -76,8 +75,8 @@ public class TestRestartRaftPeer {
   public void restartFollower() throws Exception {
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
-    final String leaderId = cluster.getLeader().getId();
-    final RaftClient client = cluster.createClient("client", leaderId);
+    final RaftPeerId leaderId = cluster.getLeader().getId();
+    final RaftClient client = cluster.createClient(leaderId);
 
     // write some messages
     final byte[] content = new byte[1024];
@@ -88,7 +87,7 @@ public class TestRestartRaftPeer {
     }
 
     // restart a follower
-    String followerId = cluster.getFollowers().get(0).getId();
+    String followerId = cluster.getFollowers().get(0).getId().toString();
     LOG.info("Restart follower {}", followerId);
     cluster.restartServer(followerId, false);
 

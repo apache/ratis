@@ -18,8 +18,8 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.StringUtils;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -66,7 +66,7 @@ public class BlockRequestHandlingInjection implements CodeInjectionForTesting.Co
   }
 
   @Override
-  public boolean execute(String localId, String remoteId, Object... args) {
+  public boolean execute(Object localId, Object remoteId, Object... args) {
     if (shouldBlock(localId, remoteId)) {
       try {
         RaftTestUtil.block(() -> shouldBlock(localId, remoteId));
@@ -79,7 +79,8 @@ public class BlockRequestHandlingInjection implements CodeInjectionForTesting.Co
     return false;
   }
 
-  private boolean shouldBlock(String localId, String remoteId) {
-    return repliers.containsKey(localId) || requestors.containsKey(remoteId);
+  private boolean shouldBlock(Object localId, Object remoteId) {
+    return (localId != null && repliers.containsKey(localId.toString())) ||
+        (remoteId != null && requestors.containsKey(remoteId.toString()));
   }
 }

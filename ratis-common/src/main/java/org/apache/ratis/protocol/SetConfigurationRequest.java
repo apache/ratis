@@ -22,9 +22,9 @@ import java.util.Arrays;
 public class SetConfigurationRequest extends RaftClientRequest {
   private final RaftPeer[] peers;
 
-  public SetConfigurationRequest(String requestorId, String replierId,
+  public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       long seqNum, RaftPeer[] peers) {
-    super(requestorId, replierId, seqNum, null);
+    super(clientId, serverId, seqNum, null);
     this.peers = peers;
   }
 

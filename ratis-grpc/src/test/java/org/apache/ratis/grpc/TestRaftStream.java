@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
@@ -98,8 +99,8 @@ public class TestRaftStream {
     RaftServerImpl leader = waitForLeader(cluster);
 
     int count = 1;
-    try (RaftOutputStream out = new RaftOutputStream(prop, "writer-1",
-        cluster.getPeers(), leader.getId())) {
+    try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
+         cluster.getPeers(), leader.getId())) {
       for (int i = 0; i < 500; i++) { // generate 500 requests
         out.write(genContent(count++));
       }
@@ -138,7 +139,7 @@ public class TestRaftStream {
     cluster.start();
 
     RaftServerImpl leader = waitForLeader(cluster);
-    RaftOutputStream out = new RaftOutputStream(prop, "writer",
+    RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
         cluster.getPeers(), leader.getId());
 
     int[] lengths = new int[]{1, 500, 1023, 1024, 1025, 2048, 3000, 3072};
@@ -217,7 +218,7 @@ public class TestRaftStream {
     cluster.start();
     RaftServerImpl leader = waitForLeader(cluster);
 
-    RaftOutputStream out = new RaftOutputStream(prop, "writer",
+    RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
         cluster.getPeers(), leader.getId());
 
     byte[] b1 = new byte[ByteValue.BUFFERSIZE / 2];
@@ -283,7 +284,7 @@ public class TestRaftStream {
     new Thread(() -> {
       LOG.info("Writer thread starts");
       int count = 0;
-      try (RaftOutputStream out = new RaftOutputStream(prop, "writer",
+      try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
           cluster.getPeers(), leader.getId())) {
         while (running.get()) {
           out.write(toBytes(count++));

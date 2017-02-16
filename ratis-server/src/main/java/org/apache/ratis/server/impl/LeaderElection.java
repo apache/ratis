@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteRequestProto;
@@ -205,7 +206,7 @@ class LeaderElection extends Daemon {
     final List<RequestVoteReplyProto> responses = new ArrayList<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;
-    Collection<String> votedPeers = new ArrayList<>();
+    Collection<RaftPeerId> votedPeers = new ArrayList<>();
     while (waitForNum > 0 && running && server.isCandidate()) {
       final long waitTime = -timeout.elapsedTimeMs();
       if (waitTime <= 0) {
@@ -229,7 +230,7 @@ class LeaderElection extends Daemon {
               exceptions, r.getTerm());
         }
         if (r.getServerReply().getSuccess()) {
-          votedPeers.add(r.getServerReply().getReplyId());
+          votedPeers.add(new RaftPeerId(r.getServerReply().getReplyId()));
           if (conf.hasMajority(votedPeers, server.getId())) {
             return logAndReturn(Result.PASSED, responses, exceptions, -1);
           }

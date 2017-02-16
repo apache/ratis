@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
@@ -70,7 +71,7 @@ public class ProtoUtils {
 
   public static RaftPeerProto toRaftPeerProto(RaftPeer peer) {
     RaftPeerProto.Builder builder = RaftPeerProto.newBuilder()
-        .setId(peer.getId());
+        .setId(toByteString(peer.getId().toBytes()));
     if (peer.getAddress() != null) {
       builder.setAddress(peer.getAddress());
     }
@@ -78,7 +79,7 @@ public class ProtoUtils {
   }
 
   public static RaftPeer toRaftPeer(RaftPeerProto p) {
-    return new RaftPeer(p.getId(), p.getAddress());
+    return new RaftPeer(new RaftPeerId(p.getId()), p.getAddress());
   }
 
   public static RaftPeer[] toRaftPeerArray(List<RaftPeerProto> protos) {

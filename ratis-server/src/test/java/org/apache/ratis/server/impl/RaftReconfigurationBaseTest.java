@@ -60,6 +60,8 @@ public abstract class RaftReconfigurationBaseTest {
   static final Logger LOG = LoggerFactory.getLogger(RaftReconfigurationBaseTest.class);
 
   protected static final RaftProperties prop = new RaftProperties();
+  
+  private static final ClientId clientId = ClientId.createId();
 
   @BeforeClass
   public static void setup() {
@@ -89,7 +91,7 @@ public abstract class RaftReconfigurationBaseTest {
       RaftPeer[] allPeers = cluster.addNewPeers(2, true).allPeersInNewConf;
 
       // trigger setConfiguration
-      SetConfigurationRequest request = new SetConfigurationRequest("client",
+      SetConfigurationRequest request = new SetConfigurationRequest(clientId,
           cluster.getLeader().getId(), DEFAULT_SEQNUM, allPeers);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);
@@ -117,7 +119,7 @@ public abstract class RaftReconfigurationBaseTest {
           .removePeers(2, false, Collections.emptyList()).allPeersInNewConf;
 
       // trigger setConfiguration
-      SetConfigurationRequest request = new SetConfigurationRequest("client",
+      SetConfigurationRequest request = new SetConfigurationRequest(clientId,
           cluster.getLeader().getId(), DEFAULT_SEQNUM, allPeers);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);
@@ -155,7 +157,7 @@ public abstract class RaftReconfigurationBaseTest {
           asList(change.newPeers)).allPeersInNewConf;
 
       // trigger setConfiguration
-      SetConfigurationRequest request = new SetConfigurationRequest("client",
+      SetConfigurationRequest request = new SetConfigurationRequest(clientId,
           cluster.getLeader().getId(), DEFAULT_SEQNUM, allPeers);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);
@@ -174,8 +176,8 @@ public abstract class RaftReconfigurationBaseTest {
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
-      final String leaderId = cluster.getLeader().getId();
-      final RaftClient client = cluster.createClient("client", leaderId);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient(leaderId);
 
       // submit some msgs before reconf
       for (int i = 0; i < getStagingGap() * 2; i++) {
@@ -241,8 +243,8 @@ public abstract class RaftReconfigurationBaseTest {
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
-      final String leaderId = cluster.getLeader().getId();
-      final RaftClient client = cluster.createClient("client", leaderId);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient(leaderId);
 
       PeerChanges c1 = cluster.addNewPeers(2, false);
 
@@ -252,7 +254,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       final RaftClientRequestSender sender = client.getRequestSender();
       final SetConfigurationRequest request = new SetConfigurationRequest(
-          "client", leaderId, DEFAULT_SEQNUM, c1.allPeersInNewConf);
+          client.getId(), leaderId, DEFAULT_SEQNUM, c1.allPeersInNewConf);
       try {
         sender.sendRequest(request);
         Assert.fail("did not get expected exception");
@@ -294,8 +296,8 @@ public abstract class RaftReconfigurationBaseTest {
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
-      final String leaderId = cluster.getLeader().getId();
-      final RaftClient client = cluster.createClient("client", leaderId);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient(leaderId);
 
       // submit some msgs before reconf
       for (int i = 0; i < getStagingGap() * 2; i++) {
@@ -326,7 +328,7 @@ public abstract class RaftReconfigurationBaseTest {
       final RaftLog leaderLog = cluster.getLeader().getState().getLog();
       for (RaftPeer newPeer : c1.newPeers) {
         Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
-            cluster.getServer(newPeer.getId()).getState().getLog()
+            cluster.getServer(newPeer.getId().toString()).getState().getLog()
                 .getEntries(0, Long.MAX_VALUE));
       }
     } finally {
@@ -346,8 +348,8 @@ public abstract class RaftReconfigurationBaseTest {
     cluster.start();
     try {
       RaftTestUtil.waitForLeader(cluster);
-      final String leaderId = cluster.getLeader().getId();
-      final RaftClient client = cluster.createClient("client", leaderId);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient(leaderId);
 
       PeerChanges c1 = cluster.addNewPeers(2, false);
       PeerChanges c2 = cluster.removePeers(2, false, asList(c1.newPeers));
@@ -418,8 +420,8 @@ public abstract class RaftReconfigurationBaseTest {
       cluster.start();
       RaftTestUtil.waitForLeader(cluster);
 
-      final String leaderId = cluster.getLeader().getId();
-      final RaftClient client = cluster.createClient("client", leaderId);
+      final RaftPeerId leaderId = cluster.getLeader().getId();
+      final RaftClient client = cluster.createClient(leaderId);
       client.send(new SimpleMessage("m"));
 
       final long committedIndex = cluster.getLeader().getState().getLog()
@@ -452,24 +454,24 @@ public abstract class RaftReconfigurationBaseTest {
       cluster.start();
       RaftTestUtil.waitForLeader(cluster);
 
-      final String leaderId = cluster.getLeader().getId();
+      final RaftPeerId leaderId = cluster.getLeader().getId();
 
       RaftPeer[] newPeers = cluster.addNewPeers(2, true).allPeersInNewConf;
 
       // delay every peer's logSync so that the setConf request is delayed
       cluster.getPeers()
-          .forEach(peer -> logSyncDelay.setDelayMs(peer.getId(), 1000));
+          .forEach(peer -> logSyncDelay.setDelayMs(peer.getId().toString(), 1000));
 
       final CountDownLatch latch = new CountDownLatch(1);
       final RaftPeer[] peersInRequest2 = cluster.getPeers().toArray(new RaftPeer[0]);
       AtomicBoolean caughtException = new AtomicBoolean(false);
       new Thread(() -> {
-        try(final RaftClient client2 = cluster.createClient("client2", leaderId)) {
+        try(final RaftClient client2 = cluster.createClient(leaderId)) {
           latch.await();
           LOG.info("client2 starts to change conf");
           final RaftClientRequestSender sender2 = client2.getRequestSender();
           sender2.sendRequest(new SetConfigurationRequest(
-              "client2", leaderId, DEFAULT_SEQNUM, peersInRequest2));
+              client2.getId(), leaderId, DEFAULT_SEQNUM, peersInRequest2));
         } catch (ReconfigurationInProgressException e) {
           caughtException.set(true);
         } catch (Exception e) {
@@ -479,7 +481,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       AtomicBoolean confChanged = new AtomicBoolean(false);
       new Thread(() -> {
-        try(final RaftClient client1 = cluster.createClient("client1", leaderId)) {
+        try(final RaftClient client1 = cluster.createClient(leaderId)) {
           LOG.info("client1 starts to change conf");
           confChanged.set(client1.setConfiguration(newPeers).isSuccess());
         } catch (IOException e) {
@@ -513,9 +515,9 @@ public abstract class RaftReconfigurationBaseTest {
       cluster.start();
       RaftTestUtil.waitForLeader(cluster);
 
-      final String leaderId = cluster.getLeader().getId();
+      final RaftPeerId leaderId = cluster.getLeader().getId();
 
-      final RaftLog log = cluster.getServer(leaderId).getState().getLog();
+      final RaftLog log = cluster.getServer(leaderId.toString()).getState().getLog();
       Thread.sleep(1000);
       Assert.assertEquals(0, log.getLatestFlushedIndex());
 
@@ -523,18 +525,18 @@ public abstract class RaftReconfigurationBaseTest {
       // followers, so that we force the leader change and the old leader will
       // not know
       LOG.info("start blocking the leader");
-      BlockRequestHandlingInjection.getInstance().blockReplier(leaderId);
-      cluster.setBlockRequestsFrom(leaderId, true);
+      BlockRequestHandlingInjection.getInstance().blockReplier(leaderId.toString());
+      cluster.setBlockRequestsFrom(leaderId.toString(), true);
 
       PeerChanges change = cluster.removePeers(1, false, new ArrayList<>());
 
       AtomicBoolean gotNotLeader = new AtomicBoolean(false);
       new Thread(() -> {
-        try(final RaftClient client = cluster.createClient("client1", leaderId)) {
+        try(final RaftClient client = cluster.createClient(leaderId)) {
           LOG.info("client starts to change conf");
           final RaftClientRequestSender sender = client.getRequestSender();
           RaftClientReply reply = sender.sendRequest(new SetConfigurationRequest(
-              "client", leaderId, DEFAULT_SEQNUM, change.allPeersInNewConf));
+              client.getId(), leaderId, DEFAULT_SEQNUM, change.allPeersInNewConf));
           if (reply.isNotLeader()) {
             gotNotLeader.set(true);
           }
@@ -552,8 +554,8 @@ public abstract class RaftReconfigurationBaseTest {
           log.getLastEntry().getLogEntryBodyCase());
 
       // unblock the old leader
-      BlockRequestHandlingInjection.getInstance().unblockReplier(leaderId);
-      cluster.setBlockRequestsFrom(leaderId, false);
+      BlockRequestHandlingInjection.getInstance().unblockReplier(leaderId.toString());
+      cluster.setBlockRequestsFrom(leaderId.toString(), false);
 
       // the client should get NotLeaderException
       for (int i = 0; i < 10 && !gotNotLeader.get(); i++) {

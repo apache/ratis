@@ -22,7 +22,7 @@ option java_generate_equals_and_hash = true;
 package ratis.common;
 
 message RaftPeerProto {
-  string id = 1;      // id of the peer
+  bytes id = 1;      // id of the peer
   string address = 2; // e.g. IP address, hostname etc.
 }
 
@@ -58,14 +58,14 @@ message TermIndexProto {
 }
 
 message RaftRpcRequestProto {
-  string requestorId = 1;
-  string replyId = 2;
+  bytes requestorId = 1;
+  bytes replyId = 2;
   uint64 seqNum = 3;
 }
 
 message RaftRpcReplyProto {
-  string requestorId = 1;
-  string replyId = 2;
+  bytes requestorId = 1;
+  bytes replyId = 2;
   uint64 seqNum = 3;
   bool success = 4;
 }

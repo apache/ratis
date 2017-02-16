@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.grpc.client;
 
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
@@ -54,7 +55,7 @@ public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
   @Override
   public RaftClientReply sendRequest(RaftClientRequest request)
       throws IOException {
-    final String serverId = request.getReplierId();
+    final RaftPeerId serverId = request.getServerId();
     final RaftClientProtocolClient proxy = proxies.getProxy(serverId);
     if (request instanceof SetConfigurationRequest) {
       SetConfigurationRequestProto setConf =

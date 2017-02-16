@@ -17,17 +17,11 @@
  */
 package org.apache.ratis.protocol;
 
-public abstract class RaftRpcMessage {
+public interface RaftRpcMessage {
 
-  public abstract boolean isRequest();
+  boolean isRequest();
 
-  public abstract String getRequestorId();
+  String getRequestorId();
 
-  public abstract String getReplierId();
-
-  @Override
-  public String toString() {
-    return getClass().getSimpleName() + "(" + getRequestorId()
-        + (isRequest()? "->": "<-") + getReplierId() + ")";
-  }
+  String getReplierId();
 }

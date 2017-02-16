@@ -33,6 +33,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.ConfigurationManager;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -51,7 +52,7 @@ public class TestSegmentedRaftLog {
     RaftUtils.setLogLevel(RaftLogWorker.LOG, Level.DEBUG);
   }
 
-  private static final String peerId = "s0";
+  private static final RaftPeerId peerId = new RaftPeerId("s0");
 
   private static class SegmentRange {
     final long start;

@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.client;
 
 import com.google.common.base.Preconditions;
 
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
@@ -65,10 +66,10 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
   }
   private static final PendingAppend COMPLETED = new PendingAppend(Long.MAX_VALUE);
 
-  private final String id;
+  private final RaftPeerId id;
   private final RaftClientAsynchronousProtocol client;
 
-  public RaftClientProtocolService(String id, RaftClientAsynchronousProtocol client) {
+  public RaftClientProtocolService(RaftPeerId id, RaftClientAsynchronousProtocol client) {
     this.id = id;
     this.client = client;
   }

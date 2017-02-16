@@ -23,11 +23,10 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.RaftGRpcService;
-import org.apache.ratis.grpc.RaftGrpcConfigKeys;
 import org.apache.ratis.grpc.client.RaftClientSenderWithGrpc;
 import org.apache.ratis.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.LogAppenderFactory;
@@ -101,7 +100,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
       RaftServerImpl server = servers.get(entry.getKey().getId());
       server.setServerRpc(entry.getValue());
       if (!startService) {
-        BlockRequestHandlingInjection.getInstance().blockReplier(server.getId());
+        BlockRequestHandlingInjection.getInstance().blockReplier(server.getId().toString());
       } else {
         server.start();
       }
@@ -130,9 +129,9 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   }
 
   @Override
-  public void startServer(String id) {
+  public void startServer(RaftPeerId id) {
     super.startServer(id);
-    BlockRequestHandlingInjection.getInstance().unblockReplier(id);
+    BlockRequestHandlingInjection.getInstance().unblockReplier(id.toString());
   }
 
   @Override

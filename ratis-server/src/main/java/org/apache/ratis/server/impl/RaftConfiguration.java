@@ -24,6 +24,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 
 /**
  * The configuration of the raft cluster.
@@ -150,23 +151,24 @@ public class RaftConfiguration {
     return oldConf == null;
   }
 
-  boolean containsInConf(String peerId) {
+  boolean containsInConf(RaftPeerId peerId) {
     return conf.contains(peerId);
   }
 
-  boolean containsInOldConf(String peerId) {
+  boolean containsInOldConf(RaftPeerId peerId) {
     return oldConf != null && oldConf.contains(peerId);
   }
 
-  boolean contains(String peerId) {
-    return containsInConf(peerId) && (oldConf == null || containsInOldConf(peerId));
+  boolean contains(RaftPeerId peerId) {
+    return containsInConf(peerId) &&
+        (oldConf == null || containsInOldConf(peerId));
   }
 
   /**
    * @return the peer corresponding to the given id;
    *         or return null if the peer is not in this configuration.
    */
-  public RaftPeer getPeer(String id) {
+  public RaftPeer getPeer(RaftPeerId id) {
     if (id == null) {
       return null;
     }
@@ -193,7 +195,7 @@ public class RaftConfiguration {
    * @return all the peers other than the given self id from the conf,
    *         and the old conf if it exists.
    */
-  public Collection<RaftPeer> getOtherPeers(String selfId) {
+  public Collection<RaftPeer> getOtherPeers(RaftPeerId selfId) {
     Collection<RaftPeer> others = conf.getOtherPeers(selfId);
     if (oldConf != null) {
       oldConf.getOtherPeers(selfId).stream()
@@ -204,7 +206,7 @@ public class RaftConfiguration {
   }
 
   /** @return true if the self id together with the others are in the majority. */
-  boolean hasMajority(Collection<String> others, String selfId) {
+  boolean hasMajority(Collection<RaftPeerId> others, RaftPeerId selfId) {
     Preconditions.checkArgument(!others.contains(selfId));
     return conf.hasMajority(others, selfId) &&
         (oldConf == null || oldConf.hasMajority(others, selfId));
@@ -243,7 +245,7 @@ public class RaftConfiguration {
     return peers;
   }
 
-  RaftPeer getRandomPeer(String exclusiveId) {
+  RaftPeer getRandomPeer(RaftPeerId exclusiveId) {
     final List<RaftPeer> peers = conf.getOtherPeers(exclusiveId);
     if (peers.isEmpty()) {
       return null;

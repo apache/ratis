@@ -40,7 +40,7 @@ public class HadoopClientRequestSender implements RaftClientRequestSender {
   @Override
   public RaftClientReply sendRequest(RaftClientRequest request)
       throws IOException {
-    final String serverId = request.getReplierId();
+    final RaftPeerId serverId = request.getServerId();
     final RaftClientProtocolClientSideTranslatorPB proxy =
         proxies.getProxy(serverId);
     try {

@@ -31,9 +31,9 @@ import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.LogInputStream;
@@ -96,7 +96,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public synchronized void initialize(String id, RaftProperties properties,
+  public synchronized void initialize(RaftPeerId id, RaftProperties properties,
       RaftStorage raftStorage) throws IOException {
     LOG.info("Initializing " + getClass().getSimpleName() + ":" + id);
     lifeCycle.startAndTransition(() -> {
@@ -119,7 +119,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public synchronized void reinitialize(String id, RaftProperties properties,
+  public synchronized void reinitialize(RaftPeerId id, RaftProperties properties,
       RaftStorage storage) throws IOException {
     LOG.info("Reinitializing " + getClass().getSimpleName() + ":" + id);
     initialize(id, properties, storage);

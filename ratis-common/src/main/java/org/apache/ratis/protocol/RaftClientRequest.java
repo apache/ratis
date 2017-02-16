@@ -17,22 +17,22 @@
  */
 package org.apache.ratis.protocol;
 
-public class RaftClientRequest extends RaftRpcMessage {
-  private final String requestorId;
-  private final String replierId;
+/**
+ * Request from client to server
+ */
+public class RaftClientRequest extends RaftClientMessage {
   private final long seqNum;
   private final Message message;
   private final boolean readOnly;
 
-  public RaftClientRequest(String  requestorId, String replierId, long seqNum,
-                           Message message) {
-    this(requestorId, replierId, seqNum, message, false);
+  public RaftClientRequest(ClientId clientId, RaftPeerId serverId,
+      long seqNum, Message message) {
+    this(clientId, serverId, seqNum, message, false);
   }
 
-  public RaftClientRequest(String requestorId, String replierId, long seqNum,
-       Message message, boolean readOnly) {
-    this.requestorId = requestorId;
-    this.replierId = replierId;
+  public RaftClientRequest(ClientId clientId, RaftPeerId serverId,
+      long seqNum, Message message, boolean readOnly) {
+    super(clientId, serverId);
     this.seqNum = seqNum;
     this.message = message;
     this.readOnly = readOnly;
@@ -41,16 +41,6 @@ public class RaftClientRequest extends RaftRpcMessage {
   @Override
   public final boolean isRequest() {
     return true;
-  }
-
-  @Override
-  public String getRequestorId() {
-    return requestorId;
-  }
-
-  @Override
-  public String getReplierId() {
-    return replierId;
   }
 
   public long getSeqNum() {

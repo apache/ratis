@@ -24,6 +24,7 @@ import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -65,16 +66,16 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public void initialize(String id, RaftProperties properties, RaftStorage raftStorage)
-      throws IOException {
+  public void initialize(RaftPeerId id, RaftProperties properties,
+      RaftStorage raftStorage) throws IOException {
     super.initialize(id, properties, raftStorage);
     this.storage.init(raftStorage);
     loadSnapshot(storage.getLatestSnapshot());
   }
 
   @Override
-  public void reinitialize(String id, RaftProperties properties, RaftStorage storage)
-      throws IOException {
+  public void reinitialize(RaftPeerId id, RaftProperties properties,
+      RaftStorage storage) throws IOException {
     close();
     this.initialize(id, properties, storage);
   }

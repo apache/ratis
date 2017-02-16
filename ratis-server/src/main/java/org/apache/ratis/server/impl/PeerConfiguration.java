@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import java.util.*;
 
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 
 /**
  * The peer configuration of a raft cluster.
@@ -29,11 +30,11 @@ import org.apache.ratis.protocol.RaftPeer;
  * The objects of this class are immutable.
  */
 class PeerConfiguration {
-  private final Map<String, RaftPeer> peers;
+  private final Map<RaftPeerId, RaftPeer> peers;
 
   PeerConfiguration(Iterable<RaftPeer> peers) {
     Preconditions.checkNotNull(peers);
-    Map<String, RaftPeer> map = new HashMap<>();
+    Map<RaftPeerId, RaftPeer> map = new HashMap<>();
     for(RaftPeer p : peers) {
       map.put(p.getId(), p);
     }
@@ -54,17 +55,17 @@ class PeerConfiguration {
     return peers.values().toString();
   }
 
-  RaftPeer getPeer(String id) {
+  RaftPeer getPeer(RaftPeerId id) {
     return peers.get(id);
   }
 
-  boolean contains(String id) {
+  boolean contains(RaftPeerId id) {
     return peers.containsKey(id);
   }
 
-  List<RaftPeer> getOtherPeers(String selfId) {
+  List<RaftPeer> getOtherPeers(RaftPeerId selfId) {
     List<RaftPeer> others = new ArrayList<>();
-    for (Map.Entry<String, RaftPeer> entry : peers.entrySet()) {
+    for (Map.Entry<RaftPeerId, RaftPeer> entry : peers.entrySet()) {
       if (!selfId.equals(entry.getValue().getId())) {
         others.add(entry.getValue());
       }
@@ -72,13 +73,13 @@ class PeerConfiguration {
     return others;
   }
 
-  boolean hasMajority(Collection<String> others, String selfId) {
+  boolean hasMajority(Collection<RaftPeerId> others, RaftPeerId selfId) {
     Preconditions.checkArgument(!others.contains(selfId));
     int num = 0;
     if (contains(selfId)) {
       num++;
     }
-    for (String other : others) {
+    for (RaftPeerId other : others) {
       if (contains(other)) {
         num++;
       }

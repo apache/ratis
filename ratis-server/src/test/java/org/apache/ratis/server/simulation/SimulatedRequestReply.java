@@ -27,6 +27,7 @@ import org.apache.ratis.util.RaftUtils;
 import org.apache.ratis.util.Timestamp;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -110,7 +111,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   SimulatedRequestReply(Collection<RaftPeer> allPeers, int simulateLatencyMs) {
     queues = new ConcurrentHashMap<>();
     for (RaftPeer peer : allPeers) {
-      queues.put(peer.getId(), new EventQueue<>());
+      queues.put(peer.getId().toString(), new EventQueue<>());
     }
 
     this.simulateLatencyMs = simulateLatencyMs;
@@ -182,7 +183,7 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
 
   public void addPeers(Collection<RaftPeer> newPeers) {
     for (RaftPeer peer : newPeers) {
-      queues.put(peer.getId(), new EventQueue<>());
+      queues.put(peer.getId().toString(), new EventQueue<>());
     }
   }
 

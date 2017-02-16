@@ -23,7 +23,6 @@ import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.log4j.Level;
@@ -32,7 +31,9 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
@@ -115,9 +116,9 @@ public abstract class RaftSnapshotBaseTest {
   @Test
   public void testRestartPeer() throws Exception {
     RaftTestUtil.waitForLeader(cluster);
-    final String leaderId = cluster.getLeader().getId();
+    final RaftPeerId leaderId = cluster.getLeader().getId();
     int i = 0;
-    try(final RaftClient client = cluster.createClient("client", leaderId)) {
+    try(final RaftClient client = cluster.createClient(leaderId)) {
       for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
         RaftClientReply reply = client.send(new SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
@@ -151,13 +152,13 @@ public abstract class RaftSnapshotBaseTest {
    */
   @Test
   public void testBasicInstallSnapshot() throws Exception {
-    List<LogPathAndIndex> logs = new ArrayList<>();
+    List<LogPathAndIndex> logs;
     try {
       RaftTestUtil.waitForLeader(cluster);
-      final String leaderId = cluster.getLeader().getId();
+      final RaftPeerId leaderId = cluster.getLeader().getId();
 
       int i = 0;
-      try(final RaftClient client = cluster.createClient("client", leaderId)) {
+      try(final RaftClient client = cluster.createClient(leaderId)) {
         for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
           RaftClientReply reply = client.send(new SimpleMessage("m" + i));
           Assert.assertTrue(reply.isSuccess());
@@ -192,8 +193,7 @@ public abstract class RaftSnapshotBaseTest {
       assertLeaderContent(cluster);
 
       // generate some more traffic
-      try(final RaftClient client = cluster.createClient("client",
-          cluster.getLeader().getId())) {
+      try(final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
         Assert.assertTrue(client.send(new SimpleMessage("test")).isSuccess());
       }
 
@@ -201,7 +201,7 @@ public abstract class RaftSnapshotBaseTest {
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
           new String[]{"s3", "s4"}, true);
       // trigger setConfiguration
-      SetConfigurationRequest request = new SetConfigurationRequest("client",
+      SetConfigurationRequest request = new SetConfigurationRequest(ClientId.createId(),
           cluster.getLeader().getId(), DEFAULT_SEQNUM, change.allPeersInNewConf);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);

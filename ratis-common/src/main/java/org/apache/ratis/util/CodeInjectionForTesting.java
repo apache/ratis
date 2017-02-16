@@ -39,7 +39,7 @@ public class CodeInjectionForTesting {
      * @param args other possible args
      * @return if the injected code is executed
      */
-    boolean execute(String localId, String remoteId, Object... args);
+    boolean execute(Object localId, Object remoteId, Object... args);
   }
 
   private static final Map<String, Code> INJECTION_POINTS
@@ -52,8 +52,8 @@ public class CodeInjectionForTesting {
   }
 
   /** Execute the injected code, if there is any. */
-  public static boolean execute(String injectionPoint, String localId,
-      String remoteId, Object... args) {
+  public static boolean execute(String injectionPoint, Object localId,
+      Object remoteId, Object... args) {
     final Code code = INJECTION_POINTS.get(injectionPoint);
     if (code == null) {
       return false;

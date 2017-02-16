@@ -17,9 +17,10 @@
  */
 package org.apache.ratis.protocol;
 
-public class RaftClientReply extends RaftRpcMessage {
-  private final String requestorId;
-  private final String replierId;
+/**
+ * Reply from server to client
+ */
+public class RaftClientReply extends RaftClientMessage {
   private final boolean success;
   private final long seqNum;
 
@@ -27,10 +28,9 @@ public class RaftClientReply extends RaftRpcMessage {
   private final NotLeaderException notLeaderException;
   private final Message message;
 
-  public RaftClientReply(String requestorId, String replierId, long seqNum,
+  public RaftClientReply(ClientId clientId, RaftPeerId serverId, long seqNum,
       boolean success, Message message, NotLeaderException notLeaderException) {
-    this.requestorId = requestorId;
-    this.replierId = replierId;
+    super(clientId, serverId);
     this.success = success;
     this.seqNum = seqNum;
     this.message = message;
@@ -39,28 +39,18 @@ public class RaftClientReply extends RaftRpcMessage {
 
   public RaftClientReply(RaftClientRequest request,
       NotLeaderException notLeaderException) {
-    this(request.getRequestorId(), request.getReplierId(), request.getSeqNum(),
+    this(request.getClientId(), request.getServerId(), request.getSeqNum(),
         false, null, notLeaderException);
   }
 
   public RaftClientReply(RaftClientRequest request, Message message) {
-    this(request.getRequestorId(), request.getReplierId(), request.getSeqNum(),
+    this(request.getClientId(), request.getServerId(), request.getSeqNum(),
         true, message, null);
   }
 
   @Override
   public final boolean isRequest() {
     return false;
-  }
-
-  @Override
-  public String getRequestorId() {
-    return requestorId;
-  }
-
-  @Override
-  public String getReplierId() {
-    return replierId;
   }
 
   public long getSeqNum() {

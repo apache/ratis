@@ -30,30 +30,30 @@ public class RaftPeer {
   public static final RaftPeer[] EMPTY_PEERS = {};
 
   /** The id of the peer. */
-  private final String id;
+  private final RaftPeerId id;
   /** The address of the peer. */
   private final String address;
 
   /** Construct a peer with the given id and a null address. */
-  public RaftPeer(String id) {
+  public RaftPeer(RaftPeerId id) {
     this(id, (String)null);
   }
 
   /** Construct a peer with the given id and address. */
-  public RaftPeer(String id, InetSocketAddress address) {
+  public RaftPeer(RaftPeerId id, InetSocketAddress address) {
     this(id, address == null ? null :
         HostAndPort.fromParts(address.getAddress().getHostAddress(),
             address.getPort()).toString());
   }
 
   /** Construct a peer with the given id and address. */
-  public RaftPeer(String id, String address) {
+  public RaftPeer(RaftPeerId id, String address) {
     this.id = id;
     this.address = address;
   }
 
   /** @return The id of the peer. */
-  public String getId() {
+  public RaftPeerId getId() {
     return id;
   }
 

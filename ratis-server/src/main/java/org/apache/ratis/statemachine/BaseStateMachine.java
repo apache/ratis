@@ -26,6 +26,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -48,8 +49,8 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public void initialize(String id, RaftProperties properties, RaftStorage storage)
-      throws IOException {
+  public void initialize(RaftPeerId id, RaftProperties properties,
+      RaftStorage storage) throws IOException {
     lifeCycle.setName(getClass().getSimpleName() + ":" + id);
     this.properties = properties;
     this.storage = storage;
@@ -80,8 +81,8 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public void reinitialize(String id, RaftProperties properties, RaftStorage storage)
-      throws IOException {
+  public void reinitialize(RaftPeerId id, RaftProperties properties,
+      RaftStorage storage) throws IOException {
   }
 
   @Override

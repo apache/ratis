@@ -20,6 +20,7 @@ package org.apache.ratis.server.storage;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
@@ -35,7 +36,7 @@ import com.google.common.base.Preconditions;
 public class MemoryRaftLog extends RaftLog {
   private final List<LogEntryProto> entries = new ArrayList<>();
 
-  public MemoryRaftLog(String selfId) {
+  public MemoryRaftLog(RaftPeerId selfId) {
     super(selfId);
   }
 
@@ -167,7 +168,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public void writeMetadata(long term, String votedFor) {
+  public void writeMetadata(long term, RaftPeerId votedFor) {
     // do nothing
   }
 

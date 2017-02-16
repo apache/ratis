@@ -21,7 +21,6 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.RaftUtils;
-import org.apache.ratis.util.StringUtils;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -34,16 +33,16 @@ import java.util.stream.Collectors;
 
 /** A client who sends requests to a raft service. */
 final class RaftClientImpl implements RaftClient {
-  private final String clientId;
+  private final ClientId clientId;
   private final RaftClientRequestSender requestSender;
-  private final Map<String, RaftPeer> peers;
+  private final Map<RaftPeerId, RaftPeer> peers;
   private final int retryInterval;
 
-  private volatile String leaderId;
+  private volatile RaftPeerId leaderId;
 
-  RaftClientImpl(
-      String clientId, Collection<RaftPeer> peers, String leaderId,
-      RaftClientRequestSender requestSender, int retryInterval) {
+  RaftClientImpl(ClientId clientId, Collection<RaftPeer> peers,
+      RaftPeerId leaderId, RaftClientRequestSender requestSender,
+      int retryInterval) {
     this.clientId = clientId;
     this.requestSender = requestSender;
     this.peers = peers.stream().collect(
@@ -53,7 +52,7 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public String getId() {
+  public ClientId getId() {
     return clientId;
   }
 
@@ -121,9 +120,10 @@ final class RaftClientImpl implements RaftClient {
     return null;
   }
 
-  private void handleNotLeaderException(RaftClientRequest request, NotLeaderException nle) {
+  private void handleNotLeaderException(RaftClientRequest request,
+      NotLeaderException nle) {
     refreshPeers(nle.getPeers());
-    final String newLeader = nle.getSuggestedLeader() == null? null
+    final RaftPeerId newLeader = nle.getSuggestedLeader() == null ? null
         : nle.getSuggestedLeader().getId();
     handleIOException(request, nle, newLeader);
   }
@@ -139,11 +139,12 @@ final class RaftClientImpl implements RaftClient {
     }
   }
 
-  private void handleIOException(RaftClientRequest request, IOException ioe, String newLeader) {
+  private void handleIOException(RaftClientRequest request, IOException ioe,
+      RaftPeerId newLeader) {
     LOG.debug("{}: Failed with {}", clientId, ioe);
-    final String oldLeader = request.getReplierId();
+    final RaftPeerId oldLeader = request.getServerId();
     if (newLeader == null && oldLeader.equals(leaderId)) {
-      newLeader = StringUtils.next(oldLeader, peers.keySet());
+      newLeader = RaftUtils.next(oldLeader, peers.keySet());
     }
     if (newLeader != null && oldLeader.equals(leaderId)) {
       LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);

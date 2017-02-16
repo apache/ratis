@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.netty.client;
 
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
@@ -40,7 +41,7 @@ public class NettyClientRequestSender implements RaftClientRequestSender {
 
   @Override
   public RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
-    final String serverId = request.getReplierId();
+    final RaftPeerId serverId = request.getServerId();
     final NettyRpcProxy proxy = proxies.getProxy(serverId);
 
     final RaftNettyServerRequestProto.Builder b = RaftNettyServerRequestProto.newBuilder();

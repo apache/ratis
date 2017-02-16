@@ -26,6 +26,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufEncoder;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
@@ -78,7 +79,7 @@ public final class NettyRpcService implements RaftServerRpc {
 
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
   private final RaftServer server;
-  private final String id;
+  private final RaftPeerId id;
 
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -209,10 +210,11 @@ public final class NettyRpcService implements RaftServerRpc {
 
   private static RaftNettyServerReplyProto toRaftNettyServerReplyProto(
       RaftRpcRequestProto request, IOException e) {
-    final RaftRpcReplyProto.Builder rpcReply = ClientProtoUtils.toRaftRpcReplyProtoBuilder(
-        request.getRequestorId(),
-        request.getReplyId(),
-        request.getSeqNum(), false);
+    final RaftRpcReplyProto.Builder rpcReply = RaftRpcReplyProto.newBuilder()
+        .setRequestorId(request.getRequestorId())
+        .setReplyId(request.getReplyId())
+        .setSeqNum(request.getSeqNum())
+        .setSuccess(false);
     final RaftNettyExceptionReplyProto.Builder ioe = RaftNettyExceptionReplyProto.newBuilder()
         .setRpcReply(rpcReply)
         .setException(ProtoUtils.toByteString(e));
@@ -221,7 +223,6 @@ public final class NettyRpcService implements RaftServerRpc {
 
   @Override
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) throws IOException {
-    Preconditions.checkArgument(id.equals(request.getServerRequest().getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
 
     final RaftNettyServerRequestProto proto = RaftNettyServerRequestProto.newBuilder()
@@ -233,7 +234,6 @@ public final class NettyRpcService implements RaftServerRpc {
 
   @Override
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request) throws IOException {
-    Preconditions.checkArgument(id.equals(request.getServerRequest().getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
 
     final RaftNettyServerRequestProto proto = RaftNettyServerRequestProto.newBuilder()
@@ -245,7 +245,6 @@ public final class NettyRpcService implements RaftServerRpc {
 
   @Override
   public InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException {
-    Preconditions.checkArgument(id.equals(request.getServerRequest().getRequestorId()));
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
 
     final RaftNettyServerRequestProto proto = RaftNettyServerRequestProto.newBuilder()
@@ -258,7 +257,7 @@ public final class NettyRpcService implements RaftServerRpc {
   private RaftNettyServerReplyProto sendRaftNettyServerRequestProto(
       RaftRpcRequestProto request, RaftNettyServerRequestProto proto)
       throws IOException {
-    final String id = request.getReplyId();
+    final RaftPeerId id = new RaftPeerId(request.getReplyId());
     final NettyRpcProxy p = proxies.getProxy(id);
     try {
       return p.send(request, proto);

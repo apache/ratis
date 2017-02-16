@@ -21,9 +21,11 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRequestSender;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.simulation.RequestHandler;
 import org.apache.ratis.server.storage.RaftLog;
@@ -74,14 +76,14 @@ public abstract class RaftNotLeaderExceptionBaseTest {
   @Test
   public void testHandleNotLeaderException() throws Exception {
     RaftTestUtil.waitForLeader(cluster);
-    final String leaderId = cluster.getLeader().getId();
-    final RaftClient client = cluster.createClient("client", leaderId);
+    final RaftPeerId leaderId = cluster.getLeader().getId();
+    final RaftClient client = cluster.createClient(leaderId);
 
     RaftClientReply reply = client.send(new SimpleMessage("m1"));
     Assert.assertTrue(reply.isSuccess());
 
     // enforce leader change
-    String newLeader = RaftTestUtil.changeLeader(cluster, leaderId);
+    RaftPeerId newLeader = RaftTestUtil.changeLeader(cluster, leaderId);
     Assert.assertNotEquals(leaderId, newLeader);
 
     RaftClientRequestSender rpc = client.getRequestSender();
@@ -89,7 +91,7 @@ public abstract class RaftNotLeaderExceptionBaseTest {
     for (int i = 0; reply == null && i < 10; i++) {
       try {
         reply = rpc.sendRequest(
-            new RaftClientRequest("client", leaderId, DEFAULT_SEQNUM,
+            new RaftClientRequest(ClientId.createId(), leaderId, DEFAULT_SEQNUM,
                 new SimpleMessage("m2")));
       } catch (IOException ignored) {
         Thread.sleep(1000);
@@ -110,11 +112,11 @@ public abstract class RaftNotLeaderExceptionBaseTest {
   public void testNotLeaderExceptionWithReconf() throws Exception {
     Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));
 
-    final String leaderId = cluster.getLeader().getId();
-    final RaftClient client = cluster.createClient("client", leaderId);
+    final RaftPeerId leaderId = cluster.getLeader().getId();
+    final RaftClient client = cluster.createClient(leaderId);
 
     // enforce leader change
-    String newLeader = RaftTestUtil.changeLeader(cluster, leaderId);
+    RaftPeerId newLeader = RaftTestUtil.changeLeader(cluster, leaderId);
     Assert.assertNotEquals(leaderId, newLeader);
 
     // also add two new peers
@@ -124,7 +126,7 @@ public abstract class RaftNotLeaderExceptionBaseTest {
     // trigger setConfiguration
     LOG.info("Start changing the configuration: {}",
         Arrays.asList(change.allPeersInNewConf));
-    try(final RaftClient c2 = cluster.createClient("client2", newLeader)) {
+    try(final RaftClient c2 = cluster.createClient(newLeader)) {
       RaftClientReply reply = c2.setConfiguration(change.allPeersInNewConf);
       Assert.assertTrue(reply.isSuccess());
     }
@@ -136,7 +138,7 @@ public abstract class RaftNotLeaderExceptionBaseTest {
     for (int i = 0; reply == null && i < 10; i++) {
       try {
         reply = rpc.sendRequest(
-            new RaftClientRequest("client", leaderId, DEFAULT_SEQNUM,
+            new RaftClientRequest(ClientId.createId(), leaderId, DEFAULT_SEQNUM,
                 new SimpleMessage("m1")));
       } catch (IOException ignored) {
         Thread.sleep(1000);

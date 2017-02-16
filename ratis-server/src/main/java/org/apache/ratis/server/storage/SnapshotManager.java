@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 
 import org.apache.ratis.io.MD5Hash;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shaded.proto.RaftProtos.FileChunkProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -44,9 +45,9 @@ public class SnapshotManager {
   private static final Logger LOG = LoggerFactory.getLogger(SnapshotManager.class);
 
   private final RaftStorage storage;
-  private final String selfId;
+  private final RaftPeerId selfId;
 
-  public SnapshotManager(RaftStorage storage, String selfId)
+  public SnapshotManager(RaftStorage storage, RaftPeerId selfId)
       throws IOException {
     this.storage = storage;
     this.selfId = selfId;

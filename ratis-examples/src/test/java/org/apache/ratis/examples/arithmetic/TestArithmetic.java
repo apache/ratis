@@ -23,10 +23,9 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.RaftExamplesTestUtil;
-import org.apache.ratis.examples.arithmetic.ArithmeticStateMachine;
-import org.apache.ratis.examples.arithmetic.AssignmentMessage;
 import org.apache.ratis.examples.arithmetic.expression.*;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.RaftUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -54,8 +53,8 @@ public class TestArithmetic {
   public void testPythagorean() throws Exception {
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
-    final String leaderId = cluster.getLeader().getId();
-    final RaftClient client = cluster.createClient("pythagorean", leaderId);
+    final RaftPeerId leaderId = cluster.getLeader().getId();
+    final RaftClient client = cluster.createClient(leaderId);
 
     final Variable a = new Variable("a");
     final Variable b = new Variable("b");

@@ -27,6 +27,7 @@ import java.io.*;
 import java.lang.reflect.Constructor;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -236,5 +237,26 @@ public abstract class RaftUtils {
         }
       }
     }
+  }
+
+  /**
+   *  @return the next element in the iteration right after the given element;
+   *          if the given element is not in the iteration, return the first one
+   */
+  public static <T> T next(final T given, final Iterable<T> iteration) {
+    Preconditions.checkNotNull(given);
+    Preconditions.checkNotNull(iteration);
+    final Iterator<T> i = iteration.iterator();
+    Preconditions.checkArgument(i.hasNext());
+
+    final T first = i.next();
+    for(T current = first; i.hasNext(); ) {
+      final T next = i.next();
+      if (given.equals(current)) {
+        return next;
+      }
+      current = next;
+    }
+    return first;
   }
 }

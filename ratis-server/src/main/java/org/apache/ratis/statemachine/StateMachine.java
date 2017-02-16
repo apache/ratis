@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -42,7 +43,7 @@ public interface StateMachine extends Closeable {
    * responsible reading the latest snapshot from the file system (if any) and initialize itself
    * with the latest term and index there including all the edits.
    */
-  void initialize(String id, RaftProperties properties, RaftStorage storage)
+  void initialize(RaftPeerId id, RaftProperties properties, RaftStorage storage)
       throws IOException;
 
   /**
@@ -62,7 +63,7 @@ public interface StateMachine extends Closeable {
    * state machine is responsible reading the latest snapshot from the file system (if any) and
    * initialize itself with the latest term and index there including all the edits.
    */
-  void reinitialize(String id, RaftProperties properties, RaftStorage storage)
+  void reinitialize(RaftPeerId id, RaftProperties properties, RaftStorage storage)
       throws IOException;
 
   /**

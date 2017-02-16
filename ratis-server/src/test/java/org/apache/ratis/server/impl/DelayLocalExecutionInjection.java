@@ -50,17 +50,21 @@ public class DelayLocalExecutionInjection implements CodeInjectionForTesting.Cod
   }
 
   @Override
-  public boolean execute(String localId, String remoteId, Object... args) {
-    final AtomicInteger d = delays.get(localId);
+  public boolean execute(Object localId, Object remoteId, Object... args) {
+    if (localId == null) {
+      return false;
+    }
+    final String localIdStr = localId.toString();
+    final AtomicInteger d = delays.get(localIdStr);
     if (d == null) {
       return false;
     }
-    LOG.info("{} delay {} ms, args={}", localId, d.get(),
+    LOG.info("{} delay {} ms, args={}", localIdStr, d.get(),
         Arrays.toString(args));
     try {
       RaftTestUtil.delay(d::get);
     } catch (InterruptedException e) {
-      LOG.debug("Interrupted while delaying " + localId);
+      LOG.debug("Interrupted while delaying " + localIdStr);
     }
     return true;
   }

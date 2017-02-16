@@ -41,7 +41,6 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.RaftUtils;
@@ -163,7 +162,7 @@ public class TestStateMachine {
 
     int numTrx = 100;
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numTrx);
-    try(final RaftClient client = cluster.createClient("client", null)) {
+    try(final RaftClient client = cluster.createClient(null)) {
       for (RaftTestUtil.SimpleMessage message : messages) {
         client.send(message);
       }

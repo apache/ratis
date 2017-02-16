@@ -23,6 +23,7 @@ import org.apache.ratis.grpc.client.RaftClientProtocolService;
 import org.apache.ratis.grpc.server.RaftServerProtocolClient;
 import org.apache.ratis.grpc.server.RaftServerProtocolService;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.shaded.io.grpc.Server;
@@ -89,9 +90,9 @@ public class RaftGRpcService implements RaftServerRpc {
 
   private final Server server;
   private final InetSocketAddress address;
-  private final Map<String, RaftServerProtocolClient> peers =
+  private final Map<RaftPeerId, RaftServerProtocolClient> peers =
       Collections.synchronizedMap(new HashMap<>());
-  private final String selfId;
+  private final RaftPeerId selfId;
 
   private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize) {
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);
@@ -118,14 +119,11 @@ public class RaftGRpcService implements RaftServerRpc {
     } catch (IOException e) {
       ExitUtils.terminate(1, "Failed to start Grpc server", e, LOG);
     }
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        System.err.println("*** shutting down gRPC server since JVM is shutting down");
-        RaftGRpcService.this.close();
-        System.err.println("*** server shut down");
-      }
-    });
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      System.err.println("*** shutting down gRPC server since JVM is shutting down");
+      RaftGRpcService.this.close();
+      System.err.println("*** server shut down");
+    }));
   }
 
   @Override
@@ -162,7 +160,7 @@ public class RaftGRpcService implements RaftServerRpc {
         null, request);
 
     RaftServerProtocolClient target = Preconditions.checkNotNull(
-        peers.get(request.getServerRequest().getReplyId()));
+        peers.get(new RaftPeerId(request.getServerRequest().getReplyId())));
     return target.requestVote(request);
   }
 

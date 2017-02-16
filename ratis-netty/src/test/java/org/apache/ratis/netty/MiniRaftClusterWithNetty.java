@@ -24,6 +24,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.client.NettyClientRequestSender;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -57,7 +58,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
     init(initRpcServices(getServers(), getConf()));
   }
 
-  private static String getAddress(String id, RaftConfiguration conf) {
+  private static String getAddress(RaftPeerId id, RaftConfiguration conf) {
     final RaftPeer peer = conf.getPeer(id);
     if (peer != null) {
       final String address = peer.getAddress();

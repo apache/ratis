@@ -21,6 +21,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,7 +90,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   public void restartServer(String id, boolean format) throws IOException {
     super.restartServer(id, format);
     RaftServerImpl s = getServer(id);
-    addPeersToRpc(Collections.singletonList(conf.getPeer(id)));
+    addPeersToRpc(Collections.singletonList(conf.getPeer(new RaftPeerId(id))));
     s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
         client2serverRequestReply));
     s.start();
@@ -121,8 +122,8 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     serverRequestReply.getQueue(leaderId).blockSendRequestTo.set(block);
 
     // set delay takeRequest for the other queues
-    getServers().stream().filter(s -> !s.getId().equals(leaderId))
-        .map(s -> serverRequestReply.getQueue(s.getId()))
+    getServers().stream().filter(s -> !s.getId().toString().equals(leaderId))
+        .map(s -> serverRequestReply.getQueue(s.getId().toString()))
         .forEach(q -> q.delayTakeRequestTo.set(delayMs));
 
     final long sleepMs = 3 * getMaxTimeout() / 2;

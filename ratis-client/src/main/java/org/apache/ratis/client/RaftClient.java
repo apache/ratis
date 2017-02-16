@@ -20,16 +20,17 @@ package org.apache.ratis.client;
 import com.google.common.base.Preconditions;
 import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /** A client who sends requests to a raft service. */
 public interface RaftClient extends Closeable {
@@ -37,7 +38,7 @@ public interface RaftClient extends Closeable {
   long DEFAULT_SEQNUM = 0;
 
   /** @return the id of this client. */
-  String getId();
+  ClientId getId();
 
   /** @return the request sender of this client. */
   RaftClientRequestSender getRequestSender();
@@ -62,12 +63,10 @@ public interface RaftClient extends Closeable {
 
   /** To build {@link RaftClient} objects. */
   class Builder {
-    private static final AtomicInteger COUNT = new AtomicInteger();
-
-    private String clientId = RaftClient.class.getSimpleName() + COUNT.incrementAndGet();
+    private ClientId clientId;
     private RaftClientRequestSender requestSender;
     private Collection<RaftPeer> servers;
-    private String leaderId;
+    private RaftPeerId leaderId;
     private RaftProperties properties;
     private int retryInterval = RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_DEFAULT;
 
@@ -78,6 +77,9 @@ public interface RaftClient extends Closeable {
       Preconditions.checkNotNull(requestSender);
       Preconditions.checkNotNull(servers);
 
+      if (clientId == null) {
+        clientId = ClientId.createId();
+      }
       if (leaderId == null) {
         leaderId = servers.iterator().next().getId(); //use the first peer
       }
@@ -91,7 +93,7 @@ public interface RaftClient extends Closeable {
     }
 
     /** Set {@link RaftClient} ID. */
-    public Builder setClientId(String clientId) {
+    public Builder setClientId(ClientId clientId) {
       this.clientId = clientId;
       return this;
     }
@@ -103,7 +105,7 @@ public interface RaftClient extends Closeable {
     }
 
     /** Set leader ID. */
-    public Builder setLeaderId(String leaderId) {
+    public Builder setLeaderId(RaftPeerId leaderId) {
       this.leaderId = leaderId;
       return this;
     }
