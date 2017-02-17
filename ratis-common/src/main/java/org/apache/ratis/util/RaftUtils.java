@@ -29,13 +29,14 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
 public abstract class RaftUtils {
   public static final Logger LOG = LoggerFactory.getLogger(RaftUtils.class);
-  private static final Class<?>[] EMPTY_CLASS_ARRAY = {};
 
   // OSType detection
   public enum OSType {
@@ -116,26 +117,55 @@ public abstract class RaftUtils {
   }
 
   /**
-   * Create an object for the given class and initialize it from conf
+   * Create an object for the given class using its default constructor.
    *
-   * @param theClass class of which an object is created
+   * @param clazz class of which an object is created
    * @return a new object
    */
-  @SuppressWarnings("unchecked")
-  public static <T> T newInstance(Class<T> theClass, Object... initArgs) {
-    T result;
+  public static <T> T newInstance(Class<T> clazz) {
+    Objects.requireNonNull(clazz, "clazz == null");
     try {
-      Constructor<T> meth = (Constructor<T>) CONSTRUCTOR_CACHE.get(theClass);
+      @SuppressWarnings("unchecked")
+      Constructor<T> meth = (Constructor<T>) CONSTRUCTOR_CACHE.get(clazz);
       if (meth == null) {
-        meth = theClass.getDeclaredConstructor(EMPTY_CLASS_ARRAY);
+        meth = clazz.getDeclaredConstructor();
         meth.setAccessible(true);
-        CONSTRUCTOR_CACHE.put(theClass, meth);
+        CONSTRUCTOR_CACHE.put(clazz, meth);
       }
-      result = meth.newInstance(initArgs);
+      return meth.newInstance();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-    return result;
+  }
+
+  /**
+   * Create a memoized supplier which gets a value by invoking the initializer once
+   * and then keeps returning the same value as its supplied results.
+   *
+   * @param initializer to supply at most one non-null value.
+   * @param <T> The supplier result type.
+   * @return a memoized supplier which is thread-safe.
+   */
+  public static <T> Supplier<T> memoize(Supplier<T> initializer) {
+    Objects.requireNonNull(initializer, "initializer == null");
+    return new Supplier<T>() {
+      private volatile T value = null;
+
+      @Override
+      public T get() {
+        T v = value;
+        if (v == null) {
+          synchronized (this) {
+            v = value;
+            if (v == null) {
+              v = value = Objects.requireNonNull(initializer.get(),
+                  "initializer.get() returns null");
+            }
+          }
+        }
+        return v;
+      }
+    };
   }
 
   public static int getRandomBetween(int min, int max) {

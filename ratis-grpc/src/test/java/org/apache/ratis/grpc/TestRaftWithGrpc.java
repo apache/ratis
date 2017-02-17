@@ -19,16 +19,11 @@ package org.apache.ratis.grpc;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftBasicTests;
-import org.apache.ratis.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
-import org.apache.ratis.server.impl.LogAppenderFactory;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.RaftUtils;
 import org.junit.Assert;
-import org.junit.BeforeClass;
 import org.junit.Test;
-
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
 
 import java.io.IOException;
 
@@ -38,12 +33,6 @@ public class TestRaftWithGrpc extends RaftBasicTests {
   }
 
   private final MiniRaftClusterWithGRpc cluster;
-
-  @BeforeClass
-  public static void setProp() {
-    properties.setClass(RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
-        PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
-  }
 
   public TestRaftWithGrpc() throws IOException {
     cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, properties);

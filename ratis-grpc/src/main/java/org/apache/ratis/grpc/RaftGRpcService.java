@@ -19,6 +19,7 @@ package org.apache.ratis.grpc;
 
 import com.google.common.base.Preconditions;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.RpcType;
 import org.apache.ratis.grpc.client.RaftClientProtocolService;
 import org.apache.ratis.grpc.server.RaftServerProtocolClient;
 import org.apache.ratis.grpc.server.RaftServerProtocolService;
@@ -106,6 +107,11 @@ public class RaftGRpcService implements RaftServerRpc {
     startService();
     address = new InetSocketAddress(server.getPort());
     LOG.info("Server started, listening on " + address.getPort());
+  }
+
+  @Override
+  public RpcType getRpcType() {
+    return RpcType.GRPC;
   }
 
   @Override

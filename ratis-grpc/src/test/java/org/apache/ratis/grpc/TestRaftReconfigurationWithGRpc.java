@@ -18,26 +18,15 @@
 package org.apache.ratis.grpc;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.ratis.grpc.server.RaftServerProtocolService;
-import org.apache.ratis.server.impl.LogAppenderFactory;
 import org.apache.ratis.server.impl.RaftReconfigurationBaseTest;
 import org.apache.ratis.util.RaftUtils;
-import org.junit.BeforeClass;
-
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
 
 import java.io.IOException;
 
 public class TestRaftReconfigurationWithGRpc extends RaftReconfigurationBaseTest {
   static {
     RaftUtils.setLogLevel(RaftServerProtocolService.LOG, Level.DEBUG);
-  }
-
-  @BeforeClass
-  public static void setProp() {
-    prop.setClass(RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
-        PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
   }
 
   @Override

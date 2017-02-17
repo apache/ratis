@@ -18,22 +18,17 @@
 package org.apache.ratis.grpc;
 
 import com.google.common.base.Preconditions;
-
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.RaftClientSenderWithGrpc;
-import org.apache.ratis.grpc.server.PipelinedLogAppenderFactory;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
-import org.apache.ratis.server.impl.LogAppenderFactory;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.NetUtils;
-
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -61,15 +56,8 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
 
   public MiniRaftClusterWithGRpc(String[] ids, RaftProperties properties,
       boolean formatted) throws IOException {
-    super(ids, getPropForGrpc(properties), formatted);
+    super(ids, new RaftProperties(properties), formatted);
     init(initRpcServices(getServers(), properties));
-  }
-
-  private static RaftProperties getPropForGrpc(RaftProperties prop) {
-    RaftProperties newProp = new RaftProperties(prop);
-    newProp.setClass(RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
-        PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
-    return newProp;
   }
 
   private static Map<RaftPeer, RaftGRpcService> initRpcServices(

@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.ratis.RpcType;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
@@ -58,6 +59,11 @@ class SimulatedServerRpc implements RaftServerRpc {
         "serverHandler", serverRequestReply, serverHandlerImpl, 3);
     this.clientHandler = new RequestHandler<>(server.getId().toString(),
         "clientHandler", clientRequestReply, clientHandlerImpl, 3);
+  }
+
+  @Override
+  public RpcType getRpcType() {
+    return RpcType.SIMULATED;
   }
 
   @Override

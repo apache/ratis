@@ -20,10 +20,6 @@ package org.apache.ratis.grpc;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftNotLeaderExceptionBaseTest;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.server.PipelinedLogAppenderFactory;
-import org.apache.ratis.server.impl.LogAppenderFactory;
-
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
 
 import java.io.IOException;
 
@@ -32,8 +28,6 @@ public class TestNotLeaderExceptionWithGrpc extends RaftNotLeaderExceptionBaseTe
   public MiniRaftCluster initCluster() throws IOException {
     String[] s = MiniRaftCluster.generateIds(NUM_PEERS, 0);
     RaftProperties prop = new RaftProperties();
-    prop.setClass(RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
-        PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
     return new MiniRaftClusterWithGRpc(s, prop, true);
   }
 }

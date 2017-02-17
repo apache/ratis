@@ -20,12 +20,12 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.server.impl.FollowerInfo;
 import org.apache.ratis.server.impl.LeaderState;
 import org.apache.ratis.server.impl.LogAppender;
-import org.apache.ratis.server.impl.LogAppenderFactory;
+import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.server.impl.RaftServerImpl;
 
-public class PipelinedLogAppenderFactory implements LogAppenderFactory {
+public class GrpcServerFactory implements ServerFactory {
   @Override
-  public LogAppender getLogAppender(RaftServerImpl server, LeaderState state,
+  public LogAppender newLogAppender(RaftServerImpl server, LeaderState state,
                                     FollowerInfo f) {
     return new GRpcLogAppender(server, state, f);
   }

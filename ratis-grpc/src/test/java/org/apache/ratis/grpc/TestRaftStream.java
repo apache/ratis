@@ -19,19 +19,16 @@ package org.apache.ratis.grpc;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.AppendStreamer;
 import org.apache.ratis.grpc.client.RaftOutputStream;
-import org.apache.ratis.grpc.server.PipelinedLogAppenderFactory;
-import org.apache.ratis.server.impl.LogAppenderFactory;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +43,6 @@ import java.util.function.Supplier;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.apache.ratis.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY;
 import static org.junit.Assert.fail;
 
 public class TestRaftStream {
@@ -57,15 +53,10 @@ public class TestRaftStream {
 
   private static final RaftProperties prop = new RaftProperties();
   private static final int NUM_SERVERS = 3;
+  private static final byte[] BYTES = new byte[4];
 
   private MiniRaftClusterWithGRpc cluster;
 
-
-  @BeforeClass
-  public static void setProp() {
-    prop.setClass(RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
-        PipelinedLogAppenderFactory.class, LogAppenderFactory.class);
-  }
 
   @After
   public void tearDown() {
@@ -74,12 +65,10 @@ public class TestRaftStream {
     }
   }
 
-  private byte[] genContent(int count) {
-    return toBytes(count);
-  }
-
   private byte[] toBytes(int i) {
-    byte[] b = new byte[4];
+    return toBytes(i, BYTES);
+  }
+  private byte[] toBytes(int i, byte[] b) {
     b[0] = (byte) ((i >>> 24) & 0xFF);
     b[1] = (byte) ((i >>> 16) & 0xFF);
     b[2] = (byte) ((i >>> 8) & 0xFF);
@@ -98,21 +87,20 @@ public class TestRaftStream {
     cluster.start();
     RaftServerImpl leader = waitForLeader(cluster);
 
-    int count = 1;
+    final Random r = new Random();
+    final long seed = r.nextLong();
+    r.setSeed(seed);
     try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
-         cluster.getPeers(), leader.getId())) {
+        cluster.getPeers(), leader.getId())) {
       for (int i = 0; i < 500; i++) { // generate 500 requests
-        out.write(genContent(count++));
+        out.write(toBytes(r.nextInt()));
       }
     }
 
     // check the leader's raft log
     final RaftLog raftLog = leader.getState().getLog();
-    final AtomicInteger currentNum = new AtomicInteger(1);
-    checkLog(raftLog, 500, () -> {
-      int value = currentNum.getAndIncrement();
-      return toBytes(value);
-    });
+    r.setSeed(seed);
+    checkLog(raftLog, 500, () -> toBytes(r.nextInt()));
   }
 
   private void checkLog(RaftLog raftLog, long expectedCommittedIndex,
@@ -301,6 +289,7 @@ public class TestRaftStream {
     }).start();
 
     // force change the leader
+    Thread.sleep(500);
     RaftTestUtil.waitAndKillLeader(cluster, true);
     final RaftServerImpl newLeader = waitForLeader(cluster);
     Assert.assertNotEquals(leader.getId(), newLeader.getId());

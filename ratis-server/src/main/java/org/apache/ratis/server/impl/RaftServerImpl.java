@@ -28,6 +28,7 @@ import java.io.InterruptedIOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
@@ -100,7 +101,7 @@ public class RaftServerImpl implements RaftServer {
 
   private RaftServerRpc serverRpc;
 
-  private final LogAppenderFactory appenderFactory;
+  private final Supplier<ServerFactory> factory ;
 
   RaftServerImpl(RaftPeerId id, StateMachine stateMachine,
                  RaftConfiguration raftConf, RaftProperties properties)
@@ -117,7 +118,12 @@ public class RaftServerImpl implements RaftServer {
     this.properties = properties;
     this.stateMachine = stateMachine;
     this.state = new ServerState(id, raftConf, properties, this, stateMachine);
-    appenderFactory = initAppenderFactory();
+    this.factory = RaftUtils.memoize(
+        () -> ServerFactory.Util.newServerFactory(getServerRpc().getRpcType(), properties));
+  }
+
+  ServerFactory getFactory() {
+    return factory.get();
   }
 
   int getMinTimeoutMs() {
@@ -135,18 +141,6 @@ public class RaftServerImpl implements RaftServer {
   @Override
   public StateMachine getStateMachine() {
     return this.stateMachine;
-  }
-
-  public LogAppenderFactory getLogAppenderFactory() {
-    return appenderFactory;
-  }
-
-  private LogAppenderFactory initAppenderFactory() {
-    Class<? extends LogAppenderFactory> factoryClass = properties.getClass(
-        RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY,
-        RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_DEFAULT,
-        LogAppenderFactory.class);
-    return RaftUtils.newInstance(factoryClass);
   }
 
   /**

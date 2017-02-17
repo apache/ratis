@@ -139,9 +139,10 @@ public class LeaderState {
     final Timestamp t = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
     final long nextIndex = raftLog.getNextIndex();
     senders = new ArrayList<>(others.size());
+
     for (RaftPeer p : others) {
       FollowerInfo f = new FollowerInfo(p, t, nextIndex, true);
-      senders.add(server.getLogAppenderFactory().getLogAppender(server, this, f));
+      senders.add(server.getFactory().newLogAppender(server, this, f));
     }
     voterLists = divideFollowers(conf);
   }
@@ -263,8 +264,7 @@ public class LeaderState {
     final long nextIndex = raftLog.getNextIndex();
     for (RaftPeer peer : newMembers) {
       FollowerInfo f = new FollowerInfo(peer, t, nextIndex, false);
-      LogAppender sender = server.getLogAppenderFactory()
-          .getLogAppender(server, this, f);
+      LogAppender sender = server.getFactory().newLogAppender(server, this, f);
       senders.add(sender);
       sender.start();
     }

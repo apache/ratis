@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server;
 
-import org.apache.ratis.server.impl.LogAppenderFactory;
+import org.apache.ratis.RpcType;
 import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,15 +56,51 @@ public interface RaftServerConfigKeys {
     }
   }
 
+  enum Factory {
+    NETTY("org.apache.ratis.server.impl.ServerFactory$BaseFactory"),
+    GRPC("org.apache.ratis.grpc.server.GrpcServerFactory"),
+    HADOOP("org.apache.ratis.server.impl.ServerFactory$BaseFactory"),
+    SIMULATED("org.apache.ratis.server.impl.ServerFactory$BaseFactory");
+
+    public static String getKey(String rpcType) {
+      return RaftServerConfigKeys.PREFIX + ".factory." + rpcType + ".class";
+    }
+
+    public static Factory valueOf(RpcType rpcType) {
+      return valueOf(rpcType.name());
+    }
+
+    private final RpcType rpcType = RpcType.valueOf(name());
+    private final String key = getKey(name().toLowerCase());
+    private final String defaultClass;
+
+    Factory(String defaultClass) {
+      this.defaultClass = defaultClass;
+    }
+
+    public RpcType getRpcType() {
+      return rpcType;
+    }
+
+    public String getKey() {
+      return key;
+    }
+
+    public String getDefaultClass() {
+      return defaultClass;
+    }
+
+    @Override
+    public String toString() {
+      return getRpcType() + ":" + getKey() + ":" + getDefaultClass();
+    }
+  }
+
   String RAFT_SERVER_USE_MEMORY_LOG_KEY = "raft.server.use.memory.log";
   boolean RAFT_SERVER_USE_MEMORY_LOG_DEFAULT = false;
 
   String RAFT_SERVER_STORAGE_DIR_KEY = "raft.server.storage.dir";
   String RAFT_SERVER_STORAGE_DIR_DEFAULT = "file:///tmp/raft-server/";
-
-  String RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_KEY = "raft.server.log.appender.factory.class";
-  Class<? extends LogAppenderFactory> RAFT_SERVER_LOG_APPENDER_FACTORY_CLASS_DEFAULT
-      = LogAppenderFactory.SynchronousLogAppenderFactory.class;
 
   /** whether trigger snapshot when log size exceeds limit */
   String RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY = "raft.server.auto.snapshot.enabled";

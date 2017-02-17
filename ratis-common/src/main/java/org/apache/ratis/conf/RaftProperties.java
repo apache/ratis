@@ -1227,15 +1227,14 @@ public class RaftProperties {
    * @return property value as a <code>Class</code>,
    *         or <code>defaultValue</code>.
    */
-  public <U> Class<? extends U> getClass(String name,
-                                         Class<? extends U> defaultValue,
-                                         Class<U> xface) {
+  public <BASE, SUB extends BASE> Class<SUB> getClass(
+      String name, Class<SUB> defaultValue, Class<BASE> xface) {
     try {
       Class<?> theClass = getClass(name, defaultValue);
       if (theClass != null && !xface.isAssignableFrom(theClass))
         throw new RuntimeException(theClass+" not "+xface.getName());
       else if (theClass != null)
-        return theClass.asSubclass(xface);
+        return (Class<SUB>)theClass.asSubclass(xface);
       else
         return null;
     } catch (Exception e) {

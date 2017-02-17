@@ -27,6 +27,7 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.RpcType;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufEncoder;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
@@ -122,6 +123,11 @@ public final class NettyRpcService implements RaftServerRpc {
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(initializer)
         .bind(port);
+  }
+
+  @Override
+  public RpcType getRpcType() {
+    return RpcType.NETTY;
   }
 
   private Channel getChannel() {

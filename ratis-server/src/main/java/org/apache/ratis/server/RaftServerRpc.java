@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server;
 
+import org.apache.ratis.RpcType;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 
@@ -28,7 +29,7 @@ import java.net.InetSocketAddress;
  * An server-side interface for supporting different RPC implementations
  * such as Netty, gRPC and Hadoop.
  */
-public interface RaftServerRpc extends RaftServerProtocol, Closeable {
+public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeable {
   /** To build {@link RaftServerRpc} objects. */
   abstract class Builder<B extends Builder, RPC extends RaftServerRpc> {
     private RaftServer server;
