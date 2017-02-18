@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
+import static org.apache.ratis.MiniRaftCluster.leaderPlaceHolderDelay;
 import static org.apache.ratis.MiniRaftCluster.logSyncDelay;
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
@@ -509,7 +510,6 @@ public abstract class RaftReconfigurationBaseTest {
   @Test
   public void testRevertConfigurationChange() throws Exception {
     LOG.info("Start testRevertConfigurationChange");
-    // originally 3 peers
     final MiniRaftCluster cluster = getCluster(5);
     try {
       cluster.start();
@@ -572,6 +572,60 @@ public abstract class RaftReconfigurationBaseTest {
       }
       Assert.assertTrue(newState);
     } finally {
+      cluster.shutdown();
+    }
+  }
+
+  /**
+   * Delay the commit of the leader placeholder log entry and see if the client
+   * can correctly receive and handle the LeaderNotReadyException.
+   */
+  @Test
+  public void testLeaderNotReadyException() throws Exception {
+    LOG.info("Start testLeaderNotReadyException");
+    final MiniRaftCluster cluster = getCluster(1);
+    final RaftPeerId leaderId = cluster.getPeers().iterator().next().getId();
+    try {
+      // delay 1s for each logSync call
+      cluster.getPeers().forEach(
+          peer -> leaderPlaceHolderDelay.setDelayMs(peer.getId().toString(), 2000));
+      cluster.start();
+
+      AtomicBoolean caughtNotReady = new AtomicBoolean(false);
+      AtomicBoolean success = new AtomicBoolean(false);
+      new Thread(() -> {
+        final RaftClient client = cluster.createClient(leaderId);
+        final RaftClientRequestSender sender = client.getRequestSender();
+
+        final RaftClientRequest request = new RaftClientRequest(client.getId(),
+            leaderId, 0, new SimpleMessage("test"));
+        while (!success.get()) {
+          try {
+            RaftClientReply reply = sender.sendRequest(request);
+            success.set(reply.isSuccess());
+          } catch (LeaderNotReadyException e) {
+            LOG.info("Hit LeaderNotReadyException", e);
+            caughtNotReady.set(true);
+          } catch (IOException e) {
+            LOG.info("Hit other IOException", e);
+          }
+          if (!success.get()) {
+            try {
+              Thread.sleep(200);
+            } catch (InterruptedException ignored) {
+            }
+          }
+        }
+      }).start();
+
+      RaftTestUtil.waitForLeader(cluster);
+      for (int i = 0; !success.get() && i < 5; i++) {
+        Thread.sleep(1000);
+      }
+      Assert.assertTrue(success.get());
+      Assert.assertTrue(caughtNotReady.get());
+    } finally {
+      leaderPlaceHolderDelay.clear();
       cluster.shutdown();
     }
   }

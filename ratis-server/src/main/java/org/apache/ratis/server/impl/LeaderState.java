@@ -53,6 +53,7 @@ import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.LeaderNoOp;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.Timestamp;
@@ -70,6 +71,7 @@ import com.google.common.base.Preconditions;
  */
 public class LeaderState {
   private static final Logger LOG = RaftServerImpl.LOG;
+  public static final String APPEND_PLACEHOLDER = LeaderState.class.getSimpleName() + ".placeholder";
 
   enum StateUpdateEventType {
     STEPDOWN, UPDATECOMMIT, STAGINGPROGRESS
@@ -113,6 +115,7 @@ public class LeaderState {
   private final int stagingCatchupGap;
   private final int snapshotChunkMaxSize;
   private final int syncInterval;
+  private final long placeHolderIndex;
 
   LeaderState(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
@@ -137,11 +140,11 @@ public class LeaderState {
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
     final Timestamp t = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
-    final long nextIndex = raftLog.getNextIndex();
+    placeHolderIndex = raftLog.getNextIndex();
     senders = new ArrayList<>(others.size());
 
     for (RaftPeer p : others) {
-      FollowerInfo f = new FollowerInfo(p, t, nextIndex, true);
+      FollowerInfo f = new FollowerInfo(p, t, placeHolderIndex, true);
       senders.add(server.getFactory().newLogAppender(server, this, f));
     }
     voterLists = divideFollowers(conf);
@@ -156,10 +159,16 @@ public class LeaderState {
         .setTerm(server.getState().getCurrentTerm())
         .setIndex(raftLog.getNextIndex())
         .setNoOp(LeaderNoOp.newBuilder()).build();
+    CodeInjectionForTesting.execute(APPEND_PLACEHOLDER,
+        server.getId().toString(), null);
     raftLog.append(placeHolder);
 
     processor.start();
     startSenders();
+  }
+
+  boolean isReady() {
+    return server.getState().getLastAppliedIndex() >= placeHolderIndex;
   }
 
   private void startSenders() {

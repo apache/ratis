@@ -29,8 +29,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DelayLocalExecutionInjection implements CodeInjectionForTesting.Code {
   private final Map<String, AtomicInteger> delays = new ConcurrentHashMap<>();
 
-  public DelayLocalExecutionInjection(String method) {
-    CodeInjectionForTesting.put(method, this);
+  public DelayLocalExecutionInjection(String... methods) {
+    for (String method : methods) {
+      CodeInjectionForTesting.put(method, this);
+    }
   }
 
   public void clear() {

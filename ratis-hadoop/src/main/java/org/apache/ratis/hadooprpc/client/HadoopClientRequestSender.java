@@ -50,9 +50,12 @@ public class HadoopClientRequestSender implements RaftClientRequestSender {
         return proxy.submitClientRequest(request);
       }
     } catch (RemoteException e) {
-      throw e.unwrapRemoteException(StateMachineException.class,
+      throw e.unwrapRemoteException(
+          StateMachineException.class,
           ReconfigurationTimeoutException.class,
-          ReconfigurationInProgressException.class, RaftException.class);
+          ReconfigurationInProgressException.class,
+          RaftException.class,
+          LeaderNotReadyException.class);
     }
   }
 

@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
+import org.apache.ratis.server.impl.LeaderState;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerImplUtils;
@@ -51,6 +52,8 @@ public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
   public static final DelayLocalExecutionInjection logSyncDelay =
       new DelayLocalExecutionInjection(RaftLog.LOG_SYNC);
+  public static final DelayLocalExecutionInjection leaderPlaceHolderDelay =
+      new DelayLocalExecutionInjection(LeaderState.APPEND_PLACEHOLDER);
 
   public static final String CLASS_NAME = MiniRaftCluster.class.getSimpleName();
   public static final String STATEMACHINE_CLASS_KEY = CLASS_NAME + ".statemachine.class";

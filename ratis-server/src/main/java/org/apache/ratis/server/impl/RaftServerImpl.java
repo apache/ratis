@@ -31,6 +31,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.LeaderNotReadyException;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -347,6 +348,12 @@ public class RaftServerImpl implements RaftServer {
       CompletableFuture<RaftClientReply> future = new CompletableFuture<>();
       future.complete(new RaftClientReply(request, exception));
       return future;
+    } else {
+      if (leaderState == null || !leaderState.isReady()) {
+        CompletableFuture<RaftClientReply> future = new CompletableFuture<>();
+        future.completeExceptionally(new LeaderNotReadyException());
+        return future;
+      }
     }
     return null;
   }
