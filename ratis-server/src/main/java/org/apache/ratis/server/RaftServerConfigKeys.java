@@ -28,34 +28,6 @@ public interface RaftServerConfigKeys {
 
   String PREFIX = "raft.server";
 
-  /** IPC server configurations */
-  interface Ipc {
-    String PREFIX  = RaftServerConfigKeys.PREFIX + ".ipc";
-
-    String ADDRESS_KEY = PREFIX + ".address";
-    int    DEFAULT_PORT = 10718;
-    String ADDRESS_DEFAULT = "0.0.0.0:" + DEFAULT_PORT;
-
-    String HANDLERS_KEY = PREFIX + ".handlers";
-    int    HANDLERS_DEFAULT = 10;
-
-    class Getters {
-      private final Get get;
-
-      Getters(Get get) {
-        this.get = get;
-      }
-
-      public int handlers() {
-        return get.getInt(HANDLERS_KEY, HANDLERS_DEFAULT, 1, null);
-      }
-
-      public InetSocketAddress address() {
-        return get.getInetSocketAddress(ADDRESS_KEY, ADDRESS_DEFAULT);
-      }
-    }
-  }
-
   enum Factory {
     NETTY("org.apache.ratis.server.impl.ServerFactory$BaseFactory"),
     GRPC("org.apache.ratis.grpc.server.GrpcServerFactory"),
@@ -150,37 +122,4 @@ public interface RaftServerConfigKeys {
   String RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_KEY = "raft.server.log.appender.batch.enabled";
   boolean RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_DEFAULT = false;
 
-  /** An utility class to get conf values. */
-  abstract class Get {
-    static Logger LOG = LoggerFactory.getLogger(RaftServerConfigKeys.class);
-
-    private final Ipc.Getters ipc = new Ipc.Getters(this);
-
-    protected abstract int getInt(String key, int defaultValue);
-
-    int getInt(String key, int defaultValue, Integer min, Integer max) {
-      final int value = getInt(key, defaultValue);
-      final String s = key + " = " + value;
-      if (min != null && value < min) {
-        throw new IllegalArgumentException(s + " < min = " + min);
-      }
-      if (max != null && value > max) {
-        throw new IllegalArgumentException(s + " > max = " + max);
-      }
-      LOG.info(s);
-      return value;
-    }
-
-    protected abstract String getTrimmed(String key, String defaultValue);
-
-    InetSocketAddress getInetSocketAddress(String key, String defaultValue) {
-      final String address = getTrimmed(key, defaultValue);
-      LOG.info(key + " = " + address);
-      return NetUtils.createSocketAddr(address);
-    }
-
-    public Ipc.Getters ipc() {
-      return ipc;
-    }
-  }
 }

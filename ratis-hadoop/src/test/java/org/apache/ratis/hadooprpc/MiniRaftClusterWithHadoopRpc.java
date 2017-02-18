@@ -24,9 +24,9 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.hadooprpc.client.HadoopClientRequestSender;
+import org.apache.ratis.hadooprpc.server.HadoopRpcServerConfigKeys;
 import org.apache.ratis.hadooprpc.server.HadoopRpcService;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.slf4j.Logger;
@@ -46,7 +46,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
     public MiniRaftClusterWithHadoopRpc newCluster(
         String[] ids, RaftProperties prop, boolean formatted) throws IOException {
       final Configuration conf = new Configuration();
-      conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
+      HadoopRpcServerConfigKeys.Ipc.setAddress(conf::set, "0.0.0.0:0");
       return new MiniRaftClusterWithHadoopRpc(ids, prop, conf, formatted);
     }
   };
@@ -86,7 +86,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   @Override
   protected RaftServerImpl setPeerRpc(RaftPeer peer) throws IOException {
     Configuration hconf = new Configuration(hadoopConf);
-    hconf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, peer.getAddress());
+    HadoopRpcServerConfigKeys.Ipc.setAddress(hconf::set, peer.getAddress());
 
     RaftServerImpl server = servers.get(peer.getId());
     final HadoopRpcService rpc = HadoopRpcService.newBuilder()
@@ -96,7 +96,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
     Preconditions.checkState(
         rpc.getInetSocketAddress().toString().contains(peer.getAddress()),
         "address in the raft conf: %s, address in rpc server: %s",
-        peer.getAddress(), rpc.getInetSocketAddress().toString());
+        peer.getAddress(), rpc.getInetSocketAddress());
     server.setServerRpc(rpc);
     return server;
   }

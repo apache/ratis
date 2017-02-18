@@ -28,7 +28,6 @@ import org.apache.ratis.protocol.RaftClientProtocol;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.shaded.com.google.protobuf.BlockingService;
@@ -59,6 +58,9 @@ public class HadoopRpcService implements RaftServerRpc {
     }
 
     public Configuration getConf() {
+      if (conf == null) {
+        conf = new Configuration();
+      }
       return conf;
     }
 
@@ -114,20 +116,8 @@ public class HadoopRpcService implements RaftServerRpc {
 
   private RPC.Server newRpcServer(RaftServerProtocol serverProtocol, final Configuration conf)
       throws IOException {
-    final RaftServerConfigKeys.Get get = new RaftServerConfigKeys.Get() {
-      @Override
-      protected int getInt(String key, int defaultValue) {
-        return conf.getInt(key, defaultValue);
-      }
-
-      @Override
-      protected String getTrimmed(String key, String defaultValue) {
-        return conf.getTrimmed(key, defaultValue);
-      }
-    };
-
-    final int handlerCount = get.ipc().handlers();
-    final InetSocketAddress address = get.ipc().address();
+    final int handlerCount = HadoopRpcServerConfigKeys.Ipc.handlers(conf::getInt);
+    final InetSocketAddress address = HadoopRpcServerConfigKeys.Ipc.address(conf::getTrimmed);
 
     final BlockingService service
         = RaftServerProtocolService.newReflectiveBlockingService(
