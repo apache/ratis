@@ -19,7 +19,7 @@ package org.apache.ratis.hadooprpc;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.hadooprpc.server.HadoopRpcServerConfigKeys;
 import org.apache.ratis.server.impl.RaftReconfigurationBaseTest;
 
 import java.io.IOException;
@@ -34,7 +34,7 @@ public class TestRaftReconfigurationWithHadoopRpc
     final Configuration hadoopConf = new Configuration();
     hadoopConf.setInt(IPC_CLIENT_CONNECT_TIMEOUT_KEY, 1000);
     hadoopConf.setInt(IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, 0);
-    hadoopConf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
+    HadoopRpcServerConfigKeys.Ipc.setAddress(hadoopConf::set, "0.0.0.0:0");
     return new MiniRaftClusterWithHadoopRpc(peerNum, prop, hadoopConf);
   }
 }

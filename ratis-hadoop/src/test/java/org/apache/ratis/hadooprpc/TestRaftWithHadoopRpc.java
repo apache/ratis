@@ -17,19 +17,17 @@
  */
 package org.apache.ratis.hadooprpc;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.RaftUtils;
 import org.junit.Test;
 
-import static org.apache.ratis.hadooprpc.MiniRaftClusterWithHadoopRpc.sendServerRequest;
-
 import java.io.IOException;
+
+import static org.apache.ratis.hadooprpc.MiniRaftClusterWithHadoopRpc.sendServerRequest;
 
 public class TestRaftWithHadoopRpc extends RaftBasicTests {
   static {
@@ -41,9 +39,8 @@ public class TestRaftWithHadoopRpc extends RaftBasicTests {
   private final MiniRaftClusterWithHadoopRpc cluster;
 
   public TestRaftWithHadoopRpc() throws IOException {
-    Configuration conf = new Configuration();
-    conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
-    cluster = new MiniRaftClusterWithHadoopRpc(NUM_SERVERS, getProperties(), conf);
+    cluster = MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(
+        NUM_SERVERS, getProperties(), true);
   }
 
   @Override

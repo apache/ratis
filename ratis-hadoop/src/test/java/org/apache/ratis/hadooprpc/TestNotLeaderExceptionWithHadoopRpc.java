@@ -17,21 +17,16 @@
  */
 package org.apache.ratis.hadooprpc;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftNotLeaderExceptionBaseTest;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.server.RaftServerConfigKeys;
 
 import java.io.IOException;
 
 public class TestNotLeaderExceptionWithHadoopRpc extends RaftNotLeaderExceptionBaseTest {
   @Override
   public MiniRaftCluster initCluster() throws IOException {
-    String[] s = MiniRaftCluster.generateIds(NUM_PEERS, 0);
-    final Configuration conf = new Configuration();
-    conf.set(RaftServerConfigKeys.Ipc.ADDRESS_KEY, "0.0.0.0:0");
-    RaftProperties prop = new RaftProperties();
-    return new MiniRaftClusterWithHadoopRpc(s, prop, conf, true);
+    return MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(
+        NUM_PEERS, new RaftProperties(), true);
   }
 }
