@@ -56,11 +56,11 @@ import com.google.common.base.Preconditions;
  * For snapshot it simply merges all the log segments together.
  */
 public class SimpleStateMachine4Testing extends BaseStateMachine {
-  static volatile int SNAPSHOT_THRESHOLD = 100;
-  static final Logger LOG = LoggerFactory.getLogger(SimpleStateMachine4Testing.class);
-  public static final String RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY
+  private static volatile int SNAPSHOT_THRESHOLD = 100;
+  private static final Logger LOG = LoggerFactory.getLogger(SimpleStateMachine4Testing.class);
+  private static final String RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY
       = "raft.test.simple.state.machine.take.snapshot";
-  public static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
+  private static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
 
   public static SimpleStateMachine4Testing get(RaftServerImpl s) {
     return (SimpleStateMachine4Testing)s.getStateMachine();
@@ -184,7 +184,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return storage;
   }
 
-  public synchronized long loadSnapshot(SingleFileSnapshotInfo snapshot)
+  private synchronized long loadSnapshot(SingleFileSnapshotInfo snapshot)
       throws IOException {
     if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
       LOG.info("The snapshot file {} does not exist",
