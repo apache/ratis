@@ -48,11 +48,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   public static final DelayLocalExecutionInjection sendServerRequest
       = new DelayLocalExecutionInjection(NettyRpcService.SEND_SERVER_REQUEST);
 
-  public MiniRaftClusterWithNetty(int numServers, RaftProperties properties) {
-    this(generateIds(numServers, 0), properties, true);
-  }
-
-  public MiniRaftClusterWithNetty(
+  private MiniRaftClusterWithNetty(
       String[] ids, RaftProperties properties, boolean formatted) {
     super(ids, properties, formatted);
     init(initRpcServices(getServers(), getConf()));

@@ -31,6 +31,6 @@ public class TestRaftReconfigurationWithGRpc extends RaftReconfigurationBaseTest
 
   @Override
   public MiniRaftClusterWithGRpc getCluster(int peerNum) throws IOException {
-    return new MiniRaftClusterWithGRpc(peerNum, prop);
+    return MiniRaftClusterWithGRpc.FACTORY.newCluster(peerNum, prop);
   }
 }

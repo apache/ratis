@@ -75,7 +75,7 @@ public class HadoopRpcService implements RaftServerRpc {
     }
 
     @Override
-    public HadoopRpcService build() throws IOException {
+    public HadoopRpcService build() {
       return new HadoopRpcService(getServer(), getConf());
     }
   }
@@ -90,12 +90,15 @@ public class HadoopRpcService implements RaftServerRpc {
 
   private final PeerProxyMap<Proxy<RaftServerProtocolPB>> proxies;
 
-  private HadoopRpcService(RaftServer server, final Configuration conf)
-      throws IOException {
+  private HadoopRpcService(RaftServer server, final Configuration conf) {
     this.proxies = new PeerProxyMap<>(
         p -> new Proxy(RaftServerProtocolPB.class, p.getAddress(), conf));
     this.id = server.getId();
-    this.ipcServer = newRpcServer(server, conf);
+    try {
+      this.ipcServer = newRpcServer(server, conf);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to create Hadoop rpc server.", e);
+    }
     this.ipcServerAddress = ipcServer.getListenerAddress();
 
     addRaftClientProtocol(server, conf);

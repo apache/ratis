@@ -35,7 +35,8 @@ public class TestRaftWithGrpc extends RaftBasicTests {
   private final MiniRaftClusterWithGRpc cluster;
 
   public TestRaftWithGrpc() throws IOException {
-    cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, properties);
+    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(
+        NUM_SERVERS, properties);
     Assert.assertNull(cluster.getLeader());
   }
 

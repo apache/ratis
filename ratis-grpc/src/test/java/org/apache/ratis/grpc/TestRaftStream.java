@@ -82,7 +82,7 @@ public class TestRaftStream {
 
     // default 64K is too large for a test
     prop.setInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY, 4);
-    cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, prop);
+    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
 
     cluster.start();
     RaftServerImpl leader = waitForLeader(cluster);
@@ -123,7 +123,7 @@ public class TestRaftStream {
     LOG.info("Running testWriteAndFlush");
 
     prop.setInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY, ByteValue.BUFFERSIZE);
-    cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, prop);
+    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
     cluster.start();
 
     RaftServerImpl leader = waitForLeader(cluster);
@@ -202,7 +202,7 @@ public class TestRaftStream {
     LOG.info("Running testWriteWithOffset");
     prop.setInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY, ByteValue.BUFFERSIZE);
 
-    cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, prop);
+    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
     cluster.start();
     RaftServerImpl leader = waitForLeader(cluster);
 
@@ -260,7 +260,7 @@ public class TestRaftStream {
     LOG.info("Running testChangeLeader");
 
     prop.setInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY, 4);
-    cluster = new MiniRaftClusterWithGRpc(NUM_SERVERS, prop);
+    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
     cluster.start();
     final RaftServerImpl leader = waitForLeader(cluster);
 

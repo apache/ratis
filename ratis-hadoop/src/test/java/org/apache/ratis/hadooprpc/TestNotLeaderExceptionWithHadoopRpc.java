@@ -25,8 +25,7 @@ import java.io.IOException;
 
 public class TestNotLeaderExceptionWithHadoopRpc extends RaftNotLeaderExceptionBaseTest {
   @Override
-  public MiniRaftCluster initCluster() throws IOException {
-    return MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(
-        NUM_PEERS, new RaftProperties(), true);
+  public MiniRaftCluster.Factory<?> getFactory() {
+    return MiniRaftClusterWithHadoopRpc.FACTORY;
   }
 }

@@ -61,13 +61,10 @@ public abstract class MiniRaftCluster {
 
   public static abstract class Factory<CLUSTER extends MiniRaftCluster> {
     public abstract CLUSTER newCluster(
-        String[] ids, RaftProperties prop, boolean formatted)
-        throws IOException;
+        String[] ids, RaftProperties prop, boolean formatted);
 
-    public CLUSTER newCluster(
-        int numServer, RaftProperties prop, boolean formatted)
-        throws IOException {
-      return newCluster(generateIds(numServer, 0), prop, formatted);
+    public CLUSTER newCluster(int numServer, RaftProperties prop) {
+      return newCluster(generateIds(numServer, 0), prop, true);
     }
   }
 

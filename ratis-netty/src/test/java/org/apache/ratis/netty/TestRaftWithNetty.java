@@ -36,7 +36,8 @@ public class TestRaftWithNetty extends RaftBasicTests {
   private final MiniRaftClusterWithNetty cluster;
 
   public TestRaftWithNetty() throws IOException {
-    cluster = new MiniRaftClusterWithNetty(NUM_SERVERS, getProperties());
+    cluster = MiniRaftClusterWithNetty.FACTORY.newCluster(
+        NUM_SERVERS, getProperties());
   }
 
   @Override

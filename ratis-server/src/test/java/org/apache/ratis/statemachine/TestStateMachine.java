@@ -78,7 +78,8 @@ public class TestStateMachine {
   }
 
   private void startCluster() {
-    cluster = new MiniRaftClusterWithSimulatedRpc(NUM_SERVERS, properties);
+    cluster = MiniRaftClusterWithSimulatedRpc.FACTORY.newCluster(
+        NUM_SERVERS, properties);
     Assert.assertNull(getCluster().getLeader());
     getCluster().start();
   }

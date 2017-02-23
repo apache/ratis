@@ -22,7 +22,6 @@ import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 
 import org.apache.log4j.Level;
@@ -86,18 +85,17 @@ public abstract class RaftSnapshotBaseTest {
 
   private MiniRaftCluster cluster;
 
-  public abstract MiniRaftCluster initCluster(int numServer, RaftProperties prop)
-      throws IOException;
+  public abstract MiniRaftCluster.Factory<?> getFactory();
 
   @Before
-  public void setup() throws IOException {
+  public void setup() {
     final RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
     prop.setLong(RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY,
         SNAPSHOT_TRIGGER_THRESHOLD);
     prop.setBoolean(RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY, true);
-    this.cluster = initCluster(1, prop);
+    this.cluster = getFactory().newCluster(1, prop);
     cluster.start();
   }
 

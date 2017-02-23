@@ -21,6 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRequestSender;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -58,11 +59,11 @@ public abstract class RaftNotLeaderExceptionBaseTest {
 
   private MiniRaftCluster cluster;
 
-  public abstract MiniRaftCluster initCluster() throws IOException;
+  public abstract MiniRaftCluster.Factory<?> getFactory();
 
   @Before
   public void setup() throws IOException {
-    this.cluster = initCluster();
+    cluster = getFactory().newCluster(NUM_PEERS, new RaftProperties());
     cluster.start();
   }
 

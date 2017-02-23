@@ -26,6 +26,6 @@ public class TestRaftReconfigurationWithSimulatedRpc
     extends RaftReconfigurationBaseTest {
   @Override
   public MiniRaftCluster getCluster(int peerNum) throws IOException {
-    return new MiniRaftClusterWithSimulatedRpc(peerNum, prop);
+    return MiniRaftClusterWithSimulatedRpc.FACTORY.newCluster(peerNum, prop);
   }
 }

@@ -26,6 +26,6 @@ public class TestRaftReconfigurationWithNetty
     extends RaftReconfigurationBaseTest {
   @Override
   public MiniRaftCluster getCluster(int peerNum) throws IOException {
-    return MiniRaftClusterWithNetty.FACTORY.newCluster(peerNum, prop, true);
+    return MiniRaftClusterWithNetty.FACTORY.newCluster(peerNum, prop);
   }
 }

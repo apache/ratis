@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithSimulatedRpc.class);
@@ -38,7 +39,10 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     @Override
     public MiniRaftClusterWithSimulatedRpc newCluster(
         String[] ids, RaftProperties prop, boolean formatted) {
-      prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
+      if (ThreadLocalRandom.current().nextBoolean()) {
+        // turn off simulate latency half of the times.
+        prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
+      }
       return new MiniRaftClusterWithSimulatedRpc(ids, prop, formatted);
     }
   };
@@ -46,12 +50,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   private SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
   private SimulatedClientRequestReply client2serverRequestReply;
 
-  public MiniRaftClusterWithSimulatedRpc(int numServers,
-      RaftProperties properties) {
-    this(generateIds(numServers, 0), properties, true);
-  }
-
-  public MiniRaftClusterWithSimulatedRpc(String[] ids,
+  private MiniRaftClusterWithSimulatedRpc(String[] ids,
       RaftProperties properties, boolean formatted) {
     super(ids, properties, formatted);
     initRpc();

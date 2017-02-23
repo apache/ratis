@@ -25,8 +25,7 @@ import java.io.IOException;
 
 public class TestRaftSnapshotWithHadoopRpc extends RaftSnapshotBaseTest {
   @Override
-  public MiniRaftCluster initCluster(int numServer, RaftProperties prop)
-      throws IOException {
-    return MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(numServer, prop, true);
+  public MiniRaftCluster.Factory<?> getFactory() {
+    return MiniRaftClusterWithHadoopRpc.FACTORY;
   }
 }

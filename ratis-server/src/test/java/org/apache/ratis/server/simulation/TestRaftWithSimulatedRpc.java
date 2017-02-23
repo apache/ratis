@@ -36,12 +36,8 @@ public class TestRaftWithSimulatedRpc extends RaftBasicTests {
   private final MiniRaftClusterWithSimulatedRpc cluster;
 
   public TestRaftWithSimulatedRpc() throws IOException {
-    final RaftProperties properties = getProperties();
-    if (ThreadLocalRandom.current().nextBoolean()) {
-      // turn off simulate latency half of the times.
-      properties.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
-    }
-    cluster = new MiniRaftClusterWithSimulatedRpc(NUM_SERVERS, properties);
+    cluster = MiniRaftClusterWithSimulatedRpc.FACTORY.newCluster(
+        NUM_SERVERS, getProperties());
   }
 
   @Override

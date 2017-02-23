@@ -25,8 +25,7 @@ import java.io.IOException;
 
 public class TestNotLeaderExceptionWithSimulation extends RaftNotLeaderExceptionBaseTest {
   @Override
-  public MiniRaftCluster initCluster() throws IOException {
-    String[] s = MiniRaftCluster.generateIds(NUM_PEERS, 0);
-    return new MiniRaftClusterWithSimulatedRpc(s, new RaftProperties(), true);
+  public MiniRaftCluster.Factory<?> getFactory() {
+    return MiniRaftClusterWithSimulatedRpc.FACTORY;
   }
 }

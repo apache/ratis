@@ -41,7 +41,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
       = new Factory<MiniRaftClusterWithGRpc>() {
     @Override
     public MiniRaftClusterWithGRpc newCluster(
-        String[] ids, RaftProperties prop, boolean formatted) throws IOException {
+        String[] ids, RaftProperties prop, boolean formatted) {
       return new MiniRaftClusterWithGRpc(ids, prop, formatted);
     }
   };
@@ -49,19 +49,14 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   public static final DelayLocalExecutionInjection sendServerRequestInjection =
       new DelayLocalExecutionInjection(RaftGRpcService.GRPC_SEND_SERVER_REQUEST);
 
-  public MiniRaftClusterWithGRpc(int numServers, RaftProperties properties)
-      throws IOException {
-    this(generateIds(numServers, 0), properties, true);
-  }
-
-  public MiniRaftClusterWithGRpc(String[] ids, RaftProperties properties,
-      boolean formatted) throws IOException {
+  private MiniRaftClusterWithGRpc(String[] ids, RaftProperties properties,
+      boolean formatted) {
     super(ids, new RaftProperties(properties), formatted);
     init(initRpcServices(getServers(), properties));
   }
 
   private static Map<RaftPeer, RaftGRpcService> initRpcServices(
-      Collection<RaftServerImpl> servers, RaftProperties prop) throws IOException {
+      Collection<RaftServerImpl> servers, RaftProperties prop) {
     final Map<RaftPeer, RaftGRpcService> peerRpcs = new HashMap<>();
 
     for (RaftServerImpl s : servers) {

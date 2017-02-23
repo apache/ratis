@@ -40,29 +40,36 @@ import java.util.Map;
 public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithHadoopRpc.class);
 
-  public static final Factory<MiniRaftClusterWithHadoopRpc> FACTORY
-      = new Factory<MiniRaftClusterWithHadoopRpc>() {
+  public static class Factory extends MiniRaftCluster.Factory<MiniRaftClusterWithHadoopRpc> {
     @Override
     public MiniRaftClusterWithHadoopRpc newCluster(
-        String[] ids, RaftProperties prop, boolean formatted) throws IOException {
+        String[] ids, RaftProperties prop, boolean formatted) {
       final Configuration conf = new Configuration();
+      return newCluster(ids, prop, conf, formatted);
+    }
+
+    public MiniRaftClusterWithHadoopRpc newCluster(
+        int numServers, RaftProperties properties, Configuration conf) {
+      return newCluster(generateIds(numServers, 0), properties, conf, true);
+    }
+
+    public MiniRaftClusterWithHadoopRpc newCluster(
+        String[] ids, RaftProperties prop, Configuration conf, boolean formatted) {
       HadoopRpcServerConfigKeys.Ipc.setAddress(conf::set, "0.0.0.0:0");
       return new MiniRaftClusterWithHadoopRpc(ids, prop, conf, formatted);
     }
-  };
+  }
+
+  public static final Factory FACTORY = new Factory();
 
   public static final DelayLocalExecutionInjection sendServerRequest =
       new DelayLocalExecutionInjection(HadoopRpcService.SEND_SERVER_REQUEST);
 
   private final Configuration hadoopConf;
 
-  public MiniRaftClusterWithHadoopRpc(int numServers, RaftProperties properties,
-      Configuration conf) throws IOException {
-    this(generateIds(numServers, 0), properties, conf, true);
-  }
 
-  public MiniRaftClusterWithHadoopRpc(String[] ids, RaftProperties properties,
-      Configuration hadoopConf, boolean formatted) throws IOException {
+  private MiniRaftClusterWithHadoopRpc(String[] ids, RaftProperties properties,
+      Configuration hadoopConf, boolean formatted) {
     super(ids, properties, formatted);
     this.hadoopConf = hadoopConf;
 
@@ -70,7 +77,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   }
 
   private static Map<RaftPeer, HadoopRpcService> initRpcServices(
-      Collection<RaftServerImpl> servers, Configuration hadoopConf) throws IOException {
+      Collection<RaftServerImpl> servers, Configuration hadoopConf) {
     final Map<RaftPeer, HadoopRpcService> peerRpcs = new HashMap<>();
 
     for(RaftServerImpl s : servers) {

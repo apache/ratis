@@ -25,8 +25,7 @@ import java.io.IOException;
 
 public class TestRaftSnapshotWithSimulatedRpc extends RaftSnapshotBaseTest {
   @Override
-  public MiniRaftCluster initCluster(int numServer, RaftProperties prop)
-      throws IOException {
-    return MiniRaftClusterWithSimulatedRpc.FACTORY.newCluster(numServer, prop, true);
+  public MiniRaftCluster.Factory<?> getFactory() {
+    return MiniRaftClusterWithSimulatedRpc.FACTORY;
   }
 }

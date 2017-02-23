@@ -40,7 +40,7 @@ public class TestRaftWithHadoopRpc extends RaftBasicTests {
 
   public TestRaftWithHadoopRpc() throws IOException {
     cluster = MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(
-        NUM_SERVERS, getProperties(), true);
+        NUM_SERVERS, getProperties());
   }
 
   @Override

@@ -25,8 +25,7 @@ import java.io.IOException;
 
 public class TestRaftSnapshotWithNetty extends RaftSnapshotBaseTest {
   @Override
-  public MiniRaftCluster initCluster(int numServer, RaftProperties prop)
-      throws IOException {
-    return MiniRaftClusterWithNetty.FACTORY.newCluster(numServer, prop, true);
+  public MiniRaftCluster.Factory<?> getFactory() {
+    return MiniRaftClusterWithNetty.FACTORY;
   }
 }
