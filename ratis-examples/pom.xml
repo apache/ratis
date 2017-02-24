@@ -17,14 +17,15 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>ratis-project-dist</artifactId>
+    <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
     <version>0.1-SNAPSHOT</version>
-    <relativePath>../ratis-project-dist</relativePath>
+    <relativePath>..</relativePath>
   </parent>
 
   <artifactId>ratis-examples</artifactId>
   <name>Ratis Examples</name>
+  <version>0.1-SNAPSHOT</version>
 
   <dependencies>
     <dependency>
@@ -44,7 +45,7 @@
       <scope>test</scope>
       <type>test-jar</type>
     </dependency>
-    
+
     <dependency>
       <artifactId>ratis-client</artifactId>
       <groupId>org.apache.ratis</groupId>
@@ -56,7 +57,7 @@
       <scope>test</scope>
       <type>test-jar</type>
     </dependency>
-    
+
     <dependency>
       <artifactId>ratis-server</artifactId>
       <groupId>org.apache.ratis</groupId>
@@ -68,7 +69,7 @@
       <scope>test</scope>
       <type>test-jar</type>
     </dependency>
-    
+
     <dependency>
       <artifactId>ratis-hadoop</artifactId>
       <groupId>org.apache.ratis</groupId>

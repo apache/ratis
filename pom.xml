@@ -17,11 +17,24 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>ratis-main</artifactId>
+  <parent>
+    <groupId>org.apache</groupId>
+    <artifactId>apache</artifactId>
+    <version>18</version>
+    <relativePath/>
+    <!-- no parent resolution -->
+  </parent>
+
+  <artifactId>ratis</artifactId>
   <groupId>org.apache.ratis</groupId>
   <version>0.1-SNAPSHOT</version>
-  <name>Ratis Main</name>
+  <name>Ratis</name>
   <packaging>pom</packaging>
+  <description>
+    Apache Ratis is an open source java implementation for RAFT consensus protocol
+  </description>
+  <url>https://ratis.apache.org/</url>
+  <inceptionYear>2017</inceptionYear>
 
   <licenses>
     <license>
@@ -30,10 +43,92 @@
     </license>
   </licenses>
 
+  <modules>
+    <module>ratis-assembly</module>
+    <module>ratis-client</module>
+    <module>ratis-common</module>
+    <module>ratis-examples</module>
+    <module>ratis-grpc</module>
+    <module>ratis-hadoop</module>
+    <module>ratis-netty</module>
+    <module>ratis-proto-shaded</module>
+    <module>ratis-server</module>
+  </modules>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>apache.snapshots</id>
+      <url>http://repository.apache.org/snapshots/</url>
+    </pluginRepository>
+  </pluginRepositories>
+
+  <scm>
+    <connection>scm:git:git://git.apache.org/incubator-ratis.git</connection>
+    <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/incubator-ratis.git</developerConnection>
+    <url>https://git-wip-us.apache.org/repos/asf?p=incubator-ratis.git</url>
+  </scm>
+
+  <issueManagement>
+    <system>JIRA</system>
+    <url>http://issues.apache.org/jira/browse/RATIS</url>
+  </issueManagement>
+
+  <!--<ciManagement> TODO
+    <system>Jenkins</system>
+    <url>http://builds.apache.org/job/Ratis-Master/</url>
+  </ciManagement>-->
+
+  <mailingLists>
+    <mailingList>
+      <name>User List</name>
+      <subscribe>user-subscribe@ratis.apache.org</subscribe>
+      <unsubscribe>user-unsubscribe@ratis.incubator.apache.org</unsubscribe>
+      <post>user@ratis.incubator.apache.org</post>
+      <archive>https://lists.apache.org/list.html?dev@ratis.apache.org</archive>
+      <otherArchives>
+        <otherArchive>http://mail-archives.apache.org/mod_mbox/ratis-user/</otherArchive>
+      </otherArchives>
+    </mailingList>
+    <mailingList>
+      <name>Developer List</name>
+      <subscribe>dev-subscribe@ratis.apache.org</subscribe>
+      <unsubscribe>dev-unsubscribe@ratis.apache.org</unsubscribe>
+      <post>dev@ratis.apache.org</post>
+      <archive>https://lists.apache.org/list.html?user@ratis.apache.org</archive>
+      <otherArchives>
+        <otherArchive>http://mail-archives.apache.org/mod_mbox/ratis-dev/</otherArchive>
+      </otherArchives>
+    </mailingList>
+    <mailingList>
+      <name>Commits List</name>
+      <subscribe>commits-subscribe@ratis.apache.org</subscribe>
+      <unsubscribe>commits-unsubscribe@ratis.apache.org</unsubscribe>
+      <archive>https://lists.apache.org/list.html?commits@ratis.apache.org</archive>
+      <otherArchives>
+        <otherArchive>http://mail-archives.apache.org/mod_mbox/ratis-commits/</otherArchive>
+      </otherArchives>
+    </mailingList>
+    <mailingList>
+      <name>Issues List</name>
+      <subscribe>issues-subscribe@ratis.apache.org</subscribe>
+      <unsubscribe>issues-unsubscribe@ratis.apache.org</unsubscribe>
+      <archive>https://lists.apache.org/list.html?issues@ratis.apache.org</archive>
+      <otherArchives>
+        <otherArchive>http://mail-archives.apache.org/mod_mbox/ratis-issues/</otherArchive>
+      </otherArchives>
+    </mailingList>
+  </mailingLists>
+
+  <developers>
+    <!-- TODO: Add developers -->
+  </developers>
+
+
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
+    <!-- Maven plugin versions -->
     <maven-antrun-plugin.version>1.7</maven-antrun-plugin.version>
     <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
     <maven-bundle-plugin.version>2.5.3</maven-bundle-plugin.version>
@@ -46,26 +141,194 @@
     <maven-enforcer-plugin.version>1.3.1</maven-enforcer-plugin.version>
     <maven-install-plugin.version>2.5.1</maven-install-plugin.version>
     <maven-jar-plugin.version>3.0.2</maven-jar-plugin.version>
-    <maven-javadoc-plugin.version>2.9.1</maven-javadoc-plugin.version>
+    <maven-javadoc-plugin.version>2.10.3</maven-javadoc-plugin.version>
     <maven-resources-plugin.version>2.6</maven-resources-plugin.version>
     <maven-site-plugin.version>3.5</maven-site-plugin.version>
     <maven-source-plugin.version>2.3</maven-source-plugin.version>
     <maven-stylus-skin.version>1.5</maven-stylus-skin.version>
     <maven-surefire-plugin.version>2.19.1</maven-surefire-plugin.version>
     <maven-xolstice-plugin.version>0.5.0</maven-xolstice-plugin.version>
-
+    <maven-pdf-plugin.version>1.2</maven-pdf-plugin.version>
+    <build-helper-maven-plugin.version>1.9</build-helper-maven-plugin.version>
+    <exec-maven-plugin.version>1.3.1</exec-maven-plugin.version>
+    <make-maven-plugin.version>1.0-beta-1</make-maven-plugin.version>
+    <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
+    <findbugs.version>3.0.0</findbugs.version>
     <apache-rat-plugin.version>0.10</apache-rat-plugin.version>
     <wagon-ssh.version>1.0</wagon-ssh.version>
-
     <shell-executable>bash</shell-executable>
+
     <!-- define the Java language version used by the compiler -->
     <javac.version>1.8</javac.version>
+    <java.min.version>${javac.version}</java.min.version>
+    <maven.min.version>3.0.4</maven.min.version>
+
+    <!-- dependency versions -->
+    <commons-io.version>2.4</commons-io.version>
+    <commons-lang.version>2.6</commons-lang.version>
+
+    <!-- Test properties -->
+    <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
+    <test.exclude.pattern>_</test.exclude.pattern>
+    <!-- number of threads/forks to use when running tests in parallel, see parallel-tests profile -->
+    <testsThreadCount>4</testsThreadCount>
   </properties>
 
-  <modules>
-    <module>ratis-proto-shaded</module>
-    <module>ratis-project</module>
-  </modules>
+  <dependencyManagement>
+    <dependencies>
+      <!-- Internal dependencies -->
+      <dependency>
+        <artifactId>ratis-client</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-client</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <artifactId>ratis-common</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-common</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <artifactId>ratis-examples</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-examples</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <artifactId>ratis-grpc</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-grpc</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <artifactId>ratis-hadoop</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-hadoop</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <artifactId>ratis-netty</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-netty</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <artifactId>ratis-proto-shaded</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-proto-shaded</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <artifactId>ratis-server</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-server</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <!-- External dependencies -->
+      <dependency>
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>${commons-io.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>commons-lang</groupId>
+        <artifactId>commons-lang</artifactId>
+        <version>${commons-lang.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>1.7.10</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-log4j12</artifactId>
+        <version>1.7.10</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>20.0</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-all</artifactId>
+        <version>4.1.6.Final</version>
+      </dependency>
+
+      <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>4.11</version>
+      </dependency>
+      <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-all</artifactId>
+        <version>1.8.5</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <build>
     <extensions>
@@ -75,9 +338,68 @@
         <version>1.5.0.Final</version>
       </extension>
     </extensions>
-    
+
     <pluginManagement>
       <plugins>
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>${maven-clean-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>${build-helper-maven-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>${maven-install-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>${maven-javadoc-plugin.version}</version>
+          <configuration>
+            <additionalparam>-Xmaxwarns 10000</additionalparam>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>findbugs-maven-plugin</artifactId>
+          <version>${findbugs.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>native-maven-plugin</artifactId>
+          <version>${native-maven-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>make-maven-plugin</artifactId>
+          <version>${make-maven-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>${maven-resources-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>${exec-maven-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-pdf-plugin</artifactId>
+          <version>${maven-pdf-plugin.version}</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.hadoop</groupId>
+          <artifactId>hadoop-maven-plugins</artifactId>
+          <version>${hadoop.version}</version>
+        </plugin>
+
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-dependency-plugin</artifactId>
@@ -102,6 +424,10 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-assembly-plugin</artifactId>
           <version>${maven-assembly-plugin.version}</version>
+          <configuration>
+            <!--Defer to the ratis-assembly sub-module.  It does all assembly-->
+            <skipAssembly>true</skipAssembly>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -132,6 +458,31 @@
           </executions>
         </plugin>
 
+        <!-- General configuration for submodules who want to build a test jar -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>${maven-jar-plugin.version}</version>
+          <executions>
+            <execution>
+              <phase>prepare-package</phase>
+              <goals>
+                <!--This goal will install a -test.jar when we do install
+                    See http://maven.apache.org/guides/mini/guide-attached-tests.html
+                 -->
+                <goal>test-jar</goal>
+              </goals>
+            </execution>
+          </executions>
+          <configuration>
+            <skipIfEmpty>true</skipIfEmpty>
+            <excludes>
+              <exclude>log4j.properties</exclude>
+              <exclude>*.jar</exclude>
+            </excludes>
+          </configuration>
+        </plugin>
+
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
@@ -152,7 +503,25 @@
             </includes>
             <excludes>
               <exclude>**/Test*$*.java</exclude>
+              <exclude>${test.exclude.pattern}</exclude>
             </excludes>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <configuration>
+            <!--You need this profile. It'll sign your artifacts.
+                I'm not sure if this config. actually works though.
+                I've been specifying -Papache-release on the command-line
+             -->
+            <releaseProfiles>apache-release</releaseProfiles>
+            <!--This stops our running tests for each stage of maven release.
+                But it builds the test jar.  From SUREFIRE-172.
+              -->
+            <arguments>-Dmaven.test.skip.exec ${arguments}</arguments>
+            <goals>${goals}</goals>
+            <pomFileName>pom.xml</pomFileName>
           </configuration>
         </plugin>
 
@@ -165,6 +534,17 @@
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
           <version>${apache-rat-plugin.version}</version>
+          <configuration>
+            <excludes>
+              <exclude>.gitattributes</exclude>
+              <exclude>.gitignore</exclude>
+              <exclude>.git/**</exclude>
+              <exclude>**/*.swp</exclude>
+              <exclude>**/*.iml</exclude>
+              <exclude>.idea/**</exclude>
+              <exclude>**/target/**</exclude>
+            </excludes>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -193,13 +573,14 @@
           <artifactId>maven-bundle-plugin</artifactId>
           <version>${maven-bundle-plugin.version}</version>
         </plugin>
-
       </plugins>
-
-
     </pluginManagement>
 
     <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>findbugs-maven-plugin</artifactId>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
@@ -218,23 +599,30 @@
               <goal>enforce</goal>
             </goals>
             <phase>validate</phase>
+            <configuration>
+              <rules>
+                <!-- The earliest maven version we verify builds for via ASF Jenkins -->
+                <requireMavenVersion>
+                  <version>[${maven.min.version},)</version>
+                  <message>Maven is out of date.
+                    Ratis requires at least version ${maven.min.version} of Maven to properly build from source.
+                    You appear to be using an older version. You can use either "mvn -version" or
+                    "mvn enforcer:display-info" to verify what version is active.
+                  </message>
+                </requireMavenVersion>
+                <!-- The earliest JVM version we verify builds for via ASF Jenkins -->
+                <requireJavaVersion>
+                  <version>[${java.min.version},)</version>
+                  <message>Java is out of date.
+                    Ratis requires at least version ${java.min.version} of the JDK to properly build from source.
+                    You appear to be using an older version. You can use either "mvn -version" or
+                    "mvn enforcer:display-info" to verify what version is active.
+                  </message>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
           </execution>
         </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.rat</groupId>
-        <artifactId>apache-rat-plugin</artifactId>
-        <configuration>
-          <excludes>
-            <exclude>.gitattributes</exclude>
-            <exclude>.gitignore</exclude>
-            <exclude>.git/**</exclude>
-            <exclude>**/*.swp</exclude>
-            <exclude>**/*.iml</exclude>
-            <exclude>.idea/**</exclude>
-            <exclude>**/target/**</exclude>
-          </excludes>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.felix</groupId>
@@ -247,6 +635,159 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>${maven-checkstyle-plugin.version}</version>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-pdf-plugin</artifactId>
+        <configuration>
+          <outputDirectory>${project.reporting.outputDirectory}
+          </outputDirectory>
+          <includeReports>false</includeReports>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>os.linux</id>
+      <activation>
+        <os>
+          <family>!Mac</family>
+        </os>
+      </activation>
+      <properties>
+        <build.platform>${os.name}-${os.arch}-${sun.arch.data.model}
+        </build.platform>
+      </properties>
+    </profile>
+    <profile>
+      <id>os.mac</id>
+      <activation>
+        <os>
+          <family>Mac</family>
+        </os>
+      </activation>
+      <properties>
+        <build.platform>Mac_OS_X-${sun.arch.data.model}</build.platform>
+      </properties>
+    </profile>
+    <profile>
+      <id>native-win</id>
+      <activation>
+        <os>
+          <family>Windows</family>
+        </os>
+      </activation>
+      <properties>
+        <!-- We must use this exact string for egd on Windows, because the -->
+        <!-- JVM will check for an exact string match on this.  If found, it -->
+        <!-- will use a native entropy provider.  This will not really -->
+        <!-- attempt to open a file at this path. -->
+        <java.security.egd>file:/dev/urandom</java.security.egd>
+        <bundle.snappy.in.bin>true</bundle.snappy.in.bin>
+        <bundle.openssl.in.bin>true</bundle.openssl.in.bin>
+      </properties>
+    </profile>
+    <profile>
+      <id>test-patch</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <fork>true</fork>
+              <source>${javac.version}</source>
+              <target>${javac.version}</target>
+              <compilerArguments>
+                <Xlint/>
+                <Xmaxwarns>9999</Xmaxwarns>
+              </compilerArguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+              <execution>
+                <!-- build javadoc jars per jar for publishing to maven -->
+                <id>module-javadocs</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+                <configuration>
+                  <destDir>${project.build.directory}</destDir>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <executions>
+              <execution>
+                <!-- builds source jars and attaches them to the project for publishing -->
+                <id>ratis-java-sources</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                  <goal>test-jar-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>dist-enforce</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <enforceBytecodeVersion>
+                      <maxJdkVersion>${java.min.version}</maxJdkVersion>
+                      <message>Ratis has unsupported dependencies.
+                        Ratis requires that all dependencies be compiled with version ${java.min.version} or earlier
+                        of the JDK to properly build from source.  You appear to be using a newer dependency. You can use
+                        either "mvn -version" or "mvn enforcer:display-info" to verify what version is active.
+                        Non-release builds can temporarily build with a newer JDK version by setting the
+                        'javac.source' property (eg. mvn -Djavac.source=1.8 clean package).
+                      </message>
+                    </enforceBytecodeVersion>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.rat</groupId>
+            <artifactId>apache-rat-plugin</artifactId>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

@@ -17,14 +17,15 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>ratis-project-dist</artifactId>
+    <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
     <version>0.1-SNAPSHOT</version>
-    <relativePath>../ratis-project-dist</relativePath>
+    <relativePath>..</relativePath>
   </parent>
 
   <artifactId>ratis-server</artifactId>
   <name>Ratis Server</name>
+  <version>0.1-SNAPSHOT</version>
 
   <dependencies>
     <dependency>
@@ -35,7 +36,6 @@
     <dependency>
       <artifactId>ratis-common</artifactId>
       <groupId>org.apache.ratis</groupId>
-      <scope>provided</scope>
     </dependency>
     <dependency>
       <artifactId>ratis-common</artifactId>
@@ -43,11 +43,10 @@
       <scope>test</scope>
       <type>test-jar</type>
     </dependency>
-    
+
     <dependency>
       <artifactId>ratis-client</artifactId>
       <groupId>org.apache.ratis</groupId>
-      <scope>provided</scope>
     </dependency>
     <dependency>
       <artifactId>ratis-client</artifactId>
@@ -55,7 +54,7 @@
       <scope>test</scope>
       <type>test-jar</type>
     </dependency>
-    
+
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>

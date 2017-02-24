@@ -17,7 +17,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>ratis-main</artifactId>
+    <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
     <version>0.1-SNAPSHOT</version>
     <relativePath>..</relativePath>
@@ -25,6 +25,8 @@
 
   <artifactId>ratis-proto-shaded</artifactId>
   <name>Ratis Proto Shaded</name>
+  <version>0.1-SNAPSHOT</version>
+
   <properties>
     <maven.javadoc.skip>true</maven.javadoc.skip>
     <!--The Default target dir-->
@@ -60,23 +62,6 @@
           <skipAssembly>true</skipAssembly>
         </configuration>
       </plugin>
-      <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <!-- Always skip the second part executions
-             since we only run simple unit tests in this module -->
-        <executions>
-          <execution>
-            <id>secondPartTestsExecution</id>
-            <phase>test</phase>
-            <goals>
-              <goal>test</goal>
-            </goals>
-            <configuration>
-              <skip>true</skip>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
   </build>
 
@@ -86,6 +71,7 @@
       <artifactId>protobuf-java</artifactId>
       <version>${shaded.protobuf.version}</version>
     </dependency>
+
     <dependency>
       <groupId>com.google.protobuf.nano</groupId>
       <artifactId>protobuf-javanano</artifactId>
@@ -97,11 +83,13 @@
       <artifactId>grpc-netty</artifactId>
       <version>${shaded.grpc.version}</version>
     </dependency>
+
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
       <version>${shaded.grpc.version}</version>
     </dependency>
+
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-stub</artifactId>
@@ -151,6 +139,14 @@
          The result needs to be checked in.
       -->
       <activation>
+        <!-- Activate this if the generated source directory is missing. It will automatically
+         kick the protoc compilation if you are doing a mvn install for the first time. Otherwise
+         it will only compile the resources under src/main/java as usual.  If you want to
+         force-compile the proto files (for example after changing them), you should run with
+         mvn install -Dcompile-protobuf -->
+        <file>
+          <missing>${sources.dir}</missing>
+        </file>
         <property>
           <name>compile-protobuf</name>
         </property>
@@ -167,30 +163,12 @@
       <build>
         <finalName>${jar.finalName}</finalName>
         <plugins>
-          <plugin>
-            <artifactId>maven-clean-plugin</artifactId>
-            <version>${maven-clean-plugin.version}</version>
-            <executions>
-              <execution>
-                <id>pre-compile-protoc</id>
-                <phase>generate-sources</phase>
-                <goals>
-                  <goal>clean</goal>
-                </goals>
-                <configuration>
-                  <filesets>
-                    <fileset>
-                      <directory>
-                        ${basedir}/src/main/java/
-                      </directory>
-                      <followSymlinks>false</followSymlinks>
-                    </fileset>
-                  </filesets>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-
+          <!--
+            We are not cleaning the generated files from src/main/java since we do not check-in the
+            generated files there. Shading only happens in the build phase package (which is after
+            compile), so for mvn test and mvn compile to work, you should run mvn package or mvn
+            install one time so that src/main/java will be populated.
+          -->
           <plugin>
             <groupId>org.xolstice.maven.plugins</groupId>
             <artifactId>protobuf-maven-plugin</artifactId>
@@ -280,7 +258,7 @@
                       <exclude>com.google.code.findbugs</exclude>
                       <exclude>com.google.code.gson:gson</exclude>
                       <exclude>com.google.guava:guava</exclude>
-		      com.google.re2j:re2j
+                      com.google.re2j:re2j
 
                       <exclude>com.jamesmurty.utils:java-xmlbuilder</exclude>
                       <exclude>com.jcraft:jsch</exclude>
@@ -290,7 +268,7 @@
                       <exclude>com.sun.jersey:jersey-server</exclude>
                       <exclude>com.sun.jersey:jersey-servlet</exclude>
                       <exclude>com.sun.xml.bind:jaxb-impl</exclude>
- 
+
                       <exclude>com.thoughtworks.paranamer:paranamer</exclude>
 
                       <exclude>commons-beanutils:commons-beanutils-core</exclude>
@@ -320,7 +298,7 @@
                       <exclude>javax.servlet:servlet-api</exclude>
                       <exclude>javax.xml.bind:jaxb-api</exclude>
                       <exclude>javax.xml.stream:stax-api</exclude>
-		      <exclude>javax.servlet:javax.servlet-api</exclude>
+                      <exclude>javax.servlet:javax.servlet-api</exclude>
                       <exclude>javax.ws.rs:jsr311-api</exclude>
 
                       <exclude>log4j:log4j</exclude>
@@ -356,7 +334,7 @@
                       <exclude>org.eclipse.jetty:jetty-servlet</exclude>
                       <exclude>org.eclipse.jetty:jetty-webapp</exclude>
                       <exclude>org.eclipse.jetty:jetty-util-ajax</exclude>
-		      <exclude>org.mortbay.jetty:jetty-sslengine</exclude>
+                      <exclude>org.mortbay.jetty:jetty-sslengine</exclude>
 
                       <exclude>org.slf4j:slf4j-api</exclude>
                       <exclude>org.slf4j:slf4j-log4j12</exclude>
@@ -418,6 +396,13 @@
                 </configuration>
               </execution>
             </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-install-plugin</artifactId>
+            <configuration>
+              <skip>true</skip>
+            </configuration>
           </plugin>
         </plugins>
       </build>
