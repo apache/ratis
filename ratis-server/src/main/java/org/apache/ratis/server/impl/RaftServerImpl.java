@@ -17,44 +17,18 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.util.LifeCycle.State.CLOSED;
-import static org.apache.ratis.util.LifeCycle.State.CLOSING;
-import static org.apache.ratis.util.LifeCycle.State.RUNNING;
-import static org.apache.ratis.util.LifeCycle.State.STARTING;
-
-import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
-import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
-
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.RpcType;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.LeaderNotReadyException;
-import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.NotLeaderException;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftException;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.ReconfigurationInProgressException;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.FileChunkProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotResult;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -65,8 +39,18 @@ import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.OptionalLong;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
+
+import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
+import static org.apache.ratis.util.LifeCycle.State.*;
 
 public class RaftServerImpl implements RaftServer {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerImpl.class);
@@ -82,6 +66,7 @@ public class RaftServerImpl implements RaftServer {
     LEADER, CANDIDATE, FOLLOWER
   }
 
+  private final RpcType rpcType;
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
 
@@ -100,14 +85,15 @@ public class RaftServerImpl implements RaftServer {
   /** used when the peer is leader */
   private volatile LeaderState leaderState;
 
-  private RaftServerRpc serverRpc;
+  private final Supplier<RaftServerRpc> serverRpc;
 
-  private final Supplier<ServerFactory> factory ;
+  private final ServerFactory factory;
 
   RaftServerImpl(RaftPeerId id, StateMachine stateMachine,
                  RaftConfiguration raftConf, RaftProperties properties)
       throws IOException {
     this.lifeCycle = new LifeCycle(id);
+    this.rpcType = RaftConfigKeys.Rpc.type(properties::getEnum);
     minTimeoutMs = properties.getInt(
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_KEY,
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT);
@@ -119,12 +105,18 @@ public class RaftServerImpl implements RaftServer {
     this.properties = properties;
     this.stateMachine = stateMachine;
     this.state = new ServerState(id, raftConf, properties, this, stateMachine);
-    this.factory = RaftUtils.memoize(
-        () -> ServerFactory.Util.newServerFactory(getServerRpc().getRpcType(), properties));
+    this.factory = ServerFactory.Util.newServerFactory(rpcType, properties);
+    this.serverRpc = RaftUtils.memoize(() -> initRaftServerRpc());
   }
 
-  ServerFactory getFactory() {
-    return factory.get();
+  @Override
+  public RpcType getRpcType() {
+    return rpcType;
+  }
+
+  @Override
+  public ServerFactory getFactory() {
+    return factory;
   }
 
   int getMinTimeoutMs() {
@@ -144,26 +136,18 @@ public class RaftServerImpl implements RaftServer {
     return this.stateMachine;
   }
 
-  /**
-   * Used by tests to set initial raft configuration with correct port bindings.
-   */
-  @VisibleForTesting
-  public void setInitialConf(RaftConfiguration conf) {
-    this.state.setInitialConf(conf);
-  }
-
-  @Override
-  public void setServerRpc(RaftServerRpc serverRpc) {
-    this.serverRpc = serverRpc;
+  private RaftServerRpc initRaftServerRpc() {
+    final RaftServerRpc rpc = getFactory().newRaftServerRpc(this);
     // add peers into rpc service
     RaftConfiguration conf = getRaftConf();
     if (conf != null) {
-      serverRpc.addPeers(conf.getPeers());
+      rpc.addPeers(conf.getPeers());
     }
+    return rpc;
   }
 
   public RaftServerRpc getServerRpc() {
-    return serverRpc;
+    return serverRpc.get();
   }
 
   @Override
@@ -188,7 +172,7 @@ public class RaftServerImpl implements RaftServer {
     heartbeatMonitor = new FollowerState(this);
     heartbeatMonitor.start();
 
-    serverRpc.start();
+    getServerRpc().start();
     lifeCycle.transition(RUNNING);
   }
 
@@ -200,7 +184,7 @@ public class RaftServerImpl implements RaftServer {
   private void startInitializing() {
     role = Role.FOLLOWER;
     // do not start heartbeatMonitoring
-    serverRpc.start();
+    getServerRpc().start();
   }
 
   public ServerState getState() {
@@ -224,7 +208,7 @@ public class RaftServerImpl implements RaftServer {
         shutdownElectionDaemon();
         shutdownLeaderState();
 
-        serverRpc.close();
+        getServerRpc().close();
         state.close();
       } catch (Exception ignored) {
         LOG.warn("Failed to kill " + state.getSelfId(), ignored);
@@ -831,6 +815,7 @@ public class RaftServerImpl implements RaftServer {
     return null;
   }
 
+  @Override
   public RaftProperties getProperties() {
     return this.properties;
   }

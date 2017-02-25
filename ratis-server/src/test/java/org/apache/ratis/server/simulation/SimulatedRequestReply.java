@@ -18,7 +18,6 @@
 package org.apache.ratis.server.simulation;
 
 import com.google.common.base.Preconditions;
-
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftRpcMessage;
@@ -27,7 +26,6 @@ import org.apache.ratis.util.RaftUtils;
 import org.apache.ratis.util.Timestamp;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -37,7 +35,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
+class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> {
   public static final String SIMULATE_LATENCY_KEY
       = SimulatedRequestReply.class.getName() + ".simulateLatencyMs";
@@ -105,15 +103,11 @@ public class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     }
   }
 
-  private final Map<String, EventQueue<REQUEST, REPLY>> queues;
+  private final Map<String, EventQueue<REQUEST, REPLY>> queues
+      = new ConcurrentHashMap<>();
   private final int simulateLatencyMs;
 
-  SimulatedRequestReply(Collection<RaftPeer> allPeers, int simulateLatencyMs) {
-    queues = new ConcurrentHashMap<>();
-    for (RaftPeer peer : allPeers) {
-      queues.put(peer.getId().toString(), new EventQueue<>());
-    }
-
+  SimulatedRequestReply(int simulateLatencyMs) {
     this.simulateLatencyMs = simulateLatencyMs;
   }
 

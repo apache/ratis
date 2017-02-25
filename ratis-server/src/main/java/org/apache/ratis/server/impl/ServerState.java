@@ -100,14 +100,6 @@ public class ServerState implements Closeable {
          lastApplied, prop);
   }
 
-  /**
-   * Used by tests to set initial raft configuration with correct port bindings.
-   */
-  @VisibleForTesting
-  public void setInitialConf(RaftConfiguration initialConf) {
-    configurationManager.setInitialConf(initialConf);
-  }
-
   private long initStatemachine(StateMachine sm, RaftProperties properties)
       throws IOException {
     sm.initialize(selfId, properties, storage);

@@ -53,9 +53,7 @@ public class HadoopRpcService implements RaftServerRpc {
   public static class Builder extends RaftServerRpc.Builder<Builder, HadoopRpcService> {
     private Configuration conf;
 
-    private Builder() {
-      super(0);
-    }
+    private Builder() {}
 
     public Configuration getConf() {
       if (conf == null) {
@@ -117,7 +115,8 @@ public class HadoopRpcService implements RaftServerRpc {
     return ipcServerAddress;
   }
 
-  private RPC.Server newRpcServer(RaftServerProtocol serverProtocol, final Configuration conf)
+  private static RPC.Server newRpcServer(
+      RaftServerProtocol serverProtocol, final Configuration conf)
       throws IOException {
     final int handlerCount = HadoopRpcServerConfigKeys.Ipc.handlers(conf::getInt);
     final InetSocketAddress address = HadoopRpcServerConfigKeys.Ipc.address(conf::getTrimmed);

@@ -21,10 +21,8 @@ import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.URI;
-import java.net.UnknownHostException;
+import java.io.IOException;
+import java.net.*;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -147,5 +145,15 @@ public abstract class NetUtils {
       addr = InetSocketAddress.createUnresolved(host, port);
     }
     return addr;
+  }
+
+  public static InetSocketAddress createLocalServerAddress() {
+    try(final ServerSocket s = new ServerSocket()) {
+      s.setReuseAddress(true);
+      s.bind(null);
+      return (InetSocketAddress) s.getLocalSocketAddress();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

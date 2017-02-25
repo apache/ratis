@@ -24,18 +24,14 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
-import org.apache.ratis.server.impl.LeaderState;
-import org.apache.ratis.server.impl.RaftConfiguration;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.ServerImplUtils;
+import org.apache.ratis.server.impl.*;
 import org.apache.ratis.server.storage.MemoryRaftLog;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.statemachine.BaseStateMachine;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.RaftUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
@@ -43,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -73,24 +70,29 @@ public abstract class MiniRaftCluster {
       super(ids, properties, formatted);
     }
 
-    protected abstract RaftServerImpl setPeerRpc(RaftPeer peer) throws IOException;
-
-    @Override
-    protected void setPeerRpc() throws IOException {
-      for (RaftPeer p : conf.getPeers()) {
-        setPeerRpc(p);
-      }
-    }
-
     @Override
     public void restartServer(String id, boolean format) throws IOException {
       super.restartServer(id, format);
-      setPeerRpc(conf.getPeer(new RaftPeerId(id))).start();
+      getServer(id).start();
     }
 
     @Override
     public void setBlockRequestsFrom(String src, boolean block) {
       RaftTestUtil.setBlockRequestsFrom(src, block);
+    }
+
+    public static int getPort(RaftServerImpl server) {
+      final int port = getPort(server.getId(), server.getState().getRaftConf());
+      LOG.info(server.getId() + "(" + server.getRpcType() + "), port=" + port);
+      return port;
+    }
+
+    public static int getPort(RaftPeerId id, RaftConfiguration conf) {
+      final RaftPeer peer = conf.getPeer(id);
+      final String address = peer != null? peer.getAddress(): null;
+      final InetSocketAddress inetAddress = address != null?
+          NetUtils.createSocketAddr(address): NetUtils.createLocalServerAddress();
+      return inetAddress.getPort();
     }
   }
 
@@ -112,7 +114,9 @@ public abstract class MiniRaftCluster {
 
   public static RaftConfiguration initConfiguration(String[] ids) {
     return RaftConfiguration.newBuilder()
-        .setConf(Arrays.stream(ids).map(id -> new RaftPeer(new RaftPeerId(id)))
+        .setConf(Arrays.stream(ids)
+            .map(id -> new RaftPeerId(id))
+            .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
             .collect(Collectors.toList()))
         .build();
   }
@@ -154,16 +158,6 @@ public abstract class MiniRaftCluster {
     ExitUtils.disableSystemExit();
   }
 
-  protected <RPC extends  RaftServerRpc> void init(Map<RaftPeer, RPC> peers) {
-    LOG.info("peers = " + peers.keySet());
-    conf = RaftConfiguration.newBuilder().setConf(peers.keySet()).build();
-    for (Map.Entry<RaftPeer, RPC> entry : peers.entrySet()) {
-      final RaftServerImpl server = servers.get(entry.getKey().getId());
-      server.setInitialConf(conf);
-      server.setServerRpc(entry.getValue());
-    }
-  }
-
   public void start() {
     LOG.info("Starting " + getClass().getSimpleName());
     servers.values().forEach(RaftServerImpl::start);
@@ -188,11 +182,11 @@ public abstract class MiniRaftCluster {
       servers.put(id, newRaftServer(id, format));
     }
 
-    setPeerRpc();
+    initRpc();
     start();
   }
 
-  protected abstract void setPeerRpc() throws IOException;
+  protected void initRpc() {}
 
   public int getMaxTimeout() {
     return properties.getInt(
@@ -204,20 +198,19 @@ public abstract class MiniRaftCluster {
     return conf;
   }
 
-  private RaftServerImpl newRaftServer(RaftPeerId id, boolean format) {
-    final RaftServerImpl s;
+  protected RaftServerImpl newRaftServer(RaftPeerId id, boolean format) {
     try {
       final String dirStr = testBaseDir + id;
       if (format) {
         formatDir(dirStr);
       }
-      properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY, dirStr);
+      final RaftProperties prop = new RaftProperties(properties);
+      prop.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY, dirStr);
       final StateMachine stateMachine = getStateMachine4Test(properties);
-      s = ServerImplUtils.newRaftServer(id, stateMachine, conf, properties);
+      return ServerImplUtils.newRaftServer(id, stateMachine, conf, prop);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    return s;
   }
 
   static StateMachine getStateMachine4Test(RaftProperties properties) {
@@ -230,22 +223,21 @@ public abstract class MiniRaftCluster {
 
   public abstract RaftClientRequestSender getRaftClientRequestSender();
 
-  protected <RPC extends RaftServerRpc> Collection<RaftPeer> addNewPeers(
-      Map<RaftPeer, RPC> newPeers, Collection<RaftServerImpl> newServers,
-      boolean startService) throws IOException {
-    for (Map.Entry<RaftPeer, RPC> entry : newPeers.entrySet()) {
-      RaftServerImpl server = servers.get(entry.getKey().getId());
-      server.setServerRpc(entry.getValue());
-    }
+  public static Collection<RaftPeer> toRaftPeers(
+      Collection<RaftServerImpl> servers) {
+    return servers.stream()
+        .map(s -> new RaftPeer(s.getId(), s.getServerRpc().getInetSocketAddress()))
+        .collect(Collectors.toList());
+  }
+
+  protected Collection<RaftPeer> addNewPeers(
+      Collection<RaftServerImpl> newServers, boolean startService) {
+    final Collection<RaftPeer> peers = toRaftPeers(newServers);
     if (startService) {
       newServers.forEach(RaftServerImpl::start);
     }
-    return new ArrayList<>(newPeers.keySet());
+    return peers;
   }
-
-  protected abstract Collection<RaftPeer> addNewPeers(
-      Collection<RaftPeer> newPeers, Collection<RaftServerImpl> newServers,
-      boolean startService) throws IOException;
 
   public PeerChanges addNewPeers(int number, boolean startNewPeer)
       throws IOException {
@@ -255,22 +247,19 @@ public abstract class MiniRaftCluster {
   public PeerChanges addNewPeers(String[] ids,
       boolean startNewPeer) throws IOException {
     LOG.info("Add new peers {}", Arrays.asList(ids));
-    Collection<RaftPeer> newPeers = new ArrayList<>(ids.length);
-    for (String id : ids) {
-      newPeers.add(new RaftPeer(new RaftPeerId(id)));
-    }
 
     // create and add new RaftServers
     final List<RaftServerImpl> newServers = new ArrayList<>(ids.length);
-    for (RaftPeer p : newPeers) {
-      RaftServerImpl newServer = newRaftServer(p.getId(), true);
-      Preconditions.checkArgument(!servers.containsKey(p.getId()));
-      servers.put(p.getId(), newServer);
+    for (String id : ids) {
+      Preconditions.checkArgument(!servers.containsKey(id));
+
+      final RaftPeerId peerId = new RaftPeerId(id);
+      final RaftServerImpl newServer = newRaftServer(peerId, true);
+      servers.put(peerId, newServer);
       newServers.add(newServer);
     }
 
-    // for hadoop-rpc-enabled peer, we assign inetsocketaddress here
-    newPeers = addNewPeers(newPeers, newServers, startNewPeer);
+    final Collection<RaftPeer> newPeers = addNewPeers(newServers, startNewPeer);
 
     final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
     newPeers.addAll(conf.getPeers());

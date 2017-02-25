@@ -27,10 +27,9 @@ public abstract class ConfUtils {
     return value;
   }
 
-  public static String getString(
-      BiFunction<String, String, String> getString,
-      String key, String defaultValue) {
-    final String value = getString.apply(key, defaultValue);
+  public static <T> T get(BiFunction<String, T, T> getString,
+      String key, T defaultValue) {
+    final T value = getString.apply(key, defaultValue);
     LOG.info(key + " = " + value);
     return value;
   }
@@ -38,13 +37,17 @@ public abstract class ConfUtils {
   public static InetSocketAddress getInetSocketAddress(
       BiFunction<String, String, String> getString,
       String key, String defaultValue) {
-    return NetUtils.createSocketAddr(getString(getString, key, defaultValue));
+    return NetUtils.createSocketAddr(get(getString, key, defaultValue));
   }
 
-  public static void setString(
-      BiConsumer<String, String> setString,
-      String key, String value) {
-    setString.accept(key, value);
+  public static void setInt(BiConsumer<String, Integer> setInt,
+      String key, int value) {
+    setInt.accept(key, value);
+    LOG.info("set " + key + " = " + value);
+  }
+
+  public static <T> void set(BiConsumer<String, T> set, String key, T value) {
+    set.accept(key, value);
     LOG.info("set " + key + " = " + value);
   }
 }

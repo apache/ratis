@@ -17,25 +17,21 @@
  */
 package org.apache.ratis.hadooprpc;
 
-import com.google.common.base.Preconditions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.RpcType;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.hadooprpc.client.HadoopClientRequestSender;
 import org.apache.ratis.hadooprpc.server.HadoopRpcServerConfigKeys;
 import org.apache.ratis.hadooprpc.server.HadoopRpcService;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithHadoopRpc.class);
@@ -55,6 +51,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
 
     public MiniRaftClusterWithHadoopRpc newCluster(
         String[] ids, RaftProperties prop, Configuration conf, boolean formatted) {
+      RaftConfigKeys.Rpc.setType(prop::setEnum, RpcType.HADOOP);
       HadoopRpcServerConfigKeys.Ipc.setAddress(conf::set, "0.0.0.0:0");
       return new MiniRaftClusterWithHadoopRpc(ids, prop, conf, formatted);
     }
@@ -67,53 +64,27 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
 
   private final Configuration hadoopConf;
 
-
   private MiniRaftClusterWithHadoopRpc(String[] ids, RaftProperties properties,
       Configuration hadoopConf, boolean formatted) {
     super(ids, properties, formatted);
     this.hadoopConf = hadoopConf;
-
-    init(initRpcServices(getServers(), hadoopConf));
+    getServers().stream().forEach(s -> setConf(s));
   }
 
-  private static Map<RaftPeer, HadoopRpcService> initRpcServices(
-      Collection<RaftServerImpl> servers, Configuration hadoopConf) {
-    final Map<RaftPeer, HadoopRpcService> peerRpcs = new HashMap<>();
+  private void setConf(RaftServerImpl server) {
+    final Configuration conf = new Configuration(hadoopConf);
+    final String address = "0.0.0.0:" + getPort(server);
+    HadoopRpcServerConfigKeys.Ipc.setAddress(conf::set, address);
+    ((HadoopFactory)server.getFactory()).setConf(conf);
+  }
 
-    for(RaftServerImpl s : servers) {
-      final HadoopRpcService rpc = HadoopRpcService.newBuilder()
-          .setServer(s)
-          .setConf(hadoopConf)
-          .build();
-      peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
+  @Override
+  protected RaftServerImpl newRaftServer(RaftPeerId id, boolean format) {
+    final RaftServerImpl s = super.newRaftServer(id, format);
+    if (hadoopConf != null) {
+      setConf(s);
     }
-    return peerRpcs;
-  }
-
-  @Override
-  protected RaftServerImpl setPeerRpc(RaftPeer peer) throws IOException {
-    Configuration hconf = new Configuration(hadoopConf);
-    HadoopRpcServerConfigKeys.Ipc.setAddress(hconf::set, peer.getAddress());
-
-    RaftServerImpl server = servers.get(peer.getId());
-    final HadoopRpcService rpc = HadoopRpcService.newBuilder()
-        .setServer(server)
-        .setConf(hconf)
-        .build();
-    Preconditions.checkState(
-        rpc.getInetSocketAddress().toString().contains(peer.getAddress()),
-        "address in the raft conf: %s, address in rpc server: %s",
-        peer.getAddress(), rpc.getInetSocketAddress());
-    server.setServerRpc(rpc);
-    return server;
-  }
-
-  @Override
-  public Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
-                                          Collection<RaftServerImpl> newServers, boolean startService)
-      throws IOException {
-    return addNewPeers(initRpcServices(newServers, hadoopConf),
-        newServers, startService);
+    return s;
   }
 
   @Override

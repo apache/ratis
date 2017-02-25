@@ -18,6 +18,8 @@
 package org.apache.ratis.server.simulation;
 
 import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.RpcType;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
@@ -39,6 +41,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     @Override
     public MiniRaftClusterWithSimulatedRpc newCluster(
         String[] ids, RaftProperties prop, boolean formatted) {
+      RaftConfigKeys.Rpc.setType(prop::setEnum, RpcType.SIMULATED);
       if (ThreadLocalRandom.current().nextBoolean()) {
         // turn off simulate latency half of the times.
         prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
@@ -56,28 +59,24 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     initRpc();
   }
 
-  private void initRpc() {
-    final Collection<RaftPeer> peers = getConf().getPeers();
+  @Override
+  protected void initRpc() {
     final int simulateLatencyMs = properties.getInt(
         SimulatedRequestReply.SIMULATE_LATENCY_KEY,
         SimulatedRequestReply.SIMULATE_LATENCY_DEFAULT);
     LOG.info(SimulatedRequestReply.SIMULATE_LATENCY_KEY + " = "
         + simulateLatencyMs);
-    serverRequestReply = new SimulatedRequestReply<>(peers, simulateLatencyMs);
-    client2serverRequestReply = new SimulatedClientRequestReply(peers,
-        simulateLatencyMs);
-
-    setRpcServers(getServers());
+    serverRequestReply = new SimulatedRequestReply<>(simulateLatencyMs);
+    client2serverRequestReply = new SimulatedClientRequestReply(simulateLatencyMs);
+    getServers().stream().forEach(s -> initRpc(s));
+    addPeersToRpc(toRaftPeers(getServers()));
   }
 
-  private void setRpcServers(Collection<RaftServerImpl> newServers) {
-    newServers.forEach(s -> s.setServerRpc(
-        new SimulatedServerRpc(s, serverRequestReply, client2serverRequestReply)));
-  }
-
-  @Override
-  protected void setPeerRpc() {
-    initRpc();
+  private void initRpc(RaftServerImpl s) {
+    if (serverRequestReply != null) {
+      ((SimulationFactory)s.getFactory()).initRpc(
+          serverRequestReply, client2serverRequestReply);
+    }
   }
 
   private void addPeersToRpc(Collection<RaftPeer> peers) {
@@ -86,20 +85,25 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   }
 
   @Override
+  protected RaftServerImpl newRaftServer(RaftPeerId id, boolean format) {
+    final RaftServerImpl s = super.newRaftServer(id, format);
+    initRpc(s);
+    return s;
+  }
+
+  @Override
   public void restartServer(String id, boolean format) throws IOException {
     super.restartServer(id, format);
     RaftServerImpl s = getServer(id);
     addPeersToRpc(Collections.singletonList(conf.getPeer(new RaftPeerId(id))));
-    s.setServerRpc(new SimulatedServerRpc(s, serverRequestReply,
-        client2serverRequestReply));
     s.start();
   }
 
   @Override
-  public Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
-                                          Collection<RaftServerImpl> newServers, boolean startService) {
+  public Collection<RaftPeer> addNewPeers(
+      Collection<RaftServerImpl> newServers, boolean startService) {
+    final Collection<RaftPeer> newPeers = toRaftPeers(newServers);
     addPeersToRpc(newPeers);
-    setRpcServers(newServers);
     if (startService) {
       newServers.forEach(RaftServerImpl::start);
     }

@@ -19,9 +19,12 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.RpcType;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.util.RaftUtils;
 
+import java.io.IOException;
 import java.util.Objects;
 
 /** A factory interface for creating server components. */
@@ -29,7 +32,9 @@ public interface ServerFactory {
   /** Create a new {@link LogAppender}. */
   LogAppender newLogAppender(RaftServerImpl server, LeaderState state, FollowerInfo f);
 
-  class BaseFactory implements ServerFactory {
+  RaftServerRpc newRaftServerRpc(RaftServerImpl server);
+
+  abstract class BaseFactory implements ServerFactory {
     @Override
     public LogAppender newLogAppender(
         RaftServerImpl server, LeaderState state, FollowerInfo f) {

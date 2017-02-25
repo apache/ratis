@@ -17,9 +17,10 @@
  */
 package org.apache.ratis.grpc;
 
-import com.google.common.base.Preconditions;
 import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.RpcType;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.RaftClientSenderWithGrpc;
@@ -28,13 +29,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.NetUtils;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithGRpc> FACTORY
@@ -42,6 +38,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
     @Override
     public MiniRaftClusterWithGRpc newCluster(
         String[] ids, RaftProperties prop, boolean formatted) {
+      RaftConfigKeys.Rpc.setType(prop::setEnum, RpcType.GRPC);
       return new MiniRaftClusterWithGRpc(ids, prop, formatted);
     }
   };
@@ -51,22 +48,15 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
 
   private MiniRaftClusterWithGRpc(String[] ids, RaftProperties properties,
       boolean formatted) {
-    super(ids, new RaftProperties(properties), formatted);
-    init(initRpcServices(getServers(), properties));
+    super(ids, properties, formatted);
   }
 
-  private static Map<RaftPeer, RaftGRpcService> initRpcServices(
-      Collection<RaftServerImpl> servers, RaftProperties prop) {
-    final Map<RaftPeer, RaftGRpcService> peerRpcs = new HashMap<>();
-
-    for (RaftServerImpl s : servers) {
-      final RaftGRpcService rpc = RaftGRpcService.newBuilder()
-          .setFromRaftProperties(prop)
-          .setServer(s)
-          .build();
-      peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
-    }
-    return peerRpcs;
+  @Override
+  protected RaftServerImpl newRaftServer(RaftPeerId id, boolean format) {
+    final RaftServerImpl s = super.newRaftServer(id, format);
+    s.getProperties().setInt(
+        RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, getPort(s));
+    return s;
   }
 
   @Override
@@ -75,40 +65,18 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   }
 
   @Override
-  protected Collection<RaftPeer> addNewPeers(Collection<RaftPeer> newPeers,
-                                             Collection<RaftServerImpl> newServers, boolean startService)
-      throws IOException {
-    final Map<RaftPeer, RaftGRpcService> peers = initRpcServices(newServers, properties);
-    for (Map.Entry<RaftPeer, RaftGRpcService> entry : peers.entrySet()) {
-      RaftServerImpl server = servers.get(entry.getKey().getId());
-      server.setServerRpc(entry.getValue());
+  protected Collection<RaftPeer> addNewPeers(
+      Collection<RaftServerImpl> newServers, boolean startService) {
+    final Collection<RaftPeer> peers = toRaftPeers(newServers);
+    for (RaftPeer p: peers) {
+      final RaftServerImpl server = servers.get(p.getId());
       if (!startService) {
         BlockRequestHandlingInjection.getInstance().blockReplier(server.getId().toString());
       } else {
         server.start();
       }
     }
-    return new ArrayList<>(peers.keySet());
-  }
-
-  @Override
-  protected RaftServerImpl setPeerRpc(RaftPeer peer) throws IOException {
-    RaftServerImpl server = servers.get(peer.getId());
-    int port = NetUtils.newInetSocketAddress(peer.getAddress()).getPort();
-    int oldPort = properties.getInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY,
-        RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_DEFAULT);
-    properties.setInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, port);
-    final RaftGRpcService rpc = RaftGRpcService.newBuilder()
-        .setFromRaftProperties(properties)
-        .setServer(server)
-        .build();
-    Preconditions.checkState(
-        rpc.getInetSocketAddress().toString().contains(peer.getAddress()),
-        "address in the raft conf: %s, address in rpc server: %s",
-        peer.getAddress(), rpc.getInetSocketAddress().toString());
-    server.setServerRpc(rpc);
-    properties.setInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, oldPort);
-    return server;
+    return peers;
   }
 
   @Override

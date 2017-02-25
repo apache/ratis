@@ -22,8 +22,8 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Objects;
 
 /**
  * An server-side interface for supporting different RPC implementations
@@ -33,15 +33,10 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeabl
   /** To build {@link RaftServerRpc} objects. */
   abstract class Builder<B extends Builder, RPC extends RaftServerRpc> {
     private RaftServer server;
-    private int port;
-
-    /** Construct a builder with the default port. */
-    protected Builder(int defaultPort) {
-      this.port = defaultPort;
-    }
 
     public RaftServer getServer() {
-      return server;
+      return Objects.requireNonNull(server,
+          "The 'server' field is not initialized.");
     }
 
     public B setServer(RaftServer server) {
@@ -49,19 +44,9 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeabl
       return getThis();
     }
 
-    public int getPort() {
-      return port;
-    }
-
-    /** Set the port for the server to listen to. */
-    public B setPort(int port) {
-      this.port = port;
-      return getThis();
-    }
-
     protected abstract B getThis();
 
-    public abstract RPC build() throws IOException;
+    public abstract RPC build();
   }
 
   /** Start the RPC service. */

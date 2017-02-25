@@ -15,27 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.simulation;
+package org.apache.ratis;
 
-import org.apache.ratis.client.RaftClientRequestSender;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.conf.ConfUtils;
 
-class SimulatedClientRequestReply
-    extends SimulatedRequestReply<RaftClientRequest, RaftClientReply>
-    implements RaftClientRequestSender {
-  SimulatedClientRequestReply(int simulateLatencyMs) {
-    super(simulateLatencyMs);
-  }
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
-  @Override
-  public void addServers(Iterable<RaftPeer> servers) {
-    // do nothing
-  }
+public interface RaftConfigKeys {
+  String PREFIX = "raft";
 
-  @Override
-  public void close() {
-    // do nothing
+  abstract class Rpc {
+    public static final String PREFIX = RaftConfigKeys.PREFIX + ".rpc";
+
+    public static final String TYPE_KEY = PREFIX + ".type";
+    public static final RpcType TYPE_DEFAULT = RpcType.GRPC;
+
+    public static RpcType type(BiFunction<String, RpcType, RpcType> getRpcType) {
+      return ConfUtils.get(getRpcType, TYPE_KEY, TYPE_DEFAULT);
+    }
+
+    public static void setType(BiConsumer<String, RpcType> setRpcType, RpcType type) {
+      ConfUtils.set(setRpcType, TYPE_KEY, type);
+    }
   }
 }

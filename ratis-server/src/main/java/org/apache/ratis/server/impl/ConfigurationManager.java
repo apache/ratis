@@ -29,7 +29,7 @@ import java.util.*;
  * entries.
  */
 public class ConfigurationManager {
-  private RaftConfiguration initialConf;
+  private final RaftConfiguration initialConf;
   private final NavigableMap<Long, RaftConfiguration> configurations =
       new TreeMap<>();
   /**
@@ -39,15 +39,6 @@ public class ConfigurationManager {
   private RaftConfiguration currentConf;
 
   ConfigurationManager(RaftConfiguration initialConf) {
-    setInitialConf(initialConf);
-  }
-
-  @VisibleForTesting
-  public synchronized void setInitialConf(RaftConfiguration initialConf) {
-    /**
-     * initialConf should actually be defined as "final". But for tests we want
-     * to change the initial configuration to reflect the correct port binding.
-     */
     this.initialConf = initialConf;
     this.currentConf = initialConf;
   }

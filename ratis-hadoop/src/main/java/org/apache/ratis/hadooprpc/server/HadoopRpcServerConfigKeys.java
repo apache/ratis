@@ -50,7 +50,7 @@ public interface HadoopRpcServerConfigKeys {
     public static void setAddress(
         BiConsumer<String, String> setString,
         String address) {
-      ConfUtils.setString(setString, ADDRESS_KEY, address);
+      ConfUtils.set(setString, ADDRESS_KEY, address);
     }
   }
 }

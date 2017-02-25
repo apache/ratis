@@ -18,22 +18,16 @@
 package org.apache.ratis.netty;
 
 import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.RpcType;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.client.NettyClientRequestSender;
 import org.apache.ratis.netty.server.NettyRpcService;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
-import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.NetUtils;
-
-import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithNetty> FACTORY
@@ -41,6 +35,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
     @Override
     public MiniRaftClusterWithNetty newCluster(
         String[] ids, RaftProperties prop, boolean formatted) {
+      RaftConfigKeys.Rpc.setType(prop::setEnum, RpcType.NETTY);
       return new MiniRaftClusterWithNetty(ids, prop, formatted);
     }
   };
@@ -51,53 +46,13 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   private MiniRaftClusterWithNetty(
       String[] ids, RaftProperties properties, boolean formatted) {
     super(ids, properties, formatted);
-    init(initRpcServices(getServers(), getConf()));
-  }
-
-  private static String getAddress(RaftPeerId id, RaftConfiguration conf) {
-    final RaftPeer peer = conf.getPeer(id);
-    if (peer != null) {
-      final String address = peer.getAddress();
-      if (address != null) {
-        return address;
-      }
-    }
-    return "0.0.0.0:0";
-  }
-
-  private static NettyRpcService newNettyRpcService(
-      RaftServerImpl s, RaftConfiguration conf) {
-    final String address = getAddress(s.getId(), conf);
-    final int port = NetUtils.newInetSocketAddress(address).getPort();
-    return NettyRpcService.newBuilder().setServer(s).setPort(port).build();
-  }
-
-  private static Map<RaftPeer, NettyRpcService> initRpcServices(
-      Collection<RaftServerImpl> servers, RaftConfiguration conf) {
-    final Map<RaftPeer, NettyRpcService> peerRpcs = new HashMap<>();
-
-    for (RaftServerImpl s : servers) {
-      final NettyRpcService rpc = newNettyRpcService(s, conf);
-      peerRpcs.put(new RaftPeer(s.getId(), rpc.getInetSocketAddress()), rpc);
-    }
-
-    return peerRpcs;
   }
 
   @Override
-  protected RaftServerImpl setPeerRpc(RaftPeer peer) throws IOException {
-    final RaftServerImpl s = servers.get(peer.getId());
-    final NettyRpcService rpc = newNettyRpcService(s, conf);
-    s.setServerRpc(rpc);
+  protected RaftServerImpl newRaftServer(RaftPeerId id, boolean format) {
+    final RaftServerImpl s = super.newRaftServer(id, format);
+    NettyConfigKeys.Server.setPort(s.getProperties()::setInt, getPort(s));
     return s;
-  }
-
-  @Override
-  protected Collection<RaftPeer> addNewPeers(
-      Collection<RaftPeer> newPeers, Collection<RaftServerImpl> newServers,
-      boolean startService) throws IOException {
-    return addNewPeers(initRpcServices(newServers, conf),
-        newServers, startService);
   }
 
   @Override

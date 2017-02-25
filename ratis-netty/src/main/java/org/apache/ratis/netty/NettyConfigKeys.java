@@ -15,27 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.simulation;
+package org.apache.ratis.netty;
 
-import org.apache.ratis.client.RaftClientRequestSender;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.conf.ConfUtils;
 
-class SimulatedClientRequestReply
-    extends SimulatedRequestReply<RaftClientRequest, RaftClientReply>
-    implements RaftClientRequestSender {
-  SimulatedClientRequestReply(int simulateLatencyMs) {
-    super(simulateLatencyMs);
-  }
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
-  @Override
-  public void addServers(Iterable<RaftPeer> servers) {
-    // do nothing
-  }
+public interface NettyConfigKeys {
+  String PREFIX = "raft.netty";
 
-  @Override
-  public void close() {
-    // do nothing
+  abstract class Server {
+    static String PREFIX = NettyConfigKeys.PREFIX + ".server";
+
+    public static String PORT_KEY = PREFIX + ".port";
+    public static int PORT_DEFAULT = 0;
+
+    public static int port(BiFunction<String, Integer, Integer> getInt) {
+      return ConfUtils.getInt(getInt, PORT_KEY, PORT_DEFAULT, 0, 65536);
+    }
+
+    public static void setPort(BiConsumer<String, Integer> setString, int port) {
+      ConfUtils.setInt(setString, PORT_KEY, port);
+    }
   }
 }

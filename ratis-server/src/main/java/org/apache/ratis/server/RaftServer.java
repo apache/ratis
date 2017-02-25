@@ -18,11 +18,13 @@
 package org.apache.ratis.server;
 
 import com.google.common.base.Preconditions;
+import org.apache.ratis.RpcType;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftClientProtocol;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.statemachine.StateMachine;
@@ -31,13 +33,16 @@ import java.io.Closeable;
 import java.io.IOException;
 
 /** Raft server interface */
-public interface RaftServer extends Closeable, RaftServerProtocol,
+public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
   /** @return the server ID. */
   RaftPeerId getId();
 
-  /** Set server RPC service. */
-  void setServerRpc(RaftServerRpc serverRpc);
+  /** @return the server properties. */
+  RaftProperties getProperties();
+
+  /** @return the factory for creating server components. */
+  ServerFactory getFactory();
 
   /** Start this server. */
   void start();

@@ -15,23 +15,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc.server;
+package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.grpc.RaftGRpcService;
 import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.impl.*;
+import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerFactory;
 
-public class GrpcServerFactory implements ServerFactory {
-  @Override
-  public LogAppender newLogAppender(RaftServerImpl server, LeaderState state,
-                                    FollowerInfo f) {
-    return new GRpcLogAppender(server, state, f);
+import java.util.Objects;
+
+public class SimulationFactory extends ServerFactory.BaseFactory {
+  private SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
+  private SimulatedClientRequestReply client2serverRequestReply;
+
+  public void initRpc(
+      SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
+      SimulatedClientRequestReply client2serverRequestReply) {
+    this.serverRequestReply = Objects.requireNonNull(serverRequestReply);
+    this.client2serverRequestReply = Objects.requireNonNull(client2serverRequestReply);
   }
 
   @Override
   public RaftServerRpc newRaftServerRpc(RaftServerImpl server) {
-    return RaftGRpcService.newBuilder()
-        .setServer(server)
-        .build();
+    return new SimulatedServerRpc(server, serverRequestReply, client2serverRequestReply);
   }
 }

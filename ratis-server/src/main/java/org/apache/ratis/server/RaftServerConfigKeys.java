@@ -18,21 +18,16 @@
 package org.apache.ratis.server;
 
 import org.apache.ratis.RpcType;
-import org.apache.ratis.util.NetUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.net.InetSocketAddress;
 
 public interface RaftServerConfigKeys {
 
   String PREFIX = "raft.server";
 
   enum Factory {
-    NETTY("org.apache.ratis.server.impl.ServerFactory$BaseFactory"),
+    NETTY("org.apache.ratis.netty.NettyFactory"),
     GRPC("org.apache.ratis.grpc.server.GrpcServerFactory"),
-    HADOOP("org.apache.ratis.server.impl.ServerFactory$BaseFactory"),
-    SIMULATED("org.apache.ratis.server.impl.ServerFactory$BaseFactory");
+    HADOOP("org.apache.ratis.hadooprpc.HadoopFactory"),
+    SIMULATED("org.apache.ratis.server.simulation.SimulationFactory");
 
     public static String getKey(String rpcType) {
       return RaftServerConfigKeys.PREFIX + ".factory." + rpcType + ".class";

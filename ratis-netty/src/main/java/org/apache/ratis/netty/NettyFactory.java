@@ -15,27 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.simulation;
+package org.apache.ratis.netty;
 
-import org.apache.ratis.client.RaftClientRequestSender;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.netty.server.NettyRpcService;
+import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerFactory;
 
-class SimulatedClientRequestReply
-    extends SimulatedRequestReply<RaftClientRequest, RaftClientReply>
-    implements RaftClientRequestSender {
-  SimulatedClientRequestReply(int simulateLatencyMs) {
-    super(simulateLatencyMs);
-  }
-
+public class NettyFactory extends ServerFactory.BaseFactory {
   @Override
-  public void addServers(Iterable<RaftPeer> servers) {
-    // do nothing
-  }
-
-  @Override
-  public void close() {
-    // do nothing
+  public RaftServerRpc newRaftServerRpc(RaftServerImpl server) {
+    return NettyRpcService.newBuilder().setServer(server).build();
   }
 }

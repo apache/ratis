@@ -15,27 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.simulation;
+package org.apache.ratis.hadooprpc;
 
-import org.apache.ratis.client.RaftClientRequestSender;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.ratis.hadooprpc.server.HadoopRpcService;
+import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerFactory;
 
-class SimulatedClientRequestReply
-    extends SimulatedRequestReply<RaftClientRequest, RaftClientReply>
-    implements RaftClientRequestSender {
-  SimulatedClientRequestReply(int simulateLatencyMs) {
-    super(simulateLatencyMs);
+public class HadoopFactory extends ServerFactory.BaseFactory {
+  private Configuration conf;
+
+  public void setConf(Configuration conf) {
+    this.conf = conf;
   }
 
   @Override
-  public void addServers(Iterable<RaftPeer> servers) {
-    // do nothing
-  }
-
-  @Override
-  public void close() {
-    // do nothing
+  public RaftServerRpc newRaftServerRpc(RaftServerImpl server) {
+    return HadoopRpcService.newBuilder()
+        .setServer(server)
+        .setConf(conf)
+        .build();
   }
 }

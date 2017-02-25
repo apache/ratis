@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class RaftExamplesTestUtil {
   public static final Logger LOG = LoggerFactory.getLogger(RaftExamplesTestUtil.class);

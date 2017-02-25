@@ -26,6 +26,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
+import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.RpcType;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufDecoder;
@@ -58,9 +59,7 @@ public final class NettyRpcService implements RaftServerRpc {
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
   public static class Builder extends RaftServerRpc.Builder<Builder, NettyRpcService> {
-    private Builder() {
-      super(0);
-    }
+    private Builder() {}
 
     @Override
     public Builder getThis() {
@@ -69,7 +68,7 @@ public final class NettyRpcService implements RaftServerRpc {
 
     @Override
     public NettyRpcService build() {
-      return new NettyRpcService(getServer(), getPort());
+      return new NettyRpcService(getServer());
     }
   }
 
@@ -98,7 +97,7 @@ public final class NettyRpcService implements RaftServerRpc {
   }
 
   /** Constructs a netty server with the given port. */
-  private NettyRpcService(RaftServer server, int port) {
+  private NettyRpcService(RaftServer server) {
     this.server = server;
     this.id = server.getId();
 
@@ -117,6 +116,7 @@ public final class NettyRpcService implements RaftServerRpc {
       }
     };
 
+    final int port = NettyConfigKeys.Server.port(server.getProperties()::getInt);
     channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)

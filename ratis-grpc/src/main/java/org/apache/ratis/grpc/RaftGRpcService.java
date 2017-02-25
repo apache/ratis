@@ -18,7 +18,6 @@
 package org.apache.ratis.grpc;
 
 import com.google.common.base.Preconditions;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.RpcType;
 import org.apache.ratis.grpc.client.RaftClientProtocolService;
 import org.apache.ratis.grpc.server.RaftServerProtocolClient;
@@ -51,28 +50,7 @@ public class RaftGRpcService implements RaftServerRpc {
       RaftGRpcService.class.getSimpleName() + ".sendRequest";
 
   public static class Builder extends RaftServerRpc.Builder<Builder,RaftGRpcService> {
-    private int maxMessageSize = RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT;
-
-    private Builder() {
-      super(RAFT_GRPC_SERVER_PORT_DEFAULT);
-    }
-
-    public int getMaxMessageSize() {
-      return maxMessageSize;
-    }
-
-    public Builder setMaxMessageSize(int maxMessageSize) {
-      this.maxMessageSize = maxMessageSize;
-      return this;
-    }
-
-    public Builder setFromRaftProperties(RaftProperties properties) {
-      setPort(properties.getInt(RAFT_GRPC_SERVER_PORT_KEY,
-          RAFT_GRPC_SERVER_PORT_DEFAULT));
-      setMaxMessageSize(properties.getInt(RAFT_GRPC_MESSAGE_MAXSIZE_KEY,
-          RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT));
-      return this;
-    }
+    private Builder() {}
 
     @Override
     public Builder getThis() {
@@ -81,7 +59,7 @@ public class RaftGRpcService implements RaftServerRpc {
 
     @Override
     public RaftGRpcService build() {
-      return new RaftGRpcService(getServer(), getPort(), getMaxMessageSize());
+      return new RaftGRpcService(getServer());
     }
   }
 
@@ -95,6 +73,13 @@ public class RaftGRpcService implements RaftServerRpc {
       Collections.synchronizedMap(new HashMap<>());
   private final RaftPeerId selfId;
 
+  private RaftGRpcService(RaftServer server) {
+    this(server,
+        server.getProperties().getInt(RAFT_GRPC_SERVER_PORT_KEY,
+            RAFT_GRPC_SERVER_PORT_DEFAULT),
+        server.getProperties().getInt(RAFT_GRPC_MESSAGE_MAXSIZE_KEY,
+            RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT));
+  }
   private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize) {
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);
     selfId = raftServer.getId();
