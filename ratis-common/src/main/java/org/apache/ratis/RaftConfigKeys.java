@@ -25,17 +25,17 @@ import java.util.function.BiFunction;
 public interface RaftConfigKeys {
   String PREFIX = "raft";
 
-  abstract class Rpc {
-    public static final String PREFIX = RaftConfigKeys.PREFIX + ".rpc";
+  interface Rpc {
+    String PREFIX = RaftConfigKeys.PREFIX + ".rpc";
 
-    public static final String TYPE_KEY = PREFIX + ".type";
-    public static final RpcType TYPE_DEFAULT = RpcType.GRPC;
+    String TYPE_KEY = PREFIX + ".type";
+    RpcType TYPE_DEFAULT = RpcType.GRPC;
 
-    public static RpcType type(BiFunction<String, RpcType, RpcType> getRpcType) {
+    static RpcType type(BiFunction<String, RpcType, RpcType> getRpcType) {
       return ConfUtils.get(getRpcType, TYPE_KEY, TYPE_DEFAULT);
     }
 
-    public static void setType(BiConsumer<String, RpcType> setRpcType, RpcType type) {
+    static void setType(BiConsumer<String, RpcType> setRpcType, RpcType type) {
       ConfUtils.set(setRpcType, TYPE_KEY, type);
     }
   }

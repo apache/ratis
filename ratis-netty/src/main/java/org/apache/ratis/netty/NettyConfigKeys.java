@@ -25,17 +25,17 @@ import java.util.function.BiFunction;
 public interface NettyConfigKeys {
   String PREFIX = "raft.netty";
 
-  abstract class Server {
-    static String PREFIX = NettyConfigKeys.PREFIX + ".server";
+  interface Server {
+    String PREFIX = NettyConfigKeys.PREFIX + ".server";
 
-    public static String PORT_KEY = PREFIX + ".port";
-    public static int PORT_DEFAULT = 0;
+    String PORT_KEY = PREFIX + ".port";
+    int PORT_DEFAULT = 0;
 
-    public static int port(BiFunction<String, Integer, Integer> getInt) {
+    static int port(BiFunction<String, Integer, Integer> getInt) {
       return ConfUtils.getInt(getInt, PORT_KEY, PORT_DEFAULT, 0, 65536);
     }
 
-    public static void setPort(BiConsumer<String, Integer> setString, int port) {
+    static void setPort(BiConsumer<String, Integer> setString, int port) {
       ConfUtils.setInt(setString, PORT_KEY, port);
     }
   }
