@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
@@ -113,9 +114,11 @@ public class ProtoUtils {
   }
 
   public static LogEntryProto toLogEntryProto(
-      SMLogEntryProto operation, long term, long index) {
+      SMLogEntryProto operation, long term, long index,
+      ClientId clientId, long callId) {
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
         .setSmLogEntry(operation)
+        .setClientId(toByteString(clientId.toBytes())).setCallId(callId)
         .build();
   }
 

@@ -24,6 +24,7 @@ import java.io.Closeable;
 import java.io.IOException;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.MemoryRaftLog;
@@ -204,8 +205,9 @@ public class ServerState implements Closeable {
     return log;
   }
 
-  long applyLog(TransactionContext operation) throws IOException {
-    return log.append(currentTerm, operation);
+  long applyLog(TransactionContext operation, ClientId clientId, long callId)
+      throws IOException {
+    return log.append(currentTerm, operation, clientId, callId);
   }
 
   /**

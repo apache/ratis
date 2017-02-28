@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.ConfigurationManager;
 import org.apache.ratis.server.impl.RaftConfiguration;
@@ -125,7 +126,8 @@ public abstract class RaftLog implements Closeable {
    * Used by the leader.
    * @return the index of the new log entry.
    */
-  public long append(long term, TransactionContext operation) throws IOException {
+  public long append(long term, TransactionContext operation,
+      ClientId clientId, long callId) throws IOException {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
@@ -136,7 +138,7 @@ public abstract class RaftLog implements Closeable {
 
       // build the log entry after calling the StateMachine
       final LogEntryProto e = ProtoUtils.toLogEntryProto(
-          operation.getSMLogEntry().get(), term, nextIndex);
+          operation.getSMLogEntry().get(), term, nextIndex, clientId, callId);
 
       appendEntry(e);
       operation.setLogEntry(e);
@@ -207,7 +209,7 @@ public abstract class RaftLog implements Closeable {
    * If an existing entry conflicts with a new one (same index but different
    * terms), delete the existing entry and all entries that follow it (§5.3).
    *
-   * This method, {@link #append(long, TransactionContext)},
+   * This method, {@link #append(long, TransactionContext, ClientId, long)},
    * {@link #append(long, RaftConfiguration)}, and {@link #truncate(long)},
    * do not guarantee the changes are persisted.
    * Need to call {@link #logSync()} to persist the changes.

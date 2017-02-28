@@ -34,6 +34,7 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ChecksumException;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
@@ -53,9 +54,11 @@ import org.slf4j.LoggerFactory;
 public class TestRaftLogReadWrite {
   private static final Logger LOG = LoggerFactory.getLogger(TestRaftLogReadWrite.class);
 
+  private static final ClientId clientId = ClientId.createId();
+  private static final long callId = 0;
+
   private File storageDir;
   private RaftProperties properties;
-  private int segmentMaxSize;
 
   @Before
   public void setup() throws Exception {
@@ -90,7 +93,8 @@ public class TestRaftLogReadWrite {
     long size = 0;
     for (int i = 0; i < entries.length; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
-      entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
+      entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i,
+          clientId, callId);
       final int s = entries[i].getSerializedSize();
       size += CodedOutputStream.computeUInt32SizeNoTag(s) + s + 4;
       out.write(entries[i]);
@@ -131,7 +135,8 @@ public class TestRaftLogReadWrite {
              new LogOutputStream(openSegment, false, properties)) {
       for (int i = 0; i < 100; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
-        entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
+        entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i,
+            clientId, callId);
         out.write(entries[i]);
       }
     }
@@ -140,7 +145,8 @@ public class TestRaftLogReadWrite {
              new LogOutputStream(openSegment, true, properties)) {
       for (int i = 100; i < 200; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
-        entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
+        entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i,
+            clientId, callId);
         out.write(entries[i]);
       }
     }
@@ -196,7 +202,8 @@ public class TestRaftLogReadWrite {
     LogOutputStream out = new LogOutputStream(openSegment, false, properties);
     for (int i = 0; i < 10; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
-      entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
+      entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i,
+          clientId, callId);
       out.write(entries[i]);
     }
     out.flush();
@@ -243,7 +250,8 @@ public class TestRaftLogReadWrite {
              new LogOutputStream(openSegment, false, properties)) {
       for (int i = 0; i < 100; i++) {
         LogEntryProto entry = ProtoUtils.toLogEntryProto(
-            new SimpleOperation("m" + i).getLogEntryContent(), 0, i);
+            new SimpleOperation("m" + i).getLogEntryContent(), 0, i,
+            clientId, callId);
         out.write(entry);
       }
     } finally {

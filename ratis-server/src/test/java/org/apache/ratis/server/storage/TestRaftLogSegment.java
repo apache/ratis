@@ -32,6 +32,7 @@ import java.util.List;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
@@ -47,6 +48,9 @@ import org.junit.Test;
  * Test basic functionality of {@link LogSegment}
  */
 public class TestRaftLogSegment {
+  private static final ClientId clientId = ClientId.createId();
+  private static final long callId = 0;
+
   private File storageDir;
   private final RaftProperties properties = new RaftProperties();
 
@@ -75,7 +79,7 @@ public class TestRaftLogSegment {
       for (int i = 0; i < size; i++) {
         SimpleOperation op = new SimpleOperation("m" + i);
         entries[i] = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
-            term, i + start);
+            term, i + start, clientId, callId);
         out.write(entries[i]);
       }
     }
@@ -132,7 +136,7 @@ public class TestRaftLogSegment {
     while (size < max) {
       SimpleOperation op = new SimpleOperation("m" + i);
       LogEntryProto entry = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
-          term, i++ + start);
+          term, i++ + start, clientId, callId);
       size += getEntrySize(entry);
       list.add(entry);
     }
@@ -148,18 +152,18 @@ public class TestRaftLogSegment {
     SimpleOperation op = new SimpleOperation("m");
     final SMLogEntryProto m = op.getLogEntryContent();
     try {
-      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1001);
+      LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1001, clientId, callId);
       segment.appendToOpenSegment(entry);
       Assert.fail("should fail since the entry's index needs to be 1000");
     } catch (Exception e) {
       Assert.assertTrue(e instanceof IllegalArgumentException);
     }
 
-    LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1000);
+    LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1000, clientId, callId);
     segment.appendToOpenSegment(entry);
 
     try {
-      entry = ProtoUtils.toLogEntryProto(m, 0, 1002);
+      entry = ProtoUtils.toLogEntryProto(m, 0, 1002, clientId, callId);
       segment.appendToOpenSegment(entry);
       Assert.fail("should fail since the entry's index needs to be 1001");
     } catch (Exception e) {
@@ -168,7 +172,7 @@ public class TestRaftLogSegment {
 
     LogEntryProto[] entries = new LogEntryProto[2];
     for (int i = 0; i < 2; i++) {
-      entries[i] = ProtoUtils.toLogEntryProto(m, 0, 1001 + i * 2);
+      entries[i] = ProtoUtils.toLogEntryProto(m, 0, 1001 + i * 2, clientId, callId);
     }
     try {
       segment.appendToOpenSegment(entries);
@@ -185,7 +189,7 @@ public class TestRaftLogSegment {
     LogSegment segment = LogSegment.newOpenSegment(start);
     for (int i = 0; i < 100; i++) {
       LogEntryProto entry = ProtoUtils.toLogEntryProto(
-          new SimpleOperation("m" + i).getLogEntryContent(), term, i + start);
+          new SimpleOperation("m" + i).getLogEntryContent(), term, i + start, clientId, callId);
       segment.appendToOpenSegment(entry);
     }
 
@@ -251,7 +255,7 @@ public class TestRaftLogSegment {
         getProperties(1024, 1024))) {
       SimpleOperation op = new SimpleOperation(new String(content));
       LogEntryProto entry = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
-          0, 0);
+          0, 0, clientId, callId);
       size = LogSegment.getEntrySize(entry);
       out.write(entry);
     }
@@ -282,7 +286,7 @@ public class TestRaftLogSegment {
     Arrays.fill(content, (byte) 1);
     SimpleOperation op = new SimpleOperation(new String(content));
     LogEntryProto entry = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
-        0, 0);
+        0, 0, clientId, callId);
     final long entrySize = LogSegment.getEntrySize(entry);
 
     long totalSize = SegmentedRaftLog.HEADER_BYTES.length;

@@ -50,6 +50,11 @@ message LogEntryProto {
     RaftConfigurationProto configurationEntry = 4;
     LeaderNoOp noOp = 5;
   }
+
+  // clientId and callId are used to rebuild the retry cache. They're not
+  // necessary for configuration change since re-conf is idempotent.
+  bytes clientId = 6;
+  uint64 callId = 7;
 }
 
 message TermIndexProto {

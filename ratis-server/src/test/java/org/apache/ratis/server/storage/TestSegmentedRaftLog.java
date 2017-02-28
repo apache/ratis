@@ -33,6 +33,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.ConfigurationManager;
@@ -53,6 +54,8 @@ public class TestSegmentedRaftLog {
   }
 
   private static final RaftPeerId peerId = new RaftPeerId("s0");
+  private static final ClientId clientId = ClientId.createId();
+  private static final long callId = 0;
 
   private static class SegmentRange {
     final long start;
@@ -103,7 +106,7 @@ public class TestSegmentedRaftLog {
         for (int i = 0; i < size; i++) {
           SimpleOperation m = new SimpleOperation("m" + (i + range.start));
           entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-              range.term, i + range.start);
+              range.term, i + range.start, clientId, callId);
           out.write(entries[i]);
         }
       }
@@ -153,7 +156,7 @@ public class TestSegmentedRaftLog {
             new SimpleOperation("m" + index) :
             new SimpleOperation(stringSupplier.get());
         eList.add(ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-            range.term, index));
+            range.term, index, clientId, callId));
       }
     }
     return eList;

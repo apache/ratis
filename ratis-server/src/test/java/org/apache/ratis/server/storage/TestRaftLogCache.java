@@ -20,6 +20,7 @@ package org.apache.ratis.server.storage;
 import java.util.Iterator;
 
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.ProtoUtils;
@@ -28,6 +29,9 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestRaftLogCache {
+  private static final ClientId clientId = ClientId.createId();
+  private static final long callId = 0;
+
   private RaftLogCache cache;
 
   @Before
@@ -40,7 +44,7 @@ public class TestRaftLogCache {
     for (long i = start; i <= end; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-          0, i);
+          0, i, clientId, callId);
       s.appendToOpenSegment(entry);
     }
     if (!isOpen) {
@@ -130,7 +134,7 @@ public class TestRaftLogCache {
     final SimpleOperation m = new SimpleOperation("m");
     try {
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-          0, 0);
+          0, 0, clientId, callId);
       cache.appendEntry(entry);
       Assert.fail("the open segment is null");
     } catch (IllegalStateException ignored) {
@@ -140,7 +144,7 @@ public class TestRaftLogCache {
     cache.addSegment(openSegment);
     for (long index = 101; index < 200; index++) {
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-          0, index);
+          0, index, clientId, callId);
       cache.appendEntry(entry);
     }
 

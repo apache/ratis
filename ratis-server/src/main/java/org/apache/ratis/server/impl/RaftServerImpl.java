@@ -380,7 +380,8 @@ public class RaftServerImpl implements RaftServer {
       // append the message to its local log
       final long entryIndex;
       try {
-        entryIndex = state.applyLog(entry);
+        entryIndex = state.applyLog(entry, request.getClientId(),
+            request.getSeqNum());
       } catch (IOException e) {
         throw new RaftException(e);
       }
