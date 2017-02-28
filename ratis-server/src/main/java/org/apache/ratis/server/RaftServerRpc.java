@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server;
 
-import org.apache.ratis.RpcType;
+import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 

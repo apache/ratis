@@ -21,13 +21,13 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.RpcType;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.hadooprpc.client.HadoopClientRequestSender;
 import org.apache.ratis.hadooprpc.server.HadoopRpcServerConfigKeys;
 import org.apache.ratis.hadooprpc.server.HadoopRpcService;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.slf4j.Logger;
@@ -51,7 +51,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
 
     public MiniRaftClusterWithHadoopRpc newCluster(
         String[] ids, RaftProperties prop, Configuration conf, boolean formatted) {
-      RaftConfigKeys.Rpc.setType(prop::setEnum, RpcType.HADOOP);
+      RaftConfigKeys.Rpc.setType(prop::set, SupportedRpcType.HADOOP);
       HadoopRpcServerConfigKeys.Ipc.setAddress(conf::set, "0.0.0.0:0");
       return new MiniRaftClusterWithHadoopRpc(ids, prop, conf, formatted);
     }

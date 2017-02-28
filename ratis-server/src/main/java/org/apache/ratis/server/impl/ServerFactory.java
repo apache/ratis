@@ -17,18 +17,20 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.RpcType;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.rpc.RpcFactory;
 import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.util.RaftUtils;
-
-import java.io.IOException;
-import java.util.Objects;
 
 /** A factory interface for creating server components. */
-public interface ServerFactory {
+public interface ServerFactory extends RpcFactory {
+  static ServerFactory cast(RpcFactory rpcFactory) {
+    if (rpcFactory instanceof ServerFactory) {
+      return (ServerFactory)rpcFactory;
+    }
+    throw new ClassCastException("Cannot cast " + rpcFactory.getClass()
+        + " to " + ServerFactory.class
+        + "; rpc type is " + rpcFactory.getRpcType());
+  }
+
   /** Create a new {@link LogAppender}. */
   LogAppender newLogAppender(RaftServerImpl server, LeaderState state, FollowerInfo f);
 
@@ -39,22 +41,6 @@ public interface ServerFactory {
     public LogAppender newLogAppender(
         RaftServerImpl server, LeaderState state, FollowerInfo f) {
       return new LogAppender(server, state, f);
-    }
-  }
-
-  class Util {
-    private static <T extends ServerFactory> Class<T> getClass(
-        RaftServerConfigKeys.Factory f, RaftProperties properties) {
-      final Class<T> defaultClass = (Class<T>) properties.getClassByNameOrNull(f.getDefaultClass());
-      Objects.requireNonNull(defaultClass, () -> "Failed to get the default class for " + f);
-      return properties.getClass(f.getKey(), defaultClass, ServerFactory.class);
-    }
-
-    /** Create a new {@link ServerFactory}. */
-    public static <T extends ServerFactory> T newServerFactory(
-        RpcType rpcType, RaftProperties properties) {
-      return RaftUtils.newInstance(
-          getClass(RaftServerConfigKeys.Factory.valueOf(rpcType), properties));
     }
   }
 }

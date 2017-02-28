@@ -20,13 +20,13 @@ package org.apache.ratis.hadooprpc.server;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.ProtobufRpcEngineShaded;
 import org.apache.hadoop.ipc.RPC;
-import org.apache.ratis.RpcType;
 import org.apache.ratis.hadooprpc.Proxy;
 import org.apache.ratis.hadooprpc.client.RaftClientProtocolPB;
 import org.apache.ratis.hadooprpc.client.RaftClientProtocolServerSideTranslatorPB;
 import org.apache.ratis.protocol.RaftClientProtocol;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
@@ -106,8 +106,8 @@ public class HadoopRpcService implements RaftServerRpc {
   }
 
   @Override
-  public RpcType getRpcType() {
-    return RpcType.HADOOP;
+  public SupportedRpcType getRpcType() {
+    return SupportedRpcType.HADOOP;
   }
 
   @Override

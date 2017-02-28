@@ -19,11 +19,11 @@ package org.apache.ratis.server.simulation;
 
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
-import org.apache.ratis.RpcType;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +41,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     @Override
     public MiniRaftClusterWithSimulatedRpc newCluster(
         String[] ids, RaftProperties prop, boolean formatted) {
-      RaftConfigKeys.Rpc.setType(prop::setEnum, RpcType.SIMULATED);
+      RaftConfigKeys.Rpc.setType(prop::set, SimulatedRpc.INSTANCE);
       if (ThreadLocalRandom.current().nextBoolean()) {
         // turn off simulate latency half of the times.
         prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
@@ -74,7 +74,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
 
   private void initRpc(RaftServerImpl s) {
     if (serverRequestReply != null) {
-      ((SimulationFactory)s.getFactory()).initRpc(
+      ((SimulatedRpc.Factory)s.getFactory()).initRpc(
           serverRequestReply, client2serverRequestReply);
     }
   }

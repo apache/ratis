@@ -18,12 +18,12 @@
 package org.apache.ratis.grpc;
 
 import com.google.common.base.Preconditions;
-import org.apache.ratis.RpcType;
 import org.apache.ratis.grpc.client.RaftClientProtocolService;
 import org.apache.ratis.grpc.server.RaftServerProtocolClient;
 import org.apache.ratis.grpc.server.RaftServerProtocolService;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.shaded.io.grpc.Server;
@@ -95,8 +95,8 @@ public class RaftGRpcService implements RaftServerRpc {
   }
 
   @Override
-  public RpcType getRpcType() {
-    return RpcType.GRPC;
+  public SupportedRpcType getRpcType() {
+    return SupportedRpcType.GRPC;
   }
 
   @Override

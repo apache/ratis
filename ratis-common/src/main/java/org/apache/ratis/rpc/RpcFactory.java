@@ -15,20 +15,8 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.apache.ratis;
+package org.apache.ratis.rpc;
 
-/** The type of RPC implementations. */
-public enum RpcType {
-  NETTY, GRPC, HADOOP, SIMULATED;
-
-  /** Same as {@link #valueOf(String)} except that this method is case insensitive. */
-  public static RpcType valueOfIgnoreCase(String s) {
-    return valueOf(s.toUpperCase());
-  }
-
-  /** An interface to get {@link RpcType}. */
-  public interface Get {
-    /** @return the {@link RpcType}. */
-    RpcType getRpcType();
-  }
+/** The type of RPC Factory. */
+public interface RpcFactory extends RpcType.Get {
 }

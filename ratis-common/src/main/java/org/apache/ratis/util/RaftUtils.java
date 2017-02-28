@@ -20,6 +20,7 @@ package org.apache.ratis.util;
 import com.google.common.base.Preconditions;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
+import org.apache.ratis.conf.RaftProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,6 +136,21 @@ public abstract class RaftUtils {
       return meth.newInstance();
     } catch (Exception e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  public static <BASE, SUB extends BASE> SUB newInstance(
+      String subClassName, RaftProperties properties, Class<BASE> base) {
+    return newInstance(getClass(subClassName, properties, base));
+  }
+
+  public static <BASE, SUB extends BASE> Class<SUB> getClass(
+      String subClassName, RaftProperties properties, Class<BASE> base) {
+    try {
+      return (Class<SUB>) properties.getClassByName(subClassName).asSubclass(base);
+    } catch (ClassNotFoundException e) {
+      throw new IllegalArgumentException("Failed to get class "
+          + subClassName + " as a subclass of " + base, e);
     }
   }
 

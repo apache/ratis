@@ -18,10 +18,15 @@
 package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.RaftGRpcService;
-import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.*;
 
 public class GrpcServerFactory implements ServerFactory {
+  @Override
+  public SupportedRpcType getRpcType() {
+    return SupportedRpcType.GRPC;
+  }
+
   @Override
   public LogAppender newLogAppender(RaftServerImpl server, LeaderState state,
                                     FollowerInfo f) {
@@ -29,7 +34,7 @@ public class GrpcServerFactory implements ServerFactory {
   }
 
   @Override
-  public RaftServerRpc newRaftServerRpc(RaftServerImpl server) {
+  public RaftGRpcService newRaftServerRpc(RaftServerImpl server) {
     return RaftGRpcService.newBuilder()
         .setServer(server)
         .build();

@@ -18,13 +18,18 @@
 package org.apache.ratis.netty;
 
 import org.apache.ratis.netty.server.NettyRpcService;
-import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerFactory;
 
 public class NettyFactory extends ServerFactory.BaseFactory {
   @Override
-  public RaftServerRpc newRaftServerRpc(RaftServerImpl server) {
+  public SupportedRpcType getRpcType() {
+    return SupportedRpcType.NETTY;
+  }
+
+  @Override
+  public NettyRpcService newRaftServerRpc(RaftServerImpl server) {
     return NettyRpcService.newBuilder().setServer(server).build();
   }
 }

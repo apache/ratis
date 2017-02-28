@@ -18,9 +18,12 @@
 package org.apache.ratis;
 
 import org.apache.ratis.conf.ConfUtils;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.rpc.SupportedRpcType;
+import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.util.RaftUtils;
 
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 
 public interface RaftConfigKeys {
   String PREFIX = "raft";
@@ -29,14 +32,22 @@ public interface RaftConfigKeys {
     String PREFIX = RaftConfigKeys.PREFIX + ".rpc";
 
     String TYPE_KEY = PREFIX + ".type";
-    RpcType TYPE_DEFAULT = RpcType.GRPC;
+    String TYPE_DEFAULT = SupportedRpcType.GRPC.name();
 
-    static RpcType type(BiFunction<String, RpcType, RpcType> getRpcType) {
-      return ConfUtils.get(getRpcType, TYPE_KEY, TYPE_DEFAULT);
+    static RpcType type(RaftProperties properties) {
+      final String t = ConfUtils.get(properties::get, TYPE_KEY, TYPE_DEFAULT);
+
+      try { // Try parsing it as a SupportedRpcType
+        return SupportedRpcType.valueOfIgnoreCase(t);
+      } catch(IllegalArgumentException iae) {
+      }
+
+      // Try using it as a class name
+      return RaftUtils.newInstance(t, properties, RpcType.class);
     }
 
-    static void setType(BiConsumer<String, RpcType> setRpcType, RpcType type) {
-      ConfUtils.set(setRpcType, TYPE_KEY, type);
+    static void setType(BiConsumer<String, String> setRpcType, RpcType type) {
+      ConfUtils.set(setRpcType, TYPE_KEY, type.name());
     }
   }
 }

@@ -25,10 +25,15 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-
+import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.netty.NettyConfigKeys;
+import org.apache.ratis.netty.NettyRpcProxy;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.RpcType;
+import org.apache.ratis.rpc.SupportedRpcType;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufEncoder;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
@@ -37,12 +42,6 @@ import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyExceptionReplyProto;
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerRequestProto;
-import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.netty.NettyRpcProxy;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ProtoUtils;
@@ -126,8 +125,8 @@ public final class NettyRpcService implements RaftServerRpc {
   }
 
   @Override
-  public RpcType getRpcType() {
-    return RpcType.NETTY;
+  public SupportedRpcType getRpcType() {
+    return SupportedRpcType.NETTY;
   }
 
   private Channel getChannel() {

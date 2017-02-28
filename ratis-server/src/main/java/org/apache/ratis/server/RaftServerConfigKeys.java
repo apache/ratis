@@ -17,51 +17,9 @@
  */
 package org.apache.ratis.server;
 
-import org.apache.ratis.RpcType;
-
 public interface RaftServerConfigKeys {
 
   String PREFIX = "raft.server";
-
-  enum Factory {
-    NETTY("org.apache.ratis.netty.NettyFactory"),
-    GRPC("org.apache.ratis.grpc.server.GrpcServerFactory"),
-    HADOOP("org.apache.ratis.hadooprpc.HadoopFactory"),
-    SIMULATED("org.apache.ratis.server.simulation.SimulationFactory");
-
-    public static String getKey(String rpcType) {
-      return RaftServerConfigKeys.PREFIX + ".factory." + rpcType + ".class";
-    }
-
-    public static Factory valueOf(RpcType rpcType) {
-      return valueOf(rpcType.name());
-    }
-
-    private final RpcType rpcType = RpcType.valueOf(name());
-    private final String key = getKey(name().toLowerCase());
-    private final String defaultClass;
-
-    Factory(String defaultClass) {
-      this.defaultClass = defaultClass;
-    }
-
-    public RpcType getRpcType() {
-      return rpcType;
-    }
-
-    public String getKey() {
-      return key;
-    }
-
-    public String getDefaultClass() {
-      return defaultClass;
-    }
-
-    @Override
-    public String toString() {
-      return getRpcType() + ":" + getKey() + ":" + getDefaultClass();
-    }
-  }
 
   String RAFT_SERVER_USE_MEMORY_LOG_KEY = "raft.server.use.memory.log";
   boolean RAFT_SERVER_USE_MEMORY_LOG_DEFAULT = false;

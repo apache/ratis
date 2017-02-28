@@ -20,7 +20,7 @@ package org.apache.ratis.server.impl;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.ratis.RaftConfigKeys;
-import org.apache.ratis.RpcType;
+import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
@@ -66,7 +66,6 @@ public class RaftServerImpl implements RaftServer {
     LEADER, CANDIDATE, FOLLOWER
   }
 
-  private final RpcType rpcType;
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
 
@@ -93,7 +92,6 @@ public class RaftServerImpl implements RaftServer {
                  RaftConfiguration raftConf, RaftProperties properties)
       throws IOException {
     this.lifeCycle = new LifeCycle(id);
-    this.rpcType = RaftConfigKeys.Rpc.type(properties::getEnum);
     minTimeoutMs = properties.getInt(
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_KEY,
         RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT);
@@ -105,13 +103,15 @@ public class RaftServerImpl implements RaftServer {
     this.properties = properties;
     this.stateMachine = stateMachine;
     this.state = new ServerState(id, raftConf, properties, this, stateMachine);
-    this.factory = ServerFactory.Util.newServerFactory(rpcType, properties);
+
+    final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
+    this.factory = ServerFactory.cast(rpcType.newFactory(properties));
     this.serverRpc = RaftUtils.memoize(() -> initRaftServerRpc());
   }
 
   @Override
   public RpcType getRpcType() {
-    return rpcType;
+    return getFactory().getRpcType();
   }
 
   @Override

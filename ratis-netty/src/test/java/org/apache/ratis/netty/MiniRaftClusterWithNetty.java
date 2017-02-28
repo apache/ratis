@@ -20,12 +20,12 @@ package org.apache.ratis.netty;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.RpcType;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.client.NettyClientRequestSender;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
 
@@ -35,7 +35,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
     @Override
     public MiniRaftClusterWithNetty newCluster(
         String[] ids, RaftProperties prop, boolean formatted) {
-      RaftConfigKeys.Rpc.setType(prop::setEnum, RpcType.NETTY);
+      RaftConfigKeys.Rpc.setType(prop::set, SupportedRpcType.NETTY);
       return new MiniRaftClusterWithNetty(ids, prop, formatted);
     }
   };

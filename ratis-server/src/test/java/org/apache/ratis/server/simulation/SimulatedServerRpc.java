@@ -17,30 +17,25 @@
  */
 package org.apache.ratis.server.simulation;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.rpc.SupportedRpcType;
+import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.shaded.proto.RaftProtos.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import org.apache.ratis.RpcType;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteRequestProto;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 class SimulatedServerRpc implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(SimulatedServerRpc.class);
@@ -62,8 +57,8 @@ class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
-  public RpcType getRpcType() {
-    return RpcType.SIMULATED;
+  public SimulatedRpc getRpcType() {
+    return SimulatedRpc.INSTANCE;
   }
 
   @Override

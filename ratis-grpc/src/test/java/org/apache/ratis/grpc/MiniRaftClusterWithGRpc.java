@@ -20,12 +20,12 @@ package org.apache.ratis.grpc;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.RpcType;
 import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.RaftClientSenderWithGrpc;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -38,7 +38,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
     @Override
     public MiniRaftClusterWithGRpc newCluster(
         String[] ids, RaftProperties prop, boolean formatted) {
-      RaftConfigKeys.Rpc.setType(prop::setEnum, RpcType.GRPC);
+      RaftConfigKeys.Rpc.setType(prop::set, SupportedRpcType.GRPC);
       return new MiniRaftClusterWithGRpc(ids, prop, formatted);
     }
   };

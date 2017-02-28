@@ -17,13 +17,13 @@
  */
 package org.apache.ratis.server;
 
-import com.google.common.base.Preconditions;
-import org.apache.ratis.RpcType;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftClientProtocol;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
@@ -31,6 +31,7 @@ import org.apache.ratis.statemachine.StateMachine;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Objects;
 
 /** Raft server interface */
 public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
@@ -67,13 +68,11 @@ public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
 
     /** @return a {@link RaftServer} object. */
     public RaftServer build() throws IOException {
-      Preconditions.checkNotNull(stateMachine);
-      Preconditions.checkNotNull(peers);
-      Preconditions.checkNotNull(properties);
-      Preconditions.checkNotNull(serverId);
-
-      return ServerImplUtils.newRaftServer(serverId, stateMachine, peers,
-          properties);
+      return ServerImplUtils.newRaftServer(
+          Objects.requireNonNull(serverId, "The 'serverId' field is not initialized."),
+          Objects.requireNonNull(stateMachine, "The 'stateMachine' is not initialized."),
+          Objects.requireNonNull(peers, "The 'peers' field is not initialized."),
+          Objects.requireNonNull(properties, "The 'properties' field is not initialized."));
     }
 
     /** Set the server ID. */

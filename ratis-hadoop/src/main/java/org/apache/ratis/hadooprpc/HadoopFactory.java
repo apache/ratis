@@ -19,7 +19,7 @@ package org.apache.ratis.hadooprpc;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.hadooprpc.server.HadoopRpcService;
-import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerFactory;
 
@@ -31,7 +31,12 @@ public class HadoopFactory extends ServerFactory.BaseFactory {
   }
 
   @Override
-  public RaftServerRpc newRaftServerRpc(RaftServerImpl server) {
+  public SupportedRpcType getRpcType() {
+    return SupportedRpcType.HADOOP;
+  }
+
+  @Override
+  public HadoopRpcService newRaftServerRpc(RaftServerImpl server) {
     return HadoopRpcService.newBuilder()
         .setServer(server)
         .setConf(conf)
