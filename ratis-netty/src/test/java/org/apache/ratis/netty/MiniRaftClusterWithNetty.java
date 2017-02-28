@@ -20,9 +20,7 @@ package org.apache.ratis.netty;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.netty.client.NettyClientRequestSender;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
@@ -53,11 +51,6 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
     final RaftServerImpl s = super.newRaftServer(id, format);
     NettyConfigKeys.Server.setPort(s.getProperties()::setInt, getPort(s));
     return s;
-  }
-
-  @Override
-  public RaftClientRequestSender getRaftClientRequestSender() {
-    return new NettyClientRequestSender(getPeers());
   }
 
   @Override

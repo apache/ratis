@@ -17,20 +17,16 @@
  */
 package org.apache.ratis.client;
 
-import com.google.common.base.Preconditions;
 import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Objects;
 
 /** A client who sends requests to a raft service. */
 public interface RaftClient extends Closeable {
@@ -74,22 +70,19 @@ public interface RaftClient extends Closeable {
 
     /** @return a {@link RaftClient} object. */
     public RaftClient build() {
-      Preconditions.checkNotNull(requestSender);
-      Preconditions.checkNotNull(servers);
-
       if (clientId == null) {
         clientId = ClientId.createId();
-      }
-      if (leaderId == null) {
-        leaderId = servers.iterator().next().getId(); //use the first peer
       }
       if (properties != null) {
         retryInterval = properties.getInt(
             RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_KEY,
             RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_DEFAULT);
       }
-      return ClientImplUtils.newRaftClient(clientId, servers, leaderId,
-          requestSender, retryInterval);
+      return ClientImplUtils.newRaftClient(clientId,
+          Objects.requireNonNull(servers, "The 'server' field is not initialized."),
+          leaderId,
+          Objects.requireNonNull(requestSender, "The 'requestSender' field is not initialized."),
+          retryInterval);
     }
 
     /** Set {@link RaftClient} ID. */

@@ -17,27 +17,19 @@
  */
 package org.apache.ratis.netty.client;
 
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.client.RaftClientRequestSender;
+import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.netty.NettyRpcProxy;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerRequestProto;
-import org.apache.ratis.client.RaftClientRequestSender;
-import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.netty.NettyRpcProxy;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.SetConfigurationRequest;
 
 import java.io.IOException;
 
 public class NettyClientRequestSender implements RaftClientRequestSender {
   private final NettyRpcProxy.PeerMap proxies = new NettyRpcProxy.PeerMap();
-
-  public NettyClientRequestSender(Iterable<RaftPeer> servers) {
-    addServers(servers);
-  }
 
   @Override
   public RaftClientReply sendRequest(RaftClientRequest request) throws IOException {

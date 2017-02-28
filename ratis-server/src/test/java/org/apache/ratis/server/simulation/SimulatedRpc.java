@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.simulation;
 
+import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.rpc.RpcFactory;
 import org.apache.ratis.rpc.RpcType;
@@ -38,7 +39,7 @@ class SimulatedRpc implements RpcType {
     return new Factory();
   }
 
-  static class Factory extends ServerFactory.BaseFactory {
+  static class Factory extends ServerFactory.BaseFactory implements ClientFactory {
     private SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
     private SimulatedClientRequestReply client2serverRequestReply;
 
@@ -51,7 +52,14 @@ class SimulatedRpc implements RpcType {
 
     @Override
     public SimulatedServerRpc newRaftServerRpc(RaftServerImpl server) {
-      return new SimulatedServerRpc(server, serverRequestReply, client2serverRequestReply);
+      return new SimulatedServerRpc(server,
+          Objects.requireNonNull(serverRequestReply),
+          Objects.requireNonNull(client2serverRequestReply));
+    }
+
+    @Override
+    public SimulatedClientRequestReply newRaftClientRequestSender() {
+      return Objects.requireNonNull(client2serverRequestReply);
     }
 
     @Override

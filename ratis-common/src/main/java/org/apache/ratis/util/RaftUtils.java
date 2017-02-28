@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public abstract class RaftUtils {
@@ -304,5 +305,21 @@ public abstract class RaftUtils {
       current = next;
     }
     return first;
+  }
+
+  public static <INPUT, OUTPUT> Iterable<OUTPUT> as(
+      Iterable<INPUT> iteration, Function<INPUT, OUTPUT> converter) {
+    final Iterator<INPUT> i = iteration.iterator();
+    return () -> new Iterator<OUTPUT>() {
+      @Override
+      public boolean hasNext() {
+        return i.hasNext();
+      }
+
+      @Override
+      public OUTPUT next() {
+        return converter.apply(i.next());
+      }
+    };
   }
 }

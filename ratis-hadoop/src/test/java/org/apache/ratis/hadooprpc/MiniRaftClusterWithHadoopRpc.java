@@ -21,9 +21,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.hadooprpc.client.HadoopClientRequestSender;
 import org.apache.ratis.hadooprpc.server.HadoopRpcServerConfigKeys;
 import org.apache.ratis.hadooprpc.server.HadoopRpcService;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -69,6 +67,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
     super(ids, properties, formatted);
     this.hadoopConf = hadoopConf;
     getServers().stream().forEach(s -> setConf(s));
+    ((HadoopFactory)clientFactory).setConf(hadoopConf);
   }
 
   private void setConf(RaftServerImpl server) {
@@ -85,11 +84,6 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
       setConf(s);
     }
     return s;
-  }
-
-  @Override
-  public RaftClientRequestSender getRaftClientRequestSender() {
-    return new HadoopClientRequestSender(getPeers(), hadoopConf);
   }
 
   @Override

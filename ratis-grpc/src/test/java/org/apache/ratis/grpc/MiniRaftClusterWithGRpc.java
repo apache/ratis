@@ -20,9 +20,7 @@ package org.apache.ratis.grpc;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.client.RaftClientSenderWithGrpc;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
@@ -57,11 +55,6 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
     s.getProperties().setInt(
         RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, getPort(s));
     return s;
-  }
-
-  @Override
-  public RaftClientRequestSender getRaftClientRequestSender() {
-    return new RaftClientSenderWithGrpc(getPeers());
   }
 
   @Override

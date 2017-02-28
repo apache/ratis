@@ -19,11 +19,9 @@ package org.apache.ratis.server.simulation;
 
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
-import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,6 +68,8 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     client2serverRequestReply = new SimulatedClientRequestReply(simulateLatencyMs);
     getServers().stream().forEach(s -> initRpc(s));
     addPeersToRpc(toRaftPeers(getServers()));
+    ((SimulatedRpc.Factory)clientFactory).initRpc(
+        serverRequestReply, client2serverRequestReply);
   }
 
   private void initRpc(RaftServerImpl s) {
@@ -108,11 +108,6 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
       newServers.forEach(RaftServerImpl::start);
     }
     return newPeers;
-  }
-
-  @Override
-  public RaftClientRequestSender getRaftClientRequestSender() {
-    return client2serverRequestReply;
   }
 
   @Override

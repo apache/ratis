@@ -17,12 +17,14 @@
  */
 package org.apache.ratis.netty;
 
+import org.apache.ratis.client.ClientFactory;
+import org.apache.ratis.netty.client.NettyClientRequestSender;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerFactory;
 
-public class NettyFactory extends ServerFactory.BaseFactory {
+public class NettyFactory extends ServerFactory.BaseFactory implements ClientFactory {
   @Override
   public SupportedRpcType getRpcType() {
     return SupportedRpcType.NETTY;
@@ -31,5 +33,10 @@ public class NettyFactory extends ServerFactory.BaseFactory {
   @Override
   public NettyRpcService newRaftServerRpc(RaftServerImpl server) {
     return NettyRpcService.newBuilder().setServer(server).build();
+  }
+
+  @Override
+  public NettyClientRequestSender newRaftClientRequestSender() {
+    return new NettyClientRequestSender();
   }
 }

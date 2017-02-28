@@ -26,16 +26,13 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Map;
-import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /** A client who sends requests to a raft service. */
 final class RaftClientImpl implements RaftClient {
   private final ClientId clientId;
   private final RaftClientRequestSender requestSender;
-  private final Map<RaftPeerId, RaftPeer> peers;
+  private final Collection<RaftPeer> peers;
   private final int retryInterval;
 
   private volatile RaftPeerId leaderId;
@@ -45,10 +42,11 @@ final class RaftClientImpl implements RaftClient {
       int retryInterval) {
     this.clientId = clientId;
     this.requestSender = requestSender;
-    this.peers = peers.stream().collect(
-        Collectors.toMap(RaftPeer::getId, Function.identity()));
+    this.peers = peers;
     this.leaderId = leaderId != null? leaderId : peers.iterator().next().getId();
     this.retryInterval = retryInterval;
+
+    requestSender.addServers(peers);
   }
 
   @Override
@@ -122,20 +120,18 @@ final class RaftClientImpl implements RaftClient {
 
   private void handleNotLeaderException(RaftClientRequest request,
       NotLeaderException nle) {
-    refreshPeers(nle.getPeers());
+    refreshPeers(Arrays.asList(nle.getPeers()));
     final RaftPeerId newLeader = nle.getSuggestedLeader() == null ? null
         : nle.getSuggestedLeader().getId();
     handleIOException(request, nle, newLeader);
   }
 
-  private void refreshPeers(RaftPeer[] newPeers) {
-    if (newPeers != null && newPeers.length > 0) {
+  private void refreshPeers(Collection<RaftPeer> newPeers) {
+    if (newPeers != null && newPeers.size() > 0) {
       peers.clear();
-      for (RaftPeer p : newPeers) {
-        peers.put(p.getId(), p);
-      }
+      peers.addAll(newPeers);
       // also refresh the rpc proxies for these peers
-      requestSender.addServers(Arrays.asList(newPeers));
+      requestSender.addServers(newPeers);
     }
   }
 
@@ -144,7 +140,7 @@ final class RaftClientImpl implements RaftClient {
     LOG.debug("{}: Failed with {}", clientId, ioe);
     final RaftPeerId oldLeader = request.getServerId();
     if (newLeader == null && oldLeader.equals(leaderId)) {
-      newLeader = RaftUtils.next(oldLeader, peers.keySet());
+      newLeader = RaftUtils.next(oldLeader, RaftUtils.as(peers, RaftPeer::getId));
     }
     if (newLeader != null && oldLeader.equals(leaderId)) {
       LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);

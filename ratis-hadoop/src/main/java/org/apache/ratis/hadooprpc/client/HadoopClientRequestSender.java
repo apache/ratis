@@ -24,17 +24,14 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.PeerProxyMap;
 
 import java.io.IOException;
-import java.util.Collection;
 
 public class HadoopClientRequestSender implements RaftClientRequestSender {
 
   private final PeerProxyMap<RaftClientProtocolClientSideTranslatorPB> proxies;
 
-  public HadoopClientRequestSender(
-      Collection<RaftPeer> peers, final Configuration conf) {
+  public HadoopClientRequestSender(final Configuration conf) {
     this.proxies  = new PeerProxyMap<>(
         p -> new RaftClientProtocolClientSideTranslatorPB(p.getAddress(), conf));
-    proxies.addPeers(peers);
   }
 
   @Override

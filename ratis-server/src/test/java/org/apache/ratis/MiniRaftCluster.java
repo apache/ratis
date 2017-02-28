@@ -18,11 +18,12 @@
 package org.apache.ratis;
 
 import com.google.common.base.Preconditions;
+import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientRequestSender;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.*;
 import org.apache.ratis.server.storage.MemoryRaftLog;
@@ -140,6 +141,7 @@ public abstract class MiniRaftCluster {
     return ids;
   }
 
+  protected final ClientFactory clientFactory;
   protected RaftConfiguration conf;
   protected final RaftProperties properties;
   private final String testBaseDir;
@@ -150,6 +152,9 @@ public abstract class MiniRaftCluster {
       boolean formatted) {
     this.conf = initConfiguration(ids);
     this.properties = new RaftProperties(properties);
+
+    final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
+    this.clientFactory = ClientFactory.cast(rpcType.newFactory(properties));
     this.testBaseDir = getBaseDirectory();
 
     conf.getPeers().forEach(
@@ -220,8 +225,6 @@ public abstract class MiniRaftCluster {
         StateMachine.class);
     return RaftUtils.newInstance(smClass);
   }
-
-  public abstract RaftClientRequestSender getRaftClientRequestSender();
 
   public static Collection<RaftPeer> toRaftPeers(
       Collection<RaftServerImpl> servers) {
@@ -391,7 +394,7 @@ public abstract class MiniRaftCluster {
     return RaftClient.newBuilder()
         .setServers(conf.getPeers())
         .setLeaderId(leaderId)
-        .setRequestSender(getRaftClientRequestSender())
+        .setRequestSender(clientFactory.newRaftClientRequestSender())
         .setProperties(properties)
         .build();
   }

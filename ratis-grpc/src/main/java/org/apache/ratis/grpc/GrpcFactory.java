@@ -15,38 +15,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.hadooprpc;
+package org.apache.ratis.grpc;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.client.ClientFactory;
-import org.apache.ratis.hadooprpc.client.HadoopClientRequestSender;
-import org.apache.ratis.hadooprpc.server.HadoopRpcService;
+import org.apache.ratis.grpc.client.RaftClientSenderWithGrpc;
+import org.apache.ratis.grpc.server.GRpcLogAppender;
 import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.ServerFactory;
+import org.apache.ratis.server.impl.*;
 
-public class HadoopFactory extends ServerFactory.BaseFactory implements ClientFactory {
-  private Configuration conf;
-
-  public void setConf(Configuration conf) {
-    this.conf = conf;
-  }
-
+public class GrpcFactory implements ServerFactory, ClientFactory {
   @Override
   public SupportedRpcType getRpcType() {
-    return SupportedRpcType.HADOOP;
+    return SupportedRpcType.GRPC;
   }
 
   @Override
-  public HadoopRpcService newRaftServerRpc(RaftServerImpl server) {
-    return HadoopRpcService.newBuilder()
+  public LogAppender newLogAppender(RaftServerImpl server, LeaderState state,
+                                    FollowerInfo f) {
+    return new GRpcLogAppender(server, state, f);
+  }
+
+  @Override
+  public RaftGRpcService newRaftServerRpc(RaftServerImpl server) {
+    return RaftGRpcService.newBuilder()
         .setServer(server)
-        .setConf(conf)
         .build();
   }
 
   @Override
-  public HadoopClientRequestSender newRaftClientRequestSender() {
-    return new HadoopClientRequestSender(conf);
+  public RaftClientSenderWithGrpc newRaftClientRequestSender() {
+    return new RaftClientSenderWithGrpc();
   }
 }

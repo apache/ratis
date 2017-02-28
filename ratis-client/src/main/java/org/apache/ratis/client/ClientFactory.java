@@ -15,28 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc.server;
+package org.apache.ratis.client;
 
-import org.apache.ratis.grpc.RaftGRpcService;
-import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.server.impl.*;
+import org.apache.ratis.rpc.RpcFactory;
 
-public class GrpcServerFactory implements ServerFactory {
-  @Override
-  public SupportedRpcType getRpcType() {
-    return SupportedRpcType.GRPC;
+/** A factory interface for creating client components. */
+public interface ClientFactory extends RpcFactory {
+  static ClientFactory cast(RpcFactory rpcFactory) {
+    if (rpcFactory instanceof ClientFactory) {
+      return (ClientFactory)rpcFactory;
+    }
+    throw new ClassCastException("Cannot cast " + rpcFactory.getClass()
+        + " to " + ClientFactory.class
+        + "; rpc type is " + rpcFactory.getRpcType());
   }
 
-  @Override
-  public LogAppender newLogAppender(RaftServerImpl server, LeaderState state,
-                                    FollowerInfo f) {
-    return new GRpcLogAppender(server, state, f);
-  }
-
-  @Override
-  public RaftGRpcService newRaftServerRpc(RaftServerImpl server) {
-    return RaftGRpcService.newBuilder()
-        .setServer(server)
-        .build();
-  }
+  /** Create a {@link RaftClientRequestSender}. */
+  RaftClientRequestSender newRaftClientRequestSender();
 }
