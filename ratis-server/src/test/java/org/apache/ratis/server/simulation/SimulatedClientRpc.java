@@ -17,15 +17,15 @@
  */
 package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.client.RaftClientRequestSender;
+import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 
-class SimulatedClientRequestReply
+class SimulatedClientRpc
     extends SimulatedRequestReply<RaftClientRequest, RaftClientReply>
-    implements RaftClientRequestSender {
-  SimulatedClientRequestReply(int simulateLatencyMs) {
+    implements RaftClientRpc {
+  SimulatedClientRpc(int simulateLatencyMs) {
     super(simulateLatencyMs);
   }
 

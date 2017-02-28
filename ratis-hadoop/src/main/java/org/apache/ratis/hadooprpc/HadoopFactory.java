@@ -19,7 +19,7 @@ package org.apache.ratis.hadooprpc;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.client.ClientFactory;
-import org.apache.ratis.hadooprpc.client.HadoopClientRequestSender;
+import org.apache.ratis.hadooprpc.client.HadoopClientRpc;
 import org.apache.ratis.hadooprpc.server.HadoopRpcService;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -46,7 +46,7 @@ public class HadoopFactory extends ServerFactory.BaseFactory implements ClientFa
   }
 
   @Override
-  public HadoopClientRequestSender newRaftClientRequestSender() {
-    return new HadoopClientRequestSender(conf);
+  public HadoopClientRpc newRaftClientRpc() {
+    return new HadoopClientRpc(conf);
   }
 }

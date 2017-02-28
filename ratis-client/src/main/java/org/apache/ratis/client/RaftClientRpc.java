@@ -24,8 +24,8 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 
-/** Send requests to a raft service. */
-public interface RaftClientRequestSender extends Closeable {
+/** The client side rpc of a raft service. */
+public interface RaftClientRpc extends Closeable {
   /** Send a request. */
   RaftClientReply sendRequest(RaftClientRequest request) throws IOException;
 

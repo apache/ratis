@@ -23,7 +23,7 @@ import org.apache.ratis.MiniRaftCluster.PeerChanges;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientRequestSender;
+import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -253,7 +253,7 @@ public abstract class RaftReconfigurationBaseTest {
           asList(c1.allPeersInNewConf));
       Assert.assertFalse(cluster.getLeader().getRaftConf().isTransitional());
 
-      final RaftClientRequestSender sender = client.getRequestSender();
+      final RaftClientRpc sender = client.getClientRpc();
       final SetConfigurationRequest request = new SetConfigurationRequest(
           client.getId(), leaderId, DEFAULT_SEQNUM, c1.allPeersInNewConf);
       try {
@@ -470,7 +470,7 @@ public abstract class RaftReconfigurationBaseTest {
         try(final RaftClient client2 = cluster.createClient(leaderId)) {
           latch.await();
           LOG.info("client2 starts to change conf");
-          final RaftClientRequestSender sender2 = client2.getRequestSender();
+          final RaftClientRpc sender2 = client2.getClientRpc();
           sender2.sendRequest(new SetConfigurationRequest(
               client2.getId(), leaderId, DEFAULT_SEQNUM, peersInRequest2));
         } catch (ReconfigurationInProgressException e) {
@@ -534,7 +534,7 @@ public abstract class RaftReconfigurationBaseTest {
       new Thread(() -> {
         try(final RaftClient client = cluster.createClient(leaderId)) {
           LOG.info("client starts to change conf");
-          final RaftClientRequestSender sender = client.getRequestSender();
+          final RaftClientRpc sender = client.getClientRpc();
           RaftClientReply reply = sender.sendRequest(new SetConfigurationRequest(
               client.getId(), leaderId, DEFAULT_SEQNUM, change.allPeersInNewConf));
           if (reply.isNotLeader()) {
@@ -595,7 +595,7 @@ public abstract class RaftReconfigurationBaseTest {
       AtomicBoolean success = new AtomicBoolean(false);
       new Thread(() -> {
         final RaftClient client = cluster.createClient(leaderId);
-        final RaftClientRequestSender sender = client.getRequestSender();
+        final RaftClientRpc sender = client.getClientRpc();
 
         final RaftClientRequest request = new RaftClientRequest(client.getId(),
             leaderId, 0, new SimpleMessage("test"));

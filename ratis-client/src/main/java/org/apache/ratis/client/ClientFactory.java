@@ -30,6 +30,6 @@ public interface ClientFactory extends RpcFactory {
         + "; rpc type is " + rpcFactory.getRpcType());
   }
 
-  /** Create a {@link RaftClientRequestSender}. */
-  RaftClientRequestSender newRaftClientRequestSender();
+  /** Create a {@link RaftClientRpc}. */
+  RaftClientRpc newRaftClientRpc();
 }

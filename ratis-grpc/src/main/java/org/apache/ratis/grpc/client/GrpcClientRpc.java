@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.grpc.client;
 
-import org.apache.ratis.client.RaftClientRequestSender;
+import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
@@ -37,8 +37,8 @@ import java.util.concurrent.ExecutionException;
 
 import static org.apache.ratis.client.impl.ClientProtoUtils.*;
 
-public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftClientSenderWithGrpc.class);
+public class GrpcClientRpc implements RaftClientRpc {
+  public static final Logger LOG = LoggerFactory.getLogger(GrpcClientRpc.class);
 
   private final PeerProxyMap<RaftClientProtocolClient> proxies
       = new PeerProxyMap<>(RaftClientProtocolClient::new);
@@ -65,7 +65,7 @@ public class RaftClientSenderWithGrpc implements RaftClientRequestSender {
 
             @Override
             public void onError(Throwable t) {
-              // This implementation is used as RaftClientRequestSender. Retry
+              // This implementation is used as RaftClientRpc. Retry
               // logic on Exception is in RaftClient.
               final IOException e;
               if (t instanceof StatusRuntimeException) {

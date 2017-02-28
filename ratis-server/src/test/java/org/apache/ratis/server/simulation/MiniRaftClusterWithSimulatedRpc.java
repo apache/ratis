@@ -49,7 +49,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   };
 
   private SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
-  private SimulatedClientRequestReply client2serverRequestReply;
+  private SimulatedClientRpc client2serverRequestReply;
 
   private MiniRaftClusterWithSimulatedRpc(String[] ids,
       RaftProperties properties, boolean formatted) {
@@ -65,7 +65,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     LOG.info(SimulatedRequestReply.SIMULATE_LATENCY_KEY + " = "
         + simulateLatencyMs);
     serverRequestReply = new SimulatedRequestReply<>(simulateLatencyMs);
-    client2serverRequestReply = new SimulatedClientRequestReply(simulateLatencyMs);
+    client2serverRequestReply = new SimulatedClientRpc(simulateLatencyMs);
     getServers().stream().forEach(s -> initRpc(s));
     addPeersToRpc(toRaftPeers(getServers()));
     ((SimulatedRpc.Factory)clientFactory).initRpc(

@@ -41,11 +41,11 @@ class SimulatedRpc implements RpcType {
 
   static class Factory extends ServerFactory.BaseFactory implements ClientFactory {
     private SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
-    private SimulatedClientRequestReply client2serverRequestReply;
+    private SimulatedClientRpc client2serverRequestReply;
 
     public void initRpc(
         SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
-        SimulatedClientRequestReply client2serverRequestReply) {
+        SimulatedClientRpc client2serverRequestReply) {
       this.serverRequestReply = Objects.requireNonNull(serverRequestReply);
       this.client2serverRequestReply = Objects.requireNonNull(client2serverRequestReply);
     }
@@ -58,7 +58,7 @@ class SimulatedRpc implements RpcType {
     }
 
     @Override
-    public SimulatedClientRequestReply newRaftClientRequestSender() {
+    public SimulatedClientRpc newRaftClientRpc() {
       return Objects.requireNonNull(client2serverRequestReply);
     }
 

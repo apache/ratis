@@ -36,8 +36,8 @@ public interface RaftClient extends Closeable {
   /** @return the id of this client. */
   ClientId getId();
 
-  /** @return the request sender of this client. */
-  RaftClientRequestSender getRequestSender();
+  /** @return the client rpct. */
+  RaftClientRpc getClientRpc();
 
   /**
    * Send the given message to the raft service.
@@ -60,7 +60,7 @@ public interface RaftClient extends Closeable {
   /** To build {@link RaftClient} objects. */
   class Builder {
     private ClientId clientId;
-    private RaftClientRequestSender requestSender;
+    private RaftClientRpc clientRpc;
     private Collection<RaftPeer> servers;
     private RaftPeerId leaderId;
     private RaftProperties properties;
@@ -79,9 +79,9 @@ public interface RaftClient extends Closeable {
             RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_DEFAULT);
       }
       return ClientImplUtils.newRaftClient(clientId,
-          Objects.requireNonNull(servers, "The 'server' field is not initialized."),
+          Objects.requireNonNull(servers, "The 'servers' field is not initialized."),
           leaderId,
-          Objects.requireNonNull(requestSender, "The 'requestSender' field is not initialized."),
+          Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."),
           retryInterval);
     }
 
@@ -103,9 +103,9 @@ public interface RaftClient extends Closeable {
       return this;
     }
 
-    /** Set {@link RaftClientRequestSender}. */
-    public Builder setRequestSender(RaftClientRequestSender requestSender) {
-      this.requestSender = requestSender;
+    /** Set {@link RaftClientRpc}. */
+    public Builder setClientRpc(RaftClientRpc clientRpc) {
+      this.clientRpc = clientRpc;
       return this;
     }
 

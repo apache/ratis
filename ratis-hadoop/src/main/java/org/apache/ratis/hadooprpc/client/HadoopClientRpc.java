@@ -19,17 +19,17 @@ package org.apache.ratis.hadooprpc.client;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.RemoteException;
-import org.apache.ratis.client.RaftClientRequestSender;
+import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.PeerProxyMap;
 
 import java.io.IOException;
 
-public class HadoopClientRequestSender implements RaftClientRequestSender {
+public class HadoopClientRpc implements RaftClientRpc {
 
   private final PeerProxyMap<RaftClientProtocolClientSideTranslatorPB> proxies;
 
-  public HadoopClientRequestSender(final Configuration conf) {
+  public HadoopClientRpc(final Configuration conf) {
     this.proxies  = new PeerProxyMap<>(
         p -> new RaftClientProtocolClientSideTranslatorPB(p.getAddress(), conf));
   }

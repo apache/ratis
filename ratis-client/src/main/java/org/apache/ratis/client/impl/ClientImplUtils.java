@@ -18,7 +18,7 @@
 package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientRequestSender;
+import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -27,10 +27,9 @@ import java.util.Collection;
 
 /** Client utilities for internal use. */
 public class ClientImplUtils {
-  public static RaftClient newRaftClient(ClientId clientId,
-      Collection<RaftPeer> peers, RaftPeerId leaderId,
-      RaftClientRequestSender requestSender, int retryInterval) {
-    return new RaftClientImpl(clientId, peers, leaderId, requestSender,
-        retryInterval);
+  public static RaftClient newRaftClient(
+      ClientId clientId, Collection<RaftPeer> peers, RaftPeerId leaderId,
+      RaftClientRpc clientRpc, int retryInterval) {
+    return new RaftClientImpl(clientId, peers, leaderId, clientRpc, retryInterval);
   }
 }

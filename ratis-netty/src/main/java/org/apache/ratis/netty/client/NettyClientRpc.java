@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.netty.client;
 
-import org.apache.ratis.client.RaftClientRequestSender;
+import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.netty.NettyRpcProxy;
 import org.apache.ratis.protocol.*;
@@ -28,7 +28,7 @@ import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerRequestPro
 
 import java.io.IOException;
 
-public class NettyClientRequestSender implements RaftClientRequestSender {
+public class NettyClientRpc implements RaftClientRpc {
   private final NettyRpcProxy.PeerMap proxies = new NettyRpcProxy.PeerMap();
 
   @Override

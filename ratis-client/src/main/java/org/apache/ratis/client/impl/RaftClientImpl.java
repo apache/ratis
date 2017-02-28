@@ -18,7 +18,7 @@
 package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientRequestSender;
+import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.RaftUtils;
 
@@ -31,22 +31,22 @@ import java.util.function.Supplier;
 /** A client who sends requests to a raft service. */
 final class RaftClientImpl implements RaftClient {
   private final ClientId clientId;
-  private final RaftClientRequestSender requestSender;
+  private final RaftClientRpc clientRpc;
   private final Collection<RaftPeer> peers;
   private final int retryInterval;
 
   private volatile RaftPeerId leaderId;
 
   RaftClientImpl(ClientId clientId, Collection<RaftPeer> peers,
-      RaftPeerId leaderId, RaftClientRequestSender requestSender,
+      RaftPeerId leaderId, RaftClientRpc clientRpc,
       int retryInterval) {
     this.clientId = clientId;
-    this.requestSender = requestSender;
+    this.clientRpc = clientRpc;
     this.peers = peers;
     this.leaderId = leaderId != null? leaderId : peers.iterator().next().getId();
     this.retryInterval = retryInterval;
 
-    requestSender.addServers(peers);
+    clientRpc.addServers(peers);
   }
 
   @Override
@@ -102,7 +102,7 @@ final class RaftClientImpl implements RaftClient {
   private RaftClientReply sendRequest(RaftClientRequest request)
       throws StateMachineException {
     try {
-      RaftClientReply reply = requestSender.sendRequest(request);
+      RaftClientReply reply = clientRpc.sendRequest(request);
       if (reply.isNotLeader()) {
         handleNotLeaderException(request, reply.getNotLeaderException());
         return null;
@@ -131,7 +131,7 @@ final class RaftClientImpl implements RaftClient {
       peers.clear();
       peers.addAll(newPeers);
       // also refresh the rpc proxies for these peers
-      requestSender.addServers(newPeers);
+      clientRpc.addServers(newPeers);
     }
   }
 
@@ -149,12 +149,12 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientRequestSender getRequestSender() {
-    return requestSender;
+  public RaftClientRpc getClientRpc() {
+    return clientRpc;
   }
 
   @Override
   public void close() throws IOException {
-    requestSender.close();
+    clientRpc.close();
   }
 }

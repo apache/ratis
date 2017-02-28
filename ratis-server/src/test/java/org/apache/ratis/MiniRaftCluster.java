@@ -394,7 +394,7 @@ public abstract class MiniRaftCluster {
     return RaftClient.newBuilder()
         .setServers(conf.getPeers())
         .setLeaderId(leaderId)
-        .setRequestSender(clientFactory.newRaftClientRequestSender())
+        .setClientRpc(clientFactory.newRaftClientRpc())
         .setProperties(properties)
         .build();
   }

@@ -18,7 +18,7 @@
 package org.apache.ratis.netty;
 
 import org.apache.ratis.client.ClientFactory;
-import org.apache.ratis.netty.client.NettyClientRequestSender;
+import org.apache.ratis.netty.client.NettyClientRpc;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -36,7 +36,7 @@ public class NettyFactory extends ServerFactory.BaseFactory implements ClientFac
   }
 
   @Override
-  public NettyClientRequestSender newRaftClientRequestSender() {
-    return new NettyClientRequestSender();
+  public NettyClientRpc newRaftClientRpc() {
+    return new NettyClientRpc();
   }
 }
