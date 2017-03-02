@@ -118,6 +118,18 @@
     </profile>
 
     <profile>
+      <id>skipCompileProto</id>
+      <activation>
+        <file>
+          <exists>${sources.dir}</exists>
+        </file>
+        <property>
+          <name>!compile-protobuf</name>
+        </property>
+      </activation>
+    </profile>
+
+    <profile>
       <id>compile-protobuf</id>
       <!--
          Generate and shade proto files. Drops generated java files
@@ -139,17 +151,7 @@
          The result needs to be checked in.
       -->
       <activation>
-        <!-- Activate this if the generated source directory is missing. It will automatically
-         kick the protoc compilation if you are doing a mvn install for the first time. Otherwise
-         it will only compile the resources under src/main/java as usual.  If you want to
-         force-compile the proto files (for example after changing them), you should run with
-         mvn install -Dcompile-protobuf -->
-        <file>
-          <missing>${sources.dir}</missing>
-        </file>
-        <property>
-          <name>compile-protobuf</name>
-        </property>
+        <activeByDefault>true</activeByDefault>
       </activation>
       <properties>
         <profile.id>compile-protobuf</profile.id>

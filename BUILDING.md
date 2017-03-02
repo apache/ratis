@@ -4,7 +4,9 @@ at least Java-1.8.
 
 When Ratis is build for the first time, shaded protobuf files needs to be generated first 
 which happens only in the mvn package phase. That is why you should run:
-`$ mvn install -DskipTests`
+```
+$ mvn package -DskipTests
+```
 the first time the sources are checked out first. After doing that mvn compile or mvn test
 can be used as normal.
 
@@ -15,11 +17,13 @@ applications using Raft may use protobuf and other libraries with versions diffe
 from the versions used here.
 
 The library requires the shaded sources for compilation. The generated sources are stored in
-`ratis-proto-shaded/src/main/java/`. They are not checked-in git though. 
+`ratis-proto-shaded/src/main/java/`. They are not checked-in git though.
 
 If you want to force-compile the proto files (for example after changing them), you should 
 run with
-$ mvn install -Dcompile-protobuf
+```
+$ mvn package -DskipTests -Dcompile-protobuf
+```
 
 ## What are shaded?
 
