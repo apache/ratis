@@ -43,7 +43,8 @@ public interface RaftConfigKeys {
       }
 
       // Try using it as a class name
-      return RaftUtils.newInstance(t, properties, RpcType.class);
+      return RaftUtils.newInstance(
+          RaftUtils.getClass(t, properties, RpcType.class));
     }
 
     static void setType(BiConsumer<String, String> setRpcType, RpcType type) {

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.rpc;
 
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 
 /** The type of RPC implementations. */
@@ -24,8 +25,8 @@ public interface RpcType {
   /** @return the name of the rpc type. */
   String name();
 
-  /** @return a new factory created using the given properties. */
-  RpcFactory newFactory(RaftProperties properties);
+  /** @return a new factory created using the given properties and parameters. */
+  RpcFactory newFactory(RaftProperties properties, Parameters parameters);
 
   /** An interface to get {@link RpcType}. */
   interface Get {

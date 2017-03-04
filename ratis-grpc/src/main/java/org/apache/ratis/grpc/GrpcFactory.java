@@ -18,12 +18,15 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.client.ClientFactory;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.grpc.client.GrpcClientRpc;
 import org.apache.ratis.grpc.server.GRpcLogAppender;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.*;
 
 public class GrpcFactory implements ServerFactory, ClientFactory {
+  public GrpcFactory(Parameters parameters) {}
+
   @Override
   public SupportedRpcType getRpcType() {
     return SupportedRpcType.GRPC;

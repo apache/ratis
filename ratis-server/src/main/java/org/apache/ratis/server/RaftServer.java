@@ -17,13 +17,13 @@
  */
 package org.apache.ratis.server;
 
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftClientProtocol;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
@@ -65,6 +65,7 @@ public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
     private StateMachine stateMachine;
     private Iterable<RaftPeer> peers;
     private RaftProperties properties;
+    private Parameters parameters;
 
     /** @return a {@link RaftServer} object. */
     public RaftServer build() throws IOException {
@@ -72,7 +73,8 @@ public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
           Objects.requireNonNull(serverId, "The 'serverId' field is not initialized."),
           Objects.requireNonNull(stateMachine, "The 'stateMachine' is not initialized."),
           Objects.requireNonNull(peers, "The 'peers' field is not initialized."),
-          Objects.requireNonNull(properties, "The 'properties' field is not initialized."));
+          Objects.requireNonNull(properties, "The 'properties' field is not initialized."),
+          parameters);
     }
 
     /** Set the server ID. */
@@ -96,6 +98,12 @@ public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
     /** Set {@link RaftProperties}. */
     public Builder setProperties(RaftProperties properties) {
       this.properties = properties;
+      return this;
+    }
+
+    /** Set {@link Parameters}. */
+    public Builder setParameters(Parameters parameters) {
+      this.parameters = parameters;
       return this;
     }
   }

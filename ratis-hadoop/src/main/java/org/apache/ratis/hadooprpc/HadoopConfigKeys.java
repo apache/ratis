@@ -15,41 +15,53 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.hadooprpc.server;
+package org.apache.ratis.hadooprpc;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.conf.ConfUtils;
+import org.apache.ratis.conf.Parameters;
 
 import java.net.InetSocketAddress;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
-public interface HadoopRpcServerConfigKeys {
+/** Hadoop Rpc specific configuration properties. */
+public interface HadoopConfigKeys {
   String PREFIX = "raft.hadooprpc";
 
+  String CONF_KEY = PREFIX + ".conf";
+
+  static Configuration getConf(
+      BiFunction<String, Class<Configuration>, Configuration> getConf) {
+    return getConf.apply(CONF_KEY, Configuration.class);
+  }
+
+  static void setConf(Parameters parameters, Configuration conf) {
+    parameters.put(CONF_KEY, conf, Configuration.class);
+  }
+
   /** IPC server configurations */
-  abstract class Ipc {
-    public static final String PREFIX = HadoopRpcServerConfigKeys.PREFIX + ".ipc";
+  interface Ipc {
+    String PREFIX = HadoopConfigKeys.PREFIX + ".ipc";
 
-    public static final String ADDRESS_KEY = PREFIX + ".address";
-    public static final int DEFAULT_PORT = 10718;
-    public static final String ADDRESS_DEFAULT = "0.0.0.0:" + DEFAULT_PORT;
+    String ADDRESS_KEY = PREFIX + ".address";
+    int DEFAULT_PORT = 10718;
+    String ADDRESS_DEFAULT = "0.0.0.0:" + DEFAULT_PORT;
 
-    public static final String HANDLERS_KEY = PREFIX + ".handlers";
-    public static final int HANDLERS_DEFAULT = 10;
+    String HANDLERS_KEY = PREFIX + ".handlers";
+    int HANDLERS_DEFAULT = 10;
 
-    public static int handlers(BiFunction<String, Integer, Integer> getInt) {
+    static int handlers(BiFunction<String, Integer, Integer> getInt) {
       return ConfUtils.getInt(getInt,
           HANDLERS_KEY, HANDLERS_DEFAULT, 1, null);
     }
 
-    public static InetSocketAddress address(BiFunction<String, String, String> getTrimmed) {
+    static InetSocketAddress address(BiFunction<String, String, String> getTrimmed) {
       return ConfUtils.getInetSocketAddress(getTrimmed,
           ADDRESS_KEY, ADDRESS_DEFAULT);
     }
 
-    public static void setAddress(
-        BiConsumer<String, String> setString,
-        String address) {
+    static void setAddress(BiConsumer<String, String> setString, String address) {
       ConfUtils.set(setString, ADDRESS_KEY, address);
     }
   }

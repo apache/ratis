@@ -37,7 +37,7 @@ public class RaftExamplesTestUtil {
       Collection<Object[]> clusters, MiniRaftCluster.Factory factory,
       String[] ids, RaftProperties properties)
       throws IOException {
-    clusters.add(new Object[]{factory.newCluster(ids, properties, true)});
+    clusters.add(new Object[]{factory.newCluster(ids, properties)});
   }
 
   public static Collection<Object[]> getMiniRaftClusters(

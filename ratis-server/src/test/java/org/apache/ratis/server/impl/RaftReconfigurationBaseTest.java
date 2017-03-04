@@ -583,7 +583,7 @@ public abstract class RaftReconfigurationBaseTest {
   @Test
   public void testLeaderNotReadyException() throws Exception {
     LOG.info("Start testLeaderNotReadyException");
-    final MiniRaftCluster cluster = getCluster(1);
+    final MiniRaftCluster cluster = getCluster(1).initServers();
     final RaftPeerId leaderId = cluster.getPeers().iterator().next().getId();
     try {
       // delay 1s for each logSync call

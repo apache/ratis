@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -30,17 +31,17 @@ import java.io.IOException;
 /** Server utilities for internal use. */
 public class ServerImplUtils {
   public static RaftServer newRaftServer(
-      RaftPeerId id, StateMachine stateMachine,
-      Iterable<RaftPeer> peers, RaftProperties properties) throws IOException {
+      RaftPeerId id, StateMachine stateMachine, Iterable<RaftPeer> peers,
+      RaftProperties properties, Parameters parameters) throws IOException {
     return newRaftServer(id, stateMachine,
         RaftConfiguration.newBuilder().setConf(peers).build(),
-        properties);
+        properties, parameters);
   }
 
   public static RaftServerImpl newRaftServer(
-      RaftPeerId id, StateMachine stateMachine,
-      RaftConfiguration conf, RaftProperties properties) throws IOException {
-    return new RaftServerImpl(id, stateMachine, conf, properties);
+      RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
+      RaftProperties properties, Parameters parameters) throws IOException {
+    return new RaftServerImpl(id, stateMachine, conf, properties, parameters);
   }
 
   public static TermIndex newTermIndex(long term, long index) {

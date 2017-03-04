@@ -25,32 +25,36 @@ import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
+import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerImplUtils;
+import org.apache.ratis.statemachine.StateMachine;
+
+import java.io.IOException;
 
 public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithNetty> FACTORY
       = new Factory<MiniRaftClusterWithNetty>() {
     @Override
-    public MiniRaftClusterWithNetty newCluster(
-        String[] ids, RaftProperties prop, boolean formatted) {
+    public MiniRaftClusterWithNetty newCluster(String[] ids, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop::set, SupportedRpcType.NETTY);
-      return new MiniRaftClusterWithNetty(ids, prop, formatted);
+      return new MiniRaftClusterWithNetty(ids, prop);
     }
   };
 
   public static final DelayLocalExecutionInjection sendServerRequest
       = new DelayLocalExecutionInjection(NettyRpcService.SEND_SERVER_REQUEST);
 
-  private MiniRaftClusterWithNetty(
-      String[] ids, RaftProperties properties, boolean formatted) {
-    super(ids, properties, formatted);
+  private MiniRaftClusterWithNetty(String[] ids, RaftProperties properties) {
+    super(ids, properties, null);
   }
 
   @Override
-  protected RaftServerImpl newRaftServer(RaftPeerId id, boolean format) {
-    final RaftServerImpl s = super.newRaftServer(id, format);
-    NettyConfigKeys.Server.setPort(s.getProperties()::setInt, getPort(s));
-    return s;
+  protected RaftServerImpl newRaftServer(
+      RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
+      RaftProperties properties) throws IOException {
+    NettyConfigKeys.Server.setPort(properties::setInt, getPort(id, conf));
+    return ServerImplUtils.newRaftServer(id, stateMachine, conf, properties, null);
   }
 
   @Override

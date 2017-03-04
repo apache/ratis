@@ -19,16 +19,17 @@ package org.apache.ratis.server.simulation;
 
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerImplUtils;
+import org.apache.ratis.statemachine.StateMachine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
@@ -38,76 +39,52 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
       = new Factory<MiniRaftClusterWithSimulatedRpc>() {
     @Override
     public MiniRaftClusterWithSimulatedRpc newCluster(
-        String[] ids, RaftProperties prop, boolean formatted) {
+        String[] ids, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop::set, SimulatedRpc.INSTANCE);
       if (ThreadLocalRandom.current().nextBoolean()) {
         // turn off simulate latency half of the times.
         prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);
       }
-      return new MiniRaftClusterWithSimulatedRpc(ids, prop, formatted);
+      final int simulateLatencyMs = ConfUtils.getInt(prop::getInt,
+          SimulatedRequestReply.SIMULATE_LATENCY_KEY,
+          SimulatedRequestReply.SIMULATE_LATENCY_DEFAULT, 0, null);
+      final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply
+          = new SimulatedRequestReply<>(simulateLatencyMs);
+      final SimulatedClientRpc client2serverRequestReply
+          = new SimulatedClientRpc(simulateLatencyMs);
+      return new MiniRaftClusterWithSimulatedRpc(ids, prop,
+          serverRequestReply, client2serverRequestReply);
     }
   };
 
-  private SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
-  private SimulatedClientRpc client2serverRequestReply;
+  private final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
+  private final SimulatedClientRpc client2serverRequestReply;
 
-  private MiniRaftClusterWithSimulatedRpc(String[] ids,
-      RaftProperties properties, boolean formatted) {
-    super(ids, properties, formatted);
-    initRpc();
+  private MiniRaftClusterWithSimulatedRpc(
+      String[] ids, RaftProperties properties,
+      SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
+      SimulatedClientRpc client2serverRequestReply) {
+    super(ids, properties,
+        SimulatedRpc.Factory.newRaftParameters(serverRequestReply, client2serverRequestReply));
+    this.serverRequestReply = serverRequestReply;
+    this.client2serverRequestReply = client2serverRequestReply;
   }
 
   @Override
-  protected void initRpc() {
-    final int simulateLatencyMs = properties.getInt(
-        SimulatedRequestReply.SIMULATE_LATENCY_KEY,
-        SimulatedRequestReply.SIMULATE_LATENCY_DEFAULT);
-    LOG.info(SimulatedRequestReply.SIMULATE_LATENCY_KEY + " = "
-        + simulateLatencyMs);
-    serverRequestReply = new SimulatedRequestReply<>(simulateLatencyMs);
-    client2serverRequestReply = new SimulatedClientRpc(simulateLatencyMs);
-    getServers().stream().forEach(s -> initRpc(s));
-    addPeersToRpc(toRaftPeers(getServers()));
-    ((SimulatedRpc.Factory)clientFactory).initRpc(
-        serverRequestReply, client2serverRequestReply);
-  }
-
-  private void initRpc(RaftServerImpl s) {
-    if (serverRequestReply != null) {
-      ((SimulatedRpc.Factory)s.getFactory()).initRpc(
-          serverRequestReply, client2serverRequestReply);
-    }
-  }
-
-  private void addPeersToRpc(Collection<RaftPeer> peers) {
-    serverRequestReply.addPeers(peers);
-    client2serverRequestReply.addPeers(peers);
+  public void restart(boolean format) throws IOException {
+    serverRequestReply.clear();
+    client2serverRequestReply.clear();
+    super.restart(format);
   }
 
   @Override
-  protected RaftServerImpl newRaftServer(RaftPeerId id, boolean format) {
-    final RaftServerImpl s = super.newRaftServer(id, format);
-    initRpc(s);
-    return s;
-  }
-
-  @Override
-  public void restartServer(String id, boolean format) throws IOException {
-    super.restartServer(id, format);
-    RaftServerImpl s = getServer(id);
-    addPeersToRpc(Collections.singletonList(conf.getPeer(new RaftPeerId(id))));
-    s.start();
-  }
-
-  @Override
-  public Collection<RaftPeer> addNewPeers(
-      Collection<RaftServerImpl> newServers, boolean startService) {
-    final Collection<RaftPeer> newPeers = toRaftPeers(newServers);
-    addPeersToRpc(newPeers);
-    if (startService) {
-      newServers.forEach(RaftServerImpl::start);
-    }
-    return newPeers;
+  protected RaftServerImpl newRaftServer(
+      RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
+      RaftProperties properties) throws IOException {
+    serverRequestReply.addPeer(id);
+    client2serverRequestReply.addPeer(id);
+    return ServerImplUtils.newRaftServer(id, stateMachine, conf, properties,
+        parameters);
   }
 
   @Override

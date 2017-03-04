@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
@@ -47,7 +48,6 @@ import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
 
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
 import static org.apache.ratis.util.LifeCycle.State.*;
@@ -84,12 +84,12 @@ public class RaftServerImpl implements RaftServer {
   /** used when the peer is leader */
   private volatile LeaderState leaderState;
 
-  private final Supplier<RaftServerRpc> serverRpc;
+  private final RaftServerRpc serverRpc;
 
   private final ServerFactory factory;
 
   RaftServerImpl(RaftPeerId id, StateMachine stateMachine,
-                 RaftConfiguration raftConf, RaftProperties properties)
+      RaftConfiguration raftConf, RaftProperties properties, Parameters parameters)
       throws IOException {
     this.lifeCycle = new LifeCycle(id);
     minTimeoutMs = properties.getInt(
@@ -105,8 +105,8 @@ public class RaftServerImpl implements RaftServer {
     this.state = new ServerState(id, raftConf, properties, this, stateMachine);
 
     final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
-    this.factory = ServerFactory.cast(rpcType.newFactory(properties));
-    this.serverRpc = RaftUtils.memoize(() -> initRaftServerRpc());
+    this.factory = ServerFactory.cast(rpcType.newFactory(properties, parameters));
+    this.serverRpc = initRaftServerRpc();
   }
 
   @Override
@@ -147,7 +147,7 @@ public class RaftServerImpl implements RaftServer {
   }
 
   public RaftServerRpc getServerRpc() {
-    return serverRpc.get();
+    return serverRpc;
   }
 
   @Override

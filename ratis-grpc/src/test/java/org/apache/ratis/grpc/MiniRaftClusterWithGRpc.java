@@ -21,61 +21,48 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
-import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
-import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.*;
+import org.apache.ratis.statemachine.StateMachine;
 
-import java.util.Collection;
+import java.io.IOException;
 
 public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   public static final Factory<MiniRaftClusterWithGRpc> FACTORY
       = new Factory<MiniRaftClusterWithGRpc>() {
     @Override
     public MiniRaftClusterWithGRpc newCluster(
-        String[] ids, RaftProperties prop, boolean formatted) {
+        String[] ids, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop::set, SupportedRpcType.GRPC);
-      return new MiniRaftClusterWithGRpc(ids, prop, formatted);
+      return new MiniRaftClusterWithGRpc(ids, prop);
     }
   };
 
   public static final DelayLocalExecutionInjection sendServerRequestInjection =
       new DelayLocalExecutionInjection(RaftGRpcService.GRPC_SEND_SERVER_REQUEST);
 
-  private MiniRaftClusterWithGRpc(String[] ids, RaftProperties properties,
-      boolean formatted) {
-    super(ids, properties, formatted);
+  private MiniRaftClusterWithGRpc(String[] ids, RaftProperties properties) {
+    super(ids, properties, null);
   }
 
   @Override
-  protected RaftServerImpl newRaftServer(RaftPeerId id, boolean format) {
-    final RaftServerImpl s = super.newRaftServer(id, format);
-    s.getProperties().setInt(
-        RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, getPort(s));
-    return s;
+  protected RaftServerImpl newRaftServer(
+      RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
+      RaftProperties properties) throws IOException {
+    properties.setInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, getPort(id, conf));
+    return ServerImplUtils.newRaftServer(id, stateMachine, conf, properties, null);
   }
 
   @Override
-  protected Collection<RaftPeer> addNewPeers(
-      Collection<RaftServerImpl> newServers, boolean startService) {
-    final Collection<RaftPeer> peers = toRaftPeers(newServers);
-    for (RaftPeer p: peers) {
-      final RaftServerImpl server = servers.get(p.getId());
-      if (!startService) {
-        BlockRequestHandlingInjection.getInstance().blockReplier(server.getId().toString());
-      } else {
-        server.start();
-      }
+  protected void startServer(RaftServerImpl server, boolean startService) {
+    final String id = server.getId().toString();
+    if (startService) {
+      server.start();
+      BlockRequestHandlingInjection.getInstance().unblockReplier(id);
+    } else {
+      BlockRequestHandlingInjection.getInstance().blockReplier(id);
     }
-    return peers;
-  }
-
-  @Override
-  public void startServer(RaftPeerId id) {
-    super.startServer(id);
-    BlockRequestHandlingInjection.getInstance().unblockReplier(id.toString());
   }
 
   @Override

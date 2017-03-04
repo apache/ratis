@@ -18,8 +18,8 @@
 package org.apache.ratis.server.simulation;
 
 import org.apache.ratis.client.ClientFactory;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.rpc.RpcFactory;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerFactory;
@@ -35,19 +35,31 @@ class SimulatedRpc implements RpcType {
   }
 
   @Override
-  public RpcFactory newFactory(RaftProperties properties) {
-    return new Factory();
+  public Factory newFactory(RaftProperties properties, Parameters parameters) {
+    return new Factory(parameters);
   }
 
   static class Factory extends ServerFactory.BaseFactory implements ClientFactory {
-    private SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
-    private SimulatedClientRpc client2serverRequestReply;
+    static String SERVER_REQUEST_REPLY_KEY = "raft.simulated.serverRequestReply";
+    static String CLIENT_TO_SERVER_REQUEST_REPLY_KEY = "raft.simulated.client2serverRequestReply";
 
-    public void initRpc(
-        SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
-        SimulatedClientRpc client2serverRequestReply) {
-      this.serverRequestReply = Objects.requireNonNull(serverRequestReply);
-      this.client2serverRequestReply = Objects.requireNonNull(client2serverRequestReply);
+    static Parameters newRaftParameters(
+        SimulatedRequestReply<RaftServerRequest, RaftServerReply> server,
+        SimulatedClientRpc client2server) {
+      final Parameters p = new Parameters();
+      p.put(SERVER_REQUEST_REPLY_KEY, server, SimulatedRequestReply.class);
+      p.put(CLIENT_TO_SERVER_REQUEST_REPLY_KEY, client2server, SimulatedClientRpc.class);
+      return p;
+    }
+
+    private final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
+    private final SimulatedClientRpc client2serverRequestReply;
+
+    Factory(Parameters parameters) {
+      serverRequestReply = parameters.getNonNull(
+          SERVER_REQUEST_REPLY_KEY, SimulatedRequestReply.class);
+      client2serverRequestReply = parameters.getNonNull(
+          CLIENT_TO_SERVER_REQUEST_REPLY_KEY, SimulatedClientRpc.class);
     }
 
     @Override

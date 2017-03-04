@@ -28,9 +28,7 @@ import java.io.*;
 import java.lang.reflect.Constructor;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
@@ -85,12 +83,13 @@ public abstract class RaftUtils {
   public static final boolean PPC_64
       = System.getProperties().getProperty("os.arch").contains("ppc64");
 
+  public static final Class<?>[] EMPTY_CLASSES = {};
   /**
    * Cache of constructors for each class. Pins the classes so they
    * can't be garbage collected until ReflectionUtils can be collected.
    */
-  private static final Map<Class<?>, Constructor<?>> CONSTRUCTOR_CACHE =
-      new ConcurrentHashMap<>();
+  private static final Map<List<Class<?>>, Constructor<?>> CONSTRUCTOR_CACHE
+      = new ConcurrentHashMap<>();
 
   public static InterruptedIOException toInterruptedIOException(
       String message, InterruptedException e) {
@@ -120,29 +119,38 @@ public abstract class RaftUtils {
 
   /**
    * Create an object for the given class using its default constructor.
-   *
-   * @param clazz class of which an object is created
-   * @return a new object
    */
   public static <T> T newInstance(Class<T> clazz) {
+    return newInstance(clazz, EMPTY_CLASSES);
+  }
+
+  /**
+   * Create an object for the given class using the specified constructor.
+   *
+   * @param clazz class of which an object is created
+   * @param argClasses argument classes of the constructor
+   * @param args actual arguments to be passed to the constructor
+   * @param <T> class type of clazz
+   * @return a new object
+   */
+  public static <T> T newInstance(Class<T> clazz, Class<?>[] argClasses, Object... args) {
     Objects.requireNonNull(clazz, "clazz == null");
     try {
+      final List<Class<?>> key = new ArrayList<>();
+      key.add(clazz);
+      key.addAll(Arrays.asList(argClasses));
+
       @SuppressWarnings("unchecked")
-      Constructor<T> meth = (Constructor<T>) CONSTRUCTOR_CACHE.get(clazz);
-      if (meth == null) {
-        meth = clazz.getDeclaredConstructor();
-        meth.setAccessible(true);
-        CONSTRUCTOR_CACHE.put(clazz, meth);
+      Constructor<T> ctor = (Constructor<T>) CONSTRUCTOR_CACHE.get(key);
+      if (ctor == null) {
+        ctor = clazz.getDeclaredConstructor(argClasses);
+        ctor.setAccessible(true);
+        CONSTRUCTOR_CACHE.put(key, ctor);
       }
-      return meth.newInstance();
+      return ctor.newInstance(args);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-  }
-
-  public static <BASE, SUB extends BASE> SUB newInstance(
-      String subClassName, RaftProperties properties, Class<BASE> base) {
-    return newInstance(getClass(subClassName, properties, base));
   }
 
   public static <BASE, SUB extends BASE> Class<SUB> getClass(
@@ -309,8 +317,8 @@ public abstract class RaftUtils {
 
   public static <INPUT, OUTPUT> Iterable<OUTPUT> as(
       Iterable<INPUT> iteration, Function<INPUT, OUTPUT> converter) {
-    final Iterator<INPUT> i = iteration.iterator();
     return () -> new Iterator<OUTPUT>() {
+      final Iterator<INPUT> i = iteration.iterator();
       @Override
       public boolean hasNext() {
         return i.hasNext();

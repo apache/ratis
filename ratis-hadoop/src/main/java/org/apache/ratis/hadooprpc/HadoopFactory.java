@@ -19,6 +19,7 @@ package org.apache.ratis.hadooprpc;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.client.ClientFactory;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.hadooprpc.client.HadoopClientRpc;
 import org.apache.ratis.hadooprpc.server.HadoopRpcService;
 import org.apache.ratis.rpc.SupportedRpcType;
@@ -26,10 +27,24 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerFactory;
 
 public class HadoopFactory extends ServerFactory.BaseFactory implements ClientFactory {
-  private Configuration conf;
+  public static Parameters newRaftParameters(Configuration conf) {
+    final Parameters p = new Parameters();
+    HadoopConfigKeys.setConf(p, conf);
+    return p;
+  }
 
-  public void setConf(Configuration conf) {
-    this.conf = conf;
+  private final Configuration conf;
+
+  public HadoopFactory(Parameters parameters) {
+    this(HadoopConfigKeys.getConf(parameters::get));
+  }
+
+  public HadoopFactory(Configuration conf) {
+    this.conf = conf != null? conf: new Configuration();
+  }
+
+  public Configuration getConf() {
+    return conf;
   }
 
   @Override
@@ -41,12 +56,12 @@ public class HadoopFactory extends ServerFactory.BaseFactory implements ClientFa
   public HadoopRpcService newRaftServerRpc(RaftServerImpl server) {
     return HadoopRpcService.newBuilder()
         .setServer(server)
-        .setConf(conf)
+        .setConf(getConf())
         .build();
   }
 
   @Override
   public HadoopClientRpc newRaftClientRpc() {
-    return new HadoopClientRpc(conf);
+    return new HadoopClientRpc(getConf());
   }
 }

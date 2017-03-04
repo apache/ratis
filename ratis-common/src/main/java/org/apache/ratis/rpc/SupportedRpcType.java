@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.rpc;
 
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.RaftUtils;
 
@@ -31,6 +32,8 @@ public enum SupportedRpcType implements RpcType {
     return valueOf(s.toUpperCase());
   }
 
+  private static final Class<?>[] ARG_CLASSES = {Parameters.class};
+
   private final String factoryClassName;
 
   SupportedRpcType(String factoryClassName) {
@@ -38,7 +41,9 @@ public enum SupportedRpcType implements RpcType {
   }
 
   @Override
-  public RpcFactory newFactory(RaftProperties properties) {
-    return RaftUtils.newInstance(factoryClassName, properties, RpcFactory.class);
+  public RpcFactory newFactory(RaftProperties properties, Parameters parameters) {
+    final Class<? extends RpcFactory> clazz = RaftUtils.getClass(
+        factoryClassName, properties, RpcFactory.class);
+    return RaftUtils.newInstance(clazz, ARG_CLASSES, parameters);
   }
 }

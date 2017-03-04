@@ -20,6 +20,7 @@ package org.apache.ratis.server.simulation;
 import com.google.common.base.Preconditions;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.RaftRpcMessage;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.RaftUtils;
@@ -175,10 +176,12 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     queues.remove(id);
   }
 
-  public void addPeers(Collection<RaftPeer> newPeers) {
-    for (RaftPeer peer : newPeers) {
-      queues.put(peer.getId().toString(), new EventQueue<>());
-    }
+  public void clear() {
+    queues.clear();
+  }
+
+  public void addPeer(RaftPeerId newPeer) {
+    queues.put(newPeer.toString(), new EventQueue<>());
   }
 
   private void simulateLatency() throws IOException {
