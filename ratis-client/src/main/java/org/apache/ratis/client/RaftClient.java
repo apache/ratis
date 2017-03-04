@@ -31,7 +31,6 @@ import java.util.Objects;
 /** A client who sends requests to a raft service. */
 public interface RaftClient extends Closeable {
   Logger LOG = LoggerFactory.getLogger(RaftClient.class);
-  long DEFAULT_SEQNUM = 0;
 
   /** @return the id of this client. */
   ClientId getId();

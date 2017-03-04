@@ -26,20 +26,20 @@ import java.util.Arrays;
 
 public class ClientProtoUtils {
   public static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
-      byte[] requestorId, byte[] replyId, long seqNum, boolean success) {
+      byte[] requestorId, byte[] replyId, long callId, boolean success) {
     return RaftRpcReplyProto.newBuilder()
         .setRequestorId(ProtoUtils.toByteString(requestorId))
         .setReplyId(ProtoUtils.toByteString(replyId))
-        .setSeqNum(seqNum)
+        .setCallId(callId)
         .setSuccess(success);
   }
 
   public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      byte[] requesterId, byte[] replyId, long seqNum) {
+      byte[] requesterId, byte[] replyId, long callId) {
     return RaftRpcRequestProto.newBuilder()
         .setRequestorId(ProtoUtils.toByteString(requesterId))
         .setReplyId(ProtoUtils.toByteString(replyId))
-        .setSeqNum(seqNum);
+        .setCallId(callId);
   }
 
   public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
@@ -48,7 +48,7 @@ public class ClientProtoUtils {
     RaftPeerId serverId = new RaftPeerId(
         p.getRpcRequest().getReplyId());
     return new RaftClientRequest(clientId, serverId,
-        p.getRpcRequest().getSeqNum(),
+        p.getRpcRequest().getCallId(),
         toMessage(p.getMessage()), p.getReadOnly());
   }
 
@@ -56,18 +56,18 @@ public class ClientProtoUtils {
       RaftClientRequest request) {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request.getClientId().toBytes(),
-            request.getServerId().toBytes(), request.getSeqNum()))
+            request.getServerId().toBytes(), request.getCallId()))
         .setMessage(toClientMessageEntryProto(request.getMessage()))
         .setReadOnly(request.isReadOnly())
         .build();
   }
 
   public static RaftClientRequestProto genRaftClientRequestProto(
-      ClientId clientId, RaftPeerId serverId, long seqNum, ByteString content,
+      ClientId clientId, RaftPeerId serverId, long callId, ByteString content,
       boolean readOnly) {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(clientId.toBytes(),
-            serverId.toBytes(), seqNum))
+            serverId.toBytes(), callId))
         .setMessage(ClientMessageEntryProto.newBuilder().setContent(content))
         .setReadOnly(readOnly)
         .build();
@@ -78,7 +78,7 @@ public class ClientProtoUtils {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
       b.setRpcReply(toRaftRpcReplyProtoBuilder(reply.getClientId().toBytes(),
-          reply.getServerId().toBytes(), reply.getSeqNum(), reply.isSuccess()));
+          reply.getServerId().toBytes(), reply.getCallId(), reply.isSuccess()));
       if (reply.getMessage() != null) {
         b.setMessage(toClientMessageEntryProto(reply.getMessage()));
       }
@@ -110,7 +110,7 @@ public class ClientProtoUtils {
     }
     return new RaftClientReply(new ClientId(rp.getRequestorId().toByteArray()),
         new RaftPeerId(rp.getReplyId()),
-        rp.getSeqNum(), rp.getSuccess(), toMessage(replyProto.getMessage()), e);
+        rp.getCallId(), rp.getSuccess(), toMessage(replyProto.getMessage()), e);
   }
 
   public static Message toMessage(final ClientMessageEntryProto p) {
@@ -129,7 +129,7 @@ public class ClientProtoUtils {
     return new SetConfigurationRequest(
         new ClientId(m.getRequestorId().toByteArray()),
         new RaftPeerId(m.getReplyId()),
-        p.getRpcRequest().getSeqNum(), peers);
+        p.getRpcRequest().getCallId(), peers);
   }
 
   public static SetConfigurationRequestProto toSetConfigurationRequestProto(
@@ -138,7 +138,7 @@ public class ClientProtoUtils {
         .setRpcRequest(toRaftRpcRequestProtoBuilder(
             request.getClientId().toBytes(),
             request.getServerId().toBytes(),
-            request.getSeqNum()))
+            request.getCallId()))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(
             Arrays.asList(request.getPeersInNewConf())))
         .build();

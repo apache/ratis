@@ -22,29 +22,29 @@ package org.apache.ratis.protocol;
  */
 public class RaftClientReply extends RaftClientMessage {
   private final boolean success;
-  private final long seqNum;
+  private final long callId;
 
   /** non-null if the server is not leader */
   private final NotLeaderException notLeaderException;
   private final Message message;
 
-  public RaftClientReply(ClientId clientId, RaftPeerId serverId, long seqNum,
+  public RaftClientReply(ClientId clientId, RaftPeerId serverId, long callId,
       boolean success, Message message, NotLeaderException notLeaderException) {
     super(clientId, serverId);
     this.success = success;
-    this.seqNum = seqNum;
+    this.callId = callId;
     this.message = message;
     this.notLeaderException = notLeaderException;
   }
 
   public RaftClientReply(RaftClientRequest request,
       NotLeaderException notLeaderException) {
-    this(request.getClientId(), request.getServerId(), request.getSeqNum(),
+    this(request.getClientId(), request.getServerId(), request.getCallId(),
         false, null, notLeaderException);
   }
 
   public RaftClientReply(RaftClientRequest request, Message message) {
-    this(request.getClientId(), request.getServerId(), request.getSeqNum(),
+    this(request.getClientId(), request.getServerId(), request.getCallId(),
         true, message, null);
   }
 
@@ -53,13 +53,13 @@ public class RaftClientReply extends RaftClientMessage {
     return false;
   }
 
-  public long getSeqNum() {
-    return seqNum;
+  public long getCallId() {
+    return callId;
   }
 
   @Override
   public String toString() {
-    return super.toString() + ", seqNum: " + getSeqNum()
+    return super.toString() + ", callId: " + getCallId()
         + ", success: " + isSuccess();
   }
 

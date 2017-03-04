@@ -65,13 +65,13 @@ message TermIndexProto {
 message RaftRpcRequestProto {
   bytes requestorId = 1;
   bytes replyId = 2;
-  uint64 seqNum = 3;
+  uint64 callId = 3;
 }
 
 message RaftRpcReplyProto {
   bytes requestorId = 1;
   bytes replyId = 2;
-  uint64 seqNum = 3;
+  uint64 callId = 3;
   bool success = 4;
 }
 

@@ -26,10 +26,17 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /** A client who sends requests to a raft service. */
 final class RaftClientImpl implements RaftClient {
+  private static final AtomicLong callIdCounter = new AtomicLong();
+
+  private static long nextCallId() {
+    return callIdCounter.getAndIncrement() & Long.MAX_VALUE;
+  }
+
   private final ClientId clientId;
   private final RaftClientRpc clientRpc;
   private final Collection<RaftPeer> peers;
@@ -65,15 +72,17 @@ final class RaftClientImpl implements RaftClient {
   }
 
   private RaftClientReply send(Message message, boolean readOnly) throws IOException {
+    final long callId = nextCallId();
     return sendRequestWithRetry(() -> new RaftClientRequest(
-        clientId, leaderId, DEFAULT_SEQNUM, message, readOnly));
+        clientId, leaderId, callId, message, readOnly));
   }
 
   @Override
   public RaftClientReply setConfiguration(RaftPeer[] peersInNewConf)
       throws IOException {
+    final long callId = nextCallId();
     return sendRequestWithRetry(() -> new SetConfigurationRequest(
-        clientId, leaderId, DEFAULT_SEQNUM, peersInNewConf));
+        clientId, leaderId, callId, peersInNewConf));
   }
 
   private RaftClientReply sendRequestWithRetry(

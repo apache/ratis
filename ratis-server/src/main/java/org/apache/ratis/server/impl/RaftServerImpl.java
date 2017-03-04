@@ -381,7 +381,7 @@ public class RaftServerImpl implements RaftServer {
       final long entryIndex;
       try {
         entryIndex = state.applyLog(entry, request.getClientId(),
-            request.getSeqNum());
+            request.getCallId());
       } catch (IOException e) {
         throw new RaftException(e);
       }

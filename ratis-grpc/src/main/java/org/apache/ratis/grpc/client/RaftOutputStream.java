@@ -23,6 +23,7 @@ import static org.apache.ratis.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
@@ -34,7 +35,7 @@ public class RaftOutputStream extends OutputStream {
   /** internal buffer */
   private final byte buf[];
   private int count;
-  private long seqNum = 0;
+  private final AtomicLong seqNum = new AtomicLong();
   private final ClientId clientId;
   private final AppendStreamer streamer;
 
@@ -82,7 +83,8 @@ public class RaftOutputStream extends OutputStream {
 
   private void flushToStreamer() throws IOException {
     if (count > 0) {
-      streamer.write(ProtoUtils.toByteString(buf, 0, count), seqNum++);
+      streamer.write(ProtoUtils.toByteString(buf, 0, count),
+          seqNum.getAndIncrement());
       count = 0;
     }
   }

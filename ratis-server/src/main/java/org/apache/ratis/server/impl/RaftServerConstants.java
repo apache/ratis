@@ -17,12 +17,10 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.client.RaftClient;
-
 public interface RaftServerConstants {
   long INVALID_LOG_INDEX = -1;
   byte LOG_TERMINATE_BYTE = 0;
-  long DEFAULT_SEQNUM = RaftClient.DEFAULT_SEQNUM;
+  long DEFAULT_CALLID = 0;
 
   enum StartupOption {
     FORMAT("format"),

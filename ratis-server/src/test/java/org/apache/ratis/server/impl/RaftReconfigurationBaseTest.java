@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static java.util.Arrays.asList;
 import static org.apache.ratis.MiniRaftCluster.leaderPlaceHolderDelay;
 import static org.apache.ratis.MiniRaftCluster.logSyncDelay;
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
 import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
@@ -93,7 +93,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       // trigger setConfiguration
       SetConfigurationRequest request = new SetConfigurationRequest(clientId,
-          cluster.getLeader().getId(), DEFAULT_SEQNUM, allPeers);
+          cluster.getLeader().getId(), DEFAULT_CALLID, allPeers);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);
 
@@ -121,7 +121,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       // trigger setConfiguration
       SetConfigurationRequest request = new SetConfigurationRequest(clientId,
-          cluster.getLeader().getId(), DEFAULT_SEQNUM, allPeers);
+          cluster.getLeader().getId(), DEFAULT_CALLID, allPeers);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);
 
@@ -159,7 +159,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       // trigger setConfiguration
       SetConfigurationRequest request = new SetConfigurationRequest(clientId,
-          cluster.getLeader().getId(), DEFAULT_SEQNUM, allPeers);
+          cluster.getLeader().getId(), DEFAULT_CALLID, allPeers);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);
 
@@ -255,7 +255,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       final RaftClientRpc sender = client.getClientRpc();
       final SetConfigurationRequest request = new SetConfigurationRequest(
-          client.getId(), leaderId, DEFAULT_SEQNUM, c1.allPeersInNewConf);
+          client.getId(), leaderId, DEFAULT_CALLID, c1.allPeersInNewConf);
       try {
         sender.sendRequest(request);
         Assert.fail("did not get expected exception");
@@ -472,7 +472,7 @@ public abstract class RaftReconfigurationBaseTest {
           LOG.info("client2 starts to change conf");
           final RaftClientRpc sender2 = client2.getClientRpc();
           sender2.sendRequest(new SetConfigurationRequest(
-              client2.getId(), leaderId, DEFAULT_SEQNUM, peersInRequest2));
+              client2.getId(), leaderId, DEFAULT_CALLID, peersInRequest2));
         } catch (ReconfigurationInProgressException e) {
           caughtException.set(true);
         } catch (Exception e) {
@@ -536,7 +536,7 @@ public abstract class RaftReconfigurationBaseTest {
           LOG.info("client starts to change conf");
           final RaftClientRpc sender = client.getClientRpc();
           RaftClientReply reply = sender.sendRequest(new SetConfigurationRequest(
-              client.getId(), leaderId, DEFAULT_SEQNUM, change.allPeersInNewConf));
+              client.getId(), leaderId, DEFAULT_CALLID, change.allPeersInNewConf));
           if (reply.isNotLeader()) {
             gotNotLeader.set(true);
           }

@@ -69,18 +69,18 @@ public class NettyRpcProxy implements Closeable {
     }
   }
 
-  public static long getSeqNum(RaftNettyServerReplyProto proto) {
+  public static long getCallId(RaftNettyServerReplyProto proto) {
     switch (proto.getRaftNettyServerReplyCase()) {
       case REQUESTVOTEREPLY:
-        return proto.getRequestVoteReply().getServerReply().getSeqNum();
+        return proto.getRequestVoteReply().getServerReply().getCallId();
       case APPENDENTRIESREPLY:
-        return proto.getAppendEntriesReply().getServerReply().getSeqNum();
+        return proto.getAppendEntriesReply().getServerReply().getCallId();
       case INSTALLSNAPSHOTREPLY:
-        return proto.getInstallSnapshotReply().getServerReply().getSeqNum();
+        return proto.getInstallSnapshotReply().getServerReply().getCallId();
       case RAFTCLIENTREPLY:
-        return proto.getRaftClientReply().getRpcReply().getSeqNum();
+        return proto.getRaftClientReply().getRpcReply().getCallId();
       case EXCEPTIONREPLY:
-        return proto.getExceptionReply().getRpcReply().getSeqNum();
+        return proto.getExceptionReply().getRpcReply().getCallId();
       case RAFTNETTYSERVERREPLY_NOT_SET:
         throw new IllegalArgumentException("Reply case not set in proto: "
             + proto.getRaftNettyServerReplyCase());
@@ -104,7 +104,7 @@ public class NettyRpcProxy implements Closeable {
                                     RaftNettyServerReplyProto proto) {
           final CompletableFuture<RaftNettyServerReplyProto> future = pollReply();
           if (future == null) {
-            throw new IllegalStateException("Request #" + getSeqNum(proto)
+            throw new IllegalStateException("Request #" + getCallId(proto)
                 + " not found");
           }
           if (proto.getRaftNettyServerReplyCase() == EXCEPTIONREPLY) {

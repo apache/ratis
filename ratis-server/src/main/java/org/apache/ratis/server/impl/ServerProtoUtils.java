@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
 
 import java.util.Arrays;
@@ -112,7 +112,7 @@ public class ServerProtoUtils {
       boolean shouldShutdown) {
     final RequestVoteReplyProto.Builder b = RequestVoteReplyProto.newBuilder();
     b.setServerReply(ClientProtoUtils.toRaftRpcReplyProtoBuilder(
-        requestorId.toBytes(), replyId.toBytes(), DEFAULT_SEQNUM, success))
+        requestorId.toBytes(), replyId.toBytes(), DEFAULT_CALLID, success))
         .setTerm(term)
         .setShouldShutdown(shouldShutdown);
     return b.build();
@@ -121,8 +121,7 @@ public class ServerProtoUtils {
   public static RequestVoteRequestProto toRequestVoteRequestProto(
       RaftPeerId requestorId, RaftPeerId replyId, long term, TermIndex lastEntry) {
     RaftProtos.RaftRpcRequestProto.Builder rpb = ClientProtoUtils
-        .toRaftRpcRequestProtoBuilder(requestorId.toBytes(), replyId.toBytes(),
-            DEFAULT_SEQNUM);
+        .toRaftRpcRequestProtoBuilder(requestorId.toBytes(), replyId.toBytes(), DEFAULT_CALLID);
     final RequestVoteRequestProto.Builder b = RequestVoteRequestProto.newBuilder()
         .setServerRequest(rpb)
         .setCandidateTerm(term);
@@ -136,7 +135,7 @@ public class ServerProtoUtils {
       RaftPeerId requestorId, RaftPeerId replyId, long term, int requestIndex,
       InstallSnapshotResult result) {
     final RaftRpcReplyProto.Builder rb = ClientProtoUtils.toRaftRpcReplyProtoBuilder(requestorId.toBytes(),
-        replyId.toBytes(), DEFAULT_SEQNUM, result == InstallSnapshotResult.SUCCESS);
+        replyId.toBytes(), DEFAULT_CALLID, result == InstallSnapshotResult.SUCCESS);
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setTerm(term).setResult(result)
         .setRequestIndex(requestIndex);
@@ -150,7 +149,7 @@ public class ServerProtoUtils {
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(
             ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId.toBytes(),
-                replyId.toBytes(), DEFAULT_SEQNUM))
+                replyId.toBytes(), DEFAULT_CALLID))
         .setRequestId(requestId)
         .setRequestIndex(requestIndex)
         // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
@@ -165,7 +164,7 @@ public class ServerProtoUtils {
       RaftPeerId requestorId, RaftPeerId replyId, long term,
       long nextIndex, AppendEntriesReplyProto.AppendResult appendResult) {
     RaftRpcReplyProto.Builder rb = ClientProtoUtils.toRaftRpcReplyProtoBuilder(requestorId.toBytes(),
-        replyId.toBytes(), DEFAULT_SEQNUM, appendResult == SUCCESS);
+        replyId.toBytes(), DEFAULT_CALLID, appendResult == SUCCESS);
     final AppendEntriesReplyProto.Builder b = AppendEntriesReplyProto.newBuilder();
     b.setServerReply(rb).setTerm(term).setNextIndex(nextIndex)
         .setResult(appendResult);
@@ -180,7 +179,7 @@ public class ServerProtoUtils {
         .newBuilder()
         .setServerRequest(
             ClientProtoUtils.toRaftRpcRequestProtoBuilder(requestorId.toBytes(),
-                replyId.toBytes(), DEFAULT_SEQNUM))
+                replyId.toBytes(), DEFAULT_CALLID))
         .setLeaderTerm(leaderTerm)
         .setLeaderCommit(leaderCommit)
         .setInitializing(initializing);

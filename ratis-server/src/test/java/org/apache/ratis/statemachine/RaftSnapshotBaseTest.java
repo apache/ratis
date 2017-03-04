@@ -19,7 +19,7 @@ package org.apache.ratis.statemachine;
 
 import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY;
 import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY;
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
 import java.io.File;
 import java.util.List;
@@ -200,7 +200,7 @@ public abstract class RaftSnapshotBaseTest {
           new String[]{"s3", "s4"}, true);
       // trigger setConfiguration
       SetConfigurationRequest request = new SetConfigurationRequest(ClientId.createId(),
-          cluster.getLeader().getId(), DEFAULT_SEQNUM, change.allPeersInNewConf);
+          cluster.getLeader().getId(), DEFAULT_CALLID, change.allPeersInNewConf);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);
 

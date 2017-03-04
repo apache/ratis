@@ -21,19 +21,19 @@ package org.apache.ratis.protocol;
  * Request from client to server
  */
 public class RaftClientRequest extends RaftClientMessage {
-  private final long seqNum;
+  private final long callId;
   private final Message message;
   private final boolean readOnly;
 
   public RaftClientRequest(ClientId clientId, RaftPeerId serverId,
-      long seqNum, Message message) {
-    this(clientId, serverId, seqNum, message, false);
+      long callId, Message message) {
+    this(clientId, serverId, callId, message, false);
   }
 
   public RaftClientRequest(ClientId clientId, RaftPeerId serverId,
-      long seqNum, Message message, boolean readOnly) {
+      long callId, Message message, boolean readOnly) {
     super(clientId, serverId);
-    this.seqNum = seqNum;
+    this.callId = callId;
     this.message = message;
     this.readOnly = readOnly;
   }
@@ -43,8 +43,8 @@ public class RaftClientRequest extends RaftClientMessage {
     return true;
   }
 
-  public long getSeqNum() {
-    return seqNum;
+  public long getCallId() {
+    return callId;
   }
 
   public Message getMessage() {
@@ -57,7 +57,7 @@ public class RaftClientRequest extends RaftClientMessage {
 
   @Override
   public String toString() {
-    return super.toString() + ", seqNum: " + seqNum + ", "
+    return super.toString() + ", callId: " + callId + ", "
         + (isReadOnly()? "RO": "RW");
   }
 }

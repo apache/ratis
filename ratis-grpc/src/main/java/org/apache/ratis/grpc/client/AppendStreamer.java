@@ -272,8 +272,8 @@ public class AppendStreamer implements Closeable {
         RaftClientRequestProto pending = Preconditions.checkNotNull(
             ackQueue.peek());
         if (reply.getRpcReply().getSuccess()) {
-          Preconditions.checkState(pending.getRpcRequest().getSeqNum() ==
-              reply.getRpcReply().getSeqNum());
+          Preconditions.checkState(pending.getRpcRequest().getCallId() ==
+              reply.getRpcReply().getCallId());
           ackQueue.poll();
           LOG.trace("{} received success ack for request {}", this,
               pending.getRpcRequest());
@@ -375,7 +375,7 @@ public class AppendStreamer implements Closeable {
             .setMessage(oldRequest.getMessage())
             .setReadOnly(oldRequest.getReadOnly())
             .setRpcRequest(toRaftRpcRequestProtoBuilder(
-                clientId.toBytes(), newLeader.toBytes(), r.getSeqNum()))
+                clientId.toBytes(), newLeader.toBytes(), r.getCallId()))
             .build();
         dataQueue.offerFirst(newRequest);
       }

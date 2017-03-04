@@ -218,7 +218,7 @@ public final class NettyRpcService implements RaftServerRpc {
     final RaftRpcReplyProto.Builder rpcReply = RaftRpcReplyProto.newBuilder()
         .setRequestorId(request.getRequestorId())
         .setReplyId(request.getReplyId())
-        .setSeqNum(request.getSeqNum())
+        .setCallId(request.getCallId())
         .setSuccess(false);
     final RaftNettyExceptionReplyProto.Builder ioe = RaftNettyExceptionReplyProto.newBuilder()
         .setRpcReply(rpcReply)
