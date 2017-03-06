@@ -64,7 +64,7 @@ class StateMachineUpdater implements Runnable {
   private volatile long lastAppliedIndex;
 
   private final boolean autoSnapshotEnabled;
-  private final long snapshotThreshold;
+  private final long autoSnapshotThreshold;
   private long lastSnapshotIndex;
 
   private final Thread updater;
@@ -80,12 +80,8 @@ class StateMachineUpdater implements Runnable {
     this.lastAppliedIndex = lastAppliedIndex;
     lastSnapshotIndex = lastAppliedIndex;
 
-    autoSnapshotEnabled = properties.getBoolean(
-        RaftServerConfigKeys.RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY,
-        RaftServerConfigKeys.RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_DEFAULT);
-    snapshotThreshold = properties.getLong(
-        RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY,
-        RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_DEFAULT);
+    autoSnapshotEnabled = RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties::getBoolean);
+    autoSnapshotThreshold = RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties::getLong);
     updater = new Daemon(this);
   }
 
@@ -205,7 +201,7 @@ class StateMachineUpdater implements Runnable {
 
   private boolean shouldTakeSnapshot(long currentAppliedIndex) {
     return autoSnapshotEnabled && (state != State.RELOAD) &&
-        (currentAppliedIndex - lastSnapshotIndex >= snapshotThreshold);
+        (currentAppliedIndex - lastSnapshotIndex >= autoSnapshotThreshold);
   }
 
   long getLastAppliedIndex() {

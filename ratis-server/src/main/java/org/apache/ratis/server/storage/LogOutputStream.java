@@ -17,12 +17,15 @@
  */
 package org.apache.ratis.server.storage;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_LOG_WRITE_BUFFER_SIZE_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_LOG_WRITE_BUFFER_SIZE_KEY;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
+import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.util.PureJavaCrc32C;
+import org.apache.ratis.util.RaftUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.File;
@@ -31,15 +34,6 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.zip.Checksum;
-
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.server.impl.RaftServerConstants;
-import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.util.PureJavaCrc32C;
-import org.apache.ratis.util.RaftUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class LogOutputStream implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(LogOutputStream.class);
@@ -67,18 +61,14 @@ public class LogOutputStream implements Closeable {
       throws IOException {
     this.file = file;
     this.checksum = new PureJavaCrc32C();
-    this.segmentMaxSize = properties.getLong(RAFT_LOG_SEGMENT_MAX_SIZE_KEY,
-        RAFT_LOG_SEGMENT_MAX_SIZE_DEFAULT);
-    this.preallocatedSize = properties.getLong(
-        RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_KEY,
-        RAFT_LOG_SEGMENT_PREALLOCATED_SIZE_DEFAULT);
+    this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties::getLong);
+    this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties::getInt);
     RandomAccessFile rp = new RandomAccessFile(file, "rw");
     fc = rp.getChannel();
     fc.position(fc.size());
     preallocatedPos = fc.size();
 
-    int bufferSize = properties.getInt(RAFT_LOG_WRITE_BUFFER_SIZE_KEY,
-        RAFT_LOG_WRITE_BUFFER_SIZE_DEFAULT);
+    final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties::getInt);
     out = new BufferedWriteChannel(fc, bufferSize);
 
     if (!append) {

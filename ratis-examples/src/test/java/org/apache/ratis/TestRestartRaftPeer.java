@@ -43,6 +43,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 
+import static org.apache.ratis.server.RaftServerConfigKeys.KB;
+
 /**
  * Test restarting raft peers.
  */
@@ -61,7 +63,7 @@ public class TestRestartRaftPeer {
     RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
-    prop.setInt(RaftServerConfigKeys.RAFT_LOG_SEGMENT_MAX_SIZE_KEY, 1024 * 8);
+    RaftServerConfigKeys.Log.setSegmentSizeMax(prop::setLong, 8*KB);
     return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3);
   }
 

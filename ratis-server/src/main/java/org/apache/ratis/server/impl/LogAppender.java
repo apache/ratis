@@ -17,44 +17,31 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_KEY;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_KEY;
-import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.UUID;
-
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import org.apache.commons.io.IOUtils;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LeaderState.StateUpdateEventType;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.FileChunkProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotResult;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.nio.file.Path;
+import java.util.*;
+
+import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
 /**
  * A daemon thread appending log entries to a follower peer.
@@ -70,6 +57,7 @@ public class LogAppender extends Daemon {
   private final boolean batchSending;
   private final LogEntryBuffer buffer;
   private final long leaderTerm;
+  private final int snapshotChunkMaxSize;
 
   private volatile boolean sending = true;
 
@@ -78,12 +66,11 @@ public class LogAppender extends Daemon {
     this.server = server;
     this.leaderState = leaderState;
     this.raftLog = server.getState().getLog();
-    this.maxBufferSize = server.getProperties().getInt(
-        RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_KEY,
-        RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_DEFAULT);
-    this.batchSending = server.getProperties().getBoolean(
-        RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_KEY,
-        RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_DEFAULT);
+
+    final RaftProperties properties = server.getProperties();
+    this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferCapacity(properties::getInt);
+    this.batchSending = RaftServerConfigKeys.Log.Appender.batchEnabled(properties::getBoolean);
+    this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties::getInt);
     this.buffer = new LogEntryBuffer();
     this.leaderTerm = server.getState().getCurrentTerm();
   }
@@ -258,12 +245,15 @@ public class LogAppender extends Daemon {
       currentFileInfo = files.get(fileIndex);
       File snapshotFile = currentFileInfo.getPath().toFile();
       currentFileSize = snapshotFile.length();
-      final int bufLength =
-          (int) Math.min(leaderState.getSnapshotChunkMaxSize(), currentFileSize);
+      final int bufLength = getSnapshotChunkLength(currentFileSize);
       currentBuf = new byte[bufLength];
       currentOffset = 0;
       chunkIndex = 0;
       in = new FileInputStream(snapshotFile);
+    }
+
+    private int getSnapshotChunkLength(long len) {
+      return len < snapshotChunkMaxSize? (int)len: snapshotChunkMaxSize;
     }
 
     @Override
@@ -279,8 +269,8 @@ public class LogAppender extends Daemon {
           if (fileIndex >= files.size()) {
             throw new NoSuchElementException();
           }
-          int targetLength = (int) Math.min(currentFileSize - currentOffset,
-              leaderState.getSnapshotChunkMaxSize());
+          final int targetLength = getSnapshotChunkLength(
+              currentFileSize - currentOffset);
           FileChunkProto chunk;
           try {
             chunk = readFileChunk(currentFileInfo, in, currentBuf,

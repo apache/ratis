@@ -17,13 +17,6 @@
  */
 package org.apache.ratis.statemachine;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY;
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
-
-import java.io.File;
-import java.util.List;
-
 import org.apache.log4j.Level;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
@@ -34,6 +27,7 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.simulation.RequestHandler;
@@ -49,6 +43,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.util.List;
+
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
 public abstract class RaftSnapshotBaseTest {
   static {
@@ -92,9 +91,9 @@ public abstract class RaftSnapshotBaseTest {
     final RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
-    prop.setLong(RAFT_SERVER_SNAPSHOT_TRIGGER_THRESHOLD_KEY,
-        SNAPSHOT_TRIGGER_THRESHOLD);
-    prop.setBoolean(RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY, true);
+    RaftServerConfigKeys.Snapshot.setAutoTriggerThreshold(
+        prop::setLong, SNAPSHOT_TRIGGER_THRESHOLD);
+    RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(prop::setBoolean, true);
     this.cluster = getFactory().newCluster(1, prop);
     cluster.start();
   }

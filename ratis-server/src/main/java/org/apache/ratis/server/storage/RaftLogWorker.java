@@ -17,9 +17,6 @@
  */
 package org.apache.ratis.server.storage;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_LOG_FORCE_SYNC_NUM_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_LOG_FORCE_SYNC_NUM_KEY;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -28,6 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.io.nativeio.NativeIO;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.LogSegment.SegmentFileInfo;
@@ -78,8 +76,7 @@ class RaftLogWorker implements Runnable {
     this.raftServer = raftServer;
     this.storage = storage;
     this.properties = properties;
-    this.forceSyncNum = properties.getInt(RAFT_LOG_FORCE_SYNC_NUM_KEY,
-        RAFT_LOG_FORCE_SYNC_NUM_DEFAULT);
+    this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties::getInt);
     workerThread = new Thread(this,
         getClass().getSimpleName() + " for " + storage);
   }

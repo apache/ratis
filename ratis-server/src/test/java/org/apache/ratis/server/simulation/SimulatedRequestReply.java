@@ -41,7 +41,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   public static final String SIMULATE_LATENCY_KEY
       = SimulatedRequestReply.class.getName() + ".simulateLatencyMs";
   public static final int SIMULATE_LATENCY_DEFAULT
-      = RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT;
+      = RaftServerConfigKeys.Rpc.TIMEOUT_MIN_MS_DEFAULT;
   public static final long TIMEOUT = 3000L;
 
   private static class ReplyOrException<REPLY> {

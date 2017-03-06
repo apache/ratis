@@ -32,6 +32,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static org.apache.ratis.conf.ConfUtils.requireMin;
+
 public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithSimulatedRpc.class);
 
@@ -47,7 +49,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
       }
       final int simulateLatencyMs = ConfUtils.getInt(prop::getInt,
           SimulatedRequestReply.SIMULATE_LATENCY_KEY,
-          SimulatedRequestReply.SIMULATE_LATENCY_DEFAULT, 0, null);
+          SimulatedRequestReply.SIMULATE_LATENCY_DEFAULT, requireMin(0));
       final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply
           = new SimulatedRequestReply<>(simulateLatencyMs);
       final SimulatedClientRpc client2serverRequestReply

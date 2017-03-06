@@ -230,7 +230,7 @@ public class RaftTestUtil {
 
   public static void block(BooleanSupplier isBlocked) throws InterruptedException {
     for(; isBlocked.getAsBoolean(); ) {
-      Thread.sleep(RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MAX_MS_DEFAULT);
+      Thread.sleep(RaftServerConfigKeys.Rpc.TIMEOUT_MAX_MS_DEFAULT);
     }
   }
 

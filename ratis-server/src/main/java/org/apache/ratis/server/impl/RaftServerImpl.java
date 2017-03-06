@@ -92,12 +92,8 @@ public class RaftServerImpl implements RaftServer {
       RaftConfiguration raftConf, RaftProperties properties, Parameters parameters)
       throws IOException {
     this.lifeCycle = new LifeCycle(id);
-    minTimeoutMs = properties.getInt(
-        RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_KEY,
-        RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MIN_MS_DEFAULT);
-    maxTimeoutMs = properties.getInt(
-        RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MAX_MS_KEY,
-        RaftServerConfigKeys.RAFT_SERVER_RPC_TIMEOUT_MAX_MS_DEFAULT);
+    minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMinMs(properties::getInt);
+    maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMaxMs(properties::getInt);
     Preconditions.checkArgument(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.properties = properties;

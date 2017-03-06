@@ -37,7 +37,6 @@
     <dependency>
       <artifactId>ratis-common</artifactId>
       <groupId>org.apache.ratis</groupId>
-      <scope>provided</scope>
     </dependency>
     <dependency>
       <artifactId>ratis-common</artifactId>

@@ -17,21 +17,14 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_USE_MEMORY_LOG_KEY;
-
-import java.io.Closeable;
-import java.io.IOException;
-
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.MemoryRaftLog;
-import org.apache.ratis.server.storage.RaftLog;
-import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.server.storage.SegmentedRaftLog;
-import org.apache.ratis.server.storage.SnapshotManager;
+import org.apache.ratis.server.storage.*;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -39,8 +32,8 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.ProtoUtils;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import java.io.Closeable;
+import java.io.IOException;
 
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
@@ -131,8 +124,7 @@ public class ServerState implements Closeable {
   private RaftLog initLog(RaftPeerId id, RaftProperties prop,
       RaftServerImpl server, long lastIndexInSnapshot) throws IOException {
     final RaftLog log;
-    if (prop.getBoolean(RAFT_SERVER_USE_MEMORY_LOG_KEY,
-        RAFT_SERVER_USE_MEMORY_LOG_DEFAULT)) {
+    if (RaftServerConfigKeys.Log.useMemory(prop::getBoolean)) {
       log = new MemoryRaftLog(id);
     } else {
       log = new SegmentedRaftLog(id, server, this.storage,

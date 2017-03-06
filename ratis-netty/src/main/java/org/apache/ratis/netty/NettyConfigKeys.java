@@ -22,6 +22,9 @@ import org.apache.ratis.conf.ConfUtils;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
+import static org.apache.ratis.conf.ConfUtils.requireMax;
+import static org.apache.ratis.conf.ConfUtils.requireMin;
+
 public interface NettyConfigKeys {
   String PREFIX = "raft.netty";
 
@@ -32,11 +35,16 @@ public interface NettyConfigKeys {
     int PORT_DEFAULT = 0;
 
     static int port(BiFunction<String, Integer, Integer> getInt) {
-      return ConfUtils.getInt(getInt, PORT_KEY, PORT_DEFAULT, 0, 65536);
+      return ConfUtils.getInt(getInt,
+          PORT_KEY, PORT_DEFAULT, requireMin(0), requireMax(65536));
     }
 
-    static void setPort(BiConsumer<String, Integer> setString, int port) {
-      ConfUtils.setInt(setString, PORT_KEY, port);
+    static void setPort(BiConsumer<String, Integer> setInt, int port) {
+      ConfUtils.setInt(setInt, PORT_KEY, port);
     }
+  }
+
+  static void main(String[] args) {
+    ConfUtils.printAll(NettyConfigKeys.class);
   }
 }

@@ -18,8 +18,8 @@
 package org.apache.ratis.server.storage;
 
 import com.google.common.base.Preconditions;
-
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -27,9 +27,6 @@ import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.util.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY;
 
 import java.io.Closeable;
 import java.io.File;
@@ -47,8 +44,7 @@ public class RaftStorage implements Closeable {
 
   public RaftStorage(RaftProperties prop, RaftServerConstants.StartupOption option)
       throws IOException {
-    final String dir = prop.get(RAFT_SERVER_STORAGE_DIR_KEY,
-        RAFT_SERVER_STORAGE_DIR_DEFAULT);
+    final String dir = RaftServerConfigKeys.storageDir(prop::getTrimmed);
     storageDir = new RaftStorageDirectory(
         new File(FileUtils.stringAsURI(dir).getPath()));
     if (option == RaftServerConstants.StartupOption.FORMAT) {

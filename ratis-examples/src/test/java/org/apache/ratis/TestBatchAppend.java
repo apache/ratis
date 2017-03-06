@@ -23,6 +23,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.RaftExamplesTestUtil;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.simulation.RequestHandler;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
@@ -38,8 +39,6 @@ import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.*;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,6 +47,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.apache.ratis.server.RaftServerConfigKeys.KB;
 
 /**
  * Enable raft.server.log.appender.batch.enabled and test LogAppender
@@ -66,11 +67,11 @@ public class TestBatchAppend {
     RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
-    prop.setInt(RAFT_LOG_SEGMENT_MAX_SIZE_KEY, 1024 * 8);
+    RaftServerConfigKeys.Log.setSegmentSizeMax(prop::setLong, 8*KB);
     // enable batch appending
-    prop.setBoolean(RAFT_SERVER_LOG_APPENDER_BATCH_ENABLED_KEY, true);
+    RaftServerConfigKeys.Log.Appender.setBatchEnabled(prop::setBoolean, true);
     // set batch appending buffer size to 4KB
-    prop.setInt(RAFT_SERVER_LOG_APPENDER_BUFFER_CAPACITY_KEY, 4 * 1024);
+    RaftServerConfigKeys.Log.Appender.setBufferCapacity(prop::setInt, 4*KB);
 
     return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3);
   }

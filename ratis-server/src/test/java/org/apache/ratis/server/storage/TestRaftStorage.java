@@ -49,7 +49,7 @@ public class TestRaftStorage {
   @Before
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftStorage.class);
-    properties.set(RaftServerConfigKeys.RAFT_SERVER_STORAGE_DIR_KEY,
+    RaftServerConfigKeys.setStorageDir(properties::set,
         storageDir.getCanonicalPath());
   }
 

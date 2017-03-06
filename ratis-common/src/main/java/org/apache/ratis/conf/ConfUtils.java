@@ -21,50 +21,173 @@ import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
-public abstract class ConfUtils {
-  static Logger LOG = LoggerFactory.getLogger(ConfUtils.class);
+public interface ConfUtils {
+  Logger LOG = LoggerFactory.getLogger(ConfUtils.class);
 
-  public static int getInt(
-      BiFunction<String, Integer, Integer> getInt,
-      String key, int defaultValue, Integer min, Integer max) {
-    final int value = getInt.apply(key, defaultValue);
-    final String s = key + " = " + value;
-    LOG.info(s);
+  static void logGet(String key, Object value) {
+    LOG.info("{} = {}", key, value);
+  }
 
-    if (min != null && value < min) {
-      throw new IllegalArgumentException(s + " < min = " + min);
-    }
-    if (max != null && value > max) {
-      throw new IllegalArgumentException(s + " > max = " + max);
-    }
+  static void logSet(String key, Object value) {
+    LOG.debug("set {} = {}", key, value);
+  }
+
+  static BiConsumer<String, Integer> requireMin(int min) {
+    return (key, value) -> {
+      if (value < min) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " < min = " + min);
+      }
+    };
+  }
+
+  static BiConsumer<String, Integer> requireMax(int max) {
+    return (key, value) -> {
+      if (value > max) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " > max = " + max);
+      }
+    };
+  }
+
+  static BiConsumer<String, Long> requireMin(long min) {
+    return (key, value) -> {
+      if (value < min) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " < min = " + min);
+      }
+    };
+  }
+
+  static BiConsumer<String, Long> requireMax(long max) {
+    return (key, value) -> {
+      if (value > max) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " > max = " + max);
+      }
+    };
+  }
+
+  static boolean getBoolean(
+      BiFunction<String, Boolean, Boolean> booleanGetter,
+      String key, boolean defaultValue, BiConsumer<String, Boolean>... assertions) {
+    return get(booleanGetter, key, defaultValue, assertions);
+  }
+
+  static int getInt(
+      BiFunction<String, Integer, Integer> integerGetter,
+      String key, int defaultValue, BiConsumer<String, Integer>... assertions) {
+    return get(integerGetter, key, defaultValue, assertions);
+  }
+
+  static long getLong(
+      BiFunction<String, Long, Long> longGetter,
+      String key, long defaultValue, BiConsumer<String, Long>... assertions) {
+    return get(longGetter, key, defaultValue, assertions);
+  }
+
+  static <T> T get(BiFunction<String, T, T> getter,
+      String key, T defaultValue, BiConsumer<String, T>... assertions) {
+    final T value = getter.apply(key, defaultValue);
+    logGet(key, value);
+    Arrays.asList(assertions).forEach(a -> a.accept(key, value));
     return value;
   }
 
-  public static <T> T get(BiFunction<String, T, T> getString,
-      String key, T defaultValue) {
-    final T value = getString.apply(key, defaultValue);
-    LOG.info(key + " = " + value);
-    return value;
-  }
-
-  public static InetSocketAddress getInetSocketAddress(
-      BiFunction<String, String, String> getString,
+  static InetSocketAddress getInetSocketAddress(
+      BiFunction<String, String, String> stringGetter,
       String key, String defaultValue) {
-    return NetUtils.createSocketAddr(get(getString, key, defaultValue));
+    return NetUtils.createSocketAddr(get(stringGetter, key, defaultValue));
   }
 
-  public static void setInt(BiConsumer<String, Integer> setInt,
-      String key, int value) {
-    setInt.accept(key, value);
-    LOG.info("set " + key + " = " + value);
+  static void setBoolean(
+      BiConsumer<String, Boolean> booleanSetter, String key, boolean value,
+      BiConsumer<String, Boolean>... assertions) {
+    set(booleanSetter, key, value, assertions);
   }
 
-  public static <T> void set(BiConsumer<String, T> set, String key, T value) {
-    set.accept(key, value);
-    LOG.info("set " + key + " = " + value);
+  static void setInt(
+      BiConsumer<String, Integer> integerSetter, String key, int value,
+      BiConsumer<String, Integer>... assertions) {
+    set(integerSetter, key, value, assertions);
+  }
+
+  static void setLong(
+      BiConsumer<String, Long> longSetter, String key, long value,
+      BiConsumer<String, Long>... assertions) {
+    set(longSetter, key, value, assertions);
+  }
+
+  static <T> void set(
+      BiConsumer<String, T> setter, String key, T value,
+      BiConsumer<String, T>... assertions) {
+    Arrays.asList(assertions).forEach(a -> a.accept(key, value));
+    setter.accept(key, value);
+    logSet(key, value);
+  }
+
+  static void printAll(Class<?> confClass) {
+    ConfUtils.printAll(confClass, System.out::println);
+  }
+
+  static void printAll(Class<?> confClass, Consumer<Object> out) {
+    out.accept("");
+    out.accept("******* " + confClass + " *******");
+    Arrays.asList(confClass.getDeclaredFields())
+        .forEach(f -> printField(confClass, out, f));
+    Arrays.asList(confClass.getClasses())
+        .forEach(c -> printAll(c, s -> out.accept("  " + s)));
+  }
+
+  static void printField(Class<?> confClass, Consumer<Object> out, Field f) {
+    if (!Modifier.isStatic(f.getModifiers())) {
+      out.accept("WARNING: Found non-static field " + f);
+      return;
+    }
+    final String fieldName = f.getName();
+    if (!fieldName.endsWith("_KEY")) {
+      if (!fieldName.endsWith("_DEFAULT")) {
+        try {
+          out.accept("constant: " + fieldName + " = " + f.get(null));
+        } catch (IllegalAccessException e) {
+          out.accept(fieldName + " is not public");
+        }
+      }
+      return;
+    }
+
+    final StringBuilder b = new StringBuilder();
+    try {
+      final Object keyName = f.get(null);
+      b.append("key: ").append(keyName);
+    } catch (IllegalAccessException e) {
+      out.accept("WARNING: Failed to access key " + f);
+      b.append(fieldName + " is not public");
+    }
+    final String defaultFieldName = fieldName.substring(0, fieldName.length() - 4) + "_DEFAULT";
+    b.append(" (");
+    try {
+      final Field defaultField = confClass.getDeclaredField(defaultFieldName);
+      b.append(defaultField.getType().getSimpleName()).append(", ");
+
+      final Object defaultValue = defaultField.get(null);
+      b.append("default=").append(defaultValue);
+    } catch (NoSuchFieldException e) {
+      out.accept("WARNING: Default value not found for field " + f);
+      b.append("default not found");
+    } catch (IllegalAccessException e) {
+      out.accept("WARNING: Failed to access default value " + f);
+      b.append(defaultFieldName).append(" is not public");
+    }
+    b.append(")");
+    out.accept(b);
   }
 }

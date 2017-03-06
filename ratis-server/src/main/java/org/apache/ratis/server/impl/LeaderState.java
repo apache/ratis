@@ -17,38 +17,10 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_RPC_SLEEP_TIME_MS_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_RPC_SLEEP_TIME_MS_KEY;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_KEY;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SNAPSHOT_CHUNK_MAX_SIZE_DEFAULT;
-import static org.apache.ratis.server.RaftServerConfigKeys.RAFT_SNAPSHOT_CHUNK_MAX_SIZE_KEY;
-import static org.apache.ratis.server.impl.LeaderState.StateUpdateEventType.STAGINGPROGRESS;
-import static org.apache.ratis.server.impl.LeaderState.StateUpdateEventType.STEPDOWN;
-import static org.apache.ratis.server.impl.LeaderState.StateUpdateEventType.UPDATECOMMIT;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
+import com.google.common.base.Preconditions;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.ReconfigurationTimeoutException;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.*;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.LeaderNoOp;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
@@ -59,7 +31,15 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 
-import com.google.common.base.Preconditions;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import static org.apache.ratis.server.impl.LeaderState.StateUpdateEventType.*;
 
 /**
  * States for leader only. It contains three different types of processors:
@@ -113,22 +93,14 @@ public class LeaderState {
   private volatile boolean running = true;
 
   private final int stagingCatchupGap;
-  private final int snapshotChunkMaxSize;
   private final int syncInterval;
   private final long placeHolderIndex;
 
   LeaderState(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
 
-    stagingCatchupGap = properties.getInt(
-        RAFT_SERVER_STAGING_CATCHUP_GAP_KEY,
-        RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT);
-    snapshotChunkMaxSize = properties.getInt(
-        RAFT_SNAPSHOT_CHUNK_MAX_SIZE_KEY,
-        RAFT_SNAPSHOT_CHUNK_MAX_SIZE_DEFAULT);
-    syncInterval = properties.getInt(
-        RAFT_SERVER_RPC_SLEEP_TIME_MS_KEY,
-        RAFT_SERVER_RPC_SLEEP_TIME_MS_DEFAULT);
+    stagingCatchupGap = RaftServerConfigKeys.stagingCatchupGap(properties::getInt);
+    syncInterval = RaftServerConfigKeys.Rpc.sleepTimeMs(properties::getInt);
 
     final ServerState state = server.getState();
     this.raftLog = state.getLog();
@@ -203,10 +175,6 @@ public class LeaderState {
 
   long getCurrentTerm() {
     return currentTerm;
-  }
-
-  int getSnapshotChunkMaxSize() {
-    return snapshotChunkMaxSize;
   }
 
   int getSyncInterval() {

@@ -25,6 +25,8 @@ import java.net.InetSocketAddress;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 
+import static org.apache.ratis.conf.ConfUtils.requireMin;
+
 /** Hadoop Rpc specific configuration properties. */
 public interface HadoopConfigKeys {
   String PREFIX = "raft.hadooprpc";
@@ -53,7 +55,7 @@ public interface HadoopConfigKeys {
 
     static int handlers(BiFunction<String, Integer, Integer> getInt) {
       return ConfUtils.getInt(getInt,
-          HANDLERS_KEY, HANDLERS_DEFAULT, 1, null);
+          HANDLERS_KEY, HANDLERS_DEFAULT, requireMin(1));
     }
 
     static InetSocketAddress address(BiFunction<String, String, String> getTrimmed) {

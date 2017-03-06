@@ -64,17 +64,17 @@ public abstract class RaftReconfigurationBaseTest {
   
   private static final ClientId clientId = ClientId.createId();
 
+  static final int STAGING_CATCHUP_GAP = 10;
   @BeforeClass
   public static void setup() {
     // set a small gap for tests
-    prop.setInt(RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_KEY, 10);
+    RaftServerConfigKeys.setStagingCatchupGap(prop::setInt, STAGING_CATCHUP_GAP);
   }
 
   public abstract MiniRaftCluster getCluster(int peerNum) throws IOException;
 
   private static int getStagingGap() {
-    return prop.getInt(RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_KEY,
-        RaftServerConfigKeys.RAFT_SERVER_STAGING_CATCHUP_GAP_DEFAULT);
+    return STAGING_CATCHUP_GAP;
   }
 
   /**
