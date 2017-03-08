@@ -115,7 +115,7 @@ public final class NettyRpcService implements RaftServerRpc {
       }
     };
 
-    final int port = NettyConfigKeys.Server.port(server.getProperties()::getInt);
+    final int port = NettyConfigKeys.Server.port(server.getProperties());
     channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)

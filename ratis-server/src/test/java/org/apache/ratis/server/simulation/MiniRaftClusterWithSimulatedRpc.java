@@ -42,7 +42,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     @Override
     public MiniRaftClusterWithSimulatedRpc newCluster(
         String[] ids, RaftProperties prop) {
-      RaftConfigKeys.Rpc.setType(prop::set, SimulatedRpc.INSTANCE);
+      RaftConfigKeys.Rpc.setType(prop, SimulatedRpc.INSTANCE);
       if (ThreadLocalRandom.current().nextBoolean()) {
         // turn off simulate latency half of the times.
         prop.setInt(SimulatedRequestReply.SIMULATE_LATENCY_KEY, 0);

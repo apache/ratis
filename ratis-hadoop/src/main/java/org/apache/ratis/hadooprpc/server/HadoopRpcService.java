@@ -119,8 +119,8 @@ public class HadoopRpcService implements RaftServerRpc {
   private static RPC.Server newRpcServer(
       RaftServerProtocol serverProtocol, final Configuration conf)
       throws IOException {
-    final int handlerCount = HadoopConfigKeys.Ipc.handlers(conf::getInt);
-    final InetSocketAddress address = HadoopConfigKeys.Ipc.address(conf::getTrimmed);
+    final int handlerCount = HadoopConfigKeys.Ipc.handlers(conf);
+    final InetSocketAddress address = HadoopConfigKeys.Ipc.address(conf);
 
     final BlockingService service
         = RaftServerProtocolService.newReflectiveBlockingService(

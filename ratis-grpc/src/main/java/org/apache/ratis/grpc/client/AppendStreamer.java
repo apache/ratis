@@ -18,19 +18,15 @@
 package org.apache.ratis.grpc.client;
 
 import com.google.common.base.Preconditions;
-
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftRpcRequestProto;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.RaftGrpcConfigKeys;
-import org.apache.ratis.grpc.RaftGrpcUtil;
-import org.apache.ratis.protocol.NotLeaderException;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.RaftUtils;
@@ -41,14 +37,11 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.client.impl.ClientProtoUtils.*;
-import static org.apache.ratis.grpc.RaftGrpcConfigKeys.RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_DEFAULT;
-import static org.apache.ratis.grpc.RaftGrpcConfigKeys.RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_KEY;
 
 public class AppendStreamer implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(AppendStreamer.class);
@@ -59,16 +52,11 @@ public class AppendStreamer implements Closeable {
     private final Map<RaftPeerId, IOException> exceptionMap = new HashMap<>();
     private final AtomicInteger retryTimes = new AtomicInteger(0);
     private final int maxRetryTimes;
-    private final long retryInterval;
+    private final TimeDuration retryInterval;
 
     ExceptionAndRetry(RaftProperties prop) {
-      maxRetryTimes = prop.getInt(
-          RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_MAX_RETRY_TIMES_KEY,
-          RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_MAX_RETRY_TIMES_DEFAULT);
-      retryInterval = prop.getTimeDuration(
-          RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_RETRY_INTERVAL_KEY,
-          RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_RETRY_INTERVAL_DEFAULT,
-          TimeUnit.MILLISECONDS);
+      maxRetryTimes = GrpcConfigKeys.OutputStream.retryTimes(prop);
+      retryInterval = GrpcConfigKeys.OutputStream.retryInterval(prop);
     }
 
     void addException(RaftPeerId peer, IOException e) {
@@ -102,9 +90,7 @@ public class AppendStreamer implements Closeable {
   AppendStreamer(RaftProperties prop, Collection<RaftPeer> peers,
       RaftPeerId leaderId, ClientId clientId) {
     this.clientId = clientId;
-    maxPendingNum = prop.getInt(
-        RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_KEY,
-        RAFT_GRPC_CLIENT_MAX_OUTSTANDING_APPENDS_DEFAULT);
+    maxPendingNum = GrpcConfigKeys.OutputStream.outstandingAppendsMax(prop);
     dataQueue = new ConcurrentLinkedDeque<>();
     ackQueue = new ConcurrentLinkedDeque<>();
     exceptionAndRetry = new ExceptionAndRetry(prop);
@@ -359,7 +345,7 @@ public class AppendStreamer implements Closeable {
         dataQueue.poll());
     ackQueue.offer(request);
     try {
-      Thread.sleep(exceptionAndRetry.retryInterval);
+      exceptionAndRetry.retryInterval.sleep();
     } catch (InterruptedException ignored) {
     }
     leaderProxy.onNext(request);

@@ -17,7 +17,29 @@
  */
 package org.apache.ratis.client;
 
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.TimeDuration;
+
+import java.util.concurrent.TimeUnit;
+
+import static org.apache.ratis.conf.ConfUtils.*;
+
 public interface RaftClientConfigKeys {
-  String RAFT_RPC_TIMEOUT_MS_KEY = "raft.rpc.timeout.ms";
-  int RAFT_RPC_TIMEOUT_MS_DEFAULT = 300;
+  String PREFIX = "raft.client";
+
+  interface Rpc {
+    String PREFIX = RaftClientConfigKeys.PREFIX + ".rpc";
+
+    String TIMEOUT_KEY = PREFIX + ".timeout";
+    TimeDuration TIMEOUT_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
+
+    static TimeDuration timeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(TIMEOUT_DEFAULT.getUnit()),
+          TIMEOUT_KEY, TIMEOUT_DEFAULT);
+    }
+  }
+
+  static void main(String[] args) {
+    printAll(RaftClientConfigKeys.class);
+  }
 }

@@ -17,19 +17,17 @@
  */
 package org.apache.ratis.grpc.client;
 
-import static org.apache.ratis.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_SIZE_DEFAULT;
-import static org.apache.ratis.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.ProtoUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.util.ProtoUtils;
 
 public class RaftOutputStream extends OutputStream {
   /** internal buffer */
@@ -43,8 +41,7 @@ public class RaftOutputStream extends OutputStream {
 
   public RaftOutputStream(RaftProperties prop, ClientId clientId,
       Collection<RaftPeer> peers, RaftPeerId leaderId) {
-    final int bufferSize = prop.getInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY,
-        RAFT_OUTPUTSTREAM_BUFFER_SIZE_DEFAULT);
+    final int bufferSize = GrpcConfigKeys.OutputStream.bufferSize(prop).getSizeInt();
     buf = new byte[bufferSize];
     count = 0;
     this.clientId = clientId;

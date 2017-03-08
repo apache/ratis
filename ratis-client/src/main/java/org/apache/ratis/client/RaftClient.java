@@ -19,6 +19,7 @@ package org.apache.ratis.client;
 
 import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.protocol.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,7 +64,7 @@ public interface RaftClient extends Closeable {
     private Collection<RaftPeer> servers;
     private RaftPeerId leaderId;
     private RaftProperties properties;
-    private int retryInterval = RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_DEFAULT;
+    private TimeDuration retryInterval = RaftClientConfigKeys.Rpc.TIMEOUT_DEFAULT;
 
     private Builder() {}
 
@@ -73,9 +74,7 @@ public interface RaftClient extends Closeable {
         clientId = ClientId.createId();
       }
       if (properties != null) {
-        retryInterval = properties.getInt(
-            RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_KEY,
-            RaftClientConfigKeys.RAFT_RPC_TIMEOUT_MS_DEFAULT);
+        retryInterval = RaftClientConfigKeys.Rpc.timeout(properties);
       }
       return ClientImplUtils.newRaftClient(clientId,
           Objects.requireNonNull(servers, "The 'servers' field is not initialized."),

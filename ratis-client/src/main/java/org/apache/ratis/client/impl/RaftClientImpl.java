@@ -19,6 +19,7 @@ package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.RaftUtils;
 
@@ -40,13 +41,13 @@ final class RaftClientImpl implements RaftClient {
   private final ClientId clientId;
   private final RaftClientRpc clientRpc;
   private final Collection<RaftPeer> peers;
-  private final int retryInterval;
+  private final TimeDuration retryInterval;
 
   private volatile RaftPeerId leaderId;
 
   RaftClientImpl(ClientId clientId, Collection<RaftPeer> peers,
       RaftPeerId leaderId, RaftClientRpc clientRpc,
-      int retryInterval) {
+      TimeDuration retryInterval) {
     this.clientId = clientId;
     this.clientRpc = clientRpc;
     this.peers = peers;
@@ -99,7 +100,7 @@ final class RaftClientImpl implements RaftClient {
 
       // sleep and then retry
       try {
-        Thread.sleep(retryInterval);
+        retryInterval.sleep();
       } catch (InterruptedException ie) {
         Thread.currentThread().interrupt();
         throw RaftUtils.toInterruptedIOException(

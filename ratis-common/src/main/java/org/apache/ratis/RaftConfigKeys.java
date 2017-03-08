@@ -17,13 +17,12 @@
  */
 package org.apache.ratis;
 
-import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.util.RaftUtils;
 
-import java.util.function.BiConsumer;
+import static org.apache.ratis.conf.ConfUtils.*;
 
 public interface RaftConfigKeys {
   String PREFIX = "raft";
@@ -35,7 +34,7 @@ public interface RaftConfigKeys {
     String TYPE_DEFAULT = SupportedRpcType.GRPC.name();
 
     static RpcType type(RaftProperties properties) {
-      final String t = ConfUtils.get(properties::get, TYPE_KEY, TYPE_DEFAULT);
+      final String t = get(properties::get, TYPE_KEY, TYPE_DEFAULT);
 
       try { // Try parsing it as a SupportedRpcType
         return SupportedRpcType.valueOfIgnoreCase(t);
@@ -47,8 +46,12 @@ public interface RaftConfigKeys {
           RaftUtils.getClass(t, properties, RpcType.class));
     }
 
-    static void setType(BiConsumer<String, String> setRpcType, RpcType type) {
-      ConfUtils.set(setRpcType, TYPE_KEY, type.name());
+    static void setType(RaftProperties properties, RpcType type) {
+      set(properties::set, TYPE_KEY, type.name());
     }
+  }
+
+  static void main(String[] args) {
+    printAll(RaftConfigKeys.class);
   }
 }

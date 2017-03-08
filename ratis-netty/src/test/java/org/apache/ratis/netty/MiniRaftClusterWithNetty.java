@@ -37,7 +37,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
       = new Factory<MiniRaftClusterWithNetty>() {
     @Override
     public MiniRaftClusterWithNetty newCluster(String[] ids, RaftProperties prop) {
-      RaftConfigKeys.Rpc.setType(prop::set, SupportedRpcType.NETTY);
+      RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.NETTY);
       return new MiniRaftClusterWithNetty(ids, prop);
     }
   };
@@ -53,7 +53,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   protected RaftServerImpl newRaftServer(
       RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
       RaftProperties properties) throws IOException {
-    NettyConfigKeys.Server.setPort(properties::setInt, getPort(id, conf));
+    NettyConfigKeys.Server.setPort(properties, getPort(id, conf));
     return ServerImplUtils.newRaftServer(id, stateMachine, conf, properties, null);
   }
 

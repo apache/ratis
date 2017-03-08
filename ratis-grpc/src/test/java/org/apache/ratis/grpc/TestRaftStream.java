@@ -18,11 +18,12 @@
 package org.apache.ratis.grpc;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.grpc.client.AppendStreamer;
 import org.apache.ratis.grpc.client.RaftOutputStream;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
@@ -42,7 +43,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
-import static org.apache.ratis.grpc.RaftGrpcConfigKeys.RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY;
 import static org.junit.Assert.fail;
 
 public class TestRaftStream {
@@ -81,7 +81,7 @@ public class TestRaftStream {
     LOG.info("Running testSimpleWrite");
 
     // default 64K is too large for a test
-    prop.setInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY, 4);
+    GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(4));
     cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
 
     cluster.start();
@@ -122,7 +122,7 @@ public class TestRaftStream {
   public void testWriteAndFlush() throws Exception {
     LOG.info("Running testWriteAndFlush");
 
-    prop.setInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY, ByteValue.BUFFERSIZE);
+    GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(ByteValue.BUFFERSIZE));
     cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
     cluster.start();
 
@@ -200,7 +200,7 @@ public class TestRaftStream {
   @Test
   public void testWriteWithOffset() throws Exception {
     LOG.info("Running testWriteWithOffset");
-    prop.setInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY, ByteValue.BUFFERSIZE);
+    GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(ByteValue.BUFFERSIZE));
 
     cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
     cluster.start();
@@ -259,7 +259,7 @@ public class TestRaftStream {
   public void testKillLeader() throws Exception {
     LOG.info("Running testChangeLeader");
 
-    prop.setInt(RAFT_OUTPUTSTREAM_BUFFER_SIZE_KEY, 4);
+    GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(4));
     cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
     cluster.start();
     final RaftServerImpl leader = waitForLeader(cluster);

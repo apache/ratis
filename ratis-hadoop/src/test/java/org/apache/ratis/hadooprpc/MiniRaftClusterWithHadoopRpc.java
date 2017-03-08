@@ -52,8 +52,8 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
 
     public MiniRaftClusterWithHadoopRpc newCluster(
         String[] ids, RaftProperties prop, Configuration conf) {
-      RaftConfigKeys.Rpc.setType(prop::set, SupportedRpcType.HADOOP);
-      HadoopConfigKeys.Ipc.setAddress(conf::set, "0.0.0.0:0");
+      RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.HADOOP);
+      HadoopConfigKeys.Ipc.setAddress(conf, "0.0.0.0:0");
       return new MiniRaftClusterWithHadoopRpc(ids, prop, conf);
     }
   }
@@ -77,7 +77,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
       RaftProperties properties) throws IOException {
     final Configuration hconf = new Configuration(hadoopConf);
     final String address = "0.0.0.0:" + getPort(id, conf);
-    HadoopConfigKeys.Ipc.setAddress(hconf::set, address);
+    HadoopConfigKeys.Ipc.setAddress(hconf, address);
 
     return ServerImplUtils.newRaftServer(id, stateMachine, conf, properties,
         HadoopFactory.newRaftParameters(hconf));

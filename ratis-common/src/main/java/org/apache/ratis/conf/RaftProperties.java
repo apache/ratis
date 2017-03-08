@@ -20,7 +20,9 @@ package org.apache.ratis.conf;
 
 import com.google.common.base.Preconditions;
 
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.*;
@@ -44,6 +46,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -639,6 +642,12 @@ public class RaftProperties {
     return Long.parseLong(valueString);
   }
 
+  /** @return property value; if it is not set, return the default value. */
+  public SizeInBytes getSizeInBytes(String name, SizeInBytes defaultValue) {
+    final String valueString = getTrimmed(name);
+    return valueString == null? defaultValue: SizeInBytes.valueOf(valueString);
+  }
+
   private String getHexDigits(String value) {
     boolean negative = false;
     String str = value;
@@ -784,65 +793,14 @@ public class RaftProperties {
       : Enum.valueOf(defaultValue.getDeclaringClass(), val);
   }
 
-  enum ParsedTimeDuration {
-    NS {
-      TimeUnit unit() { return TimeUnit.NANOSECONDS; }
-      String suffix() { return "ns"; }
-    },
-    US {
-      TimeUnit unit() { return TimeUnit.MICROSECONDS; }
-      String suffix() { return "us"; }
-    },
-    MS {
-      TimeUnit unit() { return TimeUnit.MILLISECONDS; }
-      String suffix() { return "ms"; }
-    },
-    S {
-      TimeUnit unit() { return TimeUnit.SECONDS; }
-      String suffix() { return "s"; }
-    },
-    M {
-      TimeUnit unit() { return TimeUnit.MINUTES; }
-      String suffix() { return "m"; }
-    },
-    H {
-      TimeUnit unit() { return TimeUnit.HOURS; }
-      String suffix() { return "h"; }
-    },
-    D {
-      TimeUnit unit() { return TimeUnit.DAYS; }
-      String suffix() { return "d"; }
-    };
-    abstract TimeUnit unit();
-    abstract String suffix();
-    static ParsedTimeDuration unitFor(String s) {
-      for (ParsedTimeDuration ptd : values()) {
-        // iteration order is in decl order, so SECONDS matched last
-        if (s.endsWith(ptd.suffix())) {
-          return ptd;
-        }
-      }
-      return null;
-    }
-    static ParsedTimeDuration unitFor(TimeUnit unit) {
-      for (ParsedTimeDuration ptd : values()) {
-        if (ptd.unit() == unit) {
-          return ptd;
-        }
-      }
-      return null;
-    }
-  }
-
   /**
    * Set the value of <code>name</code> to the given time duration. This
    * is equivalent to <code>set(&lt;name&gt;, value + &lt;time suffix&gt;)</code>.
    * @param name Property name
    * @param value Time duration
-   * @param unit Unit of time
    */
-  public void setTimeDuration(String name, long value, TimeUnit unit) {
-    set(name, value + ParsedTimeDuration.unitFor(unit).suffix());
+  public void setTimeDuration(String name, TimeDuration value) {
+    set(name, value.toString());
   }
 
   /**
@@ -851,37 +809,24 @@ public class RaftProperties {
    * (ms), seconds (s), minutes (m), hours (h), and days (d).
    * @param name Property name
    * @param defaultValue Value returned if no mapping exists.
-   * @param unit Unit to convert the stored property, if it exists.
    * @throws NumberFormatException If the property stripped of its unit is not
    *         a number
    */
-  public long getTimeDuration(String name, long defaultValue, TimeUnit unit) {
-    String vStr = get(name);
-    if (null == vStr) {
+  public TimeDuration getTimeDuration(
+      String name, TimeDuration defaultValue, TimeUnit defaultUnit) {
+    final String value = getTrimmed(name);
+    if (null == value) {
       return defaultValue;
     }
-    vStr = vStr.trim();
-    return getTimeDurationHelper(name, vStr, unit);
-  }
-
-  private long getTimeDurationHelper(String name, String vStr, TimeUnit unit) {
-    ParsedTimeDuration vUnit = ParsedTimeDuration.unitFor(vStr);
-    if (null == vUnit) {
-      LOG.warn("No unit for " + name + "(" + vStr + ") assuming " + unit);
-      vUnit = ParsedTimeDuration.unitFor(unit);
-    } else {
-      vStr = vStr.substring(0, vStr.lastIndexOf(vUnit.suffix()));
+    try {
+      return TimeDuration.valueOf(value, defaultUnit);
+    } catch(NumberFormatException e) {
+      throw new IllegalArgumentException("Failed to parse "
+          + name + " = " + value, e);
     }
-    return unit.convert(Long.parseLong(vStr), vUnit.unit());
   }
-
-  public long[] getTimeDurations(String name, TimeUnit unit) {
-    String[] strings = getTrimmedStrings(name);
-    long[] durations = new long[strings.length];
-    for (int i = 0; i < strings.length; i++) {
-      durations[i] = getTimeDurationHelper(name, strings[i], unit);
-    }
-    return durations;
+  public BiFunction<String, TimeDuration, TimeDuration> getTimeDuration(TimeUnit defaultUnit) {
+    return (key, defaultValue) -> getTimeDuration(key, defaultValue, defaultUnit);
   }
 
   /**

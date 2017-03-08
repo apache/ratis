@@ -26,7 +26,7 @@ import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.grpc.RaftGRpcService;
-import org.apache.ratis.grpc.RaftGrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.server.impl.FollowerInfo;
 import org.apache.ratis.server.impl.LeaderState;
 import org.apache.ratis.server.impl.LogAppender;
@@ -63,9 +63,7 @@ public class GRpcLogAppender extends LogAppender {
 
     RaftGRpcService rpcService = (RaftGRpcService) server.getServerRpc();
     client = rpcService.getRpcClient(f.getPeer());
-    maxPendingRequestsNum = server.getProperties().getInt(
-        RaftGrpcConfigKeys.RAFT_GRPC_LEADER_MAX_OUTSTANDING_APPENDS_KEY,
-        RaftGrpcConfigKeys.RAFT_GRPC_LEADER_MAX_OUTSTANDING_APPENDS_DEFAULT);
+    maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(server.getProperties());
     pendingRequests = new ConcurrentLinkedQueue<>();
 
     appendResponseHandler = new AppendLogResponseHandler();

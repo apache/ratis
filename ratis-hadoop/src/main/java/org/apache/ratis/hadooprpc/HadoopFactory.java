@@ -36,7 +36,7 @@ public class HadoopFactory extends ServerFactory.BaseFactory implements ClientFa
   private final Configuration conf;
 
   public HadoopFactory(Parameters parameters) {
-    this(HadoopConfigKeys.getConf(parameters::get));
+    this(HadoopConfigKeys.getConf(parameters));
   }
 
   public HadoopFactory(Configuration conf) {

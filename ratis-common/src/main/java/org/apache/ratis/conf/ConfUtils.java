@@ -17,7 +17,10 @@
  */
 package org.apache.ratis.conf;
 
+import org.apache.ratis.util.CheckedBiConsumer;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,6 +79,26 @@ public interface ConfUtils {
     };
   }
 
+  static BiConsumer<String, TimeDuration> requireNonNegativeTimeDuration() {
+    return (key, value) -> {
+      if (value.isNegative()) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " is negative.");
+      }
+    };
+  }
+
+  static BiFunction<String, Long, Integer> requireInt() {
+    return (key, value) -> {
+      try {
+        return Math.toIntExact(value);
+      } catch (ArithmeticException ae) {
+        throw new IllegalArgumentException(
+            "Failed to cast " + key + " = " + value + " to int.", ae);
+      }
+    };
+  }
+
   static boolean getBoolean(
       BiFunction<String, Boolean, Boolean> booleanGetter,
       String key, boolean defaultValue, BiConsumer<String, Boolean>... assertions) {
@@ -92,6 +115,22 @@ public interface ConfUtils {
       BiFunction<String, Long, Long> longGetter,
       String key, long defaultValue, BiConsumer<String, Long>... assertions) {
     return get(longGetter, key, defaultValue, assertions);
+  }
+
+  static SizeInBytes getSizeInBytes(
+      BiFunction<String, SizeInBytes, SizeInBytes> getter,
+      String key, SizeInBytes defaultValue, BiConsumer<String, SizeInBytes>... assertions) {
+    final SizeInBytes value = get(getter, key, defaultValue, assertions);
+    requireMin(0L).accept(key, value.getSize());
+    return value;
+  }
+
+  static TimeDuration getTimeDuration(
+      BiFunction<String, TimeDuration, TimeDuration> getter,
+      String key, TimeDuration defaultValue, BiConsumer<String, TimeDuration>... assertions) {
+    final TimeDuration value = get(getter, key, defaultValue, assertions);
+    requireNonNegativeTimeDuration().accept(key, value);
+    return value;
   }
 
   static <T> T get(BiFunction<String, T, T> getter,
@@ -126,6 +165,22 @@ public interface ConfUtils {
     set(longSetter, key, value, assertions);
   }
 
+  static void setSizeInBytes(
+      BiConsumer<String, String> stringSetter, String key, SizeInBytes value,
+      BiConsumer<String, Long>... assertions) {
+    final long v = value.getSize();
+    Arrays.asList(assertions).forEach(a -> a.accept(key, v));
+    set(stringSetter, key, value.getInput());
+  }
+
+  static void setSizeInBytesInt(
+      BiConsumer<String, String> stringSetter, String key, SizeInBytes value,
+      BiConsumer<String, Integer>... assertions) {
+    final int v = value.getSizeInt();
+    Arrays.asList(assertions).forEach(a -> a.accept(key, v));
+    set(stringSetter, key, value.getInput());
+  }
+
   static <T> void set(
       BiConsumer<String, T> setter, String key, T value,
       BiConsumer<String, T>... assertions) {
@@ -152,42 +207,57 @@ public interface ConfUtils {
       out.accept("WARNING: Found non-static field " + f);
       return;
     }
-    final String fieldName = f.getName();
-    if (!fieldName.endsWith("_KEY")) {
-      if (!fieldName.endsWith("_DEFAULT")) {
-        try {
-          out.accept("constant: " + fieldName + " = " + f.get(null));
-        } catch (IllegalAccessException e) {
-          out.accept(fieldName + " is not public");
-        }
-      }
+    if (printKey(confClass, out, f, "KEY", "DEFAULT",
+        (b, defaultField) ->
+            b.append(defaultField.getType().getSimpleName()).append(", ")
+                .append("default=" + defaultField.get(null)))) {
       return;
     }
+    if (printKey(confClass, out, f, "PARAMETER", "CLASS",
+        (b, classField) -> b.append(classField.get(null)))) {
+      return;
+    }
+    final String fieldName = f.getName();
+    try {
+      out.accept("constant: " + fieldName + " = " + f.get(null));
+    } catch (IllegalAccessException e) {
+      out.accept("WARNING: Failed to access " + f);
+    }
+  }
 
+  static boolean printKey(
+      Class<?> confClass, Consumer<Object> out, Field f, String KEY, String DEFAULT,
+      CheckedBiConsumer<StringBuilder, Field, IllegalAccessException> processDefault) {
+    final String fieldName = f.getName();
+    if (fieldName.endsWith("_" + DEFAULT)) {
+      return true;
+    }
+    if (!fieldName.endsWith("_" + KEY)) {
+      return false;
+    }
     final StringBuilder b = new StringBuilder();
     try {
       final Object keyName = f.get(null);
-      b.append("key: ").append(keyName);
+      b.append(KEY.toLowerCase()).append(": ").append(keyName);
     } catch (IllegalAccessException e) {
-      out.accept("WARNING: Failed to access key " + f);
+      out.accept("WARNING: Failed to access " + fieldName);
       b.append(fieldName + " is not public");
     }
-    final String defaultFieldName = fieldName.substring(0, fieldName.length() - 4) + "_DEFAULT";
+    final int len = fieldName.length() - KEY.length();
+    final String defaultFieldName = fieldName.substring(0, len) + DEFAULT;
     b.append(" (");
     try {
       final Field defaultField = confClass.getDeclaredField(defaultFieldName);
-      b.append(defaultField.getType().getSimpleName()).append(", ");
-
-      final Object defaultValue = defaultField.get(null);
-      b.append("default=").append(defaultValue);
+      processDefault.accept(b, defaultField);
     } catch (NoSuchFieldException e) {
-      out.accept("WARNING: Default value not found for field " + f);
-      b.append("default not found");
+      out.accept("WARNING: " + DEFAULT + " not found for field " + f);
+      b.append(DEFAULT).append(" not found");
     } catch (IllegalAccessException e) {
-      out.accept("WARNING: Failed to access default value " + f);
+      out.accept("WARNING: Failed to access " + defaultFieldName);
       b.append(defaultFieldName).append(" is not public");
     }
     b.append(")");
     out.accept(b);
+    return true;
   }
 }

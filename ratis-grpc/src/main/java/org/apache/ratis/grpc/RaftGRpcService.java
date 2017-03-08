@@ -41,8 +41,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.ratis.grpc.RaftGrpcConfigKeys.*;
-
 /** A grpc implementation of {@link RaftServerRpc}. */
 public class RaftGRpcService implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(RaftGRpcService.class);
@@ -75,10 +73,8 @@ public class RaftGRpcService implements RaftServerRpc {
 
   private RaftGRpcService(RaftServer server) {
     this(server,
-        server.getProperties().getInt(RAFT_GRPC_SERVER_PORT_KEY,
-            RAFT_GRPC_SERVER_PORT_DEFAULT),
-        server.getProperties().getInt(RAFT_GRPC_MESSAGE_MAXSIZE_KEY,
-            RAFT_GRPC_MESSAGE_MAXSIZE_DEFAULT));
+        GrpcConfigKeys.Server.port(server.getProperties()),
+        GrpcConfigKeys.Server.messageSizeMax(server.getProperties()).getSizeInt());
   }
   private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize) {
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);

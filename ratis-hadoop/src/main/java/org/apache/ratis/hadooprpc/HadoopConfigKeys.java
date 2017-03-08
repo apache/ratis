@@ -18,28 +18,25 @@
 package org.apache.ratis.hadooprpc;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.Parameters;
 
 import java.net.InetSocketAddress;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 
-import static org.apache.ratis.conf.ConfUtils.requireMin;
+import static org.apache.ratis.conf.ConfUtils.*;
 
 /** Hadoop Rpc specific configuration properties. */
 public interface HadoopConfigKeys {
-  String PREFIX = "raft.hadooprpc";
+  String PREFIX = "raft.hadoop";
 
-  String CONF_KEY = PREFIX + ".conf";
+  String CONF_PARAMETER = PREFIX + ".conf";
+  Class<Configuration> CONF_CLASS = Configuration.class;
 
-  static Configuration getConf(
-      BiFunction<String, Class<Configuration>, Configuration> getConf) {
-    return getConf.apply(CONF_KEY, Configuration.class);
+  static Configuration getConf(Parameters parameters) {
+    return parameters.get(CONF_PARAMETER, CONF_CLASS);
   }
 
   static void setConf(Parameters parameters, Configuration conf) {
-    parameters.put(CONF_KEY, conf, Configuration.class);
+    parameters.put(CONF_PARAMETER, conf, Configuration.class);
   }
 
   /** IPC server configurations */
@@ -47,24 +44,28 @@ public interface HadoopConfigKeys {
     String PREFIX = HadoopConfigKeys.PREFIX + ".ipc";
 
     String ADDRESS_KEY = PREFIX + ".address";
-    int DEFAULT_PORT = 10718;
-    String ADDRESS_DEFAULT = "0.0.0.0:" + DEFAULT_PORT;
+    int PORT_DEFAULT = 10718;
+    String ADDRESS_DEFAULT = "0.0.0.0:" + PORT_DEFAULT;
 
     String HANDLERS_KEY = PREFIX + ".handlers";
     int HANDLERS_DEFAULT = 10;
 
-    static int handlers(BiFunction<String, Integer, Integer> getInt) {
-      return ConfUtils.getInt(getInt,
+    static int handlers(Configuration conf) {
+      return getInt(conf::getInt,
           HANDLERS_KEY, HANDLERS_DEFAULT, requireMin(1));
     }
 
-    static InetSocketAddress address(BiFunction<String, String, String> getTrimmed) {
-      return ConfUtils.getInetSocketAddress(getTrimmed,
+    static InetSocketAddress address(Configuration conf) {
+      return getInetSocketAddress(conf::getTrimmed,
           ADDRESS_KEY, ADDRESS_DEFAULT);
     }
 
-    static void setAddress(BiConsumer<String, String> setString, String address) {
-      ConfUtils.set(setString, ADDRESS_KEY, address);
+    static void setAddress(Configuration conf, String address) {
+      set(conf::set, ADDRESS_KEY, address);
     }
+  }
+
+  static void main(String[] args) {
+    printAll(HadoopConfigKeys.class);
   }
 }

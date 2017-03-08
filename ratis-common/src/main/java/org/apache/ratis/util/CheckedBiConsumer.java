@@ -15,22 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.impl;
+package org.apache.ratis.util;
 
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
+import java.util.function.BiConsumer;
 
-import java.util.Collection;
-
-/** Client utilities for internal use. */
-public class ClientImplUtils {
-  public static RaftClient newRaftClient(
-      ClientId clientId, Collection<RaftPeer> peers, RaftPeerId leaderId,
-      RaftClientRpc clientRpc, TimeDuration retryInterval) {
-    return new RaftClientImpl(clientId, peers, leaderId, clientRpc, retryInterval);
-  }
+/** {@link BiConsumer} with a throws-clause. */
+@FunctionalInterface
+public interface CheckedBiConsumer<LEFT, RIGHT, THROWABLE extends Throwable> {
+  /**
+   * The same as {@link BiConsumer#accept(Object, Object)}
+   * except that this method is declared with a throws-clause.
+   */
+  void accept(LEFT left, RIGHT right) throws THROWABLE;
 }

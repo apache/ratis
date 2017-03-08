@@ -34,7 +34,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
     @Override
     public MiniRaftClusterWithGRpc newCluster(
         String[] ids, RaftProperties prop) {
-      RaftConfigKeys.Rpc.setType(prop::set, SupportedRpcType.GRPC);
+      RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.GRPC);
       return new MiniRaftClusterWithGRpc(ids, prop);
     }
   };
@@ -50,7 +50,7 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   protected RaftServerImpl newRaftServer(
       RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
       RaftProperties properties) throws IOException {
-    properties.setInt(RaftGrpcConfigKeys.RAFT_GRPC_SERVER_PORT_KEY, getPort(id, conf));
+    GrpcConfigKeys.Server.setPort(properties, getPort(id, conf));
     return ServerImplUtils.newRaftServer(id, stateMachine, conf, properties, null);
   }
 
