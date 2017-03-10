@@ -76,7 +76,7 @@ class RaftLogWorker implements Runnable {
     this.raftServer = raftServer;
     this.storage = storage;
     this.properties = properties;
-    this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties::getInt);
+    this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
     workerThread = new Thread(this,
         getClass().getSimpleName() + " for " + storage);
   }

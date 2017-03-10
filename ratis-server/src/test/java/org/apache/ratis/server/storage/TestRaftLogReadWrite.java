@@ -20,6 +20,7 @@ package org.apache.ratis.server.storage;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.protocol.ChecksumException;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -44,8 +45,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.MB;
-
 /**
  * Test basic functionality of LogReader, LogInputStream, and LogOutputStream.
  */
@@ -62,7 +61,7 @@ public class TestRaftLogReadWrite {
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftLogReadWrite.class);
     properties = new RaftProperties();
-    RaftServerConfigKeys.setStorageDir(properties::set,
+    RaftServerConfigKeys.setStorageDir(properties,
         FileUtils.fileAsURI(storageDir).toString());
   }
 
@@ -172,7 +171,8 @@ public class TestRaftLogReadWrite {
     out.flush();
 
     // make sure the file contains padding
-    Assert.assertEquals(RaftServerConfigKeys.Log.PREALLOCATED_SIZE_DEFAULT,
+    Assert.assertEquals(
+        RaftServerConfigKeys.Log.PREALLOCATED_SIZE_DEFAULT.getSize(),
         openSegment.length());
 
     // check if the reader can correctly read the log file
@@ -190,8 +190,8 @@ public class TestRaftLogReadWrite {
    */
   @Test
   public void testReadWithCorruptPadding() throws IOException {
-    RaftServerConfigKeys.Log.setPreallocatedSize(properties::setInt, 4*MB);
-    RaftServerConfigKeys.Log.setSegmentSizeMax(properties::setLong, 16*MB);
+    RaftServerConfigKeys.Log.setPreallocatedSize(properties, SizeInBytes.valueOf("4MB"));
+    RaftServerConfigKeys.Log.setSegmentSizeMax(properties, SizeInBytes.valueOf("16MB"));
 
     RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);

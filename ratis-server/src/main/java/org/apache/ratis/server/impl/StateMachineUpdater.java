@@ -80,8 +80,8 @@ class StateMachineUpdater implements Runnable {
     this.lastAppliedIndex = lastAppliedIndex;
     lastSnapshotIndex = lastAppliedIndex;
 
-    autoSnapshotEnabled = RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties::getBoolean);
-    autoSnapshotThreshold = RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties::getLong);
+    autoSnapshotEnabled = RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties);
+    autoSnapshotThreshold = RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties);
     updater = new Daemon(this);
   }
 

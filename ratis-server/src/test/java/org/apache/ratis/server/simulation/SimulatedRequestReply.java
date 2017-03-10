@@ -29,10 +29,7 @@ import org.apache.ratis.util.Timestamp;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -41,7 +38,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   public static final String SIMULATE_LATENCY_KEY
       = SimulatedRequestReply.class.getName() + ".simulateLatencyMs";
   public static final int SIMULATE_LATENCY_DEFAULT
-      = RaftServerConfigKeys.Rpc.TIMEOUT_MIN_MS_DEFAULT;
+      = RaftServerConfigKeys.Rpc.TIMEOUT_MIN_DEFAULT.toInt(TimeUnit.MILLISECONDS);
   public static final long TIMEOUT = 3000L;
 
   private static class ReplyOrException<REPLY> {

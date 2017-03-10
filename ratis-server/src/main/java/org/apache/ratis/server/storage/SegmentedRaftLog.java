@@ -104,7 +104,7 @@ public class SegmentedRaftLog extends RaftLog {
       throws IOException {
     super(selfId);
     this.storage = storage;
-    this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties::getLong);
+    this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     cache = new RaftLogCache();
     fileLogWorker = new RaftLogWorker(server, storage, properties);
     lastCommitted.set(lastIndexInSnapshot);

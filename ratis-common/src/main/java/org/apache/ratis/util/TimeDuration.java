@@ -111,6 +111,10 @@ public class TimeDuration implements Comparable<TimeDuration> {
     return targetUnit.convert(duration, unit);
   }
 
+  public int toInt(TimeUnit targetUnit) {
+    return Math.toIntExact(toLong(targetUnit));
+  }
+
   public boolean isNegative() {
     return duration < 0;
   }

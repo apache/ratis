@@ -17,20 +17,10 @@
  */
 package org.apache.ratis.server.storage;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.KB;
-import static org.apache.ratis.server.RaftServerConfigKeys.MB;
-import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
-import static org.apache.ratis.server.storage.LogSegment.getEntrySize;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
@@ -38,10 +28,20 @@ import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.TraditionalBinaryPrefix;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
+import static org.apache.ratis.server.storage.LogSegment.getEntrySize;
 
 /**
  * Test basic functionality of {@link LogSegment}
@@ -56,8 +56,7 @@ public class TestRaftLogSegment {
   @Before
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftLogSegment.class);
-    RaftServerConfigKeys.setStorageDir(properties::set,
-        storageDir.getCanonicalPath());
+    RaftServerConfigKeys.setStorageDir(properties, storageDir.getCanonicalPath());
   }
 
   @After
@@ -213,8 +212,8 @@ public class TestRaftLogSegment {
 
   private RaftProperties getProperties(long maxSegmentSize, int preallocatedSize) {
     RaftProperties p = new RaftProperties();
-    RaftServerConfigKeys.Log.setSegmentSizeMax(p::setLong, maxSegmentSize);
-    RaftServerConfigKeys.Log.setPreallocatedSize(p::setInt, preallocatedSize);
+    RaftServerConfigKeys.Log.setSegmentSizeMax(p, SizeInBytes.valueOf(maxSegmentSize));
+    RaftServerConfigKeys.Log.setPreallocatedSize(p, SizeInBytes.valueOf(preallocatedSize));
     return p;
   }
 
@@ -271,10 +270,10 @@ public class TestRaftLogSegment {
    */
   @Test
   public void testPreallocationAndAppend() throws Exception {
-    final long max = 2*MB;
-    RaftServerConfigKeys.Log.setSegmentSizeMax(properties::setLong, max);
-    RaftServerConfigKeys.Log.setPreallocatedSize(properties::setInt, 16*KB);
-    RaftServerConfigKeys.Log.setWriteBufferSize(properties::setInt, 10*KB);
+    final SizeInBytes max = SizeInBytes.valueOf(2, TraditionalBinaryPrefix.MEGA);
+    RaftServerConfigKeys.Log.setSegmentSizeMax(properties, max);
+    RaftServerConfigKeys.Log.setPreallocatedSize(properties, SizeInBytes.valueOf("16KB"));
+    RaftServerConfigKeys.Log.setWriteBufferSize(properties, SizeInBytes.valueOf("10KB"));
     RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
     final File file = storage.getStorageDir().getOpenLogFile(0);
 
@@ -289,7 +288,7 @@ public class TestRaftLogSegment {
     long preallocated = 16 * 1024;
     try (LogOutputStream out = new LogOutputStream(file, false, properties)) {
       Assert.assertEquals(preallocated, file.length());
-      while (totalSize + entrySize < max) {
+      while (totalSize + entrySize < max.getSize()) {
         totalSize += entrySize;
         out.write(entry);
         if (totalSize > preallocated) {

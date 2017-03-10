@@ -92,8 +92,8 @@ public abstract class RaftSnapshotBaseTest {
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
     RaftServerConfigKeys.Snapshot.setAutoTriggerThreshold(
-        prop::setLong, SNAPSHOT_TRIGGER_THRESHOLD);
-    RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(prop::setBoolean, true);
+        prop, SNAPSHOT_TRIGGER_THRESHOLD);
+    RaftServerConfigKeys.Snapshot.setAutoTriggerEnabled(prop, true);
     this.cluster = getFactory().newCluster(1, prop);
     cluster.start();
   }

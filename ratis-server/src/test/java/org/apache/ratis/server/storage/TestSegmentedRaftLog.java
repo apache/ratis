@@ -22,6 +22,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -44,8 +45,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
-
-import static org.apache.ratis.server.RaftServerConfigKeys.KB;
 
 public class TestSegmentedRaftLog {
   static {
@@ -80,8 +79,7 @@ public class TestSegmentedRaftLog {
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestSegmentedRaftLog.class);
     properties = new RaftProperties();
-    RaftServerConfigKeys.setStorageDir(properties::set,
-        storageDir.getCanonicalPath());
+    RaftServerConfigKeys.setStorageDir(properties, storageDir.getCanonicalPath());
     storage = new RaftStorage(properties, RaftServerConstants.StartupOption.REGULAR);
   }
 
@@ -190,8 +188,8 @@ public class TestSegmentedRaftLog {
    */
   @Test
   public void testAppendAndRoll() throws Exception {
-    RaftServerConfigKeys.Log.setPreallocatedSize(properties::setInt, 16*KB);
-    RaftServerConfigKeys.Log.setSegmentSizeMax(properties::setLong, 128*KB);
+    RaftServerConfigKeys.Log.setPreallocatedSize(properties, SizeInBytes.valueOf("16KB"));
+    RaftServerConfigKeys.Log.setSegmentSizeMax(properties, SizeInBytes.valueOf("128KB"));
 
     List<SegmentRange> ranges = prepareRanges(1, 1024, 0);
     final byte[] content = new byte[1024];

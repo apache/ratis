@@ -60,7 +60,7 @@ public class TestStateMachine {
   {
     // TODO: fix and run with in-memory log. It fails with NPE
     // TODO: if change setUseMemory to true
-    RaftServerConfigKeys.Log.setUseMemory(properties::setBoolean, false);
+    RaftServerConfigKeys.Log.setUseMemory(properties, false);
   }
 
   private MiniRaftClusterWithSimulatedRpc cluster;

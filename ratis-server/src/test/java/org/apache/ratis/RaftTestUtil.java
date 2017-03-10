@@ -17,20 +17,9 @@
  */
 package org.apache.ratis;
 
-import static org.apache.ratis.util.ProtoUtils.toByteString;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.function.BooleanSupplier;
-import java.util.function.IntSupplier;
-
+import com.google.common.base.Preconditions;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
@@ -44,7 +33,16 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
+import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.function.BooleanSupplier;
+import java.util.function.IntSupplier;
+
+import static org.apache.ratis.util.ProtoUtils.toByteString;
 
 public class RaftTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
@@ -230,7 +228,7 @@ public class RaftTestUtil {
 
   public static void block(BooleanSupplier isBlocked) throws InterruptedException {
     for(; isBlocked.getAsBoolean(); ) {
-      Thread.sleep(RaftServerConfigKeys.Rpc.TIMEOUT_MAX_MS_DEFAULT);
+      RaftServerConfigKeys.Rpc.TIMEOUT_MAX_DEFAULT.sleep();
     }
   }
 

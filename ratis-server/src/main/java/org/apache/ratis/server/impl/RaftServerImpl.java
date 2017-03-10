@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
 import static org.apache.ratis.util.LifeCycle.State.*;
@@ -92,8 +93,8 @@ public class RaftServerImpl implements RaftServer {
       RaftConfiguration raftConf, RaftProperties properties, Parameters parameters)
       throws IOException {
     this.lifeCycle = new LifeCycle(id);
-    minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMinMs(properties::getInt);
-    maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMaxMs(properties::getInt);
+    minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toInt(TimeUnit.MILLISECONDS);
+    maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
     Preconditions.checkArgument(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.properties = properties;

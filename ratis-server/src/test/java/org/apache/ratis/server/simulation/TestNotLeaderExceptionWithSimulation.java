@@ -19,9 +19,6 @@ package org.apache.ratis.server.simulation;
 
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftNotLeaderExceptionBaseTest;
-import org.apache.ratis.conf.RaftProperties;
-
-import java.io.IOException;
 
 public class TestNotLeaderExceptionWithSimulation extends RaftNotLeaderExceptionBaseTest {
   @Override

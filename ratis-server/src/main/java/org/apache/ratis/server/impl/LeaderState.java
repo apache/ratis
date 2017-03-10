@@ -25,10 +25,7 @@ import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.LeaderNoOp;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.CodeInjectionForTesting;
-import org.apache.ratis.util.Daemon;
-import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.Timestamp;
+import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -93,14 +90,14 @@ public class LeaderState {
   private volatile boolean running = true;
 
   private final int stagingCatchupGap;
-  private final int syncInterval;
+  private final TimeDuration syncInterval;
   private final long placeHolderIndex;
 
   LeaderState(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
 
-    stagingCatchupGap = RaftServerConfigKeys.stagingCatchupGap(properties::getInt);
-    syncInterval = RaftServerConfigKeys.Rpc.sleepTimeMs(properties::getInt);
+    stagingCatchupGap = RaftServerConfigKeys.stagingCatchupGap(properties);
+    syncInterval = RaftServerConfigKeys.Rpc.sleepTime(properties);
 
     final ServerState state = server.getState();
     this.raftLog = state.getLog();
@@ -177,7 +174,7 @@ public class LeaderState {
     return currentTerm;
   }
 
-  int getSyncInterval() {
+  TimeDuration getSyncInterval() {
     return syncInterval;
   }
 

@@ -21,6 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.examples.RaftExamplesTestUtil;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -48,8 +49,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.ratis.server.RaftServerConfigKeys.KB;
-
 /**
  * Enable raft.server.log.appender.batch.enabled and test LogAppender
  */
@@ -67,11 +66,11 @@ public class TestBatchAppend {
     RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
-    RaftServerConfigKeys.Log.setSegmentSizeMax(prop::setLong, 8*KB);
+    RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("8KB"));
     // enable batch appending
-    RaftServerConfigKeys.Log.Appender.setBatchEnabled(prop::setBoolean, true);
+    RaftServerConfigKeys.Log.Appender.setBatchEnabled(prop, true);
     // set batch appending buffer size to 4KB
-    RaftServerConfigKeys.Log.Appender.setBufferCapacity(prop::setInt, 4*KB);
+    RaftServerConfigKeys.Log.Appender.setBufferCapacity(prop, SizeInBytes.valueOf("4KB"));
 
     return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3);
   }

@@ -68,9 +68,10 @@ public class LogAppender extends Daemon {
     this.raftLog = server.getState().getLog();
 
     final RaftProperties properties = server.getProperties();
-    this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferCapacity(properties::getInt);
-    this.batchSending = RaftServerConfigKeys.Log.Appender.batchEnabled(properties::getBoolean);
-    this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties::getInt);
+    this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferCapacity(properties).getSizeInt();
+    this.batchSending = RaftServerConfigKeys.Log.Appender.batchEnabled(properties);
+    this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties).getSizeInt();
+
     this.buffer = new LogEntryBuffer();
     this.leaderTerm = server.getState().getCurrentTerm();
   }
@@ -209,7 +210,7 @@ public class LogAppender extends Daemon {
         LOG.debug(this + ": failed to send appendEntries; retry " + retry++, ioe);
       }
       if (isAppenderRunning()) {
-        Thread.sleep(leaderState.getSyncInterval());
+        leaderState.getSyncInterval().sleep();
       }
     }
     return null;

@@ -61,14 +61,14 @@ public class LogOutputStream implements Closeable {
       throws IOException {
     this.file = file;
     this.checksum = new PureJavaCrc32C();
-    this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties::getLong);
-    this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties::getInt);
+    this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
+    this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
     RandomAccessFile rp = new RandomAccessFile(file, "rw");
     fc = rp.getChannel();
     fc.position(fc.size());
     preallocatedPos = fc.size();
 
-    final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties::getInt);
+    final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     out = new BufferedWriteChannel(fc, bufferSize);
 
     if (!append) {

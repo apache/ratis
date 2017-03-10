@@ -44,7 +44,7 @@ public class RaftStorage implements Closeable {
 
   public RaftStorage(RaftProperties prop, RaftServerConstants.StartupOption option)
       throws IOException {
-    final String dir = RaftServerConfigKeys.storageDir(prop::getTrimmed);
+    final String dir = RaftServerConfigKeys.storageDir(prop);
     storageDir = new RaftStorageDirectory(
         new File(FileUtils.stringAsURI(dir).getPath()));
     if (option == RaftServerConstants.StartupOption.FORMAT) {

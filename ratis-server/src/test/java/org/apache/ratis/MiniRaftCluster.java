@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -197,7 +198,7 @@ public abstract class MiniRaftCluster {
   }
 
   public int getMaxTimeout() {
-    return RaftServerConfigKeys.Rpc.timeoutMaxMs(properties::getInt);
+    return RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
   }
 
   public RaftConfiguration getConf() {
@@ -211,7 +212,7 @@ public abstract class MiniRaftCluster {
         formatDir(dirStr);
       }
       final RaftProperties prop = new RaftProperties(properties);
-      RaftServerConfigKeys.setStorageDir(prop::set, dirStr);
+      RaftServerConfigKeys.setStorageDir(prop, dirStr);
       final StateMachine stateMachine = getStateMachine4Test(properties);
       return newRaftServer(id, stateMachine, conf, prop);
     } catch (IOException e) {
@@ -429,7 +430,8 @@ public abstract class MiniRaftCluster {
     // least ELECTION_TIMEOUT_MIN. In this way when the target leader request a
     // vote, all non-leader servers can grant the vote.
     // Disable the target leader server RPC so that it can request a vote.
-    blockQueueAndSetDelay(leaderId, RaftServerConfigKeys.Rpc.TIMEOUT_MIN_MS_DEFAULT);
+    blockQueueAndSetDelay(leaderId,
+        RaftServerConfigKeys.Rpc.TIMEOUT_MIN_DEFAULT.toInt(TimeUnit.MILLISECONDS));
 
     // Reopen queues so that the vote can make progress.
     blockQueueAndSetDelay(leaderId, 0);

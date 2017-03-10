@@ -124,7 +124,7 @@ public class ServerState implements Closeable {
   private RaftLog initLog(RaftPeerId id, RaftProperties prop,
       RaftServerImpl server, long lastIndexInSnapshot) throws IOException {
     final RaftLog log;
-    if (RaftServerConfigKeys.Log.useMemory(prop::getBoolean)) {
+    if (RaftServerConfigKeys.Log.useMemory(prop)) {
       log = new MemoryRaftLog(id);
     } else {
       log = new SegmentedRaftLog(id, server, this.storage,

@@ -68,7 +68,7 @@ public abstract class RaftReconfigurationBaseTest {
   @BeforeClass
   public static void setup() {
     // set a small gap for tests
-    RaftServerConfigKeys.setStagingCatchupGap(prop::setInt, STAGING_CATCHUP_GAP);
+    RaftServerConfigKeys.setStagingCatchupGap(prop, STAGING_CATCHUP_GAP);
   }
 
   public abstract MiniRaftCluster getCluster(int peerNum) throws IOException;
