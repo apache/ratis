@@ -65,7 +65,7 @@ public interface GrpcConfigKeys {
           BUFFER_SIZE_KEY, BUFFER_SIZE_DEFAULT);
     }
     static void setBufferSize(RaftProperties properties, SizeInBytes bufferSize) {
-      setSizeInBytesInt(properties::set, BUFFER_SIZE_KEY, bufferSize);
+      setSizeInBytes(properties::set, BUFFER_SIZE_KEY, bufferSize);
     }
 
     String RETRY_TIMES_KEY = PREFIX + ".retry.times";

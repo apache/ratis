@@ -77,7 +77,7 @@ public class TestTraditionalBinaryPrefix {
     } catch (IllegalArgumentException e) {
       assertEquals("Invalid size prefix '" + invalidPrefix + "' in '"
               + invalidFormatNumStr
-              + "'. Allowed prefixes are k, m, g, t, p, e(case insensitive)",
+              + "'. Allowed prefixes are k, m, g, t, p, e (case insensitive)",
           e.getMessage());
     }
 

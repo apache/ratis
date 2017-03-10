@@ -99,24 +99,28 @@ public interface ConfUtils {
     };
   }
 
+  @SafeVarargs
   static boolean getBoolean(
       BiFunction<String, Boolean, Boolean> booleanGetter,
       String key, boolean defaultValue, BiConsumer<String, Boolean>... assertions) {
     return get(booleanGetter, key, defaultValue, assertions);
   }
 
+  @SafeVarargs
   static int getInt(
       BiFunction<String, Integer, Integer> integerGetter,
       String key, int defaultValue, BiConsumer<String, Integer>... assertions) {
     return get(integerGetter, key, defaultValue, assertions);
   }
 
+  @SafeVarargs
   static long getLong(
       BiFunction<String, Long, Long> longGetter,
       String key, long defaultValue, BiConsumer<String, Long>... assertions) {
     return get(longGetter, key, defaultValue, assertions);
   }
 
+  @SafeVarargs
   static SizeInBytes getSizeInBytes(
       BiFunction<String, SizeInBytes, SizeInBytes> getter,
       String key, SizeInBytes defaultValue, BiConsumer<String, SizeInBytes>... assertions) {
@@ -125,6 +129,7 @@ public interface ConfUtils {
     return value;
   }
 
+  @SafeVarargs
   static TimeDuration getTimeDuration(
       BiFunction<String, TimeDuration, TimeDuration> getter,
       String key, TimeDuration defaultValue, BiConsumer<String, TimeDuration>... assertions) {
@@ -133,6 +138,7 @@ public interface ConfUtils {
     return value;
   }
 
+  @SafeVarargs
   static <T> T get(BiFunction<String, T, T> getter,
       String key, T defaultValue, BiConsumer<String, T>... assertions) {
     final T value = getter.apply(key, defaultValue);
@@ -147,24 +153,28 @@ public interface ConfUtils {
     return NetUtils.createSocketAddr(get(stringGetter, key, defaultValue));
   }
 
+  @SafeVarargs
   static void setBoolean(
       BiConsumer<String, Boolean> booleanSetter, String key, boolean value,
       BiConsumer<String, Boolean>... assertions) {
     set(booleanSetter, key, value, assertions);
   }
 
+  @SafeVarargs
   static void setInt(
       BiConsumer<String, Integer> integerSetter, String key, int value,
       BiConsumer<String, Integer>... assertions) {
     set(integerSetter, key, value, assertions);
   }
 
+  @SafeVarargs
   static void setLong(
       BiConsumer<String, Long> longSetter, String key, long value,
       BiConsumer<String, Long>... assertions) {
     set(longSetter, key, value, assertions);
   }
 
+  @SafeVarargs
   static void setSizeInBytes(
       BiConsumer<String, String> stringSetter, String key, SizeInBytes value,
       BiConsumer<String, Long>... assertions) {
@@ -173,14 +183,7 @@ public interface ConfUtils {
     set(stringSetter, key, value.getInput());
   }
 
-  static void setSizeInBytesInt(
-      BiConsumer<String, String> stringSetter, String key, SizeInBytes value,
-      BiConsumer<String, Integer>... assertions) {
-    final int v = value.getSizeInt();
-    Arrays.asList(assertions).forEach(a -> a.accept(key, v));
-    set(stringSetter, key, value.getInput());
-  }
-
+  @SafeVarargs
   static <T> void set(
       BiConsumer<String, T> setter, String key, T value,
       BiConsumer<String, T>... assertions) {
