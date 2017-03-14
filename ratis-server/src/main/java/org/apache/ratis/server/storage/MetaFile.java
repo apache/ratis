@@ -17,14 +17,13 @@
  */
 package org.apache.ratis.server.storage;
 
-import com.google.common.base.Charsets;
-
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
 /**
@@ -93,7 +92,7 @@ class MetaFile {
     properties.setProperty(VOTEDFOR_KEY, votedFor);
     try {
       properties.store(
-          new BufferedWriter(new OutputStreamWriter(fos, Charsets.UTF_8)), "");
+          new BufferedWriter(new OutputStreamWriter(fos, StandardCharsets.UTF_8)), "");
       fos.close();
       fos = null;
     } finally {
@@ -108,7 +107,7 @@ class MetaFile {
     votedFor = EMPTY_VOTEFOR;
     if (file.exists()) {
       BufferedReader br = new BufferedReader(
-          new InputStreamReader(new FileInputStream(file), Charsets.UTF_8));
+          new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8));
       try {
         Properties properties = new Properties();
         properties.load(br);

@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.rpc.RpcType;
@@ -95,7 +93,7 @@ public class RaftServerImpl implements RaftServer {
     this.lifeCycle = new LifeCycle(id);
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toInt(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
-    Preconditions.checkArgument(maxTimeoutMs > minTimeoutMs,
+    RaftUtils.assertTrue(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.properties = properties;
     this.stateMachine = stateMachine;
@@ -213,7 +211,6 @@ public class RaftServerImpl implements RaftServer {
     });
   }
 
-  @VisibleForTesting
   public boolean isAlive() {
     return !lifeCycle.getCurrentState().isOneOf(CLOSING, CLOSED);
   }
@@ -287,7 +284,7 @@ public class RaftServerImpl implements RaftServer {
   }
 
   synchronized void changeToLeader() {
-    Preconditions.checkState(isCandidate());
+    RaftUtils.assertTrue(isCandidate());
     shutdownElectionDaemon();
     role = Role.LEADER;
     state.becomeLeader();
@@ -306,7 +303,7 @@ public class RaftServerImpl implements RaftServer {
   }
 
   synchronized void changeToCandidate() {
-    Preconditions.checkState(isFollower());
+    RaftUtils.assertTrue(isFollower());
     shutdownHeartbeatMonitor();
     role = Role.CANDIDATE;
     // start election
@@ -574,23 +571,23 @@ public class RaftServerImpl implements RaftServer {
       final long index0 = entries[0].getIndex();
 
       if (previous == null || previous.getTerm() == 0) {
-        Preconditions.checkArgument(index0 == 0,
+        RaftUtils.assertTrue(index0 == 0,
             "Unexpected Index: previous is null but entries[%s].getIndex()=%s",
             0, index0);
       } else {
-        Preconditions.checkArgument(previous.getIndex() == index0 - 1,
+        RaftUtils.assertTrue(previous.getIndex() == index0 - 1,
             "Unexpected Index: previous is %s but entries[%s].getIndex()=%s",
             previous, 0, index0);
       }
 
       for (int i = 0; i < entries.length; i++) {
         final long t = entries[i].getTerm();
-        Preconditions.checkArgument(expectedTerm >= t,
+        RaftUtils.assertTrue(expectedTerm >= t,
             "Unexpected Term: entries[%s].getTerm()=%s but expectedTerm=%s",
             i, t, expectedTerm);
 
         final long indexi = entries[i].getIndex();
-        Preconditions.checkArgument(indexi == index0 + i,
+        RaftUtils.assertTrue(indexi == index0 + i,
             "Unexpected Index: entries[%s].getIndex()=%s but entries[0].getIndex()=%s",
             i, indexi, index0);
       }
@@ -743,7 +740,7 @@ public class RaftServerImpl implements RaftServer {
       // Check and append the snapshot chunk. We simply put this in lock
       // considering a follower peer requiring a snapshot installation does not
       // have a lot of requests
-      Preconditions.checkState(
+      RaftUtils.assertTrue(
           state.getLog().getNextIndex() <= lastIncludedIndex,
           "%s log's next id is %s, last included index in snapshot is %s",
           getId(),  state.getLog().getNextIndex(), lastIncludedIndex);

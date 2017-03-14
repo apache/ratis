@@ -18,7 +18,6 @@
 
 package org.apache.hadoop.ipc;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.classification.InterfaceAudience;
@@ -466,16 +465,6 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
       return CodedOutputStream.computeRawVarint32Size(resLen) + resLen;
     }
   }
-
-  @VisibleForTesting
-  @InterfaceAudience.Private
-  @InterfaceStability.Unstable
-  static Client getClient(Configuration conf) {
-    return CLIENTS.getClient(conf, SocketFactory.getDefault(),
-        RpcResponseWrapper.class);
-  }
-
-
 
   @Override
   public RPC.Server getServer(Class<?> protocol, Object protocolImpl,

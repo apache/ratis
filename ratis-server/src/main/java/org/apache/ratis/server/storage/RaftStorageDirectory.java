@@ -17,11 +17,6 @@
  */
 package org.apache.ratis.server.storage;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.slf4j.Logger;
@@ -33,6 +28,7 @@ import java.io.RandomAccessFile;
 import java.lang.management.ManagementFactory;
 import java.nio.channels.FileLock;
 import java.nio.channels.OverlappingFileLockException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,7 +53,7 @@ public class RaftStorageDirectory {
   static final Pattern OPEN_SEGMENT_REGEX = Pattern.compile("log_inprogress_(\\d+)(?:\\..*)?");
 
   private static final List<Pattern> LOGSEGMENTS_REGEXES =
-      ImmutableList.of(CLOSED_SEGMENT_REGEX, OPEN_SEGMENT_REGEX);
+      Arrays.asList(CLOSED_SEGMENT_REGEX, OPEN_SEGMENT_REGEX);
 
   enum StorageState {
     NON_EXISTENT,
@@ -184,7 +180,6 @@ public class RaftStorageDirectory {
   /**
    * @return log segment files sorted based on their index.
    */
-  @VisibleForTesting
   public List<LogPathAndIndex> getLogSegmentFiles() throws IOException {
     List<LogPathAndIndex> list = new ArrayList<>();
     try (DirectoryStream<Path> stream =
@@ -231,7 +226,7 @@ public class RaftStorageDirectory {
    * @return state {@link StorageState} of the storage directory
    */
   StorageState analyzeStorage(boolean toLock) throws IOException {
-    Preconditions.checkState(root != null, "root directory is null");
+    Objects.requireNonNull(root, "root directory is null");
 
     String rootPath = root.getCanonicalPath();
     try { // check that storage exists
@@ -319,7 +314,7 @@ public class RaftStorageDirectory {
         LOG.error("Unable to acquire file lock on path " + lockF.toString());
         throw new OverlappingFileLockException();
       }
-      file.write(jvmName.getBytes(Charsets.UTF_8));
+      file.write(jvmName.getBytes(StandardCharsets.UTF_8));
       LOG.info("Lock on " + lockF + " acquired by nodename " + jvmName);
     } catch (OverlappingFileLockException oe) {
       // Cannot read from the locked file on Windows.

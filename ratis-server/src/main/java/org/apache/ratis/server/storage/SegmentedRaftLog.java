@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.server.storage;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import org.apache.commons.io.Charsets;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -30,6 +28,7 @@ import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.RaftUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -214,7 +213,7 @@ public class SegmentedRaftLog extends RaftLog {
         // the term changes
         final long currentTerm = currentOpenSegment.getLastRecord().entry
             .getTerm();
-        Preconditions.checkState(currentTerm < entry.getTerm(),
+        RaftUtils.assertTrue(currentTerm < entry.getTerm(),
             "open segment's term %s is larger than the new entry's term %s",
             currentTerm, entry.getTerm());
         cache.rollOpenSegment(true);
@@ -250,7 +249,7 @@ public class SegmentedRaftLog extends RaftLog {
       long truncateIndex = -1;
       for (; iter.hasNext() && index < entries.length; index++) {
         LogEntryProto storedEntry = iter.next();
-        Preconditions.checkState(
+        RaftUtils.assertTrue(
             storedEntry.getIndex() == entries[index].getIndex(),
             "The stored entry's index %s is not consistent with" +
                 " the received entries[%s]'s index %s", storedEntry.getIndex(),
@@ -320,7 +319,6 @@ public class SegmentedRaftLog extends RaftLog {
     storage.close();
   }
 
-  @VisibleForTesting
   RaftLogCache getRaftLogCache() {
     return cache;
   }

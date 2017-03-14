@@ -17,13 +17,12 @@
  */
 package org.apache.ratis.server.impl;
 
-import com.google.common.base.Preconditions;
-
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.RaftUtils;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -62,12 +61,12 @@ public class PendingRequest implements Comparable<PendingRequest> {
   }
 
   synchronized void setException(Throwable e) {
-    Preconditions.checkArgument(e != null);
+    RaftUtils.assertTrue(e != null);
     future.completeExceptionally(e);
   }
 
   synchronized void setReply(RaftClientReply r) {
-    Preconditions.checkArgument(r != null);
+    RaftUtils.assertTrue(r != null);
     future.complete(r);
   }
 

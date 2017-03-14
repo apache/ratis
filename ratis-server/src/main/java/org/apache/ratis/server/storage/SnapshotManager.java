@@ -34,8 +34,6 @@ import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
-
 /**
  * Manage snapshots of a raft peer.
  * TODO: snapshot should be treated as compaction log thus can be merged into
@@ -91,7 +89,7 @@ public class SnapshotManager {
           // create the temp snapshot file and put padding inside
           out = new FileOutputStream(tmpSnapshotFile);
         } else {
-          Preconditions.checkState(tmpSnapshotFile.exists());
+          RaftUtils.assertTrue(tmpSnapshotFile.exists());
           out = new FileOutputStream(tmpSnapshotFile, true);
           FileChannel fc = out.getChannel();
           fc.position(chunk.getOffset());

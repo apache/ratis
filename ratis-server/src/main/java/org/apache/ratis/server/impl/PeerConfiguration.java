@@ -17,12 +17,11 @@
  */
 package org.apache.ratis.server.impl;
 
-import com.google.common.base.Preconditions;
-
 import java.util.*;
 
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.RaftUtils;
 
 /**
  * The peer configuration of a raft cluster.
@@ -33,13 +32,13 @@ class PeerConfiguration {
   private final Map<RaftPeerId, RaftPeer> peers;
 
   PeerConfiguration(Iterable<RaftPeer> peers) {
-    Preconditions.checkNotNull(peers);
+    Objects.requireNonNull(peers);
     Map<RaftPeerId, RaftPeer> map = new HashMap<>();
     for(RaftPeer p : peers) {
       map.put(p.getId(), p);
     }
     this.peers = Collections.unmodifiableMap(map);
-    Preconditions.checkState(!this.peers.isEmpty());
+    RaftUtils.assertTrue(!this.peers.isEmpty());
   }
 
   Collection<RaftPeer> getPeers() {
@@ -74,7 +73,7 @@ class PeerConfiguration {
   }
 
   boolean hasMajority(Collection<RaftPeerId> others, RaftPeerId selfId) {
-    Preconditions.checkArgument(!others.contains(selfId));
+    RaftUtils.assertTrue(!others.contains(selfId));
     int num = 0;
     if (contains(selfId)) {
       num++;

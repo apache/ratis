@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.examples.arithmetic.expression;
 
-import com.google.common.base.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 import java.util.Map;
 
@@ -43,7 +43,7 @@ public class UnaryExpression implements Expression {
     static final Op[] VALUES = Op.values();
 
     static Op valueOf(byte b) {
-      Preconditions.checkArgument(b < VALUES.length);
+      RaftUtils.assertTrue(b < VALUES.length);
       return VALUES[b];
     }
   }
@@ -52,7 +52,7 @@ public class UnaryExpression implements Expression {
   final Expression expression;
 
   UnaryExpression(byte[] buf, int offset) {
-    Preconditions.checkArgument(buf[offset] == Type.UNARY.byteValue());
+    RaftUtils.assertTrue(buf[offset] == Type.UNARY.byteValue());
     op = Op.valueOf(buf[offset + 1]);
     expression = Utils.bytes2Expression(buf, offset + 2);
   }

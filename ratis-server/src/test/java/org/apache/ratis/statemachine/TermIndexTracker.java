@@ -17,11 +17,12 @@
  */
 package org.apache.ratis.statemachine;
 
-import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
-
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.util.RaftUtils;
 
-import com.google.common.base.Preconditions;
+import java.util.Objects;
+
+import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
 /**
  * Tracks the term index that is applied to the StateMachine for simple state machines with
@@ -51,8 +52,8 @@ class TermIndexTracker {
    * this index in memory.
    */
   public synchronized void update(TermIndex termIndex) {
-    Preconditions.checkArgument(termIndex != null &&
-        termIndex.compareTo(current) >= 0);
+    Objects.requireNonNull(termIndex);
+    RaftUtils.assertTrue(termIndex.compareTo(current) >= 0);
     this.current = termIndex;
   }
 

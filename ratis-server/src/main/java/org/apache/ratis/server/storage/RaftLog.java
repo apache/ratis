@@ -33,10 +33,9 @@ import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Preconditions;
 
 /**
  * Base class of RaftLog. Currently we provide two types of RaftLog
@@ -71,7 +70,7 @@ public abstract class RaftLog implements Closeable {
   }
 
   public void checkLogState() {
-    Preconditions.checkState(isOpen,
+    RaftUtils.assertTrue(isOpen,
         "The RaftLog has not been opened or has been closed");
   }
 

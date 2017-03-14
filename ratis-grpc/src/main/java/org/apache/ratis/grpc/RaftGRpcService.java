@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.grpc;
 
-import com.google.common.base.Preconditions;
 import org.apache.ratis.grpc.client.RaftClientProtocolService;
 import org.apache.ratis.grpc.server.RaftServerProtocolClient;
 import org.apache.ratis.grpc.server.RaftServerProtocolService;
@@ -40,6 +39,7 @@ import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /** A grpc implementation of {@link RaftServerRpc}. */
 public class RaftGRpcService implements RaftServerRpc {
@@ -146,7 +146,7 @@ public class RaftGRpcService implements RaftServerRpc {
     CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, selfId,
         null, request);
 
-    RaftServerProtocolClient target = Preconditions.checkNotNull(
+    RaftServerProtocolClient target = Objects.requireNonNull(
         peers.get(new RaftPeerId(request.getServerRequest().getReplyId())));
     return target.requestVote(request);
   }

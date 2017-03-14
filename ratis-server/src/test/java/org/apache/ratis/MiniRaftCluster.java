@@ -17,7 +17,6 @@
  */
 package org.apache.ratis;
 
-import com.google.common.base.Preconditions;
 import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
@@ -118,7 +117,7 @@ public abstract class MiniRaftCluster {
 
   private static void formatDir(String dirStr) {
     final File serverDir = new File(dirStr);
-    Preconditions.checkState(FileUtils.fullyDelete(serverDir),
+    RaftUtils.assertTrue(FileUtils.fullyDelete(serverDir),
         "Failed to format directory %s", dirStr);
     LOG.info("Formatted directory {}", dirStr);
   }
@@ -160,7 +159,7 @@ public abstract class MiniRaftCluster {
 
   private RaftServerImpl putNewServer(RaftPeerId id, boolean format) {
     final RaftServerImpl s = newRaftServer(id, format);
-    Preconditions.checkState(servers.put(id, s) == null);
+    RaftUtils.assertTrue(servers.put(id, s) == null);
     return s;
   }
 

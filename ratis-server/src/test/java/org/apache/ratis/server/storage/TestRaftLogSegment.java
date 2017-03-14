@@ -153,8 +153,8 @@ public class TestRaftLogSegment {
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1001, clientId, callId);
       segment.appendToOpenSegment(entry);
       Assert.fail("should fail since the entry's index needs to be 1000");
-    } catch (Exception e) {
-      Assert.assertTrue(e instanceof IllegalArgumentException);
+    } catch (IllegalStateException e) {
+      // the exception is expected.
     }
 
     LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1000, clientId, callId);
@@ -164,8 +164,8 @@ public class TestRaftLogSegment {
       entry = ProtoUtils.toLogEntryProto(m, 0, 1002, clientId, callId);
       segment.appendToOpenSegment(entry);
       Assert.fail("should fail since the entry's index needs to be 1001");
-    } catch (Exception e) {
-      Assert.assertTrue(e instanceof IllegalArgumentException);
+    } catch (IllegalStateException e) {
+      // the exception is expected.
     }
 
     LogEntryProto[] entries = new LogEntryProto[2];
@@ -175,8 +175,8 @@ public class TestRaftLogSegment {
     try {
       segment.appendToOpenSegment(entries);
       Assert.fail("should fail since there is gap between entries");
-    } catch (Exception e) {
-      Assert.assertTrue(e instanceof IllegalArgumentException);
+    } catch (IllegalStateException e) {
+      // the exception is expected.
     }
   }
 

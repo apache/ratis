@@ -17,9 +17,7 @@
  */
 package org.apache.ratis.server.simulation;
 
-import com.google.common.base.Preconditions;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.RaftRpcMessage;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -27,7 +25,6 @@ import org.apache.ratis.util.RaftUtils;
 import org.apache.ratis.util.Timestamp;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,7 +43,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     private final IOException ioe;
 
     ReplyOrException(REPLY reply, IOException ioe) {
-      Preconditions.checkArgument(reply == null ^ ioe == null);
+      RaftUtils.assertTrue(reply == null ^ ioe == null);
       this.reply = reply;
       this.ioe = ioe;
     }
@@ -139,7 +136,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
       RaftTestUtil.delay(q.delayTakeRequestTo::get);
 
       request = q.takeRequest();
-      Preconditions.checkState(qid.equals(request.getReplierId()));
+      RaftUtils.assertTrue(qid.equals(request.getReplierId()));
 
       // block request for testing
       final EventQueue<REQUEST, REPLY> reqQ = queues.get(request.getRequestorId());
@@ -156,9 +153,9 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   public void sendReply(REQUEST request, REPLY reply, IOException ioe)
       throws IOException {
     if (reply != null) {
-      Preconditions.checkArgument(
+      RaftUtils.assertTrue(
           request.getRequestorId().equals(reply.getRequestorId()));
-      Preconditions.checkArgument(
+      RaftUtils.assertTrue(
           request.getReplierId().equals(reply.getReplierId()));
     }
     simulateLatency();

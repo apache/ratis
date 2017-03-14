@@ -17,12 +17,11 @@
  */
 package org.apache.ratis.examples.arithmetic.expression;
 
-import com.google.common.base.Preconditions;
-
 import java.util.Map;
 import java.util.regex.Pattern;
 
 import org.apache.ratis.examples.arithmetic.AssignmentMessage;
+import org.apache.ratis.util.RaftUtils;
 
 public class Variable implements Expression {
   static final int LENGTH_LIMIT = 32;
@@ -39,7 +38,7 @@ public class Variable implements Expression {
   }
 
   static String extractString(byte[] buf, int offset) {
-    Preconditions.checkArgument(buf[offset] == Type.VARIABLE.byteValue());
+    RaftUtils.assertTrue(buf[offset] == Type.VARIABLE.byteValue());
     final int length = buf[offset + 1];
     final byte[] stringBytes = new byte[length];
     System.arraycopy(buf, offset + 2, stringBytes, 0, length);
@@ -47,7 +46,7 @@ public class Variable implements Expression {
   }
 
   static byte[] copyBytes(byte[] buf, int offset) {
-    Preconditions.checkArgument(buf[offset] == Type.VARIABLE.byteValue());
+    RaftUtils.assertTrue(buf[offset] == Type.VARIABLE.byteValue());
     final int length = buf[offset + 1];
     final byte[] copy = new byte[length + 2];
     System.arraycopy(buf, offset, copy, 0, copy.length);

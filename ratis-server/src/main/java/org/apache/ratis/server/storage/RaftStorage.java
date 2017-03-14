@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.storage;
 
-import com.google.common.base.Preconditions;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -25,6 +24,7 @@ import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +54,7 @@ public class RaftStorage implements Closeable {
       storageDir.lock();
       format();
       state = storageDir.analyzeStorage(false);
-      Preconditions.checkState(state == StorageState.NORMAL);
+      RaftUtils.assertTrue(state == StorageState.NORMAL);
     } else {
       state = analyzeAndRecoverStorage(true); // metaFile is initialized here
       if (state != StorageState.NORMAL) {

@@ -22,7 +22,7 @@ import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
 
-import com.google.common.base.Preconditions;
+import java.util.Objects;
 
 public class RaftServerReply implements RaftRpcMessage {
   private final AppendEntriesReplyProto appendEntries;
@@ -30,21 +30,21 @@ public class RaftServerReply implements RaftRpcMessage {
   private final InstallSnapshotReplyProto installSnapshot;
 
   RaftServerReply(AppendEntriesReplyProto a) {
-    appendEntries = Preconditions.checkNotNull(a);
+    appendEntries = Objects.requireNonNull(a);
     requestVote = null;
     installSnapshot = null;
   }
 
   RaftServerReply(RequestVoteReplyProto r) {
     appendEntries = null;
-    requestVote = Preconditions.checkNotNull(r);
+    requestVote = Objects.requireNonNull(r);
     installSnapshot = null;
   }
 
   RaftServerReply(InstallSnapshotReplyProto i) {
     appendEntries = null;
     requestVote = null;
-    installSnapshot = Preconditions.checkNotNull(i);
+    installSnapshot = Objects.requireNonNull(i);
   }
 
   boolean isAppendEntries() {

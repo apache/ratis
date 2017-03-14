@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.examples.arithmetic;
 
-import com.google.common.base.Preconditions;
-
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.protocol.Message;
@@ -31,6 +29,7 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.*;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -176,7 +175,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     final TermIndex newTI = TermIndex.newTermIndex(term, index);
     final TermIndex oldTI = latestTermIndex.getAndSet(newTI);
     if (oldTI != null) {
-      Preconditions.checkArgument(newTI.compareTo(oldTI) >= 0);
+      RaftUtils.assertTrue(newTI.compareTo(oldTI) >= 0);
     }
   }
 }

@@ -17,8 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 import java.util.*;
 
@@ -45,7 +44,7 @@ public class ConfigurationManager {
 
   public synchronized void addConfiguration(long logIndex,
       RaftConfiguration conf) {
-    Preconditions.checkArgument(configurations.isEmpty() ||
+    RaftUtils.assertTrue(configurations.isEmpty() ||
         configurations.lastEntry().getKey() < logIndex);
     configurations.put(logIndex, conf);
     this.currentConf = conf;
@@ -73,7 +72,6 @@ public class ConfigurationManager {
     return currentConf;
   }
 
-  @VisibleForTesting
   synchronized int numOfConf() {
     return 1 + configurations.size();
   }

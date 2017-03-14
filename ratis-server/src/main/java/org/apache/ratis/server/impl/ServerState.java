@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -31,6 +29,7 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.RaftUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -138,7 +137,6 @@ public class ServerState implements Closeable {
     return configurationManager.getCurrent();
   }
 
-  @VisibleForTesting
   public RaftPeerId getSelfId() {
     return this.selfId;
   }
@@ -216,7 +214,7 @@ public class ServerState implements Closeable {
       // leader and term later
       return true;
     }
-    Preconditions.checkArgument(this.leaderId.equals(leaderId),
+    RaftUtils.assertTrue(this.leaderId.equals(leaderId),
         "selfId:%s, this.leaderId:%s, received leaderId:%s",
         selfId, this.leaderId, leaderId);
     return true;
@@ -303,7 +301,6 @@ public class ServerState implements Closeable {
     storage.close();
   }
 
-  @VisibleForTesting
   public RaftStorage getStorage() {
     return storage;
   }
@@ -326,7 +323,6 @@ public class ServerState implements Closeable {
     return latestInstalledSnapshot;
   }
 
-  @VisibleForTesting
   public long getLastAppliedIndex() {
     return stateMachineUpdater.getLastAppliedIndex();
   }

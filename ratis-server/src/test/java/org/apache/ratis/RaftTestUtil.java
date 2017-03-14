@@ -17,7 +17,6 @@
  */
 package org.apache.ratis;
 
-import com.google.common.base.Preconditions;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -39,6 +38,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 
@@ -183,8 +183,7 @@ public class RaftTestUtil {
     private final String op;
 
     public SimpleOperation(String op) {
-      Preconditions.checkArgument(op != null);
-      this.op = op;
+      this.op = Objects.requireNonNull(op);
     }
 
     @Override

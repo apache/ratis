@@ -17,16 +17,14 @@
  */
 package org.apache.ratis.server.simulation;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
+import org.apache.ratis.util.Daemon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,8 +41,7 @@ class SimulatedServerRpc implements RaftServerRpc {
   private final RaftServerImpl server;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
-  private final ExecutorService executor = Executors.newFixedThreadPool(3,
-      new ThreadFactoryBuilder().setDaemon(true).build());
+  private final ExecutorService executor = Executors.newFixedThreadPool(3, Daemon::new);
 
   SimulatedServerRpc(RaftServerImpl server,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,

@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.grpc.client;
 
-import com.google.common.base.Preconditions;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.grpc.GrpcConfigKeys;
@@ -255,10 +254,10 @@ public class AppendStreamer implements Closeable {
         return;
       }
       synchronized (AppendStreamer.this) {
-        RaftClientRequestProto pending = Preconditions.checkNotNull(
+        RaftClientRequestProto pending = Objects.requireNonNull(
             ackQueue.peek());
         if (reply.getRpcReply().getSuccess()) {
-          Preconditions.checkState(pending.getRpcRequest().getCallId() ==
+          RaftUtils.assertTrue(pending.getRpcRequest().getCallId() ==
               reply.getRpcReply().getCallId());
           ackQueue.poll();
           LOG.trace("{} received success ack for request {}", this,
@@ -312,7 +311,7 @@ public class AppendStreamer implements Closeable {
 
   private void handleNotLeader(NotLeaderException nle,
       RaftPeerId oldLeader) {
-    Preconditions.checkState(Thread.holdsLock(AppendStreamer.this));
+    RaftUtils.assertTrue(Thread.holdsLock(AppendStreamer.this));
     // handle NotLeaderException: refresh leader and RaftConfiguration
     refreshPeers(nle.getPeers());
 
@@ -320,7 +319,7 @@ public class AppendStreamer implements Closeable {
   }
 
   private void handleError(Throwable t, ResponseHandler handler) {
-    Preconditions.checkState(Thread.holdsLock(AppendStreamer.this));
+    RaftUtils.assertTrue(Thread.holdsLock(AppendStreamer.this));
     final IOException e = RaftGrpcUtil.unwrapIOException(t);
 
     exceptionAndRetry.addException(handler.targetId, e);
@@ -341,7 +340,7 @@ public class AppendStreamer implements Closeable {
     refreshLeaderProxy(suggestedLeader, oldLeader);
     reQueuePendingRequests(leaderId);
 
-    final RaftClientRequestProto request = Preconditions.checkNotNull(
+    final RaftClientRequestProto request = Objects.requireNonNull(
         dataQueue.poll());
     ackQueue.offer(request);
     try {

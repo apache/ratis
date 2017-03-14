@@ -27,8 +27,7 @@ import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CodeInjectionForTesting;
-
-import com.google.common.base.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 /**
  * A simple RaftLog implementation in memory. Used only for testing.
@@ -66,7 +65,7 @@ public class MemoryRaftLog extends RaftLog {
   void truncate(long index) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
-      Preconditions.checkArgument(index >= 0);
+      RaftUtils.assertTrue(index >= 0);
       final int truncateIndex = (int) index;
       for (int i = entries.size() - 1; i >= truncateIndex; i--) {
         entries.remove(i);

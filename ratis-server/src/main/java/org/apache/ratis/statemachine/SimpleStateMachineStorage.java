@@ -17,9 +17,6 @@
  */
 package org.apache.ratis.statemachine;
 
-
-import com.google.common.annotations.VisibleForTesting;
-
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
@@ -66,7 +63,6 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
     // TODO
   }
 
-  @VisibleForTesting
   public static TermIndex getTermIndexFromSnapshotFile(File file) {
     final String name = file.getName();
     final Matcher m = SNAPSHOT_REGEX.matcher(name);

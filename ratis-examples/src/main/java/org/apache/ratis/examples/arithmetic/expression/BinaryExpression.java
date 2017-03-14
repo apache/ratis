@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.examples.arithmetic.expression;
 
-import com.google.common.base.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 import java.util.Map;
 
@@ -43,7 +43,7 @@ public class BinaryExpression implements Expression {
     static final Op[] VALUES = Op.values();
 
     static Op valueOf(byte b) {
-      Preconditions.checkArgument(b < VALUES.length);
+      RaftUtils.assertTrue(b < VALUES.length);
       return VALUES[b];
     }
   }
@@ -52,7 +52,7 @@ public class BinaryExpression implements Expression {
   private final Expression left, right;
 
   BinaryExpression(byte[] buf, final int offset) {
-    Preconditions.checkArgument(buf[offset] == Type.BINARY.byteValue());
+    RaftUtils.assertTrue(buf[offset] == Type.BINARY.byteValue());
     op = Op.valueOf(buf[offset + 1]);
     left = Utils.bytes2Expression(buf, offset + 2);
     right = Utils.bytes2Expression(buf, offset + 2 + left.length());

@@ -17,18 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -37,12 +25,17 @@ import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.RaftUtils;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 class LeaderElection extends Daemon {
   public static final Logger LOG = LoggerFactory.getLogger(LeaderElection.class);
@@ -98,9 +91,8 @@ class LeaderElection extends Daemon {
   }
 
   private void initExecutor() {
-    Preconditions.checkState(!others.isEmpty());
-    executor = Executors.newFixedThreadPool(others.size(),
-        new ThreadFactoryBuilder().setDaemon(true).build());
+    RaftUtils.assertTrue(!others.isEmpty());
+    executor = Executors.newFixedThreadPool(others.size(), Daemon::new);
     service = new ExecutorCompletionService<>(executor);
   }
 

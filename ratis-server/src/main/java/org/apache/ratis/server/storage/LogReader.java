@@ -38,8 +38,6 @@ import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.PureJavaCrc32C;
 import org.apache.ratis.util.RaftUtils;
 
-import com.google.common.base.Preconditions;
-
 public class LogReader implements Closeable {
   /**
    * InputStream wrapper that keeps track of the current stream position.
@@ -276,7 +274,7 @@ public class LogReader implements Closeable {
   }
 
   private void checkBufferSize(int entryLength) {
-    Preconditions.checkArgument(entryLength <= maxOpSize);
+    RaftUtils.assertTrue(entryLength <= maxOpSize);
     int length = temp.length;
     if (length < entryLength) {
       while (length < entryLength) {

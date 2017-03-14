@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.netty;
 
-import com.google.common.base.Preconditions;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -30,6 +29,7 @@ import io.netty.handler.logging.LoggingHandler;
 
 import java.io.Closeable;
 import java.net.InetSocketAddress;
+import java.util.Objects;
 
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
@@ -43,9 +43,9 @@ public class NettyClient implements Closeable {
   public void connect(String serverAddress, EventLoopGroup group,
                       ChannelInitializer<SocketChannel> initializer)
       throws InterruptedException {
-    final InetSocketAddress address = NetUtils.newInetSocketAddress(serverAddress);
-    Preconditions.checkNotNull(address,
-        "Failed to create InetSocketAddress from %s.", serverAddress);
+    final InetSocketAddress address = Objects.requireNonNull(
+        NetUtils.newInetSocketAddress(serverAddress),
+        () -> "Failed to create InetSocketAddress from " + serverAddress);
 
     lifeCycle.startAndTransition(
         () -> channel = new Bootstrap()

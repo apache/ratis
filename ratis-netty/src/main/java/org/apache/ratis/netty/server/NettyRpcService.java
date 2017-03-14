@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.netty.server;
 
-import com.google.common.base.Preconditions;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -49,6 +48,7 @@ import org.apache.ratis.util.ProtoUtils;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
+import java.util.Objects;
 
 /**
  * A netty server endpoint that acts as the communication layer.
@@ -208,8 +208,8 @@ public final class NettyRpcService implements RaftServerRpc {
               + proto.getRaftNettyServerRequestCase());
       }
     } catch (IOException ioe) {
-      Preconditions.checkNotNull(rpcRequest);
-      return toRaftNettyServerReplyProto(rpcRequest, ioe);
+      return toRaftNettyServerReplyProto(
+          Objects.requireNonNull(rpcRequest, "rpcRequest = null"), ioe);
     }
   }
 

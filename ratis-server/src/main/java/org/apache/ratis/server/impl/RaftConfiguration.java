@@ -17,14 +17,12 @@
  */
 package org.apache.ratis.server.impl;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.RaftUtils;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
-
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 
 /**
  * The configuration of the raft cluster.
@@ -52,8 +50,8 @@ public class RaftConfiguration {
     private Builder() {}
 
     public Builder setConf(PeerConfiguration conf) {
-      Preconditions.checkNotNull(conf);
-      Preconditions.checkState(this.conf == null, "conf is already set.");
+      Objects.requireNonNull(conf);
+      RaftUtils.assertTrue(this.conf == null, "conf is already set.");
       this.conf = conf;
       return this;
     }
@@ -67,18 +65,18 @@ public class RaftConfiguration {
     }
 
     Builder setConf(RaftConfiguration transitionalConf) {
-      Preconditions.checkNotNull(transitionalConf);
-      Preconditions.checkState(transitionalConf.isTransitional());
+      Objects.requireNonNull(transitionalConf);
+      RaftUtils.assertTrue(transitionalConf.isTransitional());
 
-      Preconditions.checkState(!forceTransitional);
+      RaftUtils.assertTrue(!forceTransitional);
       forceStable = true;
       return setConf(transitionalConf.conf);
     }
 
 
     public Builder setOldConf(PeerConfiguration oldConf) {
-      Preconditions.checkNotNull(oldConf);
-      Preconditions.checkState(this.oldConf == null, "oldConf is already set.");
+      Objects.requireNonNull(oldConf);
+      RaftUtils.assertTrue(this.oldConf == null, "oldConf is already set.");
       this.oldConf = oldConf;
       return this;
     }
@@ -92,18 +90,18 @@ public class RaftConfiguration {
     }
 
     Builder setOldConf(RaftConfiguration stableConf) {
-      Preconditions.checkNotNull(stableConf);
-      Preconditions.checkState(stableConf.isStable());
+      Objects.requireNonNull(stableConf);
+      RaftUtils.assertTrue(stableConf.isStable());
 
-      Preconditions.checkState(!forceStable);
+      RaftUtils.assertTrue(!forceStable);
       forceTransitional = true;
       return setOldConf(stableConf.conf);
     }
 
     public Builder setLogEntryIndex(long logEntryIndex) {
-      Preconditions.checkArgument(
+      RaftUtils.assertTrue(
           logEntryIndex != RaftServerConstants.INVALID_LOG_INDEX);
-      Preconditions.checkState(
+      RaftUtils.assertTrue(
           this.logEntryIndex == RaftServerConstants.INVALID_LOG_INDEX,
           "logEntryIndex is already set.");
       this.logEntryIndex = logEntryIndex;
@@ -113,10 +111,10 @@ public class RaftConfiguration {
     /** Build a {@link RaftConfiguration}. */
     public RaftConfiguration build() {
       if (forceTransitional) {
-        Preconditions.checkState(oldConf != null);
+        RaftUtils.assertTrue(oldConf != null);
       }
       if (forceStable) {
-        Preconditions.checkState(oldConf == null);
+        RaftUtils.assertTrue(oldConf == null);
       }
       return new RaftConfiguration(conf, oldConf, logEntryIndex);
     }
@@ -135,8 +133,7 @@ public class RaftConfiguration {
 
   private RaftConfiguration(PeerConfiguration conf, PeerConfiguration oldConf,
       long logEntryIndex) {
-    Preconditions.checkNotNull(conf);
-    this.conf = conf;
+    this.conf = Objects.requireNonNull(conf);
     this.oldConf = oldConf;
     this.logEntryIndex = logEntryIndex;
   }
@@ -207,7 +204,7 @@ public class RaftConfiguration {
 
   /** @return true if the self id together with the others are in the majority. */
   boolean hasMajority(Collection<RaftPeerId> others, RaftPeerId selfId) {
-    Preconditions.checkArgument(!others.contains(selfId));
+    RaftUtils.assertTrue(!others.contains(selfId));
     return conf.hasMajority(others, selfId) &&
         (oldConf == null || oldConf.hasMajority(others, selfId));
   }
@@ -217,7 +214,6 @@ public class RaftConfiguration {
     return conf + (oldConf != null ? "old:" + oldConf : "");
   }
 
-  @VisibleForTesting
   boolean hasNoChange(RaftPeer[] newMembers) {
     if (!isStable() || conf.size() != newMembers.length) {
       return false;

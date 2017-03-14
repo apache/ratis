@@ -29,9 +29,6 @@ import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
-
 public class LogInputStream implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(LogInputStream.class);
 
@@ -75,9 +72,9 @@ public class LogInputStream implements Closeable {
   public LogInputStream(File log, long startIndex, long endIndex,
       boolean isOpen) {
     if (isOpen) {
-      Preconditions.checkArgument(endIndex == INVALID_LOG_INDEX);
+      RaftUtils.assertTrue(endIndex == INVALID_LOG_INDEX);
     } else {
-      Preconditions.checkArgument(endIndex >= startIndex);
+      RaftUtils.assertTrue(endIndex >= startIndex);
     }
 
     this.logFile = log;
@@ -87,12 +84,12 @@ public class LogInputStream implements Closeable {
   }
 
   private void init() throws IOException {
-    Preconditions.checkState(state == State.UNINIT);
+    RaftUtils.assertTrue(state == State.UNINIT);
     try {
       reader = new LogReader(logFile);
       // read the log header
       String header = reader.readLogHeader();
-      Preconditions.checkState(SegmentedRaftLog.HEADER_STR.equals(header),
+      RaftUtils.assertTrue(SegmentedRaftLog.HEADER_STR.equals(header),
           "Corrupted log header: %s", header);
       state = State.OPEN;
     } finally {
@@ -122,9 +119,9 @@ public class LogInputStream implements Closeable {
           init();
         } catch (Throwable e) {
           LOG.error("caught exception initializing " + this, e);
-          Throwables.propagateIfPossible(e, IOException.class);
+          throw RaftUtils.asIOException(e);
         }
-        Preconditions.checkState(state != State.UNINIT);
+        RaftUtils.assertTrue(state != State.UNINIT);
         return nextEntry();
       case OPEN:
         entry = reader.readEntry();
@@ -152,7 +149,7 @@ public class LogInputStream implements Closeable {
   }
 
   long scanNextEntry() throws IOException {
-    Preconditions.checkState(state == State.OPEN);
+    RaftUtils.assertTrue(state == State.OPEN);
     return reader.scanEntry();
   }
 

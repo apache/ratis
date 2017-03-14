@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import org.apache.commons.io.IOUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -31,6 +29,7 @@ import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.RaftUtils;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 
@@ -143,7 +142,7 @@ public class LogAppender extends Daemon {
     if (previous == null) {
       // if previous is null, nextIndex must be equal to the log start
       // index (otherwise we will install snapshot).
-      Preconditions.checkState(follower.getNextIndex() == raftLog.getStartIndex(),
+      RaftUtils.assertTrue(follower.getNextIndex() == raftLog.getStartIndex(),
           "follower's next index %s, local log start index %s",
           follower.getNextIndex(), raftLog.getStartIndex());
       SnapshotInfo snapshot = server.getState().getLatestSnapshot();
@@ -281,7 +280,7 @@ public class LogAppender extends Daemon {
             InstallSnapshotRequestProto request =
                 server.createInstallSnapshotRequest(follower.getPeer().getId(),
                     requestId, requestIndex++, snapshot,
-                    Lists.newArrayList(chunk), done);
+                    Arrays.asList(chunk), done);
             currentOffset += targetLength;
             chunkIndex++;
 

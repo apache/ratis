@@ -330,4 +330,54 @@ public abstract class RaftUtils {
       }
     };
   }
+
+  /**
+   * Assert if the given value is true.
+   * @param value the value to be asserted.
+   * @throws IllegalStateException if the given value is false.
+   */
+  public static void assertTrue(boolean value) {
+    if (!value) {
+      throw new IllegalStateException();
+    }
+  }
+
+  /**
+   * Assert if the given value is true.
+   * @param value the value to be asserted.
+   * @param message The exception message.
+   * @throws IllegalStateException with the given message if the given value is false.
+   */
+  public static void assertTrue(boolean value, Object message) {
+    if (!value) {
+      throw new IllegalStateException(String.valueOf(message));
+    }
+  }
+
+  /**
+   * Assert if the given value is true.
+   * @param value the value to be asserted.
+   * @param format exception message format.
+   * @param args exception message arguments.
+   * @throws IllegalStateException if the given value is false.
+   * The exception message is constructed by {@link String#format(String, Object...)}
+   * with the given format and arguments.
+   */
+  public static void assertTrue(boolean value, String format, Object... args) {
+    if (!value) {
+      throw new IllegalStateException(String.format(format, args));
+    }
+  }
+
+  /**
+   * Assert if the given value is true.
+   * @param value the value to be asserted.
+   * @param message The exception message supplier.
+   * @throws IllegalStateException with the given message if the given value is false.
+   */
+  public static void assertTrue(boolean value, Supplier<Object> message) {
+    if (!value) {
+      throw new IllegalStateException(String.valueOf(message.get()));
+    }
+  }
 }

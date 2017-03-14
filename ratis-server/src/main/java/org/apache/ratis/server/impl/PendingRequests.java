@@ -17,10 +17,9 @@
  */
 package org.apache.ratis.server.impl;
 
-import com.google.common.base.Preconditions;
-
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -45,8 +44,8 @@ class PendingRequests {
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
       TransactionContext entry) {
     // externally synced for now
-    Preconditions.checkArgument(!request.isReadOnly());
-    Preconditions.checkState(last == null || index == last.getIndex() + 1);
+    RaftUtils.assertTrue(!request.isReadOnly());
+    RaftUtils.assertTrue(last == null || index == last.getIndex() + 1);
     return add(index, request, entry);
   }
 
@@ -59,7 +58,7 @@ class PendingRequests {
   }
 
   PendingRequest addConfRequest(SetConfigurationRequest request) {
-    Preconditions.checkState(pendingSetConf == null);
+    RaftUtils.assertTrue(pendingSetConf == null);
     pendingSetConf = new PendingRequest(request);
     return pendingSetConf;
   }
@@ -77,7 +76,7 @@ class PendingRequests {
   }
 
   void failSetConfiguration(RaftException e) {
-    Preconditions.checkState(pendingSetConf != null);
+    RaftUtils.assertTrue(pendingSetConf != null);
     pendingSetConf.setException(e);
     pendingSetConf = null;
   }
@@ -92,7 +91,7 @@ class PendingRequests {
   void replyPendingRequest(long index, CompletableFuture<Message> messageFuture) {
     final PendingRequest pending = pendingRequests.get(index);
     if (pending != null) {
-      Preconditions.checkState(pending.getIndex() == index);
+      RaftUtils.assertTrue(pending.getIndex() == index);
 
       messageFuture.whenComplete((reply, exception) -> {
         if (exception == null) {

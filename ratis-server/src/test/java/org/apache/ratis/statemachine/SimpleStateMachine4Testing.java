@@ -17,14 +17,6 @@
  */
 package org.apache.ratis.statemachine;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.io.MD5Hash;
@@ -44,10 +36,14 @@ import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.MD5FileUtil;
+import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -127,8 +123,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    LogEntryProto entry = trx.getLogEntry().get();
-    Preconditions.checkNotNull(entry);
+    LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry().get());
     list.add(entry);
     termIndexTracker.update(ServerProtoUtils.toTermIndex(entry));
     return CompletableFuture.completedFuture(
@@ -202,7 +197,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           termIndexTracker.update(ServerProtoUtils.toTermIndex(entry));
         }
       }
-      Preconditions.checkState(
+      RaftUtils.assertTrue(
           !list.isEmpty() && endIndex == list.get(list.size() - 1).getIndex(),
           "endIndex=%s, list=%s", endIndex, list);
       this.endIndexLastCkpt = endIndex;
