@@ -516,8 +516,9 @@ public class LeaderState {
     return pending;
   }
 
-  void replyPendingRequest(long logIndex, CompletableFuture<Message> message) {
-    pendingRequests.replyPendingRequest(logIndex, message);
+  void replyPendingRequest(long logIndex,
+      CompletableFuture<Message> stateMachineFuture) {
+    pendingRequests.replyPendingRequest(logIndex, stateMachineFuture);
   }
 
   TransactionContext getTransactionContext(long index) {

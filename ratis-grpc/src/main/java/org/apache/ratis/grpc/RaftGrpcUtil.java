@@ -21,29 +21,19 @@ import org.apache.ratis.shaded.io.grpc.Metadata;
 import org.apache.ratis.shaded.io.grpc.Status;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.StringUtils;
 
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.lang.reflect.Constructor;
 
 public class RaftGrpcUtil {
   public static final Metadata.Key<String> EXCEPTION_TYPE_KEY =
       Metadata.Key.of("exception-type", Metadata.ASCII_STRING_MARSHALLER);
 
-  public static String stringifyException(Throwable e) {
-    StringWriter stm = new StringWriter();
-    PrintWriter wrt = new PrintWriter(stm);
-    e.printStackTrace(wrt);
-    wrt.close();
-    return stm.toString();
-  }
-
   public static StatusRuntimeException wrapException(Throwable t) {
     Metadata trailers = new Metadata();
     trailers.put(EXCEPTION_TYPE_KEY, t.getClass().getCanonicalName());
     return new StatusRuntimeException(
-        Status.INTERNAL.withDescription(RaftGrpcUtil.stringifyException(t)),
+        Status.INTERNAL.withDescription(StringUtils.stringifyException(t)),
         trailers);
   }
 
@@ -55,7 +45,7 @@ public class RaftGrpcUtil {
       if (className != null) {
         try {
           Class<?> clazz = Class.forName(className);
-          final Exception unwrapped = instantiateException(
+          final Exception unwrapped = RaftUtils.instantiateException(
               clazz.asSubclass(Exception.class), status.getDescription(), se);
           return RaftUtils.asIOException(unwrapped);
         } catch (Exception e) {
@@ -76,12 +66,4 @@ public class RaftGrpcUtil {
     return e;
   }
 
-  private static Exception instantiateException(Class<? extends Exception> cls,
-      String message, Exception from) throws Exception {
-    Constructor<? extends Exception> cn = cls.getConstructor(String.class);
-    cn.setAccessible(true);
-    Exception ex = cn.newInstance(message);
-    ex.initCause(from);
-    return ex;
-  }
 }

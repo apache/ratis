@@ -154,13 +154,25 @@ message RaftClientRequestProto {
   bool readOnly = 3;
 }
 
+message NotLeaderExceptionProto {
+  RaftPeerProto suggestedLeader = 1;
+  repeated RaftPeerProto peersInConf = 2;
+}
+
+message StateMachineExceptionProto {
+  string exceptionClassName = 1;
+  string errorMsg = 2;
+  bytes stacktrace = 3;
+}
+
 message RaftClientReplyProto {
   RaftRpcReplyProto rpcReply = 1;
   ClientMessageEntryProto message = 2;
-  // the following 3 fields are used to indicate the server is not leader
-  bool isNotLeader = 3;
-  RaftPeerProto suggestedLeader = 4;
-  repeated RaftPeerProto peersInConf = 5;
+
+  oneof ExceptionDetails {
+    NotLeaderExceptionProto notLeaderException = 3;
+    StateMachineExceptionProto stateMachineException = 4;
+  }
 }
 
 // setConfiguration request

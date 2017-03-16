@@ -162,9 +162,9 @@ class StateMachineUpdater implements Runnable {
               trx = stateMachine.applyTransactionSerial(trx);
 
               // TODO: This step can be parallelized
-              CompletableFuture<Message> messageFuture =
+              CompletableFuture<Message> stateMachineFuture =
                   stateMachine.applyTransaction(trx);
-              server.replyPendingRequest(next.getIndex(), messageFuture);
+              server.replyPendingRequest(next.getIndex(), stateMachineFuture);
             }
             lastAppliedIndex++;
           } else {

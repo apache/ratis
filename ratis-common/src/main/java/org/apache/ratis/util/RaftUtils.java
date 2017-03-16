@@ -380,4 +380,15 @@ public abstract class RaftUtils {
       throw new IllegalStateException(String.valueOf(message.get()));
     }
   }
+
+  public static Exception instantiateException(Class<? extends Exception> cls,
+      String message, Exception from) throws Exception {
+    Constructor<? extends Exception> cn = cls.getConstructor(String.class);
+    cn.setAccessible(true);
+    Exception ex = cn.newInstance(message);
+    if (from != null) {
+      ex.initCause(from);
+    }
+    return ex;
+  }
 }

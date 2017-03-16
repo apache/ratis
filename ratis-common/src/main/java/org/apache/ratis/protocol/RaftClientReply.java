@@ -24,23 +24,27 @@ public class RaftClientReply extends RaftClientMessage {
   private final boolean success;
   private final long callId;
 
-  /** non-null if the server is not leader */
-  private final NotLeaderException notLeaderException;
+  /**
+   * We mainly track two types of exceptions here:
+   * 1. NotLeaderException if the server is not leader
+   * 2. StateMachineException if the server's state machine returns an exception
+   */
+  private final RaftException exception;
   private final Message message;
 
   public RaftClientReply(ClientId clientId, RaftPeerId serverId, long callId,
-      boolean success, Message message, NotLeaderException notLeaderException) {
+      boolean success, Message message, RaftException exception) {
     super(clientId, serverId);
     this.success = success;
     this.callId = callId;
     this.message = message;
-    this.notLeaderException = notLeaderException;
+    this.exception = exception;
   }
 
   public RaftClientReply(RaftClientRequest request,
-      NotLeaderException notLeaderException) {
+      RaftException exception) {
     this(request.getClientId(), request.getServerId(), request.getCallId(),
-        false, null, notLeaderException);
+        false, null, exception);
   }
 
   public RaftClientReply(RaftClientRequest request, Message message) {
@@ -71,11 +75,21 @@ public class RaftClientReply extends RaftClientMessage {
     return message;
   }
 
-  public NotLeaderException getNotLeaderException() {
-    return notLeaderException;
+  public boolean isNotLeader() {
+    return exception instanceof NotLeaderException;
   }
 
-  public boolean isNotLeader() {
-    return notLeaderException != null;
+  public NotLeaderException getNotLeaderException() {
+    assert isNotLeader();
+    return (NotLeaderException) exception;
+  }
+
+  public StateMachineException getStateMachineException() {
+    assert hasStateMachineException();
+    return (StateMachineException) exception;
+  }
+
+  public boolean hasStateMachineException() {
+    return exception instanceof StateMachineException;
   }
 }

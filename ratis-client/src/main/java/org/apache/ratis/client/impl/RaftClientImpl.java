@@ -25,10 +25,12 @@ import org.apache.ratis.util.RaftUtils;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /** A client who sends requests to a raft service. */
 final class RaftClientImpl implements RaftClient {
@@ -82,6 +84,9 @@ final class RaftClientImpl implements RaftClient {
   public RaftClientReply setConfiguration(RaftPeer[] peersInNewConf)
       throws IOException {
     final long callId = nextCallId();
+    // also refresh the rpc proxies for these peers
+    clientRpc.addServers(Arrays.stream(peersInNewConf).filter(peers::contains)
+        .collect(Collectors.toCollection(ArrayList::new)));
     return sendRequestWithRetry(() -> new SetConfigurationRequest(
         clientId, leaderId, callId, peersInNewConf));
   }
@@ -111,19 +116,21 @@ final class RaftClientImpl implements RaftClient {
 
   private RaftClientReply sendRequest(RaftClientRequest request)
       throws StateMachineException {
+    RaftClientReply reply = null;
     try {
-      RaftClientReply reply = clientRpc.sendRequest(request);
+      reply = clientRpc.sendRequest(request);
+    } catch (IOException ioe) {
+      handleIOException(request, ioe, null);
+    }
+    if (reply != null) {
       if (reply.isNotLeader()) {
         handleNotLeaderException(request, reply.getNotLeaderException());
         return null;
+      } else if (reply.hasStateMachineException()) {
+        throw reply.getStateMachineException();
       } else {
         return reply;
       }
-    } catch (StateMachineException e) {
-      throw e;
-    } catch (IOException ioe) {
-      // TODO different retry policies for different exceptions
-      handleIOException(request, ioe, null);
     }
     return null;
   }
@@ -147,7 +154,8 @@ final class RaftClientImpl implements RaftClient {
 
   private void handleIOException(RaftClientRequest request, IOException ioe,
       RaftPeerId newLeader) {
-    LOG.debug("{}: Failed with {}", clientId, ioe);
+    LOG.debug("{}: suggested new leader: {}. Failed with {}", clientId,
+        newLeader, ioe);
     final RaftPeerId oldLeader = request.getServerId();
     if (newLeader == null && oldLeader.equals(leaderId)) {
       newLeader = RaftUtils.next(oldLeader, RaftUtils.as(peers, RaftPeer::getId));

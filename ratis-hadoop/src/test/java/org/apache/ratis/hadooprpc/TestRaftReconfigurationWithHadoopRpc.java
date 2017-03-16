@@ -17,9 +17,14 @@
  */
 package org.apache.ratis.hadooprpc;
 
+import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.ipc.Client;
+import org.apache.log4j.Level;
 import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.server.impl.RaftReconfigurationBaseTest;
+import org.apache.ratis.util.RaftUtils;
 
 import java.io.IOException;
 
@@ -28,6 +33,10 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONN
 
 public class TestRaftReconfigurationWithHadoopRpc
     extends RaftReconfigurationBaseTest {
+  static {
+    ((Log4JLogger) Client.LOG).getLogger().setLevel(Level.ERROR);
+  }
+
   @Override
   public MiniRaftCluster getCluster(int peerNum) throws IOException {
     final Configuration hadoopConf = new Configuration();

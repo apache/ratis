@@ -434,8 +434,9 @@ public class RaftServerImpl implements RaftServer {
       if (cause == null) {
         throw new IOException(e);
       }
-      if (cause instanceof NotLeaderException) {
-        return new RaftClientReply(request, (NotLeaderException)cause);
+      if (cause instanceof NotLeaderException ||
+          cause instanceof StateMachineException) {
+        return new RaftClientReply(request, (RaftException) cause);
       } else {
         throw RaftUtils.asIOException(cause);
       }
@@ -797,9 +798,9 @@ public class RaftServerImpl implements RaftServer {
   }
 
   synchronized void replyPendingRequest(long logIndex,
-      CompletableFuture<Message> message) {
+      CompletableFuture<Message> stateMachineFuture) {
     if (isLeader() && leaderState != null) { // is leader and is running
-      leaderState.replyPendingRequest(logIndex, message);
+      leaderState.replyPendingRequest(logIndex, stateMachineFuture);
     }
   }
 

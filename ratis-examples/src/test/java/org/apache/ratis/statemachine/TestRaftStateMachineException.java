@@ -79,7 +79,7 @@ public class TestRaftStateMachineException {
       fail("Exception expected");
     } catch (StateMachineException e) {
       e.printStackTrace();
-      Assert.assertTrue(e.getMessage().contains("Fake Exception"));
+      Assert.assertTrue(e.getCause().getMessage().contains("Fake Exception"));
     }
 
     cluster.shutdown();

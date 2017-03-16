@@ -206,7 +206,7 @@ public class LogAppender extends Daemon {
       } catch (InterruptedIOException iioe) {
         throw iioe;
       } catch (IOException ioe) {
-        LOG.debug(this + ": failed to send appendEntries; retry " + retry++, ioe);
+        LOG.trace(this + ": failed to send appendEntries; retry " + retry++, ioe);
       }
       if (isAppenderRunning()) {
         leaderState.getSyncInterval().sleep();

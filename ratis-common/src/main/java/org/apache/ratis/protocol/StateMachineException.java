@@ -18,7 +18,7 @@
 package org.apache.ratis.protocol;
 
 public class StateMachineException extends RaftException {
-  public StateMachineException(String serverId, Exception cause) {
+  public StateMachineException(String serverId, Throwable cause) {
     super(cause.getClass().getName() + " from Server " + serverId, cause);
   }
 

@@ -21,6 +21,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Locale;
 
 public class StringUtils {
@@ -82,5 +84,13 @@ public class StringUtils {
     } else {
       return defaultValue;
     }
+  }
+
+  public static String stringifyException(Throwable e) {
+    StringWriter stm = new StringWriter();
+    PrintWriter wrt = new PrintWriter(stm);
+    e.printStackTrace(wrt);
+    wrt.close();
+    return stm.toString();
   }
 }
