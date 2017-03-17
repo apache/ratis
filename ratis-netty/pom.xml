@@ -33,6 +33,11 @@
       <groupId>org.apache.ratis</groupId>
       <scope>provided</scope>
     </dependency>
+    <dependency>
+      <artifactId>ratis-netty-shaded</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <scope>provided</scope>
+    </dependency>
 
     <dependency>
       <artifactId>ratis-common</artifactId>
@@ -83,12 +88,6 @@
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
       <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-all</artifactId>
-      <scope>compile</scope>
     </dependency>
   </dependencies>
 </project>

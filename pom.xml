@@ -51,6 +51,7 @@
     <module>ratis-grpc</module>
     <module>ratis-hadoop</module>
     <module>ratis-netty</module>
+    <module>ratis-netty-shaded</module>
     <module>ratis-proto-shaded</module>
     <module>ratis-server</module>
   </modules>
@@ -163,6 +164,9 @@
     <java.min.version>${javac.version}</java.min.version>
     <maven.min.version>3.0.4</maven.min.version>
 
+    <!--Version of protobuf to be shaded -->
+    <shaded.protobuf.version>3.1.0</shaded.protobuf.version>
+
     <!-- dependency versions -->
     <commons-io.version>2.4</commons-io.version>
     <commons-lang.version>2.6</commons-lang.version>
@@ -256,6 +260,19 @@
       </dependency>
 
       <dependency>
+        <artifactId>ratis-netty-shaded</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-netty-shaded</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
         <artifactId>ratis-proto-shaded</artifactId>
         <groupId>org.apache.ratis</groupId>
         <version>${project.version}</version>
@@ -309,12 +326,6 @@
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
         <version>20.0</version>
-      </dependency>
-
-      <dependency>
-        <groupId>io.netty</groupId>
-        <artifactId>netty-all</artifactId>
-        <version>4.1.6.Final</version>
       </dependency>
 
       <dependency>

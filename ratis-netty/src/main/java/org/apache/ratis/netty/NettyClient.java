@@ -17,22 +17,21 @@
  */
 package org.apache.ratis.netty;
 
-import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
-import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
+import org.apache.ratis.shaded.io.netty.bootstrap.Bootstrap;
+import org.apache.ratis.shaded.io.netty.channel.Channel;
+import org.apache.ratis.shaded.io.netty.channel.ChannelFuture;
+import org.apache.ratis.shaded.io.netty.channel.ChannelInitializer;
+import org.apache.ratis.shaded.io.netty.channel.EventLoopGroup;
+import org.apache.ratis.shaded.io.netty.channel.socket.SocketChannel;
+import org.apache.ratis.shaded.io.netty.channel.socket.nio.NioSocketChannel;
+import org.apache.ratis.shaded.io.netty.handler.logging.LogLevel;
+import org.apache.ratis.shaded.io.netty.handler.logging.LoggingHandler;
+import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.NetUtils;
 
 import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.util.Objects;
-
-import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.NetUtils;
 
 public class NettyClient implements Closeable {
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());

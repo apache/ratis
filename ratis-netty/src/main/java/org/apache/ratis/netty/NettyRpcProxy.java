@@ -17,16 +17,10 @@
  */
 package org.apache.ratis.netty;
 
-import static org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerReplyProto.RaftNettyServerReplyCase.EXCEPTIONREPLY;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.shaded.io.netty.channel.*;
+import org.apache.ratis.shaded.io.netty.channel.nio.NioEventLoopGroup;
+import org.apache.ratis.shaded.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufDecoder;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufEncoder;
 import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
@@ -38,15 +32,14 @@ import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.RaftUtils;
 
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandler;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
-import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.SocketChannel;
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
+import static org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerReplyProto.RaftNettyServerReplyCase.EXCEPTIONREPLY;
 
 public class NettyRpcProxy implements Closeable {
   public static class PeerMap extends PeerProxyMap<NettyRpcProxy> {

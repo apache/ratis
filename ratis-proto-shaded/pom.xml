@@ -34,8 +34,7 @@
     <!--The Default location for sources-->
     <sources.dir>src/main/java</sources.dir>
 
-    <!--Version of protobuf to be shaded -->
-    <shaded.protobuf.version>3.1.0</shaded.protobuf.version>
+
     <!--Version of grpc to be shaded -->
     <shaded.grpc.version>1.0.1</shaded.grpc.version>
     <!--Version of Hadoop to be shaded -->
@@ -227,10 +226,6 @@
                       <pattern>io.grpc</pattern>
                       <shadedPattern>org.apache.ratis.shaded.io.grpc</shadedPattern>
                     </relocation>
-                    <relocation>
-                      <pattern>io.netty.handler.codec.protobuf</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.io.netty.handler.codec.protobuf</shadedPattern>
-                    </relocation>
 
                     <relocation>
                       <pattern>org.apache.hadoop.ipc.protobuf</pattern>
@@ -239,12 +234,6 @@
                   </relocations>
 
                   <filters>
-                    <filter>
-                      <artifact>io.netty:netty-codec</artifact>
-                      <includes>
-                        <include>io/netty/handler/codec/protobuf/**</include>
-                      </includes>
-                    </filter>
                     <filter>
                       <artifact>org.apache.hadoop:hadoop-common</artifact>
                       <includes>
@@ -255,15 +244,14 @@
 
                   <artifactSet>
                     <excludes>
-                      <exclude>asm:asm</exclude>
-
-                      <exclude>com.google.code.findbugs</exclude>
+                      <exclude>com.google.code.findbugs:jsr305</exclude>
                       <exclude>com.google.code.gson:gson</exclude>
                       <exclude>com.google.guava:guava</exclude>
-                      com.google.re2j:re2j
+                      <exclude>com.google.re2j:re2j</exclude>
 
                       <exclude>com.jamesmurty.utils:java-xmlbuilder</exclude>
                       <exclude>com.jcraft:jsch</exclude>
+                      <exclude>com.nimbusds:nimbus-jose-jwt</exclude>
 
                       <exclude>com.sun.jersey:jersey-core</exclude>
                       <exclude>com.sun.jersey:jersey-json</exclude>
@@ -272,7 +260,6 @@
                       <exclude>com.sun.xml.bind:jaxb-impl</exclude>
 
                       <exclude>com.thoughtworks.paranamer:paranamer</exclude>
-
                       <exclude>commons-beanutils:commons-beanutils-core</exclude>
                       <exclude>commons-beanutils:commons-beanutils</exclude>
                       <exclude>commons-cli:commons-cli</exclude>
@@ -280,7 +267,6 @@
                       <exclude>commons-collections:commons-collections</exclude>
                       <exclude>commons-configuration:commons-configuration</exclude>
                       <exclude>commons-digester:commons-digester</exclude>
-                      <exclude>commons-httpclient:commons-httpclient</exclude>
                       <exclude>commons-io:commons-io</exclude>
                       <exclude>commons-lang:commons-lang</exclude>
                       <exclude>commons-logging:commons-logging</exclude>
@@ -289,6 +275,7 @@
                       <exclude>io.netty:netty-buffer</exclude>
                       <exclude>io.netty:netty-codec-http2</exclude>
                       <exclude>io.netty:netty-codec-http</exclude>
+                      <exclude>io.netty:netty-codec</exclude>
                       <exclude>io.netty:netty-common</exclude>
                       <exclude>io.netty:netty-handler</exclude>
                       <exclude>io.netty:netty-resolver</exclude>
@@ -298,13 +285,14 @@
                       <exclude>javax.activation:activation</exclude>
                       <exclude>javax.servlet.jsp:jsp-api</exclude>
                       <exclude>javax.servlet:servlet-api</exclude>
+                      <exclude>javax.ws.rs:jsr311-api</exclude>
                       <exclude>javax.xml.bind:jaxb-api</exclude>
                       <exclude>javax.xml.stream:stax-api</exclude>
-                      <exclude>javax.servlet:javax.servlet-api</exclude>
-                      <exclude>javax.ws.rs:jsr311-api</exclude>
 
                       <exclude>log4j:log4j</exclude>
                       <exclude>net.java.dev.jets3t:jets3t</exclude>
+                      <exclude>net.jcip:jcip-annotations</exclude>
+                      <exclude>net.minidev:json-smart</exclude>
 
                       <exclude>org.apache.avro:avro</exclude>
                       <exclude>org.apache.commons:commons-compress</exclude>
@@ -312,15 +300,24 @@
                       <exclude>org.apache.curator:curator-client</exclude>
                       <exclude>org.apache.curator:curator-framework</exclude>
                       <exclude>org.apache.curator:curator-recipes</exclude>
-                      <exclude>org.apache.directory.api:api-asn1-api</exclude>
-                      <exclude>org.apache.directory.api:api-util</exclude>
-                      <exclude>org.apache.directory.server:apacheds-i18n</exclude>
-                      <exclude>org.apache.directory.server:apacheds-kerberos-codec</exclude>
                       <exclude>org.apache.hadoop:hadoop-annotations</exclude>
                       <exclude>org.apache.hadoop:hadoop-auth</exclude>
-                      <exclude>org.apache.htrace:htrace-core</exclude>
+                      <exclude>org.apache.htrace:htrace-core4</exclude>
                       <exclude>org.apache.httpcomponents:httpclient</exclude>
                       <exclude>org.apache.httpcomponents:httpcore</exclude>
+                      <exclude>org.apache.kerby:kerb-admin</exclude>
+                      <exclude>org.apache.kerby:kerb-client</exclude>
+                      <exclude>org.apache.kerby:kerb-common</exclude>
+                      <exclude>org.apache.kerby:kerb-core</exclude>
+                      <exclude>org.apache.kerby:kerb-crypto</exclude>
+                      <exclude>org.apache.kerby:kerb-identity</exclude>
+                      <exclude>org.apache.kerby:kerb-server</exclude>
+                      <exclude>org.apache.kerby:kerb-simplekdc</exclude>
+                      <exclude>org.apache.kerby:kerb-util</exclude>
+                      <exclude>org.apache.kerby:kerby-asn1</exclude>
+                      <exclude>org.apache.kerby:kerby-config</exclude>
+                      <exclude>org.apache.kerby:kerby-pkix</exclude>
+                      <exclude>org.apache.kerby:kerby-util</exclude>
                       <exclude>org.apache.zookeeper:zookeeper</exclude>
 
                       <exclude>org.codehaus.jackson:jackson-core-asl</exclude>
@@ -329,39 +326,15 @@
                       <exclude>org.codehaus.jackson:jackson-xc</exclude>
                       <exclude>org.codehaus.jettison:jettison</exclude>
 
+                      <exclude>org.mortbay.jetty:jetty-sslengine</exclude>
                       <exclude>org.mortbay.jetty:jetty-util</exclude>
                       <exclude>org.mortbay.jetty:jetty</exclude>
-                      <exclude>org.eclipse.jetty:jetty-server</exclude>
-                      <exclude>org.eclipse.jetty:jetty-util</exclude>
-                      <exclude>org.eclipse.jetty:jetty-servlet</exclude>
-                      <exclude>org.eclipse.jetty:jetty-webapp</exclude>
-                      <exclude>org.eclipse.jetty:jetty-util-ajax</exclude>
-                      <exclude>org.mortbay.jetty:jetty-sslengine</exclude>
 
                       <exclude>org.slf4j:slf4j-api</exclude>
                       <exclude>org.slf4j:slf4j-log4j12</exclude>
                       <exclude>org.tukaani:xz</exclude>
                       <exclude>org.xerial.snappy:snappy-java</exclude>
                       <exclude>xmlenc:xmlenc</exclude>
-
-                      <exclude>com.nimbusds:nimbus-jose-jwt</exclude>
-                      <exclude>net.jcip:jcip-annotations</exclude>
-                      <exclude>net.minidev:json-smart</exclude>
-
-                      <exclude>org.apache.htrace:htrace-core4</exclude>
-                      <exclude>org.apache.kerby:kerb-simplekdc</exclude>
-                      <exclude>org.apache.kerby:kerby-config</exclude>
-                      <exclude>org.apache.kerby:kerb-core</exclude>
-                      <exclude>org.apache.kerby:kerby-asn1</exclude>
-                      <exclude>org.apache.kerby:kerby-pkix</exclude>
-                      <exclude>org.apache.kerby:kerby-util</exclude>
-                      <exclude>org.apache.kerby:kerb-client</exclude>
-                      <exclude>org.apache.kerby:kerb-common</exclude>
-                      <exclude>org.apache.kerby:kerb-util</exclude>
-                      <exclude>org.apache.kerby:kerb-crypto</exclude>
-                      <exclude>org.apache.kerby:kerb-server</exclude>
-                      <exclude>org.apache.kerby:kerb-identity</exclude>
-                      <exclude>org.apache.kerby:kerb-admin</exclude>
                     </excludes>
                   </artifactSet>
                 </configuration>
