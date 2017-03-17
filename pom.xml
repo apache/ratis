@@ -50,6 +50,7 @@
     <module>ratis-examples</module>
     <module>ratis-grpc</module>
     <module>ratis-hadoop</module>
+    <module>ratis-hadoop-shaded</module>
     <module>ratis-netty</module>
     <module>ratis-netty-shaded</module>
     <module>ratis-proto-shaded</module>
@@ -159,6 +160,9 @@
     <wagon-ssh.version>1.0</wagon-ssh.version>
     <shell-executable>bash</shell-executable>
 
+    <hadoop.version>3.0.0-alpha1</hadoop.version>
+    <hadoop-maven-plugins.version>${hadoop.version}</hadoop-maven-plugins.version>
+
     <!-- define the Java language version used by the compiler -->
     <javac.version>1.8</javac.version>
     <java.min.version>${javac.version}</java.min.version>
@@ -245,6 +249,11 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
+      <dependency>
+        <artifactId>ratis-hadoop-shaded</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
 
       <dependency>
         <artifactId>ratis-netty</artifactId>
@@ -258,31 +267,16 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
-
       <dependency>
         <artifactId>ratis-netty-shaded</artifactId>
         <groupId>org.apache.ratis</groupId>
         <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <artifactId>ratis-netty-shaded</artifactId>
-        <groupId>org.apache.ratis</groupId>
-        <version>${project.version}</version>
-        <type>test-jar</type>
-        <scope>test</scope>
       </dependency>
 
       <dependency>
         <artifactId>ratis-proto-shaded</artifactId>
         <groupId>org.apache.ratis</groupId>
         <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <artifactId>ratis-proto-shaded</artifactId>
-        <groupId>org.apache.ratis</groupId>
-        <version>${project.version}</version>
-        <type>test-jar</type>
-        <scope>test</scope>
       </dependency>
 
       <dependency>
@@ -408,7 +402,7 @@
         <plugin>
           <groupId>org.apache.hadoop</groupId>
           <artifactId>hadoop-maven-plugins</artifactId>
-          <version>${hadoop.version}</version>
+          <version>${hadoop-maven-plugins.version}</version>
         </plugin>
 
         <plugin>

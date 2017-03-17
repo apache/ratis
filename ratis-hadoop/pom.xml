@@ -27,13 +27,14 @@
   <name>Ratis Hadoop Support</name>
   <version>0.1-SNAPSHOT</version>
 
-  <properties>
-    <hadoop.version>3.0.0-alpha1</hadoop.version>
-  </properties>
-
   <dependencies>
     <dependency>
       <artifactId>ratis-proto-shaded</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-hadoop-shaded</artifactId>
       <groupId>org.apache.ratis</groupId>
       <scope>provided</scope>
     </dependency>
