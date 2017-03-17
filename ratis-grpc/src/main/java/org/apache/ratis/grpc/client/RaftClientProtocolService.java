@@ -66,18 +66,18 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
   private static final PendingAppend COMPLETED = new PendingAppend(Long.MAX_VALUE);
 
   private final RaftPeerId id;
-  private final RaftClientAsynchronousProtocol client;
+  private final RaftClientAsynchronousProtocol protocol;
 
-  public RaftClientProtocolService(RaftPeerId id, RaftClientAsynchronousProtocol client) {
+  public RaftClientProtocolService(RaftPeerId id, RaftClientAsynchronousProtocol protocol) {
     this.id = id;
-    this.client = client;
+    this.protocol = protocol;
   }
 
   @Override
   public void setConfiguration(SetConfigurationRequestProto request,
       StreamObserver<RaftClientReplyProto> responseObserver) {
     try {
-      CompletableFuture<RaftClientReply> future = client.setConfigurationAsync(
+      CompletableFuture<RaftClientReply> future = protocol.setConfigurationAsync(
           ClientProtoUtils.toSetConfigurationRequest(request));
       future.whenCompleteAsync((reply, exception) -> {
         if (exception != null) {
@@ -115,7 +115,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
           pendingList.add(p);
         }
 
-        CompletableFuture<RaftClientReply> future = client.submitClientRequestAsync(
+        CompletableFuture<RaftClientReply> future = protocol.submitClientRequestAsync(
             ClientProtoUtils.toRaftClientRequest(request));
         future.whenCompleteAsync((reply, exception) -> {
           if (exception != null) {
