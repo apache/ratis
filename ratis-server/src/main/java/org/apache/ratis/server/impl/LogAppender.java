@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LeaderState.StateUpdateEventType;
@@ -313,7 +312,7 @@ public class LogAppender extends Daemon {
       throws IOException {
     FileChunkProto.Builder builder = FileChunkProto.newBuilder()
         .setOffset(offset).setChunkIndex(chunkIndex);
-    IOUtils.readFully(in, buf, 0, length);
+    RaftUtils.readFully(in, buf, 0, length);
     Path relativePath = server.getState().getStorage().getStorageDir()
         .relativizeToRoot(fileInfo.getPath());
     builder.setFilename(relativePath.toString());

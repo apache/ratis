@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
@@ -88,7 +87,7 @@ public class ServerImplUtils {
 
     @Override
     public int hashCode() {
-      return new HashCodeBuilder().append(term).append(index).hashCode();
+      return Long.hashCode(term) ^ Long.hashCode(index);
     }
 
     private static String toString(long n) {

@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.commons.io.Charsets;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -32,6 +31,7 @@ import org.apache.ratis.util.RaftUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.List;
 
@@ -63,7 +63,7 @@ import java.util.List;
  */
 public class SegmentedRaftLog extends RaftLog {
   static final String HEADER_STR = "RAFTLOG1";
-  static final byte[] HEADER_BYTES = HEADER_STR.getBytes(Charsets.UTF_8);
+  static final byte[] HEADER_BYTES = HEADER_STR.getBytes(StandardCharsets.UTF_8);
 
   /**
    * I/O task definitions.

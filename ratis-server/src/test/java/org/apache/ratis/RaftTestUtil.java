@@ -17,7 +17,6 @@
  */
 package org.apache.ratis;
 
-import org.apache.commons.lang.RandomStringUtils;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -39,6 +38,7 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 
@@ -215,7 +215,7 @@ public class RaftTestUtil {
 
   public static File getTestDir(Class<?> caller) throws IOException {
     File dir = new File(System.getProperty("test.build.data", "target/test/data")
-            + "/" + RandomStringUtils.randomAlphanumeric(10),
+            + "/" + Long.toHexString(ThreadLocalRandom.current().nextLong()),
             caller.getSimpleName());
     if (dir.exists() && !dir.isDirectory()) {
       throw new IOException(dir + " already exists and is not a directory");

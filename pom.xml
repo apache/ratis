@@ -171,10 +171,6 @@
     <!--Version of protobuf to be shaded -->
     <shaded.protobuf.version>3.1.0</shaded.protobuf.version>
 
-    <!-- dependency versions -->
-    <commons-io.version>2.4</commons-io.version>
-    <commons-lang.version>2.6</commons-lang.version>
-
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
     <test.exclude.pattern>_</test.exclude.pattern>
@@ -293,18 +289,6 @@
       </dependency>
 
       <!-- External dependencies -->
-      <dependency>
-        <groupId>commons-io</groupId>
-        <artifactId>commons-io</artifactId>
-        <version>${commons-io.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>commons-lang</groupId>
-        <artifactId>commons-lang</artifactId>
-        <version>${commons-lang.version}</version>
-      </dependency>
-
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>

@@ -17,19 +17,6 @@
  */
 package org.apache.ratis.server.storage;
 
-import java.io.BufferedInputStream;
-import java.io.Closeable;
-import java.io.DataInputStream;
-import java.io.EOFException;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FilterInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.zip.Checksum;
-
-import org.apache.commons.io.Charsets;
 import org.apache.ratis.protocol.ChecksumException;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.shaded.com.google.protobuf.CodedInputStream;
@@ -37,6 +24,10 @@ import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.PureJavaCrc32C;
 import org.apache.ratis.util.RaftUtils;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.Checksum;
 
 public class LogReader implements Closeable {
   /**
@@ -147,7 +138,7 @@ public class LogReader implements Closeable {
     if (num < header.length) {
       throw new EOFException("EOF before reading a complete log header");
     }
-    return new String(header, Charsets.UTF_8);
+    return new String(header, StandardCharsets.UTF_8);
   }
 
   /**
