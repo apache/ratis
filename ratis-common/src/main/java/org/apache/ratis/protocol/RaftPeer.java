@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
-import com.google.common.net.HostAndPort;
+import org.apache.ratis.util.NetUtils;
 
 import java.net.InetSocketAddress;
 
@@ -41,9 +41,7 @@ public class RaftPeer {
 
   /** Construct a peer with the given id and address. */
   public RaftPeer(RaftPeerId id, InetSocketAddress address) {
-    this(id, address == null ? null :
-        HostAndPort.fromParts(address.getAddress().getHostAddress(),
-            address.getPort()).toString());
+    this(id, address == null ? null : NetUtils.address2String(address));
   }
 
   /** Construct a peer with the given id and address. */

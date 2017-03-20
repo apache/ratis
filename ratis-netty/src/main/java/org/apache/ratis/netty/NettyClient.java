@@ -42,9 +42,7 @@ public class NettyClient implements Closeable {
   public void connect(String serverAddress, EventLoopGroup group,
                       ChannelInitializer<SocketChannel> initializer)
       throws InterruptedException {
-    final InetSocketAddress address = Objects.requireNonNull(
-        NetUtils.newInetSocketAddress(serverAddress),
-        () -> "Failed to create InetSocketAddress from " + serverAddress);
+    final InetSocketAddress address = NetUtils.createSocketAddr(serverAddress);
 
     lifeCycle.startAndTransition(
         () -> channel = new Bootstrap()

@@ -17,16 +17,16 @@
  */
 package org.apache.ratis.util;
 
-import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.*;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
-public abstract class NetUtils {
+public interface NetUtils {
   public static final Logger LOG = LoggerFactory.getLogger(NetUtils.class);
 
   public static abstract class StaticResolution {
@@ -44,65 +44,28 @@ public abstract class NetUtils {
     }
   }
 
-  public static InetSocketAddress newInetSocketAddress(String address) {
-    if (address.charAt(0) == '/') {
-      address = address.substring(1);
-    }
-    try {
-      return createSocketAddr(address);
-    } catch (Exception e) {
-      LOG.trace("", e);
-      return null;
-    }
-  }
-
-  /**
-   * Util method to build socket addr from either:
-   *   <host>:<port>
-   *   <fs>://<host>:<port>/<path>
-   */
+  /** The same as createSocketAddr(target, -1). */
   public static InetSocketAddress createSocketAddr(String target) {
     return createSocketAddr(target, -1);
   }
 
   /**
-   * Util method to build socket addr from either:
-   *   <host>
-   *   <host>:<port>
-   *   <fs>://<host>:<port>/<path>
-   */
-  public static InetSocketAddress createSocketAddr(String target, int defaultPort) {
-    return createSocketAddr(target, defaultPort, null);
-  }
-
-  /**
-   * Create an InetSocketAddress from the given target string and
-   * default port. If the string cannot be parsed correctly, the
-   * <code>configName</code> parameter is used as part of the
-   * exception message, allowing the user to better diagnose
-   * the misconfiguration.
-   *
-   * @param target a string of either "host" or "host:port"
+   * Create an InetSocketAddress from the given target and default port.
+   * @param target a string of either "host", "host:port" or "scheme://host:port/path"
    * @param defaultPort the default port if <code>target</code> does not
    *                    include a port number
-   * @param propertyName the name of the configuration from which
-   *                   <code>target</code> was loaded. This is used in the
-   *                   exception message in the case that parsing fails.
    */
-  public static InetSocketAddress createSocketAddr(
-      String target, int defaultPort, String propertyName) {
-    final String helpText = propertyName == null? ""
-        : " (property '" + propertyName + "')";
-    Preconditions.checkNotNull(target, "Target address cannot be null.%s", helpText);
-
-    target = target.trim();
+  static InetSocketAddress createSocketAddr(String target, int defaultPort) {
+    target = Objects.requireNonNull(target, "target == null").trim();
     boolean hasScheme = target.contains("://");
+    if (!hasScheme && target.charAt(0) == '/') {
+      target = target.substring(1);
+    }
     final URI uri;
     try {
-      uri = hasScheme ? URI.create(target) : URI.create("dummyscheme://"+target);
-    } catch (IllegalArgumentException e) {
-      throw new IllegalArgumentException(
-          "Invalid host:port authority: " + target + helpText, e);
+      uri = new URI(hasScheme? target: "dummy://"+target);
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Failed to create URI from target " + target, e);
     }
 
     final String host = uri.getHost();
@@ -112,10 +75,12 @@ public abstract class NetUtils {
     }
     final String path = uri.getPath();
 
-    if (host == null || port < 0
-        || (!hasScheme && path != null && !path.isEmpty())) {
-      throw new IllegalArgumentException(
-          "Invalid host:port authority: " + target + helpText);
+    if (host == null) {
+      throw new IllegalArgumentException("Host is null in " + target);
+    } else if (port < 0) {
+      throw new IllegalArgumentException("Port = " + port + " < 0 in " + target);
+    } else if (!hasScheme && path != null && !path.isEmpty()) {
+      throw new IllegalArgumentException("Unexpected path in " + target);
     }
     return createSocketAddrForHost(host, port);
   }
@@ -155,5 +120,9 @@ public abstract class NetUtils {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  static String address2String(InetSocketAddress address) {
+    return address.getHostName() + ":" + address.getPort();
   }
 }

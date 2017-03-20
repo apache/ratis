@@ -17,13 +17,13 @@
  */
 package org.apache.ratis.util;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Locale;
+import java.util.Objects;
 
 public class StringUtils {
   public static final String[] EMPTY_STRING_ARRAY = {};
@@ -63,7 +63,7 @@ public class StringUtils {
   }
 
   public static String bytes2HexString(byte[] bytes) {
-    Preconditions.checkNotNull(bytes);
+    Objects.requireNonNull(bytes, "bytes == null");
 
     final StringBuilder s = new StringBuilder(2 * bytes.length);
     for(byte b : bytes) {

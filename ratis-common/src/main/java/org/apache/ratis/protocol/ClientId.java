@@ -17,9 +17,10 @@
  */
 package org.apache.ratis.protocol;
 
-import com.google.common.base.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 import java.nio.ByteBuffer;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -37,11 +38,13 @@ public class ClientId {
   private final UUID uuid;
 
   private ClientId(UUID id) {
-    Preconditions.checkNotNull(uuid = id);
+    this.uuid = Objects.requireNonNull(id, "id == null");
   }
 
   public ClientId(byte[] data) {
-    Preconditions.checkArgument(data != null && data.length == BYTE_LENGTH);
+    Objects.requireNonNull(data, "data == null");
+    RaftUtils.assertTrue(data.length == BYTE_LENGTH,
+        "data.length = %s != BYTE_LENGTH = %s", data.length, BYTE_LENGTH);
     ByteBuffer buffer = ByteBuffer.wrap(data);
     this.uuid = new UUID(buffer.getLong(), buffer.getLong());
   }

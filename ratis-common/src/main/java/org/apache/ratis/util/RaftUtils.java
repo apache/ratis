@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import com.google.common.base.Preconditions;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.ratis.conf.RaftProperties;
@@ -31,7 +30,6 @@ import java.nio.channels.FileChannel;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -153,10 +151,10 @@ public abstract class RaftUtils {
     }
   }
 
-  public static <BASE, SUB extends BASE> Class<SUB> getClass(
+  public static <BASE> Class<? extends BASE> getClass(
       String subClassName, RaftProperties properties, Class<BASE> base) {
     try {
-      return (Class<SUB>) properties.getClassByName(subClassName).asSubclass(base);
+      return properties.getClassByName(subClassName).asSubclass(base);
     } catch (ClassNotFoundException e) {
       throw new IllegalArgumentException("Failed to get class "
           + subClassName + " as a subclass of " + base, e);
@@ -191,11 +189,6 @@ public abstract class RaftUtils {
         return v;
       }
     };
-  }
-
-  public static int getRandomBetween(int min, int max) {
-    Preconditions.checkArgument(max > min);
-    return ThreadLocalRandom.current().nextInt(max -min) + min;
   }
 
   public static void setLogLevel(Logger logger, Level level) {
@@ -299,10 +292,9 @@ public abstract class RaftUtils {
    *          if the given element is not in the iteration, return the first one
    */
   public static <T> T next(final T given, final Iterable<T> iteration) {
-    Preconditions.checkNotNull(given);
-    Preconditions.checkNotNull(iteration);
-    final Iterator<T> i = iteration.iterator();
-    Preconditions.checkArgument(i.hasNext());
+    Objects.requireNonNull(given, "given == null");
+    final Iterator<T> i = Objects.requireNonNull(iteration, "iteration == null").iterator();
+    assertTrue(i.hasNext(), "iteration is empty.");
 
     final T first = i.next();
     for(T current = first; i.hasNext(); ) {

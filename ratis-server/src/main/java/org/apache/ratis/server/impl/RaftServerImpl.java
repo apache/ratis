@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
@@ -123,7 +124,8 @@ public class RaftServerImpl implements RaftServer {
   }
 
   int getRandomTimeoutMs() {
-    return RaftUtils.getRandomBetween(minTimeoutMs, maxTimeoutMs);
+    return minTimeoutMs + ThreadLocalRandom.current().nextInt(
+        maxTimeoutMs - minTimeoutMs + 1);
   }
 
   @Override

@@ -17,13 +17,12 @@
  */
 package org.apache.ratis.util;
 
-import com.google.common.base.Charsets;
-
 import org.apache.ratis.io.MD5Hash;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.regex.Matcher;
@@ -65,7 +64,7 @@ public abstract class MD5FileUtil {
   private static Matcher readStoredMd5(File md5File) throws IOException {
     BufferedReader reader =
         new BufferedReader(new InputStreamReader(new FileInputStream(
-            md5File), Charsets.UTF_8));
+            md5File), StandardCharsets.UTF_8));
     String md5Line;
     try {
       md5Line = reader.readLine();
@@ -144,7 +143,7 @@ public abstract class MD5FileUtil {
     String md5Line = digestString + " *" + dataFile.getName() + "\n";
 
     AtomicFileOutputStream afos = new AtomicFileOutputStream(md5File);
-    afos.write(md5Line.getBytes(Charsets.UTF_8));
+    afos.write(md5Line.getBytes(StandardCharsets.UTF_8));
     afos.close();
 
     if (LOG.isDebugEnabled()) {

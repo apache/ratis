@@ -17,12 +17,12 @@
  */
 package org.apache.ratis.protocol;
 
-import com.google.common.base.Preconditions;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.util.RaftUtils;
 
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Id of Raft Peer. Should be globally unique.
@@ -36,7 +36,8 @@ public class RaftPeerId {
   private final byte[] id;
 
   public RaftPeerId(String id) {
-    Preconditions.checkArgument(id != null && !id.isEmpty());
+    Objects.requireNonNull(id, "id == null");
+    RaftUtils.assertTrue(!id.isEmpty(), "id is an empty string.");
     this.id = id.getBytes(StandardCharsets.UTF_8);
   }
 

@@ -18,8 +18,6 @@
 
 package org.apache.ratis.conf;
 
-import com.google.common.base.Preconditions;
-
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -513,10 +511,9 @@ public class RaftProperties {
    * @throws IllegalArgumentException when the value or name is null.
    */
   public void set(String name, String value) {
-    Preconditions.checkArgument(name != null, "Property name must not be null");
-    Preconditions.checkArgument(value != null,
-        "The value of property " + name + " must not be null");
-    name = name.trim();
+    final String trimmed = Objects.requireNonNull(name, "Property name must be non-null.");
+    Objects.requireNonNull(value, () -> "The value of property " + trimmed + " must be non-null.");
+    name = trimmed;
     getProps();
 
     getOverlay().setProperty(name, value);
@@ -1172,14 +1169,14 @@ public class RaftProperties {
    * @return property value as a <code>Class</code>,
    *         or <code>defaultValue</code>.
    */
-  public <BASE, SUB extends BASE> Class<SUB> getClass(
-      String name, Class<SUB> defaultValue, Class<BASE> xface) {
+  public <BASE> Class<? extends BASE> getClass(
+      String name, Class<? extends BASE> defaultValue, Class<BASE> xface) {
     try {
       Class<?> theClass = getClass(name, defaultValue);
       if (theClass != null && !xface.isAssignableFrom(theClass))
         throw new RuntimeException(theClass+" not "+xface.getName());
       else if (theClass != null)
-        return (Class<SUB>)theClass.asSubclass(xface);
+        return theClass.asSubclass(xface);
       else
         return null;
     } catch (Exception e) {

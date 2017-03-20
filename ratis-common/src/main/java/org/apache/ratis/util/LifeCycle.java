@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,7 +104,7 @@ public class LifeCycle {
         LOG.trace("TRACE", new Throwable());
       }
 
-      Preconditions.checkState(isValid(from, to),
+      RaftUtils.assertTrue(isValid(from, to),
           "ILLEGAL TRANSITION: In %s, %s -> %s", name, from, to);
     }
   }
@@ -163,7 +162,8 @@ public class LifeCycle {
   }
 
   /** Run the given start method and transition the current state accordingly. */
-  public <T extends Throwable> void startAndTransition(
+  @SafeVarargs
+  public final <T extends Throwable> void startAndTransition(
       CheckedRunnable<T> startImpl, Class<? extends Throwable>... exceptionClasses)
       throws T {
     transition(State.STARTING);

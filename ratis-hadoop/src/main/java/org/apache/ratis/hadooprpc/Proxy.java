@@ -32,7 +32,7 @@ public class Proxy<PROTOCOL> implements Closeable {
       throws IOException {
     RPC.setProtocolEngine(conf, clazz, ProtobufRpcEngineShaded.class);
     return RPC.getProxy(clazz, RPC.getProtocolVersion(clazz),
-        org.apache.ratis.util.NetUtils.newInetSocketAddress(addressStr),
+        org.apache.ratis.util.NetUtils.createSocketAddr(addressStr),
         UserGroupInformation.getCurrentUser(),
         conf, NetUtils.getSocketFactory(conf, clazz));
   }

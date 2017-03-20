@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import com.google.common.base.Preconditions;
-
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.slf4j.Logger;
@@ -27,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** A map from peer id to peer and its proxy. */
@@ -91,11 +90,10 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     PeerAndProxy p = peers.get(id);
     if (p == null) {
       synchronized (resetLock) {
-        p = peers.get(id);
+        p = Objects.requireNonNull(peers.get(id),
+            "Server " + id + " not found: peers=" + peers.keySet());
       }
     }
-    Preconditions.checkNotNull(p, "Server %s not found; peers=%s",
-        id, peers.keySet());
     return p.getProxy();
   }
 
