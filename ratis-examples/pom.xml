@@ -110,11 +110,6 @@
       <scope>test</scope>
       <type>test-jar</type>
     </dependency>
-    <dependency>
-      <artifactId>ratis-netty-shaded</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <scope>provided</scope>
-    </dependency>
 
     <dependency>
       <groupId>org.slf4j</groupId>

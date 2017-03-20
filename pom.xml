@@ -52,7 +52,6 @@
     <module>ratis-hadoop</module>
     <module>ratis-hadoop-shaded</module>
     <module>ratis-netty</module>
-    <module>ratis-netty-shaded</module>
     <module>ratis-proto-shaded</module>
     <module>ratis-server</module>
   </modules>
@@ -145,6 +144,7 @@
     <maven-jar-plugin.version>3.0.2</maven-jar-plugin.version>
     <maven-javadoc-plugin.version>2.10.3</maven-javadoc-plugin.version>
     <maven-resources-plugin.version>2.6</maven-resources-plugin.version>
+    <maven-shade-plugin.version>2.4.3</maven-shade-plugin.version>
     <maven-site-plugin.version>3.5</maven-site-plugin.version>
     <maven-source-plugin.version>2.3</maven-source-plugin.version>
     <maven-stylus-skin.version>1.5</maven-stylus-skin.version>
@@ -263,11 +263,6 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
-      <dependency>
-        <artifactId>ratis-netty-shaded</artifactId>
-        <groupId>org.apache.ratis</groupId>
-        <version>${project.version}</version>
-      </dependency>
 
       <dependency>
         <artifactId>ratis-proto-shaded</artifactId>
@@ -301,12 +296,6 @@
       </dependency>
 
       <dependency>
-        <groupId>com.google.guava</groupId>
-        <artifactId>guava</artifactId>
-        <version>20.0</version>
-      </dependency>
-
-      <dependency>
         <groupId>junit</groupId>
         <artifactId>junit</artifactId>
         <version>4.11</version>
@@ -315,6 +304,12 @@
         <groupId>org.mockito</groupId>
         <artifactId>mockito-all</artifactId>
         <version>1.8.5</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.jctools</groupId>
+        <artifactId>jctools-core</artifactId>
+        <version>1.2.1</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

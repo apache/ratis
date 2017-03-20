@@ -33,11 +33,6 @@
       <groupId>org.apache.ratis</groupId>
       <scope>provided</scope>
     </dependency>
-    <dependency>
-      <artifactId>ratis-netty-shaded</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <scope>provided</scope>
-    </dependency>
 
     <dependency>
       <artifactId>ratis-common</artifactId>
@@ -88,6 +83,11 @@
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jctools</groupId>
+      <artifactId>jctools-core</artifactId>
     </dependency>
   </dependencies>
 </project>
