@@ -19,13 +19,13 @@
   <parent>
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.11-SNAPSHOT</version>
     <relativePath>..</relativePath>
   </parent>
 
   <artifactId>ratis-hadoop</artifactId>
   <name>Ratis Hadoop Support</name>
-  <version>0.1-SNAPSHOT</version>
+  <version>0.11-SNAPSHOT</version>
 
   <dependencies>
     <dependency>
