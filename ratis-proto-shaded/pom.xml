@@ -32,8 +32,7 @@
     <!--The Default target dir-->
     <classes.dir>${project.build.directory}/classes</classes.dir>
     <!--The Default location for sources-->
-    <sources.dir>src/main/java</sources.dir>
-
+    <shaded.sources.dir>src/main/java</shaded.sources.dir>
 
     <!--Version of grpc to be shaded -->
     <shaded.grpc.version>1.0.1</shaded.grpc.version>
@@ -44,7 +43,7 @@
   <build>
     <!--I want to override these in profile so define them
          with variables up here-->
-    <sourceDirectory>${sources.dir}</sourceDirectory>
+    <sourceDirectory>${shaded.sources.dir}</sourceDirectory>
     <outputDirectory>${classes.dir}</outputDirectory>
     <plugins>
       <!-- Make a jar and put the sources in the jar -->
@@ -372,10 +371,10 @@
   <profiles>
     <!-- Skip the tests in this module -->
     <profile>
-      <id>skip-proto-shaded-tests</id>
+      <id>skip-shaded-tests</id>
       <activation>
         <property>
-          <name>skip-proto-shaded-tests</name>
+          <name>skip-shaded-tests</name>
         </property>
       </activation>
       <properties>
@@ -387,7 +386,7 @@
       <id>skipCompileProto</id>
       <activation>
         <file>
-          <exists>${sources.dir}</exists>
+          <exists>${shaded.sources.dir}</exists>
         </file>
         <property>
           <name>!compile-protobuf</name>
@@ -396,25 +395,33 @@
     </profile>
 
     <profile>
+      <id>clean-shade</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <configuration>
+              <filesets>
+                <fileset>
+                  <directory>${shaded.sources.dir}</directory>
+                  <followSymlinks>false</followSymlinks>
+                </fileset>
+              </filesets>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
       <id>compile-protobuf</id>
       <!--
-         Generate and shade proto files. Drops generated java files
-         under src/main/java. Check in the generated files so available
-         at build time. Run this profile/step everytime you change proto
+         Shade and drop the generated java files under src/main/java.
+         Run this profile/step everytime you change proto
          files or update the protobuf version.
-
-         The below does a bunch of ugly stuff. It purges current content
-         of the generated and shaded com.google.protobuf java files first.
-         It does this because later we apply patches later and patches
-         fail they've already been applied. We remove too because we
-         overlay the shaded protobuf and if files have been removed or
-         added, it'll be more plain if we have first done this delete.
-
-         Next up we generate proto, build a jar, shade it (which
-         includes the referenced protobuf), undo it over the src/main/java
-         directory, and then apply patches.
-
-         The result needs to be checked in.
       -->
       <activation>
         <activeByDefault>true</activeByDefault>
@@ -594,8 +601,7 @@
                       <classifier>sources</classifier>
                       <type>jar</type>
                       <overWrite>true</overWrite>
-                      <outputDirectory>${basedir}/src/main/java
-                      </outputDirectory>
+                      <outputDirectory>${basedir}/${shaded.sources.dir}</outputDirectory>
                       <includes>**/*.java</includes>
                     </artifactItem>
                   </artifactItems>

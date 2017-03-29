@@ -32,7 +32,7 @@
     <!--The Default target dir-->
     <classes.dir>${project.build.directory}/classes</classes.dir>
     <!--The Default location for sources-->
-    <sources.dir>src/main/java</sources.dir>
+    <shaded.sources.dir>src/main/java</shaded.sources.dir>
 
     <!--Version of Hadoop to be shaded -->
     <shaded.hadoop.version>${hadoop.version}</shaded.hadoop.version>
@@ -41,7 +41,7 @@
   <build>
     <!--I want to override these in profile so define them
          with variables up here-->
-    <sourceDirectory>${sources.dir}</sourceDirectory>
+    <sourceDirectory>${shaded.sources.dir}</sourceDirectory>
     <outputDirectory>${classes.dir}</outputDirectory>
     <plugins>
       <!-- Make a jar and put the sources in the jar -->
@@ -72,17 +72,20 @@
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
       <version>${shaded.protobuf.version}</version>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf.nano</groupId>
       <artifactId>protobuf-javanano</artifactId>
       <version>${shaded.protobuf.version}</version>
+      <optional>true</optional>
     </dependency>
 
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
       <version>${shaded.hadoop.version}</version>
+      <optional>true</optional>
     </dependency>
   </dependencies>
 
@@ -101,19 +104,41 @@
     </profile>
 
     <profile>
-      <id>skipShade</id>
+      <id>skipCompileProto</id>
       <activation>
         <file>
-          <exists>${sources.dir}</exists>
+          <exists>${shaded.sources.dir}</exists>
         </file>
         <property>
-          <name>!shade-hadoop</name>
+          <name>!compile-protobuf</name>
         </property>
       </activation>
     </profile>
 
     <profile>
-      <id>shade-hadoop</id>
+      <id>clean-shade</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <configuration>
+              <filesets>
+                <fileset>
+                  <directory>${shaded.sources.dir}</directory>
+                  <followSymlinks>false</followSymlinks>
+                </fileset>
+              </filesets>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>compile-protobuf</id>
       <!--
          Shade and drop the generated java files under src/main/java.
       -->
@@ -121,7 +146,7 @@
         <activeByDefault>true</activeByDefault>
       </activation>
       <properties>
-        <profile.id>shade-hadoop</profile.id>
+        <profile.id>compile-protobuf</profile.id>
         <!--When the compile for this profile runs, make sure it makes jars that
              can be related back to this shading profile. Give them a shading prefix.
          -->
@@ -273,8 +298,7 @@
                       <classifier>sources</classifier>
                       <type>jar</type>
                       <overWrite>true</overWrite>
-                      <outputDirectory>${basedir}/src/main/java
-                      </outputDirectory>
+                      <outputDirectory>${basedir}/${shaded.sources.dir}</outputDirectory>
                       <includes>**/*.java</includes>
                     </artifactItem>
                   </artifactItems>
