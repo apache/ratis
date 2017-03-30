@@ -53,6 +53,7 @@
     <module>ratis-hadoop-shaded</module>
     <module>ratis-netty</module>
     <module>ratis-proto-shaded</module>
+    <module>ratis-replicated-map</module>
     <module>ratis-server</module>
   </modules>
 
@@ -268,6 +269,19 @@
         <artifactId>ratis-proto-shaded</artifactId>
         <groupId>org.apache.ratis</groupId>
         <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <artifactId>ratis-replicated-map</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-replicated-map</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
       </dependency>
 
       <dependency>
