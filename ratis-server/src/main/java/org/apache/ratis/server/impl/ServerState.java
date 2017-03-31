@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.*;
@@ -196,7 +197,7 @@ public class ServerState implements Closeable {
   }
 
   long applyLog(TransactionContext operation, ClientId clientId, long callId)
-      throws IOException {
+      throws StateMachineException {
     return log.append(currentTerm, operation, clientId, callId);
   }
 

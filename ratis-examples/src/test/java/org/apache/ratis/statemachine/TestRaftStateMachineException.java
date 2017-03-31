@@ -72,7 +72,7 @@ public class TestRaftStateMachineException {
     public TransactionContext preAppendTransaction(TransactionContext trx)
         throws IOException {
       if (failPreAppend) {
-        throw new IOException("Fake Exception");
+        throw new IOException("Fake Exception in preAppend");
       } else {
         return trx;
       }
@@ -170,12 +170,8 @@ public class TestRaftStateMachineException {
     final long callId = 999;
     RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
         callId, new RaftTestUtil.SimpleMessage("message"));
-    try {
-      rpc.sendRequest(r);
-      Assert.fail("Exception expected");
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    RaftClientReply reply = rpc.sendRequest(r);
+    Assert.assertTrue(reply.hasStateMachineException());
 
     RetryCache.CacheEntry oldEntry = RaftServerTestUtil.getRetryEntry(
         cluster.getLeader(), client.getId(), callId);
@@ -183,12 +179,9 @@ public class TestRaftStateMachineException {
     Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(oldEntry));
 
     // retry
-    try {
-      rpc.sendRequest(r);
-      Assert.fail("Exception expected");
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    reply = rpc.sendRequest(r);
+    Assert.assertTrue(reply.hasStateMachineException());
+
     RetryCache.CacheEntry currentEntry = RaftServerTestUtil.getRetryEntry(
         cluster.getLeader(), client.getId(), callId);
     Assert.assertNotNull(currentEntry);

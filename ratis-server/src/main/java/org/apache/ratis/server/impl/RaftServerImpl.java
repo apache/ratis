@@ -386,14 +386,14 @@ public class RaftServerImpl implements RaftServer {
    */
   private CompletableFuture<RaftClientReply> appendTransaction(
       RaftClientRequest request, TransactionContext context,
-      RetryCache.CacheEntry retryEntry) throws RaftException {
+      RetryCache.CacheEntry cacheEntry) throws RaftException {
     LOG.debug("{}: receive client request({})", getId(), request);
     lifeCycle.assertCurrentState(RUNNING);
     CompletableFuture<RaftClientReply> reply;
 
     final PendingRequest pending;
     synchronized (this) {
-      reply = checkLeaderState(request, retryEntry);
+      reply = checkLeaderState(request, cacheEntry);
       if (reply != null) {
         return reply;
       }
@@ -403,13 +403,12 @@ public class RaftServerImpl implements RaftServer {
       try {
         entryIndex = state.applyLog(context, request.getClientId(),
             request.getCallId());
-      } catch (IOException e) {
-        // TODO looks like the IOException is actually only thrown by the SM in
-        // the preAppend stage. In that case we should wrap the exception in
-        // StateMachineException and return the exception in a RaftClientReply.
-        RaftException re = new RaftException(e);
-        retryEntry.failWithException(re);
-        throw re;
+      } catch (StateMachineException e) {
+        // the StateMachineException is thrown by the SM in the preAppend stage.
+        // Return the exception in a RaftClientReply.
+        RaftClientReply exceptionReply = new RaftClientReply(request, e);
+        cacheEntry.failWithReply(exceptionReply);
+        return CompletableFuture.completedFuture(exceptionReply);
       }
 
       // put the request into the pending queue

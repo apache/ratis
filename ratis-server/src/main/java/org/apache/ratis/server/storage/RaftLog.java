@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.impl.ConfigurationManager;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -126,14 +127,18 @@ public abstract class RaftLog implements Closeable {
    * @return the index of the new log entry.
    */
   public long append(long term, TransactionContext operation,
-      ClientId clientId, long callId) throws IOException {
+      ClientId clientId, long callId) throws StateMachineException {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
 
       // This is called here to guarantee strict serialization of callback executions in case
       // the SM wants to attach a logic depending on ordered execution in the log commit order.
-      operation = operation.preAppendTransaction();
+      try {
+        operation = operation.preAppendTransaction();
+      } catch (IOException e) {
+        throw new StateMachineException(selfId.toString(), e);
+      }
 
       // build the log entry after calling the StateMachine
       final LogEntryProto e = ProtoUtils.toLogEntryProto(
