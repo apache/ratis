@@ -60,6 +60,9 @@ public class PendingRequest implements Comparable<PendingRequest> {
     return entry;
   }
 
+  /**
+   * This is only used when setting new raft configuration.
+   */
   synchronized void setException(Throwable e) {
     RaftUtils.assertTrue(e != null);
     future.completeExceptionally(e);

@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.junit.Assert;
 import org.slf4j.Logger;
@@ -68,5 +69,18 @@ public class RaftServerTestUtil {
   public static ConfigurationManager newConfigurationManager(
       RaftConfiguration initialConf) {
     return new ConfigurationManager(initialConf);
+  }
+
+  public static long getRetryCacheSize(RaftServerImpl server) {
+    return server.getRetryCache().size();
+  }
+
+  public static RetryCache.CacheEntry getRetryEntry(RaftServerImpl server,
+      ClientId clientId, long callId) {
+    return server.getRetryCache().get(clientId, callId);
+  }
+
+  public static boolean isRetryCacheEntryFailed(RetryCache.CacheEntry entry) {
+    return entry.isFailed();
   }
 }

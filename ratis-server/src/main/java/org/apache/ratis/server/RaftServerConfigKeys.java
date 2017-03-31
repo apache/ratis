@@ -17,11 +17,13 @@
  */
 package org.apache.ratis.server;
 
+import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 
 import static org.apache.ratis.conf.ConfUtils.*;
 
@@ -182,6 +184,25 @@ public interface RaftServerConfigKeys {
     static TimeDuration sleepTime(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(SLEEP_TIME_DEFAULT.getUnit()),
           SLEEP_TIME_KEY, SLEEP_TIME_DEFAULT);
+    }
+  }
+
+  /** server retry cache related */
+  interface RetryCache {
+    String PREFIX = RaftServerConfigKeys.PREFIX + ".retrycache";
+
+    String CAPACITY_KEY = PREFIX + ".capacity";
+    int CAPACITY_DEFAULT = 4096;
+    static int capacity(RaftProperties properties) {
+      return ConfUtils.getInt(properties::getInt, CAPACITY_KEY, CAPACITY_DEFAULT,
+          ConfUtils.requireMin(0));
+    }
+
+    String EXPIRYTIME_KEY = PREFIX + ".expirytime";
+    TimeDuration EXPIRYTIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
+    static TimeDuration expiryTime(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(EXPIRYTIME_DEFAULT.getUnit()),
+          EXPIRYTIME_KEY, EXPIRYTIME_DEFAULT);
     }
   }
 

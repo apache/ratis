@@ -88,23 +88,11 @@ class PendingRequests {
     return pendingRequest != null ? pendingRequest.getEntry() : null;
   }
 
-  void replyPendingRequest(long index,
-      CompletableFuture<Message> stateMachineFuture) {
+  void replyPendingRequest(long index, RaftClientReply reply) {
     final PendingRequest pending = pendingRequests.get(index);
     if (pending != null) {
       RaftUtils.assertTrue(pending.getIndex() == index);
-
-      stateMachineFuture.whenComplete((reply, exception) -> {
-        if (exception == null) {
-          pending.setSuccessReply(reply);
-        } else {
-          // the exception is coming from the state machine. wrap it into the
-          // reply as a StateMachineException
-          final StateMachineException e = new StateMachineException(
-              server.getId().toString(), exception);
-          pending.setReply(new RaftClientReply(pending.getRequest(), e));
-        }
-      });
+      pending.setReply(reply);
     }
   }
 

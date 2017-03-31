@@ -27,6 +27,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
+import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
@@ -35,6 +36,7 @@ import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,6 +90,8 @@ public class RaftServerImpl implements RaftServer {
 
   private final ServerFactory factory;
 
+  private final RetryCache retryCache;
+
   RaftServerImpl(RaftPeerId id, StateMachine stateMachine,
       RaftConfiguration raftConf, RaftProperties properties, Parameters parameters)
       throws IOException {
@@ -103,6 +107,13 @@ public class RaftServerImpl implements RaftServer {
     final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
     this.factory = ServerFactory.cast(rpcType.newFactory(properties, parameters));
     this.serverRpc = initRaftServerRpc();
+    retryCache = initRetryCache(properties);
+  }
+
+  private RetryCache initRetryCache(RaftProperties prop) {
+    final int capacity = RaftServerConfigKeys.RetryCache.capacity(prop);
+    final TimeDuration expireTime = RaftServerConfigKeys.RetryCache.expiryTime(prop);
+    return new RetryCache(capacity, expireTime);
   }
 
   @Override
@@ -131,6 +142,11 @@ public class RaftServerImpl implements RaftServer {
   @Override
   public StateMachine getStateMachine() {
     return this.stateMachine;
+  }
+
+  @VisibleForTesting
+  RetryCache getRetryCache() {
+    return retryCache;
   }
 
   private RaftServerRpc initRaftServerRpc() {
@@ -322,17 +338,26 @@ public class RaftServerImpl implements RaftServer {
    * @return null if the server is in leader state.
    */
   private CompletableFuture<RaftClientReply> checkLeaderState(
-      RaftClientRequest request) {
+      RaftClientRequest request, RetryCache.CacheEntry entry) {
     if (!isLeader()) {
       NotLeaderException exception = generateNotLeaderException();
-      CompletableFuture<RaftClientReply> future = new CompletableFuture<>();
-      future.complete(new RaftClientReply(request, exception));
-      return future;
+      final RaftClientReply reply = new RaftClientReply(request, exception);
+      if (entry != null) {
+        entry.failWithReply(reply);
+      }
+      return entry != null ?
+          entry.getReplyFuture() : CompletableFuture.completedFuture(reply);
     } else {
       if (leaderState == null || !leaderState.isReady()) {
-        CompletableFuture<RaftClientReply> future = new CompletableFuture<>();
-        future.completeExceptionally(new LeaderNotReadyException());
-        return future;
+        final Exception e = new LeaderNotReadyException();
+        if (entry != null) {
+          entry.failWithException(e);
+          return entry.getReplyFuture();
+        } else {
+          CompletableFuture<RaftClientReply> future = new CompletableFuture<>();
+          future.completeExceptionally(e);
+          return future;
+        }
       }
     }
     return null;
@@ -360,15 +385,15 @@ public class RaftServerImpl implements RaftServer {
    * Handle a normal update request from client.
    */
   private CompletableFuture<RaftClientReply> appendTransaction(
-      RaftClientRequest request, TransactionContext entry)
-      throws RaftException {
+      RaftClientRequest request, TransactionContext context,
+      RetryCache.CacheEntry retryEntry) throws RaftException {
     LOG.debug("{}: receive client request({})", getId(), request);
     lifeCycle.assertCurrentState(RUNNING);
     CompletableFuture<RaftClientReply> reply;
 
     final PendingRequest pending;
     synchronized (this) {
-      reply = checkLeaderState(request);
+      reply = checkLeaderState(request, retryEntry);
       if (reply != null) {
         return reply;
       }
@@ -376,14 +401,19 @@ public class RaftServerImpl implements RaftServer {
       // append the message to its local log
       final long entryIndex;
       try {
-        entryIndex = state.applyLog(entry, request.getClientId(),
+        entryIndex = state.applyLog(context, request.getClientId(),
             request.getCallId());
       } catch (IOException e) {
-        throw new RaftException(e);
+        // TODO looks like the IOException is actually only thrown by the SM in
+        // the preAppend stage. In that case we should wrap the exception in
+        // StateMachineException and return the exception in a RaftClientReply.
+        RaftException re = new RaftException(e);
+        retryEntry.failWithException(re);
+        throw re;
       }
 
       // put the request into the pending queue
-      pending = leaderState.addPendingRequest(entryIndex, request, entry);
+      pending = leaderState.addPendingRequest(entryIndex, request, context);
       leaderState.notifySenders();
     }
     return pending.getFuture();
@@ -393,27 +423,41 @@ public class RaftServerImpl implements RaftServer {
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
     // first check the server's leader state
-    CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
+    CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
     if (reply != null) {
       return reply;
     }
 
     // let the state machine handle read-only request from client
     if (request.isReadOnly()) {
-      // TODO: We might not be the leader anymore by the time this completes. See the RAFT paper,
-      // section 8 (last part)
+      // TODO: We might not be the leader anymore by the time this completes.
+      // See the RAFT paper section 8 (last part)
       return stateMachine.query(request);
     }
 
-    // TODO: this client request will not be added to pending requests
-    // until later which means that any failure in between will leave partial state in the
-    // state machine. We should call cancelTransaction() for failed requests
-    TransactionContext entry = stateMachine.startTransaction(request);
-    if (entry.getException().isPresent()) {
-      throw RaftUtils.asIOException(entry.getException().get());
+    // query the retry cache
+    RetryCache.CacheQueryResult previousResult = retryCache.queryCache(
+        request.getClientId(), request.getCallId());
+    if (previousResult.isRetry()) {
+      // if the previous attempt is still pending or it succeeded, return its
+      // future
+      return previousResult.getEntry().getReplyFuture();
+    }
+    final RetryCache.CacheEntry cacheEntry = previousResult.getEntry();
+
+    // TODO: this client request will not be added to pending requests until
+    // later which means that any failure in between will leave partial state in
+    // the state machine. We should call cancelTransaction() for failed requests
+    TransactionContext context = stateMachine.startTransaction(request);
+    if (context.getException().isPresent()) {
+      RaftClientReply exceptionReply = new RaftClientReply(request,
+          new StateMachineException(getId().toString(),
+              context.getException().get()));
+      cacheEntry.failWithReply(exceptionReply);
+      return CompletableFuture.completedFuture(exceptionReply);
     }
 
-    return appendTransaction(request, entry);
+    return appendTransaction(request, context, cacheEntry);
   }
 
   @Override
@@ -459,7 +503,7 @@ public class RaftServerImpl implements RaftServer {
       SetConfigurationRequest request) throws IOException {
     LOG.debug("{}: receive setConfiguration({})", getId(), request);
     lifeCycle.assertCurrentState(RUNNING);
-    CompletableFuture<RaftClientReply> reply = checkLeaderState(request);
+    CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
     if (reply != null) {
       return reply;
     }
@@ -467,7 +511,7 @@ public class RaftServerImpl implements RaftServer {
     final RaftPeer[] peersInNewConf = request.getPeersInNewConf();
     final PendingRequest pending;
     synchronized (this) {
-      reply = checkLeaderState(request);
+      reply = checkLeaderState(request, null);
       if (reply != null) {
         return reply;
       }
@@ -799,11 +843,41 @@ public class RaftServerImpl implements RaftServer {
     }
   }
 
-  synchronized void replyPendingRequest(long logIndex,
+  /**
+   * The log has been submitted to the state machine. Use the future to update
+   * the pending requests and retry cache.
+   * @param logEntry the log entry that has been submitted to the state machine
+   * @param stateMachineFuture the future returned by the state machine
+   *                           from which we will get transaction result later
+   */
+  void replyPendingRequest(LogEntryProto logEntry,
       CompletableFuture<Message> stateMachineFuture) {
-    if (isLeader() && leaderState != null) { // is leader and is running
-      leaderState.replyPendingRequest(logIndex, stateMachineFuture);
-    }
+    // update the retry cache
+    final ClientId clientId = new ClientId(logEntry.getClientId().toByteArray());
+    final long callId = logEntry.getCallId();
+    final RaftPeerId serverId = getId();
+    final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(
+        clientId, logEntry.getCallId());
+    stateMachineFuture.whenComplete((reply, exception) -> {
+      final RaftClientReply r;
+      if (exception == null) {
+        r = new RaftClientReply(clientId, serverId, callId, true, reply, null);
+      } else {
+        // the exception is coming from the state machine. wrap it into the
+        // reply as a StateMachineException
+        final StateMachineException e = new StateMachineException(
+            getId().toString(), exception);
+        r = new RaftClientReply(clientId, serverId, callId, false, null, e);
+      }
+      // update retry cache
+      cacheEntry.updateResult(r);
+      // update pending request
+      synchronized (RaftServerImpl.this) {
+        if (isLeader() && leaderState != null) { // is leader and is running
+          leaderState.replyPendingRequest(logEntry.getIndex(), r);
+        }
+      }
+    });
   }
 
   TransactionContext getTransactionContext(long index) {

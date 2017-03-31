@@ -31,7 +31,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -516,9 +515,8 @@ public class LeaderState {
     return pending;
   }
 
-  void replyPendingRequest(long logIndex,
-      CompletableFuture<Message> stateMachineFuture) {
-    pendingRequests.replyPendingRequest(logIndex, stateMachineFuture);
+  void replyPendingRequest(long logIndex, RaftClientReply reply) {
+    pendingRequests.replyPendingRequest(logIndex, reply);
   }
 
   TransactionContext getTransactionContext(long index) {
