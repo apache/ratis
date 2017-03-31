@@ -21,7 +21,7 @@ import static org.apache.ratis.util.ProtoUtils.toByteString;
 
 import org.apache.ratis.examples.arithmetic.Evaluable;
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 public interface Expression extends Evaluable {
   enum Type {
@@ -34,8 +34,8 @@ public interface Expression extends Evaluable {
     private static final Type[] VALUES = Type.values();
 
     static Type valueOf(byte b) {
-      Preconditions.assertTrue(b >= 0);
-      Preconditions.assertTrue(b < VALUES.length);
+      RaftUtils.assertTrue(b >= 0);
+      RaftUtils.assertTrue(b < VALUES.length);
       return VALUES[b];
     }
   }
@@ -49,7 +49,7 @@ public interface Expression extends Evaluable {
       return () -> {
         final byte[] buf = new byte[e.length()];
         final int length = e.toBytes(buf, 0);
-        Preconditions.assertTrue(length == buf.length);
+        RaftUtils.assertTrue(length == buf.length);
         return toByteString(buf);
       };
     }

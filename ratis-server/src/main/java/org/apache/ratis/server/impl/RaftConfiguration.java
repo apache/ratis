@@ -19,7 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -51,7 +51,7 @@ public class RaftConfiguration {
 
     public Builder setConf(PeerConfiguration conf) {
       Objects.requireNonNull(conf);
-      Preconditions.assertTrue(this.conf == null, "conf is already set.");
+      RaftUtils.assertTrue(this.conf == null, "conf is already set.");
       this.conf = conf;
       return this;
     }
@@ -66,9 +66,9 @@ public class RaftConfiguration {
 
     Builder setConf(RaftConfiguration transitionalConf) {
       Objects.requireNonNull(transitionalConf);
-      Preconditions.assertTrue(transitionalConf.isTransitional());
+      RaftUtils.assertTrue(transitionalConf.isTransitional());
 
-      Preconditions.assertTrue(!forceTransitional);
+      RaftUtils.assertTrue(!forceTransitional);
       forceStable = true;
       return setConf(transitionalConf.conf);
     }
@@ -76,7 +76,7 @@ public class RaftConfiguration {
 
     public Builder setOldConf(PeerConfiguration oldConf) {
       Objects.requireNonNull(oldConf);
-      Preconditions.assertTrue(this.oldConf == null, "oldConf is already set.");
+      RaftUtils.assertTrue(this.oldConf == null, "oldConf is already set.");
       this.oldConf = oldConf;
       return this;
     }
@@ -91,17 +91,17 @@ public class RaftConfiguration {
 
     Builder setOldConf(RaftConfiguration stableConf) {
       Objects.requireNonNull(stableConf);
-      Preconditions.assertTrue(stableConf.isStable());
+      RaftUtils.assertTrue(stableConf.isStable());
 
-      Preconditions.assertTrue(!forceStable);
+      RaftUtils.assertTrue(!forceStable);
       forceTransitional = true;
       return setOldConf(stableConf.conf);
     }
 
     public Builder setLogEntryIndex(long logEntryIndex) {
-      Preconditions.assertTrue(
+      RaftUtils.assertTrue(
           logEntryIndex != RaftServerConstants.INVALID_LOG_INDEX);
-      Preconditions.assertTrue(
+      RaftUtils.assertTrue(
           this.logEntryIndex == RaftServerConstants.INVALID_LOG_INDEX,
           "logEntryIndex is already set.");
       this.logEntryIndex = logEntryIndex;
@@ -111,10 +111,10 @@ public class RaftConfiguration {
     /** Build a {@link RaftConfiguration}. */
     public RaftConfiguration build() {
       if (forceTransitional) {
-        Preconditions.assertTrue(oldConf != null);
+        RaftUtils.assertTrue(oldConf != null);
       }
       if (forceStable) {
-        Preconditions.assertTrue(oldConf == null);
+        RaftUtils.assertTrue(oldConf == null);
       }
       return new RaftConfiguration(conf, oldConf, logEntryIndex);
     }
@@ -204,7 +204,7 @@ public class RaftConfiguration {
 
   /** @return true if the self id together with the others are in the majority. */
   boolean hasMajority(Collection<RaftPeerId> others, RaftPeerId selfId) {
-    Preconditions.assertTrue(!others.contains(selfId));
+    RaftUtils.assertTrue(!others.contains(selfId));
     return conf.hasMajority(others, selfId) &&
         (oldConf == null || oldConf.hasMajority(others, selfId));
   }

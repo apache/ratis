@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.examples.arithmetic.expression;
 
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 import java.util.Map;
 
@@ -33,7 +33,7 @@ public class NullValue implements Expression {
 
   @Override
   public int toBytes(byte[] buf, int offset) {
-    Preconditions.assertTrue(offset + length() <= buf.length);
+    RaftUtils.assertTrue(offset + length() <= buf.length);
     buf[offset++] = Type.NULL.byteValue();
     return length();
   }

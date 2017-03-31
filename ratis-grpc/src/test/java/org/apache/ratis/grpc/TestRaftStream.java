@@ -20,7 +20,6 @@ package org.apache.ratis.grpc;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.grpc.client.AppendStreamer;
 import org.apache.ratis.grpc.client.RaftOutputStream;
@@ -28,6 +27,7 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -47,7 +47,7 @@ import static org.junit.Assert.fail;
 
 public class TestRaftStream {
   static {
-    LogUtils.setLogLevel(AppendStreamer.LOG, Level.ALL);
+    RaftUtils.setLogLevel(AppendStreamer.LOG, Level.ALL);
   }
   static final Logger LOG = LoggerFactory.getLogger(TestRaftStream.class);
 

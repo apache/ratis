@@ -19,10 +19,9 @@ package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.util.IOUtils;
-import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.util.RaftUtils;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -109,7 +108,7 @@ final class RaftClientImpl implements RaftClient {
         retryInterval.sleep();
       } catch (InterruptedException ie) {
         Thread.currentThread().interrupt();
-        throw IOUtils.toInterruptedIOException(
+        throw RaftUtils.toInterruptedIOException(
             "Interrupted when sending " + request, ie);
       }
     }
@@ -159,7 +158,7 @@ final class RaftClientImpl implements RaftClient {
         newLeader, ioe);
     final RaftPeerId oldLeader = request.getServerId();
     if (newLeader == null && oldLeader.equals(leaderId)) {
-      newLeader = CollectionUtils.next(oldLeader, CollectionUtils.as(peers, RaftPeer::getId));
+      newLeader = RaftUtils.next(oldLeader, RaftUtils.as(peers, RaftPeer::getId));
     }
     if (newLeader != null && oldLeader.equals(leaderId)) {
       LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);

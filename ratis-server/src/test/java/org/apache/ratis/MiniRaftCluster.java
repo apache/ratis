@@ -17,19 +17,6 @@
  */
 package org.apache.ratis;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
 import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
@@ -38,23 +25,27 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
-import org.apache.ratis.server.impl.LeaderState;
-import org.apache.ratis.server.impl.RaftConfiguration;
-import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.*;
 import org.apache.ratis.server.storage.MemoryRaftLog;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.statemachine.BaseStateMachine;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.NetUtils;
-import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ReflectionUtils;
+import org.apache.ratis.util.RaftUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
@@ -126,7 +117,7 @@ public abstract class MiniRaftCluster {
 
   private static void formatDir(String dirStr) {
     final File serverDir = new File(dirStr);
-    Preconditions.assertTrue(FileUtils.fullyDelete(serverDir),
+    RaftUtils.assertTrue(FileUtils.fullyDelete(serverDir),
         "Failed to format directory %s", dirStr);
     LOG.info("Formatted directory {}", dirStr);
   }
@@ -161,14 +152,14 @@ public abstract class MiniRaftCluster {
 
   public MiniRaftCluster initServers() {
     if (servers.isEmpty()) {
-      putNewServers(CollectionUtils.as(conf.getPeers(), RaftPeer::getId), true);
+      putNewServers(RaftUtils.as(conf.getPeers(), RaftPeer::getId), true);
     }
     return this;
   }
 
   private RaftServerImpl putNewServer(RaftPeerId id, boolean format) {
     final RaftServerImpl s = newRaftServer(id, format);
-    Preconditions.assertTrue(servers.put(id, s) == null);
+    RaftUtils.assertTrue(servers.put(id, s) == null);
     return s;
   }
 
@@ -237,7 +228,7 @@ public abstract class MiniRaftCluster {
         STATEMACHINE_CLASS_KEY,
         STATEMACHINE_CLASS_DEFAULT,
         StateMachine.class);
-    return ReflectionUtils.newInstance(smClass);
+    return RaftUtils.newInstance(smClass);
   }
 
   public static Collection<RaftPeer> toRaftPeers(
@@ -262,7 +253,7 @@ public abstract class MiniRaftCluster {
 
     // create and add new RaftServers
     final Collection<RaftServerImpl> newServers = putNewServers(
-        CollectionUtils.as(Arrays.asList(ids), RaftPeerId::new), true);
+        RaftUtils.as(Arrays.asList(ids), RaftPeerId::new), true);
     newServers.forEach(s -> startServer(s, startNewPeer));
 
     final Collection<RaftPeer> newPeers = toRaftPeers(newServers);

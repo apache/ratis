@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 import java.util.*;
 
@@ -44,7 +44,7 @@ public class ConfigurationManager {
 
   public synchronized void addConfiguration(long logIndex,
       RaftConfiguration conf) {
-    Preconditions.assertTrue(configurations.isEmpty() ||
+    RaftUtils.assertTrue(configurations.isEmpty() ||
         configurations.lastEntry().getKey() < logIndex);
     configurations.put(logIndex, conf);
     this.currentConf = conf;

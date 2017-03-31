@@ -18,8 +18,6 @@
 package org.apache.ratis.grpc.client;
 
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.util.CollectionUtils;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.RaftGrpcUtil;
@@ -30,6 +28,7 @@ import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.PeerProxyMap;
+import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -115,7 +114,7 @@ public class AppendStreamer implements Closeable {
       if (oldLeader == null) {
         leaderId = peers.keySet().iterator().next();
       } else {
-        leaderId = CollectionUtils.next(oldLeader, peers.keySet());
+        leaderId = RaftUtils.next(oldLeader, peers.keySet());
       }
     }
     LOG.debug("{} switches leader from {} to {}. suggested leader: {}", this,
@@ -258,7 +257,7 @@ public class AppendStreamer implements Closeable {
         RaftClientRequestProto pending = Objects.requireNonNull(
             ackQueue.peek());
         if (reply.getRpcReply().getSuccess()) {
-          Preconditions.assertTrue(pending.getRpcRequest().getCallId() ==
+          RaftUtils.assertTrue(pending.getRpcRequest().getCallId() ==
               reply.getRpcReply().getCallId());
           ackQueue.poll();
           LOG.trace("{} received success ack for request {}", this,
@@ -312,7 +311,7 @@ public class AppendStreamer implements Closeable {
 
   private void handleNotLeader(NotLeaderException nle,
       RaftPeerId oldLeader) {
-    Preconditions.assertTrue(Thread.holdsLock(AppendStreamer.this));
+    RaftUtils.assertTrue(Thread.holdsLock(AppendStreamer.this));
     // handle NotLeaderException: refresh leader and RaftConfiguration
     refreshPeers(nle.getPeers());
 
@@ -320,7 +319,7 @@ public class AppendStreamer implements Closeable {
   }
 
   private void handleError(Throwable t, ResponseHandler handler) {
-    Preconditions.assertTrue(Thread.holdsLock(AppendStreamer.this));
+    RaftUtils.assertTrue(Thread.holdsLock(AppendStreamer.this));
     final IOException e = RaftGrpcUtil.unwrapIOException(t);
 
     exceptionAndRetry.addException(handler.targetId, e);

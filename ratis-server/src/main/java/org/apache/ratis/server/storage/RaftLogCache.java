@@ -30,7 +30,7 @@ import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.LogSegment.SegmentFileInfo;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 /**
  * In-memory RaftLog Cache. Currently we provide a simple implementation that
@@ -57,10 +57,10 @@ class RaftLogCache {
   private void validateAdding(LogSegment segment) {
     final LogSegment lastClosed = getLastClosedSegment();
     if (!segment.isOpen()) {
-      Preconditions.assertTrue(lastClosed == null ||
+      RaftUtils.assertTrue(lastClosed == null ||
           areConsecutiveSegments(lastClosed, segment));
     } else {
-      Preconditions.assertTrue(openSegment == null &&
+      RaftUtils.assertTrue(openSegment == null &&
           (lastClosed == null || areConsecutiveSegments(lastClosed, segment)));
     }
   }
@@ -168,7 +168,7 @@ class RaftLogCache {
   void appendEntry(LogEntryProto entry) {
     // SegmentedRaftLog does the segment creation/rolling work. Here we just
     // simply append the entry into the open segment.
-    Preconditions.assertTrue(openSegment != null);
+    RaftUtils.assertTrue(openSegment != null);
     openSegment.appendToOpenSegment(entry);
   }
 
@@ -176,7 +176,7 @@ class RaftLogCache {
    * finalize the current open segment, and start a new open segment
    */
   void rollOpenSegment(boolean createNewOpen) {
-    Preconditions.assertTrue(openSegment != null
+    RaftUtils.assertTrue(openSegment != null
         && openSegment.numOfEntries() > 0);
     final long nextIndex = openSegment.getEndIndex() + 1;
     openSegment.close();
@@ -211,7 +211,7 @@ class RaftLogCache {
               Collections.singletonList(deleteOpenSegment()));
         } else {
           openSegment.truncate(index);
-          Preconditions.assertTrue(!openSegment.isOpen());
+          RaftUtils.assertTrue(!openSegment.isOpen());
           SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
               oldEnd, true, openSegment.getTotalSize(),
               openSegment.getEndIndex());
@@ -280,7 +280,7 @@ class RaftLogCache {
           // the start index is smaller than the first closed segment's start
           // index. We no longer keep the log entry (because of the snapshot) or
           // the start index is invalid.
-          Preconditions.assertTrue(segmentIndex == 0);
+          RaftUtils.assertTrue(segmentIndex == 0);
           throw new IndexOutOfBoundsException();
         }
       }

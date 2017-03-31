@@ -20,13 +20,13 @@ package org.apache.ratis.grpc;
 import org.apache.log4j.Level;
 import org.apache.ratis.grpc.server.RaftServerProtocolService;
 import org.apache.ratis.server.impl.RaftReconfigurationBaseTest;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.RaftUtils;
 
 import java.io.IOException;
 
 public class TestRaftReconfigurationWithGRpc extends RaftReconfigurationBaseTest {
   static {
-    LogUtils.setLogLevel(RaftServerProtocolService.LOG, Level.DEBUG);
+    RaftUtils.setLogLevel(RaftServerProtocolService.LOG, Level.DEBUG);
   }
 
   @Override

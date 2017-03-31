@@ -35,7 +35,7 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,15 +126,15 @@ class StateMachineUpdater implements Runnable {
         }
 
         final long committedIndex = raftLog.getLastCommittedIndex();
-        Preconditions.assertTrue(lastAppliedIndex < committedIndex);
+        RaftUtils.assertTrue(lastAppliedIndex < committedIndex);
 
         if (state == State.RELOAD) {
-          Preconditions.assertTrue(stateMachine.getLifeCycleState() == LifeCycle.State.PAUSED);
+          RaftUtils.assertTrue(stateMachine.getLifeCycleState() == LifeCycle.State.PAUSED);
 
           stateMachine.reinitialize(server.getId(), properties, storage);
 
           SnapshotInfo snapshot = stateMachine.getLatestSnapshot();
-          Preconditions.assertTrue(snapshot != null && snapshot.getIndex() > lastAppliedIndex,
+          RaftUtils.assertTrue(snapshot != null && snapshot.getIndex() > lastAppliedIndex,
               "Snapshot: %s, lastAppliedIndex: %s", snapshot, lastAppliedIndex);
 
           lastAppliedIndex = snapshot.getIndex();

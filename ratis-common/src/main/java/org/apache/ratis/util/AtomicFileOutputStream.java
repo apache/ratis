@@ -83,7 +83,7 @@ public class AtomicFileOutputStream extends FilterOutputStream {
       } else {
         if (!triedToClose) {
           // If we failed when flushing, try to close it to not leak an FD
-          IOUtils.cleanup(LOG, out);
+          RaftUtils.cleanup(LOG, out);
         }
         // close wasn't successful, try to delete the tmp file
         if (!tmpFile.delete()) {

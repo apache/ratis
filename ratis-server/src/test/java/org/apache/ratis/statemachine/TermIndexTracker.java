@@ -18,7 +18,7 @@
 package org.apache.ratis.statemachine;
 
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.RaftUtils;
 
 import java.util.Objects;
 
@@ -53,7 +53,7 @@ class TermIndexTracker {
    */
   public synchronized void update(TermIndex termIndex) {
     Objects.requireNonNull(termIndex);
-    Preconditions.assertTrue(termIndex.compareTo(current) >= 0);
+    RaftUtils.assertTrue(termIndex.compareTo(current) >= 0);
     this.current = termIndex;
   }
 
