@@ -32,9 +32,10 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,7 +95,7 @@ public class RaftServerImpl implements RaftServer {
     this.lifeCycle = new LifeCycle(id);
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toInt(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
-    RaftUtils.assertTrue(maxTimeoutMs > minTimeoutMs,
+    Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.properties = properties;
     this.stateMachine = stateMachine;
@@ -286,7 +287,7 @@ public class RaftServerImpl implements RaftServer {
   }
 
   synchronized void changeToLeader() {
-    RaftUtils.assertTrue(isCandidate());
+    Preconditions.assertTrue(isCandidate());
     shutdownElectionDaemon();
     role = Role.LEADER;
     state.becomeLeader();
@@ -305,7 +306,7 @@ public class RaftServerImpl implements RaftServer {
   }
 
   synchronized void changeToCandidate() {
-    RaftUtils.assertTrue(isFollower());
+    Preconditions.assertTrue(isFollower());
     shutdownHeartbeatMonitor();
     role = Role.CANDIDATE;
     // start election
@@ -410,7 +411,7 @@ public class RaftServerImpl implements RaftServer {
     // state machine. We should call cancelTransaction() for failed requests
     TransactionContext entry = stateMachine.startTransaction(request);
     if (entry.getException().isPresent()) {
-      throw RaftUtils.asIOException(entry.getException().get());
+      throw IOUtils.asIOException(entry.getException().get());
     }
 
     return appendTransaction(request, entry);
@@ -430,7 +431,7 @@ public class RaftServerImpl implements RaftServer {
     } catch (InterruptedException e) {
       final String s = id + ": Interrupted when waiting for reply, request=" + request;
       LOG.info(s, e);
-      throw RaftUtils.toInterruptedIOException(s, e);
+      throw IOUtils.toInterruptedIOException(s, e);
     } catch (ExecutionException e) {
       final Throwable cause = e.getCause();
       if (cause == null) {
@@ -440,7 +441,7 @@ public class RaftServerImpl implements RaftServer {
           cause instanceof StateMachineException) {
         return new RaftClientReply(request, (RaftException) cause);
       } else {
-        throw RaftUtils.asIOException(cause);
+        throw IOUtils.asIOException(cause);
       }
     }
   }
@@ -574,23 +575,23 @@ public class RaftServerImpl implements RaftServer {
       final long index0 = entries[0].getIndex();
 
       if (previous == null || previous.getTerm() == 0) {
-        RaftUtils.assertTrue(index0 == 0,
+        Preconditions.assertTrue(index0 == 0,
             "Unexpected Index: previous is null but entries[%s].getIndex()=%s",
             0, index0);
       } else {
-        RaftUtils.assertTrue(previous.getIndex() == index0 - 1,
+        Preconditions.assertTrue(previous.getIndex() == index0 - 1,
             "Unexpected Index: previous is %s but entries[%s].getIndex()=%s",
             previous, 0, index0);
       }
 
       for (int i = 0; i < entries.length; i++) {
         final long t = entries[i].getTerm();
-        RaftUtils.assertTrue(expectedTerm >= t,
+        Preconditions.assertTrue(expectedTerm >= t,
             "Unexpected Term: entries[%s].getTerm()=%s but expectedTerm=%s",
             i, t, expectedTerm);
 
         final long indexi = entries[i].getIndex();
-        RaftUtils.assertTrue(indexi == index0 + i,
+        Preconditions.assertTrue(indexi == index0 + i,
             "Unexpected Index: entries[%s].getIndex()=%s but entries[0].getIndex()=%s",
             i, indexi, index0);
       }
@@ -743,7 +744,7 @@ public class RaftServerImpl implements RaftServer {
       // Check and append the snapshot chunk. We simply put this in lock
       // considering a follower peer requiring a snapshot installation does not
       // have a lot of requests
-      RaftUtils.assertTrue(
+      Preconditions.assertTrue(
           state.getLog().getNextIndex() <= lastIncludedIndex,
           "%s log's next id is %s, last included index in snapshot is %s",
           getId(),  state.getLog().getNextIndex(), lastIncludedIndex);

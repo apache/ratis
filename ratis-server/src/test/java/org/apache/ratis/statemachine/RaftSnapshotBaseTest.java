@@ -36,7 +36,7 @@ import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.LogUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -51,10 +51,10 @@ import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
 public abstract class RaftSnapshotBaseTest {
   static {
-    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   static final Logger LOG = LoggerFactory.getLogger(RaftSnapshotBaseTest.class);

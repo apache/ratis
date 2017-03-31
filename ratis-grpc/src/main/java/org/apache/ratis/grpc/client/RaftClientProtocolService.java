@@ -27,7 +27,7 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,14 +126,14 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
           } else {
             final long replySeq = reply.getCallId();
             synchronized (pendingList) {
-              RaftUtils.assertTrue(!pendingList.isEmpty(),
+              Preconditions.assertTrue(!pendingList.isEmpty(),
                   "PendingList is empty when handling onNext for callId %s",
                   replySeq);
               final long headSeqNum = pendingList.get(0).callId;
               // we assume the callId is consecutive for a stream RPC call
               final PendingAppend pendingForReply = pendingList.get(
                   (int) (replySeq - headSeqNum));
-              RaftUtils.assertTrue(pendingForReply != null &&
+              Preconditions.assertTrue(pendingForReply != null &&
                       pendingForReply.callId == replySeq,
                   "pending for reply is: %s, the pending list: %s",
                   pendingForReply, pendingList);
@@ -162,7 +162,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
 
     private void sendReadyReplies(Collection<PendingAppend> readySet) {
       readySet.forEach(ready -> {
-        RaftUtils.assertTrue(ready.isReady());
+        Preconditions.assertTrue(ready.isReady());
         if (ready == COMPLETED) {
           responseObserver.onCompleted();
         } else {

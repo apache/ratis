@@ -36,7 +36,7 @@ import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.MD5FileUtil;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -197,7 +197,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           termIndexTracker.update(ServerProtoUtils.toTermIndex(entry));
         }
       }
-      RaftUtils.assertTrue(
+      Preconditions.assertTrue(
           !list.isEmpty() && endIndex == list.get(list.size() - 1).getIndex(),
           "endIndex=%s, list=%s", endIndex, list);
       this.endIndexLastCkpt = endIndex;

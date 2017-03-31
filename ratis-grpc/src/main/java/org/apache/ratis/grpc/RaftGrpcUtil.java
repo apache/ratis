@@ -20,7 +20,8 @@ package org.apache.ratis.grpc;
 import org.apache.ratis.shaded.io.grpc.Metadata;
 import org.apache.ratis.shaded.io.grpc.Status;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.ReflectionUtils;
 import org.apache.ratis.util.StringUtils;
 
 import java.io.IOException;
@@ -45,9 +46,9 @@ public class RaftGrpcUtil {
       if (className != null) {
         try {
           Class<?> clazz = Class.forName(className);
-          final Exception unwrapped = RaftUtils.instantiateException(
+          final Exception unwrapped = ReflectionUtils.instantiateException(
               clazz.asSubclass(Exception.class), status.getDescription(), se);
-          return RaftUtils.asIOException(unwrapped);
+          return IOUtils.asIOException(unwrapped);
         } catch (Exception e) {
           return new IOException(se);
         }
@@ -61,7 +62,7 @@ public class RaftGrpcUtil {
     if (t instanceof StatusRuntimeException) {
       e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
     } else {
-      e = RaftUtils.asIOException(t);
+      e = IOUtils.asIOException(t);
     }
     return e;
   }

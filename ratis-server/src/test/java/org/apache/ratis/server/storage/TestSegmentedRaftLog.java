@@ -22,6 +22,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -32,7 +33,6 @@ import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.RaftUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -48,7 +48,7 @@ import java.util.function.Supplier;
 
 public class TestSegmentedRaftLog {
   static {
-    RaftUtils.setLogLevel(RaftLogWorker.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftLogWorker.LOG, Level.DEBUG);
   }
 
   private static final RaftPeerId peerId = new RaftPeerId("s0");

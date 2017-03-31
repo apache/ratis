@@ -17,12 +17,14 @@
  */
 package org.apache.ratis;
 
+import static org.apache.ratis.conf.ConfUtils.get;
+import static org.apache.ratis.conf.ConfUtils.printAll;
+import static org.apache.ratis.conf.ConfUtils.set;
+
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.util.RaftUtils;
-
-import static org.apache.ratis.conf.ConfUtils.*;
+import org.apache.ratis.util.ReflectionUtils;
 
 public interface RaftConfigKeys {
   String PREFIX = "raft";
@@ -42,8 +44,8 @@ public interface RaftConfigKeys {
       }
 
       // Try using it as a class name
-      return RaftUtils.newInstance(
-          RaftUtils.getClass(t, properties, RpcType.class));
+      return ReflectionUtils.newInstance(
+          ReflectionUtils.getClass(t, properties, RpcType.class));
     }
 
     static void setType(RaftProperties properties, RpcType type) {

@@ -17,11 +17,15 @@
  */
 package org.apache.ratis.util;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The life cycle of a machine.
@@ -104,7 +108,7 @@ public class LifeCycle {
         LOG.trace("TRACE", new Throwable());
       }
 
-      RaftUtils.assertTrue(isValid(from, to),
+      Preconditions.assertTrue(isValid(from, to),
           "ILLEGAL TRANSITION: In %s, %s -> %s", name, from, to);
     }
   }
@@ -171,7 +175,7 @@ public class LifeCycle {
       startImpl.run();
       transition(State.RUNNING);
     } catch (Throwable t) {
-      transition(RaftUtils.isInstance(t, exceptionClasses)?
+      transition(ReflectionUtils.isInstance(t, exceptionClasses)?
           State.NEW: State.EXCEPTION);
       throw t;
     }

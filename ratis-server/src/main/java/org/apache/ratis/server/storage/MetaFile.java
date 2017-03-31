@@ -18,7 +18,7 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.util.AtomicFileOutputStream;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -123,7 +123,7 @@ class MetaFile {
         LOG.warn("Cannot load term/votedFor properties from {}", file, e);
         throw e;
       } finally {
-        RaftUtils.cleanup(LOG, br);
+        IOUtils.cleanup(LOG, br);
       }
     }
   }

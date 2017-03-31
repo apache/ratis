@@ -18,8 +18,9 @@
 package org.apache.ratis.io.nativeio;
 
 import org.apache.ratis.protocol.AlreadyExistsException;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.NativeCodeLoader;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.PlatformUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.misc.Unsafe;
@@ -183,7 +184,7 @@ public class NativeIO {
     private static native void chmodImpl(String path, int mode) throws IOException;
 
     public static void chmod(String path, int mode) throws IOException {
-      if (!RaftUtils.WINDOWS) {
+      if (!PlatformUtils.WINDOWS) {
         chmodImpl(path, mode);
       } else {
         try {
@@ -321,12 +322,12 @@ public class NativeIO {
       }
 
       Stat(String owner, String group, int mode) {
-        if (!RaftUtils.WINDOWS) {
+        if (!PlatformUtils.WINDOWS) {
           this.owner = owner;
         } else {
           this.owner = stripDomain(owner);
         }
-        if (!RaftUtils.WINDOWS) {
+        if (!PlatformUtils.WINDOWS) {
           this.group = group;
         } else {
           this.group = stripDomain(group);
@@ -604,7 +605,7 @@ public class NativeIO {
    */
   public static FileInputStream getShareDeleteFileInputStream(File f)
       throws IOException {
-    if (!RaftUtils.WINDOWS) {
+    if (!PlatformUtils.WINDOWS) {
       // On Linux the default FileInputStream shares delete permission
       // on the file opened.
       //
@@ -632,7 +633,7 @@ public class NativeIO {
    */
   public static FileInputStream getShareDeleteFileInputStream(File f, long seekOffset)
       throws IOException {
-    if (!RaftUtils.WINDOWS) {
+    if (!PlatformUtils.WINDOWS) {
       RandomAccessFile rf = new RandomAccessFile(f, "r");
       if (seekOffset > 0) {
         rf.seek(seekOffset);
@@ -666,7 +667,7 @@ public class NativeIO {
    */
   public static FileOutputStream getCreateForWriteFileOutputStream(File f, int permissions)
       throws IOException {
-    if (!RaftUtils.WINDOWS) {
+    if (!PlatformUtils.WINDOWS) {
       // Use the native wrapper around open(2)
       try {
         FileDescriptor fd = NativeIO.POSIX.open(f.getAbsolutePath(),
@@ -770,7 +771,7 @@ public class NativeIO {
    * @param dst                  The destination path
    */
   public static void copyFileUnbuffered(File src, File dst) throws IOException {
-    if (nativeLoaded && RaftUtils.WINDOWS) {
+    if (nativeLoaded && PlatformUtils.WINDOWS) {
       copyFileUnbuffered0(src.getAbsolutePath(), dst.getAbsolutePath());
     } else {
       FileInputStream fis = null;
@@ -791,7 +792,7 @@ public class NativeIO {
           position += transferred;
         }
       } finally {
-        RaftUtils.cleanup(LOG, output, fos, input, fis);
+        IOUtils.cleanup(LOG, output, fos, input, fis);
       }
     }
   }

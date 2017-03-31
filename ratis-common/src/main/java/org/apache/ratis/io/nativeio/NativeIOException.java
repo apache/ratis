@@ -19,7 +19,7 @@ package org.apache.ratis.io.nativeio;
 
 import java.io.IOException;
 
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.PlatformUtils;
 
 
 /**
@@ -61,7 +61,7 @@ public class NativeIOException extends IOException {
 
   @Override
   public String toString() {
-    if (RaftUtils.WINDOWS)
+    if (PlatformUtils.WINDOWS)
       return errorCode + ": " + super.getMessage();
     else
       return errno.toString() + ": " + super.getMessage();

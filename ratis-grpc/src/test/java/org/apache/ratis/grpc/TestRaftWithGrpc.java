@@ -21,7 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -29,7 +29,7 @@ import java.io.IOException;
 
 public class TestRaftWithGrpc extends RaftBasicTests {
   static {
-    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithGRpc cluster;

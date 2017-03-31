@@ -29,7 +29,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.simulation.RequestHandler;
 import org.apache.ratis.server.storage.RaftLog;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -54,9 +54,9 @@ import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBod
 
 public abstract class RaftReconfigurationBaseTest {
   static {
-    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
   static final Logger LOG = LoggerFactory.getLogger(RaftReconfigurationBaseTest.class);
 

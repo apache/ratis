@@ -25,7 +25,8 @@ import java.io.File;
 import java.io.IOException;
 
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,9 +73,9 @@ public class LogInputStream implements Closeable {
   public LogInputStream(File log, long startIndex, long endIndex,
       boolean isOpen) {
     if (isOpen) {
-      RaftUtils.assertTrue(endIndex == INVALID_LOG_INDEX);
+      Preconditions.assertTrue(endIndex == INVALID_LOG_INDEX);
     } else {
-      RaftUtils.assertTrue(endIndex >= startIndex);
+      Preconditions.assertTrue(endIndex >= startIndex);
     }
 
     this.logFile = log;
@@ -84,12 +85,12 @@ public class LogInputStream implements Closeable {
   }
 
   private void init() throws IOException {
-    RaftUtils.assertTrue(state == State.UNINIT);
+    Preconditions.assertTrue(state == State.UNINIT);
     try {
       reader = new LogReader(logFile);
       // read the log header
       String header = reader.readLogHeader();
-      RaftUtils.assertTrue(SegmentedRaftLog.HEADER_STR.equals(header),
+      Preconditions.assertTrue(SegmentedRaftLog.HEADER_STR.equals(header),
           "Corrupted log header: %s", header);
       state = State.OPEN;
     } finally {
@@ -119,9 +120,9 @@ public class LogInputStream implements Closeable {
           init();
         } catch (Throwable e) {
           LOG.error("caught exception initializing " + this, e);
-          throw RaftUtils.asIOException(e);
+          throw IOUtils.asIOException(e);
         }
-        RaftUtils.assertTrue(state != State.UNINIT);
+        Preconditions.assertTrue(state != State.UNINIT);
         return nextEntry();
       case OPEN:
         entry = reader.readEntry();
@@ -149,7 +150,7 @@ public class LogInputStream implements Closeable {
   }
 
   long scanNextEntry() throws IOException {
-    RaftUtils.assertTrue(state == State.OPEN);
+    Preconditions.assertTrue(state == State.OPEN);
     return reader.scanEntry();
   }
 
@@ -202,7 +203,7 @@ public class LogInputStream implements Closeable {
     try {
       return scanEditLog(in, maxTxIdToScan);
     } finally {
-      RaftUtils.cleanup(LOG, in);
+      IOUtils.cleanup(LOG, in);
     }
   }
 

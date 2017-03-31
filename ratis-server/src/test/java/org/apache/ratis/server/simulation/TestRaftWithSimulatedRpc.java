@@ -20,17 +20,15 @@ package org.apache.ratis.server.simulation;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.LogUtils;
 
 import java.io.IOException;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class TestRaftWithSimulatedRpc extends RaftBasicTests {
   static {
-    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithSimulatedRpc cluster;

@@ -73,7 +73,7 @@ public abstract class MD5FileUtil {
     } catch (IOException ioe) {
       throw new IOException("Error reading md5 file at " + md5File, ioe);
     } finally {
-      RaftUtils.cleanup(LOG, reader);
+      IOUtils.cleanup(LOG, reader);
     }
 
     Matcher matcher = LINE_REGEX.matcher(md5Line);
@@ -118,11 +118,11 @@ public abstract class MD5FileUtil {
     try {
       MessageDigest digester = MD5Hash.getDigester();
       DigestInputStream dis = new DigestInputStream(in, digester);
-      RaftUtils.readFully(dis, 128*1024);
+      IOUtils.readFully(dis, 128*1024);
 
       return new MD5Hash(digester.digest());
     } finally {
-      RaftUtils.cleanup(LOG, in);
+      IOUtils.cleanup(LOG, in);
     }
   }
 

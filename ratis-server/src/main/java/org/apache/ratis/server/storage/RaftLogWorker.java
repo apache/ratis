@@ -34,7 +34,8 @@ import org.apache.ratis.server.storage.SegmentedRaftLog.Task;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,7 +84,7 @@ class RaftLogWorker implements Runnable {
     lastWrittenIndex = latestIndex;
     flushedIndex = latestIndex;
     if (openSegmentFile != null) {
-      RaftUtils.assertTrue(openSegmentFile.exists());
+      Preconditions.assertTrue(openSegmentFile.exists());
       out = new LogOutputStream(openSegmentFile, true, properties);
     }
     workerThread.start();
@@ -122,7 +123,7 @@ class RaftLogWorker implements Runnable {
     LOG.debug("add task {}", task);
     try {
       if (!queue.offer(task, 1, TimeUnit.SECONDS)) {
-        RaftUtils.assertTrue(isAlive(),
+        Preconditions.assertTrue(isAlive(),
             "the worker thread is not alive");
         queue.put(task);
       }
@@ -225,8 +226,8 @@ class RaftLogWorker implements Runnable {
 
     @Override
     public void execute() throws IOException {
-      RaftUtils.assertTrue(out != null);
-      RaftUtils.assertTrue(lastWrittenIndex + 1 == entry.getIndex(),
+      Preconditions.assertTrue(out != null);
+      Preconditions.assertTrue(lastWrittenIndex + 1 == entry.getIndex(),
           "lastWrittenIndex == %s, entry == %s", lastWrittenIndex, entry);
       out.write(entry);
       lastWrittenIndex = entry.getIndex();
@@ -251,19 +252,19 @@ class RaftLogWorker implements Runnable {
 
     @Override
     public void execute() throws IOException {
-      RaftUtils.cleanup(null, out);
+      IOUtils.cleanup(null, out);
       out = null;
-      RaftUtils.assertTrue(segmentToClose != null);
+      Preconditions.assertTrue(segmentToClose != null);
 
       File openFile = storage.getStorageDir()
           .getOpenLogFile(segmentToClose.getStartIndex());
-      RaftUtils.assertTrue(openFile.exists(),
+      Preconditions.assertTrue(openFile.exists(),
           "File %s does not exist.", openFile);
       if (segmentToClose.numOfEntries() > 0) {
         // finalize the current open segment
         File dstFile = storage.getStorageDir().getClosedLogFile(
             segmentToClose.getStartIndex(), segmentToClose.getEndIndex());
-        RaftUtils.assertTrue(!dstFile.exists());
+        Preconditions.assertTrue(!dstFile.exists());
 
         NativeIO.renameTo(openFile, dstFile);
       } else { // delete the file of the empty segment
@@ -288,9 +289,9 @@ class RaftLogWorker implements Runnable {
     @Override
     void execute() throws IOException {
       File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
-      RaftUtils.assertTrue(!openFile.exists(), "open file %s exists for %s",
+      Preconditions.assertTrue(!openFile.exists(), "open file %s exists for %s",
           openFile.getAbsolutePath(), RaftLogWorker.this.toString());
-      RaftUtils.assertTrue(out == null && pendingFlushNum == 0);
+      Preconditions.assertTrue(out == null && pendingFlushNum == 0);
       out = new LogOutputStream(openFile, false, properties);
     }
 
@@ -309,7 +310,7 @@ class RaftLogWorker implements Runnable {
 
     @Override
     void execute() throws IOException {
-      RaftUtils.cleanup(null, out);
+      IOUtils.cleanup(null, out);
       out = null;
       if (segments.toTruncate != null) {
         File fileToTruncate = segments.toTruncate.isOpen ?
@@ -323,7 +324,7 @@ class RaftLogWorker implements Runnable {
         // rename the file
         File dstFile = storage.getStorageDir().getClosedLogFile(
             segments.toTruncate.startIndex, segments.toTruncate.newEndIndex);
-        RaftUtils.assertTrue(!dstFile.exists());
+        Preconditions.assertTrue(!dstFile.exists());
         NativeIO.renameTo(fileToTruncate, dstFile);
 
         // update lastWrittenIndex

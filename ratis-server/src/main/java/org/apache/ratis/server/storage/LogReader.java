@@ -22,8 +22,9 @@ import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.shaded.com.google.protobuf.CodedInputStream;
 import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.PureJavaCrc32C;
-import org.apache.ratis.util.RaftUtils;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -196,9 +197,9 @@ public class LogReader implements Closeable {
         // want to reposition the mark one byte before the error
         if (numRead != -1) {
           in.reset();
-          RaftUtils.skipFully(in, idx);
+          IOUtils.skipFully(in, idx);
           in.mark(temp.length + 1);
-          RaftUtils.skipFully(in, 1);
+          IOUtils.skipFully(in, 1);
         }
       }
     }
@@ -246,7 +247,7 @@ public class LogReader implements Closeable {
     checkBufferSize(totalLength);
     in.reset();
     in.mark(maxOpSize);
-    RaftUtils.readFully(in, temp, 0, totalLength);
+    IOUtils.readFully(in, temp, 0, totalLength);
 
     // verify checksum
     checksum.reset();
@@ -265,7 +266,7 @@ public class LogReader implements Closeable {
   }
 
   private void checkBufferSize(int entryLength) {
-    RaftUtils.assertTrue(entryLength <= maxOpSize);
+    Preconditions.assertTrue(entryLength <= maxOpSize);
     int length = temp.length;
     if (length < entryLength) {
       while (length < entryLength) {
@@ -281,11 +282,11 @@ public class LogReader implements Closeable {
 
   void skipFully(long length) throws IOException {
     limiter.clearLimit();
-    RaftUtils.skipFully(limiter, length);
+    IOUtils.skipFully(limiter, length);
   }
 
   @Override
   public void close() throws IOException {
-    RaftUtils.cleanup(null, in);
+    IOUtils.cleanup(null, in);
   }
 }
