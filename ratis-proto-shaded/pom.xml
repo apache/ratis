@@ -18,12 +18,10 @@
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
     <version>0.1-SNAPSHOT</version>
-    <relativePath>..</relativePath>
   </parent>
 
   <artifactId>ratis-proto-shaded</artifactId>
   <name>Ratis Proto Shaded</name>
-  <version>0.1-SNAPSHOT</version>
 
   <properties>
     <maven.javadoc.skip>true</maven.javadoc.skip>

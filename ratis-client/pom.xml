@@ -18,12 +18,10 @@
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
     <version>0.1-SNAPSHOT</version>
-    <relativePath>..</relativePath>
   </parent>
 
   <artifactId>ratis-client</artifactId>
   <name>Ratis Client</name>
-  <version>0.1-SNAPSHOT</version>
 
   <dependencies>
     <dependency>

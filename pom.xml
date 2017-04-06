@@ -19,8 +19,7 @@
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
     <version>18</version>
-    <relativePath />
-    <!-- no parent resolution -->
+    <relativePath /> <!-- resolve from repository -->
   </parent>
 
   <artifactId>ratis</artifactId>
