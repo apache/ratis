@@ -22,7 +22,7 @@ import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 
 import java.io.File;
 import java.io.IOException;
@@ -85,12 +85,12 @@ class LogSegment implements Comparable<Long> {
   }
 
   static LogSegment newOpenSegment(long start) {
-    RaftUtils.assertTrue(start >= 0);
+    Preconditions.assertTrue(start >= 0);
     return new LogSegment(true, start, start - 1);
   }
 
   private static LogSegment newCloseSegment(long start, long end) {
-    RaftUtils.assertTrue(start >= 0 && end >= start);
+    Preconditions.assertTrue(start >= 0 && end >= start);
     return new LogSegment(false, start, end);
   }
 
@@ -104,7 +104,7 @@ class LogSegment implements Comparable<Long> {
       LogEntryProto prev = null;
       while ((next = in.nextEntry()) != null) {
         if (prev != null) {
-          RaftUtils.assertTrue(next.getIndex() == prev.getIndex() + 1,
+          Preconditions.assertTrue(next.getIndex() == prev.getIndex() + 1,
               "gap between entry %s and entry %s", prev, next);
         }
         segment.append(next);
@@ -123,9 +123,9 @@ class LogSegment implements Comparable<Long> {
       FileUtils.truncateFile(file, segment.getTotalSize());
     }
 
-    RaftUtils.assertTrue(start == segment.records.get(0).entry.getIndex());
+    Preconditions.assertTrue(start == segment.records.get(0).entry.getIndex());
     if (!isOpen) {
-      RaftUtils.assertTrue(segment.getEndIndex() == end);
+      Preconditions.assertTrue(segment.getEndIndex() == end);
     }
     return segment;
   }
@@ -147,26 +147,26 @@ class LogSegment implements Comparable<Long> {
   }
 
   void appendToOpenSegment(LogEntryProto... entries) {
-    RaftUtils.assertTrue(isOpen(),
+    Preconditions.assertTrue(isOpen(),
         "The log segment %s is not open for append", this.toString());
     append(entries);
   }
 
   private void append(LogEntryProto... entries) {
-    RaftUtils.assertTrue(entries != null && entries.length > 0);
+    Preconditions.assertTrue(entries != null && entries.length > 0);
     final long term = entries[0].getTerm();
     if (records.isEmpty()) {
-      RaftUtils.assertTrue(entries[0].getIndex() == startIndex,
+      Preconditions.assertTrue(entries[0].getIndex() == startIndex,
           "gap between start index %s and first entry to append %s",
           startIndex, entries[0].getIndex());
     }
     for (LogEntryProto entry : entries) {
       // all these entries should be of the same term
-      RaftUtils.assertTrue(entry.getTerm() == term,
+      Preconditions.assertTrue(entry.getTerm() == term,
           "expected term:%s, term of the entry:%s", term, entry.getTerm());
       final LogRecord currentLast = getLastRecord();
       if (currentLast != null) {
-        RaftUtils.assertTrue(
+        Preconditions.assertTrue(
             entry.getIndex() == currentLast.entry.getIndex() + 1,
             "gap between entries %s and %s", entry.getIndex(),
             currentLast.entry.getIndex());
@@ -198,7 +198,7 @@ class LogSegment implements Comparable<Long> {
    * Remove records from the given index (inclusive)
    */
   void truncate(long fromIndex) {
-    RaftUtils.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
+    Preconditions.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
     LogRecord record = records.get((int) (fromIndex - startIndex));
     for (long index = endIndex; index >= fromIndex; index--) {
       records.remove((int)(index - startIndex));
@@ -209,7 +209,7 @@ class LogSegment implements Comparable<Long> {
   }
 
   void close() {
-    RaftUtils.assertTrue(isOpen());
+    Preconditions.assertTrue(isOpen());
     isOpen = false;
   }
 

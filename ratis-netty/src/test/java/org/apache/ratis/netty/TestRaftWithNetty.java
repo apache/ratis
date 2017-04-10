@@ -22,15 +22,15 @@ import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.LogUtils;
 import org.junit.Test;
 
 import java.io.IOException;
 
 public class TestRaftWithNetty extends RaftBasicTests {
   static {
-    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithNetty cluster;

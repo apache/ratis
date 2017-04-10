@@ -193,7 +193,7 @@ public class FileUtils {
    *         On Windows, true if process has write access on the path
    */
   public static boolean canWrite(File f) {
-    if (RaftUtils.WINDOWS) {
+    if (PlatformUtils.WINDOWS) {
       try {
         return NativeIO.Windows.access(f.getCanonicalPath(),
             NativeIO.Windows.AccessRight.ACCESS_WRITE);

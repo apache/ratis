@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.examples.arithmetic.expression;
 
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 
 import java.util.Map;
 
@@ -33,12 +33,12 @@ public class DoubleValue implements Expression {
 
   DoubleValue(byte[] buf, int offset) {
     this(Utils.bytes2double(buf, offset + 1));
-    RaftUtils.assertTrue(buf[offset] == Type.DOUBLE.byteValue());
+    Preconditions.assertTrue(buf[offset] == Type.DOUBLE.byteValue());
   }
 
   @Override
   public int toBytes(byte[] buf, int offset) {
-    RaftUtils.assertTrue(offset + length() <= buf.length);
+    Preconditions.assertTrue(offset + length() <= buf.length);
     buf[offset++] = Type.DOUBLE.byteValue();
     Utils.double2bytes(value, buf, offset);
     return length();

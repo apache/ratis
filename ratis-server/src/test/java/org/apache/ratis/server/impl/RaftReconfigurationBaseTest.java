@@ -17,25 +17,12 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.log4j.Level;
-import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.MiniRaftCluster.PeerChanges;
-import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.RaftTestUtil.SimpleMessage;
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.simulation.RequestHandler;
-import org.apache.ratis.server.storage.RaftLog;
-import org.apache.ratis.util.RaftUtils;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.mockito.internal.util.reflection.Whitebox;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static java.util.Arrays.asList;
+import static org.apache.ratis.MiniRaftCluster.leaderPlaceHolderDelay;
+import static org.apache.ratis.MiniRaftCluster.logSyncDelay;
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
+import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
+import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,18 +32,39 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static java.util.Arrays.asList;
-import static org.apache.ratis.MiniRaftCluster.leaderPlaceHolderDelay;
-import static org.apache.ratis.MiniRaftCluster.logSyncDelay;
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
-import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
-import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
+import org.apache.log4j.Level;
+import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.MiniRaftCluster.PeerChanges;
+import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.RaftTestUtil.SimpleMessage;
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.LeaderNotReadyException;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.ReconfigurationInProgressException;
+import org.apache.ratis.protocol.ReconfigurationTimeoutException;
+import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.simulation.RequestHandler;
+import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.util.LogUtils;
+import org.junit.Assert;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.mockito.internal.util.reflection.Whitebox;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class RaftReconfigurationBaseTest {
   static {
-    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RequestHandler.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
   static final Logger LOG = LoggerFactory.getLogger(RaftReconfigurationBaseTest.class);
 

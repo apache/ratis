@@ -22,7 +22,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -64,12 +64,12 @@ public class PendingRequest implements Comparable<PendingRequest> {
    * This is only used when setting new raft configuration.
    */
   synchronized void setException(Throwable e) {
-    RaftUtils.assertTrue(e != null);
+    Preconditions.assertTrue(e != null);
     future.completeExceptionally(e);
   }
 
   synchronized void setReply(RaftClientReply r) {
-    RaftUtils.assertTrue(r != null);
+    Preconditions.assertTrue(r != null);
     future.complete(r);
   }
 

@@ -24,8 +24,8 @@ import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.Daemon;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.RaftUtils;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -91,7 +91,7 @@ class LeaderElection extends Daemon {
   }
 
   private void initExecutor() {
-    RaftUtils.assertTrue(!others.isEmpty());
+    Preconditions.assertTrue(!others.isEmpty());
     executor = Executors.newFixedThreadPool(others.size(), Daemon::new);
     service = new ExecutorCompletionService<>(executor);
   }

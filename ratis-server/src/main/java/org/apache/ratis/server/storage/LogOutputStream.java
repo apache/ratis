@@ -22,8 +22,8 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PureJavaCrc32C;
-import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,7 +126,7 @@ public class LogOutputStream implements Closeable {
         fc.truncate(fc.position());
       }
     } finally {
-      RaftUtils.cleanup(LOG, fc, out);
+      IOUtils.cleanup(LOG, fc, out);
       fc = null;
       out = null;
     }
@@ -151,7 +151,7 @@ public class LogOutputStream implements Closeable {
       int size = (int) Math.min(BUFFER_SIZE, targetSize - allocated);
       ByteBuffer buffer = fill.slice();
       buffer.limit(size);
-      RaftUtils.writeFully(fc, buffer, preallocatedPos);
+      IOUtils.writeFully(fc, buffer, preallocatedPos);
       preallocatedPos += size;
       allocated += size;
     }

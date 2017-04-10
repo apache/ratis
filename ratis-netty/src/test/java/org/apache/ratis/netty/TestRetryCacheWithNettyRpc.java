@@ -17,18 +17,18 @@
  */
 package org.apache.ratis.netty;
 
+import java.io.IOException;
+
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftRetryCacheTests;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.RaftUtils;
-
-import java.io.IOException;
+import org.apache.ratis.util.LogUtils;
 
 public class TestRetryCacheWithNettyRpc extends RaftRetryCacheTests {
   static {
-    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithNetty cluster;

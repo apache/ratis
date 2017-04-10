@@ -17,20 +17,20 @@
  */
 package org.apache.ratis.server.impl;
 
+import java.io.Closeable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.shaded.com.google.common.cache.Cache;
 import org.apache.ratis.shaded.com.google.common.cache.CacheBuilder;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.Closeable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 public class RetryCache implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(RetryCache.class);
@@ -162,7 +162,7 @@ public class RetryCache implements Closeable {
     } catch (ExecutionException e) {
       throw new IllegalStateException(e);
     }
-    RaftUtils.assertTrue(entry != null && !entry.isDone(),
+    Preconditions.assertTrue(entry != null && !entry.isDone(),
         "retry cache entry should be pending: %s", entry);
     return entry;
   }

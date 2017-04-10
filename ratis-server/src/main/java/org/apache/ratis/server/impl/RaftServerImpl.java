@@ -17,28 +17,13 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.RaftConfigKeys;
-import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.FileInfo;
-import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
-import org.apache.ratis.shaded.proto.RaftProtos.*;
-import org.apache.ratis.statemachine.SnapshotInfo;
-import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.CodeInjectionForTesting;
-import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.RaftUtils;
-import org.apache.ratis.util.TimeDuration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
+import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
+import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
+import static org.apache.ratis.util.LifeCycle.State.CLOSED;
+import static org.apache.ratis.util.LifeCycle.State.CLOSING;
+import static org.apache.ratis.util.LifeCycle.State.RUNNING;
+import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -51,8 +36,48 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
-import static org.apache.ratis.util.LifeCycle.State.*;
+import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.LeaderNotReadyException;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.NotLeaderException;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftException;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.ReconfigurationInProgressException;
+import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.StateMachineException;
+import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.storage.FileInfo;
+import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.FileChunkProto;
+import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotResult;
+import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.TimeDuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class RaftServerImpl implements RaftServer {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerImpl.class);
@@ -98,7 +123,7 @@ public class RaftServerImpl implements RaftServer {
     this.lifeCycle = new LifeCycle(id);
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toInt(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
-    RaftUtils.assertTrue(maxTimeoutMs > minTimeoutMs,
+    Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.properties = properties;
     this.stateMachine = stateMachine;
@@ -302,7 +327,7 @@ public class RaftServerImpl implements RaftServer {
   }
 
   synchronized void changeToLeader() {
-    RaftUtils.assertTrue(isCandidate());
+    Preconditions.assertTrue(isCandidate());
     shutdownElectionDaemon();
     role = Role.LEADER;
     state.becomeLeader();
@@ -321,7 +346,7 @@ public class RaftServerImpl implements RaftServer {
   }
 
   synchronized void changeToCandidate() {
-    RaftUtils.assertTrue(isFollower());
+    Preconditions.assertTrue(isFollower());
     shutdownHeartbeatMonitor();
     role = Role.CANDIDATE;
     // start election
@@ -455,7 +480,6 @@ public class RaftServerImpl implements RaftServer {
       cacheEntry.failWithReply(exceptionReply);
       return CompletableFuture.completedFuture(exceptionReply);
     }
-
     return appendTransaction(request, context, cacheEntry);
   }
 
@@ -473,7 +497,7 @@ public class RaftServerImpl implements RaftServer {
     } catch (InterruptedException e) {
       final String s = id + ": Interrupted when waiting for reply, request=" + request;
       LOG.info(s, e);
-      throw RaftUtils.toInterruptedIOException(s, e);
+      throw IOUtils.toInterruptedIOException(s, e);
     } catch (ExecutionException e) {
       final Throwable cause = e.getCause();
       if (cause == null) {
@@ -483,7 +507,7 @@ public class RaftServerImpl implements RaftServer {
           cause instanceof StateMachineException) {
         return new RaftClientReply(request, (RaftException) cause);
       } else {
-        throw RaftUtils.asIOException(cause);
+        throw IOUtils.asIOException(cause);
       }
     }
   }
@@ -617,23 +641,23 @@ public class RaftServerImpl implements RaftServer {
       final long index0 = entries[0].getIndex();
 
       if (previous == null || previous.getTerm() == 0) {
-        RaftUtils.assertTrue(index0 == 0,
+        Preconditions.assertTrue(index0 == 0,
             "Unexpected Index: previous is null but entries[%s].getIndex()=%s",
             0, index0);
       } else {
-        RaftUtils.assertTrue(previous.getIndex() == index0 - 1,
+        Preconditions.assertTrue(previous.getIndex() == index0 - 1,
             "Unexpected Index: previous is %s but entries[%s].getIndex()=%s",
             previous, 0, index0);
       }
 
       for (int i = 0; i < entries.length; i++) {
         final long t = entries[i].getTerm();
-        RaftUtils.assertTrue(expectedTerm >= t,
+        Preconditions.assertTrue(expectedTerm >= t,
             "Unexpected Term: entries[%s].getTerm()=%s but expectedTerm=%s",
             i, t, expectedTerm);
 
         final long indexi = entries[i].getIndex();
-        RaftUtils.assertTrue(indexi == index0 + i,
+        Preconditions.assertTrue(indexi == index0 + i,
             "Unexpected Index: entries[%s].getIndex()=%s but entries[0].getIndex()=%s",
             i, indexi, index0);
       }
@@ -786,7 +810,7 @@ public class RaftServerImpl implements RaftServer {
       // Check and append the snapshot chunk. We simply put this in lock
       // considering a follower peer requiring a snapshot installation does not
       // have a lot of requests
-      RaftUtils.assertTrue(
+      Preconditions.assertTrue(
           state.getLog().getNextIndex() <= lastIncludedIndex,
           "%s log's next id is %s, last included index in snapshot is %s",
           getId(),  state.getLog().getNextIndex(), lastIncludedIndex);

@@ -21,7 +21,7 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.ReflectionUtils;
 
 import java.util.Arrays;
 
@@ -143,7 +143,7 @@ public class ClientProtoUtils {
     } else {
       try {
         Class<?> clazz = Class.forName(className);
-        final Exception e = RaftUtils.instantiateException(
+        final Exception e = ReflectionUtils.instantiateException(
             clazz.asSubclass(Exception.class), errorMsg, null);
         sme = new StateMachineException(serverId, e);
       } catch (Exception e) {

@@ -21,7 +21,7 @@ import java.util.*;
 
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 
 /**
  * The peer configuration of a raft cluster.
@@ -38,7 +38,7 @@ class PeerConfiguration {
       map.put(p.getId(), p);
     }
     this.peers = Collections.unmodifiableMap(map);
-    RaftUtils.assertTrue(!this.peers.isEmpty());
+    Preconditions.assertTrue(!this.peers.isEmpty());
   }
 
   Collection<RaftPeer> getPeers() {
@@ -73,7 +73,7 @@ class PeerConfiguration {
   }
 
   boolean hasMajority(Collection<RaftPeerId> others, RaftPeerId selfId) {
-    RaftUtils.assertTrue(!others.contains(selfId));
+    Preconditions.assertTrue(!others.contains(selfId));
     int num = 0;
     if (contains(selfId)) {
       num++;

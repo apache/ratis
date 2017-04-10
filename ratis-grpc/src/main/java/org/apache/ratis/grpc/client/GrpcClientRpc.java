@@ -25,8 +25,8 @@ import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PeerProxyMap;
-import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +71,7 @@ public class GrpcClientRpc implements RaftClientRpc {
               if (t instanceof StatusRuntimeException) {
                 e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
               } else {
-                e = RaftUtils.asIOException(t);
+                e = IOUtils.asIOException(t);
               }
               replyFuture.completeExceptionally(e);
             }
@@ -94,7 +94,7 @@ public class GrpcClientRpc implements RaftClientRpc {
         throw new InterruptedIOException(
             "Interrupted while waiting for response of request " + request);
       } catch (ExecutionException e) {
-        throw RaftUtils.toIOException(e);
+        throw IOUtils.toIOException(e);
       }
     }
   }

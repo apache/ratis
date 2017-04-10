@@ -17,17 +17,17 @@
  */
 package org.apache.ratis.grpc;
 
+import java.io.IOException;
+
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftRetryCacheTests;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
-
-import java.io.IOException;
 
 public class TestRetryCacheWithGrpc extends RaftRetryCacheTests {
   static {
-    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithGRpc cluster;

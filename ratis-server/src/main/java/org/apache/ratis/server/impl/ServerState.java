@@ -29,8 +29,8 @@ import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.RaftUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -215,7 +215,7 @@ public class ServerState implements Closeable {
       // leader and term later
       return true;
     }
-    RaftUtils.assertTrue(this.leaderId.equals(leaderId),
+    Preconditions.assertTrue(this.leaderId.equals(leaderId),
         "selfId:%s, this.leaderId:%s, received leaderId:%s",
         selfId, this.leaderId, leaderId);
     return true;

@@ -21,15 +21,15 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftRetryCacheTests;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.LogUtils;
 
 import java.io.IOException;
 
 public class TestRetryCacheWithHadoopRpc extends RaftRetryCacheTests {
   static {
-    RaftUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-    RaftUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithHadoopRpc cluster;

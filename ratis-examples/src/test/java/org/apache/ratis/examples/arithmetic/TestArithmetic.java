@@ -26,7 +26,7 @@ import org.apache.ratis.examples.RaftExamplesTestUtil;
 import org.apache.ratis.examples.arithmetic.expression.*;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,7 +38,7 @@ import java.util.Collection;
 @RunWith(Parameterized.class)
 public class TestArithmetic {
   static {
-    RaftUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.ALL);
+    LogUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.ALL);
   }
 
   @Parameterized.Parameters

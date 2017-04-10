@@ -27,7 +27,7 @@ import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CodeInjectionForTesting;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 
 import java.io.File;
 import java.io.IOException;
@@ -213,7 +213,7 @@ public class SegmentedRaftLog extends RaftLog {
         // the term changes
         final long currentTerm = currentOpenSegment.getLastRecord().entry
             .getTerm();
-        RaftUtils.assertTrue(currentTerm < entry.getTerm(),
+        Preconditions.assertTrue(currentTerm < entry.getTerm(),
             "open segment's term %s is larger than the new entry's term %s",
             currentTerm, entry.getTerm());
         cache.rollOpenSegment(true);
@@ -249,7 +249,7 @@ public class SegmentedRaftLog extends RaftLog {
       long truncateIndex = -1;
       for (; iter.hasNext() && index < entries.length; index++) {
         LogEntryProto storedEntry = iter.next();
-        RaftUtils.assertTrue(
+        Preconditions.assertTrue(
             storedEntry.getIndex() == entries[index].getIndex(),
             "The stored entry's index %s is not consistent with" +
                 " the received entries[%s]'s index %s", storedEntry.getIndex(),

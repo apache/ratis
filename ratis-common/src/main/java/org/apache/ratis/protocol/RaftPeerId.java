@@ -18,7 +18,7 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -37,7 +37,7 @@ public class RaftPeerId {
 
   public RaftPeerId(String id) {
     Objects.requireNonNull(id, "id == null");
-    RaftUtils.assertTrue(!id.isEmpty(), "id is an empty string.");
+    Preconditions.assertTrue(!id.isEmpty(), "id is an empty string.");
     this.id = id.getBytes(StandardCharsets.UTF_8);
   }
 

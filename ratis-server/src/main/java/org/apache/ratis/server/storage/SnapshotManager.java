@@ -29,8 +29,9 @@ import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.MD5FileUtil;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,7 +90,7 @@ public class SnapshotManager {
           // create the temp snapshot file and put padding inside
           out = new FileOutputStream(tmpSnapshotFile);
         } else {
-          RaftUtils.assertTrue(tmpSnapshotFile.exists());
+          Preconditions.assertTrue(tmpSnapshotFile.exists());
           out = new FileOutputStream(tmpSnapshotFile, true);
           FileChannel fc = out.getChannel();
           fc.position(chunk.getOffset());
@@ -98,7 +99,7 @@ public class SnapshotManager {
         // write data to the file
         out.write(chunk.getData().toByteArray());
       } finally {
-        RaftUtils.cleanup(null, out);
+        IOUtils.cleanup(null, out);
       }
 
       // rename the temp snapshot file if this is the last chunk. also verify

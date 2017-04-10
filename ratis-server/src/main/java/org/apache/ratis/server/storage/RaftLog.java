@@ -33,8 +33,8 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.RaftUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +71,7 @@ public abstract class RaftLog implements Closeable {
   }
 
   public void checkLogState() {
-    RaftUtils.assertTrue(isOpen,
+    Preconditions.assertTrue(isOpen,
         "The RaftLog has not been opened or has been closed");
   }
 

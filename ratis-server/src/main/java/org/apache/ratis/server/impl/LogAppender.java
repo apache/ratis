@@ -27,8 +27,9 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.Daemon;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.RaftUtils;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 
@@ -141,7 +142,7 @@ public class LogAppender extends Daemon {
     if (previous == null) {
       // if previous is null, nextIndex must be equal to the log start
       // index (otherwise we will install snapshot).
-      RaftUtils.assertTrue(follower.getNextIndex() == raftLog.getStartIndex(),
+      Preconditions.assertTrue(follower.getNextIndex() == raftLog.getStartIndex(),
           "follower's next index %s, local log start index %s",
           follower.getNextIndex(), raftLog.getStartIndex());
       SnapshotInfo snapshot = server.getState().getLatestSnapshot();
@@ -312,7 +313,7 @@ public class LogAppender extends Daemon {
       throws IOException {
     FileChunkProto.Builder builder = FileChunkProto.newBuilder()
         .setOffset(offset).setChunkIndex(chunkIndex);
-    RaftUtils.readFully(in, buf, 0, length);
+    IOUtils.readFully(in, buf, 0, length);
     Path relativePath = server.getState().getStorage().getStorageDir()
         .relativizeToRoot(fileInfo.getPath());
     builder.setFilename(relativePath.toString());

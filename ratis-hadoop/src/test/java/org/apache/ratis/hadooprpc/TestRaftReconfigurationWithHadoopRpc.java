@@ -22,9 +22,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.Client;
 import org.apache.log4j.Level;
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.server.impl.RaftReconfigurationBaseTest;
-import org.apache.ratis.util.RaftUtils;
 
 import java.io.IOException;
 

@@ -180,7 +180,7 @@ public class LeaderState {
    * Start bootstrapping new peers
    */
   PendingRequest startSetConfiguration(SetConfigurationRequest request) {
-    RaftUtils.assertTrue(running && !inStagingState());
+    Preconditions.assertTrue(running && !inStagingState());
 
     RaftPeer[] peersInNewConf = request.getPeersInNewConf();
     Collection<RaftPeer> peersToBootStrap = RaftConfiguration
@@ -246,7 +246,7 @@ public class LeaderState {
    * Update the RpcSender list based on the current configuration
    */
   private void updateSenders(RaftConfiguration conf) {
-    RaftUtils.assertTrue(conf.isStable() && !inStagingState());
+    Preconditions.assertTrue(conf.isStable() && !inStagingState());
     Iterator<LogAppender> iterator = senders.iterator();
     while (iterator.hasNext()) {
       LogAppender sender = iterator.next();
@@ -312,7 +312,7 @@ public class LeaderState {
           LOG.warn("Failed to persist new votedFor/term.", e);
           // the failure should happen while changing the state to follower
           // thus the in-memory state should have been updated
-          RaftUtils.assertTrue(!running);
+          Preconditions.assertTrue(!running);
         }
       }
     }
@@ -346,7 +346,7 @@ public class LeaderState {
    */
   private BootStrapProgress checkProgress(FollowerInfo follower,
       long committed) {
-    RaftUtils.assertTrue(!follower.isAttendingVote());
+    Preconditions.assertTrue(!follower.isAttendingVote());
     final Timestamp progressTime = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
     final Timestamp timeoutTime = new Timestamp().addTimeMs(-3*server.getMaxTimeoutMs());
     if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
@@ -362,7 +362,7 @@ public class LeaderState {
   }
 
   private Collection<BootStrapProgress> checkAllProgress(long committed) {
-    RaftUtils.assertTrue(inStagingState());
+    Preconditions.assertTrue(inStagingState());
     return senders.stream()
         .filter(sender -> !sender.getFollower().isAttendingVote())
         .map(sender -> checkProgress(sender.getFollower(), committed))

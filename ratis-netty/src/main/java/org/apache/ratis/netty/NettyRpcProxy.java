@@ -28,9 +28,9 @@ import org.apache.ratis.shaded.io.netty.handler.codec.protobuf.ProtobufVarint32L
 import org.apache.ratis.shaded.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerRequestProto;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.RaftUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -51,7 +51,7 @@ public class NettyRpcProxy implements Closeable {
       try {
         return new NettyRpcProxy(peer, group);
       } catch (InterruptedException e) {
-        throw RaftUtils.toInterruptedIOException("Failed connecting to " + peer, e);
+        throw IOUtils.toInterruptedIOException("Failed connecting to " + peer, e);
       }
     }
 
@@ -170,10 +170,10 @@ public class NettyRpcProxy implements Closeable {
       channelFuture.sync();
       return reply.get();
     } catch (InterruptedException e) {
-      throw RaftUtils.toInterruptedIOException(ProtoUtils.toString(request)
+      throw IOUtils.toInterruptedIOException(ProtoUtils.toString(request)
           + " sending from " + peer + " is interrupted.", e);
     } catch (ExecutionException e) {
-      throw RaftUtils.toIOException(e);
+      throw IOUtils.toIOException(e);
     }
   }
 }

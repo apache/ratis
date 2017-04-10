@@ -31,7 +31,7 @@ import org.apache.ratis.server.impl.LogAppender;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.CodeInjectionForTesting;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.Preconditions;
 
 import static org.apache.ratis.grpc.RaftGRpcService.GRPC_SEND_SERVER_REQUEST;
 
@@ -130,7 +130,7 @@ public class GRpcLogAppender extends LogAppender {
         // together and protected by the lock
         pending = createRequest();
         if (pending != null) {
-          RaftUtils.assertTrue(pendingRequests.offer(pending));
+          Preconditions.assertTrue(pendingRequests.offer(pending));
           updateNextIndex(pending);
         }
       }
@@ -261,7 +261,7 @@ public class GRpcLogAppender extends LogAppender {
             + " but the pending queue is empty");
 
     if (request.getEntriesCount() == 0) {
-      RaftUtils.assertTrue(!request.hasPreviousLog() ||
+      Preconditions.assertTrue(!request.hasPreviousLog() ||
               replyNextIndex - 1 == request.getPreviousLog().getIndex(),
           "reply's next index is %s, request's previous is %s",
           replyNextIndex, request.getPreviousLog());
@@ -269,7 +269,7 @@ public class GRpcLogAppender extends LogAppender {
       // check if the reply and the pending request is consistent
       final long lastEntryIndex = request
           .getEntries(request.getEntriesCount() - 1).getIndex();
-      RaftUtils.assertTrue(replyNextIndex == lastEntryIndex + 1,
+      Preconditions.assertTrue(replyNextIndex == lastEntryIndex + 1,
           "reply's next index is %s, request's last entry index is %s",
           replyNextIndex, lastEntryIndex);
       follower.updateMatchIndex(lastEntryIndex);
@@ -284,7 +284,7 @@ public class GRpcLogAppender extends LogAppender {
 
   private synchronized void onInconsistency(AppendEntriesReplyProto reply) {
     AppendEntriesRequestProto request = pendingRequests.peek();
-    RaftUtils.assertTrue(request.hasPreviousLog());
+    Preconditions.assertTrue(request.hasPreviousLog());
     if (request.getPreviousLog().getIndex() >= reply.getNextIndex()) {
       clearPendingRequests(reply.getNextIndex());
     }
@@ -305,7 +305,7 @@ public class GRpcLogAppender extends LogAppender {
 
     synchronized void removePending(InstallSnapshotReplyProto reply) {
       int index = pending.poll();
-      RaftUtils.assertTrue(index == reply.getRequestIndex());
+      Preconditions.assertTrue(index == reply.getRequestIndex());
     }
 
     boolean isDone() {

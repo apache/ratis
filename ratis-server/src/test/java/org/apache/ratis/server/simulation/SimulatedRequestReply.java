@@ -21,7 +21,8 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.RaftRpcMessage;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.util.RaftUtils;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.Timestamp;
 
 import java.io.IOException;
@@ -43,7 +44,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     private final IOException ioe;
 
     ReplyOrException(REPLY reply, IOException ioe) {
-      RaftUtils.assertTrue(reply == null ^ ioe == null);
+      Preconditions.assertTrue(reply == null ^ ioe == null);
       this.reply = reply;
       this.ioe = ioe;
     }
@@ -120,7 +121,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
       RaftTestUtil.block(q.blockSendRequestTo::get);
       return q.request(request);
     } catch (InterruptedException e) {
-      throw RaftUtils.toInterruptedIOException("", e);
+      throw IOUtils.toInterruptedIOException("", e);
     }
   }
 
@@ -136,7 +137,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
       RaftTestUtil.delay(q.delayTakeRequestTo::get);
 
       request = q.takeRequest();
-      RaftUtils.assertTrue(qid.equals(request.getReplierId()));
+      Preconditions.assertTrue(qid.equals(request.getReplierId()));
 
       // block request for testing
       final EventQueue<REQUEST, REPLY> reqQ = queues.get(request.getRequestorId());
@@ -145,7 +146,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
         RaftTestUtil.block(reqQ.blockTakeRequestFrom::get);
       }
     } catch (InterruptedException e) {
-      throw RaftUtils.toInterruptedIOException("", e);
+      throw IOUtils.toInterruptedIOException("", e);
     }
     return request;
   }
@@ -153,9 +154,9 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
   public void sendReply(REQUEST request, REPLY reply, IOException ioe)
       throws IOException {
     if (reply != null) {
-      RaftUtils.assertTrue(
+      Preconditions.assertTrue(
           request.getRequestorId().equals(reply.getRequestorId()));
-      RaftUtils.assertTrue(
+      Preconditions.assertTrue(
           request.getReplierId().equals(reply.getReplierId()));
     }
     simulateLatency();
@@ -187,7 +188,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
       try {
         Thread.sleep(randomSleepMs);
       } catch (InterruptedException ie) {
-        throw RaftUtils.toInterruptedIOException("", ie);
+        throw IOUtils.toInterruptedIOException("", ie);
       }
     }
   }
