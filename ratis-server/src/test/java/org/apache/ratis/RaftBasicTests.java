@@ -98,8 +98,9 @@ public abstract class RaftBasicTests {
     LOG.info(cluster.printAllLogs());
 
     cluster.getServers().stream().filter(RaftServerImpl::isAlive)
-        .map(s -> s.getState().getLog().getEntries(1, Long.MAX_VALUE))
-        .forEach(e -> RaftTestUtil.assertLogEntries(e, 1, term, messages));
+        .map(s -> s.getState().getLog())
+        .forEach(log -> RaftTestUtil.assertLogEntries(log,
+            log.getEntries(1, Long.MAX_VALUE), 1, term, messages));
   }
 
   @Test

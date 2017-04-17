@@ -17,9 +17,12 @@
  */
 package org.apache.ratis.server.impl;
 
+import static org.apache.ratis.server.impl.ServerProtoUtils.toRaftConfiguration;
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
+import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
+import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.SMLOGENTRY;
 import static org.apache.ratis.util.LifeCycle.State.CLOSED;
 import static org.apache.ratis.util.LifeCycle.State.CLOSING;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
@@ -873,7 +876,7 @@ public class RaftServerImpl implements RaftServer {
    * @param stateMachineFuture the future returned by the state machine
    *                           from which we will get transaction result later
    */
-  void replyPendingRequest(LogEntryProto logEntry,
+  private void replyPendingRequest(LogEntryProto logEntry,
       CompletableFuture<Message> stateMachineFuture) {
     // update the retry cache
     final ClientId clientId = new ClientId(logEntry.getClientId().toByteArray());
@@ -903,11 +906,34 @@ public class RaftServerImpl implements RaftServer {
     });
   }
 
-  TransactionContext getTransactionContext(long index) {
+  private TransactionContext getTransactionContext(long index) {
     if (leaderState != null) { // is leader and is running
       return leaderState.getTransactionContext(index);
     }
     return null;
+  }
+
+  public void applyLogToStateMachine(LogEntryProto next) {
+    if (next.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
+      // the reply should have already been set. only need to record
+      // the new conf in the state machine.
+      stateMachine.setRaftConfiguration(toRaftConfiguration(next.getIndex(),
+          next.getConfigurationEntry()));
+    } else if (next.getLogEntryBodyCase() == SMLOGENTRY) {
+      // check whether there is a TransactionContext because we are the leader.
+      TransactionContext trx = getTransactionContext(next.getIndex());
+      if (trx == null) {
+        trx = new TransactionContext(stateMachine, next);
+      }
+
+      // Let the StateMachine inject logic for committed transactions in sequential order.
+      trx = stateMachine.applyTransactionSerial(trx);
+
+      // TODO: This step can be parallelized
+      CompletableFuture<Message> stateMachineFuture =
+          stateMachine.applyTransaction(trx);
+      replyPendingRequest(next, stateMachineFuture);
+    }
   }
 
   @Override

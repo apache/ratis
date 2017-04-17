@@ -34,6 +34,9 @@ import org.apache.ratis.util.ProtoUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.function.Consumer;
+
+import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
@@ -85,7 +88,16 @@ public class ServerState implements Closeable {
     long lastApplied = initStatemachine(stateMachine, prop);
 
     leaderId = null;
-    log = initLog(id, prop, server, lastApplied);
+    // we cannot apply log entries to the state machine in this step, since we
+    // do not know whether the local log entries have been committed.
+    log = initLog(id, prop, lastApplied, entry -> {
+      if (entry.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
+        configurationManager.addConfiguration(entry.getIndex(),
+            ServerProtoUtils.toRaftConfiguration(entry.getIndex(),
+                entry.getConfigurationEntry()));
+      }
+    });
+
     RaftLog.Metadata metadata = log.loadMetadata();
     currentTerm = metadata.getTerm();
     votedFor = metadata.getVotedFor();
@@ -122,7 +134,8 @@ public class ServerState implements Closeable {
    * know whether they have been committed.
    */
   private RaftLog initLog(RaftPeerId id, RaftProperties prop,
-      RaftServerImpl server, long lastIndexInSnapshot) throws IOException {
+      long lastIndexInSnapshot, Consumer<LogEntryProto> logConsumer)
+      throws IOException {
     final RaftLog log;
     if (RaftServerConfigKeys.Log.useMemory(prop)) {
       log = new MemoryRaftLog(id);
@@ -130,7 +143,7 @@ public class ServerState implements Closeable {
       log = new SegmentedRaftLog(id, server, this.storage,
           lastIndexInSnapshot, prop);
     }
-    log.open(configurationManager, lastIndexInSnapshot);
+    log.open(lastIndexInSnapshot, logConsumer);
     return log;
   }
 
@@ -236,16 +249,15 @@ public class ServerState implements Closeable {
   }
 
   boolean isLogUpToDate(TermIndex candidateLastEntry) {
-    LogEntryProto lastEntry = log.getLastEntry();
+    TermIndex local = log.getLastEntryTermIndex();
     // need to take into account snapshot
     SnapshotInfo snapshot = server.getStateMachine().getLatestSnapshot();
-     if (lastEntry == null && snapshot == null) {
+     if (local == null && snapshot == null) {
       return true;
     } else if (candidateLastEntry == null) {
       return false;
     }
-    TermIndex local = ServerProtoUtils.toTermIndex(lastEntry);
-    if (local == null || (snapshot != null && snapshot.getIndex() > lastEntry.getIndex())) {
+    if (local == null || (snapshot != null && snapshot.getIndex() > local.getIndex())) {
       local = snapshot.getTermIndex();
     }
     return local.compareTo(candidateLastEntry) <= 0;

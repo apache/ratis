@@ -17,15 +17,9 @@
  */
 package org.apache.ratis.server.storage;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.StateMachineException;
-import org.apache.ratis.server.impl.ConfigurationManager;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
@@ -38,6 +32,13 @@ import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
+
 /**
  * Base class of RaftLog. Currently we provide two types of RaftLog
  * implementation:
@@ -48,7 +49,6 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class RaftLog implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
-  public static final LogEntryProto[] EMPTY_LOGENTRY_ARRAY = new LogEntryProto[0];
   public static final String LOG_SYNC = RaftLog.class.getSimpleName() + ".logSync";
 
   /**
@@ -85,7 +85,7 @@ public abstract class RaftLog implements Closeable {
       if (lastCommitted.get() < majorityIndex) {
         // Only update last committed index for current term. See §5.4.2 in
         // paper for details.
-        final LogEntryProto entry = get(majorityIndex);
+        final TermIndex entry = getTermIndex(majorityIndex);
         if (entry != null && entry.getTerm() == currentTerm) {
           LOG.debug("{}: Updating lastCommitted to {}", selfId, majorityIndex);
           lastCommitted.set(majorityIndex);
@@ -103,8 +103,7 @@ public abstract class RaftLog implements Closeable {
     if (ti == null) {
       return false;
     }
-    LogEntryProto entry = get(ti.getIndex());
-    TermIndex local = ServerProtoUtils.toTermIndex(entry);
+    TermIndex local = getTermIndex(ti.getIndex());
     return ti.equals(local);
   }
 
@@ -112,7 +111,7 @@ public abstract class RaftLog implements Closeable {
    * @return the index of the next log entry to append.
    */
   public long getNextIndex() {
-    final LogEntryProto last = getLastEntry();
+    final TermIndex last = getLastEntryTermIndex();
     if (last == null) {
       // if the log is empty, the last committed index should be consistent with
       // the last index included in the latest snapshot.
@@ -166,7 +165,7 @@ public abstract class RaftLog implements Closeable {
     }
   }
 
-  public void open(ConfigurationManager confManager, long lastIndexInSnapshot)
+  public void open(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer)
       throws IOException {
     isOpen = true;
   }
@@ -183,17 +182,26 @@ public abstract class RaftLog implements Closeable {
   public abstract LogEntryProto get(long index);
 
   /**
-   * @param startIndex the starting log index (inclusive)
-   * @param endIndex the ending log index (exclusive)
-   * @return all log entries within the given index range. Null if startIndex
-   *         is greater than the smallest available index.
+   * Get the TermIndex information of the given index.
+   *
+   * @param index The given index.
+   * @return The TermIndex of the log entry associated with the given index.
+   *         Null if there is no log entry with the index.
    */
-  public abstract LogEntryProto[] getEntries(long startIndex, long endIndex);
+  public abstract TermIndex getTermIndex(long index);
 
   /**
-   * @return the last log entry.
+   * @param startIndex the starting log index (inclusive)
+   * @param endIndex the ending log index (exclusive)
+   * @return TermIndex of all log entries within the given index range. Null if
+   *         startIndex is greater than the smallest available index.
    */
-  public abstract LogEntryProto getLastEntry();
+  public abstract TermIndex[] getEntries(long startIndex, long endIndex);
+
+  /**
+   * @return the last log entry's term and index.
+   */
+  public abstract TermIndex getLastEntryTermIndex();
 
   /**
    * Truncate the log entries till the given index. The log with the given index
@@ -250,9 +258,12 @@ public abstract class RaftLog implements Closeable {
 
   public abstract void syncWithSnapshot(long lastSnapshotIndex);
 
+  public abstract boolean isConfigEntry(TermIndex ti);
+
   @Override
   public String toString() {
-    return ServerProtoUtils.toString(getLastEntry());
+    TermIndex last = getLastEntryTermIndex();
+    return last == null ? "null" : Collections.singletonList(last).toString();
   }
 
   public static class Metadata {

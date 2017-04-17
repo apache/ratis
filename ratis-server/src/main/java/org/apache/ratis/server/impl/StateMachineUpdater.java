@@ -17,27 +17,21 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
-import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.SMLOGENTRY;
-
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.Message;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 
 /**
  * This class tracks the log entries that have been committed in a quorum and
@@ -145,27 +139,7 @@ class StateMachineUpdater implements Runnable {
         while (lastAppliedIndex < committedIndex) {
           final LogEntryProto next = raftLog.get(lastAppliedIndex + 1);
           if (next != null) {
-            if (next.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
-              // the reply should have already been set. only need to record
-              // the new conf in the state machine.
-              stateMachine.setRaftConfiguration(
-                  ServerProtoUtils.toRaftConfiguration(next.getIndex(),
-                      next.getConfigurationEntry()));
-            } else if (next.getLogEntryBodyCase() == SMLOGENTRY) {
-              // check whether there is a TransactionContext because we are the leader.
-              TransactionContext trx = server.getTransactionContext(next.getIndex());
-              if (trx == null) {
-                trx = new TransactionContext(stateMachine, next);
-              }
-
-              // Let the StateMachine inject logic for committed transactions in sequential order.
-              trx = stateMachine.applyTransactionSerial(trx);
-
-              // TODO: This step can be parallelized
-              CompletableFuture<Message> stateMachineFuture =
-                  stateMachine.applyTransaction(trx);
-              server.replyPendingRequest(next, stateMachineFuture);
-            }
+            server.applyLogToStateMachine(next);
             lastAppliedIndex++;
           } else {
             LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",

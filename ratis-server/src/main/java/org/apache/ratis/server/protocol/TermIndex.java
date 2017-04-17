@@ -21,6 +21,8 @@ import org.apache.ratis.server.impl.ServerImplUtils;
 
 /** The term and the log index defined in the Raft consensus algorithm. */
 public interface TermIndex extends Comparable<TermIndex> {
+  TermIndex[] EMPTY_TERMINDEX_ARRAY = {};
+
   /** @return the term. */
   long getTerm();
 

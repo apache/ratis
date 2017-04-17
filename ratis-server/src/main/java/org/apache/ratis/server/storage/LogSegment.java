@@ -17,19 +17,23 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.server.impl.ConfigurationManager;
-import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ProtoUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-
-import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * In-memory cache for a log segment file. All the updates will be first written
@@ -38,44 +42,45 @@ import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBod
  * This class will be protected by the RaftServer's lock.
  */
 class LogSegment implements Comparable<Long> {
-  static class LogRecord {
-    /** starting offset in the file */
-    final long offset;
-    final LogEntryProto entry;
-
-    LogRecord(long offset, LogEntryProto entry) {
-      this.offset = offset;
-      this.entry = entry;
-    }
-  }
-
-  static class SegmentFileInfo {
-    final long startIndex; // start index of the
-    final long endIndex; // original end index
-    final boolean isOpen;
-    final long targetLength; // position for truncation
-    final long newEndIndex; // new end index after the truncation
-
-    SegmentFileInfo(long start, long end, boolean isOpen, long targetLength,
-        long newEndIndex) {
-      this.startIndex = start;
-      this.endIndex = end;
-      this.isOpen = isOpen;
-      this.targetLength = targetLength;
-      this.newEndIndex = newEndIndex;
-    }
-  }
-
   static long getEntrySize(LogEntryProto entry) {
     final int serialized = entry.getSerializedSize();
     return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4;
   }
 
+  @VisibleForTesting
+  static class LogRecord {
+    /** starting offset in the file */
+    private final long offset;
+    private final TermIndex termIndex;
+
+    LogRecord(long offset, LogEntryProto entry) {
+      this.offset = offset;
+      termIndex = TermIndex.newTermIndex(entry.getTerm(), entry.getIndex());
+    }
+
+    TermIndex getTermIndex() {
+      return termIndex;
+    }
+
+    long getOffset() {
+      return offset;
+    }
+  }
+
   private boolean isOpen;
-  private final List<LogRecord> records = new ArrayList<>();
   private long totalSize;
   private final long startIndex;
   private long endIndex;
+  /**
+   * the list of records is more like the index of a segment
+   */
+  private final List<LogRecord> records = new ArrayList<>();
+  /**
+   * the entryCache caches the content of log entries.
+   * TODO: currently we cache all the log entries. will fix it soon.
+   */
+  private final Map<TermIndex, LogEntryProto> entryCache = new HashMap<>();
+  private final Set<TermIndex> configEntries = new HashSet<>();
 
   private LogSegment(boolean isOpen, long start, long end) {
     this.isOpen = isOpen;
@@ -95,7 +100,7 @@ class LogSegment implements Comparable<Long> {
   }
 
   static LogSegment loadSegment(File file, long start, long end, boolean isOpen,
-      ConfigurationManager confManager) throws IOException {
+      Consumer<LogEntryProto> logConsumer) throws IOException {
     final LogSegment segment;
     try (LogInputStream in = new LogInputStream(file, start, end, isOpen)) {
       segment = isOpen ? LogSegment.newOpenSegment(start) :
@@ -108,11 +113,9 @@ class LogSegment implements Comparable<Long> {
               "gap between entry %s and entry %s", prev, next);
         }
         segment.append(next);
-        if (confManager != null &&
-            next.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
-          confManager.addConfiguration(next.getIndex(),
-              ServerProtoUtils.toRaftConfiguration(next.getIndex(),
-                  next.getConfigurationEntry()));
+
+        if (logConsumer != null) {
+          logConsumer.accept(next);
         }
         prev = next;
       }
@@ -123,7 +126,7 @@ class LogSegment implements Comparable<Long> {
       FileUtils.truncateFile(file, segment.getTotalSize());
     }
 
-    Preconditions.assertTrue(start == segment.records.get(0).entry.getIndex());
+    Preconditions.assertTrue(start == segment.records.get(0).getTermIndex().getIndex());
     if (!isOpen) {
       Preconditions.assertTrue(segment.getEndIndex() == end);
     }
@@ -143,7 +146,7 @@ class LogSegment implements Comparable<Long> {
   }
 
   int numOfEntries() {
-    return (int) (endIndex - startIndex + 1);
+    return Math.toIntExact(endIndex - startIndex + 1);
   }
 
   void appendToOpenSegment(LogEntryProto... entries) {
@@ -167,27 +170,50 @@ class LogSegment implements Comparable<Long> {
       final LogRecord currentLast = getLastRecord();
       if (currentLast != null) {
         Preconditions.assertTrue(
-            entry.getIndex() == currentLast.entry.getIndex() + 1,
+            entry.getIndex() == currentLast.getTermIndex().getIndex() + 1,
             "gap between entries %s and %s", entry.getIndex(),
-            currentLast.entry.getIndex());
+            currentLast.getTermIndex().getIndex());
       }
 
       final LogRecord record = new LogRecord(totalSize, entry);
       records.add(record);
+      entryCache.put(record.getTermIndex(), entry);
+      if (ProtoUtils.isConfigurationLogEntry(entry)) {
+        configEntries.add(record.getTermIndex());
+      }
       totalSize += getEntrySize(entry);
       endIndex = entry.getIndex();
     }
   }
 
+  LogEntryProto getLogEntry(long index) {
+    LogRecord record = getLogRecord(index);
+    return record == null ? null : entryCache.get(record.getTermIndex());
+  }
+
+  TermIndex getTermIndex(long index) {
+    LogRecord record = getLogRecord(index);
+    return record == null ? null : record.getTermIndex();
+  }
+
   LogRecord getLogRecord(long index) {
     if (index >= startIndex && index <= endIndex) {
-      return records.get((int) (index - startIndex));
+      return records.get(Math.toIntExact(index - startIndex));
     }
     return null;
   }
 
-  LogRecord getLastRecord() {
+  private LogRecord getLastRecord() {
     return records.isEmpty() ? null : records.get(records.size() - 1);
+  }
+
+  TermIndex getLastTermIndex() {
+    LogRecord last = getLastRecord();
+    return last == null ? null : last.getTermIndex();
+  }
+
+  boolean isConfigEntry(TermIndex ti) {
+    return configEntries.contains(ti);
   }
 
   long getTotalSize() {
@@ -199,9 +225,11 @@ class LogSegment implements Comparable<Long> {
    */
   void truncate(long fromIndex) {
     Preconditions.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
-    LogRecord record = records.get((int) (fromIndex - startIndex));
+    LogRecord record = records.get(Math.toIntExact(fromIndex - startIndex));
     for (long index = endIndex; index >= fromIndex; index--) {
-      records.remove((int)(index - startIndex));
+      LogRecord removed = records.remove(Math.toIntExact(index - startIndex));
+      entryCache.remove(removed.getTermIndex());
+      configEntries.remove(removed.getTermIndex());
     }
     totalSize = record.offset;
     isOpen = false;
@@ -227,6 +255,8 @@ class LogSegment implements Comparable<Long> {
 
   void clear() {
     records.clear();
+    entryCache.clear();
+    configEntries.clear();
     endIndex = startIndex - 1;
   }
 }

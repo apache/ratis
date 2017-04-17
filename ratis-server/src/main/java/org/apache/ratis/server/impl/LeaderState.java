@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.LeaderNoOp;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
@@ -401,7 +402,7 @@ public class LeaderState {
     long majorityInNewConf = computeLastCommitted(voterLists.get(0),
         conf.containsInConf(selfId));
     final long oldLastCommitted = raftLog.getLastCommittedIndex();
-    final LogEntryProto[] entriesToCommit;
+    final TermIndex[] entriesToCommit;
     if (!conf.isTransitional()) {
       // copy the entries that may get committed out of the raftlog, to prevent
       // the possible race that the log gets purged after the statemachine does
@@ -420,18 +421,17 @@ public class LeaderState {
     checkAndUpdateConfiguration(entriesToCommit);
   }
 
-  private boolean committedConf(LogEntryProto[] entries) {
+  private boolean committedConf(TermIndex[] entries) {
     final long currentCommitted = raftLog.getLastCommittedIndex();
-    for (LogEntryProto entry : entries) {
-      if (entry.getIndex() <= currentCommitted &&
-          ProtoUtils.isConfigurationLogEntry(entry)) {
+    for (TermIndex entry : entries) {
+      if (entry.getIndex() <= currentCommitted && raftLog.isConfigEntry(entry)) {
         return true;
       }
     }
     return false;
   }
 
-  private void checkAndUpdateConfiguration(LogEntryProto[] entriesToCheck) {
+  private void checkAndUpdateConfiguration(TermIndex[] entriesToCheck) {
     final RaftConfiguration conf = server.getRaftConf();
     if (committedConf(entriesToCheck)) {
       if (conf.isTransitional()) {

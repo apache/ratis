@@ -20,6 +20,7 @@ package org.apache.ratis.grpc;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.grpc.client.AppendStreamer;
@@ -27,7 +28,6 @@ import org.apache.ratis.grpc.client.RaftOutputStream;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.RaftLog;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -108,9 +108,9 @@ public class TestRaftStream {
     long committedIndex = raftLog.getLastCommittedIndex();
     Assert.assertEquals(expectedCommittedIndex, committedIndex);
     // check the log content
-    LogEntryProto[] entries = raftLog.getEntries(1, expectedCommittedIndex + 1);
-    for (LogEntryProto entry : entries) {
-      byte[] logData = entry.getSmLogEntry().getData().toByteArray();
+    TermIndex[] entries = raftLog.getEntries(1, expectedCommittedIndex + 1);
+    for (TermIndex entry : entries) {
+      byte[] logData = raftLog.get(entry.getIndex()).getSmLogEntry().getData().toByteArray();
       byte[] expected = s.get();
       Assert.assertEquals("log entry: " + entry,
           expected.length, logData.length);
@@ -240,11 +240,11 @@ public class TestRaftStream {
     // 0.5 + 1 + 2.5 + 4 = 8
     Assert.assertEquals(8, leader.getState().getLastAppliedIndex());
     Assert.assertEquals(8, log.getLastCommittedIndex());
-    LogEntryProto[] entries = log.getEntries(1, 9);
+    TermIndex[] entries = log.getEntries(1, 9);
     byte[] actual = new byte[ByteValue.BUFFERSIZE * 8];
     totalSize = 0;
-    for (LogEntryProto e : entries) {
-      byte[] eValue = e.getSmLogEntry().getData().toByteArray();
+    for (TermIndex e : entries) {
+      byte[] eValue = log.get(e.getIndex()).getSmLogEntry().getData().toByteArray();
       Assert.assertEquals(ByteValue.BUFFERSIZE, eValue.length);
       System.arraycopy(eValue, 0, actual, totalSize, eValue.length);
       totalSize += eValue.length;

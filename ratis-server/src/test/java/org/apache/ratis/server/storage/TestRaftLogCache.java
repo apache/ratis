@@ -21,6 +21,7 @@ import java.util.Iterator;
 
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.ProtoUtils;
@@ -74,7 +75,7 @@ public class TestRaftLogCache {
   }
 
   private void checkCacheEntries(long offset, int size, long end) {
-    LogEntryProto[] entries = cache.getEntries(offset, offset + size);
+    TermIndex[] entries = cache.getEntries(offset, offset + size);
     long realEnd = offset + size > end + 1 ? end + 1 : offset + size;
     Assert.assertEquals(realEnd - offset, entries.length);
     for (long i = offset; i < realEnd; i++) {

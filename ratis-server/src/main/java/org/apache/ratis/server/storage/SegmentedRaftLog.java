@@ -20,9 +20,9 @@ package org.apache.ratis.server.storage;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.ConfigurationManager;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * The RaftLog implementation that writes log entries into segmented files in
@@ -110,17 +111,18 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public void open(ConfigurationManager confManager, long lastIndexInSnapshot)
+  public void open(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer)
       throws IOException {
-    loadLogSegments(confManager, lastIndexInSnapshot);
+    loadLogSegments(lastIndexInSnapshot, consumer);
     File openSegmentFile = null;
-    if (cache.getOpenSegment() != null) {
+    LogSegment openSegment = cache.getOpenSegment();
+    if (openSegment != null) {
       openSegmentFile = storage.getStorageDir()
-          .getOpenLogFile(cache.getOpenSegment().getStartIndex());
+          .getOpenLogFile(openSegment.getStartIndex());
     }
     fileLogWorker.start(Math.max(cache.getEndIndex(), lastIndexInSnapshot),
         openSegmentFile);
-    super.open(confManager, lastIndexInSnapshot);
+    super.open(lastIndexInSnapshot, consumer);
   }
 
   @Override
@@ -128,12 +130,14 @@ public class SegmentedRaftLog extends RaftLog {
     return cache.getStartIndex();
   }
 
-  private void loadLogSegments(ConfigurationManager confManager,
-      long lastIndexInSnapshot) throws IOException {
+  private void loadLogSegments(long lastIndexInSnapshot,
+      Consumer<LogEntryProto> logConsumer) throws IOException {
     try(AutoCloseableLock writeLock = writeLock()) {
       List<LogPathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
       for (LogPathAndIndex pi : paths) {
-        LogSegment logSegment = parseLogSegment(pi, confManager);
+        boolean isOpen = pi.endIndex == RaftServerConstants.INVALID_LOG_INDEX;
+        LogSegment logSegment = LogSegment.loadSegment(pi.path.toFile(),
+            pi.startIndex, pi.endIndex, isOpen, logConsumer);
         cache.addSegment(logSegment);
       }
 
@@ -150,13 +154,6 @@ public class SegmentedRaftLog extends RaftLog {
     }
   }
 
-  private LogSegment parseLogSegment(LogPathAndIndex pi,
-      ConfigurationManager confManager) throws IOException {
-    final boolean isOpen = pi.endIndex == RaftServerConstants.INVALID_LOG_INDEX;
-    return LogSegment.loadSegment(pi.path.toFile(), pi.startIndex, pi.endIndex,
-        isOpen, confManager);
-  }
-
   @Override
   public LogEntryProto get(long index) {
     checkLogState();
@@ -166,7 +163,15 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public LogEntryProto[] getEntries(long startIndex, long endIndex) {
+  public TermIndex getTermIndex(long index) {
+    checkLogState();
+    try(AutoCloseableLock readLock = readLock()) {
+      return cache.getTermIndex(index);
+    }
+  }
+
+  @Override
+  public TermIndex[] getEntries(long startIndex, long endIndex) {
     checkLogState();
     try(AutoCloseableLock readLock = readLock()) {
       return cache.getEntries(startIndex, endIndex);
@@ -174,10 +179,10 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public LogEntryProto getLastEntry() {
+  public TermIndex getLastEntryTermIndex() {
     checkLogState();
     try(AutoCloseableLock readLock = readLock()) {
-      return cache.getLastEntry();
+      return cache.getLastTermIndex();
     }
   }
 
@@ -209,10 +214,9 @@ public class SegmentedRaftLog extends RaftLog {
         cache.rollOpenSegment(true);
         fileLogWorker.rollLogSegment(currentOpenSegment);
       } else if (currentOpenSegment.numOfEntries() > 0 &&
-          currentOpenSegment.getLastRecord().entry.getTerm() != entry.getTerm()) {
+          currentOpenSegment.getLastTermIndex().getTerm() != entry.getTerm()) {
         // the term changes
-        final long currentTerm = currentOpenSegment.getLastRecord().entry
-            .getTerm();
+        final long currentTerm = currentOpenSegment.getLastTermIndex().getTerm();
         Preconditions.assertTrue(currentTerm < entry.getTerm(),
             "open segment's term %s is larger than the new entry's term %s",
             currentTerm, entry.getTerm());
@@ -310,6 +314,11 @@ public class SegmentedRaftLog extends RaftLog {
     // if the last index in snapshot is larger than the index of the last
     // log entry, we should delete all the log entries and their cache to avoid
     // gaps between log segments.
+  }
+
+  @Override
+  public boolean isConfigEntry(TermIndex ti) {
+    return cache.isConfigEntry(ti);
   }
 
   @Override

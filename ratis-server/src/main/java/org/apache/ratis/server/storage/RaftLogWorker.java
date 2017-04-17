@@ -28,7 +28,7 @@ import org.apache.ratis.io.nativeio.NativeIO;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.storage.LogSegment.SegmentFileInfo;
+import org.apache.ratis.server.storage.RaftLogCache.SegmentFileInfo;
 import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.ratis.server.storage.SegmentedRaftLog.Task;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
@@ -200,13 +200,13 @@ class RaftLogWorker implements Runnable {
    *
    * Thus all the tasks are created and added sequentially.
    */
-  Task startLogSegment(long startIndex) {
-    return addIOTask(new StartLogSegment(startIndex));
+  void startLogSegment(long startIndex) {
+    addIOTask(new StartLogSegment(startIndex));
   }
 
-  Task rollLogSegment(LogSegment segmentToClose) {
+  void rollLogSegment(LogSegment segmentToClose) {
     addIOTask(new FinalizeLogSegment(segmentToClose));
-    return addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
+    addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
   }
 
   Task writeLogEntry(LogEntryProto entry) {

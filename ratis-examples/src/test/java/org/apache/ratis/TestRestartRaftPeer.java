@@ -111,6 +111,6 @@ public class TestRestartRaftPeer {
     // make sure the restarted peer's log segments is correct
     cluster.restartServer(followerId, false);
     Assert.assertTrue(cluster.getServer(followerId).getState().getLog()
-        .getLastEntry().getIndex() >= 20);
+        .getLastEntryTermIndex().getIndex() >= 20);
   }
 }

@@ -45,7 +45,7 @@ class LeaderElection extends Daemon {
       List<Exception> exceptions, long newTerm) {
     LOG.info(server.getId() + ": Election " + result + "; received "
         + responses.size() + " response(s) "
-        + responses.stream().map(r -> ProtoUtils.toString(r)).collect(Collectors.toList())
+        + responses.stream().map(ProtoUtils::toString).collect(Collectors.toList())
         + " and " + exceptions.size() + " exception(s); " + server.getState());
     int i = 0;
     for(Exception e : exceptions) {
@@ -127,8 +127,7 @@ class LeaderElection extends Daemon {
       LOG.info(state.getSelfId() + ": begin an election in Term "
           + electionTerm);
 
-      TermIndex lastEntry = ServerProtoUtils.toTermIndex(
-          state.getLog().getLastEntry());
+      TermIndex lastEntry = state.getLog().getLastEntryTermIndex();
       if (lastEntry == null) {
         // lastEntry may need to be derived from snapshot
         SnapshotInfo snapshot = state.getLatestSnapshot();

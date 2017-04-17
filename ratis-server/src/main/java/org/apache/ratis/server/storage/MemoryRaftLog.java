@@ -24,10 +24,12 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ProtoUtils;
 
 /**
  * A simple RaftLog implementation in memory. Used only for testing.
@@ -49,15 +51,30 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public LogEntryProto[] getEntries(long startIndex, long endIndex) {
+  public TermIndex getTermIndex(long index) {
     checkLogState();
     try(AutoCloseableLock readLock = readLock()) {
-      final int i = (int) startIndex;
+      final int i = (int) index;
+      return i >= 0 && i < entries.size() ?
+          ServerProtoUtils.toTermIndex(entries.get(i)) : null;
+    }
+  }
+
+  @Override
+  public TermIndex[] getEntries(long startIndex, long endIndex) {
+    checkLogState();
+    try(AutoCloseableLock readLock = readLock()) {
+      final int from = (int) startIndex;
       if (startIndex >= entries.size()) {
         return null;
       }
-      final int toIndex = (int) Math.min(entries.size(), endIndex);
-      return entries.subList(i, toIndex).toArray(EMPTY_LOGENTRY_ARRAY);
+      final int to = (int) Math.min(entries.size(), endIndex);
+      TermIndex[] ti = new TermIndex[to - from];
+      for (int i = 0; i < ti.length; i++) {
+        ti[i] = TermIndex.newTermIndex(entries.get(i).getTerm(),
+            entries.get(i).getIndex());
+      }
+      return ti;
     }
   }
 
@@ -74,11 +91,11 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public LogEntryProto getLastEntry() {
+  public TermIndex getLastEntryTermIndex() {
     checkLogState();
     try(AutoCloseableLock readLock = readLock()) {
       final int size = entries.size();
-      return size == 0 ? null : entries.get(size - 1);
+      return size == 0 ? null : ServerProtoUtils.toTermIndex(entries.get(size - 1));
     }
   }
 
@@ -146,8 +163,7 @@ public class MemoryRaftLog extends RaftLog {
 
   @Override
   public String toString() {
-    return "last=" + ServerProtoUtils.toString(getLastEntry())
-        + ", committed="
+    return "last=" + getLastEntryTermIndex() + ", committed="
         + ServerProtoUtils.toString(get(getLastCommittedIndex()));
   }
 
@@ -179,5 +195,10 @@ public class MemoryRaftLog extends RaftLog {
   @Override
   public void syncWithSnapshot(long lastSnapshotIndex) {
     // do nothing
+  }
+
+  @Override
+  public boolean isConfigEntry(TermIndex ti) {
+    return ProtoUtils.isConfigurationLogEntry(get(ti.getIndex()));
   }
 }

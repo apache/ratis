@@ -23,6 +23,8 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
@@ -45,6 +47,7 @@ import java.util.function.IntSupplier;
 import static org.apache.ratis.util.ProtoUtils.toByteString;
 
 public class RaftTestUtil {
+  public static final LogEntryProto[] EMPTY_LOGENTRY_ARRAY = new LogEntryProto[0];
   static final Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
 
   public static RaftServerImpl waitForLeader(MiniRaftCluster cluster)
@@ -91,14 +94,16 @@ public class RaftTestUtil {
     return leader != null ? leader.getId().toString() : null;
   }
 
-  public static boolean logEntriesContains(LogEntryProto[] entries,
+  public static boolean logEntriesContains(RaftLog log,
       SimpleMessage... expectedMessages) {
     int idxEntries = 0;
     int idxExpected = 0;
-    while (idxEntries < entries.length
+    TermIndex[] termIndices = log.getEntries(0, Long.MAX_VALUE);
+    while (idxEntries < termIndices.length
         && idxExpected < expectedMessages.length) {
       if (Arrays.equals(expectedMessages[idxExpected].getContent().toByteArray(),
-          entries[idxEntries].getSmLogEntry().getData().toByteArray())) {
+          log.get(termIndices[idxEntries].getIndex()).getSmLogEntry()
+              .getData().toByteArray())) {
         ++idxExpected;
       }
       ++idxEntries;
@@ -111,8 +116,8 @@ public class RaftTestUtil {
     final int size = servers.size();
     final long count = servers.stream()
         .filter(RaftServerImpl::isAlive)
-        .map(s -> s.getState().getLog().getEntries(0, Long.MAX_VALUE))
-        .filter(e -> logEntriesContains(e, expectedMessages))
+        .map(s -> s.getState().getLog())
+        .filter(log -> logEntriesContains(log, expectedMessages))
         .count();
     if (2*count <= size) {
       throw new AssertionError("Not in majority: size=" + size
@@ -120,11 +125,11 @@ public class RaftTestUtil {
     }
   }
 
-  public static void assertLogEntries(LogEntryProto[] entries, long startIndex,
-      long expertedTerm, SimpleMessage... expectedMessages) {
+  public static void assertLogEntries(RaftLog log, TermIndex[] entries,
+      long startIndex, long expertedTerm, SimpleMessage... expectedMessages) {
     Assert.assertEquals(expectedMessages.length, entries.length);
     for(int i = 0; i < entries.length; i++) {
-      final LogEntryProto e = entries[i];
+      final LogEntryProto e = log.get(entries[i].getIndex());
       Assert.assertEquals(expertedTerm, e.getTerm());
       Assert.assertEquals(startIndex + i, e.getIndex());
       Assert.assertArrayEquals(expectedMessages[i].getContent().toByteArray(),

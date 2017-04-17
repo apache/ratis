@@ -137,8 +137,7 @@ public class LogAppender extends Daemon {
   }
 
   private TermIndex getPrevious() {
-    TermIndex previous = ServerProtoUtils.toTermIndex(
-        raftLog.get(follower.getNextIndex() - 1));
+    TermIndex previous = raftLog.getTermIndex(follower.getNextIndex() - 1);
     if (previous == null) {
       // if previous is null, nextIndex must be equal to the log start
       // index (otherwise we will install snapshot).

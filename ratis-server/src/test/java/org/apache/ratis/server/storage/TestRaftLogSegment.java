@@ -95,11 +95,12 @@ public class TestRaftLogSegment {
     long offset = SegmentedRaftLog.HEADER_BYTES.length;
     for (long i = start; i <= end; i++) {
       LogSegment.LogRecord record = segment.getLogRecord(i);
-      Assert.assertEquals(i, record.entry.getIndex());
-      Assert.assertEquals(term, record.entry.getTerm());
-      Assert.assertEquals(offset, record.offset);
+      LogEntryProto entry = segment.getLogEntry(i);
+      Assert.assertEquals(i, entry.getIndex());
+      Assert.assertEquals(term, entry.getTerm());
+      Assert.assertEquals(offset, record.getOffset());
 
-      offset += getEntrySize(record.entry);
+      offset += getEntrySize(entry);
     }
   }
 
@@ -192,13 +193,13 @@ public class TestRaftLogSegment {
     }
 
     // truncate an open segment (remove 1080~1099)
-    long newSize = segment.getLogRecord(start + 80).offset;
+    long newSize = segment.getLogRecord(start + 80).getOffset();
     segment.truncate(start + 80);
     Assert.assertEquals(80, segment.numOfEntries());
     checkLogSegment(segment, start, start + 79, false, newSize, term);
 
     // truncate a closed segment (remove 1050~1079)
-    newSize = segment.getLogRecord(start + 50).offset;
+    newSize = segment.getLogRecord(start + 50).getOffset();
     segment.truncate(start + 50);
     Assert.assertEquals(50, segment.numOfEntries());
     checkLogSegment(segment, start, start + 49, false, newSize, term);

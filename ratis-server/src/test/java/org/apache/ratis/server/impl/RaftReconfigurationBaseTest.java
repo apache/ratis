@@ -50,6 +50,7 @@ import org.apache.ratis.protocol.ReconfigurationInProgressException;
 import org.apache.ratis.protocol.ReconfigurationTimeoutException;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.simulation.RequestHandler;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.util.LogUtils;
@@ -558,8 +559,9 @@ public abstract class RaftReconfigurationBaseTest {
         Thread.sleep(500);
       }
       Assert.assertEquals(1, log.getLatestFlushedIndex());
+      TermIndex last = log.getLastEntryTermIndex();
       Assert.assertEquals(CONFIGURATIONENTRY,
-          log.getLastEntry().getLogEntryBodyCase());
+          log.get(last.getIndex()).getLogEntryBodyCase());
 
       // unblock the old leader
       BlockRequestHandlingInjection.getInstance().unblockReplier(leaderId.toString());
@@ -575,8 +577,9 @@ public abstract class RaftReconfigurationBaseTest {
       boolean newState = false;
       for (int i = 0; i < 10 && !newState; i++) {
         Thread.sleep(500);
+        TermIndex lastTermIndex = log.getLastEntryTermIndex();
         newState = log.getLastCommittedIndex() == 1 &&
-            log.getLastEntry().getLogEntryBodyCase() != CONFIGURATIONENTRY;
+            log.get(lastTermIndex.getIndex()).getLogEntryBodyCase() != CONFIGURATIONENTRY;
       }
       Assert.assertTrue(newState);
     } finally {
