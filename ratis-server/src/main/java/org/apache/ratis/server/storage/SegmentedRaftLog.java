@@ -23,6 +23,8 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.storage.LogSegment.LogRecord;
+import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
@@ -105,7 +107,7 @@ public class SegmentedRaftLog extends RaftLog {
     super(selfId);
     this.storage = storage;
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
-    cache = new RaftLogCache();
+    cache = new RaftLogCache(storage);
     fileLogWorker = new RaftLogWorker(server, storage, properties);
     lastCommitted.set(lastIndexInSnapshot);
   }
@@ -136,8 +138,8 @@ public class SegmentedRaftLog extends RaftLog {
       List<LogPathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
       for (LogPathAndIndex pi : paths) {
         boolean isOpen = pi.endIndex == RaftServerConstants.INVALID_LOG_INDEX;
-        LogSegment logSegment = LogSegment.loadSegment(pi.path.toFile(),
-            pi.startIndex, pi.endIndex, isOpen, logConsumer);
+        LogSegment logSegment = LogSegment.loadSegment(storage, pi.path.toFile(),
+            pi.startIndex, pi.endIndex, isOpen, true, logConsumer);
         cache.addSegment(logSegment);
       }
 
@@ -155,18 +157,35 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public LogEntryProto get(long index) {
+  public LogEntryProto get(long index) throws RaftLogIOException {
     checkLogState();
-    try(AutoCloseableLock readLock = readLock()) {
-      return cache.getEntry(index);
+    LogSegment segment;
+    LogRecordWithEntry recordAndEntry;
+    try (AutoCloseableLock readLock = readLock()) {
+      segment = cache.getSegment(index);
+      if (segment == null) {
+        return null;
+      }
+      recordAndEntry = segment.getEntryWithoutLoading(index);
+      if (recordAndEntry == null) {
+        return null;
+      }
+      if (recordAndEntry.hasEntry()) {
+        return recordAndEntry.getEntry();
+      }
     }
+
+    // the entry is not in the segment's cache. Load the cache without holding
+    // RaftLog's lock.
+    return segment.loadCache(recordAndEntry.getRecord());
   }
 
   @Override
   public TermIndex getTermIndex(long index) {
     checkLogState();
     try(AutoCloseableLock readLock = readLock()) {
-      return cache.getTermIndex(index);
+      LogRecord record = cache.getLogRecord(index);
+      return record != null ? record.getTermIndex() : null;
     }
   }
 
@@ -174,7 +193,7 @@ public class SegmentedRaftLog extends RaftLog {
   public TermIndex[] getEntries(long startIndex, long endIndex) {
     checkLogState();
     try(AutoCloseableLock readLock = readLock()) {
-      return cache.getEntries(startIndex, endIndex);
+      return cache.getTermIndices(startIndex, endIndex);
     }
   }
 
@@ -208,7 +227,7 @@ public class SegmentedRaftLog extends RaftLog {
     try(AutoCloseableLock writeLock = writeLock()) {
       final LogSegment currentOpenSegment = cache.getOpenSegment();
       if (currentOpenSegment == null) {
-        cache.addSegment(LogSegment.newOpenSegment(entry.getIndex()));
+        cache.addSegment(LogSegment.newOpenSegment(storage, entry.getIndex()));
         fileLogWorker.startLogSegment(getNextIndex());
       } else if (isSegmentFull(currentOpenSegment, entry)) {
         cache.rollOpenSegment(true);
@@ -248,11 +267,11 @@ public class SegmentedRaftLog extends RaftLog {
       return;
     }
     try(AutoCloseableLock writeLock = writeLock()) {
-      Iterator<LogEntryProto> iter = cache.iterator(entries[0].getIndex());
+      Iterator<TermIndex> iter = cache.iterator(entries[0].getIndex());
       int index = 0;
       long truncateIndex = -1;
       for (; iter.hasNext() && index < entries.length; index++) {
-        LogEntryProto storedEntry = iter.next();
+        TermIndex storedEntry = iter.next();
         Preconditions.assertTrue(
             storedEntry.getIndex() == entries[index].getIndex(),
             "The stored entry's index %s is not consistent with" +

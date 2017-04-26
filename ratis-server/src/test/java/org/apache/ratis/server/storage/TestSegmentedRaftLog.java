@@ -120,7 +120,8 @@ public class TestSegmentedRaftLog {
     return list;
   }
 
-  private LogEntryProto getLastEntry(SegmentedRaftLog raftLog) {
+  private LogEntryProto getLastEntry(SegmentedRaftLog raftLog)
+      throws IOException {
     return raftLog.get(raftLog.getLastEntryTermIndex().getIndex());
   }
 
@@ -142,7 +143,13 @@ public class TestSegmentedRaftLog {
 
       TermIndex[] termIndices = raftLog.getEntries(0, 500);
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
-          .map(ti -> raftLog.get(ti.getIndex()))
+          .map(ti -> {
+            try {
+              return raftLog.get(ti.getIndex());
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+          })
           .collect(Collectors.toList())
           .toArray(RaftTestUtil.EMPTY_LOGENTRY_ARRAY);
       Assert.assertArrayEquals(entries, entriesFromLog);
@@ -265,7 +272,7 @@ public class TestSegmentedRaftLog {
   }
 
   private void checkEntries(RaftLog raftLog, List<LogEntryProto> expected,
-      int offset, int size) {
+      int offset, int size) throws IOException {
     if (size > 0) {
       for (int i = offset; i < size + offset; i++) {
         LogEntryProto entry = raftLog.get(expected.get(i).getIndex());
@@ -275,7 +282,13 @@ public class TestSegmentedRaftLog {
           expected.get(offset).getIndex(),
           expected.get(offset + size - 1).getIndex() + 1);
       LogEntryProto[] entriesFromLog = Arrays.stream(termIndices)
-          .map(ti -> raftLog.get(ti.getIndex()))
+          .map(ti -> {
+            try {
+              return raftLog.get(ti.getIndex());
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+          })
           .collect(Collectors.toList())
           .toArray(RaftTestUtil.EMPTY_LOGENTRY_ARRAY);
       LogEntryProto[] expectedArray = expected.subList(offset, offset + size)

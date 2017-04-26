@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.storage;
 
+import java.io.IOException;
 import java.util.Iterator;
 
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
@@ -37,11 +38,11 @@ public class TestRaftLogCache {
 
   @Before
   public void setup() {
-    cache = new RaftLogCache();
+    cache = new RaftLogCache(null);
   }
 
   private LogSegment prepareLogSegment(long start, long end, boolean isOpen) {
-    LogSegment s = LogSegment.newOpenSegment(start);
+    LogSegment s = LogSegment.newOpenSegment(null, start);
     for (long i = start; i <= end; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
@@ -54,12 +55,12 @@ public class TestRaftLogCache {
     return s;
   }
 
-  private void checkCache(long start, long end, int segmentSize) {
+  private void checkCache(long start, long end, int segmentSize) throws IOException {
     Assert.assertEquals(start, cache.getStartIndex());
     Assert.assertEquals(end, cache.getEndIndex());
 
     for (long index = start; index <= end; index++) {
-      LogEntryProto entry = cache.getEntry(index);
+      LogEntryProto entry = cache.getSegment(index).getEntryWithoutLoading(index).getEntry();
       Assert.assertEquals(index, entry.getIndex());
     }
 
@@ -75,7 +76,7 @@ public class TestRaftLogCache {
   }
 
   private void checkCacheEntries(long offset, int size, long end) {
-    TermIndex[] entries = cache.getEntries(offset, offset + size);
+    TermIndex[] entries = cache.getTermIndices(offset, offset + size);
     long realEnd = offset + size > end + 1 ? end + 1 : offset + size;
     Assert.assertEquals(realEnd - offset, entries.length);
     for (long i = offset; i < realEnd; i++) {
@@ -220,16 +221,16 @@ public class TestRaftLogCache {
     Assert.assertEquals(249, ts.toTruncate.endIndex);
   }
 
-  private void testIterator(long startIndex) {
-    Iterator<LogEntryProto> iterator = cache.iterator(startIndex);
-    LogEntryProto prev = null;
+  private void testIterator(long startIndex) throws IOException {
+    Iterator<TermIndex> iterator = cache.iterator(startIndex);
+    TermIndex prev = null;
     while (iterator.hasNext()) {
-      LogEntryProto entry = iterator.next();
-      Assert.assertEquals(cache.getEntry(entry.getIndex()), entry);
+      TermIndex termIndex = iterator.next();
+      Assert.assertEquals(cache.getLogRecord(termIndex.getIndex()).getTermIndex(), termIndex);
       if (prev != null) {
-        Assert.assertEquals(prev.getIndex() + 1, entry.getIndex());
+        Assert.assertEquals(prev.getIndex() + 1, termIndex.getIndex());
       }
-      prev = entry;
+      prev = termIndex;
     }
     if (startIndex <= cache.getEndIndex()) {
       Assert.assertNotNull(prev);
@@ -254,7 +255,7 @@ public class TestRaftLogCache {
     }
     testIterator(299);
 
-    Iterator<LogEntryProto> iterator = cache.iterator(300);
+    Iterator<TermIndex> iterator = cache.iterator(300);
     Assert.assertFalse(iterator.hasNext());
   }
 }

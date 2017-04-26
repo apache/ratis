@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.grpc.server;
 
+import org.apache.ratis.server.storage.RaftLogIOException;
 import org.apache.ratis.shaded.io.grpc.Status;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
@@ -79,7 +80,12 @@ public class GRpcLogAppender extends LogAppender {
           installSnapshot(snapshot, snapshotResponseHandler);
         } else {
           // keep appending log entries or sending heartbeats
-          appendLog();
+          try {
+            appendLog();
+          } catch (RaftLogIOException e) {
+            LOG.error(this + " hit IOException while loading raft log", e);
+            stopSender();
+          }
         }
       }
 
@@ -107,7 +113,7 @@ public class GRpcLogAppender extends LogAppender {
         shouldWaitForFirstResponse();
   }
 
-  private void appendLog() {
+  private void appendLog() throws RaftLogIOException {
     if (appendLogRequestObserver == null) {
       appendLogRequestObserver = client.appendEntries(appendResponseHandler);
     }

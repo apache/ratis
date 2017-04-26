@@ -104,7 +104,7 @@ public class TestRaftStream {
   }
 
   private void checkLog(RaftLog raftLog, long expectedCommittedIndex,
-      Supplier<byte[]> s) {
+      Supplier<byte[]> s) throws IOException {
     long committedIndex = raftLog.getLastCommittedIndex();
     Assert.assertEquals(expectedCommittedIndex, committedIndex);
     // check the log content

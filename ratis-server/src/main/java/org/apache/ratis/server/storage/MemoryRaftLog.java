@@ -154,7 +154,6 @@ public class MemoryRaftLog extends RaftLog {
       if (toTruncate) {
         truncate(truncateIndex);
       }
-      //  Collections.addAll(this.entries, entries);
       for (int i = index; i < entries.length; i++) {
         this.entries.add(entries[i]);
       }

@@ -27,6 +27,7 @@ import java.util.NoSuchElementException;
 
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 
 import org.apache.ratis.util.Preconditions;
@@ -68,8 +69,10 @@ class RaftLogCache {
 
   private LogSegment openSegment;
   private final List<LogSegment> closedSegments;
+  private final RaftStorage storage;
 
-  RaftLogCache() {
+  RaftLogCache(RaftStorage storage) {
+    this.storage = storage;
     closedSegments = new ArrayList<>();
   }
 
@@ -116,13 +119,13 @@ class RaftLogCache {
     openSegment.close();
     closedSegments.add(openSegment);
     if (createNewOpen) {
-      openSegment = LogSegment.newOpenSegment(nextIndex);
+      openSegment = LogSegment.newOpenSegment(storage, nextIndex);
     } else {
       openSegment = null;
     }
   }
 
-  private LogSegment getSegment(long index) {
+  LogSegment getSegment(long index) {
     if (openSegment != null && index >= openSegment.getStartIndex()) {
       return openSegment;
     } else {
@@ -131,21 +134,16 @@ class RaftLogCache {
     }
   }
 
-  LogEntryProto getEntry(long index) {
+  LogRecord getLogRecord(long index) {
     LogSegment segment = getSegment(index);
-    return segment == null ? null : segment.getLogEntry(index);
-  }
-
-  TermIndex getTermIndex(long index) {
-    LogSegment segment = getSegment(index);
-    return segment == null ? null : segment.getTermIndex(index);
+    return segment == null ? null : segment.getLogRecord(index);
   }
 
   /**
    * @param startIndex inclusive
    * @param endIndex exclusive
    */
-  TermIndex[] getEntries(final long startIndex, final long endIndex) {
+  TermIndex[] getTermIndices(final long startIndex, final long endIndex) {
     if (startIndex < 0 || startIndex < getStartIndex()) {
       throw new IndexOutOfBoundsException("startIndex = " + startIndex
           + ", log cache starts from index " + getStartIndex());
@@ -162,19 +160,19 @@ class RaftLogCache {
     TermIndex[] entries = new TermIndex[Math.toIntExact(realEnd - startIndex)];
     int segmentIndex = Collections.binarySearch(closedSegments, startIndex);
     if (segmentIndex < 0) {
-      getEntriesFromSegment(openSegment, startIndex, entries, 0, entries.length);
+      getFromSegment(openSegment, startIndex, entries, 0, entries.length);
     } else {
       long index = startIndex;
       for (int i = segmentIndex; i < closedSegments.size() && index < realEnd; i++) {
         LogSegment s = closedSegments.get(i);
         int numberFromSegment = Math.toIntExact(
             Math.min(realEnd - index, s.getEndIndex() - index + 1));
-        getEntriesFromSegment(s, index, entries,
+        getFromSegment(s, index, entries,
             Math.toIntExact(index - startIndex), numberFromSegment);
         index += numberFromSegment;
       }
       if (index < realEnd) {
-        getEntriesFromSegment(openSegment, index, entries,
+        getFromSegment(openSegment, index, entries,
             Math.toIntExact(index - startIndex),
             Math.toIntExact(realEnd - index));
       }
@@ -182,13 +180,13 @@ class RaftLogCache {
     return entries;
   }
 
-  private void getEntriesFromSegment(LogSegment segment, long startIndex,
+  private void getFromSegment(LogSegment segment, long startIndex,
       TermIndex[] entries, int offset, int size) {
     long endIndex = segment.getEndIndex();
     endIndex = Math.min(endIndex, startIndex + size - 1);
     int index = offset;
     for (long i = startIndex; i <= endIndex; i++) {
-      LogSegment.LogRecord r = segment.getLogRecord(i);
+      LogRecord r = segment.getLogRecord(i);
       entries[index++] = r == null ? null : r.getTermIndex();
     }
   }
@@ -286,11 +284,11 @@ class RaftLogCache {
     return null;
   }
 
-  Iterator<LogEntryProto> iterator(long startIndex) {
+  Iterator<TermIndex> iterator(long startIndex) {
     return new EntryIterator(startIndex);
   }
 
-  private class EntryIterator implements Iterator<LogEntryProto> {
+  private class EntryIterator implements Iterator<TermIndex> {
     private long nextIndex;
     private LogSegment currentSegment;
     private int segmentIndex;
@@ -321,10 +319,10 @@ class RaftLogCache {
     }
 
     @Override
-    public LogEntryProto next() {
-      LogEntryProto entry;
+    public TermIndex next() {
+      LogRecord record;
       if (currentSegment == null ||
-          (entry = currentSegment.getLogEntry(nextIndex)) == null) {
+          (record = currentSegment.getLogRecord(nextIndex)) == null) {
         throw new NoSuchElementException();
       }
       if (++nextIndex > currentSegment.getEndIndex()) {
@@ -334,7 +332,7 @@ class RaftLogCache {
               openSegment : closedSegments.get(segmentIndex);
         }
       }
-      return entry;
+      return record.getTermIndex();
     }
   }
 

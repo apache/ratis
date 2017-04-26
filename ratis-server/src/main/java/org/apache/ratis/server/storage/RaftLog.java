@@ -179,7 +179,7 @@ public abstract class RaftLog implements Closeable {
    * @return The log entry associated with the given index.
    *         Null if there is no log entry with the index.
    */
-  public abstract LogEntryProto get(long index);
+  public abstract LogEntryProto get(long index) throws RaftLogIOException;
 
   /**
    * Get the TermIndex information of the given index.

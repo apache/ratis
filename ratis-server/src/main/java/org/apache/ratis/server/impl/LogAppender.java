@@ -23,6 +23,7 @@ import org.apache.ratis.server.impl.LeaderState.StateUpdateEventType;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.server.storage.RaftLogIOException;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -87,6 +88,8 @@ public class LogAppender extends Daemon {
       checkAndSendAppendEntries();
     } catch (InterruptedException | InterruptedIOException e) {
       LOG.info(this + " was interrupted: " + e);
+    } catch (RaftLogIOException e) {
+      LOG.error(this + " hit IOException while loading raft log", e);
     }
   }
 
@@ -150,7 +153,7 @@ public class LogAppender extends Daemon {
     return previous;
   }
 
-  protected AppendEntriesRequestProto createRequest() {
+  protected AppendEntriesRequestProto createRequest() throws RaftLogIOException {
     final TermIndex previous = getPrevious();
     final long leaderNext = raftLog.getNextIndex();
     long next = follower.getNextIndex() + buffer.getPendingEntryNum();
@@ -178,7 +181,7 @@ public class LogAppender extends Daemon {
 
   /** Send an appendEntries RPC; retry indefinitely. */
   private AppendEntriesReplyProto sendAppendEntriesWithRetries()
-      throws InterruptedException, InterruptedIOException {
+      throws InterruptedException, InterruptedIOException, RaftLogIOException {
     int retry = 0;
     AppendEntriesRequestProto request = null;
     while (isAppenderRunning()) { // keep retrying for IOException
@@ -202,9 +205,10 @@ public class LogAppender extends Daemon {
         follower.updateLastRpcResponseTime();
 
         return r;
-      } catch (InterruptedIOException iioe) {
-        throw iioe;
+      } catch (InterruptedIOException | RaftLogIOException e) {
+        throw e;
       } catch (IOException ioe) {
+        // TODO should have more detailed retry policy here.
         LOG.trace(this + ": failed to send appendEntries; retry " + retry++, ioe);
       }
       if (isAppenderRunning()) {
@@ -279,7 +283,7 @@ public class LogAppender extends Daemon {
             InstallSnapshotRequestProto request =
                 server.createInstallSnapshotRequest(follower.getPeer().getId(),
                     requestId, requestIndex++, snapshot,
-                    Arrays.asList(chunk), done);
+                    Collections.singletonList(chunk), done);
             currentOffset += targetLength;
             chunkIndex++;
 
@@ -372,7 +376,7 @@ public class LogAppender extends Daemon {
 
   /** Check and send appendEntries RPC */
   private void checkAndSendAppendEntries()
-      throws InterruptedException, InterruptedIOException {
+      throws InterruptedException, InterruptedIOException, RaftLogIOException {
     while (isAppenderRunning()) {
       if (shouldSendRequest()) {
         SnapshotInfo snapshot = shouldInstallSnapshot();

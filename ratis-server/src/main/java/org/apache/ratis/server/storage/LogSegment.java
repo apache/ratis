@@ -17,8 +17,10 @@
  */
 package org.apache.ratis.server.storage;
 
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.shaded.com.google.common.cache.CacheLoader;
 import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
@@ -28,11 +30,15 @@ import org.apache.ratis.util.ProtoUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -47,7 +53,6 @@ class LogSegment implements Comparable<Long> {
     return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4;
   }
 
-  @VisibleForTesting
   static class LogRecord {
     /** starting offset in the file */
     private final long offset;
@@ -67,44 +72,42 @@ class LogSegment implements Comparable<Long> {
     }
   }
 
-  private boolean isOpen;
-  private long totalSize;
-  private final long startIndex;
-  private long endIndex;
-  /**
-   * the list of records is more like the index of a segment
-   */
-  private final List<LogRecord> records = new ArrayList<>();
-  /**
-   * the entryCache caches the content of log entries.
-   * TODO: currently we cache all the log entries. will fix it soon.
-   */
-  private final Map<TermIndex, LogEntryProto> entryCache = new HashMap<>();
-  private final Set<TermIndex> configEntries = new HashSet<>();
+  static class LogRecordWithEntry {
+    private final LogRecord record;
+    private final LogEntryProto entry;
 
-  private LogSegment(boolean isOpen, long start, long end) {
-    this.isOpen = isOpen;
-    this.startIndex = start;
-    this.endIndex = end;
-    totalSize = SegmentedRaftLog.HEADER_BYTES.length;
+    LogRecordWithEntry(LogRecord record, LogEntryProto entry) {
+      this.record = record;
+      this.entry = entry;
+    }
+
+    LogRecord getRecord() {
+      return record;
+    }
+
+    LogEntryProto getEntry() {
+      return entry;
+    }
+
+    boolean hasEntry() {
+      return entry != null;
+    }
   }
 
-  static LogSegment newOpenSegment(long start) {
+  static LogSegment newOpenSegment(RaftStorage storage, long start) {
     Preconditions.assertTrue(start >= 0);
-    return new LogSegment(true, start, start - 1);
+    return new LogSegment(storage, true, start, start - 1);
   }
 
-  private static LogSegment newCloseSegment(long start, long end) {
+  private static LogSegment newCloseSegment(RaftStorage storage,
+      long start, long end) {
     Preconditions.assertTrue(start >= 0 && end >= start);
-    return new LogSegment(false, start, end);
+    return new LogSegment(storage, false, start, end);
   }
 
-  static LogSegment loadSegment(File file, long start, long end, boolean isOpen,
-      Consumer<LogEntryProto> logConsumer) throws IOException {
-    final LogSegment segment;
+  private static void readSegmentFile(File file, long start, long end,
+      boolean isOpen, Consumer<LogEntryProto> entryConsumer) throws IOException {
     try (LogInputStream in = new LogInputStream(file, start, end, isOpen)) {
-      segment = isOpen ? LogSegment.newOpenSegment(start) :
-          LogSegment.newCloseSegment(start, end);
       LogEntryProto next;
       LogEntryProto prev = null;
       while ((next = in.nextEntry()) != null) {
@@ -112,14 +115,29 @@ class LogSegment implements Comparable<Long> {
           Preconditions.assertTrue(next.getIndex() == prev.getIndex() + 1,
               "gap between entry %s and entry %s", prev, next);
         }
-        segment.append(next);
 
-        if (logConsumer != null) {
-          logConsumer.accept(next);
+        if (entryConsumer != null) {
+          entryConsumer.accept(next);
         }
         prev = next;
       }
     }
+  }
+
+  static LogSegment loadSegment(RaftStorage storage, File file,
+      long start, long end, boolean isOpen,
+      boolean keptInCache, Consumer<LogEntryProto> logConsumer)
+      throws IOException {
+    final LogSegment segment = isOpen ?
+        LogSegment.newOpenSegment(storage, start) :
+        LogSegment.newCloseSegment(storage, start, end);
+
+    readSegmentFile(file, start, end, isOpen, entry -> {
+      segment.append(keptInCache | isOpen, entry);
+      if (logConsumer != null) {
+        logConsumer.accept(entry);
+      }
+    });
 
     // truncate padding if necessary
     if (file.length() > segment.getTotalSize()) {
@@ -131,6 +149,57 @@ class LogSegment implements Comparable<Long> {
       Preconditions.assertTrue(segment.getEndIndex() == end);
     }
     return segment;
+  }
+
+  /**
+   * The current log entry loader simply loads the whole segment into the memory.
+   * In most of the cases this may be good enough considering the main use case
+   * for load log entries is for leader appending to followers.
+   *
+   * In the future we can make the cache loader configurable if necessary.
+   */
+  class LogEntryLoader extends CacheLoader<LogRecord, LogEntryProto> {
+    @Override
+    public LogEntryProto load(LogRecord key) throws IOException {
+      final File file = getSegmentFile();
+      readSegmentFile(file, startIndex, endIndex, isOpen,
+          entry -> entryCache.put(ServerProtoUtils.toTermIndex(entry), entry));
+      loadingTimes.incrementAndGet();
+      return Objects.requireNonNull(entryCache.get(key.getTermIndex()));
+    }
+  }
+
+  private File getSegmentFile() {
+    return isOpen ?
+        storage.getStorageDir().getOpenLogFile(startIndex) :
+        storage.getStorageDir().getClosedLogFile(startIndex, endIndex);
+  }
+
+  private boolean isOpen;
+  private long totalSize;
+  private final long startIndex;
+  private long endIndex;
+  private final RaftStorage storage;
+  private final CacheLoader<LogRecord, LogEntryProto> cacheLoader = new LogEntryLoader();
+  /** later replace it with a metric */
+  private final AtomicInteger loadingTimes = new AtomicInteger();
+
+  /**
+   * the list of records is more like the index of a segment
+   */
+  private final List<LogRecord> records = new ArrayList<>();
+  /**
+   * the entryCache caches the content of log entries.
+   */
+  private final Map<TermIndex, LogEntryProto> entryCache = new ConcurrentHashMap<>();
+  private final Set<TermIndex> configEntries = new HashSet<>();
+
+  private LogSegment(RaftStorage storage, boolean isOpen, long start, long end) {
+    this.storage = storage;
+    this.isOpen = isOpen;
+    this.startIndex = start;
+    this.endIndex = end;
+    totalSize = SegmentedRaftLog.HEADER_BYTES.length;
   }
 
   long getStartIndex() {
@@ -152,10 +221,10 @@ class LogSegment implements Comparable<Long> {
   void appendToOpenSegment(LogEntryProto... entries) {
     Preconditions.assertTrue(isOpen(),
         "The log segment %s is not open for append", this.toString());
-    append(entries);
+    append(true, entries);
   }
 
-  private void append(LogEntryProto... entries) {
+  private void append(boolean keptInCache, LogEntryProto... entries) {
     Preconditions.assertTrue(entries != null && entries.length > 0);
     final long term = entries[0].getTerm();
     if (records.isEmpty()) {
@@ -177,7 +246,9 @@ class LogSegment implements Comparable<Long> {
 
       final LogRecord record = new LogRecord(totalSize, entry);
       records.add(record);
-      entryCache.put(record.getTermIndex(), entry);
+      if (keptInCache) {
+        entryCache.put(record.getTermIndex(), entry);
+      }
       if (ProtoUtils.isConfigurationLogEntry(entry)) {
         configEntries.add(record.getTermIndex());
       }
@@ -186,14 +257,27 @@ class LogSegment implements Comparable<Long> {
     }
   }
 
-  LogEntryProto getLogEntry(long index) {
+  LogRecordWithEntry getEntryWithoutLoading(long index) {
     LogRecord record = getLogRecord(index);
-    return record == null ? null : entryCache.get(record.getTermIndex());
+    if (record == null) {
+      return null;
+    }
+    return new LogRecordWithEntry(record, entryCache.get(record.getTermIndex()));
   }
 
-  TermIndex getTermIndex(long index) {
-    LogRecord record = getLogRecord(index);
-    return record == null ? null : record.getTermIndex();
+  /**
+   * Acquire LogSegment's monitor so that there is no concurrent loading.
+   */
+  synchronized LogEntryProto loadCache(LogRecord record) throws RaftLogIOException {
+    LogEntryProto entry = entryCache.get(record.getTermIndex());
+    if (entry != null) {
+      return entry;
+    }
+    try {
+      return cacheLoader.load(record);
+    } catch (Exception e) {
+      throw new RaftLogIOException(e);
+    }
   }
 
   LogRecord getLogRecord(long index) {
@@ -258,5 +342,9 @@ class LogSegment implements Comparable<Long> {
     entryCache.clear();
     configEntries.clear();
     endIndex = startIndex - 1;
+  }
+
+  public int getLoadingTimes() {
+    return loadingTimes.get();
   }
 }
