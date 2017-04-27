@@ -23,7 +23,7 @@
   </parent>
 
   <artifactId>ratis-replicated-map</artifactId>
-  <name>Ratis Replicated Map</name>
+  <name>Apache Ratis Replicated Map</name>
 
   <dependencies>
     <dependency>

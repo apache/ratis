@@ -21,7 +21,7 @@
   </parent>
 
   <artifactId>ratis-hadoop-shaded</artifactId>
-  <name>Ratis Hadoop Shaded</name>
+  <name>Apache Ratis Hadoop Shaded</name>
 
   <properties>
     <maven.javadoc.skip>true</maven.javadoc.skip>

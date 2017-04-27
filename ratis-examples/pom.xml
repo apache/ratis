@@ -21,7 +21,7 @@
   </parent>
 
   <artifactId>ratis-examples</artifactId>
-  <name>Ratis Examples</name>
+  <name>Apache Ratis Examples</name>
 
   <dependencies>
     <dependency>

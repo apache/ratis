@@ -25,7 +25,7 @@
   <artifactId>ratis</artifactId>
   <groupId>org.apache.ratis</groupId>
   <version>0.1-SNAPSHOT</version>
-  <name>Ratis</name>
+  <name>Apache Ratis</name>
   <packaging>pom</packaging>
   <description>
     Apache Ratis is an open source java implementation for RAFT consensus protocol

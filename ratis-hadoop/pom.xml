@@ -21,7 +21,7 @@
   </parent>
 
   <artifactId>ratis-hadoop</artifactId>
-  <name>Ratis Hadoop Support</name>
+  <name>Apache Ratis Hadoop Support</name>
 
   <dependencies>
     <dependency>

@@ -22,7 +22,7 @@
 
   <artifactId>ratis-assembly</artifactId>
   <groupId>org.apache.ratis</groupId>
-  <name>Ratis Project Assembly</name>
+  <name>Apache Ratis Project Assembly</name>
 
   <packaging>pom</packaging>
 

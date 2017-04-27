@@ -21,7 +21,7 @@
   </parent>
 
   <artifactId>ratis-netty</artifactId>
-  <name>Ratis Netty Support</name>
+  <name>Apache Ratis Netty Support</name>
 
   <dependencies>
     <dependency>

@@ -21,7 +21,7 @@
   </parent>
 
   <artifactId>ratis-client</artifactId>
-  <name>Ratis Client</name>
+  <name>Apache Ratis Client</name>
 
   <dependencies>
     <dependency>

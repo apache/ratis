@@ -21,7 +21,7 @@
   </parent>
 
   <artifactId>ratis-common</artifactId>
-  <name>Ratis Common</name>
+  <name>Apache Ratis Common</name>
 
   <dependencies>
     <dependency>
