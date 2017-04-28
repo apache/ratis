@@ -101,9 +101,9 @@
           <skipAssembly>false</skipAssembly>
           <appendAssemblyId>true</appendAssemblyId>
           <tarLongFileMode>gnu</tarLongFileMode>
-          <!--<descriptors> TODO
-            <descriptor>${assembly.file}</descriptor>
-          </descriptors>-->
+          <descriptors>
+            <descriptor>src/main/assembly/src.xml/</descriptor>
+          </descriptors>
         </configuration>
       </plugin>
       <plugin>

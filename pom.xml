@@ -129,7 +129,7 @@
 
     <!-- Maven plugin versions -->
     <maven-antrun-plugin.version>1.7</maven-antrun-plugin.version>
-    <maven-assembly-plugin.version>2.4</maven-assembly-plugin.version>
+    <maven-assembly-plugin.version>3.0.0</maven-assembly-plugin.version>
     <maven-bundle-plugin.version>2.5.3</maven-bundle-plugin.version>
     <maven-checkstyle-plugin.version>2.15</maven-checkstyle-plugin.version>
     <maven-clean-plugin.version>3.0.0</maven-clean-plugin.version>
