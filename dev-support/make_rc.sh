@@ -33,13 +33,18 @@ mvn=mvn
 if [ "$MAVEN" != "" ]; then
   mvn="${MAVEN}"
 fi
-mvnopts="-Xmx3g"
+mvnopts="-Xmx1g"
 if [ "$MAVEN_OPTS" != "" ]; then
   mvnopts="${MAVEN_OPTS}"
 fi
 
+mvnGet() {
+  ${mvn} -q -Dexec.executable="echo" -Dexec.args="\${${1}}" --non-recursive \
+    org.codehaus.mojo:exec-maven-plugin:1.6.0:exec 2>/dev/null
+}
+
 # Check project name
-projectname=`${mvn} help:evaluate -Dexpression=project.name | grep -v '[INFO]'`
+projectname=$(mvnGet project.name)
 if [ "${projectname}" = "Apache Ratis" ]; then
   echo
   echo "Prepare release artifacts for $projectname"
@@ -53,32 +58,36 @@ fi
 
 # Set projectdir and archivedir
 projectdir=$(pwd)
-echo "Project dir ${projectdir}"
+echo "Project dir: ${projectdir}"
 archivedir="${projectdir}/../`basename ${projectdir}`.`date -u +"%Y%m%d-%H%M%S"`"
-echo "Archive dir ${archivedir}"
+echo "Archive dir: ${archivedir}"
 if [ -d "${archivedir}" ]; then
   echo "${archivedir} already exists"
   exit 1;
 fi
+
 # Set repodir
 repodir=${projectdir}/../`basename ${projectdir}`.repository
-echo "Repo dir ${repodir}"
+echo "Repo dir: ${repodir}"
+
+mvnFun() {
+  set -x
+  MAVEN_OPTS="${mvnopts}" ${mvn} -Dmaven.repo.local=${repodir} $@
+  set +x
+}
 
 # clean shaded source
-MAVEN_OPTS="${mvnopts}" ${mvn} clean -Pclean-shade
-
-artifactid=`${mvn} help:evaluate -Dexpression=project.artifactId | grep -v '[INFO]'`
-assemblydir="$(pwd)/${artifactid}-assembly"
-
-# generate tar.gz
-MAVEN_OPTS="${mvnopts}" ${mvn} install -DskipTests assembly:single \
-  -Prelease \
-  -Dmaven.javadoc.skip=true \
-  -Dmaven.repo.local=${repodir}
+mvnFun clean -Pclean-shade
 repodir=`cd ${repodir} > /dev/null; pwd`
+
+# generate source tar.gz
+mvnFun install -DskipTests assembly:single -Prelease -Dmaven.javadoc.skip=true
 
 mkdir "${archivedir}"
 archivedir=`cd ${archivedir} > /dev/null; pwd`
+
+artifactid=$(mvnGet project.artifactId)
+assemblydir="$(pwd)/${artifactid}-assembly"
 mv ${assemblydir}/target/${artifactid}-*.tar.gz "${archivedir}"
 
 echo
@@ -100,6 +109,6 @@ echo "  MAVEN_OPTS=\"${mvnopts}\" ${mvn} deploy -DskipTests -Papache-release -Pr
 echo
 echo "If all good tag the RC"
 echo
-echo "Finally, you may want to remove archivedir and repodir"
+echo "Finally, you may want to remove archive dir and repo dir"
 echo "  rm -rf ${archivedir}"
 echo "  rm -rf ${repodir}"
