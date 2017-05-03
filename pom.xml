@@ -24,7 +24,7 @@
 
   <artifactId>ratis</artifactId>
   <groupId>org.apache.ratis</groupId>
-  <version>0.1.0-alpha</version>
+  <version>0.1.1-alpha-SNAPSHOT</version>
   <name>Apache Ratis</name>
   <packaging>pom</packaging>
   <description>
@@ -65,7 +65,7 @@
     <connection>scm:git:git://git.apache.org/incubator-ratis.git</connection>
     <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/incubator-ratis.git</developerConnection>
     <url>https://git-wip-us.apache.org/repos/asf?p=incubator-ratis.git</url>
-    <tag>ratis-0.1.0-alpha</tag>
+    <tag>HEAD</tag>
   </scm>
 
   <issueManagement>
