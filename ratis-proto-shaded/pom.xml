@@ -17,7 +17,7 @@
   <parent>
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1.0-alpha</version>
   </parent>
 
   <artifactId>ratis-proto-shaded</artifactId>
