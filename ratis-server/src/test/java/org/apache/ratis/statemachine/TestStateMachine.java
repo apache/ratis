@@ -24,8 +24,10 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.LogUtils;
@@ -96,7 +98,7 @@ public class TestStateMachine {
   }
 
   static class SMTransactionContext extends SimpleStateMachine4Testing {
-    public static SMTransactionContext get(RaftServerImpl s) {
+    public static SMTransactionContext get(RaftServer s) {
       return (SMTransactionContext)s.getStateMachine();
     }
 
@@ -167,7 +169,7 @@ public class TestStateMachine {
     // TODO: there eshould be a better way to ensure all data is replicated and applied
     Thread.sleep(cluster.getMaxTimeout() + 100);
 
-    for (RaftServerImpl raftServer : cluster.getServers()) {
+    for (RaftServerProxy raftServer : cluster.getServers()) {
       final SMTransactionContext sm = SMTransactionContext.get(raftServer);
       sm.rethrowIfException();
       assertEquals(numTrx, sm.numApplied.get());
@@ -176,7 +178,7 @@ public class TestStateMachine {
     // check leader
     RaftServerImpl raftServer = cluster.getLeader();
     // assert every transaction has obtained context in leader
-    final SMTransactionContext sm = SMTransactionContext.get(raftServer);
+    final SMTransactionContext sm = SMTransactionContext.get(raftServer.getProxy());
     List<Long> ll = sm.applied.stream().collect(Collectors.toList());
     Collections.sort(ll);
     assertEquals(ll.toString(), ll.size(), numTrx);

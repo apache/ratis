@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.rpc.RpcFactory;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 
 /** A factory interface for creating server components. */
@@ -34,7 +35,7 @@ public interface ServerFactory extends RpcFactory {
   /** Create a new {@link LogAppender}. */
   LogAppender newLogAppender(RaftServerImpl server, LeaderState state, FollowerInfo f);
 
-  RaftServerRpc newRaftServerRpc(RaftServerImpl server);
+  RaftServerRpc newRaftServerRpc(RaftServer server);
 
   abstract class BaseFactory implements ServerFactory {
     @Override

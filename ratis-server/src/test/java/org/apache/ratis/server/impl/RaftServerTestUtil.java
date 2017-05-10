@@ -47,7 +47,7 @@ public class RaftServerTestUtil {
     int deadIncluded = 0;
     final RaftConfiguration current = RaftConfiguration.newBuilder()
         .setConf(peers).setLogEntryIndex(0).build();
-    for (RaftServerImpl server : cluster.getServers()) {
+    for (RaftServerImpl server : cluster.iterateServerImpls()) {
       if (deadPeers != null && deadPeers.contains(server.getId().toString())) {
         if (current.containsInConf(server.getId())) {
           deadIncluded++;
@@ -64,11 +64,6 @@ public class RaftServerTestUtil {
       }
     }
     Assert.assertEquals(peers.length, numIncluded + deadIncluded);
-  }
-
-  public static ConfigurationManager newConfigurationManager(
-      RaftConfiguration initialConf) {
-    return new ConfigurationManager(initialConf);
   }
 
   public static long getRetryCacheSize(RaftServerImpl server) {

@@ -164,7 +164,7 @@ class LeaderElection extends Daemon {
           case SHUTDOWN:
             LOG.info("{} received shutdown response when requesting votes.",
                 server.getId());
-            server.close();
+            server.getProxy().close();
             return;
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:

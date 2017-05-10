@@ -22,6 +22,7 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.netty.client.NettyClientRpc;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.rpc.SupportedRpcType;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerFactory;
 
@@ -34,7 +35,7 @@ public class NettyFactory extends ServerFactory.BaseFactory implements ClientFac
   }
 
   @Override
-  public NettyRpcService newRaftServerRpc(RaftServerImpl server) {
+  public NettyRpcService newRaftServerRpc(RaftServer server) {
     return NettyRpcService.newBuilder().setServer(server).build();
   }
 

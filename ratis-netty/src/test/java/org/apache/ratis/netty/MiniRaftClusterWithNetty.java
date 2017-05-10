@@ -24,10 +24,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
-import org.apache.ratis.server.impl.RaftConfiguration;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.ServerImplUtils;
+import org.apache.ratis.server.impl.*;
 import org.apache.ratis.statemachine.StateMachine;
 
 import java.io.IOException;
@@ -50,7 +47,7 @@ public class MiniRaftClusterWithNetty extends MiniRaftCluster.RpcBase {
   }
 
   @Override
-  protected RaftServerImpl newRaftServer(
+  protected RaftServerProxy newRaftServer(
       RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
       RaftProperties properties) throws IOException {
     NettyConfigKeys.Server.setPort(properties, getPort(id, conf));

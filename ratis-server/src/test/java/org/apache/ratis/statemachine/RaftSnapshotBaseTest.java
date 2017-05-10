@@ -62,7 +62,7 @@ public abstract class RaftSnapshotBaseTest {
 
   static File getSnapshotFile(MiniRaftCluster cluster, int i) {
     final RaftServerImpl leader = cluster.getLeader();
-    final SimpleStateMachine4Testing sm = SimpleStateMachine4Testing.get(leader);
+    final SimpleStateMachine4Testing sm = SimpleStateMachine4Testing.get(leader.getProxy());
     return sm.getStateMachineStorage().getSnapshotFile(
         leader.getState().getCurrentTerm(), i);
   }
@@ -72,7 +72,7 @@ public abstract class RaftSnapshotBaseTest {
     final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
     Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,
         leader.getState().getLog().getLastCommittedIndex());
-    final LogEntryProto[] entries = SimpleStateMachine4Testing.get(leader).getContent();
+    final LogEntryProto[] entries = SimpleStateMachine4Testing.get(leader.getProxy()).getContent();
 
     for (int i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
       Assert.assertEquals(i+1, entries[i].getIndex());

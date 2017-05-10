@@ -19,10 +19,12 @@ package org.apache.ratis;
 
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
@@ -63,8 +65,8 @@ public class RaftTestUtil {
     return leader;
   }
 
-  public static RaftServerImpl waitForLeader(MiniRaftCluster cluster,
-                                             final String leaderId) throws InterruptedException {
+  public static RaftServerImpl waitForLeader(
+      MiniRaftCluster cluster, final String leaderId) throws InterruptedException {
     LOG.info(cluster.printServers());
     for(int i = 0; !cluster.tryEnforceLeader(leaderId) && i < 10; i++) {
       RaftServerImpl currLeader = cluster.getLeader();
@@ -114,10 +116,11 @@ public class RaftTestUtil {
     return idxExpected == expectedMessages.length;
   }
 
-  public static void assertLogEntries(Collection<RaftServerImpl> servers,
+  public static void assertLogEntries(Collection<RaftServerProxy> servers,
       SimpleMessage... expectedMessages) {
     final int size = servers.size();
     final long count = servers.stream()
+        .map(RaftServerProxy::getImpl)
         .filter(RaftServerImpl::isAlive)
         .map(s -> s.getState().getLog())
         .filter(log -> logEntriesContains(log, expectedMessages))
@@ -282,7 +285,8 @@ public class RaftTestUtil {
     return newLeader;
   }
 
-  public static void blockQueueAndSetDelay(Collection<RaftServerImpl> servers,
+  public static <SERVER extends RaftServer> void blockQueueAndSetDelay(
+      Collection<SERVER> servers,
       DelayLocalExecutionInjection injection, String leaderId, int delayMs,
       long maxTimeout) throws InterruptedException {
     // block reqeusts sent to leader if delayMs > 0

@@ -37,10 +37,10 @@ public class ServerImplUtils {
         properties, parameters);
   }
 
-  public static RaftServerImpl newRaftServer(
+  public static RaftServerProxy newRaftServer(
       RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
       RaftProperties properties, Parameters parameters) throws IOException {
-    return new RaftServerImpl(id, stateMachine, conf, properties, parameters);
+    return new RaftServerProxy(id, stateMachine, conf, properties, parameters);
   }
 
   public static TermIndex newTermIndex(long term, long index) {

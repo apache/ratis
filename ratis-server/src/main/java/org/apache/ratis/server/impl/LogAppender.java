@@ -67,7 +67,7 @@ public class LogAppender extends Daemon {
     this.leaderState = leaderState;
     this.raftLog = server.getState().getLog();
 
-    final RaftProperties properties = server.getProperties();
+    final RaftProperties properties = server.getProxy().getProperties();
     this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferCapacity(properties).getSizeInt();
     this.batchSending = RaftServerConfigKeys.Log.Appender.batchEnabled(properties);
     this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties).getSizeInt();

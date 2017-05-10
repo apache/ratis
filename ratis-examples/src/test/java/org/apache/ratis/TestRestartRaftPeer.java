@@ -88,7 +88,7 @@ public class TestRestartRaftPeer {
     }
 
     // restart a follower
-    String followerId = cluster.getFollowers().get(0).getId().toString();
+    RaftPeerId followerId = cluster.getFollowers().get(0).getId();
     LOG.info("Restart follower {}", followerId);
     cluster.restartServer(followerId, false);
 
@@ -103,14 +103,14 @@ public class TestRestartRaftPeer {
     long lastAppliedIndex = 0;
     for (int i = 0; i < 10 && !catchup; i++) {
       Thread.sleep(500);
-      lastAppliedIndex = cluster.getServer(followerId).getState().getLastAppliedIndex();
+      lastAppliedIndex = cluster.getServer(followerId).getImpl().getState().getLastAppliedIndex();
       catchup = lastAppliedIndex >= 20;
     }
     Assert.assertTrue("lastAppliedIndex=" + lastAppliedIndex, catchup);
 
     // make sure the restarted peer's log segments is correct
     cluster.restartServer(followerId, false);
-    Assert.assertTrue(cluster.getServer(followerId).getState().getLog()
+    Assert.assertTrue(cluster.getServer(followerId).getImpl().getState().getLog()
         .getLastEntryTermIndex().getIndex() >= 20);
   }
 }

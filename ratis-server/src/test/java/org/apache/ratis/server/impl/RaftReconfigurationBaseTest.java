@@ -232,7 +232,7 @@ public abstract class RaftReconfigurationBaseTest {
 
       // check configuration manager's internal state
       // each reconf will generate two configurations: (old, new) and (new)
-      cluster.getServers().stream().filter(RaftServerImpl::isAlive)
+      cluster.getServersAliveStream()
           .forEach(server -> {
         ConfigurationManager confManager =
             (ConfigurationManager) Whitebox.getInternalState(server.getState(),
@@ -338,7 +338,8 @@ public abstract class RaftReconfigurationBaseTest {
       final RaftLog leaderLog = cluster.getLeader().getState().getLog();
       for (RaftPeer newPeer : c1.newPeers) {
         Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
-            cluster.getServer(newPeer.getId().toString()).getState().getLog()
+            cluster.getServer(newPeer.getId())
+                .getImpl().getState().getLog()
                 .getEntries(0, Long.MAX_VALUE));
       }
     } finally {
@@ -524,9 +525,10 @@ public abstract class RaftReconfigurationBaseTest {
       cluster.start();
       RaftTestUtil.waitForLeader(cluster);
 
-      final RaftPeerId leaderId = cluster.getLeader().getId();
+      final RaftServerImpl leader = cluster.getLeader();
+      final RaftPeerId leaderId = leader.getId();
 
-      final RaftLog log = cluster.getServer(leaderId.toString()).getState().getLog();
+      final RaftLog log = leader.getState().getLog();
       Thread.sleep(1000);
       Assert.assertEquals(0, log.getLatestFlushedIndex());
 

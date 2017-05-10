@@ -22,6 +22,7 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.grpc.client.GrpcClientRpc;
 import org.apache.ratis.grpc.server.GRpcLogAppender;
 import org.apache.ratis.rpc.SupportedRpcType;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.*;
 
 public class GrpcFactory implements ServerFactory, ClientFactory {
@@ -39,7 +40,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   @Override
-  public RaftGRpcService newRaftServerRpc(RaftServerImpl server) {
+  public RaftGRpcService newRaftServerRpc(RaftServer server) {
     return RaftGRpcService.newBuilder()
         .setServer(server)
         .build();

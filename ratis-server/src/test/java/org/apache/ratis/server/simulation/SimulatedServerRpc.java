@@ -21,8 +21,10 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.Daemon;
 import org.slf4j.Logger;
@@ -43,10 +45,11 @@ class SimulatedServerRpc implements RaftServerRpc {
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
   private final ExecutorService executor = Executors.newFixedThreadPool(3, Daemon::new);
 
-  SimulatedServerRpc(RaftServerImpl server,
+  SimulatedServerRpc(RaftServer server,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
       SimulatedRequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
-    this.server = server;
+    this.server = server instanceof RaftServerProxy?
+        ((RaftServerProxy)server).getImpl(): (RaftServerImpl)server;
     this.serverHandler = new RequestHandler<>(server.getId().toString(),
         "serverHandler", serverRequestReply, serverHandlerImpl, 3);
     this.clientHandler = new RequestHandler<>(server.getId().toString(),

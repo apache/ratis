@@ -24,8 +24,8 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.RaftServerConstants;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.LogInputStream;
@@ -58,7 +58,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       = "raft.test.simple.state.machine.take.snapshot";
   private static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
 
-  public static SimpleStateMachine4Testing get(RaftServerImpl s) {
+  public static SimpleStateMachine4Testing get(RaftServer s) {
     return (SimpleStateMachine4Testing)s.getStateMachine();
   }
 

@@ -64,7 +64,8 @@ public class GRpcLogAppender extends LogAppender {
 
     RaftGRpcService rpcService = (RaftGRpcService) server.getServerRpc();
     client = rpcService.getRpcClient(f.getPeer());
-    maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(server.getProperties());
+    maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(
+        server.getProxy().getProperties());
     pendingRequests = new ConcurrentLinkedQueue<>();
 
     appendResponseHandler = new AppendLogResponseHandler();

@@ -112,8 +112,7 @@ public class LeaderState {
     senders = new ArrayList<>(others.size());
 
     for (RaftPeer p : others) {
-      FollowerInfo f = new FollowerInfo(p, t, placeHolderIndex, true);
-      senders.add(server.getFactory().newLogAppender(server, this, f));
+      senders.add(server.newLogAppender(this, p, t, placeHolderIndex, true));
     }
     voterLists = divideFollowers(conf);
   }
@@ -236,8 +235,7 @@ public class LeaderState {
     final Timestamp t = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
     final long nextIndex = raftLog.getNextIndex();
     for (RaftPeer peer : newMembers) {
-      FollowerInfo f = new FollowerInfo(peer, t, nextIndex, false);
-      LogAppender sender = server.getFactory().newLogAppender(server, this, f);
+      LogAppender sender = server.newLogAppender(this, peer, t, nextIndex, false);
       senders.add(sender);
       sender.start();
     }
@@ -450,7 +448,8 @@ public class LeaderState {
           }
           // the pending request handler will send NotLeaderException for
           // pending client requests when it stops
-          server.close();
+          // TODO should close impl instead of proxy
+          server.getProxy().close();
         }
       }
     }

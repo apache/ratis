@@ -17,72 +17,39 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.impl.ServerProtoUtils.toRaftConfiguration;
-import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
-import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
-import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
-import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
-import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.SMLOGENTRY;
-import static org.apache.ratis.util.LifeCycle.State.CLOSED;
-import static org.apache.ratis.util.LifeCycle.State.CLOSING;
-import static org.apache.ratis.util.LifeCycle.State.RUNNING;
-import static org.apache.ratis.util.LifeCycle.State.STARTING;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.*;
+import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.protocol.RaftServerProtocol;
+import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.storage.FileInfo;
+import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.shaded.com.google.common.base.Supplier;
+import org.apache.ratis.shaded.proto.RaftProtos.*;
+import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.OptionalLong;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.ratis.RaftConfigKeys;
-import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.LeaderNotReadyException;
-import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.NotLeaderException;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftException;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.ReconfigurationInProgressException;
-import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.protocol.StateMachineException;
-import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.FileInfo;
-import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.FileChunkProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotResult;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.ratis.statemachine.SnapshotInfo;
-import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.CodeInjectionForTesting;
-import org.apache.ratis.util.IOUtils;
-import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.TimeDuration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.apache.ratis.server.impl.ServerProtoUtils.toRaftConfiguration;
+import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
+import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
+import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.SMLOGENTRY;
+import static org.apache.ratis.util.LifeCycle.State.*;
 
-public class RaftServerImpl implements RaftServer {
+public class RaftServerImpl implements RaftServerProtocol,
+    RaftClientProtocol, RaftClientAsynchronousProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerImpl.class);
 
   private static final String CLASS_NAME = RaftServerImpl.class.getSimpleName();
@@ -96,13 +63,12 @@ public class RaftServerImpl implements RaftServer {
     LEADER, CANDIDATE, FOLLOWER
   }
 
+  private final RaftServerProxy proxy;
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
 
   private final LifeCycle lifeCycle;
   private final ServerState state;
-  private final StateMachine stateMachine;
-  private final RaftProperties properties;
   private volatile Role role;
 
   /** used when the peer is follower, to monitor election timeout */
@@ -114,28 +80,19 @@ public class RaftServerImpl implements RaftServer {
   /** used when the peer is leader */
   private volatile LeaderState leaderState;
 
-  private final RaftServerRpc serverRpc;
-
-  private final ServerFactory factory;
-
   private final RetryCache retryCache;
 
-  RaftServerImpl(RaftPeerId id, StateMachine stateMachine,
-      RaftConfiguration raftConf, RaftProperties properties, Parameters parameters)
+  RaftServerImpl(RaftPeerId id, RaftServerProxy proxy,
+      RaftConfiguration raftConf, RaftProperties properties)
       throws IOException {
     this.lifeCycle = new LifeCycle(id);
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toInt(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
     Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
-    this.properties = properties;
-    this.stateMachine = stateMachine;
-    this.state = new ServerState(id, raftConf, properties, this, stateMachine);
-
-    final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
-    this.factory = ServerFactory.cast(rpcType.newFactory(properties, parameters));
-    this.serverRpc = initRaftServerRpc();
-    retryCache = initRetryCache(properties);
+    this.proxy = proxy;
+    this.state = new ServerState(id, raftConf, properties, this, proxy.getStateMachine());
+    this.retryCache = initRetryCache(properties);
   }
 
   private RetryCache initRetryCache(RaftProperties prop) {
@@ -144,15 +101,13 @@ public class RaftServerImpl implements RaftServer {
     return new RetryCache(capacity, expireTime);
   }
 
-  @Override
-  public RpcType getRpcType() {
-    return getFactory().getRpcType();
+  LogAppender newLogAppender(
+      LeaderState state, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
+      boolean attendVote) {
+    final FollowerInfo f = new FollowerInfo(peer, lastRpcTime, nextIndex, attendVote);
+    return getProxy().getFactory().newLogAppender(this, state, f);
   }
 
-  @Override
-  public ServerFactory getFactory() {
-    return factory;
-  }
 
   int getMinTimeoutMs() {
     return minTimeoutMs;
@@ -167,9 +122,8 @@ public class RaftServerImpl implements RaftServer {
         maxTimeoutMs - minTimeoutMs + 1);
   }
 
-  @Override
-  public StateMachine getStateMachine() {
-    return this.stateMachine;
+  StateMachine getStateMachine() {
+    return proxy.getStateMachine();
   }
 
   @VisibleForTesting
@@ -177,22 +131,15 @@ public class RaftServerImpl implements RaftServer {
     return retryCache;
   }
 
-  private RaftServerRpc initRaftServerRpc() {
-    final RaftServerRpc rpc = getFactory().newRaftServerRpc(this);
-    // add peers into rpc service
-    RaftConfiguration conf = getRaftConf();
-    if (conf != null) {
-      rpc.addPeers(conf.getPeers());
-    }
-    return rpc;
+  public RaftServerProxy getProxy() {
+    return proxy;
   }
 
   public RaftServerRpc getServerRpc() {
-    return serverRpc;
+    return proxy.getServerRpc();
   }
 
-  @Override
-  public void start() {
+  void start() {
     lifeCycle.transition(STARTING);
     state.start();
     RaftConfiguration conf = getRaftConf();
@@ -213,7 +160,6 @@ public class RaftServerImpl implements RaftServer {
     heartbeatMonitor = new FollowerState(this);
     heartbeatMonitor.start();
 
-    getServerRpc().start();
     lifeCycle.transition(RUNNING);
   }
 
@@ -225,14 +171,12 @@ public class RaftServerImpl implements RaftServer {
   private void startInitializing() {
     role = Role.FOLLOWER;
     // do not start heartbeatMonitoring
-    getServerRpc().start();
   }
 
   public ServerState getState() {
-    return this.state;
+    return state;
   }
 
-  @Override
   public RaftPeerId getId() {
     return getState().getSelfId();
   }
@@ -241,18 +185,27 @@ public class RaftServerImpl implements RaftServer {
     return getState().getRaftConf();
   }
 
-  @Override
-  public void close() {
+  void shutdown() {
     lifeCycle.checkStateAndClose(() -> {
       try {
         shutdownHeartbeatMonitor();
+      } catch (Exception ignored) {
+        LOG.warn("Failed to shutdown heartbeat monitor for " + getId(), ignored);
+      }
+      try{
         shutdownElectionDaemon();
+      } catch (Exception ignored) {
+        LOG.warn("Failed to shutdown election daemon for " + getId(), ignored);
+      }
+      try{
         shutdownLeaderState();
-
-        getServerRpc().close();
+      } catch (Exception ignored) {
+        LOG.warn("Failed to shutdown leader state monitor for " + getId(), ignored);
+      }
+      try{
         state.close();
       } catch (Exception ignored) {
-        LOG.warn("Failed to kill " + state.getSelfId(), ignored);
+        LOG.warn("Failed to close state for " + getId(), ignored);
       }
     });
   }
@@ -335,7 +288,7 @@ public class RaftServerImpl implements RaftServer {
     role = Role.LEADER;
     state.becomeLeader();
     // start sending AppendEntries RPC to followers
-    leaderState = new LeaderState(this, properties);
+    leaderState = new LeaderState(this, getProxy().getProperties());
     leaderState.start();
   }
 
@@ -399,8 +352,7 @@ public class RaftServerImpl implements RaftServer {
     if (leaderId == null || leaderId.equals(state.getSelfId())) {
       // No idea about who is the current leader. Or the peer is the current
       // leader, but it is about to step down
-      RaftPeer suggestedLeader = state.getRaftConf()
-          .getRandomPeer(state.getSelfId());
+      RaftPeer suggestedLeader = getRaftConf().getRandomPeer(state.getSelfId());
       leaderId = suggestedLeader == null ? null : suggestedLeader.getId();
     }
     RaftConfiguration conf = getRaftConf();
@@ -456,6 +408,7 @@ public class RaftServerImpl implements RaftServer {
     }
 
     // let the state machine handle read-only request from client
+    final StateMachine stateMachine = getStateMachine();
     if (request.isReadOnly()) {
       // TODO: We might not be the leader anymore by the time this completes.
       // See the RAFT paper section 8 (last part)
@@ -680,17 +633,29 @@ public class RaftServerImpl implements RaftServer {
         entries);
   }
 
+  static void logAppendEntries(boolean isHeartbeat, Supplier<String> message) {
+    if (isHeartbeat) {
+      if (LOG.isTraceEnabled()) {
+        LOG.trace(message.get());
+      }
+    } else {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug(message.get());
+      }
+    }
+  }
+
   private AppendEntriesReplyProto appendEntries(RaftPeerId leaderId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
       LogEntryProto... entries) throws IOException {
     CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(),
-        leaderId, leaderTerm, previous, leaderCommit, initializing,
-        entries);
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("{}: receive appendEntries({}, {}, {}, {}, {}, {})", getId(),
-          leaderId, leaderTerm, previous, leaderCommit, initializing,
-          ServerProtoUtils.toString(entries));
-    }
+        leaderId, leaderTerm, previous, leaderCommit, initializing, entries);
+    final boolean isHeartbeat = entries.length == 0;
+    logAppendEntries(isHeartbeat,
+        () -> getId() + ": receive appendEntries(" + leaderId + ", "
+            + leaderTerm + ", " + previous + ", " + leaderCommit + ", "
+            + initializing + ServerProtoUtils.toString(entries));
+
     lifeCycle.assertCurrentState(STARTING, RUNNING);
 
     try {
@@ -734,8 +699,10 @@ public class RaftServerImpl implements RaftServer {
         final AppendEntriesReplyProto reply =
             ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(),
                 currentTerm, Math.min(nextIndex, previous.getIndex()), INCONSISTENCY);
-        LOG.debug("{}: inconsistency entries. Leader previous:{}, Reply:{}",
-            getId(), previous, ServerProtoUtils.toString(reply));
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("{}: inconsistency entries. Leader previous:{}, Reply:{}",
+              getId(), previous, ServerProtoUtils.toString(reply));
+        }
         return reply;
       }
 
@@ -761,13 +728,14 @@ public class RaftServerImpl implements RaftServer {
     }
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
         leaderId, getId(), currentTerm, nextIndex, SUCCESS);
-    LOG.debug("{}: succeeded to handle AppendEntries. Reply: {}", getId(),
-        ServerProtoUtils.toString(reply));
+    logAppendEntries(isHeartbeat,
+        () -> getId() + ": succeeded to handle AppendEntries. Reply: "
+            + ServerProtoUtils.toString(reply));
     return reply;
   }
 
   private boolean containPrevious(TermIndex previous) {
-    LOG.debug("{}: prev:{}, latestSnapshot:{}, getLatestInstalledSnapshot:{}",
+    LOG.trace("{}: prev:{}, latestSnapshot:{}, latestInstalledSnapshot:{}",
         getId(), previous, state.getLatestSnapshot(), state.getLatestInstalledSnapshot());
     return state.getLog().contains(previous)
         ||  (state.getLatestSnapshot() != null
@@ -922,6 +890,7 @@ public class RaftServerImpl implements RaftServer {
   }
 
   public void applyLogToStateMachine(LogEntryProto next) {
+    final StateMachine stateMachine = getStateMachine();
     if (next.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
       // the reply should have already been set. only need to record
       // the new conf in the state machine.
@@ -942,10 +911,5 @@ public class RaftServerImpl implements RaftServer {
           stateMachine.applyTransaction(trx);
       replyPendingRequest(next, stateMachineFuture);
     }
-  }
-
-  @Override
-  public RaftProperties getProperties() {
-    return this.properties;
   }
 }

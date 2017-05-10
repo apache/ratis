@@ -103,7 +103,7 @@ public abstract class RaftRetryCacheTests {
 
     long leaderApplied = cluster.getLeader().getState().getLastAppliedIndex();
     // make sure retry cache has the entry
-    for (RaftServerImpl server : cluster.getServers()) {
+    for (RaftServerImpl server : cluster.iterateServerImpls()) {
       LOG.info("check server " + server.getId());
       if (server.getState().getLastAppliedIndex() < leaderApplied) {
         Thread.sleep(1000);
