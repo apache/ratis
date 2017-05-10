@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.Iterator;
 
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
@@ -33,12 +34,13 @@ import org.junit.Test;
 public class TestRaftLogCache {
   private static final ClientId clientId = ClientId.createId();
   private static final long callId = 0;
+  private static final RaftProperties prop = new RaftProperties();
 
   private RaftLogCache cache;
 
   @Before
   public void setup() {
-    cache = new RaftLogCache(null);
+    cache = new RaftLogCache(null, prop);
   }
 
   private LogSegment prepareLogSegment(long start, long end, boolean isOpen) {

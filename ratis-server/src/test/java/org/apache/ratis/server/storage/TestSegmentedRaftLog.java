@@ -54,7 +54,7 @@ public class TestSegmentedRaftLog {
   private static final ClientId clientId = ClientId.createId();
   private static final long callId = 0;
 
-  private static class SegmentRange {
+  static class SegmentRange {
     final long start;
     final long end;
     final long term;
@@ -109,7 +109,7 @@ public class TestSegmentedRaftLog {
     return entryList.toArray(new LogEntryProto[entryList.size()]);
   }
 
-  private List<SegmentRange> prepareRanges(int number, int segmentSize,
+  static List<SegmentRange> prepareRanges(int number, int segmentSize,
       long startIndex) {
     List<SegmentRange> list = new ArrayList<>(number);
     for (int i = 0; i < number; i++) {

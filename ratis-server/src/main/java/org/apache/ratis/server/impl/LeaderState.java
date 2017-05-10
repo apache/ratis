@@ -523,6 +523,10 @@ public class LeaderState {
     return pendingRequests.getTransactionContext(index);
   }
 
+  long[] getFollowerNextIndices() {
+    return senders.stream().mapToLong(s -> s.getFollower().getNextIndex()).toArray();
+  }
+
   private class ConfigurationStagingState {
     private final Map<RaftPeerId, RaftPeer> newPeers;
     private final PeerConfiguration newConf;

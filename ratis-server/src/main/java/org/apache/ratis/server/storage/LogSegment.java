@@ -30,8 +30,6 @@ import org.apache.ratis.util.ProtoUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -99,7 +97,8 @@ class LogSegment implements Comparable<Long> {
     return new LogSegment(storage, true, start, start - 1);
   }
 
-  private static LogSegment newCloseSegment(RaftStorage storage,
+  @VisibleForTesting
+  static LogSegment newCloseSegment(RaftStorage storage,
       long start, long end) {
     Preconditions.assertTrue(start >= 0 && end >= start);
     return new LogSegment(storage, false, start, end);
@@ -126,14 +125,14 @@ class LogSegment implements Comparable<Long> {
 
   static LogSegment loadSegment(RaftStorage storage, File file,
       long start, long end, boolean isOpen,
-      boolean keptInCache, Consumer<LogEntryProto> logConsumer)
+      boolean keepEntryInCache, Consumer<LogEntryProto> logConsumer)
       throws IOException {
     final LogSegment segment = isOpen ?
         LogSegment.newOpenSegment(storage, start) :
         LogSegment.newCloseSegment(storage, start, end);
 
     readSegmentFile(file, start, end, isOpen, entry -> {
-      segment.append(keptInCache | isOpen, entry);
+      segment.append(keepEntryInCache | isOpen, entry);
       if (logConsumer != null) {
         logConsumer.accept(entry);
       }
@@ -162,6 +161,8 @@ class LogSegment implements Comparable<Long> {
     @Override
     public LogEntryProto load(LogRecord key) throws IOException {
       final File file = getSegmentFile();
+      // note the loading should not exceed the endIndex: it is possible that
+      // the on-disk log file should be truncated but has not been done yet.
       readSegmentFile(file, startIndex, endIndex, isOpen,
           entry -> entryCache.put(ServerProtoUtils.toTermIndex(entry), entry));
       loadingTimes.incrementAndGet();
@@ -175,14 +176,15 @@ class LogSegment implements Comparable<Long> {
         storage.getStorageDir().getClosedLogFile(startIndex, endIndex);
   }
 
-  private boolean isOpen;
+  private volatile boolean isOpen;
   private long totalSize;
   private final long startIndex;
-  private long endIndex;
+  private volatile long endIndex;
   private final RaftStorage storage;
   private final CacheLoader<LogRecord, LogEntryProto> cacheLoader = new LogEntryLoader();
   /** later replace it with a metric */
   private final AtomicInteger loadingTimes = new AtomicInteger();
+  private volatile boolean hasEntryCache;
 
   /**
    * the list of records is more like the index of a segment
@@ -200,6 +202,7 @@ class LogSegment implements Comparable<Long> {
     this.startIndex = start;
     this.endIndex = end;
     totalSize = SegmentedRaftLog.HEADER_BYTES.length;
+    hasEntryCache = isOpen;
   }
 
   long getStartIndex() {
@@ -224,7 +227,7 @@ class LogSegment implements Comparable<Long> {
     append(true, entries);
   }
 
-  private void append(boolean keptInCache, LogEntryProto... entries) {
+  private void append(boolean keepEntryInCache, LogEntryProto... entries) {
     Preconditions.assertTrue(entries != null && entries.length > 0);
     final long term = entries[0].getTerm();
     if (records.isEmpty()) {
@@ -246,7 +249,7 @@ class LogSegment implements Comparable<Long> {
 
       final LogRecord record = new LogRecord(totalSize, entry);
       records.add(record);
-      if (keptInCache) {
+      if (keepEntryInCache) {
         entryCache.put(record.getTermIndex(), entry);
       }
       if (ProtoUtils.isConfigurationLogEntry(entry)) {
@@ -274,7 +277,9 @@ class LogSegment implements Comparable<Long> {
       return entry;
     }
     try {
-      return cacheLoader.load(record);
+      entry = cacheLoader.load(record);
+      hasEntryCache = true;
+      return entry;
     } catch (Exception e) {
       throw new RaftLogIOException(e);
     }
@@ -340,11 +345,25 @@ class LogSegment implements Comparable<Long> {
   void clear() {
     records.clear();
     entryCache.clear();
+    hasEntryCache = false;
     configEntries.clear();
     endIndex = startIndex - 1;
   }
 
   public int getLoadingTimes() {
     return loadingTimes.get();
+  }
+
+  void evictCache() {
+    hasEntryCache = false;
+    entryCache.clear();
+  }
+
+  boolean hasCache() {
+    return hasEntryCache;
+  }
+
+  boolean containsIndex(long index) {
+    return startIndex <= index && endIndex >= index;
   }
 }

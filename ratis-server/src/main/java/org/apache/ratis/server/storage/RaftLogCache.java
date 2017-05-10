@@ -19,15 +19,21 @@ package org.apache.ratis.server.storage;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.function.Consumer;
 
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.storage.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
 import org.apache.ratis.server.storage.LogSegment.LogRecord;
+import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 
 import org.apache.ratis.util.Preconditions;
@@ -65,15 +71,51 @@ class RaftLogCache {
           toDelete.toArray(new SegmentFileInfo[toDelete.size()]);
       this.toTruncate = toTruncate;
     }
+
+    int getDeletionSize() {
+      return toDelete == null ? 0 : toDelete.length;
+    }
   }
 
   private LogSegment openSegment;
   private final List<LogSegment> closedSegments;
   private final RaftStorage storage;
 
-  RaftLogCache(RaftStorage storage) {
+  private final int maxCachedSegments;
+  private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
+
+  RaftLogCache(RaftStorage storage, RaftProperties properties) {
     this.storage = storage;
+    maxCachedSegments = RaftServerConfigKeys.Log.maxCachedSegmentNum(properties);
     closedSegments = new ArrayList<>();
+  }
+
+  int getMaxCachedSegments() {
+    return maxCachedSegments;
+  }
+
+  void loadSegment(LogPathAndIndex pi, boolean isOpen, boolean keepEntryInCache,
+      Consumer<LogEntryProto> logConsumer) throws IOException {
+    LogSegment logSegment = LogSegment.loadSegment(storage, pi.path.toFile(),
+        pi.startIndex, pi.endIndex, isOpen, keepEntryInCache, logConsumer);
+    addSegment(logSegment);
+  }
+
+  long getCachedSegmentNum() {
+    return closedSegments.stream().filter(LogSegment::hasCache).count();
+  }
+
+  boolean shouldEvict() {
+    return getCachedSegmentNum() > maxCachedSegments;
+  }
+
+  void evictCache(long[] followerIndices, long flushedIndex,
+      long lastAppliedIndex) {
+    List<LogSegment> toEvict = evictionPolicy.evict(followerIndices,
+        flushedIndex, lastAppliedIndex, closedSegments, maxCachedSegments);
+    for (LogSegment s : toEvict) {
+      s.evictCache();
+    }
   }
 
   private boolean areConsecutiveSegments(LogSegment prev, LogSegment segment) {
@@ -345,7 +387,11 @@ class RaftLogCache {
   }
 
   void clear() {
-    openSegment = null;
+    if (openSegment != null) {
+      openSegment.clear();
+      openSegment = null;
+    }
+    closedSegments.forEach(LogSegment::clear);
     closedSegments.clear();
   }
 }

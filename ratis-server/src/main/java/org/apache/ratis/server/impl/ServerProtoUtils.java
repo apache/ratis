@@ -75,8 +75,8 @@ public class ServerProtoUtils {
   }
 
   private static String toString(RaftRpcReplyProto reply) {
-    return reply.getRequestorId() + "->" + reply.getReplyId() + ","
-        + reply.getSuccess();
+    return reply.getRequestorId().toStringUtf8() + "->"
+        + reply.getReplyId().toString() + "," + reply.getSuccess();
   }
 
   public static RaftConfigurationProto toRaftConfigurationProto(

@@ -26,6 +26,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
+import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CodeInjectionForTesting;
@@ -67,6 +68,7 @@ import java.util.function.Consumer;
 public class SegmentedRaftLog extends RaftLog {
   static final String HEADER_STR = "RAFTLOG1";
   static final byte[] HEADER_BYTES = HEADER_STR.getBytes(StandardCharsets.UTF_8);
+  static final LogSegment[] EMPTY_SEGMENT_ARRAY = new LogSegment[0];
 
   /**
    * I/O task definitions.
@@ -96,6 +98,7 @@ public class SegmentedRaftLog extends RaftLog {
   }
   private static final ThreadLocal<Task> myTask = new ThreadLocal<>();
 
+  private final RaftServerImpl server;
   private final RaftStorage storage;
   private final RaftLogCache cache;
   private final RaftLogWorker fileLogWorker;
@@ -105,9 +108,10 @@ public class SegmentedRaftLog extends RaftLog {
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties)
       throws IOException {
     super(selfId);
+    this.server = server;
     this.storage = storage;
-    this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
-    cache = new RaftLogCache(storage);
+    segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
+    cache = new RaftLogCache(storage, properties);
     fileLogWorker = new RaftLogWorker(server, storage, properties);
     lastCommitted.set(lastIndexInSnapshot);
   }
@@ -136,11 +140,18 @@ public class SegmentedRaftLog extends RaftLog {
       Consumer<LogEntryProto> logConsumer) throws IOException {
     try(AutoCloseableLock writeLock = writeLock()) {
       List<LogPathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
+      int i = 0;
       for (LogPathAndIndex pi : paths) {
         boolean isOpen = pi.endIndex == RaftServerConstants.INVALID_LOG_INDEX;
-        LogSegment logSegment = LogSegment.loadSegment(storage, pi.path.toFile(),
-            pi.startIndex, pi.endIndex, isOpen, true, logConsumer);
-        cache.addSegment(logSegment);
+        // During the initial loading, we can only confirm the committed
+        // index based on the snapshot. This means if a log segment is not kept
+        // in cache after the initial loading, later we have to load its content
+        // again for updating the state machine.
+        // TODO we should let raft peer persist its committed index periodically
+        // so that during the initial loading we can apply part of the log
+        // entries to the state machine
+        boolean keepEntryInCache = (paths.size() - i++) <= cache.getMaxCachedSegments();
+        cache.loadSegment(pi, isOpen, keepEntryInCache, logConsumer);
       }
 
       // if the largest index is smaller than the last index in snapshot, we do
@@ -177,7 +188,19 @@ public class SegmentedRaftLog extends RaftLog {
 
     // the entry is not in the segment's cache. Load the cache without holding
     // RaftLog's lock.
+    checkAndEvictCache();
     return segment.loadCache(recordAndEntry.getRecord());
+  }
+
+  private void checkAndEvictCache() {
+    if (server != null && cache.shouldEvict()) {
+      // TODO if the cache is hitting the maximum size and we cannot evict any
+      // segment's cache, should block the new entry appending or new segment
+      // allocation.
+      cache.evictCache(server.getFollowerNextIndices(),
+          fileLogWorker.getFlushedIndex(),
+          server.getState().getLastAppliedIndex());
+    }
   }
 
   @Override
@@ -232,6 +255,7 @@ public class SegmentedRaftLog extends RaftLog {
       } else if (isSegmentFull(currentOpenSegment, entry)) {
         cache.rollOpenSegment(true);
         fileLogWorker.rollLogSegment(currentOpenSegment);
+        checkAndEvictCache();
       } else if (currentOpenSegment.numOfEntries() > 0 &&
           currentOpenSegment.getLastTermIndex().getTerm() != entry.getTerm()) {
         // the term changes

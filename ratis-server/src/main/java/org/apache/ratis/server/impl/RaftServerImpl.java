@@ -913,6 +913,14 @@ public class RaftServerImpl implements RaftServer {
     return null;
   }
 
+  public synchronized long[] getFollowerNextIndices() {
+    LeaderState s = this.leaderState;
+    if (s == null || !isLeader()) {
+      return null;
+    }
+    return s.getFollowerNextIndices();
+  }
+
   public void applyLogToStateMachine(LogEntryProto next) {
     if (next.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
       // the reply should have already been set. only need to record

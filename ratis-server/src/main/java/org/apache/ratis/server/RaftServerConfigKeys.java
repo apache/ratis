@@ -23,7 +23,6 @@ import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
 
 import static org.apache.ratis.conf.ConfUtils.*;
 
@@ -74,6 +73,16 @@ public interface RaftServerConfigKeys {
     }
     static void setSegmentSizeMax(RaftProperties properties, SizeInBytes segmentSizeMax) {
       setSizeInBytes(properties::set, SEGMENT_SIZE_MAX_KEY, segmentSizeMax);
+    }
+
+    /**
+     * Besides the open segment, the max number of segments caching log entries.
+     */
+    String SEGMENT_CACHE_MAX_NUM_KEY = PREFIX + ".segment.cache.num.max";
+    int SEGMENT_CACHE_MAX_NUM_DEFAULT = 6;
+    static int maxCachedSegmentNum(RaftProperties properties) {
+      return getInt(properties::getInt, SEGMENT_CACHE_MAX_NUM_KEY,
+          SEGMENT_CACHE_MAX_NUM_DEFAULT, requireMin(0));
     }
 
     String PREALLOCATED_SIZE_KEY = PREFIX + ".preallocated.size";
