@@ -735,8 +735,10 @@ public class RaftServerImpl implements RaftServerProtocol,
   }
 
   private boolean containPrevious(TermIndex previous) {
-    LOG.trace("{}: prev:{}, latestSnapshot:{}, latestInstalledSnapshot:{}",
-        getId(), previous, state.getLatestSnapshot(), state.getLatestInstalledSnapshot());
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("{}: prev:{}, latestSnapshot:{}, latestInstalledSnapshot:{}",
+          getId(), previous, state.getLatestSnapshot(), state.getLatestInstalledSnapshot());
+    }
     return state.getLog().contains(previous)
         ||  (state.getLatestSnapshot() != null
              && state.getLatestSnapshot().getTermIndex().equals(previous))

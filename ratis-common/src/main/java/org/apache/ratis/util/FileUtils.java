@@ -74,6 +74,7 @@ public class FileUtils {
     }
     final boolean wasDeleted = f.delete();
     if (wasDeleted) {
+      LOG.debug("Deleted file or dir {}", f.getAbsolutePath());
       return true;
     }
     final boolean ex = f.exists();

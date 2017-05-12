@@ -70,11 +70,8 @@ public class RaftTestUtil {
     LOG.info(cluster.printServers());
     for(int i = 0; !cluster.tryEnforceLeader(leaderId) && i < 10; i++) {
       RaftServerImpl currLeader = cluster.getLeader();
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("try enforcing leader to " + leaderId + " but "
-            + (currLeader == null? "no leader for this round"
-                : "new leader is " + currLeader.getId()));
-      }
+      LOG.info("try enforcing leader to " + leaderId + " but " +
+          (currLeader == null ? "no leader for this round" : "new leader is " + currLeader.getId()));
     }
     LOG.info(cluster.printServers());
 

@@ -131,12 +131,12 @@ public class ProtoUtils {
   }
 
   public static String toString(RaftRpcRequestProto proto) {
-    return proto.getRequestorId() + "->" + proto.getReplyId()
+    return proto.getRequestorId().toStringUtf8() + "->" + proto.getReplyId().toStringUtf8()
         + "#" + proto.getCallId();
   }
 
   public static String toString(RaftRpcReplyProto proto) {
-    return proto.getRequestorId() + "<-" + proto.getReplyId()
+    return proto.getRequestorId().toStringUtf8() + "<-" + proto.getReplyId().toStringUtf8()
         + "#" + proto.getCallId() + ":"
         + (proto.getSuccess()? "OK": "FAIL");
   }

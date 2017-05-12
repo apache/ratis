@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
  * raft peer.
  */
 class RaftLogWorker implements Runnable {
-  static final Logger LOG = LoggerFactory.getLogger(RaftLogWorker.class);
+  static final Logger LOG = RaftServerImpl.LOG;
   /**
    * The task queue accessed by rpc handler threads and the io worker thread.
    */
@@ -53,7 +53,7 @@ class RaftLogWorker implements Runnable {
   private final Thread workerThread;
 
   private final RaftStorage storage;
-  private LogOutputStream out;
+  private volatile LogOutputStream out;
   private final RaftServerImpl raftServer;
 
   /**
@@ -94,9 +94,11 @@ class RaftLogWorker implements Runnable {
     this.running = false;
     workerThread.interrupt();
     try {
-      workerThread.join();
+      workerThread.join(3000);
     } catch (InterruptedException ignored) {
     }
+    IOUtils.cleanup(LOG, out);
+    LOG.info("{} closes.", this.toString());
   }
 
   /**
@@ -120,7 +122,8 @@ class RaftLogWorker implements Runnable {
    * This is protected by the RaftServer and RaftLog's lock.
    */
   private Task addIOTask(Task task) {
-    LOG.debug("add task {}", task);
+    LOG.debug("{} adds IO task {}",
+        raftServer != null ? raftServer.getId() : "", task);
     try {
       if (!queue.offer(task, 1, TimeUnit.SECONDS)) {
         Preconditions.assertTrue(isAlive(),
@@ -162,12 +165,26 @@ class RaftLogWorker implements Runnable {
           task.done();
         }
       } catch (InterruptedException e) {
+        if (running) {
+          LOG.warn("{} got interrupted while still running",
+              Thread.currentThread().getName());
+        }
         LOG.info(Thread.currentThread().getName()
             + " was interrupted, exiting. There are " + queue.size()
             + " tasks remaining in the queue.");
+        Thread.currentThread().interrupt();
+        return;
       } catch (Throwable t) {
-        // TODO avoid terminating the jvm by supporting multiple log directories
-        ExitUtils.terminate(1, Thread.currentThread().getName() + " failed.", t, LOG);
+        if (!running) {
+          LOG.info("{} got closed and hit exception",
+              Thread.currentThread().getName(), t);
+        } else {
+          // TODO avoid terminating the jvm, we should
+          // 1) support multiple log directories
+          // 2) only shutdown the raft server impl
+          ExitUtils.terminate(1, Thread.currentThread().getName() + " failed.",
+              t, LOG);
+        }
       }
     }
   }
@@ -252,12 +269,14 @@ class RaftLogWorker implements Runnable {
 
     @Override
     public void execute() throws IOException {
-      IOUtils.cleanup(null, out);
+      IOUtils.cleanup(LOG, out);
       out = null;
       Preconditions.assertTrue(segmentToClose != null);
 
       File openFile = storage.getStorageDir()
           .getOpenLogFile(segmentToClose.getStartIndex());
+      LOG.info("{} finalizing log segment {}", RaftLogWorker.this.toString(),
+          openFile.getAbsolutePath());
       Preconditions.assertTrue(openFile.exists(),
           "File %s does not exist.", openFile);
       if (segmentToClose.numOfEntries() > 0) {
@@ -289,6 +308,8 @@ class RaftLogWorker implements Runnable {
     @Override
     void execute() throws IOException {
       File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
+      LOG.info("{} creating new log segment {}", RaftLogWorker.this.toString(),
+          openFile.getAbsolutePath());
       Preconditions.assertTrue(!openFile.exists(), "open file %s exists for %s",
           openFile.getAbsolutePath(), RaftLogWorker.this.toString());
       Preconditions.assertTrue(out == null && pendingFlushNum == 0);

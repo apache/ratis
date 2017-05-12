@@ -26,7 +26,6 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
-import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CodeInjectionForTesting;
@@ -366,7 +365,10 @@ public class SegmentedRaftLog extends RaftLog {
 
   @Override
   public void close() throws IOException {
-    super.close();
+    try(AutoCloseableLock writeLock = writeLock()) {
+      super.close();
+      cache.clear();
+    }
     fileLogWorker.close();
     storage.close();
   }

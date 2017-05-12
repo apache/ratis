@@ -262,6 +262,9 @@ public abstract class RaftLog implements Closeable {
 
   @Override
   public String toString() {
+    if (!isOpen) {
+      return "Closed log";
+    }
     TermIndex last = getLastEntryTermIndex();
     return last == null ? "null" : Collections.singletonList(last).toString();
   }

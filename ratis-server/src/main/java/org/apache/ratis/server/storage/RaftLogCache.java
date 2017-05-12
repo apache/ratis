@@ -77,7 +77,7 @@ class RaftLogCache {
     }
   }
 
-  private LogSegment openSegment;
+  private volatile LogSegment openSegment;
   private final List<LogSegment> closedSegments;
   private final RaftStorage storage;
 
