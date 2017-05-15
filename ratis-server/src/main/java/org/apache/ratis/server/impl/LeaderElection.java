@@ -221,7 +221,7 @@ class LeaderElection extends Daemon {
               exceptions, r.getTerm());
         }
         if (r.getServerReply().getSuccess()) {
-          votedPeers.add(new RaftPeerId(r.getServerReply().getReplyId()));
+          votedPeers.add(RaftPeerId.valueOf(r.getServerReply().getReplyId()));
           if (conf.hasMajority(votedPeers, server.getId())) {
             return logAndReturn(Result.PASSED, responses, exceptions, -1);
           }

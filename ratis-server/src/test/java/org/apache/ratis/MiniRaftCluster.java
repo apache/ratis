@@ -100,7 +100,7 @@ public abstract class MiniRaftCluster {
   public static RaftConfiguration initConfiguration(Collection<String> ids) {
     return RaftConfiguration.newBuilder()
         .setConf(ids.stream()
-            .map(id -> new RaftPeerId(id))
+            .map(id -> RaftPeerId.valueOf(id))
             .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
             .collect(Collectors.toList()))
         .build();
@@ -255,7 +255,7 @@ public abstract class MiniRaftCluster {
 
     // create and add new RaftServers
     final Collection<RaftServerProxy> newServers = putNewServers(
-        CollectionUtils.as(Arrays.asList(ids), RaftPeerId::new), true);
+        CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf), true);
     newServers.forEach(s -> startServer(s, startNewPeer));
 
     final Collection<RaftPeer> newPeers = toRaftPeers(newServers);

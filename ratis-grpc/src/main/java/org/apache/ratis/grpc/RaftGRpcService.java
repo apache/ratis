@@ -147,7 +147,7 @@ public class RaftGRpcService implements RaftServerRpc {
         null, request);
 
     RaftServerProtocolClient target = Objects.requireNonNull(
-        peers.get(new RaftPeerId(request.getServerRequest().getReplyId())));
+        peers.get(RaftPeerId.valueOf(request.getServerRequest().getReplyId())));
     return target.requestVote(request);
   }
 

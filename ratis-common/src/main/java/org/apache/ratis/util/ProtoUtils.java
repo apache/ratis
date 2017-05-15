@@ -80,7 +80,7 @@ public class ProtoUtils {
   }
 
   public static RaftPeer toRaftPeer(RaftPeerProto p) {
-    return new RaftPeer(new RaftPeerId(p.getId()), p.getAddress());
+    return new RaftPeer(RaftPeerId.valueOf(p.getId()), p.getAddress());
   }
 
   public static RaftPeer[] toRaftPeerArray(List<RaftPeerProto> protos) {

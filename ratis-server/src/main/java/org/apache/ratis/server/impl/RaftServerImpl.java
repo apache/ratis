@@ -544,7 +544,7 @@ public class RaftServerImpl implements RaftServerProtocol,
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto r)
       throws IOException {
     final RaftPeerId candidateId =
-        new RaftPeerId(r.getServerRequest().getRequestorId());
+        RaftPeerId.valueOf(r.getServerRequest().getRequestorId());
     return requestVote(candidateId, r.getCandidateTerm(),
         ServerProtoUtils.toTermIndex(r.getCandidateLastEntry()));
   }
@@ -628,7 +628,7 @@ public class RaftServerImpl implements RaftServerProtocol,
         .toArray(new LogEntryProto[r.getEntriesCount()]);
     final TermIndex previous = r.hasPreviousLog() ?
         ServerProtoUtils.toTermIndex(r.getPreviousLog()) : null;
-    return appendEntries(new RaftPeerId(r.getServerRequest().getRequestorId()),
+    return appendEntries(RaftPeerId.valueOf(r.getServerRequest().getRequestorId()),
         r.getLeaderTerm(), previous, r.getLeaderCommit(), r.getInitializing(),
         entries);
   }
@@ -749,8 +749,8 @@ public class RaftServerImpl implements RaftServerProtocol,
   @Override
   public InstallSnapshotReplyProto installSnapshot(
       InstallSnapshotRequestProto request) throws IOException {
-    final RaftPeerId leaderId =
-        new RaftPeerId(request.getServerRequest().getRequestorId());
+    final RaftPeerId leaderId = RaftPeerId.valueOf(
+        request.getServerRequest().getRequestorId());
     CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(),
         leaderId, request);
     LOG.debug("{}: receive installSnapshot({})", getId(), request);

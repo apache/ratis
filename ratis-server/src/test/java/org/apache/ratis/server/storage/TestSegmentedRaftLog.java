@@ -50,7 +50,7 @@ public class TestSegmentedRaftLog {
     LogUtils.setLogLevel(RaftLogWorker.LOG, Level.DEBUG);
   }
 
-  private static final RaftPeerId peerId = new RaftPeerId("s0");
+  private static final RaftPeerId peerId = RaftPeerId.valueOf("s0");
   private static final ClientId clientId = ClientId.createId();
   private static final long callId = 0;
 

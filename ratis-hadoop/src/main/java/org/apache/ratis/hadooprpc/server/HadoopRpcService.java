@@ -32,10 +32,12 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.shaded.com.google.protobuf.BlockingService;
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.hadoop.HadoopProtos.RaftClientProtocolService;
 import org.apache.ratis.shaded.proto.hadoop.HadoopProtos.RaftServerProtocolService;
+import org.apache.ratis.util.CheckedFunction;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.ProtoUtils;
@@ -159,43 +161,34 @@ public class HadoopRpcService implements RaftServerRpc {
   @Override
   public AppendEntriesReplyProto appendEntries(
       AppendEntriesRequestProto request) throws IOException {
-    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
-
-    final RaftServerProtocolPB proxy = proxies.getProxy(
-        new RaftPeerId(request.getServerRequest().getReplyId()))
-        .getProtocol();
-    try {
-      return proxy.appendEntries(null, request);
-    } catch (ServiceException se) {
-      throw ProtoUtils.toIOException(se);
-    }
+    return processRequest(request, request.getServerRequest().getReplyId(),
+        proxy -> proxy.appendEntries(null, request));
   }
 
   @Override
   public InstallSnapshotReplyProto installSnapshot(
       InstallSnapshotRequestProto request) throws IOException {
-    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
-
-    final RaftServerProtocolPB proxy = proxies.getProxy(
-        new RaftPeerId(request.getServerRequest().getReplyId()))
-        .getProtocol();
-    try {
-      return proxy.installSnapshot(null, request);
-    } catch (ServiceException se) {
-      throw ProtoUtils.toIOException(se);
-    }
+    return processRequest(request, request.getServerRequest().getReplyId(),
+        proxy -> proxy.installSnapshot(null, request));
   }
 
   @Override
   public RequestVoteReplyProto requestVote(
       RequestVoteRequestProto request) throws IOException {
+    return processRequest(request, request.getServerRequest().getReplyId(),
+        proxy -> proxy.requestVote(null, request));
+  }
+
+  private <REQUEST, REPLY> REPLY processRequest(
+      REQUEST request, ByteString replyId,
+      CheckedFunction<RaftServerProtocolPB, REPLY, ServiceException> f)
+      throws IOException {
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
 
     final RaftServerProtocolPB proxy = proxies.getProxy(
-        new RaftPeerId(request.getServerRequest().getReplyId()))
-        .getProtocol();
+        RaftPeerId.valueOf(replyId)).getProtocol();
     try {
-      return proxy.requestVote(null, request);
+      return f.apply(proxy);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }

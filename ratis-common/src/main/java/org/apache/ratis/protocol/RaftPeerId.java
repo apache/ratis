@@ -22,31 +22,44 @@ import org.apache.ratis.util.Preconditions;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Id of Raft Peer. Should be globally unique.
+ * Id of Raft Peer which is globally unique.
  */
 public class RaftPeerId {
+  private static final Map<ByteString, RaftPeerId> byteStringMap = new ConcurrentHashMap<>();
+  private static final Map<String, RaftPeerId> stringMap = new ConcurrentHashMap<>();
+
+  public static RaftPeerId valueOf(ByteString id) {
+    return byteStringMap.computeIfAbsent(id,
+        key -> new RaftPeerId(key.toByteArray()));
+  }
+
+  public static RaftPeerId valueOf(String id) {
+    return stringMap.computeIfAbsent(id, key -> new RaftPeerId(key));
+  }
+
   public static RaftPeerId getRaftPeerId(String id) {
-    return id == null || id.isEmpty() ? null : new RaftPeerId(id);
+    return id == null || id.isEmpty() ? null : RaftPeerId.valueOf(id);
   }
 
   /** UTF-8 string as id */
+  private final String idString;
+  /** The corresponding bytes of {@link #idString}. */
   private final byte[] id;
 
-  public RaftPeerId(String id) {
-    Objects.requireNonNull(id, "id == null");
+  private RaftPeerId(String id) {
+    this.idString = Objects.requireNonNull(id, "id == null");
     Preconditions.assertTrue(!id.isEmpty(), "id is an empty string.");
     this.id = id.getBytes(StandardCharsets.UTF_8);
   }
-
-  public RaftPeerId(byte[] id) {
-    this.id = id;
-  }
-
-  public RaftPeerId(ByteString id) {
-    this(id.toByteArray());
+  private RaftPeerId(byte[] id) {
+    this.id = Objects.requireNonNull(id, "id == null");
+    Preconditions.assertTrue(id.length > 0, "id is an empty array.");
+    this.idString = new String(id, StandardCharsets.UTF_8);
   }
 
   /**
@@ -58,7 +71,7 @@ public class RaftPeerId {
 
   @Override
   public String toString() {
-    return new String(id, StandardCharsets.UTF_8);
+    return idString;
   }
 
   @Override

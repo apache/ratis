@@ -49,8 +49,7 @@ public class ClientProtoUtils {
   public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
     ClientId clientId = new ClientId(
         p.getRpcRequest().getRequestorId().toByteArray());
-    RaftPeerId serverId = new RaftPeerId(
-        p.getRpcRequest().getReplyId());
+    RaftPeerId serverId = RaftPeerId.valueOf(p.getRpcRequest().getReplyId());
     return new RaftClientRequest(clientId, serverId,
         p.getRpcRequest().getCallId(),
         toMessage(p.getMessage()), p.getReadOnly());
@@ -121,7 +120,7 @@ public class ClientProtoUtils {
           ProtoUtils.toRaftPeer(nleProto.getSuggestedLeader()) : null;
       final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(
           nleProto.getPeersInConfList());
-      e = new NotLeaderException(new RaftPeerId(rp.getReplyId()),
+      e = new NotLeaderException(RaftPeerId.valueOf(rp.getReplyId()),
           suggestedLeader, peers);
     } else if (replyProto.getExceptionDetailsCase().equals(STATEMACHINEEXCEPTION)) {
       StateMachineExceptionProto smeProto = replyProto.getStateMachineException();
@@ -130,7 +129,7 @@ public class ClientProtoUtils {
           smeProto.getStacktrace());
     }
     return new RaftClientReply(new ClientId(rp.getRequestorId().toByteArray()),
-        new RaftPeerId(rp.getReplyId()),
+        RaftPeerId.valueOf(rp.getReplyId()),
         rp.getCallId(), rp.getSuccess(), toMessage(replyProto.getMessage()), e);
   }
 
@@ -171,7 +170,7 @@ public class ClientProtoUtils {
     final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(p.getPeersList());
     return new SetConfigurationRequest(
         new ClientId(m.getRequestorId().toByteArray()),
-        new RaftPeerId(m.getReplyId()),
+        RaftPeerId.valueOf(m.getReplyId()),
         p.getRpcRequest().getCallId(), peers);
   }
 

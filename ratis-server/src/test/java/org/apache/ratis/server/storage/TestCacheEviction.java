@@ -151,7 +151,7 @@ public class TestCacheEviction {
         SimpleStateMachine4Testing.class, StateMachine.class);
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("8KB"));
     RaftServerConfigKeys.Log.setPreallocatedSize(prop, SizeInBytes.valueOf("8KB"));
-    final RaftPeerId peerId = new RaftPeerId("s0");
+    final RaftPeerId peerId = RaftPeerId.valueOf("s0");
     final int maxCachedNum = RaftServerConfigKeys.Log.maxCachedSegmentNum(prop);
 
     File storageDir = RaftTestUtil.getTestDir(TestSegmentedRaftLog.class);

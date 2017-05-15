@@ -262,7 +262,7 @@ public final class NettyRpcService implements RaftServerRpc {
   private RaftNettyServerReplyProto sendRaftNettyServerRequestProto(
       RaftRpcRequestProto request, RaftNettyServerRequestProto proto)
       throws IOException {
-    final RaftPeerId id = new RaftPeerId(request.getReplyId());
+    final RaftPeerId id = RaftPeerId.valueOf(request.getReplyId());
     final NettyRpcProxy p = proxies.getProxy(id);
     try {
       return p.send(request, proto);
