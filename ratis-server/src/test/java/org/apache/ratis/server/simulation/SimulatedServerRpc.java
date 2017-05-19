@@ -17,16 +17,15 @@
  */
 package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.Daemon;
+import org.apache.ratis.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 class SimulatedServerRpc implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(SimulatedServerRpc.class);
 
-  private final RaftServerImpl server;
+  private final RaftServerProxy server;
   private final RequestHandler<RaftServerRequest, RaftServerReply> serverHandler;
   private final RequestHandler<RaftClientRequest, RaftClientReply> clientHandler;
   private final ExecutorService executor = Executors.newFixedThreadPool(3, Daemon::new);
@@ -48,8 +47,7 @@ class SimulatedServerRpc implements RaftServerRpc {
   SimulatedServerRpc(RaftServer server,
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
       SimulatedRequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
-    this.server = server instanceof RaftServerProxy?
-        ((RaftServerProxy)server).getImpl(): (RaftServerImpl)server;
+    this.server = (RaftServerProxy)server;
     this.serverHandler = new RequestHandler<>(server.getId().toString(),
         "serverHandler", serverRequestReply, serverHandlerImpl, 3);
     this.clientHandler = new RequestHandler<>(server.getId().toString(),
@@ -122,7 +120,7 @@ class SimulatedServerRpc implements RaftServerRpc {
       = new RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply>() {
     @Override
     public boolean isAlive() {
-      return server.isAlive();
+      return RaftTestUtil.getImplAsUnchecked(server).isAlive();
     }
 
     @Override
@@ -144,14 +142,17 @@ class SimulatedServerRpc implements RaftServerRpc {
       = new RequestHandler.HandlerInterface<RaftClientRequest, RaftClientReply>() {
     @Override
     public boolean isAlive() {
-      return server.isAlive();
+      return RaftTestUtil.getImplAsUnchecked(server).isAlive();
     }
 
     @Override
     public RaftClientReply handleRequest(RaftClientRequest request)
         throws IOException {
       final CompletableFuture<RaftClientReply> future;
-      if (request instanceof SetConfigurationRequest) {
+      if (request instanceof ReinitializeRequest) {
+        future = CompletableFuture.completedFuture(
+            server.reinitialize((ReinitializeRequest) request));
+      } else if (request instanceof SetConfigurationRequest) {
         future = server.setConfigurationAsync((SetConfigurationRequest) request);
       } else {
         future = server.submitClientRequestAsync(request);
@@ -159,11 +160,7 @@ class SimulatedServerRpc implements RaftServerRpc {
 
       future.whenCompleteAsync((reply, exception) -> {
         try {
-          IOException e = null;
-          if (exception != null) {
-            e = exception instanceof IOException ?
-                (IOException) exception : new IOException(exception);
-          }
+          final IOException e = IOUtils.asIOException(exception);
           clientHandler.getRpc().sendReply(request, reply, e);
         } catch (IOException e) {
           LOG.warn("Failed to send reply {} for request {} due to exception {}",

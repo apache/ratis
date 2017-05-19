@@ -22,6 +22,7 @@ import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
+import org.apache.ratis.shaded.proto.RaftProtos;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
@@ -48,7 +49,11 @@ public class GrpcClientRpc implements RaftClientRpc {
       throws IOException {
     final RaftPeerId serverId = request.getServerId();
     final RaftClientProtocolClient proxy = proxies.getProxy(serverId);
-    if (request instanceof SetConfigurationRequest) {
+    if (request instanceof ReinitializeRequest) {
+      RaftProtos.ReinitializeRequestProto proto =
+          toReinitializeRequestProto((ReinitializeRequest) request);
+      return toRaftClientReply(proxy.reinitialize(proto));
+    } else if (request instanceof SetConfigurationRequest) {
       SetConfigurationRequestProto setConf =
           toSetConfigurationRequestProto((SetConfigurationRequest) request);
       return toRaftClientReply(proxy.setConfiguration(setConf));

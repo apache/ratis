@@ -448,8 +448,7 @@ public class LeaderState {
           }
           // the pending request handler will send NotLeaderException for
           // pending client requests when it stops
-          // TODO should close impl instead of proxy
-          server.getProxy().close();
+          server.shutdown();
         }
       }
     }

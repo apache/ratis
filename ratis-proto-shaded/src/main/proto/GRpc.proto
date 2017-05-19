@@ -43,3 +43,9 @@ service RaftServerProtocolService {
   rpc installSnapshot(stream ratis.common.InstallSnapshotRequestProto)
       returns(ratis.common.InstallSnapshotReplyProto) {}
 }
+
+service AdminProtocolService {
+  // A client-to-server RPC to reinitialize the server
+  rpc reinitialize(ratis.common.ReinitializeRequestProto)
+      returns(ratis.common.RaftClientReplyProto) {}
+}

@@ -17,16 +17,17 @@
  */
 package org.apache.ratis.grpc.client;
 
+import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceImplBase;
-import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.grpc.RaftGrpcUtil;
-import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,22 +75,10 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
   }
 
   @Override
-  public void setConfiguration(SetConfigurationRequestProto request,
+  public void setConfiguration(SetConfigurationRequestProto proto,
       StreamObserver<RaftClientReplyProto> responseObserver) {
-    try {
-      CompletableFuture<RaftClientReply> future = protocol.setConfigurationAsync(
-          ClientProtoUtils.toSetConfigurationRequest(request));
-      future.whenCompleteAsync((reply, exception) -> {
-        if (exception != null) {
-          responseObserver.onError(RaftGrpcUtil.wrapException(exception));
-        } else {
-          responseObserver.onNext(ClientProtoUtils.toRaftClientReplyProto(reply));
-          responseObserver.onCompleted();
-        }
-      });
-    } catch (Exception e) {
-      responseObserver.onError(RaftGrpcUtil.wrapException(e));
-    }
+    final SetConfigurationRequest request = ClientProtoUtils.toSetConfigurationRequest(proto);
+    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.setConfigurationAsync(request));
   }
 
   @Override

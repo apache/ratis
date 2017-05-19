@@ -185,4 +185,26 @@ public class ClientProtoUtils {
             Arrays.asList(request.getPeersInNewConf())))
         .build();
   }
+
+  public static ReinitializeRequest toReinitializeRequest(
+      ReinitializeRequestProto p) {
+    final RaftRpcRequestProto m = p.getRpcRequest();
+    final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(p.getPeersList());
+    return new ReinitializeRequest(
+        new ClientId(m.getRequestorId().toByteArray()),
+        RaftPeerId.valueOf(m.getReplyId()),
+        p.getRpcRequest().getCallId(), peers);
+  }
+
+  public static ReinitializeRequestProto toReinitializeRequestProto(
+      ReinitializeRequest request) {
+    return ReinitializeRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(
+            request.getClientId().toBytes(),
+            request.getServerId().toBytes(),
+            request.getCallId()))
+        .addAllPeers(ProtoUtils.toRaftPeerProtos(
+            Arrays.asList(request.getPeersInNewConf())))
+        .build();
+  }
 }

@@ -15,15 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.hadooprpc;
+package org.apache.ratis.grpc;
 
-public interface HadoopConstants {
-  String RAFT_SERVER_KERBEROS_PRINCIPAL_KEY
-      = "raft.server.kerberos.principal";
-  String RAFT_CLIENT_KERBEROS_PRINCIPAL_KEY
-      = "raft.client.kerberos.principal";
-  String RAFT_SERVER_PROTOCOL_NAME
-      = "org.apache.hadoop.raft.server.protocol.RaftServerProtocol";
-  String COMBINED_CLIENT_PROTOCOL_NAME
-      = "org.apache.ratis.hadooprpc.client.CombinedClientProtocol";
+import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.ReinitializationBaseTest;
+
+public class TestReinitializationWithGrpc extends ReinitializationBaseTest {
+  @Override
+  public MiniRaftCluster.Factory<? extends MiniRaftCluster> getClusterFactory() {
+    return MiniRaftClusterWithGRpc.FACTORY;
+  }
 }

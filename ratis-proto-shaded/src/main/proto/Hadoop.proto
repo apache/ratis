@@ -24,11 +24,14 @@ package ratis.hadoop;
 
 import "Raft.proto";
 
-service RaftClientProtocolService {
+service CombinedClientProtocolService {
   rpc submitClientRequest(ratis.common.RaftClientRequestProto)
       returns(ratis.common.RaftClientReplyProto);
 
   rpc setConfiguration(ratis.common.SetConfigurationRequestProto)
+      returns(ratis.common.RaftClientReplyProto);
+
+  rpc reinitialize(ratis.common.ReinitializeRequestProto)
       returns(ratis.common.RaftClientReplyProto);
 }
 
@@ -42,3 +45,4 @@ service RaftServerProtocolService {
   rpc installSnapshot(ratis.common.InstallSnapshotRequestProto)
       returns(ratis.common.InstallSnapshotReplyProto);
 }
+

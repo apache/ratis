@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.grpc.client.RaftClientProtocolService;
+import org.apache.ratis.grpc.server.AdminProtocolService;
 import org.apache.ratis.grpc.server.RaftServerProtocolClient;
 import org.apache.ratis.grpc.server.RaftServerProtocolService;
 import org.apache.ratis.protocol.RaftPeer;
@@ -82,6 +83,7 @@ public class RaftGRpcService implements RaftServerRpc {
     server = ((NettyServerBuilder) serverBuilder).maxMessageSize(maxMessageSize)
         .addService(new RaftServerProtocolService(selfId, raftServer))
         .addService(new RaftClientProtocolService(selfId, raftServer))
+        .addService(new AdminProtocolService(selfId, raftServer))
         .build();
 
     // start service to determine the port (in case port is configured as 0)

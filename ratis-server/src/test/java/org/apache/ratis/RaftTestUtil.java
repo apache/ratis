@@ -31,6 +31,7 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.CheckedRunnable;
+import org.apache.ratis.util.JavaUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,14 +53,31 @@ public class RaftTestUtil {
   public static final LogEntryProto[] EMPTY_LOGENTRY_ARRAY = new LogEntryProto[0];
   static final Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
 
+
+  public static RaftServerImpl getImplAsUnchecked(RaftServerProxy proxy) {
+    return JavaUtils.callAsUnchecked(proxy::getImpl);
+  }
+
   public static RaftServerImpl waitForLeader(MiniRaftCluster cluster)
+      throws InterruptedException {
+    return waitForLeader(cluster, false);
+  }
+
+  public static RaftServerImpl waitForLeader(
+      MiniRaftCluster cluster, boolean tolerateMultipleLeaders)
       throws InterruptedException {
     final long sleepTime = (cluster.getMaxTimeout() * 3) >> 1;
     LOG.info(cluster.printServers());
     RaftServerImpl leader = null;
     for(int i = 0; leader == null && i < 10; i++) {
       Thread.sleep(sleepTime);
-      leader = cluster.getLeader();
+      try {
+        leader = cluster.getLeader();
+      } catch(IllegalStateException e) {
+        if (!tolerateMultipleLeaders) {
+          throw e;
+        }
+      }
     }
     LOG.info(cluster.printServers());
     return leader;
@@ -116,8 +134,7 @@ public class RaftTestUtil {
   public static void assertLogEntries(Collection<RaftServerProxy> servers,
       SimpleMessage... expectedMessages) {
     final int size = servers.size();
-    final long count = servers.stream()
-        .map(RaftServerProxy::getImpl)
+    final long count = MiniRaftCluster.getServerStream(servers)
         .filter(RaftServerImpl::isAlive)
         .map(s -> s.getState().getLog())
         .filter(log -> logEntriesContains(log, expectedMessages))

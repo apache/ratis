@@ -15,23 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.hadooprpc.client;
+package org.apache.ratis.protocol;
 
-import org.apache.hadoop.classification.InterfaceAudience;
-import org.apache.hadoop.classification.InterfaceStability;
-import org.apache.hadoop.ipc.ProtocolInfo;
-import org.apache.hadoop.security.KerberosInfo;
-import org.apache.ratis.hadooprpc.HadoopConstants;
-import org.apache.ratis.shaded.proto.hadoop.HadoopProtos.RaftClientProtocolService;
+import java.util.Arrays;
 
-@InterfaceAudience.Private
-@InterfaceStability.Unstable
-@KerberosInfo(
-    serverPrincipal = HadoopConstants.RAFT_SERVER_KERBEROS_PRINCIPAL_KEY,
-    clientPrincipal = HadoopConstants.RAFT_CLIENT_KERBEROS_PRINCIPAL_KEY)
-@ProtocolInfo(
-    protocolName = HadoopConstants.RAFT_CLIENT_PROTOCOL_NAME,
-    protocolVersion = 1)
-public interface RaftClientProtocolPB extends
-    RaftClientProtocolService.BlockingInterface {
+public class ReinitializeRequest extends RaftClientRequest {
+  private final RaftPeer[] peers;
+
+  public ReinitializeRequest(ClientId clientId, RaftPeerId serverId,
+                             long callId, RaftPeer[] peers) {
+    super(clientId, serverId, callId, null);
+    this.peers = peers;
+  }
+
+  public RaftPeer[] getPeersInNewConf() {
+    return peers;
+  }
+
+  @Override
+  public String toString() {
+    return super.toString() + ", peers:" + Arrays.asList(getPeersInNewConf());
+  }
 }

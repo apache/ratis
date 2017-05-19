@@ -200,6 +200,15 @@ public final class NettyRpcService implements RaftServerRpc {
               .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
               .build();
         }
+        case REINITIALIZEREQUEST: {
+          final ReinitializeRequestProto request = proto.getReinitializeRequest();
+          rpcRequest = request.getRpcRequest();
+          final RaftClientReply reply = server.reinitialize(
+              ClientProtoUtils.toReinitializeRequest(request));
+          return RaftNettyServerReplyProto.newBuilder()
+              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
+              .build();
+        }
         case RAFTNETTYSERVERREQUEST_NOT_SET:
           throw new IllegalArgumentException("Request case not set in proto: "
               + proto.getRaftNettyServerRequestCase());

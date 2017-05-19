@@ -43,7 +43,9 @@ public interface IOUtils {
   }
 
   static IOException asIOException(Throwable t) {
-    return t instanceof IOException? (IOException)t : new IOException(t);
+    return t == null? null
+        : t instanceof IOException? (IOException)t
+        : new IOException(t);
   }
 
   static IOException toIOException(ExecutionException e) {

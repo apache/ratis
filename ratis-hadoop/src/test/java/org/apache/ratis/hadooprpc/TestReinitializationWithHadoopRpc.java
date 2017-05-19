@@ -17,13 +17,12 @@
  */
 package org.apache.ratis.hadooprpc;
 
-public interface HadoopConstants {
-  String RAFT_SERVER_KERBEROS_PRINCIPAL_KEY
-      = "raft.server.kerberos.principal";
-  String RAFT_CLIENT_KERBEROS_PRINCIPAL_KEY
-      = "raft.client.kerberos.principal";
-  String RAFT_SERVER_PROTOCOL_NAME
-      = "org.apache.hadoop.raft.server.protocol.RaftServerProtocol";
-  String COMBINED_CLIENT_PROTOCOL_NAME
-      = "org.apache.ratis.hadooprpc.client.CombinedClientProtocol";
+import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.ReinitializationBaseTest;
+
+public class TestReinitializationWithHadoopRpc extends ReinitializationBaseTest {
+  @Override
+  public MiniRaftCluster.Factory<? extends MiniRaftCluster> getClusterFactory() {
+    return MiniRaftClusterWithHadoopRpc.FACTORY;
+  }
 }

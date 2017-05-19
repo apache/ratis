@@ -26,22 +26,28 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class RaftServerProxy implements RaftServer {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerProxy.class);
 
   private final RaftPeerId id;
-  private final RaftServerImpl impl;
   private final StateMachine stateMachine;
   private final RaftProperties properties;
 
   private final RaftServerRpc serverRpc;
   private final ServerFactory factory;
+
+  private volatile CompletableFuture<RaftServerImpl> impl;
+  private final AtomicReference<ReinitializeRequest> reinitializeRequest = new AtomicReference<>();
 
   RaftServerProxy(RaftPeerId id, StateMachine stateMachine,
                   RaftConfiguration raftConf, RaftProperties properties, Parameters parameters)
@@ -52,8 +58,13 @@ public class RaftServerProxy implements RaftServer {
 
     final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
     this.factory = ServerFactory.cast(rpcType.newFactory(properties, parameters));
-    this.impl = new RaftServerImpl(id, this, raftConf, properties);
+
+    this.impl = CompletableFuture.completedFuture(initImpl(raftConf));
     this.serverRpc = initRaftServerRpc(factory, this, raftConf);
+  }
+
+  private RaftServerImpl initImpl(RaftConfiguration raftConf) throws IOException {
+    return new RaftServerImpl(id, this, raftConf, properties);
   }
 
   private static RaftServerRpc initRaftServerRpc(
@@ -64,6 +75,11 @@ public class RaftServerProxy implements RaftServer {
       rpc.addPeers(raftConf.getPeers());
     }
     return rpc;
+  }
+
+  @Override
+  public RaftPeerId getId() {
+    return id;
   }
 
   @Override
@@ -90,24 +106,25 @@ public class RaftServerProxy implements RaftServer {
     return serverRpc;
   }
 
-  public RaftServerImpl getImpl() {
-    return impl;
+  public RaftServerImpl getImpl() throws IOException {
+    try {
+      return impl.get();
+    } catch (InterruptedException e) {
+      throw IOUtils.toInterruptedIOException(getId() + ": getImpl interrupted.", e);
+    } catch (ExecutionException e) {
+      throw IOUtils.asIOException(e);
+    }
   }
 
   @Override
   public void start() {
-    getImpl().start();
+    JavaUtils.getAndConsume(impl, RaftServerImpl::start);
     getServerRpc().start();
   }
 
   @Override
-  public RaftPeerId getId() {
-    return id;
-  }
-
-  @Override
   public void close() {
-    getImpl().shutdown();
+    JavaUtils.getAndConsume(impl, RaftServerImpl::shutdown);
     try {
       getServerRpc().close();
     } catch (IOException ignored) {
@@ -131,6 +148,46 @@ public class RaftServerProxy implements RaftServer {
   public RaftClientReply setConfiguration(SetConfigurationRequest request)
       throws IOException {
     return getImpl().setConfiguration(request);
+  }
+
+  @Override
+  public RaftClientReply reinitialize(ReinitializeRequest request) throws IOException {
+    return RaftServerImpl.waitForReply(getId(), request, reinitializeAsync(request));
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> reinitializeAsync(
+      ReinitializeRequest request) throws IOException {
+    if (!reinitializeRequest.compareAndSet(null, request)) {
+      throw new IOException("Another reinitialize is already in progress.");
+    }
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        final CompletableFuture<RaftServerImpl> oldImpl = impl;
+        impl = new CompletableFuture<>();
+        JavaUtils.getAndConsume(oldImpl, RaftServerImpl::shutdown);
+
+        final RaftConfiguration newConf = RaftConfiguration.newBuilder()
+            .setConf(request.getPeersInNewConf()).build();
+        final RaftServerImpl newImpl;
+        try {
+          newImpl = initImpl(newConf);
+        } catch (IOException ioe) {
+          final RaftException re = new RaftException(
+              "Failed to reinitialize, request=" + request, ioe);
+          impl.completeExceptionally(new IOException(
+              "Server " + getId() + " is not initialized.", re));
+          return new RaftClientReply(request, re);
+        }
+
+        getServerRpc().addPeers(newConf.getPeers());
+        newImpl.start();
+        impl.complete(newImpl);
+        return new RaftClientReply(request, (Message) null);
+      } finally {
+        reinitializeRequest.set(null);
+      }
+    });
   }
 
   /**
@@ -162,6 +219,10 @@ public class RaftServerProxy implements RaftServer {
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + ":" + getId().toString();
+    try {
+      return getImpl().toString();
+    } catch (IOException ignored) {
+      return getClass().getSimpleName() + ":" + getId();
+    }
   }
 }

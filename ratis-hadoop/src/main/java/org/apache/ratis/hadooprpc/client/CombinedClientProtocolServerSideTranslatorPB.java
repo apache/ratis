@@ -21,22 +21,21 @@ import java.io.IOException;
 
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.protocol.RaftClientProtocol;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.*;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.shaded.com.google.protobuf.RpcController;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
 
 @InterfaceAudience.Private
-public class RaftClientProtocolServerSideTranslatorPB
-    implements RaftClientProtocolPB {
-  private final RaftClientProtocol impl;
+public class CombinedClientProtocolServerSideTranslatorPB
+    implements CombinedClientProtocolPB {
+  private final RaftServer impl;
 
-  public RaftClientProtocolServerSideTranslatorPB(RaftClientProtocol impl) {
+  public CombinedClientProtocolServerSideTranslatorPB(RaftServer impl) {
     this.impl = impl;
   }
 
@@ -61,6 +60,20 @@ public class RaftClientProtocolServerSideTranslatorPB
     try {
       request = ClientProtoUtils.toSetConfigurationRequest(proto);
       final RaftClientReply reply = impl.setConfiguration(request);
+      return ClientProtoUtils.toRaftClientReplyProto(reply);
+    } catch(IOException ioe) {
+      throw new ServiceException(ioe);
+    }
+  }
+
+  @Override
+  public RaftClientReplyProto reinitialize(
+      RpcController controller, ReinitializeRequestProto proto)
+      throws ServiceException {
+    final ReinitializeRequest request;
+    try {
+      request = ClientProtoUtils.toReinitializeRequest(proto);
+      final RaftClientReply reply = impl.reinitialize(request);
       return ClientProtoUtils.toRaftClientReplyProto(reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);

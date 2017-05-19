@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 /** A client who sends requests to a raft service. */
@@ -86,10 +87,23 @@ final class RaftClientImpl implements RaftClient {
       throws IOException {
     final long callId = nextCallId();
     // also refresh the rpc proxies for these peers
-    clientRpc.addServers(Arrays.stream(peersInNewConf).filter(peers::contains)
-        .collect(Collectors.toCollection(ArrayList::new)));
+    addServers(peersInNewConf);
     return sendRequestWithRetry(() -> new SetConfigurationRequest(
         clientId, leaderId, callId, peersInNewConf));
+  }
+
+  @Override
+  public RaftClientReply reinitialize(RaftPeer[] peersInNewConf, RaftPeerId server)
+      throws IOException {
+    final long callId = nextCallId();
+    addServers(peersInNewConf);
+    return sendRequest(new ReinitializeRequest(
+        clientId, server, callId, peersInNewConf));
+  }
+
+  private void addServers(RaftPeer[] peersInNewConf) {
+    clientRpc.addServers(Arrays.stream(peersInNewConf).filter(peers::contains)
+        .collect(Collectors.toList()));
   }
 
   private RaftClientReply sendRequestWithRetry(
@@ -157,6 +171,10 @@ final class RaftClientImpl implements RaftClient {
       RaftPeerId newLeader) {
     LOG.debug("{}: suggested new leader: {}. Failed with {}", clientId,
         newLeader, ioe);
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("Stack trace", new Throwable("TRACE"));
+    }
+
     final RaftPeerId oldLeader = request.getServerId();
     if (newLeader == null && oldLeader.equals(leaderId)) {
       newLeader = CollectionUtils.next(oldLeader, CollectionUtils.as(peers, RaftPeer::getId));

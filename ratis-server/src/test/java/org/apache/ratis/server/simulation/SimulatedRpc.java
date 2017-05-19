@@ -22,7 +22,6 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerFactory;
 
 import java.util.Objects;

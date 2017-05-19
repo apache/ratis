@@ -27,21 +27,23 @@ import java.io.IOException;
 
 public class HadoopClientRpc implements RaftClientRpc {
 
-  private final PeerProxyMap<RaftClientProtocolClientSideTranslatorPB> proxies;
+  private final PeerProxyMap<CombinedClientProtocolClientSideTranslatorPB> proxies;
 
   public HadoopClientRpc(final Configuration conf) {
     this.proxies  = new PeerProxyMap<>(
-        p -> new RaftClientProtocolClientSideTranslatorPB(p.getAddress(), conf));
+        p -> new CombinedClientProtocolClientSideTranslatorPB(p.getAddress(), conf));
   }
 
   @Override
   public RaftClientReply sendRequest(RaftClientRequest request)
       throws IOException {
     final RaftPeerId serverId = request.getServerId();
-    final RaftClientProtocolClientSideTranslatorPB proxy =
+    final CombinedClientProtocolClientSideTranslatorPB proxy =
         proxies.getProxy(serverId);
     try {
-      if (request instanceof SetConfigurationRequest) {
+      if (request instanceof ReinitializeRequest) {
+        return proxy.reinitialize((ReinitializeRequest) request);
+      } else if (request instanceof SetConfigurationRequest) {
         return proxy.setConfiguration((SetConfigurationRequest) request);
       } else {
         return proxy.submitClientRequest(request);

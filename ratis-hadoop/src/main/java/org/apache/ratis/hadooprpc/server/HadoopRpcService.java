@@ -22,9 +22,8 @@ import org.apache.hadoop.ipc.ProtobufRpcEngineShaded;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.ratis.hadooprpc.HadoopConfigKeys;
 import org.apache.ratis.hadooprpc.Proxy;
-import org.apache.ratis.hadooprpc.client.RaftClientProtocolPB;
-import org.apache.ratis.hadooprpc.client.RaftClientProtocolServerSideTranslatorPB;
-import org.apache.ratis.protocol.RaftClientProtocol;
+import org.apache.ratis.hadooprpc.client.CombinedClientProtocolPB;
+import org.apache.ratis.hadooprpc.client.CombinedClientProtocolServerSideTranslatorPB;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
@@ -35,7 +34,7 @@ import org.apache.ratis.shaded.com.google.protobuf.BlockingService;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
-import org.apache.ratis.shaded.proto.hadoop.HadoopProtos.RaftClientProtocolService;
+import org.apache.ratis.shaded.proto.hadoop.HadoopProtos.CombinedClientProtocolService;
 import org.apache.ratis.shaded.proto.hadoop.HadoopProtos.RaftServerProtocolService;
 import org.apache.ratis.util.CheckedFunction;
 import org.apache.ratis.util.CodeInjectionForTesting;
@@ -138,13 +137,12 @@ public class HadoopRpcService implements RaftServerRpc {
         .build();
   }
 
-  private void addRaftClientProtocol(RaftClientProtocol clientProtocol, Configuration conf) {
-    final Class<?> protocol = RaftClientProtocolPB.class;
-    RPC.setProtocolEngine(conf,protocol, ProtobufRpcEngineShaded.class);
+  private void addRaftClientProtocol(RaftServer server, Configuration conf) {
+    final Class<?> protocol = CombinedClientProtocolPB.class;
+    RPC.setProtocolEngine(conf, protocol, ProtobufRpcEngineShaded.class);
 
-    final BlockingService service
-        = RaftClientProtocolService.newReflectiveBlockingService(
-        new RaftClientProtocolServerSideTranslatorPB(clientProtocol));
+    final BlockingService service = CombinedClientProtocolService.newReflectiveBlockingService(
+        new CombinedClientProtocolServerSideTranslatorPB(server));
     ipcServer.addProtocol(RPC.RpcKind.RPC_PROTOCOL_BUFFER, protocol, service);
   }
 

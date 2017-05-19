@@ -180,3 +180,9 @@ message SetConfigurationRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
   repeated RaftPeerProto peers = 2;
 }
+
+// reinitialize request
+message ReinitializeRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+  repeated RaftPeerProto peers = 2;
+}

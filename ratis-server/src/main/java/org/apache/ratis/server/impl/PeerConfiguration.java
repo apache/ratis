@@ -38,7 +38,6 @@ class PeerConfiguration {
       map.put(p.getId(), p);
     }
     this.peers = Collections.unmodifiableMap(map);
-    Preconditions.assertTrue(!this.peers.isEmpty());
   }
 
   Collection<RaftPeer> getPeers() {

@@ -445,7 +445,7 @@ public class RaftServerImpl implements RaftServerProtocol,
     return waitForReply(getId(), request, submitClientRequestAsync(request));
   }
 
-  private static RaftClientReply waitForReply(RaftPeerId id,
+  static RaftClientReply waitForReply(RaftPeerId id,
       RaftClientRequest request, CompletableFuture<RaftClientReply> future)
       throws IOException {
     try {

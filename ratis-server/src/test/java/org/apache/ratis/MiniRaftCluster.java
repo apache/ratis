@@ -32,7 +32,6 @@ import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.statemachine.BaseStateMachine;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.*;
-import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -335,7 +334,7 @@ public abstract class MiniRaftCluster {
 
   public RaftServerImpl getLeader() {
     final List<RaftServerImpl> leaders = new ArrayList<>();
-    getServersAliveStream()
+    getServerAliveStream()
         .filter(RaftServerImpl::isLeader)
         .forEach(s -> {
       if (leaders.isEmpty()) {
@@ -353,9 +352,9 @@ public abstract class MiniRaftCluster {
     });
     if (leaders.isEmpty()) {
       return null;
-    } else if (leaders.size() != 1) {
-      Assert.fail(printServers() + leaders.toString()
-          + "leaders.size() = " + leaders.size() + " != 1");
+    } else if (leaders.size() > 1) {
+      throw new IllegalStateException(printServers() + leaders
+          + ", leaders.size() = " + leaders.size() + " > 1");
     }
     return leaders.get(0);
   }
@@ -366,7 +365,7 @@ public abstract class MiniRaftCluster {
   }
 
   public List<RaftServerImpl> getFollowers() {
-    return getServersAliveStream()
+    return getServerAliveStream()
         .filter(RaftServerImpl::isFollower)
         .collect(Collectors.toList());
   }
@@ -376,13 +375,14 @@ public abstract class MiniRaftCluster {
   }
 
   public Iterable<RaftServerImpl> iterateServerImpls() {
-    return CollectionUtils.as(getServers(), RaftServerProxy::getImpl);
+    return CollectionUtils.as(getServers(), RaftTestUtil::getImplAsUnchecked);
   }
 
-  public Stream<RaftServerImpl> getServersAliveStream() {
-    return getServers().stream()
-        .map(RaftServerProxy::getImpl)
-        .filter(RaftServerImpl::isAlive);
+  public static Stream<RaftServerImpl> getServerStream(Collection<RaftServerProxy> servers) {
+    return servers.stream().map(RaftTestUtil::getImplAsUnchecked);
+  }
+  public Stream<RaftServerImpl> getServerAliveStream() {
+    return getServerStream(getServers()).filter(RaftServerImpl::isAlive);
   }
 
   public RaftServerProxy getServer(RaftPeerId id) {
@@ -408,7 +408,7 @@ public abstract class MiniRaftCluster {
 
   public void shutdown() {
     LOG.info("Stopping " + getClass().getSimpleName());
-    getServersAliveStream().map(RaftServerImpl::getProxy).forEach(RaftServerProxy::close);
+    getServerAliveStream().map(RaftServerImpl::getProxy).forEach(RaftServerProxy::close);
 
     if (ExitUtils.isTerminated()) {
       LOG.error("Test resulted in an unexpected exit",

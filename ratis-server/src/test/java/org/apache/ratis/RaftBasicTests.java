@@ -97,7 +97,7 @@ public abstract class RaftBasicTests {
     Thread.sleep(cluster.getMaxTimeout() + 100);
     LOG.info(cluster.printAllLogs());
 
-    cluster.getServersAliveStream()
+    cluster.getServerAliveStream()
         .map(s -> s.getState().getLog())
         .forEach(log -> RaftTestUtil.assertLogEntries(log,
             log.getEntries(1, Long.MAX_VALUE), 1, term, messages));

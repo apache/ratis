@@ -15,15 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.hadooprpc;
+package org.apache.ratis.util;
 
-public interface HadoopConstants {
-  String RAFT_SERVER_KERBEROS_PRINCIPAL_KEY
-      = "raft.server.kerberos.principal";
-  String RAFT_CLIENT_KERBEROS_PRINCIPAL_KEY
-      = "raft.client.kerberos.principal";
-  String RAFT_SERVER_PROTOCOL_NAME
-      = "org.apache.hadoop.raft.server.protocol.RaftServerProtocol";
-  String COMBINED_CLIENT_PROTOCOL_NAME
-      = "org.apache.ratis.hadooprpc.client.CombinedClientProtocol";
+import java.util.function.Supplier;
+
+/** Function with a throws-clause. */
+@FunctionalInterface
+public interface CheckedSupplier<OUTPUT, THROWABLE extends Throwable> {
+  /**
+   * The same as {@link Supplier#get()}
+   * except that this method is declared with a throws-clause.
+   */
+  OUTPUT get() throws THROWABLE;
 }

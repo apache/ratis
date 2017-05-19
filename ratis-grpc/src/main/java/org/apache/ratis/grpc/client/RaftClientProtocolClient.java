@@ -17,18 +17,22 @@
  */
 package org.apache.ratis.grpc.client;
 
+import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.shaded.io.grpc.ManagedChannel;
 import org.apache.ratis.shaded.io.grpc.ManagedChannelBuilder;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.ratis.shaded.proto.grpc.AdminProtocolServiceGrpc;
+import org.apache.ratis.shaded.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolServiceBlockingStub;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceBlockingStub;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceStub;
-import org.apache.ratis.grpc.RaftGrpcUtil;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.util.CheckedSupplier;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -38,6 +42,7 @@ public class RaftClientProtocolClient implements Closeable {
   private final ManagedChannel channel;
   private final RaftClientProtocolServiceBlockingStub blockingStub;
   private final RaftClientProtocolServiceStub asyncStub;
+  private final AdminProtocolServiceBlockingStub adminBlockingStub;
 
   public RaftClientProtocolClient(RaftPeer target) {
     this.target = target;
@@ -45,6 +50,7 @@ public class RaftClientProtocolClient implements Closeable {
         .usePlaintext(true).build();
     blockingStub = RaftClientProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftClientProtocolServiceGrpc.newStub(channel);
+    adminBlockingStub = AdminProtocolServiceGrpc.newBlockingStub(channel);
   }
 
   @Override
@@ -52,12 +58,22 @@ public class RaftClientProtocolClient implements Closeable {
     channel.shutdownNow();
   }
 
-  public RaftClientReplyProto setConfiguration(
+  RaftClientReplyProto reinitialize(
+      ReinitializeRequestProto request) throws IOException {
+    return blockingCall(() -> adminBlockingStub.reinitialize(request));
+  }
+
+  RaftClientReplyProto setConfiguration(
       SetConfigurationRequestProto request) throws IOException {
+    return blockingCall(() -> blockingStub.setConfiguration(request));
+  }
+
+  private static RaftClientReplyProto blockingCall(
+      CheckedSupplier<RaftClientReplyProto, StatusRuntimeException> supplier
+      ) throws IOException {
     try {
-      return blockingStub.setConfiguration(request);
+      return supplier.get();
     } catch (StatusRuntimeException e) {
-      // unwrap StatusRuntimeException
       throw RaftGrpcUtil.unwrapException(e);
     }
   }

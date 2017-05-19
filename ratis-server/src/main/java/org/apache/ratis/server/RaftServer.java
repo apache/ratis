@@ -19,10 +19,7 @@ package org.apache.ratis.server;
 
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
-import org.apache.ratis.protocol.RaftClientProtocol;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.server.impl.ServerImplUtils;
@@ -35,7 +32,8 @@ import java.util.Objects;
 
 /** Raft server interface */
 public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
-    RaftClientProtocol, RaftClientAsynchronousProtocol {
+    RaftClientProtocol, RaftClientAsynchronousProtocol,
+    AdminProtocol, AdminAsynchronousProtocol {
   /** @return the server ID. */
   RaftPeerId getId();
 
