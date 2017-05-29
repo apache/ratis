@@ -20,11 +20,16 @@
 
 package org.apache.ratis.util;
 
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import java.util.function.Function;
 
 public interface CollectionUtils {
+  Random random = new Random();
+
   /**
    *  @return the next element in the iteration right after the given element;
    *          if the given element is not in the iteration, return the first one
@@ -43,6 +48,25 @@ public interface CollectionUtils {
       current = next;
     }
     return first;
+  }
+
+  /**
+   *  @return a randomly picked element which is not the given element.
+   */
+  static <T> T random(final T given, List<T> list) {
+    Objects.requireNonNull(given, "given == null");
+    Preconditions.assertTrue(list != null && !list.isEmpty(), "c is null or empty");
+
+    if (list.size() == 1) {
+      return list.get(0);
+    }
+
+    T selected;
+    do {
+      selected = list.get(random.nextInt(list.size()));
+    } while (selected == given);
+
+    return selected;
   }
 
   static <INPUT, OUTPUT> Iterable<OUTPUT> as(

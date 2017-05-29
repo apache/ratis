@@ -26,12 +26,10 @@ import org.apache.ratis.protocol.*;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 /** A client who sends requests to a raft service. */
@@ -177,7 +175,8 @@ final class RaftClientImpl implements RaftClient {
 
     final RaftPeerId oldLeader = request.getServerId();
     if (newLeader == null && oldLeader.equals(leaderId)) {
-      newLeader = CollectionUtils.next(oldLeader, CollectionUtils.as(peers, RaftPeer::getId));
+      newLeader = CollectionUtils.random(oldLeader,
+          peers.stream().map(RaftPeer::getId).collect(Collectors.toList()));
     }
     if (newLeader != null && oldLeader.equals(leaderId)) {
       LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);

@@ -46,7 +46,7 @@ public abstract class RaftNotLeaderExceptionBaseTest {
 
   public static final Logger LOG =
       LoggerFactory.getLogger(RaftNotLeaderExceptionBaseTest.class);
-  public static final int NUM_PEERS = 3;
+  public static final int NUM_PEERS = 5;
 
   @Rule
   public Timeout globalTimeout = new Timeout(60 * 1000);
@@ -70,6 +70,19 @@ public abstract class RaftNotLeaderExceptionBaseTest {
 
   @Test
   public void testHandleNotLeaderException() throws Exception {
+    testHandleNotLeaderException(false);
+  }
+
+  /**
+   * Test handle both IOException and NotLeaderException
+   */
+  @Test
+  public void testHandleNotLeaderAndIOException() throws Exception {
+    testHandleNotLeaderException(true);
+  }
+
+  private void testHandleNotLeaderException(boolean killNewLeader)
+      throws Exception {
     RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = cluster.getLeader().getId();
     final RaftClient client = cluster.createClient(leaderId);
@@ -80,6 +93,11 @@ public abstract class RaftNotLeaderExceptionBaseTest {
     // enforce leader change
     RaftPeerId newLeader = RaftTestUtil.changeLeader(cluster, leaderId);
     Assert.assertNotEquals(leaderId, newLeader);
+
+    if (killNewLeader) {
+      // kill the new leader
+      cluster.killServer(newLeader);
+    }
 
     RaftClientRpc rpc = client.getClientRpc();
     reply= null;
