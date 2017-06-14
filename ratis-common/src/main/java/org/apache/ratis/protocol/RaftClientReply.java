@@ -32,9 +32,10 @@ public class RaftClientReply extends RaftClientMessage {
   private final RaftException exception;
   private final Message message;
 
-  public RaftClientReply(ClientId clientId, RaftPeerId serverId, long callId,
-      boolean success, Message message, RaftException exception) {
-    super(clientId, serverId);
+  public RaftClientReply(ClientId clientId, RaftPeerId serverId,
+      RaftGroupId groupId, long callId, boolean success, Message message,
+      RaftException exception) {
+    super(clientId, serverId, groupId);
     this.success = success;
     this.callId = callId;
     this.message = message;
@@ -43,13 +44,13 @@ public class RaftClientReply extends RaftClientMessage {
 
   public RaftClientReply(RaftClientRequest request,
       RaftException exception) {
-    this(request.getClientId(), request.getServerId(), request.getCallId(),
-        false, null, exception);
+    this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
+        request.getCallId(), false, null, exception);
   }
 
   public RaftClientReply(RaftClientRequest request, Message message) {
-    this(request.getClientId(), request.getServerId(), request.getCallId(),
-        true, message, null);
+    this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
+        request.getCallId(), true, message, null);
   }
 
   @Override

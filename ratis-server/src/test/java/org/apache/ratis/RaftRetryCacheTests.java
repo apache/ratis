@@ -88,7 +88,7 @@ public abstract class RaftRetryCacheTests {
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
-        callId, new RaftTestUtil.SimpleMessage("message"));
+        cluster.getGroupId(), callId, new RaftTestUtil.SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertEquals(callId, reply.getCallId());
     Assert.assertTrue(reply.isSuccess());
@@ -132,7 +132,7 @@ public abstract class RaftRetryCacheTests {
     RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
-        callId, new RaftTestUtil.SimpleMessage("message"));
+        cluster.getGroupId(), callId, new RaftTestUtil.SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertEquals(callId, reply.getCallId());
     Assert.assertTrue(reply.isSuccess());
@@ -144,7 +144,8 @@ public abstract class RaftRetryCacheTests {
         asList(change.newPeers)).allPeersInNewConf;
     // trigger setConfiguration
     SetConfigurationRequest request = new SetConfigurationRequest(
-        client.getId(), cluster.getLeader().getId(), DEFAULT_CALLID, allPeers);
+        client.getId(), cluster.getLeader().getId(), cluster.getGroupId(),
+        DEFAULT_CALLID, allPeers);
     LOG.info("Start changing the configuration: {}", request);
     cluster.getLeader().setConfiguration(request);
 
@@ -152,7 +153,7 @@ public abstract class RaftRetryCacheTests {
     final RaftPeerId newLeaderId = cluster.getLeader().getId();
     Assert.assertNotEquals(leaderId, newLeaderId);
     // same clientId and callId in the request
-    r = new RaftClientRequest(client.getId(), newLeaderId,
+    r = new RaftClientRequest(client.getId(), newLeaderId, cluster.getGroupId(),
         callId, new RaftTestUtil.SimpleMessage("message"));
     for (int i = 0; i < 10; i++) {
       try {

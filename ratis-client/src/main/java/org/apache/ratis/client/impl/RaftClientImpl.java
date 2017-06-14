@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.*;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
@@ -43,16 +44,18 @@ final class RaftClientImpl implements RaftClient {
   private final ClientId clientId;
   private final RaftClientRpc clientRpc;
   private final Collection<RaftPeer> peers;
+  private final RaftGroupId groupId;
   private final TimeDuration retryInterval;
 
   private volatile RaftPeerId leaderId;
 
-  RaftClientImpl(ClientId clientId, Collection<RaftPeer> peers,
+  RaftClientImpl(ClientId clientId, RaftGroup group,
       RaftPeerId leaderId, RaftClientRpc clientRpc,
       TimeDuration retryInterval) {
     this.clientId = clientId;
     this.clientRpc = clientRpc;
-    this.peers = peers;
+    this.peers = new ArrayList<>(group.getPeers());
+    this.groupId = group.getGroupId();
     this.leaderId = leaderId != null? leaderId : peers.iterator().next().getId();
     this.retryInterval = retryInterval;
 
@@ -77,7 +80,7 @@ final class RaftClientImpl implements RaftClient {
   private RaftClientReply send(Message message, boolean readOnly) throws IOException {
     final long callId = nextCallId();
     return sendRequestWithRetry(() -> new RaftClientRequest(
-        clientId, leaderId, callId, message, readOnly));
+        clientId, leaderId, groupId, callId, message, readOnly));
   }
 
   @Override
@@ -87,7 +90,7 @@ final class RaftClientImpl implements RaftClient {
     // also refresh the rpc proxies for these peers
     addServers(peersInNewConf);
     return sendRequestWithRetry(() -> new SetConfigurationRequest(
-        clientId, leaderId, callId, peersInNewConf));
+        clientId, leaderId, groupId, callId, peersInNewConf));
   }
 
   @Override
@@ -96,7 +99,7 @@ final class RaftClientImpl implements RaftClient {
     final long callId = nextCallId();
     addServers(peersInNewConf);
     return sendRequest(new ReinitializeRequest(
-        clientId, server, callId, peersInNewConf));
+        clientId, server, groupId, callId, peersInNewConf));
   }
 
   private void addServers(RaftPeer[] peersInNewConf) {

@@ -86,8 +86,9 @@ public class AppendStreamer implements Closeable {
   private volatile RunningState running = RunningState.RUNNING;
   private final ExceptionAndRetry exceptionAndRetry;
   private final Sender senderThread;
+  private final RaftGroupId groupId;
 
-  AppendStreamer(RaftProperties prop, Collection<RaftPeer> peers,
+  AppendStreamer(RaftProperties prop, RaftGroup group,
       RaftPeerId leaderId, ClientId clientId) {
     this.clientId = clientId;
     maxPendingNum = GrpcConfigKeys.OutputStream.outstandingAppendsMax(prop);
@@ -95,11 +96,12 @@ public class AppendStreamer implements Closeable {
     ackQueue = new ConcurrentLinkedDeque<>();
     exceptionAndRetry = new ExceptionAndRetry(prop);
 
-    this.peers = peers.stream().collect(
+    this.groupId = group.getGroupId();
+    this.peers = group.getPeers().stream().collect(
         Collectors.toMap(RaftPeer::getId, Function.identity()));
     proxyMap = new PeerProxyMap<>(
         raftPeer -> new RaftClientProtocolProxy(raftPeer, ResponseHandler::new));
-    proxyMap.addPeers(peers);
+    proxyMap.addPeers(group.getPeers());
     refreshLeaderProxy(leaderId, null);
 
     senderThread = new Sender();
@@ -155,7 +157,7 @@ public class AppendStreamer implements Closeable {
     if (isRunning()) {
       // wrap the current buffer into a RaftClientRequestProto
       final RaftClientRequestProto request = genRaftClientRequestProto(
-          clientId, leaderId, seqNum, content, false);
+          clientId, leaderId, groupId, seqNum, content, false);
       dataQueue.offer(request);
       this.notifyAll();
     } else {
@@ -361,8 +363,8 @@ public class AppendStreamer implements Closeable {
         RaftClientRequestProto newRequest = RaftClientRequestProto.newBuilder()
             .setMessage(oldRequest.getMessage())
             .setReadOnly(oldRequest.getReadOnly())
-            .setRpcRequest(toRaftRpcRequestProtoBuilder(
-                clientId.toBytes(), newLeader.toBytes(), r.getCallId()))
+            .setRpcRequest(toRaftRpcRequestProtoBuilder(clientId.toBytes(),
+                newLeader.toBytes(), groupId.toBytes(), r.getCallId()))
             .build();
         dataQueue.offerFirst(newRequest);
       }

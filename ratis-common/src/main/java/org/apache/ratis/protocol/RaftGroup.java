@@ -17,28 +17,39 @@
  */
 package org.apache.ratis.protocol;
 
-import java.util.UUID;
+import org.apache.ratis.util.Preconditions;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * Id of Raft client. Should be globally unique so that raft peers can use it
- * to correctly identify retry requests from the same client.
+ * Description of a raft group. It has a globally unique ID and a group of raft
+ * peers.
  */
-public class ClientId extends RaftId {
-  public static ClientId createId() {
-    UUID uuid = UUID.randomUUID();
-    return new ClientId(uuid);
+public class RaftGroup {
+  /** UTF-8 string as id */
+  private final RaftGroupId groupId;
+  /** The group of raft peers */
+  private final List<RaftPeer> peers;
+
+  public RaftGroup(RaftGroupId groupId, RaftPeer[] peers) {
+    Preconditions.assertTrue(peers != null);
+    this.groupId = groupId;
+    this.peers = Collections.unmodifiableList(new ArrayList<>(Arrays.asList(peers)));
   }
 
-  public ClientId(byte[] data) {
-    super(data);
+  public RaftGroupId getGroupId() {
+    return groupId;
   }
 
-  private ClientId(UUID uuid) {
-    super(uuid);
+  public List<RaftPeer> getPeers() {
+    return peers;
   }
 
   @Override
   public String toString() {
-    return "client-" + super.toString();
+    return groupId + ":" + Arrays.asList(peers);
   }
 }

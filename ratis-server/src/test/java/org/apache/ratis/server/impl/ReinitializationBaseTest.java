@@ -22,6 +22,8 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.LogUtils;
@@ -31,9 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -59,11 +59,11 @@ public abstract class ReinitializationBaseTest {
     LOG.info("Start testReinitialize" + cluster.printServers());
 
     // Start server with an empty conf
-    final RaftConfiguration emptyConf = MiniRaftCluster.initConfiguration(Collections.emptyList());
+    RaftGroup group = new RaftGroup(RaftGroupId.createId(), new RaftPeer[0]);
 
-    final List<RaftPeerId> ids = Arrays.asList(MiniRaftCluster.generateIds(3, 0))
-        .stream().map(RaftPeerId::valueOf).collect(Collectors.toList());
-    ids.stream().forEach(id -> cluster.putNewServer(id, emptyConf, true));
+    final List<RaftPeerId> ids = Arrays.stream(MiniRaftCluster.generateIds(3, 0))
+        .map(RaftPeerId::valueOf).collect(Collectors.toList());
+    ids.forEach(id -> cluster.putNewServer(id, group, true));
     LOG.info("putNewServer: " + cluster.printServers());
 
     cluster.start();
@@ -76,7 +76,8 @@ public abstract class ReinitializationBaseTest {
     // Reinitialize servers
     final RaftPeer[] peers = cluster.getPeers().toArray(RaftPeer.EMPTY_PEERS);
     for(RaftPeer p : peers) {
-      final RaftClient client = cluster.createClient(p.getId(), new ArrayList<>(Arrays.asList(p)));
+      final RaftClient client = cluster.createClient(p.getId(),
+          new RaftGroup(RaftGroupId.createId(), new RaftPeer[]{p}));
       client.reinitialize(peers, p.getId());
     }
     Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, true));

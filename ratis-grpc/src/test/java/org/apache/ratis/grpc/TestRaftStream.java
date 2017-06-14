@@ -57,7 +57,6 @@ public class TestRaftStream {
 
   private MiniRaftClusterWithGRpc cluster;
 
-
   @After
   public void tearDown() {
     if (cluster != null) {
@@ -91,7 +90,7 @@ public class TestRaftStream {
     final long seed = r.nextLong();
     r.setSeed(seed);
     try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
-        cluster.getPeers(), leader.getId())) {
+        cluster.getGroup(), leader.getId())) {
       for (int i = 0; i < 500; i++) { // generate 500 requests
         out.write(toBytes(r.nextInt()));
       }
@@ -128,7 +127,7 @@ public class TestRaftStream {
 
     RaftServerImpl leader = waitForLeader(cluster);
     RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
-        cluster.getPeers(), leader.getId());
+        cluster.getGroup(), leader.getId());
 
     int[] lengths = new int[]{1, 500, 1023, 1024, 1025, 2048, 3000, 3072};
     ByteValue[] values = new ByteValue[lengths.length];
@@ -207,7 +206,7 @@ public class TestRaftStream {
     RaftServerImpl leader = waitForLeader(cluster);
 
     RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
-        cluster.getPeers(), leader.getId());
+        cluster.getGroup(), leader.getId());
 
     byte[] b1 = new byte[ByteValue.BUFFERSIZE / 2];
     Arrays.fill(b1, (byte) 1);
@@ -273,7 +272,7 @@ public class TestRaftStream {
       LOG.info("Writer thread starts");
       int count = 0;
       try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
-          cluster.getPeers(), leader.getId())) {
+          cluster.getGroup(), leader.getId())) {
         while (running.get()) {
           out.write(toBytes(count++));
           Thread.sleep(10);

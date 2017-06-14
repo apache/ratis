@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.client;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.ProtoUtils;
@@ -40,12 +41,12 @@ public class RaftOutputStream extends OutputStream {
   private boolean closed = false;
 
   public RaftOutputStream(RaftProperties prop, ClientId clientId,
-      Collection<RaftPeer> peers, RaftPeerId leaderId) {
+      RaftGroup group, RaftPeerId leaderId) {
     final int bufferSize = GrpcConfigKeys.OutputStream.bufferSize(prop).getSizeInt();
     buf = new byte[bufferSize];
     count = 0;
     this.clientId = clientId;
-    streamer = new AppendStreamer(prop, peers, leaderId, clientId);
+    streamer = new AppendStreamer(prop, group, leaderId, clientId);
   }
 
   @Override

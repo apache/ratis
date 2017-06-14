@@ -26,13 +26,13 @@ public class RaftClientRequest extends RaftClientMessage {
   private final boolean readOnly;
 
   public RaftClientRequest(ClientId clientId, RaftPeerId serverId,
-      long callId, Message message) {
-    this(clientId, serverId, callId, message, false);
+      RaftGroupId groupId, long callId, Message message) {
+    this(clientId, serverId, groupId, callId, message, false);
   }
 
   public RaftClientRequest(ClientId clientId, RaftPeerId serverId,
-      long callId, Message message, boolean readOnly) {
-    super(clientId, serverId);
+      RaftGroupId groupId, long callId, Message message, boolean readOnly) {
+    super(clientId, serverId, groupId);
     this.callId = callId;
     this.message = message;
     this.readOnly = readOnly;

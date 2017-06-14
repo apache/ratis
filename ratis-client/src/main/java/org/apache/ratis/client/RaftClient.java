@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Objects;
 
 /** A client who sends requests to a raft service. */
@@ -64,7 +63,7 @@ public interface RaftClient extends Closeable {
   class Builder {
     private ClientId clientId;
     private RaftClientRpc clientRpc;
-    private Collection<RaftPeer> servers;
+    private RaftGroup group;
     private RaftPeerId leaderId;
     private RaftProperties properties;
     private TimeDuration retryInterval = RaftClientConfigKeys.Rpc.TIMEOUT_DEFAULT;
@@ -80,7 +79,7 @@ public interface RaftClient extends Closeable {
         retryInterval = RaftClientConfigKeys.Rpc.timeout(properties);
       }
       return ClientImplUtils.newRaftClient(clientId,
-          Objects.requireNonNull(servers, "The 'servers' field is not initialized."),
+          Objects.requireNonNull(group, "The 'servers' field is not initialized."),
           leaderId,
           Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."),
           retryInterval);
@@ -93,8 +92,8 @@ public interface RaftClient extends Closeable {
     }
 
     /** Set servers. */
-    public Builder setServers(Collection<RaftPeer> servers) {
-      this.servers = servers;
+    public Builder setRaftGroup(RaftGroup group) {
+      this.group = group;
       return this;
     }
 

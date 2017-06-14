@@ -21,9 +21,8 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.impl.RaftConfiguration;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.statemachine.StateMachine;
@@ -82,11 +81,11 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
 
   @Override
   protected RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
+      RaftPeerId id, StateMachine stateMachine, RaftGroup group,
       RaftProperties properties) throws IOException {
     serverRequestReply.addPeer(id);
     client2serverRequestReply.addPeer(id);
-    return ServerImplUtils.newRaftServer(id, stateMachine, conf, properties,
+    return ServerImplUtils.newRaftServer(id, group, stateMachine, properties,
         parameters);
   }
 

@@ -21,6 +21,8 @@ import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.RpcType;
@@ -75,9 +77,10 @@ public abstract class MiniRaftCluster {
       RaftTestUtil.setBlockRequestsFrom(src, block);
     }
 
-    public static int getPort(RaftPeerId id, RaftConfiguration conf) {
-      final RaftPeer peer = conf.getPeer(id);
-      final String address = peer != null? peer.getAddress(): null;
+    public static int getPort(RaftPeerId id, RaftGroup group) {
+      final List<RaftPeer> peers = group.getPeers().stream()
+          .filter(raftPeer -> raftPeer.getId().equals(id)).collect(Collectors.toList());
+      final String address = peers.isEmpty() ? null : peers.get(0).getAddress();
       final InetSocketAddress inetAddress = address != null?
           NetUtils.createSocketAddr(address): NetUtils.createLocalServerAddress();
       return inetAddress.getPort();
@@ -96,13 +99,12 @@ public abstract class MiniRaftCluster {
     }
   }
 
-  public static RaftConfiguration initConfiguration(Collection<String> ids) {
-    return RaftConfiguration.newBuilder()
-        .setConf(ids.stream()
-            .map(id -> RaftPeerId.valueOf(id))
-            .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
-            .collect(Collectors.toList()))
-        .build();
+  public static RaftGroup initRaftGroup(Collection<String> ids) {
+    List<RaftPeer> peers = ids.stream()
+        .map(RaftPeerId::valueOf)
+        .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
+        .collect(Collectors.toList());
+    return new RaftGroup(RaftGroupId.createId(), peers.toArray(new RaftPeer[peers.size()]));
   }
 
   private static String getBaseDirectory() {
@@ -125,14 +127,14 @@ public abstract class MiniRaftCluster {
   }
 
   protected final ClientFactory clientFactory;
-  protected RaftConfiguration conf;
+  protected RaftGroup group;
   protected final RaftProperties properties;
   protected final Parameters parameters;
   private final String testBaseDir;
   protected final Map<RaftPeerId, RaftServerProxy> servers = new ConcurrentHashMap<>();
 
   protected MiniRaftCluster(String[] ids, RaftProperties properties, Parameters parameters) {
-    this.conf = initConfiguration(Arrays.asList(ids));
+    this.group = initRaftGroup(Arrays.asList(ids));
     this.properties = new RaftProperties(properties);
     this.parameters = parameters;
 
@@ -146,17 +148,17 @@ public abstract class MiniRaftCluster {
 
   public MiniRaftCluster initServers() {
     if (servers.isEmpty()) {
-      putNewServers(CollectionUtils.as(conf.getPeers(), RaftPeer::getId), true);
+      putNewServers(CollectionUtils.as(group.getPeers(), RaftPeer::getId), true);
     }
     return this;
   }
 
   private RaftServerProxy putNewServer(RaftPeerId id, boolean format) {
-    return putNewServer(id, conf, format);
+    return putNewServer(id, group, format);
   }
 
-  public RaftServerProxy putNewServer(RaftPeerId id, RaftConfiguration raftConf, boolean format) {
-    final RaftServerProxy s = newRaftServer(id, raftConf, format);
+  public RaftServerProxy putNewServer(RaftPeerId id, RaftGroup group, boolean format) {
+    final RaftServerProxy s = newRaftServer(id, group, format);
     Preconditions.assertTrue(servers.put(id, s) == null);
     return s;
   }
@@ -197,11 +199,8 @@ public abstract class MiniRaftCluster {
     return RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
   }
 
-  public RaftConfiguration getConf() {
-    return conf;
-  }
-
-  private RaftServerProxy newRaftServer(RaftPeerId id, RaftConfiguration raftConf, boolean format) {
+  private RaftServerProxy newRaftServer(RaftPeerId id, RaftGroup group,
+      boolean format) {
     try {
       final String dirStr = testBaseDir + id;
       if (format) {
@@ -210,14 +209,14 @@ public abstract class MiniRaftCluster {
       final RaftProperties prop = new RaftProperties(properties);
       RaftServerConfigKeys.setStorageDir(prop, dirStr);
       final StateMachine stateMachine = getStateMachine4Test(properties);
-      return newRaftServer(id, stateMachine, raftConf, prop);
+      return newRaftServer(id, stateMachine, group, prop);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
   protected abstract RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
+      RaftPeerId id, StateMachine stateMachine, RaftGroup group,
       RaftProperties properties) throws IOException;
 
   static StateMachine getStateMachine4Test(RaftProperties properties) {
@@ -259,9 +258,9 @@ public abstract class MiniRaftCluster {
 
     final Collection<RaftPeer> newPeers = toRaftPeers(newServers);
     final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
-    newPeers.addAll(conf.getPeers());
-    conf = RaftConfiguration.newBuilder().setConf(newPeers).setLogEntryIndex(0).build();
+    newPeers.addAll(group.getPeers());
     RaftPeer[] p = newPeers.toArray(new RaftPeer[newPeers.size()]);
+    group = new RaftGroup(group.getGroupId(), p);
     return new PeerChanges(p, np, new RaftPeer[0]);
   }
 
@@ -280,7 +279,7 @@ public abstract class MiniRaftCluster {
    */
   public PeerChanges removePeers(int number, boolean removeLeader,
       Collection<RaftPeer> excluded) {
-    Collection<RaftPeer> peers = new ArrayList<>(conf.getPeers());
+    Collection<RaftPeer> peers = new ArrayList<>(group.getPeers());
     List<RaftPeer> removedPeers = new ArrayList<>(number);
     if (removeLeader) {
       final RaftPeer leader = toRaftPeer(getLeader());
@@ -298,8 +297,8 @@ public abstract class MiniRaftCluster {
         removed++;
       }
     }
-    conf = RaftConfiguration.newBuilder().setConf(peers).setLogEntryIndex(0).build();
     RaftPeer[] p = peers.toArray(new RaftPeer[peers.size()]);
+    group = new RaftGroup(group.getGroupId(), p);
     return new PeerChanges(p, new RaftPeer[0],
         removedPeers.toArray(new RaftPeer[removedPeers.size()]));
   }
@@ -393,13 +392,17 @@ public abstract class MiniRaftCluster {
     return toRaftPeers(getServers());
   }
 
-  public RaftClient createClient(RaftPeerId leaderId) {
-    return createClient(leaderId, conf.getPeers());
+  public RaftGroup getGroup() {
+    return group;
   }
 
-  public RaftClient createClient(RaftPeerId leaderId, Collection<RaftPeer> servers) {
+  public RaftClient createClient(RaftPeerId leaderId) {
+    return createClient(leaderId, group);
+  }
+
+  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group) {
     return RaftClient.newBuilder()
-        .setServers(servers)
+        .setRaftGroup(group)
         .setLeaderId(leaderId)
         .setClientRpc(clientFactory.newRaftClientRpc())
         .setProperties(properties)
@@ -451,4 +454,8 @@ public abstract class MiniRaftCluster {
 
   /** Block/unblock the requests sent from the given source. */
   public abstract void setBlockRequestsFrom(String src, boolean block);
+
+  public RaftGroupId getGroupId() {
+    return group.getGroupId();
+  }
 }

@@ -82,16 +82,18 @@ public class RaftServerImpl implements RaftServerProtocol,
 
   private final RetryCache retryCache;
 
-  RaftServerImpl(RaftPeerId id, RaftServerProxy proxy,
-      RaftConfiguration raftConf, RaftProperties properties)
-      throws IOException {
+  private final RaftGroupId groupId;
+
+  RaftServerImpl(RaftPeerId id, RaftGroup group, RaftServerProxy proxy,
+      RaftProperties properties) throws IOException {
+    this.groupId = group.getGroupId();
     this.lifeCycle = new LifeCycle(id);
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toInt(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
     Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.proxy = proxy;
-    this.state = new ServerState(id, raftConf, properties, this, proxy.getStateMachine());
+    this.state = new ServerState(id, group, properties, this, proxy.getStateMachine());
     this.retryCache = initRetryCache(properties);
   }
 
@@ -120,6 +122,10 @@ public class RaftServerImpl implements RaftServerProtocol,
   int getRandomTimeoutMs() {
     return minTimeoutMs + ThreadLocalRandom.current().nextInt(
         maxTimeoutMs - minTimeoutMs + 1);
+  }
+
+  RaftGroupId getGroupId() {
+    return groupId;
   }
 
   StateMachine getStateMachine() {
@@ -582,7 +588,7 @@ public class RaftServerImpl implements RaftServerProtocol,
         shouldShutdown = true;
       }
       reply = ServerProtoUtils.toRequestVoteReplyProto(candidateId, getId(),
-          voteGranted, state.getCurrentTerm(), shouldShutdown);
+          groupId, voteGranted, state.getCurrentTerm(), shouldShutdown);
       if (LOG.isDebugEnabled()) {
         LOG.debug("{} replies to vote request: {}. Peer's state: {}",
             getId(), ProtoUtils.toString(reply), state);
@@ -671,7 +677,7 @@ public class RaftServerImpl implements RaftServerProtocol,
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-            leaderId, getId(), currentTerm, nextIndex, NOT_LEADER);
+            leaderId, getId(), groupId, currentTerm, nextIndex, NOT_LEADER);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: do not recognize leader. Reply: {}",
               getId(), ProtoUtils.toString(reply));
@@ -697,7 +703,7 @@ public class RaftServerImpl implements RaftServerProtocol,
       // last index should have been committed.
       if (previous != null && !containPrevious(previous)) {
         final AppendEntriesReplyProto reply =
-            ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(),
+            ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(), groupId,
                 currentTerm, Math.min(nextIndex, previous.getIndex()), INCONSISTENCY);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: inconsistency entries. Leader previous:{}, Reply:{}",
@@ -710,7 +716,7 @@ public class RaftServerImpl implements RaftServerProtocol,
       state.updateConfiguration(entries);
       state.updateStatemachine(leaderCommit, currentTerm);
     }
-    if (entries != null && entries.length > 0) {
+    if (entries.length > 0) {
       try {
         state.getLog().logSync();
       } catch (InterruptedException e) {
@@ -727,7 +733,7 @@ public class RaftServerImpl implements RaftServerProtocol,
       }
     }
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-        leaderId, getId(), currentTerm, nextIndex, SUCCESS);
+        leaderId, getId(), groupId, currentTerm, nextIndex, SUCCESS);
     logAppendEntries(isHeartbeat,
         () -> getId() + ": succeeded to handle AppendEntries. Reply: "
             + ServerProtoUtils.toString(reply));
@@ -767,7 +773,7 @@ public class RaftServerImpl implements RaftServerProtocol,
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         final InstallSnapshotReplyProto reply = ServerProtoUtils
-            .toInstallSnapshotReplyProto(leaderId, getId(), currentTerm,
+            .toInstallSnapshotReplyProto(leaderId, getId(), groupId, currentTerm,
                 request.getRequestIndex(), InstallSnapshotResult.NOT_LEADER);
         LOG.debug("{}: do not recognize leader for installing snapshot." +
             " Reply: {}", getId(), reply);
@@ -804,14 +810,14 @@ public class RaftServerImpl implements RaftServerProtocol,
       LOG.info("{}: successfully install the whole snapshot-{}", getId(),
           lastIncludedIndex);
     }
-    return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getId(),
+    return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getId(), groupId,
         currentTerm, request.getRequestIndex(), InstallSnapshotResult.SUCCESS);
   }
 
   AppendEntriesRequestProto createAppendEntriesRequest(long leaderTerm,
       RaftPeerId targetId, TermIndex previous, List<LogEntryProto> entries,
       boolean initializing) {
-    return ServerProtoUtils.toAppendEntriesRequestProto(getId(), targetId,
+    return ServerProtoUtils.toAppendEntriesRequestProto(getId(), targetId, groupId,
         leaderTerm, entries, state.getLog().getLastCommittedIndex(),
         initializing, previous);
   }
@@ -822,15 +828,15 @@ public class RaftServerImpl implements RaftServerProtocol,
     OptionalLong totalSize = snapshot.getFiles().stream()
         .mapToLong(FileInfo::getFileSize).reduce(Long::sum);
     assert totalSize.isPresent();
-    return ServerProtoUtils.toInstallSnapshotRequestProto(getId(), targetId,
+    return ServerProtoUtils.toInstallSnapshotRequestProto(getId(), targetId, groupId,
         requestId, requestIndex, state.getCurrentTerm(), snapshot.getTermIndex(),
         chunks, totalSize.getAsLong(), done);
   }
 
   synchronized RequestVoteRequestProto createRequestVoteRequest(
       RaftPeerId targetId, long term, TermIndex lastEntry) {
-    return ServerProtoUtils.toRequestVoteRequestProto(getId(), targetId, term,
-        lastEntry);
+    return ServerProtoUtils.toRequestVoteRequestProto(getId(), targetId,
+        groupId, term, lastEntry);
   }
 
   public synchronized void submitLocalSyncEvent() {
@@ -857,13 +863,13 @@ public class RaftServerImpl implements RaftServerProtocol,
     stateMachineFuture.whenComplete((reply, exception) -> {
       final RaftClientReply r;
       if (exception == null) {
-        r = new RaftClientReply(clientId, serverId, callId, true, reply, null);
+        r = new RaftClientReply(clientId, serverId, groupId, callId, true, reply, null);
       } else {
         // the exception is coming from the state machine. wrap it into the
         // reply as a StateMachineException
         final StateMachineException e = new StateMachineException(
             getId().toString(), exception);
-        r = new RaftClientReply(clientId, serverId, callId, false, null, e);
+        r = new RaftClientReply(clientId, serverId, groupId, callId, false, null, e);
       }
       // update retry cache
       cacheEntry.updateResult(r);

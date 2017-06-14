@@ -26,6 +26,15 @@ message RaftPeerProto {
   string address = 2; // e.g. IP address, hostname etc.
 }
 
+message RaftGroupIdProto {
+  bytes id = 1;
+}
+
+message RaftGroupProto {
+  RaftGroupIdProto groupId = 1;
+  repeated RaftPeerProto peers = 2;
+}
+
 message RaftConfigurationProto {
   repeated RaftPeerProto peers = 1; // the peers in the current or new conf
   repeated RaftPeerProto oldPeers = 2; // the peers in the old conf
@@ -66,6 +75,7 @@ message RaftRpcRequestProto {
   bytes requestorId = 1;
   bytes replyId = 2;
   uint64 callId = 3;
+  RaftGroupIdProto raftGroupId = 4;
 }
 
 message RaftRpcReplyProto {
@@ -73,6 +83,7 @@ message RaftRpcReplyProto {
   bytes replyId = 2;
   uint64 callId = 3;
   bool success = 4;
+  RaftGroupIdProto raftGroupId = 5;
 }
 
 message FileChunkProto {

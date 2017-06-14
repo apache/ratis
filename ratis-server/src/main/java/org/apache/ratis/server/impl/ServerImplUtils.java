@@ -19,9 +19,8 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.StateMachine;
 
@@ -29,18 +28,10 @@ import java.io.IOException;
 
 /** Server utilities for internal use. */
 public class ServerImplUtils {
-  public static RaftServer newRaftServer(
-      RaftPeerId id, StateMachine stateMachine, Iterable<RaftPeer> peers,
-      RaftProperties properties, Parameters parameters) throws IOException {
-    return newRaftServer(id, stateMachine,
-        RaftConfiguration.newBuilder().setConf(peers).build(),
-        properties, parameters);
-  }
-
   public static RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine stateMachine, RaftConfiguration conf,
+      RaftPeerId id, RaftGroup group, StateMachine stateMachine,
       RaftProperties properties, Parameters parameters) throws IOException {
-    return new RaftServerProxy(id, stateMachine, conf, properties, parameters);
+    return new RaftServerProxy(id, stateMachine, group, properties, parameters);
   }
 
   public static TermIndex newTermIndex(long term, long index) {

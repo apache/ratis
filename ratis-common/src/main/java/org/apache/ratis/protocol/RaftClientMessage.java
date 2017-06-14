@@ -20,10 +20,13 @@ package org.apache.ratis.protocol;
 public abstract class RaftClientMessage implements RaftRpcMessage {
   private final ClientId clientId;
   private final RaftPeerId serverId;
+  private final RaftGroupId groupId;
 
-  public RaftClientMessage(ClientId clientId, RaftPeerId serverId) {
+  public RaftClientMessage(ClientId clientId, RaftPeerId serverId,
+      RaftGroupId groupId) {
     this.clientId = clientId;
     this.serverId = serverId;
+    this.groupId = groupId;
   }
 
   @Override
@@ -45,7 +48,13 @@ public abstract class RaftClientMessage implements RaftRpcMessage {
   }
 
   @Override
+  public RaftGroupId getRaftGroupId() {
+    return groupId;
+  }
+
+  @Override
   public String toString() {
-    return getClass().getSimpleName() + "(" + clientId + "->" + serverId + ")";
+    return getClass().getSimpleName() + "(" + clientId + "->" + serverId
+        + ") in raft group " + groupId;
   }
 }

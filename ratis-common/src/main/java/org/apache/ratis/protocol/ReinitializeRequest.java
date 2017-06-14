@@ -20,20 +20,20 @@ package org.apache.ratis.protocol;
 import java.util.Arrays;
 
 public class ReinitializeRequest extends RaftClientRequest {
-  private final RaftPeer[] peers;
+  private final RaftGroup group;
 
   public ReinitializeRequest(ClientId clientId, RaftPeerId serverId,
-                             long callId, RaftPeer[] peers) {
-    super(clientId, serverId, callId, null);
-    this.peers = peers;
+      RaftGroupId groupId, long callId, RaftPeer[] peers) {
+    super(clientId, serverId, groupId, callId, null);
+    this.group = new RaftGroup(groupId, peers);
   }
 
-  public RaftPeer[] getPeersInNewConf() {
-    return peers;
+  public RaftGroup getPeersInGroup() {
+    return group;
   }
 
   @Override
   public String toString() {
-    return super.toString() + ", peers:" + Arrays.asList(getPeersInNewConf());
+    return super.toString() + ", peers:" + Arrays.asList(getPeersInGroup());
   }
 }

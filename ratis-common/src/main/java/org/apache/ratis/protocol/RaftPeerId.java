@@ -39,7 +39,7 @@ public class RaftPeerId {
   }
 
   public static RaftPeerId valueOf(String id) {
-    return stringMap.computeIfAbsent(id, key -> new RaftPeerId(key));
+    return stringMap.computeIfAbsent(id, RaftPeerId::new);
   }
 
   public static RaftPeerId getRaftPeerId(String id) {
@@ -56,6 +56,7 @@ public class RaftPeerId {
     Preconditions.assertTrue(!id.isEmpty(), "id is an empty string.");
     this.id = id.getBytes(StandardCharsets.UTF_8);
   }
+
   private RaftPeerId(byte[] id) {
     this.id = Objects.requireNonNull(id, "id == null");
     Preconditions.assertTrue(id.length > 0, "id is an empty array.");

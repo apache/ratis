@@ -116,7 +116,7 @@ public class TestRaftStateMachineException {
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
-        callId, new RaftTestUtil.SimpleMessage("message"));
+        cluster.getGroupId(), callId, new RaftTestUtil.SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertFalse(reply.isSuccess());
     Assert.assertNotNull(reply.getStateMachineException());
@@ -163,7 +163,7 @@ public class TestRaftStateMachineException {
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
-        callId, new RaftTestUtil.SimpleMessage("message"));
+        cluster.getGroupId(), callId, new RaftTestUtil.SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertTrue(reply.hasStateMachineException());
 

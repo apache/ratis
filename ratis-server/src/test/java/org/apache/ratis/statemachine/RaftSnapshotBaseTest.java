@@ -197,7 +197,7 @@ public abstract class RaftSnapshotBaseTest {
           new String[]{"s3", "s4"}, true);
       // trigger setConfiguration
       SetConfigurationRequest request = new SetConfigurationRequest(ClientId.createId(),
-          cluster.getLeader().getId(), DEFAULT_CALLID, change.allPeersInNewConf);
+          cluster.getLeader().getId(), cluster.getGroupId(), DEFAULT_CALLID, change.allPeersInNewConf);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);
 

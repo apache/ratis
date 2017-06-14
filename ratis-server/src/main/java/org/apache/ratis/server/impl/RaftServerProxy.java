@@ -50,7 +50,7 @@ public class RaftServerProxy implements RaftServer {
   private final AtomicReference<ReinitializeRequest> reinitializeRequest = new AtomicReference<>();
 
   RaftServerProxy(RaftPeerId id, StateMachine stateMachine,
-                  RaftConfiguration raftConf, RaftProperties properties, Parameters parameters)
+      RaftGroup group, RaftProperties properties, Parameters parameters)
       throws IOException {
     this.id = id;
     this.properties = properties;
@@ -59,20 +59,20 @@ public class RaftServerProxy implements RaftServer {
     final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
     this.factory = ServerFactory.cast(rpcType.newFactory(properties, parameters));
 
-    this.impl = CompletableFuture.completedFuture(initImpl(raftConf));
-    this.serverRpc = initRaftServerRpc(factory, this, raftConf);
+    this.impl = CompletableFuture.completedFuture(initImpl(group));
+    this.serverRpc = initRaftServerRpc(factory, this, group);
   }
 
-  private RaftServerImpl initImpl(RaftConfiguration raftConf) throws IOException {
-    return new RaftServerImpl(id, this, raftConf, properties);
+  private RaftServerImpl initImpl(RaftGroup group) throws IOException {
+    return new RaftServerImpl(id, group, this, properties);
   }
 
   private static RaftServerRpc initRaftServerRpc(
-      ServerFactory factory, RaftServer server, RaftConfiguration raftConf) {
+      ServerFactory factory, RaftServer server, RaftGroup group) {
     final RaftServerRpc rpc = factory.newRaftServerRpc(server);
     // add peers into rpc service
-    if (raftConf != null) {
-      rpc.addPeers(raftConf.getPeers());
+    if (group != null) {
+      rpc.addPeers(group.getPeers());
     }
     return rpc;
   }
@@ -167,11 +167,9 @@ public class RaftServerProxy implements RaftServer {
         impl = new CompletableFuture<>();
         JavaUtils.getAndConsume(oldImpl, RaftServerImpl::shutdown);
 
-        final RaftConfiguration newConf = RaftConfiguration.newBuilder()
-            .setConf(request.getPeersInNewConf()).build();
         final RaftServerImpl newImpl;
         try {
-          newImpl = initImpl(newConf);
+          newImpl = initImpl(request.getPeersInGroup());
         } catch (IOException ioe) {
           final RaftException re = new RaftException(
               "Failed to reinitialize, request=" + request, ioe);
@@ -180,7 +178,7 @@ public class RaftServerProxy implements RaftServer {
           return new RaftClientReply(request, re);
         }
 
-        getServerRpc().addPeers(newConf.getPeers());
+        getServerRpc().addPeers(request.getPeersInGroup().getPeers());
         newImpl.start();
         impl.complete(newImpl);
         return new RaftClientReply(request, (Message) null);

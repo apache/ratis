@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -76,12 +77,14 @@ public class ServerState implements Closeable {
    */
   private TermIndex latestInstalledSnapshot;
 
-  ServerState(RaftPeerId id, RaftConfiguration conf, RaftProperties prop,
+  ServerState(RaftPeerId id, RaftGroup group, RaftProperties prop,
               RaftServerImpl server, StateMachine stateMachine)
       throws IOException {
     this.selfId = id;
     this.server = server;
-    configurationManager = new ConfigurationManager(conf);
+    RaftConfiguration initialConf = RaftConfiguration.newBuilder()
+        .setConf(group.getPeers()).build();
+    configurationManager = new ConfigurationManager(initialConf);
     storage = new RaftStorage(prop, RaftServerConstants.StartupOption.REGULAR);
     snapshotManager = new SnapshotManager(storage, id);
 

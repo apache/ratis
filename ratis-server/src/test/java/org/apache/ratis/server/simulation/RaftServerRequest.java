@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.simulation;
 
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftRpcMessage;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
@@ -93,6 +94,17 @@ class RaftServerRequest implements RaftRpcMessage {
       return requestVote.getServerRequest().getReplyId().toStringUtf8();
     } else {
       return installSnapshot.getServerRequest().getReplyId().toStringUtf8();
+    }
+  }
+
+  @Override
+  public RaftGroupId getRaftGroupId() {
+    if (isAppendEntries()) {
+      return new RaftGroupId(appendEntries.getServerRequest().getRaftGroupId().getId().toByteArray());
+    } else if (isRequestVote()) {
+      return new RaftGroupId(requestVote.getServerRequest().getRaftGroupId().getId().toByteArray());
+    } else {
+      return new RaftGroupId(installSnapshot.getServerRequest().getRaftGroupId().getId().toByteArray());
     }
   }
 }

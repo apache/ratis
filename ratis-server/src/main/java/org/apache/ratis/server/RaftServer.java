@@ -61,7 +61,7 @@ public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
   class Builder {
     private RaftPeerId serverId;
     private StateMachine stateMachine;
-    private Iterable<RaftPeer> peers;
+    private RaftGroup group;
     private RaftProperties properties;
     private Parameters parameters;
 
@@ -69,8 +69,8 @@ public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
     public RaftServer build() throws IOException {
       return ServerImplUtils.newRaftServer(
           Objects.requireNonNull(serverId, "The 'serverId' field is not initialized."),
+          Objects.requireNonNull(group, "The 'peers' field is not initialized."),
           Objects.requireNonNull(stateMachine, "The 'stateMachine' is not initialized."),
-          Objects.requireNonNull(peers, "The 'peers' field is not initialized."),
           Objects.requireNonNull(properties, "The 'properties' field is not initialized."),
           parameters);
     }
@@ -88,8 +88,8 @@ public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
     }
 
     /** Set all the peers (including the server being built) in the Raft cluster. */
-    public Builder setPeers(Iterable<RaftPeer> peers) {
-      this.peers = peers;
+    public Builder setPeers(RaftGroup group) {
+      this.group = group;
       return this;
     }
 

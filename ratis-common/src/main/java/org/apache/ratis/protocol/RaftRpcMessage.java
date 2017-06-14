@@ -24,4 +24,6 @@ public interface RaftRpcMessage {
   String getRequestorId();
 
   String getReplierId();
+
+  RaftGroupId getRaftGroupId();
 }
