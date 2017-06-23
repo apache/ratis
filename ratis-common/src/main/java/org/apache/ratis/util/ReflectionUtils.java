@@ -21,40 +21,141 @@
 package org.apache.ratis.util;
 
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.apache.ratis.conf.RaftProperties;
 
 /**
  * Reflection related utility methods.
  */
-public class ReflectionUtils {
+public interface ReflectionUtils {
+  final class Constructors {
+    private Constructors() {}
 
-  private ReflectionUtils() {
-    // Utility class, cannot instantiate
+    /**
+     * Cache of constructors for each class. Pins the classes so they
+     * can't be garbage collected until ReflectionUtils can be collected.
+     */
+    private static final Map<List<Class<?>>, Constructor<?>> CONSTRUCTORS
+        = new ConcurrentHashMap<>();
+
+    private static <T> Constructor<T> get(Class<T> clazz, Class<?>[] argClasses)
+        throws NoSuchMethodException {
+      Objects.requireNonNull(clazz, "clazz == null");
+
+      final List<Class<?>> key = new ArrayList<>(argClasses.length + 1);
+      key.add(clazz);
+      key.addAll(Arrays.asList(argClasses));
+
+      @SuppressWarnings("unchecked")
+      Constructor<T> ctor = (Constructor<T>) CONSTRUCTORS.get(key);
+      if (ctor == null) {
+        ctor = clazz.getDeclaredConstructor(argClasses);
+        ctor.setAccessible(true);
+        CONSTRUCTORS.put(key, ctor);
+      }
+      return ctor;
+    }
   }
 
-  private static final Class<?>[] EMPTY_CLASSES = {};
+  final class Classes {
+    private static Class<?>[] EMPTY_ARRAY = {};
+
+    private static final Map<ClassLoader, Map<String, WeakReference<Class<?>>>>
+        CLASSES = new WeakHashMap<>();
+
+    /** Sentinel value to store negative cache results in {@link #CLASSES}. */
+    private static final Class<?> NEGATIVE_CACHE_SENTINEL = NegativeCacheSentinel.class;
+
+    /**
+     * A unique class which is used as a sentinel value in the caching
+     * for getClassByName. {@link #getClassByNameOrNull(String)}
+     */
+    private static final class NegativeCacheSentinel {}
+
+    private static ClassLoader CLASS_LOADER;
+    static {
+      CLASS_LOADER = Thread.currentThread().getContextClassLoader();
+      if (CLASS_LOADER == null) {
+        CLASS_LOADER = ReflectionUtils.class.getClassLoader();
+      }
+    }
+
+    private static Map<String, WeakReference<Class<?>>> getClassMap() {
+      Map<String, WeakReference<Class<?>>> map;
+      synchronized (CLASSES) {
+        map = CLASSES.get(CLASS_LOADER);
+        if (map == null) {
+          map = Collections.synchronizedMap(new WeakHashMap<>());
+          CLASSES.put(CLASS_LOADER, map);
+        }
+      }
+      return map;
+    }
+  }
+
+  static ClassLoader getClassLoader() {
+    return Classes.CLASS_LOADER;
+  }
 
   /**
-   * Cache of constructors for each class. Pins the classes so they
-   * can't be garbage collected until ReflectionUtils can be collected.
+   * Load a class by name, returning null rather than throwing an exception
+   * if it couldn't be loaded. This is to avoid the overhead of creating
+   * an exception.
+   *
+   * @param name the class name
+   * @return the class object, or null if it could not be found.
    */
-  private static final Map<List<Class<?>>, Constructor<?>> CONSTRUCTOR_CACHE
-      = new ConcurrentHashMap<>();
+  static Class<?> getClassByNameOrNull(String name) {
+    final Map<String, WeakReference<Class<?>>> map = Classes.getClassMap();
+
+    Class<?> clazz = null;
+    WeakReference<Class<?>> ref = map.get(name);
+    if (ref != null) {
+      clazz = ref.get();
+    }
+
+    if (clazz == null) {
+      try {
+        clazz = Class.forName(name, true, Classes.CLASS_LOADER);
+      } catch (ClassNotFoundException e) {
+        // Leave a marker that the class isn't found
+        map.put(name, new WeakReference<>(Classes.NEGATIVE_CACHE_SENTINEL));
+        return null;
+      }
+      // two putters can race here, but they'll put the same class
+      map.put(name, new WeakReference<>(clazz));
+      return clazz;
+    } else if (clazz == Classes.NEGATIVE_CACHE_SENTINEL) {
+      return null; // not found
+    } else {
+      // cache hit
+      return clazz;
+    }
+  }
+
+  /**
+   * Load a class by name.
+   *
+   * @param name the class name.
+   * @return the class object.
+   * @throws ClassNotFoundException if the class is not found.
+   */
+  static Class<?> getClassByName(String name) throws ClassNotFoundException {
+    Class<?> ret = getClassByNameOrNull(name);
+    if (ret == null) {
+      throw new ClassNotFoundException("Class " + name + " not found");
+    }
+    return ret;
+  }
 
   /**
    * Create an object for the given class using its default constructor.
    */
-  public static <T> T newInstance(Class<T> clazz) {
-    return newInstance(clazz, EMPTY_CLASSES);
+  static <T> T newInstance(Class<T> clazz) {
+    return newInstance(clazz, Classes.EMPTY_ARRAY);
   }
 
   /**
@@ -66,28 +167,18 @@ public class ReflectionUtils {
    * @param <T> class type of clazz
    * @return a new object
    */
-  public static <T> T newInstance(Class<T> clazz, Class<?>[] argClasses, Object... args) {
-    Objects.requireNonNull(clazz, "clazz == null");
+  static <T> T newInstance(Class<T> clazz, Class<?>[] argClasses, Object... args) {
+    final Constructor<T> ctor;
     try {
-      final List<Class<?>> key = new ArrayList<>();
-      key.add(clazz);
-      key.addAll(Arrays.asList(argClasses));
-
-      @SuppressWarnings("unchecked")
-      Constructor<T> ctor = (Constructor<T>) CONSTRUCTOR_CACHE.get(key);
-      if (ctor == null) {
-        ctor = clazz.getDeclaredConstructor(argClasses);
-        ctor.setAccessible(true);
-        CONSTRUCTOR_CACHE.put(key, ctor);
-      }
-      return instantiate(clazz.getName(), ctor, args);
+      ctor = Constructors.get(clazz, argClasses);
     } catch (NoSuchMethodException e) {
       throw new UnsupportedOperationException(
           "Unable to find suitable constructor for class " + clazz.getName(), e);
     }
+    return instantiate(clazz.getName(), ctor, args);
   }
 
-  private static <T> T instantiate(final String className, Constructor<T> ctor, Object[] ctorArgs) {
+  static <T> T instantiate(final String className, Constructor<T> ctor, Object[] ctorArgs) {
     try {
       ctor.setAccessible(true);
       return ctor.newInstance(ctorArgs);
@@ -104,7 +195,7 @@ public class ReflectionUtils {
   }
 
   /** Is the given object an instance of one of the given classes? */
-  public static boolean isInstance(Object obj, Class<?>... classes) {
+  static boolean isInstance(Object obj, Class<?>... classes) {
     for(Class<?> c : classes) {
       if (c.isInstance(obj)) {
         return true;
@@ -113,17 +204,17 @@ public class ReflectionUtils {
     return false;
   }
 
-  public static <BASE> Class<? extends BASE> getClass(
-      String subClassName, RaftProperties properties, Class<BASE> base) {
+  static <BASE> Class<? extends BASE> getClass(
+      String subClassName, Class<BASE> base) {
     try {
-      return properties.getClassByName(subClassName).asSubclass(base);
+      return getClassByName(subClassName).asSubclass(base);
     } catch (ClassNotFoundException e) {
       throw new IllegalArgumentException("Failed to get class "
           + subClassName + " as a subclass of " + base, e);
     }
   }
 
-  public static Exception instantiateException(Class<? extends Exception> cls,
+  static Exception instantiateException(Class<? extends Exception> cls,
       String message, Exception from) throws Exception {
     Constructor<? extends Exception> cn = cls.getConstructor(String.class);
     cn.setAccessible(true);

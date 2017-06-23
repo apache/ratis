@@ -20,11 +20,7 @@
 
 package org.apache.ratis.util;
 
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
 import java.util.function.Function;
 
 public interface CollectionUtils {
@@ -83,5 +79,10 @@ public interface CollectionUtils {
         return converter.apply(i.next());
       }
     };
+  }
+
+  static <INPUT, OUTPUT> Iterable<OUTPUT> as(
+      INPUT[] array, Function<INPUT, OUTPUT> converter) {
+    return as(Arrays.asList(array), converter);
   }
 }

@@ -19,7 +19,6 @@ package org.apache.ratis.server.simulation;
 
 import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.ServerFactory;
@@ -35,7 +34,7 @@ class SimulatedRpc implements RpcType {
   }
 
   @Override
-  public Factory newFactory(RaftProperties properties, Parameters parameters) {
+  public Factory newFactory(Parameters parameters) {
     return new Factory(parameters);
   }
 

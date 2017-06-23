@@ -140,7 +140,7 @@ public abstract class MiniRaftCluster {
 
     final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
     this.clientFactory = ClientFactory.cast(
-        rpcType.newFactory(properties, parameters));
+        rpcType.newFactory(parameters));
     this.testBaseDir = getBaseDirectory();
 
     ExitUtils.disableSystemExit();

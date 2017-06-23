@@ -56,7 +56,8 @@ final class RaftClientImpl implements RaftClient {
     this.clientRpc = clientRpc;
     this.peers = new ArrayList<>(group.getPeers());
     this.groupId = group.getGroupId();
-    this.leaderId = leaderId != null? leaderId : peers.iterator().next().getId();
+    this.leaderId = leaderId != null? leaderId
+        : !peers.isEmpty()? peers.iterator().next().getId(): null;
     this.retryInterval = retryInterval;
 
     clientRpc.addServers(peers);

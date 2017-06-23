@@ -18,6 +18,7 @@
 
 package org.apache.ratis.conf;
 
+import org.apache.ratis.util.ReflectionUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -35,7 +36,6 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
-import java.lang.ref.WeakReference;
 import java.net.JarURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
@@ -122,13 +122,6 @@ public class RaftProperties {
 
   private Properties properties;
   private Properties overlay;
-  private ClassLoader classLoader;
-  {
-    classLoader = Thread.currentThread().getContextClassLoader();
-    if (classLoader == null) {
-      classLoader = RaftProperties.class.getClassLoader();
-    }
-  }
 
   /** A new configuration. */
   public RaftProperties() {
@@ -176,7 +169,6 @@ public class RaftProperties {
     synchronized(RaftProperties.class) {
       REGISTRY.put(this, null);
     }
-    this.classLoader = other.classLoader;
     this.loadDefaults = other.loadDefaults;
   }
 
@@ -1034,74 +1026,7 @@ public class RaftProperties {
     return StringUtils.getTrimmedStrings(valueString);
   }
 
-  /**
-   * Load a class by name.
-   *
-   * @param name the class name.
-   * @return the class object.
-   * @throws ClassNotFoundException if the class is not found.
-   */
-  public Class<?> getClassByName(String name) throws ClassNotFoundException {
-    Class<?> ret = getClassByNameOrNull(name);
-    if (ret == null) {
-      throw new ClassNotFoundException("Class " + name + " not found");
-    }
-    return ret;
-  }
 
-  private static final Map<ClassLoader, Map<String, WeakReference<Class<?>>>>
-      CACHE_CLASSES = new WeakHashMap<>();
-
-  /**
-   * Sentinel value to store negative cache results in {@link #CACHE_CLASSES}.
-   */
-  private static final Class<?> NEGATIVE_CACHE_SENTINEL =
-      NegativeCacheSentinel.class;
-
-  /**
-   * Load a class by name, returning null rather than throwing an exception
-   * if it couldn't be loaded. This is to avoid the overhead of creating
-   * an exception.
-   *
-   * @param name the class name
-   * @return the class object, or null if it could not be found.
-   */
-  public Class<?> getClassByNameOrNull(String name) {
-    Map<String, WeakReference<Class<?>>> map;
-
-    synchronized (CACHE_CLASSES) {
-      map = CACHE_CLASSES.get(classLoader);
-      if (map == null) {
-        map = Collections.synchronizedMap(
-          new WeakHashMap<String, WeakReference<Class<?>>>());
-        CACHE_CLASSES.put(classLoader, map);
-      }
-    }
-
-    Class<?> clazz = null;
-    WeakReference<Class<?>> ref = map.get(name);
-    if (ref != null) {
-       clazz = ref.get();
-    }
-
-    if (clazz == null) {
-      try {
-        clazz = Class.forName(name, true, classLoader);
-      } catch (ClassNotFoundException e) {
-        // Leave a marker that the class isn't found
-        map.put(name, new WeakReference<>(NEGATIVE_CACHE_SENTINEL));
-        return null;
-      }
-      // two putters can race here, but they'll put the same class
-      map.put(name, new WeakReference<>(clazz));
-      return clazz;
-    } else if (clazz == NEGATIVE_CACHE_SENTINEL) {
-      return null; // not found
-    } else {
-      // cache hit
-      return clazz;
-    }
-  }
 
   /**
    * Get the value of the <code>name</code> property
@@ -1124,7 +1049,7 @@ public class RaftProperties {
     try {
       Class<?>[] classes = new Class<?>[classnames.length];
       for(int i = 0; i < classnames.length; i++) {
-        classes[i] = getClassByName(classnames[i]);
+        classes[i] = ReflectionUtils.getClassByName(classnames[i]);
       }
       return classes;
     } catch (ClassNotFoundException e) {
@@ -1147,7 +1072,7 @@ public class RaftProperties {
     if (valueString == null)
       return defaultValue;
     try {
-      return getClassByName(valueString);
+      return ReflectionUtils.getClassByName(valueString);
     } catch (ClassNotFoundException e) {
       throw new RuntimeException(e);
     }
@@ -1199,16 +1124,6 @@ public class RaftProperties {
     if (!xface.isAssignableFrom(theClass))
       throw new RuntimeException(theClass+" not "+xface.getName());
     set(name, theClass.getName());
-  }
-
-  /**
-   * Get the {@link URL} for the named resource.
-   *
-   * @param name resource name.
-   * @return the url for the named resource.
-   */
-  public URL getResource(String name) {
-    return classLoader.getResource(name);
   }
 
   protected synchronized Properties getProps() {
@@ -1324,7 +1239,7 @@ public class RaftProperties {
       if (resource instanceof URL) { // an URL resource
         doc = parse(builder, (URL) resource);
       } else if (resource instanceof String) { // a CLASSPATH resource
-        URL url = getResource((String) resource);
+        URL url = ReflectionUtils.getClassLoader().getResource((String)resource);
         doc = parse(builder, url);
       } else if (resource instanceof InputStream) {
         doc = parse(builder, (InputStream) resource, null);
@@ -1526,24 +1441,6 @@ public class RaftProperties {
     return doc;
   }
 
-  /**
-   * Get the {@link ClassLoader} for this job.
-   *
-   * @return the correct class loader.
-   */
-  public ClassLoader getClassLoader() {
-    return classLoader;
-  }
-
-  /**
-   * Set the class loader that will be used to load the various objects.
-   *
-   * @param classLoader the new class loader.
-   */
-  public void setClassLoader(ClassLoader classLoader) {
-    this.classLoader = classLoader;
-  }
-
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
@@ -1590,10 +1487,4 @@ public class RaftProperties {
     }
     return result;
   }
-
-  /**
-   * A unique class which is used as a sentinel value in the caching
-   * for getClassByName. {@link RaftProperties#getClassByNameOrNull(String)}
-   */
-  private static abstract class NegativeCacheSentinel {}
 }

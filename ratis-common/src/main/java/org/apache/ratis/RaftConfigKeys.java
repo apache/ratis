@@ -24,7 +24,6 @@ import static org.apache.ratis.conf.ConfUtils.set;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.util.ReflectionUtils;
 
 public interface RaftConfigKeys {
   String PREFIX = "raft";
@@ -37,15 +36,7 @@ public interface RaftConfigKeys {
 
     static RpcType type(RaftProperties properties) {
       final String t = get(properties::get, TYPE_KEY, TYPE_DEFAULT);
-
-      try { // Try parsing it as a SupportedRpcType
-        return SupportedRpcType.valueOfIgnoreCase(t);
-      } catch(IllegalArgumentException iae) {
-      }
-
-      // Try using it as a class name
-      return ReflectionUtils.newInstance(
-          ReflectionUtils.getClass(t, properties, RpcType.class));
+      return RpcType.valueOf(t);
     }
 
     static void setType(RaftProperties properties, RpcType type) {

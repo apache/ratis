@@ -41,9 +41,9 @@ public enum SupportedRpcType implements RpcType {
   }
 
   @Override
-  public RpcFactory newFactory(RaftProperties properties, Parameters parameters) {
+  public RpcFactory newFactory(Parameters parameters) {
     final Class<? extends RpcFactory> clazz = ReflectionUtils.getClass(
-        factoryClassName, properties, RpcFactory.class);
+        factoryClassName, RpcFactory.class);
     return ReflectionUtils.newInstance(clazz, ARG_CLASSES, parameters);
   }
 }

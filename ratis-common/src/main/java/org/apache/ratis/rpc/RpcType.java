@@ -18,15 +18,45 @@
 package org.apache.ratis.rpc;
 
 import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.util.ReflectionUtils;
 
 /** The type of RPC implementations. */
 public interface RpcType {
+  /**
+   * Parse the given string as a {@link SupportedRpcType}
+   * or a user-defined {@link RpcType}.
+   *
+   * @param rpcType The string representation of an {@link RpcType}.
+   * @return a {@link SupportedRpcType} or a user-defined {@link RpcType}.
+   */
+  static RpcType valueOf(String rpcType) {
+    final Throwable fromSupportedRpcType;
+    try { // Try parsing it as a SupportedRpcType
+      return SupportedRpcType.valueOfIgnoreCase(rpcType);
+    } catch (Throwable t) {
+      fromSupportedRpcType = t;
+    }
+
+    try {
+      // Try using it as a class name
+      return ReflectionUtils.newInstance(
+          ReflectionUtils.getClass(rpcType, RpcType.class));
+    } catch(Throwable t) {
+      final IllegalArgumentException iae = new IllegalArgumentException(
+          "Invalid " + RpcType.class.getSimpleName() + ": \"" + rpcType + "\" "
+              + " cannot be used as a user-defined " + RpcType.class.getSimpleName()
+              + " and it is not a " + SupportedRpcType.class.getSimpleName() + ".");
+      iae.addSuppressed(t);
+      iae.addSuppressed(fromSupportedRpcType);
+      throw iae;
+    }
+  }
+
   /** @return the name of the rpc type. */
   String name();
 
   /** @return a new factory created using the given properties and parameters. */
-  RpcFactory newFactory(RaftProperties properties, Parameters parameters);
+  RpcFactory newFactory(Parameters parameters);
 
   /** An interface to get {@link RpcType}. */
   interface Get {

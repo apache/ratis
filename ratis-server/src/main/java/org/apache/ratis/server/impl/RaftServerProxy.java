@@ -57,7 +57,7 @@ public class RaftServerProxy implements RaftServer {
     this.stateMachine = stateMachine;
 
     final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
-    this.factory = ServerFactory.cast(rpcType.newFactory(properties, parameters));
+    this.factory = ServerFactory.cast(rpcType.newFactory(parameters));
 
     this.impl = CompletableFuture.completedFuture(initImpl(group));
     this.serverRpc = initRaftServerRpc(factory, this, group);
