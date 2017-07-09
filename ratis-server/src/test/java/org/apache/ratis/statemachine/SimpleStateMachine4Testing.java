@@ -123,7 +123,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry().get());
+    LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
     list.add(entry);
     termIndexTracker.update(ServerProtoUtils.toTermIndex(entry));
     return CompletableFuture.completedFuture(

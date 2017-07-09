@@ -435,10 +435,9 @@ public class RaftServerImpl implements RaftServerProtocol,
     // later which means that any failure in between will leave partial state in
     // the state machine. We should call cancelTransaction() for failed requests
     TransactionContext context = stateMachine.startTransaction(request);
-    if (context.getException().isPresent()) {
+    if (context.getException() != null) {
       RaftClientReply exceptionReply = new RaftClientReply(request,
-          new StateMachineException(getId().toString(),
-              context.getException().get()));
+          new StateMachineException(getId().toString(), context.getException()));
       cacheEntry.failWithReply(exceptionReply);
       return CompletableFuture.completedFuture(exceptionReply);
     }

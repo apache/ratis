@@ -49,13 +49,13 @@ public class TransactionContext {
   private final StateMachine stateMachine;
 
   /** Original request from the client */
-  private Optional<RaftClientRequest> clientRequest = Optional.empty();
+  private RaftClientRequest clientRequest;
 
   /** Exception from the {@link StateMachine} or from the log */
-  private Optional<Exception> exception = Optional.empty();
+  private Exception exception;
 
   /** Data from the {@link StateMachine} */
-  private Optional<SMLogEntryProto> smLogEntryProto = Optional.empty();
+  private SMLogEntryProto smLogEntryProto;
 
   /**
    * Context specific to the state machine.
@@ -63,7 +63,7 @@ public class TransactionContext {
    * {@link StateMachine#startTransaction(RaftClientRequest)} and
    * {@link StateMachine#applyTransaction(TransactionContext)}.
    */
-  private Optional<Object> stateMachineContext = Optional.empty();
+  private Object stateMachineContext;
 
   /**
    * Whether to commit the transaction to the RAFT Log.
@@ -73,7 +73,7 @@ public class TransactionContext {
   private boolean shouldCommit = true;
 
   /** Committed LogEntry. */
-  private Optional<LogEntryProto> logEntry = Optional.empty();
+  private LogEntryProto logEntry;
 
   private TransactionContext(StateMachine stateMachine) {
     this.stateMachine = stateMachine;
@@ -96,9 +96,9 @@ public class TransactionContext {
       StateMachine stateMachine, RaftClientRequest clientRequest,
       SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
     this(stateMachine);
-    this.clientRequest = Optional.of(clientRequest);
-    this.smLogEntryProto = Optional.ofNullable(smLogEntryProto);
-    this.stateMachineContext = Optional.ofNullable(stateMachineContext);
+    this.clientRequest = clientRequest;
+    this.smLogEntryProto = smLogEntryProto;
+    this.stateMachineContext = stateMachineContext;
   }
 
   /** The same as this(stateMachine, clientRequest, exception, null). */
@@ -117,9 +117,9 @@ public class TransactionContext {
       StateMachine stateMachine, RaftClientRequest clientRequest,
       Exception exception, Object stateMachineContext) {
     this(stateMachine);
-    this.clientRequest = Optional.of(clientRequest);
-    this.exception = Optional.of(exception);
-    this.stateMachineContext = Optional.ofNullable(stateMachineContext);
+    this.clientRequest = clientRequest;
+    this.exception = exception;
+    this.stateMachineContext = stateMachineContext;
   }
 
   /**
@@ -129,48 +129,48 @@ public class TransactionContext {
    */
   public TransactionContext(StateMachine stateMachine, LogEntryProto logEntry) {
     this(stateMachine);
-    this.smLogEntryProto = Optional.of(logEntry.getSmLogEntry());
-    this.logEntry = Optional.of(logEntry);
+    this.smLogEntryProto = logEntry.getSmLogEntry();
+    this.logEntry = logEntry;
   }
 
-  public Optional<RaftClientRequest> getClientRequest() {
-    return this.clientRequest;
+  public RaftClientRequest getClientRequest() {
+    return clientRequest;
   }
 
-  public Optional<SMLogEntryProto> getSMLogEntry() {
-    return this.smLogEntryProto;
+  public SMLogEntryProto getSMLogEntry() {
+    return smLogEntryProto;
   }
 
-  public Optional<Exception> getException() {
-    return this.exception;
+  public Exception getException() {
+    return exception;
   }
 
   public TransactionContext setStateMachineContext(Object stateMachineContext) {
-    this.stateMachineContext = Optional.ofNullable(stateMachineContext);
+    this.stateMachineContext = stateMachineContext;
     return this;
   }
 
-  public Optional<Object> getStateMachineContext() {
+  public Object getStateMachineContext() {
     return stateMachineContext;
   }
 
   public TransactionContext setLogEntry(LogEntryProto logEntry) {
-    this.logEntry = Optional.of(logEntry);
+    this.logEntry = logEntry;
     return this;
   }
 
   public TransactionContext setSmLogEntryProto(SMLogEntryProto smLogEntryProto) {
-    this.smLogEntryProto = Optional.of(smLogEntryProto);
+    this.smLogEntryProto = smLogEntryProto;
     return this;
   }
 
-  public Optional<LogEntryProto> getLogEntry() {
+  public LogEntryProto getLogEntry() {
     return logEntry;
   }
 
   private TransactionContext setException(IOException ioe) {
-    assert !this.exception.isPresent();
-    this.exception = Optional.of(ioe);
+    assert exception != null;
+    this.exception = ioe;
     return this;
   }
 

@@ -121,19 +121,19 @@ public class TestStateMachine {
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
       try {
-        assertTrue(trx.getLogEntry().isPresent());
-        assertTrue(trx.getSMLogEntry().isPresent());
-        Optional<Object> context = trx.getStateMachineContext();
+        assertNotNull(trx.getLogEntry());
+        assertNotNull(trx.getSMLogEntry());
+        Object context = trx.getStateMachineContext();
         if (isLeader.get()) {
-          assertTrue(trx.getClientRequest().isPresent());
-          assertTrue(context.isPresent());
-          assertTrue(context.get() instanceof Long);
-          Long val = (Long)context.get();
+          assertNotNull(trx.getClientRequest());
+          assertNotNull(context);
+          assertTrue(context instanceof Long);
+          Long val = (Long)context;
           assertTrue(val <= transactions.get());
           applied.add(val);
         } else {
-          assertFalse(trx.getClientRequest().isPresent());
-          assertFalse(context.isPresent());
+          assertNull(trx.getClientRequest());
+          assertNull(context);
         }
         numApplied.incrementAndGet();
       } catch (Throwable t) {

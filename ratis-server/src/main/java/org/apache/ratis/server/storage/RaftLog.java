@@ -141,7 +141,7 @@ public abstract class RaftLog implements Closeable {
 
       // build the log entry after calling the StateMachine
       final LogEntryProto e = ProtoUtils.toLogEntryProto(
-          operation.getSMLogEntry().get(), term, nextIndex, clientId, callId);
+          operation.getSMLogEntry(), term, nextIndex, clientId, callId);
 
       appendEntry(e);
       operation.setLogEntry(e);

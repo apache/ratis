@@ -93,7 +93,7 @@ public class BaseStateMachine implements StateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     // return the same message contained in the entry
-    Message msg = () -> trx.getLogEntry().get().getSmLogEntry().getData();
+    Message msg = () -> trx.getLogEntry().getSmLogEntry().getData();
     return CompletableFuture.completedFuture(msg);
   }
 

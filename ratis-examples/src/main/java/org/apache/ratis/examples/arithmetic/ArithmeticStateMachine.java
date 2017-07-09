@@ -156,7 +156,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
-    final LogEntryProto entry = trx.getLogEntry().get();
+    final LogEntryProto entry = trx.getLogEntry();
     final AssignmentMessage assignment = new AssignmentMessage(
         () -> entry.getSmLogEntry().getData());
 
