@@ -20,12 +20,14 @@
 
 package org.apache.ratis.util;
 
+import org.apache.ratis.shaded.io.netty.util.internal.ThreadLocalRandom;
+
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 public interface CollectionUtils {
-  Random random = new Random();
-
   /**
    *  @return the next element in the iteration right after the given element;
    *          if the given element is not in the iteration, return the first one
@@ -49,20 +51,20 @@ public interface CollectionUtils {
   /**
    *  @return a randomly picked element which is not the given element.
    */
-  static <T> T random(final T given, List<T> list) {
+  static <T> T random(final T given, Iterable<T> iteration) {
     Objects.requireNonNull(given, "given == null");
-    Preconditions.assertTrue(list != null && !list.isEmpty(), "c is null or empty");
+    Objects.requireNonNull(iteration, "iteration == null");
+    Preconditions.assertTrue(iteration.iterator().hasNext(), "iteration is empty");
 
-    if (list.size() == 1) {
-      return list.get(0);
+    final List<T> list = StreamSupport.stream(iteration.spliterator(), false)
+        .filter(e -> !given.equals(e))
+        .collect(Collectors.toList());
+    final int size = list.size();
+    if (size == 0) {
+      throw new IllegalArgumentException(
+          "All elements in the iteration equals to the given element.");
     }
-
-    T selected;
-    do {
-      selected = list.get(random.nextInt(list.size()));
-    } while (selected == given);
-
-    return selected;
+    return list.get(ThreadLocalRandom.current().nextInt(size));
   }
 
   static <INPUT, OUTPUT> Iterable<OUTPUT> as(

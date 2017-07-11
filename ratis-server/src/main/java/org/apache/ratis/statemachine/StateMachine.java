@@ -75,8 +75,7 @@ public interface StateMachine extends Closeable {
    *
    * In the meanwhile, when the size of raft log outside of the latest snapshot
    * exceeds certain threshold, the RaftServer may choose to trigger a snapshot
-   * if {@link RaftServerConfigKeys#RAFT_SERVER_AUTO_SNAPSHOT_ENABLED_KEY} is
-   * enabled.
+   * if {@link RaftServerConfigKeys.Snapshot#AUTO_TRIGGER_ENABLED_KEY} is enabled.
    *
    * The snapshot should include the latest raft configuration.
    *

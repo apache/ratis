@@ -180,7 +180,7 @@ final class RaftClientImpl implements RaftClient {
     final RaftPeerId oldLeader = request.getServerId();
     if (newLeader == null && oldLeader.equals(leaderId)) {
       newLeader = CollectionUtils.random(oldLeader,
-          peers.stream().map(RaftPeer::getId).collect(Collectors.toList()));
+          CollectionUtils.as(peers, RaftPeer::getId));
     }
     if (newLeader != null && oldLeader.equals(leaderId)) {
       LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);
