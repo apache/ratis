@@ -40,6 +40,13 @@
     <sourceDirectory>${shaded.sources.dir}</sourceDirectory>
     <outputDirectory>${classes.dir}</outputDirectory>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <configuration>
+          <excludes>org/apache/ratis/shaded/**/*</excludes>
+        </configuration>
+      </plugin>
       <!-- Make a jar and put the sources in the jar -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
