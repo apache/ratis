@@ -25,7 +25,6 @@ import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
-import org.apache.ratis.shaded.com.google.common.base.Supplier;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
@@ -41,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import static org.apache.ratis.server.impl.ServerProtoUtils.toRaftConfiguration;
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
@@ -124,7 +124,7 @@ public class RaftServerImpl implements RaftServerProtocol,
         maxTimeoutMs - minTimeoutMs + 1);
   }
 
-  RaftGroupId getGroupId() {
+  public RaftGroupId getGroupId() {
     return groupId;
   }
 
@@ -318,7 +318,8 @@ public class RaftServerImpl implements RaftServerProtocol,
 
   @Override
   public String toString() {
-    return role + " " + state + " " + lifeCycle.getCurrentState();
+    return String.format("%8s ", role) + groupId + " " + state
+        + " " + lifeCycle.getCurrentState();
   }
 
   /**
@@ -367,14 +368,20 @@ public class RaftServerImpl implements RaftServerProtocol,
         peers.toArray(new RaftPeer[peers.size()]));
   }
 
+  private void assertLifeCycleState(LifeCycle.State... expected) throws IOException {
+    lifeCycle.assertCurrentState((n, c) -> new IOException("Server " + n
+        + " is not " + Arrays.asList(expected) + ": current state is " + c),
+        expected);
+  }
+
   /**
    * Handle a normal update request from client.
    */
   private CompletableFuture<RaftClientReply> appendTransaction(
       RaftClientRequest request, TransactionContext context,
-      RetryCache.CacheEntry cacheEntry) throws RaftException {
+      RetryCache.CacheEntry cacheEntry) throws IOException {
     LOG.debug("{}: receive client request({})", getId(), request);
-    lifeCycle.assertCurrentState(RUNNING);
+    assertLifeCycleState(RUNNING);
     CompletableFuture<RaftClientReply> reply;
 
     final PendingRequest pending;
@@ -486,7 +493,7 @@ public class RaftServerImpl implements RaftServerProtocol,
   public CompletableFuture<RaftClientReply> setConfigurationAsync(
       SetConfigurationRequest request) throws IOException {
     LOG.debug("{}: receive setConfiguration({})", getId(), request);
-    lifeCycle.assertCurrentState(RUNNING);
+    assertLifeCycleState(RUNNING);
     CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
     if (reply != null) {
       return reply;
@@ -560,7 +567,7 @@ public class RaftServerImpl implements RaftServerProtocol,
         candidateId, candidateTerm, candidateLastEntry);
     LOG.debug("{}: receive requestVote({}, {}, {})",
         getId(), candidateId, candidateTerm, candidateLastEntry);
-    lifeCycle.assertCurrentState(RUNNING);
+    assertLifeCycleState(RUNNING);
 
     boolean voteGranted = false;
     boolean shouldShutdown = false;
@@ -661,7 +668,7 @@ public class RaftServerImpl implements RaftServerProtocol,
             + leaderTerm + ", " + previous + ", " + leaderCommit + ", "
             + initializing + ServerProtoUtils.toString(entries));
 
-    lifeCycle.assertCurrentState(STARTING, RUNNING);
+    assertLifeCycleState(STARTING, RUNNING);
 
     try {
       validateEntries(leaderTerm, previous, entries);
@@ -760,7 +767,7 @@ public class RaftServerImpl implements RaftServerProtocol,
         leaderId, request);
     LOG.debug("{}: receive installSnapshot({})", getId(), request);
 
-    lifeCycle.assertCurrentState(STARTING, RUNNING);
+    assertLifeCycleState(STARTING, RUNNING);
 
     final long currentTerm;
     final long leaderTerm = request.getLeaderTerm();

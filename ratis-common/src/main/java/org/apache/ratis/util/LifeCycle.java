@@ -23,6 +23,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -152,11 +153,17 @@ public class LifeCycle {
 
   /** Assert if the current state equals to one of the expected states. */
   public void assertCurrentState(State... expected) {
+    assertCurrentState((n, c) -> new IllegalStateException("STATE MISMATCHED: In "
+        + n + ", current state " + c + " is not one of the expected states "
+        + Arrays.toString(expected)), expected);
+  }
+
+  /** Assert if the current state equals to one of the expected states. */
+  public <T extends Throwable> void assertCurrentState(
+      BiFunction<String, State, T> newThrowable, State... expected) throws T {
     final State c = getCurrentState();
     if (!c.isOneOf(expected)) {
-      throw new IllegalStateException("STATE MISMATCHED: In " + name
-          + ", current state " + c + " is not one of the expected states "
-          + Arrays.toString(expected));
+      throw newThrowable.apply(name, c);
     }
   }
 

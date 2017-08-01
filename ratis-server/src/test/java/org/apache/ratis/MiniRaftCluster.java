@@ -100,11 +100,11 @@ public abstract class MiniRaftCluster {
   }
 
   public static RaftGroup initRaftGroup(Collection<String> ids) {
-    List<RaftPeer> peers = ids.stream()
+    final RaftPeer[] peers = ids.stream()
         .map(RaftPeerId::valueOf)
         .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
-        .collect(Collectors.toList());
-    return new RaftGroup(RaftGroupId.createId(), peers.toArray(new RaftPeer[peers.size()]));
+        .toArray(RaftPeer[]::new);
+    return new RaftGroup(RaftGroupId.createId(), peers);
   }
 
   private static String getBaseDirectory() {
@@ -227,7 +227,7 @@ public abstract class MiniRaftCluster {
     return ReflectionUtils.newInstance(smClass);
   }
 
-  public static Collection<RaftPeer> toRaftPeers(
+  public static List<RaftPeer> toRaftPeers(
       Collection<RaftServerProxy> servers) {
     return servers.stream()
         .map(MiniRaftCluster::toRaftPeer)
@@ -308,11 +308,28 @@ public abstract class MiniRaftCluster {
   }
 
   public String printServers() {
-    StringBuilder b = new StringBuilder("\n#servers = " + servers.size() + "\n");
-    for (RaftServer s : servers.values()) {
-      b.append("  ");
-      b.append(s).append("\n");
+    return printServers(null);
+  }
+
+  public String printServers(RaftGroupId groupId) {
+    final StringBuilder b = new StringBuilder("printing ");
+    if (groupId != null) {
+      b.append(groupId);
+    } else {
+      b.append("ALL groups");
     }
+    getServers().stream().filter(
+        s -> {
+          if (groupId == null) {
+            return true;
+          }
+          try {
+            return groupId.equals(s.getImpl().getGroupId());
+          } catch (IOException e) {
+            return false;
+          }
+        })
+        .forEach(s -> b.append("\n  ").append(s));
     return b.toString();
   }
 
@@ -332,10 +349,20 @@ public abstract class MiniRaftCluster {
   }
 
   public RaftServerImpl getLeader() {
+    return getLeader((RaftGroupId)null);
+  }
+
+  public RaftServerImpl getLeader(RaftGroupId groupId) {
+    Stream<RaftServerImpl> stream = getServerAliveStream();
+    if (groupId != null) {
+      stream = stream.filter(s -> groupId.equals(s.getGroupId()));
+    }
+    return getLeader(stream);
+  }
+
+  static RaftServerImpl getLeader(Stream<RaftServerImpl> serverAliveStream) {
     final List<RaftServerImpl> leaders = new ArrayList<>();
-    getServerAliveStream()
-        .filter(RaftServerImpl::isLeader)
-        .forEach(s -> {
+    serverAliveStream.filter(RaftServerImpl::isLeader).forEach(s -> {
       if (leaders.isEmpty()) {
         leaders.add(s);
       } else {
@@ -352,7 +379,7 @@ public abstract class MiniRaftCluster {
     if (leaders.isEmpty()) {
       return null;
     } else if (leaders.size() > 1) {
-      throw new IllegalStateException(printServers() + leaders
+      throw new IllegalStateException(leaders
           + ", leaders.size() = " + leaders.size() + " > 1");
     }
     return leaders.get(0);
@@ -388,7 +415,7 @@ public abstract class MiniRaftCluster {
     return servers.get(id);
   }
 
-  public Collection<RaftPeer> getPeers() {
+  public List<RaftPeer> getPeers() {
     return toRaftPeers(getServers());
   }
 

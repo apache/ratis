@@ -113,10 +113,8 @@ final class RaftClientImpl implements RaftClient {
       throws InterruptedIOException, StateMachineException {
     for(;;) {
       final RaftClientRequest request = supplier.get();
-      LOG.debug("{}: {}", clientId, request);
       final RaftClientReply reply = sendRequest(request);
       if (reply != null) {
-        LOG.debug("{}: {}", clientId, reply);
         return reply;
       }
 
@@ -133,6 +131,7 @@ final class RaftClientImpl implements RaftClient {
 
   private RaftClientReply sendRequest(RaftClientRequest request)
       throws StateMachineException {
+    LOG.debug("{}: {}", clientId, request);
     RaftClientReply reply = null;
     try {
       reply = clientRpc.sendRequest(request);
@@ -140,6 +139,7 @@ final class RaftClientImpl implements RaftClient {
       handleIOException(request, ioe, null);
     }
     if (reply != null) {
+      LOG.debug("{}: {}", clientId, reply);
       if (reply.isNotLeader()) {
         handleNotLeaderException(request, reply.getNotLeaderException());
         return null;

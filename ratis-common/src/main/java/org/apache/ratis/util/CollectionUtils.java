@@ -59,11 +59,7 @@ public interface CollectionUtils {
         .filter(e -> !given.equals(e))
         .collect(Collectors.toList());
     final int size = list.size();
-    if (size == 0) {
-      throw new IllegalArgumentException(
-          "All elements in the iteration equals to the given element.");
-    }
-    return list.get(ThreadLocalRandom.current().nextInt(size));
+    return size == 0? null: list.get(ThreadLocalRandom.current().nextInt(size));
   }
 
   static <INPUT, OUTPUT> Iterable<OUTPUT> as(

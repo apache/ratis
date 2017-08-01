@@ -18,6 +18,7 @@
 package org.apache.ratis;
 
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -64,22 +65,27 @@ public class RaftTestUtil {
   }
 
   public static RaftServerImpl waitForLeader(
-      MiniRaftCluster cluster, boolean tolerateMultipleLeaders)
+      MiniRaftCluster cluster, boolean tolerateMultipleLeaders) throws InterruptedException {
+    return waitForLeader(cluster, tolerateMultipleLeaders, null);
+  }
+
+  public static RaftServerImpl waitForLeader(
+      MiniRaftCluster cluster, boolean tolerateMultipleLeaders, RaftGroupId groupId)
       throws InterruptedException {
     final long sleepTime = (cluster.getMaxTimeout() * 3) >> 1;
-    LOG.info(cluster.printServers());
+    LOG.info(cluster.printServers(groupId));
     RaftServerImpl leader = null;
     for(int i = 0; leader == null && i < 10; i++) {
       Thread.sleep(sleepTime);
       try {
-        leader = cluster.getLeader();
+        leader = cluster.getLeader(groupId);
       } catch(IllegalStateException e) {
         if (!tolerateMultipleLeaders) {
           throw e;
         }
       }
     }
-    LOG.info(cluster.printServers());
+    LOG.info(cluster.printServers(groupId));
     return leader;
   }
 

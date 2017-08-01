@@ -50,6 +50,6 @@ public class RaftGroup {
 
   @Override
   public String toString() {
-    return groupId + ":" + Arrays.asList(peers);
+    return groupId + ":" + peers;
   }
 }

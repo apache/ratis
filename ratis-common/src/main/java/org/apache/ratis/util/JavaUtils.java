@@ -23,9 +23,11 @@ package org.apache.ratis.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * General Java utility methods.
@@ -59,5 +61,47 @@ public interface JavaUtils {
       return;
     }
     consumer.accept(t);
+  }
+
+  /**
+   * Create a memoized supplier which gets a value by invoking the initializer once
+   * and then keeps returning the same value as its supplied results.
+   *
+   * @param initializer to supply at most one non-null value.
+   * @param <T> The supplier result type.
+   * @return a memoized supplier which is thread-safe.
+   */
+  static <T> Supplier<T> memoize(Supplier<T> initializer) {
+    Objects.requireNonNull(initializer, "initializer == null");
+    return new Supplier<T>() {
+      private volatile T value = null;
+
+      @Override
+      public T get() {
+        T v = value;
+        if (v == null) {
+          synchronized (this) {
+            v = value;
+            if (v == null) {
+              v = value = Objects.requireNonNull(initializer.get(),
+                  "initializer.get() returns null");
+            }
+          }
+        }
+        return v;
+      }
+    };
+  }
+
+  Supplier<ThreadGroup> ROOT_THREAD_GROUP = memoize(() -> {
+    for (ThreadGroup g = Thread.currentThread().getThreadGroup(), p;; g = p) {
+      if ((p = g.getParent()) == null) {
+        return g;
+      }
+    }
+  });
+
+  static ThreadGroup getRootThreadGroup() {
+    return ROOT_THREAD_GROUP.get();
   }
 }

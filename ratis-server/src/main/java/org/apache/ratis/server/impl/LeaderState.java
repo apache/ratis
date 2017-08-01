@@ -397,8 +397,14 @@ public class LeaderState {
   private void updateLastCommitted() {
     final RaftPeerId selfId = server.getId();
     final RaftConfiguration conf = server.getRaftConf();
-    long majorityInNewConf = computeLastCommitted(voterLists.get(0),
-        conf.containsInConf(selfId));
+
+    final List<FollowerInfo> followers = voterLists.get(0);
+    final boolean includeSelf = conf.containsInConf(selfId);
+    if (followers.isEmpty() && !includeSelf) {
+      return;
+    }
+
+    final long majorityInNewConf = computeLastCommitted(followers, includeSelf);
     final long oldLastCommitted = raftLog.getLastCommittedIndex();
     final TermIndex[] entriesToCommit;
     if (!conf.isTransitional()) {
@@ -409,8 +415,13 @@ public class LeaderState {
           Math.max(majorityInNewConf, oldLastCommitted) + 1);
       server.getState().updateStatemachine(majorityInNewConf, currentTerm);
     } else { // configuration is in transitional state
-      long majorityInOldConf = computeLastCommitted(voterLists.get(1),
-          conf.containsInOldConf(selfId));
+      final List<FollowerInfo> oldFollowers = voterLists.get(1);
+      final boolean includeSelfInOldConf = conf.containsInOldConf(selfId);
+      if (oldFollowers.isEmpty() && !includeSelfInOldConf) {
+        return;
+      }
+
+      final long majorityInOldConf = computeLastCommitted(oldFollowers, includeSelfInOldConf);
       final long majority = Math.min(majorityInNewConf, majorityInOldConf);
       entriesToCommit = raftLog.getEntries(oldLastCommitted + 1,
           Math.max(majority, oldLastCommitted) + 1);
@@ -477,6 +488,10 @@ public class LeaderState {
   private long computeLastCommitted(List<FollowerInfo> followers,
       boolean includeSelf) {
     final int length = includeSelf ? followers.size() + 1 : followers.size();
+    if (length == 0) {
+      throw new IllegalArgumentException("followers.size() == "
+          + followers.size() + " and includeSelf == " + includeSelf);
+    }
     final long[] indices = new long[length];
     for (int i = 0; i < followers.size(); i++) {
       indices[i] = followers.get(i).getMatchIndex();

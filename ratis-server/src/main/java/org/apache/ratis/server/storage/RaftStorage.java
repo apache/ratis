@@ -18,6 +18,7 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
@@ -44,9 +45,17 @@ public class RaftStorage implements Closeable {
 
   public RaftStorage(RaftProperties prop, RaftServerConstants.StartupOption option)
       throws IOException {
-    final String dir = RaftServerConfigKeys.storageDir(prop);
-    storageDir = new RaftStorageDirectory(
-        new File(FileUtils.stringAsURI(dir).getPath()));
+    this(prop, null, option);
+  }
+
+  public RaftStorage(RaftProperties prop, RaftGroupId groupId, RaftServerConstants.StartupOption option)
+      throws IOException {
+    final String dirStr = RaftServerConfigKeys.storageDir(prop);
+    File dir = new File(FileUtils.stringAsURI(dirStr).getPath());
+    if (groupId != null) {
+      dir = new File(dir, groupId.toString());
+    }
+    storageDir = new RaftStorageDirectory(dir);
     if (option == RaftServerConstants.StartupOption.FORMAT) {
       if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
         throw new IOException("Cannot format " + storageDir);

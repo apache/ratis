@@ -30,7 +30,6 @@ import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.io.Closeable;
@@ -85,7 +84,7 @@ public class ServerState implements Closeable {
     RaftConfiguration initialConf = RaftConfiguration.newBuilder()
         .setConf(group.getPeers()).build();
     configurationManager = new ConfigurationManager(initialConf);
-    storage = new RaftStorage(prop, RaftServerConstants.StartupOption.REGULAR);
+    storage = new RaftStorage(prop, group.getGroupId(), RaftServerConstants.StartupOption.REGULAR);
     snapshotManager = new SnapshotManager(storage, id);
 
     long lastApplied = initStatemachine(stateMachine, prop);
@@ -231,10 +230,7 @@ public class ServerState implements Closeable {
       // leader and term later
       return true;
     }
-    Preconditions.assertTrue(this.leaderId.equals(leaderId),
-        "selfId:%s, this.leaderId:%s, received leaderId:%s",
-        selfId, this.leaderId, leaderId);
-    return true;
+    return this.leaderId.equals(leaderId);
   }
 
   /**

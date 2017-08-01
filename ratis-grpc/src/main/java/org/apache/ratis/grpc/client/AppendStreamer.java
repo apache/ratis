@@ -118,6 +118,9 @@ public class AppendStreamer implements Closeable {
         leaderId = peers.keySet().iterator().next();
       } else {
         leaderId = CollectionUtils.random(oldLeader, peers.keySet());
+        if (leaderId == null) {
+          leaderId = oldLeader;
+        }
       }
     }
     LOG.debug("{} switches leader from {} to {}. suggested leader: {}", this,
