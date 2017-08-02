@@ -38,7 +38,7 @@ public class ClientId extends RaftId {
   }
 
   @Override
-  public String toString() {
-    return "client-" + super.toString();
+  String createUuidString() {
+    return "client-" + super.createUuidString();
   }
 }

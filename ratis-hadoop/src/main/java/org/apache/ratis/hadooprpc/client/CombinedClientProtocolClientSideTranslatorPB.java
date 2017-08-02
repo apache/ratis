@@ -25,7 +25,6 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.ReinitializeRequest;
 import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.shaded.com.google.common.base.Function;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.util.CheckedFunction;
@@ -34,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.function.Function;
 
 
 @InterfaceAudience.Private

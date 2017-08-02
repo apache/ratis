@@ -17,47 +17,70 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 public abstract class RaftId {
   public static final int BYTE_LENGTH = 16;
 
-  private final UUID uuid;
-
-  protected RaftId(UUID id) {
-    this.uuid = Objects.requireNonNull(id, "id == null");
-  }
-
-  public RaftId(byte[] data) {
+  static UUID toUuid(byte[] data) {
     Objects.requireNonNull(data, "data == null");
     Preconditions.assertTrue(data.length == BYTE_LENGTH,
         "data.length = %s != BYTE_LENGTH = %s", data.length, BYTE_LENGTH);
     ByteBuffer buffer = ByteBuffer.wrap(data);
-    this.uuid = new UUID(buffer.getLong(), buffer.getLong());
+    return new UUID(buffer.getLong(), buffer.getLong());
   }
 
-  public byte[] toBytes() {
+  static byte[] toBytes(UUID uuid) {
+    Objects.requireNonNull(uuid, "uuid == null");
     ByteBuffer buf = ByteBuffer.wrap(new byte[BYTE_LENGTH]);
     buf.putLong(uuid.getMostSignificantBits());
     buf.putLong(uuid.getLeastSignificantBits());
     return buf.array();
   }
 
-  @Override
-  public String toString() {
-    return uuid.toString();
+  private final UUID uuid;
+  private final byte[] uuidBytes;
+  private final Supplier<String> uuidString;
+
+  private RaftId(UUID uuid, byte[] bytes) {
+    this.uuid = uuid;
+    this.uuidBytes = bytes;
+    this.uuidString = JavaUtils.memoize(this::createUuidString);
   }
 
+  RaftId(UUID uuid) {
+    this(uuid, toBytes(uuid));
+  }
+
+  public RaftId(byte[] uuidBytes) {
+    this(toUuid(uuidBytes), uuidBytes);
+  }
+
+  String createUuidString() {
+    return uuid.toString().toUpperCase();
+  }
+
+  public byte[] toBytes() {
+    return uuidBytes;
+  }
+
+  @Override
+  public String toString() {
+    return uuidString.get();
+  }
 
   @Override
   public boolean equals(Object other) {
     return other == this ||
-        (other instanceof RaftId &&
-            uuid.equals(((RaftId) other).uuid));
+        (other instanceof RaftId
+            && this.getClass() == other.getClass()
+            && uuid.equals(((RaftId) other).uuid));
   }
 
   @Override

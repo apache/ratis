@@ -33,6 +33,7 @@ import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -47,7 +48,7 @@ import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX
  * A daemon thread appending log entries to a follower peer.
  */
 public class LogAppender extends Daemon {
-  public static final Logger LOG = RaftServerImpl.LOG;
+  public static final Logger LOG = LoggerFactory.getLogger(LogAppender.class);
 
   protected final RaftServerImpl server;
   private final LeaderState leaderState;

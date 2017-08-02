@@ -35,7 +35,7 @@ public class RaftGroupId extends RaftId {
   }
 
   @Override
-  public String toString() {
-    return "group-" + super.toString();
+  String createUuidString() {
+    return "group-" + super.createUuidString();
   }
 }

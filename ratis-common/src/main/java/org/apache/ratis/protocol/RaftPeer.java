@@ -20,6 +20,7 @@ package org.apache.ratis.protocol;
 import org.apache.ratis.util.NetUtils;
 
 import java.net.InetSocketAddress;
+import java.util.Objects;
 
 /**
  * A {@link RaftPeer} is a server in a Raft cluster.
@@ -46,7 +47,7 @@ public class RaftPeer {
 
   /** Construct a peer with the given id and address. */
   public RaftPeer(RaftPeerId id, String address) {
-    this.id = id;
+    this.id = Objects.requireNonNull(id, "id == null");
     this.address = address;
   }
 
