@@ -39,16 +39,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
-
-import static org.apache.ratis.util.ProtoUtils.toByteString;
 
 public class RaftTestUtil {
   public static final LogEntryProto[] EMPTY_LOGENTRY_ARRAY = new LogEntryProto[0];
@@ -168,6 +165,10 @@ public class RaftTestUtil {
     }
   }
 
+  public static ByteString toByteString(String string) {
+    return ByteString.copyFrom(string, StandardCharsets.UTF_8);
+  }
+
   public static class SimpleMessage implements Message {
     public static SimpleMessage[] create(int numMessages) {
       return create(numMessages, "m");
@@ -211,7 +212,7 @@ public class RaftTestUtil {
 
     @Override
     public ByteString getContent() {
-      return toByteString(messageId.getBytes(Charset.forName("UTF-8")));
+      return toByteString(messageId);
     }
   }
 
@@ -240,12 +241,7 @@ public class RaftTestUtil {
     }
 
     public SMLogEntryProto getLogEntryContent() {
-      try {
-        return SMLogEntryProto.newBuilder()
-            .setData(toByteString(op.getBytes("UTF-8"))).build();
-      } catch (UnsupportedEncodingException e) {
-        throw new RuntimeException(e);
-      }
+      return SMLogEntryProto.newBuilder().setData(toByteString(op)).build();
     }
   }
 

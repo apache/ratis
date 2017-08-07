@@ -17,26 +17,20 @@
  */
 package org.apache.ratis.util;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftPeerProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftRpcReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftRpcRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.ratis.shaded.proto.RaftProtos.*;
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
 
 public class ProtoUtils {
   public static ByteString toByteString(Object obj) {
@@ -73,7 +67,7 @@ public class ProtoUtils {
 
   public static RaftPeerProto toRaftPeerProto(RaftPeer peer) {
     RaftPeerProto.Builder builder = RaftPeerProto.newBuilder()
-        .setId(toByteString(peer.getId().toBytes()));
+        .setId(peer.getId().toByteString());
     if (peer.getAddress() != null) {
       builder.setAddress(peer.getAddress());
     }
@@ -109,6 +103,15 @@ public class ProtoUtils {
     };
   }
 
+  public static RaftGroupId toRaftGroupId(RaftGroupIdProto proto) {
+    return new RaftGroupId(proto.getId());
+  }
+
+  public static RaftGroupIdProto.Builder toRaftGroupIdProtoBuilder(RaftGroupId id) {
+    return RaftGroupIdProto.newBuilder().setId(id.toByteString());
+  }
+
+
   public static boolean isConfigurationLogEntry(LogEntryProto entry) {
     return entry.getLogEntryBodyCase() ==
         LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
@@ -119,7 +122,7 @@ public class ProtoUtils {
       ClientId clientId, long callId) {
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
         .setSmLogEntry(operation)
-        .setClientId(toByteString(clientId.toBytes())).setCallId(callId)
+        .setClientId(clientId.toByteString()).setCallId(callId)
         .build();
   }
 

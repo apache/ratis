@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
-import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
@@ -29,54 +29,68 @@ import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto.Exce
 import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.STATEMACHINEEXCEPTION;
 
 public class ClientProtoUtils {
+
   public static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
-      byte[] requestorId, byte[] replyId, byte[] groupId, long callId, boolean success) {
+      ByteString requestorId, ByteString replyId, RaftGroupId groupId,
+      long callId, boolean success) {
     return RaftRpcReplyProto.newBuilder()
-        .setRequestorId(ProtoUtils.toByteString(requestorId))
-        .setReplyId(ProtoUtils.toByteString(replyId))
-        .setRaftGroupId(RaftGroupIdProto.newBuilder().setId(ProtoUtils.toByteString(groupId)))
+        .setRequestorId(requestorId)
+        .setReplyId(replyId)
+        .setRaftGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId))
         .setCallId(callId)
         .setSuccess(success);
   }
 
   public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      byte[] requesterId, byte[] replyId, byte[] raftGroupId, long callId) {
+      ByteString requesterId, ByteString replyId, RaftGroupId groupId, long callId) {
     return RaftRpcRequestProto.newBuilder()
-        .setRequestorId(ProtoUtils.toByteString(requesterId))
-        .setReplyId(ProtoUtils.toByteString(replyId))
-        .setRaftGroupId(RaftGroupIdProto.newBuilder().setId(ProtoUtils.toByteString(raftGroupId)))
+        .setRequestorId(requesterId)
+        .setReplyId(replyId)
+        .setRaftGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId))
         .setCallId(callId);
   }
 
+  public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
+      ClientId requesterId, RaftPeerId replyId, RaftGroupId groupId, long callId) {
+    return toRaftRpcRequestProtoBuilder(
+        requesterId.toByteString(), replyId.toByteString(), groupId, callId);
+  }
+
+  private static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
+      RaftClientRequest request) {
+    return toRaftRpcRequestProtoBuilder(
+        request.getClientId(),
+        request.getServerId(),
+        request.getRaftGroupId(),
+        request.getCallId());
+  }
+
   public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
-    ClientId clientId = new ClientId(
-        p.getRpcRequest().getRequestorId().toByteArray());
-    RaftGroupId groupId =
-        new RaftGroupId(p.getRpcRequest().getRaftGroupId().getId().toByteArray());
-    RaftPeerId serverId = RaftPeerId.valueOf(p.getRpcRequest().getReplyId());
-    return new RaftClientRequest(clientId, serverId, groupId,
-        p.getRpcRequest().getCallId(),
+    final RaftRpcRequestProto request = p.getRpcRequest();
+    return new RaftClientRequest(
+        new ClientId(request.getRequestorId()),
+        RaftPeerId.valueOf(request.getReplyId()),
+        ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
+        request.getCallId(),
         toMessage(p.getMessage()), p.getReadOnly());
   }
 
   public static RaftClientRequestProto toRaftClientRequestProto(
       RaftClientRequest request) {
     return RaftClientRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request.getClientId().toBytes(),
-            request.getServerId().toBytes(), request.getRaftGroupId().toBytes(),
-            request.getCallId()))
-        .setMessage(toClientMessageEntryProto(request.getMessage()))
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
+        .setMessage(toClientMessageEntryProtoBuilder(request.getMessage()))
         .setReadOnly(request.isReadOnly())
         .build();
   }
 
-  public static RaftClientRequestProto genRaftClientRequestProto(
+  public static RaftClientRequestProto toRaftClientRequestProto(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
       ByteString content, boolean readOnly) {
     return RaftClientRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(clientId.toBytes(),
-            serverId.toBytes(), groupId.toBytes(), callId))
-        .setMessage(ClientMessageEntryProto.newBuilder().setContent(content))
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(
+            clientId, serverId, groupId, callId))
+        .setMessage(toClientMessageEntryProtoBuilder(content))
         .setReadOnly(readOnly)
         .build();
   }
@@ -85,11 +99,11 @@ public class ClientProtoUtils {
       RaftClientReply reply) {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
-      b.setRpcReply(toRaftRpcReplyProtoBuilder(reply.getClientId().toBytes(),
-          reply.getServerId().toBytes(), reply.getRaftGroupId().toBytes(),
+      b.setRpcReply(toRaftRpcReplyProtoBuilder(reply.getClientId().toByteString(),
+          reply.getServerId().toByteString(), reply.getRaftGroupId(),
           reply.getCallId(), reply.isSuccess()));
       if (reply.getMessage() != null) {
-        b.setMessage(toClientMessageEntryProto(reply.getMessage()));
+        b.setMessage(toClientMessageEntryProtoBuilder(reply.getMessage()));
       }
       if (reply.isNotLeader()) {
         NotLeaderException nle = reply.getNotLeaderException();
@@ -134,8 +148,8 @@ public class ClientProtoUtils {
           smeProto.getExceptionClassName(), smeProto.getErrorMsg(),
           smeProto.getStacktrace());
     }
-    ClientId clientId = new ClientId(rp.getRequestorId().toByteArray());
-    RaftGroupId groupId = new RaftGroupId(rp.getRaftGroupId().getId().toByteArray());
+    ClientId clientId = new ClientId(rp.getRequestorId());
+    final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
     return new RaftClientReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
         groupId, rp.getCallId(), rp.getSuccess(),
         toMessage(replyProto.getMessage()), e);
@@ -167,9 +181,12 @@ public class ClientProtoUtils {
     return p::getContent;
   }
 
-  private static ClientMessageEntryProto toClientMessageEntryProto(Message message) {
-    return ClientMessageEntryProto.newBuilder()
-        .setContent(message.getContent()).build();
+  private static ClientMessageEntryProto.Builder toClientMessageEntryProtoBuilder(ByteString message) {
+    return ClientMessageEntryProto.newBuilder().setContent(message);
+  }
+
+  private static ClientMessageEntryProto.Builder toClientMessageEntryProtoBuilder(Message message) {
+    return toClientMessageEntryProtoBuilder(message.getContent());
   }
 
   public static SetConfigurationRequest toSetConfigurationRequest(
@@ -177,20 +194,16 @@ public class ClientProtoUtils {
     final RaftRpcRequestProto m = p.getRpcRequest();
     final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(p.getPeersList());
     return new SetConfigurationRequest(
-        new ClientId(m.getRequestorId().toByteArray()),
+        new ClientId(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
-        new RaftGroupId(m.getRaftGroupId().getId().toByteArray()),
+        ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
         p.getRpcRequest().getCallId(), peers);
   }
 
   public static SetConfigurationRequestProto toSetConfigurationRequestProto(
       SetConfigurationRequest request) {
     return SetConfigurationRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(
-            request.getClientId().toBytes(),
-            request.getServerId().toBytes(),
-            request.getRaftGroupId().toBytes(),
-            request.getCallId()))
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(
             Arrays.asList(request.getPeersInNewConf())))
         .build();
@@ -201,20 +214,16 @@ public class ClientProtoUtils {
     final RaftRpcRequestProto m = p.getRpcRequest();
     final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(p.getPeersList());
     return new ReinitializeRequest(
-        new ClientId(m.getRequestorId().toByteArray()),
+        new ClientId(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
-        new RaftGroupId(m.getRaftGroupId().getId().toByteArray()),
+        ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
         p.getRpcRequest().getCallId(), peers);
   }
 
   public static ReinitializeRequestProto toReinitializeRequestProto(
       ReinitializeRequest request) {
     return ReinitializeRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(
-            request.getClientId().toBytes(),
-            request.getServerId().toBytes(),
-            request.getRaftGroupId().toBytes(),
-            request.getCallId()))
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .addAllPeers(ProtoUtils.toRaftPeerProtos(request.getPeersInGroup().getPeers()))
         .build();
   }

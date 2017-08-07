@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+
 import java.util.UUID;
 
 public class RaftGroupId extends RaftId {
@@ -30,12 +32,12 @@ public class RaftGroupId extends RaftId {
     super(id);
   }
 
-  public RaftGroupId(byte[] data) {
+  public RaftGroupId(ByteString data) {
     super(data);
   }
 
   @Override
-  String createUuidString() {
-    return "group-" + super.createUuidString();
+  String createUuidString(UUID uuid) {
+    return "group-" + super.createUuidString(uuid);
   }
 }

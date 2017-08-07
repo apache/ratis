@@ -18,29 +18,31 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.junit.Assert;
+import org.junit.Test;
 
-import java.util.UUID;
-
-/**
- * Id of Raft client. Should be globally unique so that raft peers can use it
- * to correctly identify retry requests from the same client.
- */
-public class ClientId extends RaftId {
-  public static ClientId createId() {
-    UUID uuid = UUID.randomUUID();
-    return new ClientId(uuid);
+public class TestRaftId {
+  @Test
+  public void testClientId() {
+    final ClientId id = ClientId.createId();
+    final ByteString bytes = id.toByteString();
+    Assert.assertEquals(bytes, id.toByteString());
+    Assert.assertEquals(id, new ClientId(bytes));
   }
 
-  public ClientId(ByteString data) {
-    super(data);
+  @Test
+  public void testRaftGroupId() {
+    final RaftGroupId id = RaftGroupId.createId();
+    final ByteString bytes = id.toByteString();
+    Assert.assertEquals(bytes, id.toByteString());
+    Assert.assertEquals(id, new RaftGroupId(bytes));
   }
 
-  private ClientId(UUID uuid) {
-    super(uuid);
-  }
-
-  @Override
-  String createUuidString(UUID uuid) {
-    return "client-" + super.createUuidString(uuid);
+  @Test
+  public void testRaftPeerId() {
+    final RaftPeerId id = RaftPeerId.valueOf("abc");
+    final ByteString bytes = id.toByteString();
+    Assert.assertEquals(bytes, id.toByteString());
+    Assert.assertEquals(id, RaftPeerId.valueOf(bytes));
   }
 }

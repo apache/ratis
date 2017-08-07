@@ -21,7 +21,6 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,8 +33,7 @@ public class RaftPeerId {
   private static final Map<String, RaftPeerId> stringMap = new ConcurrentHashMap<>();
 
   public static RaftPeerId valueOf(ByteString id) {
-    return byteStringMap.computeIfAbsent(id,
-        key -> new RaftPeerId(key.toByteArray()));
+    return byteStringMap.computeIfAbsent(id, RaftPeerId::new);
   }
 
   public static RaftPeerId valueOf(String id) {
@@ -49,24 +47,24 @@ public class RaftPeerId {
   /** UTF-8 string as id */
   private final String idString;
   /** The corresponding bytes of {@link #idString}. */
-  private final byte[] id;
+  private final ByteString id;
 
   private RaftPeerId(String id) {
     this.idString = Objects.requireNonNull(id, "id == null");
     Preconditions.assertTrue(!id.isEmpty(), "id is an empty string.");
-    this.id = id.getBytes(StandardCharsets.UTF_8);
+    this.id = ByteString.copyFrom(idString, StandardCharsets.UTF_8);
   }
 
-  private RaftPeerId(byte[] id) {
+  private RaftPeerId(ByteString id) {
     this.id = Objects.requireNonNull(id, "id == null");
-    Preconditions.assertTrue(id.length > 0, "id is an empty array.");
-    this.idString = new String(id, StandardCharsets.UTF_8);
+    Preconditions.assertTrue(id.size() > 0, "id is empty.");
+    this.idString = id.toString(StandardCharsets.UTF_8);
   }
 
   /**
-   * @return id in byte[].
+   * @return id in {@link ByteString}.
    */
-  public byte[] toBytes() {
+  public ByteString toByteString() {
     return id;
   }
 
@@ -78,12 +76,11 @@ public class RaftPeerId {
   @Override
   public boolean equals(Object other) {
     return other == this ||
-        (other instanceof RaftPeerId &&
-            Arrays.equals(id, ((RaftPeerId) other).id));
+        (other instanceof RaftPeerId && idString.equals(((RaftPeerId)other).idString));
   }
 
   @Override
   public int hashCode() {
-    return Arrays.hashCode(id);
+    return idString.hashCode();
   }
 }

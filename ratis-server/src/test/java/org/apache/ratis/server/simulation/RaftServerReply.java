@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.RaftRpcMessage;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Objects;
 
@@ -102,11 +103,11 @@ public class RaftServerReply implements RaftRpcMessage {
   @Override
   public RaftGroupId getRaftGroupId() {
     if (isAppendEntries()) {
-      return new RaftGroupId(appendEntries.getServerReply().getRaftGroupId().toByteArray());
+      return ProtoUtils.toRaftGroupId(appendEntries.getServerReply().getRaftGroupId());
     } else if (isRequestVote()) {
-      return new RaftGroupId(requestVote.getServerReply().getRaftGroupId().toByteArray());
+      return ProtoUtils.toRaftGroupId(requestVote.getServerReply().getRaftGroupId());
     } else {
-      return new RaftGroupId(installSnapshot.getServerReply().getRaftGroupId().toByteArray());
+      return ProtoUtils.toRaftGroupId(installSnapshot.getServerReply().getRaftGroupId());
     }
   }
 }

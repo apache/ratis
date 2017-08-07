@@ -861,7 +861,7 @@ public class RaftServerImpl implements RaftServerProtocol,
   private void replyPendingRequest(LogEntryProto logEntry,
       CompletableFuture<Message> stateMachineFuture) {
     // update the retry cache
-    final ClientId clientId = new ClientId(logEntry.getClientId().toByteArray());
+    final ClientId clientId = new ClientId(logEntry.getClientId());
     final long callId = logEntry.getCallId();
     final RaftPeerId serverId = getId();
     final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(

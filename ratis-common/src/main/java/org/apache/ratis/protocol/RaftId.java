@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 
@@ -28,46 +29,50 @@ import java.util.function.Supplier;
 public abstract class RaftId {
   public static final int BYTE_LENGTH = 16;
 
-  static UUID toUuid(byte[] data) {
-    Objects.requireNonNull(data, "data == null");
-    Preconditions.assertTrue(data.length == BYTE_LENGTH,
-        "data.length = %s != BYTE_LENGTH = %s", data.length, BYTE_LENGTH);
-    ByteBuffer buffer = ByteBuffer.wrap(data);
-    return new UUID(buffer.getLong(), buffer.getLong());
+  private static void checkLength(int length, String name) {
+    Preconditions.assertTrue(length == BYTE_LENGTH,
+        " = %s != BYTE_LENGTH = %s", name, length, BYTE_LENGTH);
   }
 
-  static byte[] toBytes(UUID uuid) {
+  private static UUID toUuid(ByteString bytes) {
+    Objects.requireNonNull(bytes, "bytes == null");
+    checkLength(bytes.size(), "bytes.size()");
+    final ByteBuffer buf = bytes.asReadOnlyByteBuffer();
+    return new UUID(buf.getLong(), buf.getLong());
+  }
+
+  private static ByteString toByteString(UUID uuid) {
     Objects.requireNonNull(uuid, "uuid == null");
-    ByteBuffer buf = ByteBuffer.wrap(new byte[BYTE_LENGTH]);
+    final ByteBuffer buf = ByteBuffer.wrap(new byte[BYTE_LENGTH]);
     buf.putLong(uuid.getMostSignificantBits());
     buf.putLong(uuid.getLeastSignificantBits());
-    return buf.array();
+    return ByteString.copyFrom(buf.array());
   }
 
   private final UUID uuid;
-  private final byte[] uuidBytes;
+  private final Supplier<ByteString> uuidBytes;
   private final Supplier<String> uuidString;
 
-  private RaftId(UUID uuid, byte[] bytes) {
+  private RaftId(UUID uuid, Supplier<ByteString> uuidBytes) {
     this.uuid = uuid;
-    this.uuidBytes = bytes;
-    this.uuidString = JavaUtils.memoize(this::createUuidString);
+    this.uuidBytes = uuidBytes;
+    this.uuidString = JavaUtils.memoize(() -> createUuidString(uuid));
   }
 
   RaftId(UUID uuid) {
-    this(uuid, toBytes(uuid));
+    this(uuid, JavaUtils.memoize(() -> toByteString(uuid)));
   }
 
-  public RaftId(byte[] uuidBytes) {
-    this(toUuid(uuidBytes), uuidBytes);
+  public RaftId(ByteString uuidBytes) {
+    this(toUuid(uuidBytes), () -> uuidBytes);
   }
 
-  String createUuidString() {
+  String createUuidString(UUID uuid) {
     return uuid.toString().toUpperCase();
   }
 
-  public byte[] toBytes() {
-    return uuidBytes;
+  public ByteString toByteString() {
+    return uuidBytes.get();
   }
 
   @Override

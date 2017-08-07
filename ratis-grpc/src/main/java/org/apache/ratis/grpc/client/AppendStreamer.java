@@ -17,10 +17,8 @@
  */
 package org.apache.ratis.grpc.client;
 
+import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.util.CollectionUtils;
-import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
@@ -28,8 +26,7 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftRpcRequestProto;
-import org.apache.ratis.util.Daemon;
-import org.apache.ratis.util.PeerProxyMap;
+import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,8 +37,6 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static org.apache.ratis.client.impl.ClientProtoUtils.*;
 
 public class AppendStreamer implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(AppendStreamer.class);
@@ -158,7 +153,7 @@ public class AppendStreamer implements Closeable {
     }
     if (isRunning()) {
       // wrap the current buffer into a RaftClientRequestProto
-      final RaftClientRequestProto request = genRaftClientRequestProto(
+      final RaftClientRequestProto request = ClientProtoUtils.toRaftClientRequestProto(
           clientId, leaderId, groupId, seqNum, content, false);
       dataQueue.offer(request);
       this.notifyAll();
@@ -274,7 +269,7 @@ public class AppendStreamer implements Closeable {
           }
         } else {
           // this may be a NotLeaderException
-          RaftClientReply r = toRaftClientReply(reply);
+          RaftClientReply r = ClientProtoUtils.toRaftClientReply(reply);
           if (r.isNotLeader()) {
             LOG.debug("{} received a NotLeaderException from {}", this,
                 r.getServerId());
@@ -365,8 +360,8 @@ public class AppendStreamer implements Closeable {
         RaftClientRequestProto newRequest = RaftClientRequestProto.newBuilder()
             .setMessage(oldRequest.getMessage())
             .setReadOnly(oldRequest.getReadOnly())
-            .setRpcRequest(toRaftRpcRequestProtoBuilder(clientId.toBytes(),
-                newLeader.toBytes(), groupId.toBytes(), r.getCallId()))
+            .setRpcRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(
+                clientId, newLeader, groupId, r.getCallId()))
             .build();
         dataQueue.offerFirst(newRequest);
       }
