@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -109,7 +110,7 @@ public class LeaderState {
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
     final Timestamp t = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
     placeHolderIndex = raftLog.getNextIndex();
-    senders = new ArrayList<>(others.size());
+    senders = new CopyOnWriteArrayList<LogAppender>();
 
     for (RaftPeer p : others) {
       senders.add(server.newLogAppender(this, p, t, placeHolderIndex, true));
@@ -587,5 +588,14 @@ public class LeaderState {
           new ReconfigurationTimeoutException("Fail to set configuration "
               + newConf + ". Timeout when bootstrapping new peers."));
     }
+  }
+
+  /**
+   * @return the RaftPeer (address and id) information of the followers.
+   */
+  List<RaftPeer> getFollowers() {
+    return Collections.unmodifiableList(senders.stream()
+        .map(sender -> sender.getFollower().getPeer())
+        .collect(Collectors.toList()));
   }
 }

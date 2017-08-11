@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -33,14 +34,18 @@ import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.lang.management.ManagementFactory;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.server.impl.ServerProtoUtils.toRaftConfiguration;
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
@@ -156,6 +161,20 @@ public class RaftServerImpl implements RaftServerProtocol,
       LOG.debug("{} starts with initializing state", getId());
       startInitializing();
     }
+    registerMBean();
+
+  }
+
+  private void registerMBean() {
+    try {
+      final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+      ObjectName name =
+          new ObjectName("Ratis:service=RaftServer,group=" + getGroupId() + ",id=" + getId());
+      mbs.registerMBean(new RaftServerJmxAdapter(), name);
+    } catch (Exception ex) {
+      LOG.error("RaftServer JMX bean can't be registered", ex);
+    }
+
   }
 
   /**
@@ -925,5 +944,44 @@ public class RaftServerImpl implements RaftServerProtocol,
           stateMachine.applyTransaction(trx);
       replyPendingRequest(next, stateMachineFuture);
     }
+  }
+
+  private class RaftServerJmxAdapter implements RaftServerMXBean {
+
+    @Override
+    public String getId() {
+      return getState().getSelfId().toString();
+    }
+
+    @Override
+    public String getLeaderId() {
+      return getState().getLeaderId().toString();
+    }
+
+    @Override
+    public long getCurrentTerm() {
+      return getState().getCurrentTerm();
+    }
+
+    @Override
+    public String getGroupId() {
+      return RaftServerImpl.this.getGroupId().toString();
+    }
+
+    @Override
+    public String getRole() {
+      return role.toString();
+    }
+
+    @Override
+    public List<String> getFollowers() {
+      return Optional.ofNullable(leaderState)
+          .map(leader ->
+              leader.getFollowers().stream()
+                  .map(RaftPeer::toString)
+                  .collect(Collectors.toList()))
+          .orElse(new ArrayList<>());
+    }
+
   }
 }
