@@ -34,10 +34,18 @@ public class RaftGroup {
   /** The group of raft peers */
   private final List<RaftPeer> peers;
 
+  public RaftGroup(RaftGroupId groupId) {
+    this(groupId, Collections.emptyList());
+  }
+
   public RaftGroup(RaftGroupId groupId, RaftPeer[] peers) {
+    this(groupId, Arrays.asList(peers));
+  }
+
+  public RaftGroup(RaftGroupId groupId, List<RaftPeer> peers) {
     Preconditions.assertTrue(peers != null);
     this.groupId = groupId;
-    this.peers = Collections.unmodifiableList(new ArrayList<>(Arrays.asList(peers)));
+    this.peers = Collections.unmodifiableList(new ArrayList<>(peers));
   }
 
   public RaftGroupId getGroupId() {

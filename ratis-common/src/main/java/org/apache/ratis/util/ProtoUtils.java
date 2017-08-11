@@ -17,10 +17,7 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
@@ -111,6 +108,16 @@ public class ProtoUtils {
     return RaftGroupIdProto.newBuilder().setId(id.toByteString());
   }
 
+  public static RaftGroup toRaftGroup(RaftGroupProto proto) {
+    return new RaftGroup(toRaftGroupId(proto.getGroupId()),
+        toRaftPeerArray(proto.getPeersList()));
+  }
+
+  public static RaftGroupProto.Builder toRaftGroupProtoBuilder(RaftGroup group) {
+    return RaftGroupProto.newBuilder()
+        .setGroupId(toRaftGroupIdProtoBuilder(group.getGroupId()))
+        .addAllPeers(toRaftPeerProtos(group.getPeers()));
+  }
 
   public static boolean isConfigurationLogEntry(LogEntryProto entry) {
     return entry.getLogEntryBodyCase() ==

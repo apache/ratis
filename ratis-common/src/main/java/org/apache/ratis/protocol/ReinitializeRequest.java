@@ -17,23 +17,21 @@
  */
 package org.apache.ratis.protocol;
 
-import java.util.Arrays;
-
 public class ReinitializeRequest extends RaftClientRequest {
   private final RaftGroup group;
 
   public ReinitializeRequest(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId, long callId, RaftPeer[] peers) {
+      RaftGroupId groupId, long callId, RaftGroup group) {
     super(clientId, serverId, groupId, callId, null);
-    this.group = new RaftGroup(groupId, peers);
+    this.group = group;
   }
 
-  public RaftGroup getPeersInGroup() {
+  public RaftGroup getGroup() {
     return group;
   }
 
   @Override
   public String toString() {
-    return super.toString() + ", peers:" + Arrays.asList(getPeersInGroup());
+    return super.toString() + ", " + getGroup();
   }
 }

@@ -123,6 +123,10 @@ public interface NetUtils {
   }
 
   static String address2String(InetSocketAddress address) {
-    return address.getHostName() + ":" + address.getPort();
+    final StringBuilder b = new StringBuilder(address.getHostName());
+    if (address.getAddress() instanceof Inet6Address) {
+      b.insert(0, '[').append(']');
+    }
+    return b.append(':').append(address.getPort()).toString();
   }
 }

@@ -88,7 +88,7 @@ public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
     }
 
     /** Set all the peers (including the server being built) in the Raft cluster. */
-    public Builder setPeers(RaftGroup group) {
+    public Builder setGroup(RaftGroup group) {
       this.group = group;
       return this;
     }

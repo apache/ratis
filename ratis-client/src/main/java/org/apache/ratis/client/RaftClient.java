@@ -51,8 +51,8 @@ public interface RaftClient extends Closeable {
   /** Send set configuration request to the raft service. */
   RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException;
 
-  /** Send reinitialize request to the service. */
-  RaftClientReply reinitialize(RaftPeer[] serversInNewConf, RaftPeerId server) throws IOException;
+  /** Send reinitialize request to the given server (not the raft service). */
+  RaftClientReply reinitialize(RaftGroup newGroup, RaftPeerId server) throws IOException;
 
   /** @return a {@link Builder}. */
   static Builder newBuilder() {

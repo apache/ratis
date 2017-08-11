@@ -195,5 +195,5 @@ message SetConfigurationRequestProto {
 // reinitialize request
 message ReinitializeRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
-  repeated RaftPeerProto peers = 2;
+  RaftGroupProto group = 2; // the target group.
 }

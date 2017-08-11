@@ -169,7 +169,7 @@ public class RaftServerProxy implements RaftServer {
 
         final RaftServerImpl newImpl;
         try {
-          newImpl = initImpl(request.getPeersInGroup());
+          newImpl = initImpl(request.getGroup());
         } catch (IOException ioe) {
           final RaftException re = new RaftException(
               "Failed to reinitialize, request=" + request, ioe);
@@ -178,7 +178,7 @@ public class RaftServerProxy implements RaftServer {
           return new RaftClientReply(request, re);
         }
 
-        getServerRpc().addPeers(request.getPeersInGroup().getPeers());
+        getServerRpc().addPeers(request.getGroup().getPeers());
         newImpl.start();
         impl.complete(newImpl);
         return new RaftClientReply(request, (Message) null);

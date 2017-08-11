@@ -19,6 +19,7 @@ package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.shaded.com.google.common.base.Predicates;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -29,9 +30,11 @@ import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** A client who sends requests to a raft service. */
 final class RaftClientImpl implements RaftClient {
@@ -89,23 +92,23 @@ final class RaftClientImpl implements RaftClient {
       throws IOException {
     final long callId = nextCallId();
     // also refresh the rpc proxies for these peers
-    addServers(peersInNewConf);
+    addServers(Arrays.stream(peersInNewConf));
     return sendRequestWithRetry(() -> new SetConfigurationRequest(
         clientId, leaderId, groupId, callId, peersInNewConf));
   }
 
   @Override
-  public RaftClientReply reinitialize(RaftPeer[] peersInNewConf, RaftPeerId server)
+  public RaftClientReply reinitialize(RaftGroup newGroup, RaftPeerId server)
       throws IOException {
     final long callId = nextCallId();
-    addServers(peersInNewConf);
+    addServers(newGroup.getPeers().stream());
     return sendRequest(new ReinitializeRequest(
-        clientId, server, groupId, callId, peersInNewConf));
+        clientId, server, groupId, callId, newGroup));
   }
 
-  private void addServers(RaftPeer[] peersInNewConf) {
-    clientRpc.addServers(Arrays.stream(peersInNewConf).filter(peers::contains)
-        .collect(Collectors.toList()));
+  private void addServers(Stream<RaftPeer> peersInNewConf) {
+    clientRpc.addServers(
+        peersInNewConf.filter(p -> !peers.contains(p))::iterator);
   }
 
   private RaftClientReply sendRequestWithRetry(

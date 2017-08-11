@@ -212,19 +212,19 @@ public class ClientProtoUtils {
   public static ReinitializeRequest toReinitializeRequest(
       ReinitializeRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(p.getPeersList());
     return new ReinitializeRequest(
         new ClientId(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-        p.getRpcRequest().getCallId(), peers);
+        m.getCallId(),
+        ProtoUtils.toRaftGroup(p.getGroup()));
   }
 
   public static ReinitializeRequestProto toReinitializeRequestProto(
       ReinitializeRequest request) {
     return ReinitializeRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .addAllPeers(ProtoUtils.toRaftPeerProtos(request.getPeersInGroup().getPeers()))
+        .setGroup(ProtoUtils.toRaftGroupProtoBuilder(request.getGroup()))
         .build();
   }
 }
