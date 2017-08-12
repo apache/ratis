@@ -34,7 +34,10 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.ratis.server.impl.LeaderState.StateUpdateEventType.*;
 
@@ -68,6 +71,35 @@ public class LeaderState {
     }
   }
 
+  /**
+   * Use {@link CopyOnWriteArrayList} to implement a thread-safe list.
+   * Since each mutation induces a copy of the list, only bulk operations
+   * (addAll and removeAll) are supported.
+   */
+  static class SenderList {
+    private final List<LogAppender> senders;
+
+    SenderList(LogAppender[] senders) {
+      this.senders = new CopyOnWriteArrayList<>(senders);
+    }
+
+    Stream<LogAppender> stream() {
+      return senders.stream();
+    }
+
+    void forEach(Consumer<LogAppender> action) {
+      senders.forEach(action);
+    }
+
+    boolean addAll(Collection<LogAppender> c) {
+      return senders.addAll(c);
+    }
+
+    boolean removeAll(Collection<LogAppender> c) {
+      return senders.removeAll(c);
+    }
+  }
+
   static final StateUpdateEvent UPDATE_COMMIT_EVENT =
       new StateUpdateEvent(StateUpdateEventType.UPDATECOMMIT, -1);
   static final StateUpdateEvent STAGING_PROGRESS_EVENT =
@@ -83,7 +115,7 @@ public class LeaderState {
    * The list of threads appending entries to followers.
    * The list is protected by the RaftServer's lock.
    */
-  private final List<LogAppender> senders;
+  private final SenderList senders;
   private final BlockingQueue<StateUpdateEvent> eventQ;
   private final EventProcessor processor;
   private final PendingRequests pendingRequests;
@@ -110,11 +142,11 @@ public class LeaderState {
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
     final Timestamp t = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
     placeHolderIndex = raftLog.getNextIndex();
-    senders = new CopyOnWriteArrayList<LogAppender>();
 
-    for (RaftPeer p : others) {
-      senders.add(server.newLogAppender(this, p, t, placeHolderIndex, true));
-    }
+    senders = new SenderList(others.stream().map(
+        p -> server.newLogAppender(this, p, t, placeHolderIndex, true))
+        .toArray(LogAppender[]::new));
+
     voterLists = divideFollowers(conf);
   }
 
@@ -146,10 +178,7 @@ public class LeaderState {
   void stop() {
     this.running = false;
     // do not interrupt event processor since it may be in the middle of logSync
-    for (LogAppender sender : senders) {
-      sender.stopSender();
-      sender.interrupt();
-    }
+    senders.forEach(sender -> sender.stopSender().interrupt());
     try {
       pendingRequests.sendNotLeaderResponses();
     } catch (IOException e) {
@@ -235,11 +264,18 @@ public class LeaderState {
   void addSenders(Collection<RaftPeer> newMembers) {
     final Timestamp t = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
     final long nextIndex = raftLog.getNextIndex();
-    for (RaftPeer peer : newMembers) {
+
+    senders.addAll(newMembers.stream().map(peer -> {
       LogAppender sender = server.newLogAppender(this, peer, t, nextIndex, false);
-      senders.add(sender);
       sender.start();
-    }
+      return sender;
+    }).collect(Collectors.toList()));
+  }
+
+  void stopAndRemoveSenders(Predicate<LogAppender> predicate) {
+    final List<LogAppender> toStop = senders.stream().filter(predicate).collect(Collectors.toList());
+    toStop.forEach(s -> s.stopSender().interrupt());
+    senders.removeAll(toStop);
   }
 
   /**
@@ -247,15 +283,7 @@ public class LeaderState {
    */
   private void updateSenders(RaftConfiguration conf) {
     Preconditions.assertTrue(conf.isStable() && !inStagingState());
-    Iterator<LogAppender> iterator = senders.iterator();
-    while (iterator.hasNext()) {
-      LogAppender sender = iterator.next();
-      if (!conf.containsInConf(sender.getFollower().getPeer().getId())) {
-        iterator.remove();
-        sender.stopSender();
-        sender.interrupt();
-      }
-    }
+    stopAndRemoveSenders(s -> !conf.containsInConf(s.getFollower().getPeer().getId()));
   }
 
   void submitUpdateStateEvent(StateUpdateEvent event) {
@@ -384,9 +412,7 @@ public class LeaderState {
       } else if (!reports.contains(BootStrapProgress.PROGRESSING)) {
         // all caught up!
         applyOldNewConf();
-        for (LogAppender sender : senders) {
-          sender.getFollower().startAttendVote();
-        }
+        senders.forEach(s -> s.getFollower().startAttendVote());
       }
     }
   }
@@ -573,15 +599,8 @@ public class LeaderState {
     }
 
     void fail() {
-      Iterator<LogAppender> iterator = senders.iterator();
-      while (iterator.hasNext()) {
-        LogAppender sender = iterator.next();
-        if (!sender.getFollower().isAttendingVote()) {
-          iterator.remove();
-          sender.stopSender();
-          sender.interrupt();
-        }
-      }
+      stopAndRemoveSenders(s -> !s.getFollower().isAttendingVote());
+
       LeaderState.this.stagingState = null;
       // send back failure response to client's request
       pendingRequests.failSetConfiguration(

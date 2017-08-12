@@ -98,8 +98,9 @@ public class LogAppender extends Daemon {
     return sending;
   }
 
-  public void stopSender() {
+  public LogAppender stopSender() {
     this.sending = false;
+    return this;
   }
 
   public FollowerInfo getFollower() {
