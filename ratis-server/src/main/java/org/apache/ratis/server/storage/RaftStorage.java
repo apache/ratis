@@ -17,14 +17,10 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachineStorage;
-import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,18 +39,8 @@ public class RaftStorage implements Closeable {
   private volatile MetaFile metaFile;
   private StateMachineStorage stateMachineStorage;
 
-  public RaftStorage(RaftProperties prop, RaftServerConstants.StartupOption option)
+  public RaftStorage(File dir, RaftServerConstants.StartupOption option)
       throws IOException {
-    this(prop, null, option);
-  }
-
-  public RaftStorage(RaftProperties prop, RaftGroupId groupId, RaftServerConstants.StartupOption option)
-      throws IOException {
-    final String dirStr = RaftServerConfigKeys.storageDir(prop);
-    File dir = new File(FileUtils.stringAsURI(dirStr).getPath());
-    if (groupId != null) {
-      dir = new File(dir, groupId.toString());
-    }
     storageDir = new RaftStorageDirectory(dir);
     if (option == RaftServerConstants.StartupOption.FORMAT) {
       if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {

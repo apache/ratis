@@ -33,6 +33,7 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.util.function.Consumer;
 
@@ -84,7 +85,10 @@ public class ServerState implements Closeable {
     RaftConfiguration initialConf = RaftConfiguration.newBuilder()
         .setConf(group.getPeers()).build();
     configurationManager = new ConfigurationManager(initialConf);
-    storage = new RaftStorage(prop, group.getGroupId(), RaftServerConstants.StartupOption.REGULAR);
+
+    final File dir = RaftServerConfigKeys.storageDir(prop);
+    storage = new RaftStorage(new File(dir, group.getGroupId().toString()),
+        RaftServerConstants.StartupOption.REGULAR);
     snapshotManager = new SnapshotManager(storage, id);
 
     long lastApplied = initStatemachine(stateMachine, prop);

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.conf;
 
+import org.apache.ratis.shaded.com.google.common.base.Objects;
 import org.apache.ratis.util.CheckedBiConsumer;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -24,6 +25,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
@@ -35,8 +37,8 @@ import java.util.function.Consumer;
 public interface ConfUtils {
   Logger LOG = LoggerFactory.getLogger(ConfUtils.class);
 
-  static void logGet(String key, Object value) {
-    LOG.info("{} = {}", key, value);
+  static <T> void logGet(String key, T value, T defaultValue) {
+    LOG.info("{} = {} ({})", key, value, Objects.equal(value, defaultValue)? "default": "custom");
   }
 
   static void logSet(String key, Object value) {
@@ -121,6 +123,14 @@ public interface ConfUtils {
   }
 
   @SafeVarargs
+  static File getFile(
+      BiFunction<String, File, File> fileGetter,
+      String key, File defaultValue, BiConsumer<String, File>... assertions) {
+    return get(fileGetter, key, defaultValue, assertions);
+  }
+
+
+  @SafeVarargs
   static SizeInBytes getSizeInBytes(
       BiFunction<String, SizeInBytes, SizeInBytes> getter,
       String key, SizeInBytes defaultValue, BiConsumer<String, SizeInBytes>... assertions) {
@@ -142,7 +152,7 @@ public interface ConfUtils {
   static <T> T get(BiFunction<String, T, T> getter,
       String key, T defaultValue, BiConsumer<String, T>... assertions) {
     final T value = getter.apply(key, defaultValue);
-    logGet(key, value);
+    logGet(key, value, defaultValue);
     Arrays.asList(assertions).forEach(a -> a.accept(key, value));
     return value;
   }
@@ -172,6 +182,13 @@ public interface ConfUtils {
       BiConsumer<String, Long> longSetter, String key, long value,
       BiConsumer<String, Long>... assertions) {
     set(longSetter, key, value, assertions);
+  }
+
+  @SafeVarargs
+  static void setFile(
+      BiConsumer<String, File> fileSetter, String key, File value,
+      BiConsumer<String, File>... assertions) {
+    set(fileSetter, key, value, assertions);
   }
 
   @SafeVarargs

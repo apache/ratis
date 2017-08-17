@@ -57,7 +57,7 @@ public class TestRaftLogSegment {
   @Before
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestRaftLogSegment.class);
-    RaftServerConfigKeys.setStorageDir(properties, storageDir.getCanonicalPath());
+    RaftServerConfigKeys.setStorageDir(properties, storageDir);
   }
 
   @After
@@ -69,7 +69,7 @@ public class TestRaftLogSegment {
 
   private File prepareLog(boolean isOpen, long start, int size, long term)
       throws IOException {
-    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
+    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     File file = isOpen ? storage.getStorageDir().getOpenLogFile(start) :
         storage.getStorageDir().getClosedLogFile(start, start + size - 1);
 
@@ -120,7 +120,7 @@ public class TestRaftLogSegment {
   private void testLoadSegment(boolean loadInitial) throws Exception {
     // load an open segment
     File openSegmentFile = prepareLog(true, 0, 100, 0);
-    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
+    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     LogSegment openSegment = LogSegment.loadSegment(storage, openSegmentFile, 0,
         INVALID_LOG_INDEX, true, loadInitial, null);
     checkLogSegment(openSegment, 0, 99, true, openSegmentFile.length(), 0);
@@ -237,7 +237,7 @@ public class TestRaftLogSegment {
 
   @Test
   public void testPreallocateSegment() throws Exception {
-    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
+    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     final File file = storage.getStorageDir().getOpenLogFile(0);
     final int[] maxSizes = new int[]{1024, 1025, 1024 * 1024 - 1, 1024 * 1024,
         1024 * 1024 + 1, 2 * 1024 * 1024 - 1, 2 * 1024 * 1024,
@@ -292,7 +292,7 @@ public class TestRaftLogSegment {
     RaftServerConfigKeys.Log.setSegmentSizeMax(properties, max);
     RaftServerConfigKeys.Log.setPreallocatedSize(properties, SizeInBytes.valueOf("16KB"));
     RaftServerConfigKeys.Log.setWriteBufferSize(properties, SizeInBytes.valueOf("10KB"));
-    RaftStorage storage = new RaftStorage(properties, StartupOption.REGULAR);
+    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     final File file = storage.getStorageDir().getOpenLogFile(0);
 
     final byte[] content = new byte[1024];

@@ -632,6 +632,21 @@ public class RaftProperties {
   }
 
   /** @return property value; if it is not set, return the default value. */
+  public File getFile(String name, File defaultValue) {
+    final String valueString = getTrimmed(name);
+    return valueString == null? defaultValue: new File(valueString);
+  }
+
+  public void setFile(String name, File value) {
+    try {
+      set(name, value.getCanonicalPath());
+    } catch (IOException e) {
+      throw new IllegalArgumentException(
+          "Failed to get canonical path from file " + value + " for " + name, e);
+    }
+  }
+
+  /** @return property value; if it is not set, return the default value. */
   public SizeInBytes getSizeInBytes(String name, SizeInBytes defaultValue) {
     final String valueString = getTrimmed(name);
     return valueString == null? defaultValue: SizeInBytes.valueOf(valueString);

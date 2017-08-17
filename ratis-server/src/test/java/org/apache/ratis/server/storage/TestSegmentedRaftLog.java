@@ -76,8 +76,8 @@ public class TestSegmentedRaftLog {
   public void setup() throws Exception {
     storageDir = RaftTestUtil.getTestDir(TestSegmentedRaftLog.class);
     properties = new RaftProperties();
-    RaftServerConfigKeys.setStorageDir(properties, storageDir.getCanonicalPath());
-    storage = new RaftStorage(properties, RaftServerConstants.StartupOption.REGULAR);
+    RaftServerConfigKeys.setStorageDir(properties, storageDir);
+    storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
   }
 
   @After

@@ -22,6 +22,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 
+import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.conf.ConfUtils.*;
@@ -30,12 +31,12 @@ public interface RaftServerConfigKeys {
   String PREFIX = "raft.server";
 
   String STORAGE_DIR_KEY = PREFIX + ".storage.dir";
-  String STORAGE_DIR_DEFAULT = "file:///tmp/raft-server/";
-  static String storageDir(RaftProperties properties) {
-    return get(properties::getTrimmed, STORAGE_DIR_KEY, STORAGE_DIR_DEFAULT);
+  File STORAGE_DIR_DEFAULT = new File("/tmp/raft-server/");
+  static File storageDir(RaftProperties properties) {
+    return getFile(properties::getFile, STORAGE_DIR_KEY, STORAGE_DIR_DEFAULT);
   }
-  static void setStorageDir(RaftProperties properties, String storageDir) {
-    set(properties::set, STORAGE_DIR_KEY, storageDir);
+  static void setStorageDir(RaftProperties properties, File storageDir) {
+    setFile(properties::setFile, STORAGE_DIR_KEY, storageDir);
   }
 
   /**

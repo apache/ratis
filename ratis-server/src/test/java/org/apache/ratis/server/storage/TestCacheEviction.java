@@ -155,8 +155,8 @@ public class TestCacheEviction {
     final int maxCachedNum = RaftServerConfigKeys.Log.maxCachedSegmentNum(prop);
 
     File storageDir = RaftTestUtil.getTestDir(TestSegmentedRaftLog.class);
-    RaftServerConfigKeys.setStorageDir(prop, storageDir.getCanonicalPath());
-    RaftStorage storage = new RaftStorage(prop, RaftServerConstants.StartupOption.REGULAR);
+    RaftServerConfigKeys.setStorageDir(prop, storageDir);
+    RaftStorage storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
 
     RaftServerImpl server = Mockito.mock(RaftServerImpl.class);
     ServerState state = Mockito.mock(ServerState.class);

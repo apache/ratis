@@ -47,10 +47,13 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 
-public class RaftTestUtil {
+public interface RaftTestUtil {
   public static final LogEntryProto[] EMPTY_LOGENTRY_ARRAY = new LogEntryProto[0];
   static final Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
 
+  static String getTestBaseDirectory() {
+    return System.getProperty("test.build.data", "target/test/data");
+  }
 
   public static RaftServerImpl getImplAsUnchecked(RaftServerProxy proxy) {
     return JavaUtils.callAsUnchecked(proxy::getImpl);

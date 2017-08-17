@@ -107,15 +107,15 @@ public abstract class MiniRaftCluster {
     return new RaftGroup(RaftGroupId.createId(), peers);
   }
 
-  private static String getBaseDirectory() {
-    return System.getProperty("test.build.data", "target/test/data") + "/raft/";
+  private File getStorageDir(RaftPeerId id) {
+    return new File(RaftTestUtil.getTestBaseDirectory()
+        + "/" + getClass().getSimpleName() + "/" + id);
   }
 
-  private static void formatDir(String dirStr) {
-    final File serverDir = new File(dirStr);
-    Preconditions.assertTrue(FileUtils.fullyDelete(serverDir),
-        "Failed to format directory %s", dirStr);
-    LOG.info("Formatted directory {}", dirStr);
+  private static void formatDir(File dir) {
+    Preconditions.assertTrue(FileUtils.fullyDelete(dir),
+        "Failed to format directory %s", dir);
+    LOG.info("Formatted directory {}", dir);
   }
 
   public static String[] generateIds(int numServers, int base) {
@@ -130,7 +130,6 @@ public abstract class MiniRaftCluster {
   protected RaftGroup group;
   protected final RaftProperties properties;
   protected final Parameters parameters;
-  private final String testBaseDir;
   protected final Map<RaftPeerId, RaftServerProxy> servers = new ConcurrentHashMap<>();
 
   protected MiniRaftCluster(String[] ids, RaftProperties properties, Parameters parameters) {
@@ -141,7 +140,6 @@ public abstract class MiniRaftCluster {
     final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
     this.clientFactory = ClientFactory.cast(
         rpcType.newFactory(parameters));
-    this.testBaseDir = getBaseDirectory();
 
     ExitUtils.disableSystemExit();
   }
@@ -202,12 +200,12 @@ public abstract class MiniRaftCluster {
   private RaftServerProxy newRaftServer(RaftPeerId id, RaftGroup group,
       boolean format) {
     try {
-      final String dirStr = testBaseDir + id;
+      final File dir = getStorageDir(id);
       if (format) {
-        formatDir(dirStr);
+        formatDir(dir);
       }
       final RaftProperties prop = new RaftProperties(properties);
-      RaftServerConfigKeys.setStorageDir(prop, dirStr);
+      RaftServerConfigKeys.setStorageDir(prop, dir);
       final StateMachine stateMachine = getStateMachine4Test(properties);
       return newRaftServer(id, stateMachine, group, prop);
     } catch (IOException e) {
