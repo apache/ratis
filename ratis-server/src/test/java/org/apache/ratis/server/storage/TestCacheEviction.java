@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.server.storage;
 
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
@@ -42,7 +42,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TestCacheEviction {
+public class TestCacheEviction extends BaseTest {
   private static final CacheInvalidationPolicy policy = new CacheInvalidationPolicyDefault();
   private static final ClientId clientId = ClientId.createId();
   private static final long callId = 0;
@@ -154,7 +154,7 @@ public class TestCacheEviction {
     final RaftPeerId peerId = RaftPeerId.valueOf("s0");
     final int maxCachedNum = RaftServerConfigKeys.Log.maxCachedSegmentNum(prop);
 
-    File storageDir = RaftTestUtil.getTestDir(TestSegmentedRaftLog.class);
+    File storageDir = getTestDir();
     RaftServerConfigKeys.setStorageDir(prop, storageDir);
     RaftStorage storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
 

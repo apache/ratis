@@ -19,6 +19,7 @@ package org.apache.ratis.examples.arithmetic;
 
 
 import org.apache.log4j.Level;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -36,7 +37,7 @@ import java.io.IOException;
 import java.util.Collection;
 
 @RunWith(Parameterized.class)
-public class TestArithmetic {
+public class TestArithmetic extends BaseTest {
   static {
     LogUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.ALL);
   }

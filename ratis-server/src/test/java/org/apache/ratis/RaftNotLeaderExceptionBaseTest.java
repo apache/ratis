@@ -27,9 +27,6 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.util.LogUtils;
 import org.junit.*;
-import org.junit.rules.Timeout;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -37,19 +34,14 @@ import java.util.Collection;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
-public abstract class RaftNotLeaderExceptionBaseTest {
+public abstract class RaftNotLeaderExceptionBaseTest extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  public static final Logger LOG =
-      LoggerFactory.getLogger(RaftNotLeaderExceptionBaseTest.class);
   public static final int NUM_PEERS = 5;
-
-  @Rule
-  public Timeout globalTimeout = new Timeout(60 * 1000);
 
   private MiniRaftCluster cluster;
 

@@ -31,13 +31,9 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -47,8 +43,7 @@ import java.util.Collection;
  * Test restarting raft peers.
  */
 @RunWith(Parameterized.class)
-public class TestRestartRaftPeer {
-  static Logger LOG = LoggerFactory.getLogger(TestRestartRaftPeer.class);
+public class TestRestartRaftPeer extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
@@ -66,9 +61,6 @@ public class TestRestartRaftPeer {
 
   @Parameterized.Parameter
   public MiniRaftCluster cluster;
-
-  @Rule
-  public Timeout globalTimeout = new Timeout(60 * 1000);
 
   @Test
   public void restartFollower() throws Exception {

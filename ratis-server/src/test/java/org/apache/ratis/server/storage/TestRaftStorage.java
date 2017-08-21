@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.io.nativeio.NativeIO;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -37,12 +37,12 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Test RaftStorage and RaftStorageDirectory
  */
-public class TestRaftStorage {
+public class TestRaftStorage extends BaseTest {
   private File storageDir;
 
   @Before
   public void setup() throws Exception {
-    storageDir = RaftTestUtil.getTestDir(TestRaftStorage.class);
+    storageDir = getTestDir();
   }
 
   @After

@@ -48,28 +48,24 @@ import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 
 public interface RaftTestUtil {
-  public static final LogEntryProto[] EMPTY_LOGENTRY_ARRAY = new LogEntryProto[0];
-  static final Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
 
-  static String getTestBaseDirectory() {
-    return System.getProperty("test.build.data", "target/test/data");
-  }
+  Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
 
-  public static RaftServerImpl getImplAsUnchecked(RaftServerProxy proxy) {
+  static RaftServerImpl getImplAsUnchecked(RaftServerProxy proxy) {
     return JavaUtils.callAsUnchecked(proxy::getImpl);
   }
 
-  public static RaftServerImpl waitForLeader(MiniRaftCluster cluster)
+  static RaftServerImpl waitForLeader(MiniRaftCluster cluster)
       throws InterruptedException {
     return waitForLeader(cluster, false);
   }
 
-  public static RaftServerImpl waitForLeader(
+  static RaftServerImpl waitForLeader(
       MiniRaftCluster cluster, boolean tolerateMultipleLeaders) throws InterruptedException {
     return waitForLeader(cluster, tolerateMultipleLeaders, null);
   }
 
-  public static RaftServerImpl waitForLeader(
+  static RaftServerImpl waitForLeader(
       MiniRaftCluster cluster, boolean tolerateMultipleLeaders, RaftGroupId groupId)
       throws InterruptedException {
     final long sleepTime = (cluster.getMaxTimeout() * 3) >> 1;
@@ -89,7 +85,7 @@ public interface RaftTestUtil {
     return leader;
   }
 
-  public static RaftServerImpl waitForLeader(
+  static RaftServerImpl waitForLeader(
       MiniRaftCluster cluster, final String leaderId) throws InterruptedException {
     LOG.info(cluster.printServers());
     for(int i = 0; !cluster.tryEnforceLeader(leaderId) && i < 10; i++) {
@@ -104,7 +100,7 @@ public interface RaftTestUtil {
     return leader;
   }
 
-  public static String waitAndKillLeader(MiniRaftCluster cluster,
+  static String waitAndKillLeader(MiniRaftCluster cluster,
       boolean expectLeader) throws InterruptedException {
     final RaftServerImpl leader = waitForLeader(cluster);
     if (!expectLeader) {
@@ -117,7 +113,7 @@ public interface RaftTestUtil {
     return leader != null ? leader.getId().toString() : null;
   }
 
-  public static boolean logEntriesContains(RaftLog log,
+  static boolean logEntriesContains(RaftLog log,
       SimpleMessage... expectedMessages) {
     int idxEntries = 0;
     int idxExpected = 0;
@@ -137,7 +133,7 @@ public interface RaftTestUtil {
     return idxExpected == expectedMessages.length;
   }
 
-  public static void assertLogEntries(Collection<RaftServerProxy> servers,
+  static void assertLogEntries(Collection<RaftServerProxy> servers,
       SimpleMessage... expectedMessages) {
     final int size = servers.size();
     final long count = MiniRaftCluster.getServerStream(servers)
@@ -151,7 +147,7 @@ public interface RaftTestUtil {
     }
   }
 
-  public static void assertLogEntries(RaftLog log, TermIndex[] entries,
+  static void assertLogEntries(RaftLog log, TermIndex[] entries,
       long startIndex, long expertedTerm, SimpleMessage... expectedMessages) {
     Assert.assertEquals(expectedMessages.length, entries.length);
     for(int i = 0; i < entries.length; i++) {
@@ -168,11 +164,11 @@ public interface RaftTestUtil {
     }
   }
 
-  public static ByteString toByteString(String string) {
+  static ByteString toByteString(String string) {
     return ByteString.copyFrom(string, StandardCharsets.UTF_8);
   }
 
-  public static class SimpleMessage implements Message {
+  class SimpleMessage implements Message {
     public static SimpleMessage[] create(int numMessages) {
       return create(numMessages, "m");
     }
@@ -219,7 +215,7 @@ public interface RaftTestUtil {
     }
   }
 
-  public static class SimpleOperation {
+  class SimpleOperation {
     private final String op;
 
     public SimpleOperation(String op) {
@@ -248,32 +244,20 @@ public interface RaftTestUtil {
     }
   }
 
-  public static File getTestDir(Class<?> caller) throws IOException {
-    File dir = new File(System.getProperty("test.build.data", "target/test/data")
-            + "/" + Long.toHexString(ThreadLocalRandom.current().nextLong()),
-            caller.getSimpleName());
-    if (dir.exists() && !dir.isDirectory()) {
-      throw new IOException(dir + " already exists and is not a directory");
-    } else if (!dir.exists() && !dir.mkdirs()) {
-      throw new IOException("Cannot create directory " + dir);
-    }
-    return dir;
-  }
-
-  public static void block(BooleanSupplier isBlocked) throws InterruptedException {
+  static void block(BooleanSupplier isBlocked) throws InterruptedException {
     for(; isBlocked.getAsBoolean(); ) {
       RaftServerConfigKeys.Rpc.TIMEOUT_MAX_DEFAULT.sleep();
     }
   }
 
-  public static void delay(IntSupplier getDelayMs) throws InterruptedException {
+  static void delay(IntSupplier getDelayMs) throws InterruptedException {
     final int t = getDelayMs.getAsInt();
     if (t > 0) {
       Thread.sleep(t);
     }
   }
 
-  public static <T extends Throwable> void attempt(
+  static <T extends Throwable> void attempt(
       int n, long sleepMs, CheckedRunnable<T> runnable)
       throws T, InterruptedException {
     for(int i = 1; i <= n; i++) {
@@ -293,7 +277,7 @@ public interface RaftTestUtil {
     }
   }
 
-  public static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
+  static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
       throws InterruptedException {
     cluster.setBlockRequestsFrom(oldLeader.toString(), true);
     RaftPeerId newLeader = oldLeader;
@@ -304,7 +288,7 @@ public interface RaftTestUtil {
     return newLeader;
   }
 
-  public static <SERVER extends RaftServer> void blockQueueAndSetDelay(
+  static <SERVER extends RaftServer> void blockQueueAndSetDelay(
       Collection<SERVER> servers,
       DelayLocalExecutionInjection injection, String leaderId, int delayMs,
       long maxTimeout) throws InterruptedException {
@@ -331,7 +315,7 @@ public interface RaftTestUtil {
     Thread.sleep(3 * maxTimeout);
   }
 
-  public static void setBlockRequestsFrom(String src, boolean block) {
+  static void setBlockRequestsFrom(String src, boolean block) {
     if (block) {
       BlockRequestHandlingInjection.getInstance().blockRequestor(src);
     } else {

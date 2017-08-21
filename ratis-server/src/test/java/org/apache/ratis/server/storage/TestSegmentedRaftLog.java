@@ -18,7 +18,7 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
@@ -43,9 +43,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
-public class TestSegmentedRaftLog {
+public class TestSegmentedRaftLog extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftLogWorker.LOG, Level.DEBUG);
   }
@@ -74,7 +73,7 @@ public class TestSegmentedRaftLog {
 
   @Before
   public void setup() throws Exception {
-    storageDir = RaftTestUtil.getTestDir(TestSegmentedRaftLog.class);
+    storageDir = getTestDir();
     properties = new RaftProperties();
     RaftServerConfigKeys.setStorageDir(properties, storageDir);
     storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
@@ -150,8 +149,7 @@ public class TestSegmentedRaftLog {
               throw new RuntimeException(e);
             }
           })
-          .collect(Collectors.toList())
-          .toArray(RaftTestUtil.EMPTY_LOGENTRY_ARRAY);
+          .toArray(LogEntryProto[]::new);
       Assert.assertArrayEquals(entries, entriesFromLog);
       Assert.assertEquals(entries[entries.length - 1], getLastEntry(raftLog));
     }
@@ -289,10 +287,9 @@ public class TestSegmentedRaftLog {
               throw new RuntimeException(e);
             }
           })
-          .collect(Collectors.toList())
-          .toArray(RaftTestUtil.EMPTY_LOGENTRY_ARRAY);
+          .toArray(LogEntryProto[]::new);
       LogEntryProto[] expectedArray = expected.subList(offset, offset + size)
-          .toArray(RaftTestUtil.EMPTY_LOGENTRY_ARRAY);
+          .stream().toArray(LogEntryProto[]::new);
       Assert.assertArrayEquals(expectedArray, entriesFromLog);
     }
   }

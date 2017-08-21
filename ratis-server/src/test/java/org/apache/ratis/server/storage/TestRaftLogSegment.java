@@ -17,18 +17,18 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
-import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
+import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TraditionalBinaryPrefix;
 import org.junit.After;
 import org.junit.Assert;
@@ -47,7 +47,7 @@ import static org.apache.ratis.server.storage.LogSegment.getEntrySize;
 /**
  * Test basic functionality of {@link LogSegment}
  */
-public class TestRaftLogSegment {
+public class TestRaftLogSegment extends BaseTest {
   private static final ClientId clientId = ClientId.createId();
   private static final long callId = 0;
 
@@ -56,7 +56,7 @@ public class TestRaftLogSegment {
 
   @Before
   public void setup() throws Exception {
-    storageDir = RaftTestUtil.getTestDir(TestRaftLogSegment.class);
+    storageDir = getTestDir();
     RaftServerConfigKeys.setStorageDir(properties, storageDir);
   }
 

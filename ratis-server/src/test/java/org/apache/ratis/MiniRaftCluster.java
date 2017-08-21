@@ -108,7 +108,7 @@ public abstract class MiniRaftCluster {
   }
 
   private File getStorageDir(RaftPeerId id) {
-    return new File(RaftTestUtil.getTestBaseDirectory()
+    return new File(BaseTest.getRootTestDir()
         + "/" + getClass().getSimpleName() + "/" + id);
   }
 

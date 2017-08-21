@@ -18,6 +18,7 @@
 package org.apache.ratis.statemachine;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -33,8 +34,6 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -43,9 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import static org.junit.Assert.fail;
 
 @RunWith(Parameterized.class)
-public class TestRaftStateMachineException {
-  public static final Logger LOG = LoggerFactory.getLogger(TestRaftStateMachineException.class);
-
+public class TestRaftStateMachineException extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);

@@ -18,10 +18,10 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -31,8 +31,6 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -43,13 +41,11 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public abstract class ReinitializationBaseTest {
+public abstract class ReinitializationBaseTest extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(ConfUtils.LOG, Level.OFF);
   }
-  static final Logger LOG = LoggerFactory.getLogger(ReinitializationBaseTest.class);
 
   static final RaftProperties prop = new RaftProperties();
 

@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.util.LifeCycle;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -31,7 +30,7 @@ public class TestLifeCycle {
    * {@link LifeCycle} uses predecessors to validate transitions
    * while this test uses successors.
    */
-  @Test
+  @Test(timeout = 1000)
   public void testIsValid() throws Exception {
     final Map<LifeCycle.State, List<LifeCycle.State>> successors
         = new EnumMap<>(LifeCycle.State.class);

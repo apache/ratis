@@ -23,9 +23,6 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.junit.*;
-import org.junit.rules.Timeout;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.apache.ratis.RaftTestUtil.waitAndKillLeader;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
@@ -37,9 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public abstract class RaftBasicTests {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftBasicTests.class);
-
+public abstract class RaftBasicTests extends BaseTest {
   public static final int NUM_SERVERS = 5;
 
   protected static final RaftProperties properties = new RaftProperties();
@@ -49,9 +44,6 @@ public abstract class RaftBasicTests {
   public RaftProperties getProperties() {
     return properties;
   }
-
-  @Rule
-  public Timeout globalTimeout = new Timeout(120 * 1000);
 
   @Before
   public void setup() throws IOException {

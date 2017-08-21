@@ -31,13 +31,9 @@ import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.Timeout;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -52,8 +48,7 @@ import java.util.stream.Stream;
  * Enable raft.server.log.appender.batch.enabled and test LogAppender
  */
 @RunWith(Parameterized.class)
-public class TestBatchAppend {
-  static Logger LOG = LoggerFactory.getLogger(TestBatchAppend.class);
+public class TestBatchAppend extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
@@ -75,9 +70,6 @@ public class TestBatchAppend {
 
   @Parameterized.Parameter
   public MiniRaftCluster cluster;
-
-  @Rule
-  public Timeout globalTimeout = new Timeout(60 * 1000);
 
   @After
   public void tearDown() {

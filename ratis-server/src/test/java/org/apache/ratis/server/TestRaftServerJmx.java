@@ -18,17 +18,14 @@
 package org.apache.ratis.server;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.util.LogUtils;
 import org.junit.*;
-import org.junit.rules.Timeout;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectInstance;
@@ -39,13 +36,11 @@ import java.util.Set;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
-public class TestRaftServerJmx {
+public class TestRaftServerJmx extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
-
-  public static final Logger LOG = LoggerFactory.getLogger(RaftBasicTests.class);
 
   public static final int NUM_SERVERS = 5;
 
@@ -61,9 +56,6 @@ public class TestRaftServerJmx {
   public RaftProperties getProperties() {
     return properties;
   }
-
-  @Rule
-  public Timeout globalTimeout = new Timeout(120 * 1000);
 
   @Before
   public void setup() throws IOException {

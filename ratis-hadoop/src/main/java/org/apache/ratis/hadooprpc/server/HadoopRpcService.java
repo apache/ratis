@@ -92,7 +92,7 @@ public class HadoopRpcService implements RaftServerRpc {
 
   private HadoopRpcService(RaftServer server, final Configuration conf) {
     this.proxies = new PeerProxyMap<>(
-        p -> new Proxy(RaftServerProtocolPB.class, p.getAddress(), conf));
+        p -> new Proxy<>(RaftServerProtocolPB.class, p.getAddress(), conf));
     this.id = server.getId();
     try {
       this.ipcServer = newRpcServer(server, conf);

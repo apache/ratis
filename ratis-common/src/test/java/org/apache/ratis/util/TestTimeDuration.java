@@ -30,7 +30,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 public class TestTimeDuration {
-  @Test(timeout = 10000)
+  @Test(timeout = 1000)
   public void testTimeDuration() throws Exception {
     Arrays.asList(TimeUnit.values())
         .forEach(a -> assertNotNull(Abbreviation.valueOf(a.name())));

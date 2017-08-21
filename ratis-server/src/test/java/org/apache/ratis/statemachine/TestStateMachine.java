@@ -18,6 +18,7 @@
 package org.apache.ratis.statemachine;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
@@ -32,12 +33,10 @@ import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.LogUtils;
 import org.junit.*;
-import org.junit.rules.Timeout;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -50,7 +49,7 @@ import static org.junit.Assert.*;
 /**
  * Test StateMachine related functionality
  */
-public class TestStateMachine {
+public class TestStateMachine extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
@@ -66,9 +65,6 @@ public class TestStateMachine {
   }
 
   private MiniRaftClusterWithSimulatedRpc cluster;
-
-  @Rule
-  public Timeout globalTimeout = new Timeout(60 * 1000);
 
   @Before
   public void setup() throws IOException {

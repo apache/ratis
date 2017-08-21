@@ -18,6 +18,7 @@
 package org.apache.ratis.statemachine;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
@@ -48,7 +49,7 @@ import java.util.List;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
-public abstract class RaftSnapshotBaseTest {
+public abstract class RaftSnapshotBaseTest extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);

@@ -18,21 +18,18 @@
 package org.apache.ratis.examples.arithmetic.expression;
 
 
-import org.apache.ratis.examples.arithmetic.expression.BinaryExpression;
-import org.apache.ratis.examples.arithmetic.expression.DoubleValue;
-import org.apache.ratis.examples.arithmetic.expression.Expression;
-import org.apache.ratis.examples.arithmetic.expression.UnaryExpression;
-import org.apache.ratis.examples.arithmetic.expression.Variable;
+import org.apache.ratis.BaseTest;
 import org.junit.Assert;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class TestExpression {
-  static final Logger LOG = LoggerFactory.getLogger(TestExpression.class);
+public class TestExpression extends BaseTest {
+  @Override
+  public int getGlobalTimeoutMs() {
+    return 1000;
+  }
 
   @Test
   public void testArithmeticUtils() throws Exception {

@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -45,11 +46,10 @@ import java.util.function.Supplier;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.junit.Assert.fail;
 
-public class TestRaftStream {
+public class TestRaftStream extends BaseTest {
   static {
     LogUtils.setLogLevel(AppendStreamer.LOG, Level.ALL);
   }
-  static final Logger LOG = LoggerFactory.getLogger(TestRaftStream.class);
 
   private static final RaftProperties prop = new RaftProperties();
   private static final int NUM_SERVERS = 3;

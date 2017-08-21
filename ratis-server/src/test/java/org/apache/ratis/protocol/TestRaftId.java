@@ -17,11 +17,17 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class TestRaftId {
+public class TestRaftId extends BaseTest {
+  @Override
+  public int getGlobalTimeoutMs() {
+    return 1000;
+  }
+
   @Test
   public void testClientId() {
     final ClientId id = ClientId.createId();

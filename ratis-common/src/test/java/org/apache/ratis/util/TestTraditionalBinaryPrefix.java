@@ -25,7 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 public class TestTraditionalBinaryPrefix {
-  @Test(timeout = 10000)
+  @Test(timeout = 1000)
   public void testTraditionalBinaryPrefix() throws Exception {
     //test string2long(..)
     String[] symbol = {"k", "m", "g", "t", "p", "e"};

@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.MiniRaftCluster.PeerChanges;
 import org.apache.ratis.RaftTestUtil;
@@ -34,8 +35,6 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,12 +51,11 @@ import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
 import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
-public abstract class RaftReconfigurationBaseTest {
+public abstract class RaftReconfigurationBaseTest extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
-  static final Logger LOG = LoggerFactory.getLogger(RaftReconfigurationBaseTest.class);
 
   protected static final RaftProperties prop = new RaftProperties();
   

@@ -17,10 +17,9 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.protocol.ChecksumException;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -30,12 +29,11 @@ import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -48,9 +46,7 @@ import java.util.List;
 /**
  * Test basic functionality of LogReader, LogInputStream, and LogOutputStream.
  */
-public class TestRaftLogReadWrite {
-  private static final Logger LOG = LoggerFactory.getLogger(TestRaftLogReadWrite.class);
-
+public class TestRaftLogReadWrite extends BaseTest {
   private static final ClientId clientId = ClientId.createId();
   private static final long callId = 0;
 
@@ -59,7 +55,7 @@ public class TestRaftLogReadWrite {
 
   @Before
   public void setup() throws Exception {
-    storageDir = RaftTestUtil.getTestDir(TestRaftLogReadWrite.class);
+    storageDir = getTestDir();
     properties = new RaftProperties();
     RaftServerConfigKeys.setStorageDir(properties, storageDir);
   }

@@ -31,20 +31,14 @@ import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.Timeout;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
 import static java.util.Arrays.asList;
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
-public abstract class RaftRetryCacheTests {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftRetryCacheTests.class);
-
+public abstract class RaftRetryCacheTests extends BaseTest {
   public static final int NUM_SERVERS = 3;
   protected static final RaftProperties properties = new RaftProperties();
 
@@ -53,9 +47,6 @@ public abstract class RaftRetryCacheTests {
   public RaftProperties getProperties() {
     return properties;
   }
-
-  @Rule
-  public Timeout globalTimeout = new Timeout(120 * 1000);
 
   @Before
   public void setup() throws IOException {
