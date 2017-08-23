@@ -73,7 +73,7 @@ public class TestRaftStateMachineException extends BaseTest {
   @Parameterized.Parameters
   public static Collection<Object[]> data() throws IOException {
     return RaftExamplesTestUtil.getMiniRaftClusters(
-        StateMachineWithException.class);
+        StateMachineWithException.class, 3);
   }
 
   @Parameterized.Parameter

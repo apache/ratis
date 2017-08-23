@@ -24,9 +24,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.*;
 import org.apache.ratis.util.ProtoUtils;
@@ -50,11 +52,22 @@ public class ServerProtoUtils {
         TermIndex.newTermIndex(entry.getTerm(), entry.getIndex());
   }
 
+  public static String toTermIndexString(LogEntryProto entry) {
+    return TermIndex.toString(entry.getTerm(), entry.getIndex());
+  }
+
+  private static String toLogEntryString(LogEntryProto entry) {
+    final ByteString clientId = entry.getClientId();
+    return toTermIndexString(entry) + entry.getLogEntryBodyCase()
+        + ", " + (clientId.isEmpty()? "<empty clientId>": new ClientId(clientId))
+        + ", callId=" + entry.getCallId();
+  }
+
   public static String toString(LogEntryProto... entries) {
     return entries == null? "null"
         : entries.length == 0 ? "[]"
-        : entries.length == 1? "" + toTermIndex(entries[0])
-        : "" + Arrays.stream(entries).map(ServerProtoUtils::toTermIndex)
+        : entries.length == 1? toLogEntryString(entries[0])
+        : "" + Arrays.stream(entries).map(ServerProtoUtils::toLogEntryString)
             .collect(Collectors.toList());
   }
 

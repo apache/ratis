@@ -165,8 +165,14 @@ public class ServerState implements Closeable {
     return currentTerm;
   }
 
-  void setCurrentTerm(long term) {
-    currentTerm = term;
+  boolean updateCurrentTerm(long newTerm) {
+    if (newTerm > currentTerm) {
+      currentTerm = newTerm;
+      votedFor = null;
+      leaderId = null;
+      return true;
+    }
+    return false;
   }
 
   RaftPeerId getLeaderId() {
@@ -188,11 +194,6 @@ public class ServerState implements Closeable {
 
   void persistMetadata() throws IOException {
     this.log.writeMetadata(currentTerm, votedFor);
-  }
-
-  void resetLeaderAndVotedFor() {
-    votedFor = null;
-    leaderId = null;
   }
 
   /**

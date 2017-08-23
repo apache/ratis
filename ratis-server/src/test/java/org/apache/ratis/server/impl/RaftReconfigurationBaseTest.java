@@ -45,8 +45,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
-import static org.apache.ratis.MiniRaftCluster.leaderPlaceHolderDelay;
-import static org.apache.ratis.MiniRaftCluster.logSyncDelay;
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
 import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
@@ -56,6 +54,11 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
+
+  private static final DelayLocalExecutionInjection logSyncDelay =
+      new DelayLocalExecutionInjection(RaftLog.LOG_SYNC);
+  private static final DelayLocalExecutionInjection leaderPlaceHolderDelay =
+      new DelayLocalExecutionInjection(LeaderState.APPEND_PLACEHOLDER);
 
   protected static final RaftProperties prop = new RaftProperties();
   

@@ -182,7 +182,7 @@ public class LeaderState {
     try {
       pendingRequests.sendNotLeaderResponses();
     } catch (IOException e) {
-      LOG.warn("Caught exception in sendNotLeaderResponses", e);
+      LOG.warn(server.getId() + ": Caught exception in sendNotLeaderResponses", e);
     }
   }
 
@@ -547,12 +547,6 @@ public class LeaderState {
       lists.add(listForOld);
     }
     return lists;
-  }
-
-  PendingRequest returnNoConfChange(SetConfigurationRequest r) {
-    PendingRequest pending = new PendingRequest(r);
-    pending.setSuccessReply(null);
-    return pending;
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {

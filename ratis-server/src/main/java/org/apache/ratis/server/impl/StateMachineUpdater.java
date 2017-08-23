@@ -137,13 +137,18 @@ class StateMachineUpdater implements Runnable {
         }
 
         while (lastAppliedIndex < committedIndex) {
-          final LogEntryProto next = raftLog.get(lastAppliedIndex + 1);
+          final long nextIndex = lastAppliedIndex + 1;
+          final LogEntryProto next = raftLog.get(nextIndex);
           if (next != null) {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("{}: applying nextIndex={}, nextLog={}",
+                  this, nextIndex, ServerProtoUtils.toString(next));
+            }
             server.applyLogToStateMachine(next);
-            lastAppliedIndex++;
+            lastAppliedIndex = nextIndex;
           } else {
             LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
-                this, lastAppliedIndex + 1, state);
+                this, nextIndex, state);
             break;
           }
         }

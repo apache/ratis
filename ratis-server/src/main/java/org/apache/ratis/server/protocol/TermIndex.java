@@ -19,6 +19,8 @@ package org.apache.ratis.server.protocol;
 
 import org.apache.ratis.server.impl.ServerImplUtils;
 
+import java.util.function.LongFunction;
+
 /** The term and the log index defined in the Raft consensus algorithm. */
 public interface TermIndex extends Comparable<TermIndex> {
   TermIndex[] EMPTY_TERMINDEX_ARRAY = {};
@@ -32,6 +34,14 @@ public interface TermIndex extends Comparable<TermIndex> {
   /** Create a new {@link TermIndex} instance. */
   static TermIndex newTermIndex(long term, long index) {
     return ServerImplUtils.newTermIndex(term, index);
+  }
+
+  LongFunction<String> LONG_TO_STRING = n -> n >= 0L? String.valueOf(n): "~";
+
+  /** @return a string representing the given term and index. */
+  static String toString(long term, long index) {
+    return String.format("(t:%s, i:%s)",
+        LONG_TO_STRING.apply(term), LONG_TO_STRING.apply(index));
   }
 }
 

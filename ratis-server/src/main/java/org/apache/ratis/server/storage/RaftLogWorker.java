@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
  * raft peer.
  */
 class RaftLogWorker implements Runnable {
-  static final Logger LOG = RaftServerImpl.LOG;
+  static final Logger LOG = LoggerFactory.getLogger(RaftLogWorker.class);
   /**
    * The task queue accessed by rpc handler threads and the io worker thread.
    */

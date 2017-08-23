@@ -20,12 +20,13 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Used when the peer is a follower. Used to track the election timeout.
  */
 class FollowerState extends Daemon {
-  static final Logger LOG = RaftServerImpl.LOG;
+  static final Logger LOG = LoggerFactory.getLogger(FollowerState.class);
 
   private final RaftServerImpl server;
 

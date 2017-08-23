@@ -27,7 +27,7 @@ import org.apache.ratis.util.Preconditions;
 import java.util.concurrent.CompletableFuture;
 
 public class PendingRequest implements Comparable<PendingRequest> {
-  private final Long index;
+  private final long index;
   private final RaftClientRequest request;
   private final TransactionContext entry;
   private final CompletableFuture<RaftClientReply> future;

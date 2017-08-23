@@ -88,8 +88,8 @@ public class ArithmeticStateMachine extends BaseStateMachine {
       last = latestTermIndex.get();
     }
 
-    File snapshotFile =  new File(SimpleStateMachineStorage.getSnapshotFileName(
-        last.getTerm(), last.getIndex()));
+    final File snapshotFile =  storage.getSnapshotFile(last.getTerm(), last.getIndex());
+    LOG.info("Taking a snapshot to file {}", snapshotFile);
 
     try(final ObjectOutputStream out = new ObjectOutputStream(
         new BufferedOutputStream(new FileOutputStream(snapshotFile)))) {
@@ -107,12 +107,16 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   private long load(SingleFileSnapshotInfo snapshot, boolean reload) throws IOException {
-    if (snapshot == null || !snapshot.getFile().getPath().toFile().exists()) {
-      LOG.warn("The snapshot file {} does not exist", snapshot);
+    if (snapshot == null) {
+      LOG.warn("The snapshot info is null.");
+      return RaftServerConstants.INVALID_LOG_INDEX;
+    }
+    final File snapshotFile = snapshot.getFile().getPath().toFile();
+    if (!snapshotFile.exists()) {
+      LOG.warn("The snapshot file {} does not exist for snapshot {}", snapshotFile, snapshot);
       return RaftServerConstants.INVALID_LOG_INDEX;
     }
 
-    File snapshotFile =snapshot.getFile().getPath().toFile();
     final TermIndex last = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotFile);
     try(final AutoCloseableLock writeLock = writeLock();
         final ObjectInputStream in = new ObjectInputStream(

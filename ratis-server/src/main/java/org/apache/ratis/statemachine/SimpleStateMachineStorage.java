@@ -52,6 +52,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
 
   private volatile SingleFileSnapshotInfo currentSnapshot = null;
 
+  @Override
   public void init(RaftStorage raftStorage) throws IOException {
     this.raftStorage = raftStorage;
     this.smDir = raftStorage.getStorageDir().getStateMachineDir();

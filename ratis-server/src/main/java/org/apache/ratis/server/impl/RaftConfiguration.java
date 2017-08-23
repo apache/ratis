@@ -156,6 +156,10 @@ public class RaftConfiguration {
     return oldConf != null && oldConf.contains(peerId);
   }
 
+  /**
+   * @return true iff the given peer is contained in conf and,
+   *         if old conf exists, is contained in old conf.
+   */
   boolean contains(RaftPeerId peerId) {
     return containsInConf(peerId) &&
         (oldConf == null || containsInOldConf(peerId));
@@ -211,7 +215,7 @@ public class RaftConfiguration {
 
   @Override
   public String toString() {
-    return conf + (oldConf != null ? "old:" + oldConf : "");
+    return conf + ", old=" + oldConf;
   }
 
   boolean hasNoChange(RaftPeer[] newMembers) {

@@ -31,7 +31,7 @@ public abstract class RaftId {
 
   private static void checkLength(int length, String name) {
     Preconditions.assertTrue(length == BYTE_LENGTH,
-        " = %s != BYTE_LENGTH = %s", name, length, BYTE_LENGTH);
+        "%s = %s != BYTE_LENGTH = %s", name, length, BYTE_LENGTH);
   }
 
   private static UUID toUuid(ByteString bytes) {

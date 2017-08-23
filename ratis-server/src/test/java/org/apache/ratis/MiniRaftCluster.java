@@ -28,7 +28,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.*;
+import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.storage.MemoryRaftLog;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.statemachine.BaseStateMachine;
@@ -49,10 +50,6 @@ import java.util.stream.StreamSupport;
 
 public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
-  public static final DelayLocalExecutionInjection logSyncDelay =
-      new DelayLocalExecutionInjection(RaftLog.LOG_SYNC);
-  public static final DelayLocalExecutionInjection leaderPlaceHolderDelay =
-      new DelayLocalExecutionInjection(LeaderState.APPEND_PLACEHOLDER);
 
   public static final String CLASS_NAME = MiniRaftCluster.class.getSimpleName();
   public static final String STATEMACHINE_CLASS_KEY = CLASS_NAME + ".statemachine.class";
@@ -419,6 +416,10 @@ public abstract class MiniRaftCluster {
 
   public RaftGroup getGroup() {
     return group;
+  }
+
+  public RaftClient createClient() {
+    return createClient(null, group);
   }
 
   public RaftClient createClient(RaftPeerId leaderId) {

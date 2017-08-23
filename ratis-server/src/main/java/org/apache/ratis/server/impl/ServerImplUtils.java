@@ -81,13 +81,9 @@ public class ServerImplUtils {
       return Long.hashCode(term) ^ Long.hashCode(index);
     }
 
-    private static String toString(long n) {
-      return n < 0 ? "~" : "" + n;
-    }
-
     @Override
     public String toString() {
-      return "(t:" + toString(term) + ", i:" + toString(index) + ")";
+      return TermIndex.toString(term, index);
     }
   }
 }

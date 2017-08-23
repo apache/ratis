@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.examples.arithmetic;
 
-
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
@@ -26,8 +25,8 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.RaftExamplesTestUtil;
 import org.apache.ratis.examples.arithmetic.expression.*;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Preconditions;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,13 +37,13 @@ import java.util.Collection;
 
 @RunWith(Parameterized.class)
 public class TestArithmetic extends BaseTest {
-  static {
+  {
     LogUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.ALL);
   }
 
   @Parameterized.Parameters
   public static Collection<Object[]> data() throws IOException {
-    return RaftExamplesTestUtil.getMiniRaftClusters(ArithmeticStateMachine.class);
+    return RaftExamplesTestUtil.getMiniRaftClusters(ArithmeticStateMachine.class, 3);
   }
 
   @Parameterized.Parameter
@@ -53,9 +52,20 @@ public class TestArithmetic extends BaseTest {
   @Test
   public void testPythagorean() throws Exception {
     cluster.start();
-    RaftTestUtil.waitForLeader(cluster);
-    final RaftPeerId leaderId = cluster.getLeader().getId();
-    final RaftClient client = cluster.createClient(leaderId);
+    try {
+      RaftTestUtil.waitForLeader(cluster);
+      try (final RaftClient client = cluster.createClient()) {
+        runTestPythagorean(client, 3, 100);
+      }
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  public static void runTestPythagorean(
+      RaftClient client, int start, int count) throws IOException {
+    Preconditions.assertTrue(count > 0, () -> "count = " + count + " <= 0");
+    Preconditions.assertTrue(start >= 2, () -> "start = " + start + " < 2");
 
     final Variable a = new Variable("a");
     final Variable b = new Variable("b");
@@ -70,7 +80,8 @@ public class TestArithmetic extends BaseTest {
     final AssignmentMessage nullB = new AssignmentMessage(b, NullValue.getInstance());
     final AssignmentMessage nullC = new AssignmentMessage(c, NullValue.getInstance());
 
-    for(int n = 3; n < 100; n += 2) {
+    final int end = start + 2*count;
+    for(int n = (start & 1) == 0? start + 1: start; n < end; n += 2) {
       int n2 = n*n;
       int half_n2 = n2/2;
 
@@ -93,8 +104,6 @@ public class TestArithmetic extends BaseTest {
       r = client.send(nullC);
       assertRaftClientReply(r, null);
     }
-    client.close();
-    cluster.shutdown();
   }
 
   static void assertRaftClientReply(RaftClientReply reply, Double expected) {

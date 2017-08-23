@@ -80,10 +80,11 @@ public class RaftExamplesTestUtil {
   }
 
   public static <S extends StateMachine> Collection<Object[]> getMiniRaftClusters(
-      Class<S> stateMachineClass, Class<?>... clusterClasses) throws IOException {
+      Class<S> stateMachineClass, int clusterSize, Class<?>... clusterClasses)
+      throws IOException {
     final RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         stateMachineClass, StateMachine.class);
-    return getMiniRaftClusters(prop, 3, clusterClasses);
+    return getMiniRaftClusters(prop, clusterSize, clusterClasses);
   }
 }

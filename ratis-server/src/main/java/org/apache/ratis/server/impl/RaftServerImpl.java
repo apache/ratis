@@ -91,6 +91,7 @@ public class RaftServerImpl implements RaftServerProtocol,
 
   RaftServerImpl(RaftPeerId id, RaftGroup group, RaftServerProxy proxy,
       RaftProperties properties) throws IOException {
+    LOG.debug("new RaftServerImpl {}, {}", id , group);
     this.groupId = group.getGroupId();
     this.lifeCycle = new LifeCycle(id);
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toInt(TimeUnit.MILLISECONDS);
@@ -150,15 +151,20 @@ public class RaftServerImpl implements RaftServerProtocol,
     return proxy.getServerRpc();
   }
 
+  private void setRole(Role newRole) {
+    LOG.debug("{} changes role from {} to {}", getId(), this.role, newRole);
+    this.role = newRole;
+  }
+
   void start() {
     lifeCycle.transition(STARTING);
     state.start();
     RaftConfiguration conf = getRaftConf();
     if (conf != null && conf.contains(getId())) {
-      LOG.debug("{} starts as a follower", getId());
+      LOG.debug("{} starts as a follower, conf={}", getId(), conf);
       startAsFollower();
     } else {
-      LOG.debug("{} starts with initializing state", getId());
+      LOG.debug("{} starts with initializing state, conf={}", getId(), conf);
       startInitializing();
     }
     registerMBean();
@@ -181,10 +187,8 @@ public class RaftServerImpl implements RaftServerProtocol,
    * The peer belongs to the current configuration, should start as a follower
    */
   private void startAsFollower() {
-    role = Role.FOLLOWER;
-    heartbeatMonitor = new FollowerState(this);
-    heartbeatMonitor.start();
-
+    setRole(Role.FOLLOWER);
+    startHeartbeatMonitor();
     lifeCycle.transition(RUNNING);
   }
 
@@ -194,7 +198,7 @@ public class RaftServerImpl implements RaftServerProtocol,
    * start election.
    */
   private void startInitializing() {
-    role = Role.FOLLOWER;
+    setRole(Role.FOLLOWER);
     // do not start heartbeatMonitoring
   }
 
@@ -223,7 +227,7 @@ public class RaftServerImpl implements RaftServerProtocol,
         LOG.warn("Failed to shutdown election daemon for " + getId(), ignored);
       }
       try{
-        shutdownLeaderState();
+        shutdownLeaderState(true);
       } catch (Exception ignored) {
         LOG.warn("Failed to shutdown leader state monitor for " + getId(), ignored);
       }
@@ -262,25 +266,16 @@ public class RaftServerImpl implements RaftServerProtocol,
   synchronized boolean changeToFollower(long newTerm, boolean sync)
       throws IOException {
     final Role old = role;
-    role = Role.FOLLOWER;
-
-    boolean metadataUpdated = false;
-    if (newTerm > state.getCurrentTerm()) {
-      state.setCurrentTerm(newTerm);
-      state.resetLeaderAndVotedFor();
-      metadataUpdated = true;
-    }
-
-    if (old == Role.LEADER) {
-      assert leaderState != null;
-      shutdownLeaderState();
-    } else if (old == Role.CANDIDATE) {
-      shutdownElectionDaemon();
-    }
+    final boolean metadataUpdated = state.updateCurrentTerm(newTerm);
 
     if (old != Role.FOLLOWER) {
-      heartbeatMonitor = new FollowerState(this);
-      heartbeatMonitor.start();
+      setRole(Role.FOLLOWER);
+      if (old == Role.LEADER) {
+        shutdownLeaderState(false);
+      } else if (old == Role.CANDIDATE) {
+        shutdownElectionDaemon();
+      }
+      startHeartbeatMonitor();
     }
 
     if (metadataUpdated && sync) {
@@ -289,12 +284,15 @@ public class RaftServerImpl implements RaftServerProtocol,
     return metadataUpdated;
   }
 
-  private synchronized void shutdownLeaderState() {
-    final LeaderState leader = leaderState;
-    if (leader != null) {
-      leader.stop();
+  private synchronized void shutdownLeaderState(boolean allowNull) {
+    if (leaderState == null) {
+      if (!allowNull) {
+        throw new NullPointerException("leaderState == null");
+      }
+    } else {
+      leaderState.stop();
+      leaderState = null;
     }
-    leaderState = null;
     // TODO: make sure that StateMachineUpdater has applied all transactions that have context
   }
 
@@ -310,11 +308,18 @@ public class RaftServerImpl implements RaftServerProtocol,
   synchronized void changeToLeader() {
     Preconditions.assertTrue(isCandidate());
     shutdownElectionDaemon();
-    role = Role.LEADER;
+    setRole(Role.LEADER);
     state.becomeLeader();
     // start sending AppendEntries RPC to followers
     leaderState = new LeaderState(this, getProxy().getProperties());
     leaderState.start();
+  }
+
+  private void startHeartbeatMonitor() {
+    Preconditions.assertTrue(heartbeatMonitor == null, "heartbeatMonitor != null");
+    LOG.debug("{} starts heartbeatMonitor", getId());
+    heartbeatMonitor = new FollowerState(this);
+    heartbeatMonitor.start();
   }
 
   private void shutdownHeartbeatMonitor() {
@@ -329,7 +334,7 @@ public class RaftServerImpl implements RaftServerProtocol,
   synchronized void changeToCandidate() {
     Preconditions.assertTrue(isFollower());
     shutdownHeartbeatMonitor();
-    role = Role.CANDIDATE;
+    setRole(Role.CANDIDATE);
     // start election
     electionDaemon = new LeaderElection(this);
     electionDaemon.start();
@@ -387,9 +392,9 @@ public class RaftServerImpl implements RaftServerProtocol,
         peers.toArray(new RaftPeer[peers.size()]));
   }
 
-  private void assertLifeCycleState(LifeCycle.State... expected) throws IOException {
-    lifeCycle.assertCurrentState((n, c) -> new IOException("Server " + n
-        + " is not " + Arrays.asList(expected) + ": current state is " + c),
+  private void assertLifeCycleState(LifeCycle.State... expected) throws ServerNotReadyException {
+    lifeCycle.assertCurrentState((n, c) -> new ServerNotReadyException("Server " + n
+        + " is not " + Arrays.toString(expected) + ": current state is " + c),
         expected);
   }
 
@@ -534,9 +539,10 @@ public class RaftServerImpl implements RaftServerProtocol,
             "Reconfiguration is already in progress: " + current);
       }
 
-      // return true if the new configuration is the same with the current one
+      // return success with a null message if the new conf is the same as the current
       if (current.hasNoChange(peersInNewConf)) {
-        pending = leaderState.returnNoConfChange(request);
+        pending = new PendingRequest(request);
+        pending.setSuccessReply(null);
         return pending.getFuture();
       }
 
@@ -574,18 +580,20 @@ public class RaftServerImpl implements RaftServerProtocol,
   @Override
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto r)
       throws IOException {
-    final RaftPeerId candidateId =
-        RaftPeerId.valueOf(r.getServerRequest().getRequestorId());
-    return requestVote(candidateId, r.getCandidateTerm(),
+    final RaftRpcRequestProto request = r.getServerRequest();
+    return requestVote(RaftPeerId.valueOf(request.getRequestorId()),
+        ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
+        r.getCandidateTerm(),
         ServerProtoUtils.toTermIndex(r.getCandidateLastEntry()));
   }
 
-  private RequestVoteReplyProto requestVote(RaftPeerId candidateId,
+  private RequestVoteReplyProto requestVote(
+      RaftPeerId candidateId, RaftGroupId candidateGroupId,
       long candidateTerm, TermIndex candidateLastEntry) throws IOException {
     CodeInjectionForTesting.execute(REQUEST_VOTE, getId(),
         candidateId, candidateTerm, candidateLastEntry);
-    LOG.debug("{}: receive requestVote({}, {}, {})",
-        getId(), candidateId, candidateTerm, candidateLastEntry);
+    LOG.debug("{}: receive requestVote({}, {}, {}, {})",
+        getId(), candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
     assertLifeCycleState(RUNNING);
 
     boolean voteGranted = false;
@@ -655,11 +663,13 @@ public class RaftServerImpl implements RaftServerProtocol,
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto r)
       throws IOException {
     // TODO avoid converting list to array
+    final RaftRpcRequestProto request = r.getServerRequest();
     final LogEntryProto[] entries = r.getEntriesList()
         .toArray(new LogEntryProto[r.getEntriesCount()]);
     final TermIndex previous = r.hasPreviousLog() ?
         ServerProtoUtils.toTermIndex(r.getPreviousLog()) : null;
-    return appendEntries(RaftPeerId.valueOf(r.getServerRequest().getRequestorId()),
+    return appendEntries(RaftPeerId.valueOf(request.getRequestorId()),
+        ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
         r.getLeaderTerm(), previous, r.getLeaderCommit(), r.getInitializing(),
         entries);
   }
@@ -676,14 +686,15 @@ public class RaftServerImpl implements RaftServerProtocol,
     }
   }
 
-  private AppendEntriesReplyProto appendEntries(RaftPeerId leaderId, long leaderTerm,
+  private AppendEntriesReplyProto appendEntries(
+      RaftPeerId leaderId, RaftGroupId leaderGroupId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
       LogEntryProto... entries) throws IOException {
     CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(),
         leaderId, leaderTerm, previous, leaderCommit, initializing, entries);
     final boolean isHeartbeat = entries.length == 0;
     logAppendEntries(isHeartbeat,
-        () -> getId() + ": receive appendEntries(" + leaderId + ", "
+        () -> getId() + ": receive appendEntries(" + leaderId + ", " + leaderGroupId + ", "
             + leaderTerm + ", " + previous + ", " + leaderCommit + ", "
             + initializing + ServerProtoUtils.toString(entries));
 
@@ -713,8 +724,7 @@ public class RaftServerImpl implements RaftServerProtocol,
       state.setLeader(leaderId);
 
       if (!initializing && lifeCycle.compareAndTransition(STARTING, RUNNING)) {
-        heartbeatMonitor = new FollowerState(this);
-        heartbeatMonitor.start();
+        startHeartbeatMonitor();
       }
       if (lifeCycle.getCurrentState() == RUNNING) {
         heartbeatMonitor.updateLastRpcTime(true);
@@ -780,8 +790,8 @@ public class RaftServerImpl implements RaftServerProtocol,
   @Override
   public InstallSnapshotReplyProto installSnapshot(
       InstallSnapshotRequestProto request) throws IOException {
-    final RaftPeerId leaderId = RaftPeerId.valueOf(
-        request.getServerRequest().getRequestorId());
+    final RaftRpcRequestProto r = request.getServerRequest();
+    final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
     CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(),
         leaderId, request);
     LOG.debug("{}: receive installSnapshot({})", getId(), request);

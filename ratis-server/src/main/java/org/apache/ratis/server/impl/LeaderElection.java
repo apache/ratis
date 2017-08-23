@@ -227,7 +227,7 @@ class LeaderElection extends Daemon {
           }
         }
       } catch(ExecutionException e) {
-        LOG.info("Got exception when requesting votes: " + e);
+        LOG.info("{} got exception when requesting votes: {}", server.getId(), e);
         LOG.trace("TRACE", e);
         exceptions.add(e);
       }
