@@ -21,6 +21,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.util.JavaUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,8 +35,8 @@ public class RaftServerTestUtil {
       RaftPeer[] peers, int numOfRemovedPeers, Collection<String> deadPeers)
       throws Exception {
     final long sleepMs = cluster.getMaxTimeout() * (numOfRemovedPeers + 2);
-    RaftTestUtil.attempt(3, sleepMs,
-        () -> waitAndCheckNewConf(cluster, peers, deadPeers));
+    JavaUtils.attempt(() -> waitAndCheckNewConf(cluster, peers, deadPeers),
+        3, sleepMs, "waitAndCheckNewConf", LOG);
   }
   private static void waitAndCheckNewConf(MiniRaftCluster cluster,
       RaftPeer[] peers, Collection<String> deadPeers)

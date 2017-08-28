@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -104,4 +105,67 @@ public interface JavaUtils {
   static ThreadGroup getRootThreadGroup() {
     return ROOT_THREAD_GROUP.get();
   }
+
+  /** Attempt to get a return value from the given supplier multiple times. */
+  static <RETURN, THROWABLE extends Throwable> RETURN attempt(
+      CheckedSupplier<RETURN, THROWABLE> supplier,
+      int numAttempts, long sleepMs, String name, Logger log)
+      throws THROWABLE, InterruptedException {
+    Objects.requireNonNull(supplier, "supplier == null");
+    Preconditions.assertTrue(numAttempts > 0, () -> "numAttempts = " + numAttempts + " <= 0");
+    Preconditions.assertTrue(sleepMs >= 0L, () -> "sleepMs = " + sleepMs + " < 0");
+
+    for(int i = 1; i <= numAttempts; i++) {
+      try {
+        return supplier.get();
+      } catch (Throwable t) {
+        if (i == numAttempts) {
+          throw t;
+        }
+        if (log != null && log.isWarnEnabled()) {
+          log.warn("FAILED " + name + " attempt #" + i + "/" + numAttempts
+              + ": " + t + ", sleep " + sleepMs + "ms and then retry.");
+        }
+      }
+
+      if (sleepMs > 0) {
+        Thread.sleep(sleepMs);
+      }
+    }
+    throw new IllegalStateException("BUG: this line should be unreachable.");
+  }
+
+  /** Attempt to run the given op multiple times. */
+  static <THROWABLE extends Throwable> void attempt(
+      CheckedRunnable<THROWABLE> op, int numAttempts, long sleepMs, String name, Logger log)
+      throws THROWABLE, InterruptedException {
+    attempt(CheckedSupplier.valueOf(op), numAttempts, sleepMs, name, log);
+  }
+
+  /** Attempt to wait the given condition to return true multiple times. */
+  static void attempt(
+      BooleanSupplier condition, int numAttempts, long sleepMs, String name, Logger log)
+      throws InterruptedException {
+    Objects.requireNonNull(condition, "condition == null");
+    Preconditions.assertTrue(numAttempts > 0, () -> "numAttempts = " + numAttempts + " <= 0");
+    Preconditions.assertTrue(sleepMs >= 0L, () -> "sleepMs = " + sleepMs + " < 0");
+
+    for(int i = 1; i <= numAttempts; i++) {
+      if (condition.getAsBoolean()) {
+        return;
+      }
+      if (log != null && log.isWarnEnabled()) {
+        log.warn("FAILED " + name + " attempt #" + i + "/" + numAttempts
+            + ": sleep " + sleepMs + "ms and then retry.");
+      }
+      if (sleepMs > 0) {
+        Thread.sleep(sleepMs);
+      }
+    }
+
+    if (!condition.getAsBoolean()) {
+      throw new IllegalStateException("Failed " + name + " for " + numAttempts + " attempts.");
+    }
+  }
+
 }

@@ -31,19 +31,16 @@ import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
-import org.apache.ratis.util.CheckedRunnable;
 import org.apache.ratis.util.JavaUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 
@@ -254,26 +251,6 @@ public interface RaftTestUtil {
     final int t = getDelayMs.getAsInt();
     if (t > 0) {
       Thread.sleep(t);
-    }
-  }
-
-  static <T extends Throwable> void attempt(
-      int n, long sleepMs, CheckedRunnable<T> runnable)
-      throws T, InterruptedException {
-    for(int i = 1; i <= n; i++) {
-      LOG.info("Attempt #" + i + "/" + n +  ": sleep " + sleepMs + "ms");
-      if (sleepMs > 0) {
-        Thread.sleep(sleepMs);
-      }
-      try {
-        runnable.run();
-        return;
-      } catch (Throwable t) {
-        if (i == n) {
-          throw t;
-        }
-        LOG.warn("Attempt #" + i + "/" + n + ": Ignoring " + t + " and retry.");
-      }
     }
   }
 

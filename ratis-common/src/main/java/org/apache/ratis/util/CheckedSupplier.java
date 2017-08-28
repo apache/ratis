@@ -27,4 +27,12 @@ public interface CheckedSupplier<OUTPUT, THROWABLE extends Throwable> {
    * except that this method is declared with a throws-clause.
    */
   OUTPUT get() throws THROWABLE;
+
+  static <THROWABLE extends Throwable> CheckedSupplier<?, THROWABLE> valueOf(
+      CheckedRunnable<THROWABLE> runnable) {
+    return () -> {
+      runnable.run();
+      return null;
+    };
+  }
 }

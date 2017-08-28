@@ -23,6 +23,8 @@ import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.JavaUtils;
 
 import java.io.IOException;
 
@@ -31,7 +33,17 @@ public class ServerImplUtils {
   public static RaftServerProxy newRaftServer(
       RaftPeerId id, RaftGroup group, StateMachine stateMachine,
       RaftProperties properties, Parameters parameters) throws IOException {
-    return new RaftServerProxy(id, stateMachine, group, properties, parameters);
+    try {
+      // attempt multiple times to avoid temporary bind exception
+      return JavaUtils.attempt(
+          () -> new RaftServerProxy(id, stateMachine, group, properties, parameters),
+          5, 500L, "newRaftServer", RaftServerImpl.LOG);
+    } catch (InterruptedException e) {
+      throw IOUtils.toInterruptedIOException(
+          "Interrupted when creating RaftServer " + id + ", " + group, e);
+    } catch (IOException e) {
+      throw new IOException("Failed to create RaftServer " + id + ", " + group, e);
+    }
   }
 
   public static TermIndex newTermIndex(long term, long index) {

@@ -28,8 +28,9 @@ import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.server.storage.RaftStorageTestUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -48,6 +49,7 @@ import static java.util.Arrays.asList;
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
 import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
+import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.NOOP;
 
 public abstract class RaftReconfigurationBaseTest extends BaseTest {
   static {
@@ -511,6 +513,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
   @Test
   public void testRevertConfigurationChange() throws Exception {
     LOG.info("Start testRevertConfigurationChange");
+    RaftLog log2 = null;
     final MiniRaftCluster cluster = getCluster(5);
     try {
       cluster.start();
@@ -520,8 +523,8 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       final RaftPeerId leaderId = leader.getId();
 
       final RaftLog log = leader.getState().getLog();
+      log2 = log;
       Thread.sleep(1000);
-      Assert.assertEquals(0, log.getLatestFlushedIndex());
 
       // we block the incoming msg for the leader and block its requests to
       // followers, so that we force the leader change and the old leader will
@@ -533,7 +536,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       PeerChanges change = cluster.removePeers(1, false, new ArrayList<>());
 
       AtomicBoolean gotNotLeader = new AtomicBoolean(false);
-      new Thread(() -> {
+      final Thread clientThread = new Thread(() -> {
         try(final RaftClient client = cluster.createClient(leaderId)) {
           LOG.info("client starts to change conf");
           final RaftClientRpc sender = client.getClientRpc();
@@ -545,37 +548,41 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
         } catch (IOException e) {
           LOG.warn("Got unexpected exception when client1 changes conf", e);
         }
-      }).start();
+      });
+      clientThread.start();
+
+      // find CONFIGURATIONENTRY, there may be NOOP before and after it.
+      final long confIndex = JavaUtils.attempt(() -> {
+        final long last = log.getLastEntryTermIndex().getIndex();
+        for (long i = 1; i <= last; i++) {
+          if (log.get(i).getLogEntryBodyCase() == CONFIGURATIONENTRY) {
+            return i;
+          }
+        }
+        throw new Exception("CONFIGURATIONENTRY not found: last=" + last);
+      }, 10, 500, "confIndex", LOG);
 
       // wait till the old leader persist the new conf
-      for (int i = 0; i < 10 && log.getLatestFlushedIndex() < 1; i++) {
-        Thread.sleep(500);
-      }
-      Assert.assertEquals(1, log.getLatestFlushedIndex());
-      TermIndex last = log.getLastEntryTermIndex();
-      Assert.assertEquals(CONFIGURATIONENTRY,
-          log.get(last.getIndex()).getLogEntryBodyCase());
+      JavaUtils.attempt(() -> log.getLatestFlushedIndex() >= confIndex,
+          10, 500L, "FLUSH", LOG);
+      final long committed = log.getLastCommittedIndex();
+      Assert.assertTrue(committed < confIndex);
 
       // unblock the old leader
       BlockRequestHandlingInjection.getInstance().unblockReplier(leaderId.toString());
       cluster.setBlockRequestsFrom(leaderId.toString(), false);
 
       // the client should get NotLeaderException
-      for (int i = 0; i < 10 && !gotNotLeader.get(); i++) {
-        Thread.sleep(500);
-      }
+      clientThread.join(5000);
       Assert.assertTrue(gotNotLeader.get());
 
       // the old leader should have truncated the setConf from the log
-      boolean newState = false;
-      for (int i = 0; i < 10 && !newState; i++) {
-        Thread.sleep(500);
-        TermIndex lastTermIndex = log.getLastEntryTermIndex();
-        newState = log.getLastCommittedIndex() == 1 &&
-            log.get(lastTermIndex.getIndex()).getLogEntryBodyCase() != CONFIGURATIONENTRY;
-      }
-      Assert.assertTrue(newState);
+      JavaUtils.attempt(() -> log.getLastCommittedIndex() >= confIndex,
+          10, 500L, "COMMIT", LOG);
+      Assert.assertEquals(NOOP, log.get(confIndex).getLogEntryBodyCase());
+      log2 = null;
     } finally {
+      RaftStorageTestUtils.printLog(log2, s -> LOG.info(s));
       cluster.shutdown();
     }
   }
