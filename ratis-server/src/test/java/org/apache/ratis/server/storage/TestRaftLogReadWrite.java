@@ -47,7 +47,7 @@ import java.util.List;
  * Test basic functionality of LogReader, LogInputStream, and LogOutputStream.
  */
 public class TestRaftLogReadWrite extends BaseTest {
-  private static final ClientId clientId = ClientId.createId();
+  private static final ClientId clientId = ClientId.randomId();
   private static final long callId = 0;
 
   private File storageDir;

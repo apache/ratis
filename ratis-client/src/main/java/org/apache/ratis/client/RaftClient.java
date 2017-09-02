@@ -73,7 +73,7 @@ public interface RaftClient extends Closeable {
     /** @return a {@link RaftClient} object. */
     public RaftClient build() {
       if (clientId == null) {
-        clientId = ClientId.createId();
+        clientId = ClientId.randomId();
       }
       if (properties != null) {
         retryInterval = RaftClientConfigKeys.Rpc.timeout(properties);

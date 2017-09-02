@@ -30,18 +30,18 @@ public class TestRaftId extends BaseTest {
 
   @Test
   public void testClientId() {
-    final ClientId id = ClientId.createId();
+    final ClientId id = ClientId.randomId();
     final ByteString bytes = id.toByteString();
     Assert.assertEquals(bytes, id.toByteString());
-    Assert.assertEquals(id, new ClientId(bytes));
+    Assert.assertEquals(id, ClientId.valueOf(bytes));
   }
 
   @Test
   public void testRaftGroupId() {
-    final RaftGroupId id = RaftGroupId.createId();
+    final RaftGroupId id = RaftGroupId.randomId();
     final ByteString bytes = id.toByteString();
     Assert.assertEquals(bytes, id.toByteString());
-    Assert.assertEquals(id, new RaftGroupId(bytes));
+    Assert.assertEquals(id, RaftGroupId.valueOf(bytes));
   }
 
   @Test

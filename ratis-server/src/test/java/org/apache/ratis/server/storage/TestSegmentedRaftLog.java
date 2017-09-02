@@ -50,7 +50,7 @@ public class TestSegmentedRaftLog extends BaseTest {
   }
 
   private static final RaftPeerId peerId = RaftPeerId.valueOf("s0");
-  private static final ClientId clientId = ClientId.createId();
+  private static final ClientId clientId = ClientId.randomId();
   private static final long callId = 0;
 
   static class SegmentRange {

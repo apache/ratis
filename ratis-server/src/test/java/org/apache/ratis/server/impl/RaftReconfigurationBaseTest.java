@@ -64,7 +64,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
 
   protected static final RaftProperties prop = new RaftProperties();
   
-  private static final ClientId clientId = ClientId.createId();
+  private static final ClientId clientId = ClientId.randomId();
 
   static final int STAGING_CATCHUP_GAP = 10;
   @BeforeClass

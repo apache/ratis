@@ -32,7 +32,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestRaftLogCache {
-  private static final ClientId clientId = ClientId.createId();
+  private static final ClientId clientId = ClientId.randomId();
   private static final long callId = 0;
   private static final RaftProperties prop = new RaftProperties();
 

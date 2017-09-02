@@ -48,7 +48,7 @@ import static org.apache.ratis.server.storage.LogSegment.getEntrySize;
  * Test basic functionality of {@link LogSegment}
  */
 public class TestRaftLogSegment extends BaseTest {
-  private static final ClientId clientId = ClientId.createId();
+  private static final ClientId clientId = ClientId.randomId();
   private static final long callId = 0;
 
   private File storageDir;

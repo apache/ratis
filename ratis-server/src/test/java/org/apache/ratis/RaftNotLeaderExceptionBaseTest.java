@@ -96,7 +96,7 @@ public abstract class RaftNotLeaderExceptionBaseTest extends BaseTest {
     for (int i = 0; reply == null && i < 10; i++) {
       try {
         reply = rpc.sendRequest(
-            new RaftClientRequest(ClientId.createId(), leaderId,
+            new RaftClientRequest(ClientId.randomId(), leaderId,
                 cluster.getGroupId(), DEFAULT_CALLID,
                 new SimpleMessage("m2")));
       } catch (IOException ignored) {
@@ -144,7 +144,7 @@ public abstract class RaftNotLeaderExceptionBaseTest extends BaseTest {
     for (int i = 0; reply == null && i < 10; i++) {
       try {
         reply = rpc.sendRequest(
-            new RaftClientRequest(ClientId.createId(), leaderId,
+            new RaftClientRequest(ClientId.randomId(), leaderId,
                 cluster.getGroupId(), DEFAULT_CALLID,
                 new SimpleMessage("m1")));
       } catch (IOException ignored) {

@@ -197,7 +197,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
           new String[]{"s3", "s4"}, true);
       // trigger setConfiguration
-      SetConfigurationRequest request = new SetConfigurationRequest(ClientId.createId(),
+      SetConfigurationRequest request = new SetConfigurationRequest(ClientId.randomId(),
           cluster.getLeader().getId(), cluster.getGroupId(), DEFAULT_CALLID, change.allPeersInNewConf);
       LOG.info("Start changing the configuration: {}", request);
       cluster.getLeader().setConfiguration(request);

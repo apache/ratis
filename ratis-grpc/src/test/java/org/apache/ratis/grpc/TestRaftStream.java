@@ -32,8 +32,6 @@ import org.apache.ratis.server.storage.RaftLog;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
@@ -89,7 +87,7 @@ public class TestRaftStream extends BaseTest {
     final Random r = new Random();
     final long seed = r.nextLong();
     r.setSeed(seed);
-    try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
+    try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.randomId(),
         cluster.getGroup(), leader.getId())) {
       for (int i = 0; i < 500; i++) { // generate 500 requests
         out.write(toBytes(r.nextInt()));
@@ -126,7 +124,7 @@ public class TestRaftStream extends BaseTest {
     cluster.start();
 
     RaftServerImpl leader = waitForLeader(cluster);
-    RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
+    RaftOutputStream out = new RaftOutputStream(prop, ClientId.randomId(),
         cluster.getGroup(), leader.getId());
 
     int[] lengths = new int[]{1, 500, 1023, 1024, 1025, 2048, 3000, 3072};
@@ -205,7 +203,7 @@ public class TestRaftStream extends BaseTest {
     cluster.start();
     RaftServerImpl leader = waitForLeader(cluster);
 
-    RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
+    RaftOutputStream out = new RaftOutputStream(prop, ClientId.randomId(),
         cluster.getGroup(), leader.getId());
 
     byte[] b1 = new byte[ByteValue.BUFFERSIZE / 2];
@@ -271,7 +269,7 @@ public class TestRaftStream extends BaseTest {
     new Thread(() -> {
       LOG.info("Writer thread starts");
       int count = 0;
-      try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.createId(),
+      try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.randomId(),
           cluster.getGroup(), leader.getId())) {
         while (running.get()) {
           out.write(toBytes(count++));

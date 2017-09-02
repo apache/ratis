@@ -101,7 +101,7 @@ public class ProtoUtils {
   }
 
   public static RaftGroupId toRaftGroupId(RaftGroupIdProto proto) {
-    return new RaftGroupId(proto.getId());
+    return RaftGroupId.valueOf(proto.getId());
   }
 
   public static RaftGroupIdProto.Builder toRaftGroupIdProtoBuilder(RaftGroupId id) {

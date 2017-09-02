@@ -101,7 +101,7 @@ public abstract class MiniRaftCluster {
         .map(RaftPeerId::valueOf)
         .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
         .toArray(RaftPeer[]::new);
-    return new RaftGroup(RaftGroupId.createId(), peers);
+    return new RaftGroup(RaftGroupId.randomId(), peers);
   }
 
   private File getStorageDir(RaftPeerId id) {

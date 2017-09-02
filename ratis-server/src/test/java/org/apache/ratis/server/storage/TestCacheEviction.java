@@ -44,7 +44,7 @@ import java.util.List;
 
 public class TestCacheEviction extends BaseTest {
   private static final CacheInvalidationPolicy policy = new CacheInvalidationPolicyDefault();
-  private static final ClientId clientId = ClientId.createId();
+  private static final ClientId clientId = ClientId.randomId();
   private static final long callId = 0;
 
   private List<LogSegment> prepareSegments(int numSegments, boolean[] cached, long start, long size) {

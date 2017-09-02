@@ -26,12 +26,16 @@ import java.util.UUID;
  * to correctly identify retry requests from the same client.
  */
 public class ClientId extends RaftId {
-  public static ClientId createId() {
-    UUID uuid = UUID.randomUUID();
-    return new ClientId(uuid);
+
+  public static ClientId randomId() {
+    return new ClientId(UUID.randomUUID());
   }
 
-  public ClientId(ByteString data) {
+  public static ClientId valueOf(ByteString data) {
+    return new ClientId(data);
+  }
+
+  private ClientId(ByteString data) {
     super(data);
   }
 

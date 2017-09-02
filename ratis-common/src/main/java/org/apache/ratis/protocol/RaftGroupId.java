@@ -23,16 +23,19 @@ import java.util.UUID;
 
 public class RaftGroupId extends RaftId {
 
-  public static RaftGroupId createId() {
-    UUID uuid = UUID.randomUUID();
-    return new RaftGroupId(uuid);
+  public static RaftGroupId randomId() {
+    return new RaftGroupId(UUID.randomUUID());
   }
 
-  protected RaftGroupId(UUID id) {
+  public static RaftGroupId valueOf(ByteString data) {
+    return new RaftGroupId(data);
+  }
+
+  private RaftGroupId(UUID id) {
     super(id);
   }
 
-  public RaftGroupId(ByteString data) {
+  private RaftGroupId(ByteString data) {
     super(data);
   }
 
