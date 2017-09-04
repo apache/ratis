@@ -156,7 +156,7 @@ public class TestStateMachine extends BaseTest {
 
     int numTrx = 100;
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numTrx);
-    try(final RaftClient client = cluster.createClient(null)) {
+    try(final RaftClient client = cluster.createClient()) {
       for (RaftTestUtil.SimpleMessage message : messages) {
         client.send(message);
       }

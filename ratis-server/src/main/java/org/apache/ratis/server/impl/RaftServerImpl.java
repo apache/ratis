@@ -398,6 +398,14 @@ public class RaftServerImpl implements RaftServerProtocol,
         expected);
   }
 
+  void assertGroup(Object requestorId, RaftGroupId requestorGroupId) throws GroupMismatchException {
+    if (!groupId.equals(requestorGroupId)) {
+      throw new GroupMismatchException(getId()
+          + ": The group (" + requestorGroupId + ") of requestor " + requestorId
+          + " does not match the group (" + groupId + ") of the server " + getId());
+    }
+  }
+
   /**
    * Handle a normal update request from client.
    */
@@ -595,6 +603,7 @@ public class RaftServerImpl implements RaftServerProtocol,
     LOG.debug("{}: receive requestVote({}, {}, {}, {})",
         getId(), candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
     assertLifeCycleState(RUNNING);
+    assertGroup(candidateId, candidateGroupId);
 
     boolean voteGranted = false;
     boolean shouldShutdown = false;
@@ -699,6 +708,7 @@ public class RaftServerImpl implements RaftServerProtocol,
             + initializing + ServerProtoUtils.toString(entries));
 
     assertLifeCycleState(STARTING, RUNNING);
+    assertGroup(leaderId, leaderGroupId);
 
     try {
       validateEntries(leaderTerm, previous, entries);
@@ -792,11 +802,13 @@ public class RaftServerImpl implements RaftServerProtocol,
       InstallSnapshotRequestProto request) throws IOException {
     final RaftRpcRequestProto r = request.getServerRequest();
     final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
+    final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(r.getRaftGroupId());
     CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(),
         leaderId, request);
     LOG.debug("{}: receive installSnapshot({})", getId(), request);
 
     assertLifeCycleState(STARTING, RUNNING);
+    assertGroup(leaderId, leaderGroupId);
 
     final long currentTerm;
     final long leaderTerm = request.getLeaderTerm();
