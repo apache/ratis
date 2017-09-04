@@ -39,6 +39,13 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   static final Logger LOG = LoggerFactory.getLogger(MiniRaftClusterWithHadoopRpc.class);
 
   public static class Factory extends MiniRaftCluster.Factory<MiniRaftClusterWithHadoopRpc> {
+    public interface Get extends MiniRaftCluster.Factory.Get<MiniRaftClusterWithHadoopRpc> {
+      @Override
+      default MiniRaftCluster.Factory<MiniRaftClusterWithHadoopRpc> getFactory() {
+        return FACTORY;
+      }
+    }
+
     @Override
     public MiniRaftClusterWithHadoopRpc newCluster(String[] ids, RaftProperties prop) {
       final Configuration conf = new Configuration();

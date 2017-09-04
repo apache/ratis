@@ -41,6 +41,13 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
     }
   };
 
+  public interface FactoryGet extends Factory.Get<MiniRaftClusterWithGRpc> {
+    @Override
+    default Factory<MiniRaftClusterWithGRpc> getFactory() {
+      return FACTORY;
+    }
+  }
+
   public static final DelayLocalExecutionInjection sendServerRequestInjection =
       new DelayLocalExecutionInjection(RaftGRpcService.GRPC_SEND_SERVER_REQUEST);
 

@@ -27,10 +27,7 @@ import org.apache.ratis.protocol.*;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -82,6 +79,8 @@ final class RaftClientImpl implements RaftClient {
   }
 
   private RaftClientReply send(Message message, boolean readOnly) throws IOException {
+    Objects.requireNonNull(message, "message == null");
+
     final long callId = nextCallId();
     return sendRequestWithRetry(() -> new RaftClientRequest(
         clientId, leaderId, groupId, callId, message, readOnly));
@@ -90,6 +89,8 @@ final class RaftClientImpl implements RaftClient {
   @Override
   public RaftClientReply setConfiguration(RaftPeer[] peersInNewConf)
       throws IOException {
+    Objects.requireNonNull(peersInNewConf, "peersInNewConf == null");
+
     final long callId = nextCallId();
     // also refresh the rpc proxies for these peers
     addServers(Arrays.stream(peersInNewConf));
@@ -100,6 +101,9 @@ final class RaftClientImpl implements RaftClient {
   @Override
   public RaftClientReply reinitialize(RaftGroup newGroup, RaftPeerId server)
       throws IOException {
+    Objects.requireNonNull(newGroup, "newGroup == null");
+    Objects.requireNonNull(server, "server == null");
+
     final long callId = nextCallId();
     addServers(newGroup.getPeers().stream());
     return sendRequest(new ReinitializeRequest(
@@ -113,7 +117,7 @@ final class RaftClientImpl implements RaftClient {
 
   private RaftClientReply sendRequestWithRetry(
       Supplier<RaftClientRequest> supplier)
-      throws InterruptedIOException, StateMachineException {
+      throws InterruptedIOException, StateMachineException, GroupMismatchException {
     for(;;) {
       final RaftClientRequest request = supplier.get();
       final RaftClientReply reply = sendRequest(request);
@@ -133,11 +137,13 @@ final class RaftClientImpl implements RaftClient {
   }
 
   private RaftClientReply sendRequest(RaftClientRequest request)
-      throws StateMachineException {
+      throws StateMachineException, GroupMismatchException {
     LOG.debug("{}: {}", clientId, request);
     RaftClientReply reply = null;
     try {
       reply = clientRpc.sendRequest(request);
+    } catch (GroupMismatchException gme) {
+      throw gme;
     } catch (IOException ioe) {
       handleIOException(request, ioe, null);
     }

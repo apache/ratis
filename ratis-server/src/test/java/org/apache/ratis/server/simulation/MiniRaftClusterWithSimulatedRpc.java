@@ -59,6 +59,13 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
     }
   };
 
+  public interface FactoryGet extends Factory.Get<MiniRaftClusterWithSimulatedRpc> {
+    @Override
+    default Factory<MiniRaftClusterWithSimulatedRpc> getFactory() {
+      return FACTORY;
+    }
+  }
+
   private final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply;
   private final SimulatedClientRpc client2serverRequestReply;
 

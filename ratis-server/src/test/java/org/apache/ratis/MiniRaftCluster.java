@@ -56,6 +56,10 @@ public abstract class MiniRaftCluster {
   public static final Class<? extends StateMachine> STATEMACHINE_CLASS_DEFAULT = BaseStateMachine.class;
 
   public static abstract class Factory<CLUSTER extends MiniRaftCluster> {
+    public interface Get<CLUSTER extends MiniRaftCluster> {
+      Factory<CLUSTER> getFactory();
+    }
+
     public abstract CLUSTER newCluster(
         String[] ids, RaftProperties prop);
 

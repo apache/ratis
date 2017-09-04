@@ -17,12 +17,9 @@
  */
 package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.RaftNotLeaderExceptionBaseTest;
+import org.apache.ratis.RaftExceptionBaseTest;
 
-public class TestNotLeaderExceptionWithSimulation extends RaftNotLeaderExceptionBaseTest {
-  @Override
-  public MiniRaftCluster.Factory<?> getFactory() {
-    return MiniRaftClusterWithSimulatedRpc.FACTORY;
-  }
+public class TestRaftExceptionWithSimulation
+    extends RaftExceptionBaseTest<MiniRaftClusterWithSimulatedRpc>
+    implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
 }

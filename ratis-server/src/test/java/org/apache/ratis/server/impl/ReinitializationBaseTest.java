@@ -149,7 +149,7 @@ public abstract class ReinitializationBaseTest extends BaseTest {
     for (int i = 0; i < idIndex.length; i++) {
       final RaftGroupId gid = RaftGroupId.randomId();
       final int previous = i == 0 ? 0 : idIndex[i - 1];
-      final RaftPeer[] peers = allPeers.subList(previous, idIndex[i]).toArray(RaftPeer.EMPTY_PEERS);
+      final RaftPeer[] peers = allPeers.subList(previous, idIndex[i]).toArray(RaftPeer.emptyArray());
       groups[i] = new RaftGroup(gid, peers);
 
       LOG.info(i + ") starting " + groups[i]);
@@ -196,7 +196,7 @@ public abstract class ReinitializationBaseTest extends BaseTest {
     }
     LOG.info(chosen + ") setConfiguration: " + cluster.printServers(groups[chosen].getGroupId()));
     try (final RaftClient client = cluster.createClient(groups[chosen])) {
-      client.setConfiguration(allPeers.toArray(RaftPeer.EMPTY_PEERS));
+      client.setConfiguration(allPeers.toArray(RaftPeer.emptyArray()));
     }
 
     Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, true));

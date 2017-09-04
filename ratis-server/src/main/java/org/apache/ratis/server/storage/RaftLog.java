@@ -136,7 +136,7 @@ public abstract class RaftLog implements Closeable {
       try {
         operation = operation.preAppendTransaction();
       } catch (IOException e) {
-        throw new StateMachineException(selfId.toString(), e);
+        throw new StateMachineException(selfId, e);
       }
 
       // build the log entry after calling the StateMachine

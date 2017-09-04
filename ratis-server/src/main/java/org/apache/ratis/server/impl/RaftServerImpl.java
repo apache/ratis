@@ -351,25 +351,19 @@ public class RaftServerImpl implements RaftServerProtocol,
    */
   private CompletableFuture<RaftClientReply> checkLeaderState(
       RaftClientRequest request, RetryCache.CacheEntry entry) {
+    try {
+      assertGroup(request.getRequestorId(), request.getRaftGroupId());
+    } catch (GroupMismatchException e) {
+      return RetryCache.failWithException(e, entry);
+    }
+
     if (!isLeader()) {
       NotLeaderException exception = generateNotLeaderException();
       final RaftClientReply reply = new RaftClientReply(request, exception);
-      if (entry != null) {
-        entry.failWithReply(reply);
-      }
-      return entry != null ?
-          entry.getReplyFuture() : CompletableFuture.completedFuture(reply);
+      return RetryCache.failWithReply(reply, entry);
     } else {
       if (leaderState == null || !leaderState.isReady()) {
-        final Exception e = new LeaderNotReadyException();
-        if (entry != null) {
-          entry.failWithException(e);
-          return entry.getReplyFuture();
-        } else {
-          CompletableFuture<RaftClientReply> future = new CompletableFuture<>();
-          future.completeExceptionally(e);
-          return future;
-        }
+        return RetryCache.failWithException(new LeaderNotReadyException(), entry);
       }
     }
     return null;
@@ -476,7 +470,7 @@ public class RaftServerImpl implements RaftServerProtocol,
     TransactionContext context = stateMachine.startTransaction(request);
     if (context.getException() != null) {
       RaftClientReply exceptionReply = new RaftClientReply(request,
-          new StateMachineException(getId().toString(), context.getException()));
+          new StateMachineException(getId(), context.getException()));
       cacheEntry.failWithReply(exceptionReply);
       return CompletableFuture.completedFuture(exceptionReply);
     }
@@ -526,6 +520,8 @@ public class RaftServerImpl implements RaftServerProtocol,
       SetConfigurationRequest request) throws IOException {
     LOG.debug("{}: receive setConfiguration({})", getId(), request);
     assertLifeCycleState(RUNNING);
+    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+
     CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
     if (reply != null) {
       return reply;
@@ -914,8 +910,7 @@ public class RaftServerImpl implements RaftServerProtocol,
       } else {
         // the exception is coming from the state machine. wrap it into the
         // reply as a StateMachineException
-        final StateMachineException e = new StateMachineException(
-            getId().toString(), exception);
+        final StateMachineException e = new StateMachineException(getId(), exception);
         r = new RaftClientReply(clientId, serverId, groupId, callId, false, null, e);
       }
       // update retry cache

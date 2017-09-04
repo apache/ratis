@@ -25,6 +25,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.util.LogUtils;
 import org.junit.*;
 
@@ -34,7 +35,9 @@ import java.util.Collection;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
-public abstract class RaftNotLeaderExceptionBaseTest extends BaseTest {
+public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
+    extends BaseTest
+    implements MiniRaftCluster.Factory.Get<CLUSTER> {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
@@ -43,9 +46,7 @@ public abstract class RaftNotLeaderExceptionBaseTest extends BaseTest {
 
   public static final int NUM_PEERS = 5;
 
-  private MiniRaftCluster cluster;
-
-  public abstract MiniRaftCluster.Factory<?> getFactory();
+  private CLUSTER cluster;
 
   @Before
   public void setup() throws IOException {
@@ -166,5 +167,33 @@ public abstract class RaftNotLeaderExceptionBaseTest extends BaseTest {
     reply = client.send(new SimpleMessage("m2"));
     Assert.assertTrue(reply.isSuccess());
     client.close();
+  }
+
+  @Test
+  public void testGroupMismatchException() throws Exception {
+    final RaftGroup clusterGroup = cluster.getGroup();
+    Assert.assertEquals(NUM_PEERS, clusterGroup.getPeers().size());
+
+    final RaftGroup anotherGroup = new RaftGroup(RaftGroupId.randomId(), clusterGroup.getPeers());
+    Assert.assertNotEquals(clusterGroup.getGroupId(), anotherGroup.getGroupId());
+
+    // Create client using another group
+    try(RaftClient client = cluster.createClient(anotherGroup)) {
+      testFailureCase("send(..) with client group being different from the server group",
+          () -> client.send(() -> ByteString.EMPTY),
+          GroupMismatchException.class);
+
+      testFailureCase("sendReadOnly(..) with client group being different from the server group",
+          () -> client.sendReadOnly(() -> ByteString.EMPTY),
+          GroupMismatchException.class);
+
+      testFailureCase("setConfiguration(..) with client group being different from the server group",
+          () -> client.setConfiguration(RaftPeer.emptyArray()),
+          GroupMismatchException.class);
+
+      testFailureCase("reinitialize(..) with client group being different from the server group",
+          () -> client.reinitialize(anotherGroup, clusterGroup.getPeers().get(0).getId()),
+          GroupMismatchException.class);
+    }
   }
 }

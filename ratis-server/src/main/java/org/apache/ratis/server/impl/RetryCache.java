@@ -80,7 +80,7 @@ public class RetryCache implements Closeable {
     /**
      * "failed" means we failed to commit the request into the raft group, or
      * the request did not get approved by the state machine before the raft
-     * replication. Not once the request gets committed by the raft group, this
+     * replication. Note once the request gets committed by the raft group, this
      * field is never true even if the state machine throws an exception when
      * applying the transaction.
      */
@@ -222,4 +222,27 @@ public class RetryCache implements Closeable {
       cache.invalidateAll();
     }
   }
+
+  static CompletableFuture<RaftClientReply> failWithReply(
+      RaftClientReply reply, CacheEntry entry) {
+    if (entry != null) {
+      entry.failWithReply(reply);
+      return entry.getReplyFuture();
+    } else {
+      return CompletableFuture.completedFuture(reply);
+    }
+  }
+
+  static CompletableFuture<RaftClientReply> failWithException(
+      Throwable t, CacheEntry entry) {
+    if (entry != null) {
+      entry.failWithException(t);
+      return entry.getReplyFuture();
+    } else {
+      final CompletableFuture<RaftClientReply> future = new CompletableFuture<>();
+      future.completeExceptionally(t);
+      return future;
+    }
+  }
+
 }

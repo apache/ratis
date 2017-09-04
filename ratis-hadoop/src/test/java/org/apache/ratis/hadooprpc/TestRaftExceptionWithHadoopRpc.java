@@ -15,17 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.netty;
+package org.apache.ratis.hadooprpc;
 
-import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.RaftNotLeaderExceptionBaseTest;
-import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.RaftExceptionBaseTest;
 
-import java.io.IOException;
-
-public class TestNotLeaderExceptionWithNetty extends RaftNotLeaderExceptionBaseTest {
-  @Override
-  public MiniRaftCluster.Factory<?> getFactory() {
-    return MiniRaftClusterWithNetty.FACTORY;
-  }
+public class TestRaftExceptionWithHadoopRpc
+    extends RaftExceptionBaseTest<MiniRaftClusterWithHadoopRpc>
+    implements MiniRaftClusterWithHadoopRpc.Factory.Get {
 }

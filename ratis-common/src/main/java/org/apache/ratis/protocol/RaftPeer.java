@@ -28,7 +28,12 @@ import java.util.Objects;
  * The objects of this class are immutable.
  */
 public class RaftPeer {
-  public static final RaftPeer[] EMPTY_PEERS = {};
+  private static final RaftPeer[] EMPTY_ARRAY = {};
+
+  /** @return an empty array. */
+  public static RaftPeer[] emptyArray() {
+    return EMPTY_ARRAY;
+  }
 
   /** The id of the peer. */
   private final RaftPeerId id;

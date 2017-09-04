@@ -17,15 +17,9 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.RaftNotLeaderExceptionBaseTest;
-import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.RaftExceptionBaseTest;
 
-import java.io.IOException;
-
-public class TestNotLeaderExceptionWithGrpc extends RaftNotLeaderExceptionBaseTest {
-  @Override
-  public MiniRaftCluster.Factory<?> getFactory() {
-    return MiniRaftClusterWithGRpc.FACTORY;
-  }
+public class TestRaftExceptionWithGrpc
+    extends RaftExceptionBaseTest<MiniRaftClusterWithGRpc>
+    implements MiniRaftClusterWithGRpc.FactoryGet {
 }

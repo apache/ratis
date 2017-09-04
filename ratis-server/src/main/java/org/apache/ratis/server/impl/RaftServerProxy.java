@@ -158,9 +158,11 @@ public class RaftServerProxy implements RaftServer {
   @Override
   public CompletableFuture<RaftClientReply> reinitializeAsync(
       ReinitializeRequest request) throws IOException {
+    getImpl().assertGroup(request.getRequestorId(), request.getRaftGroupId());
     if (!reinitializeRequest.compareAndSet(null, request)) {
       throw new IOException("Another reinitialize is already in progress.");
     }
+
     return CompletableFuture.supplyAsync(() -> {
       try {
         final CompletableFuture<RaftServerImpl> oldImpl = impl;

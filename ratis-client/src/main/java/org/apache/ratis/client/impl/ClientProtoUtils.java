@@ -144,7 +144,7 @@ public class ClientProtoUtils {
           suggestedLeader, peers);
     } else if (replyProto.getExceptionDetailsCase().equals(STATEMACHINEEXCEPTION)) {
       StateMachineExceptionProto smeProto = replyProto.getStateMachineException();
-      e = wrapStateMachineException(rp.getReplyId().toStringUtf8(),
+      e = wrapStateMachineException(RaftPeerId.valueOf(rp.getReplyId()),
           smeProto.getExceptionClassName(), smeProto.getErrorMsg(),
           smeProto.getStacktrace());
     }
@@ -156,7 +156,7 @@ public class ClientProtoUtils {
   }
 
   private static StateMachineException wrapStateMachineException(
-      String serverId, String className, String errorMsg,
+      RaftPeerId serverId, String className, String errorMsg,
       ByteString stackTraceBytes) {
     StateMachineException sme;
     if (className == null) {

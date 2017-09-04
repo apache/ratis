@@ -54,7 +54,8 @@ public class HadoopClientRpc implements RaftClientRpc {
           ReconfigurationTimeoutException.class,
           ReconfigurationInProgressException.class,
           RaftException.class,
-          LeaderNotReadyException.class);
+          LeaderNotReadyException.class,
+          GroupMismatchException.class);
     }
   }
 

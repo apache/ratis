@@ -19,8 +19,10 @@ package org.apache.ratis;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.conf.ConfUtils;
+import org.apache.ratis.util.CheckedRunnable;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.rules.Timeout;
 import org.slf4j.Logger;
@@ -68,5 +70,22 @@ public abstract class BaseTest {
 
   public File getTestDir() {
     return getClassTestDir(getClass());
+  }
+
+  public static void testFailureCase(
+      String description, CheckedRunnable<?> testCode,
+      Class<? extends Throwable> exceptedThrowableClass, Logger log) {
+    try {
+      testCode.run();
+      Assert.fail("The test \"" + description + "\" does not throw anything.");
+    } catch (Throwable t) {
+      log.info("The test \"" + description + "\" throws " + t.getClass().getSimpleName(), t);
+      Assert.assertEquals(exceptedThrowableClass, t.getClass());
+    }
+  }
+
+  public void testFailureCase(
+      String description, CheckedRunnable<?> testCode, Class<? extends Throwable> exceptedThrowableClass) {
+    testFailureCase(description, testCode, exceptedThrowableClass, LOG);
   }
 }

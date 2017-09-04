@@ -27,7 +27,7 @@ public class NotLeaderException extends RaftException {
     super("Server " + id + " is not the leader (" + suggestedLeader
         + "). Request must be sent to leader.");
     this.suggestedLeader = suggestedLeader;
-    this.peers = peers == null ? RaftPeer.EMPTY_PEERS : peers;
+    this.peers = peers == null ? RaftPeer.emptyArray(): peers;
   }
 
   public RaftPeer getSuggestedLeader() {
