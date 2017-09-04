@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -44,10 +45,7 @@ class PendingRequests {
       TransactionContext entry) {
     // externally synced for now
     Preconditions.assertTrue(!request.isReadOnly());
-    if (last != null && !(last.getRequest() instanceof SetConfigurationRequest)) {
-      Preconditions.assertTrue(index == last.getIndex() + 1,
-          () -> "index = " + index + " != last.getIndex() + 1, last=" + last);
-    }
+    Preconditions.assertTrue(last == null || index == last.getIndex() + 1);
     return add(index, request, entry);
   }
 
@@ -62,7 +60,6 @@ class PendingRequests {
   PendingRequest addConfRequest(SetConfigurationRequest request) {
     Preconditions.assertTrue(pendingSetConf == null);
     pendingSetConf = new PendingRequest(request);
-    last = pendingSetConf;
     return pendingSetConf;
   }
 

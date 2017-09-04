@@ -80,7 +80,7 @@ public abstract class RaftBasicTests extends BaseTest {
     LOG.info(cluster.printServers());
 
     final SimpleMessage[] messages = SimpleMessage.create(10);
-    try(final RaftClient client = cluster.createClient()) {
+    try(final RaftClient client = cluster.createClient(null)) {
       for (SimpleMessage message : messages) {
         client.send(message);
       }
@@ -149,7 +149,7 @@ public abstract class RaftBasicTests extends BaseTest {
 
     final List<Client4TestWithLoad> clients
         = Stream.iterate(0, i -> i+1).limit(numClients)
-        .map(i -> cluster.createClient())
+        .map(i -> cluster.createClient(null))
         .map(c -> new Client4TestWithLoad(c, numMessages))
         .collect(Collectors.toList());
     clients.forEach(Thread::start);

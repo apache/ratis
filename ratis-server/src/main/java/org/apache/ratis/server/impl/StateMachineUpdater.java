@@ -86,10 +86,6 @@ class StateMachineUpdater implements Runnable {
     state = State.STOP;
     updater.interrupt();
     try {
-      updater.join();
-    } catch (InterruptedException ignored) {
-    }
-    try {
       stateMachine.close();
     } catch (IOException ignored) {
     }

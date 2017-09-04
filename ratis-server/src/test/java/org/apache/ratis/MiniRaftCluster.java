@@ -422,10 +422,6 @@ public abstract class MiniRaftCluster {
     return createClient(null, group);
   }
 
-  public RaftClient createClient(RaftGroup g) {
-    return createClient(null, g);
-  }
-
   public RaftClient createClient(RaftPeerId leaderId) {
     return createClient(leaderId, group);
   }
