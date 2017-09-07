@@ -18,7 +18,6 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.io.nativeio.NativeIO;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
@@ -48,13 +47,13 @@ public class TestRaftStorage extends BaseTest {
   @After
   public void tearDown() throws Exception {
     if (storageDir != null) {
-      FileUtils.fullyDelete(storageDir.getParentFile());
+      FileUtils.deleteFully(storageDir.getParentFile());
     }
   }
 
   @Test
   public void testNotExistent() throws IOException {
-    FileUtils.fullyDelete(storageDir);
+    FileUtils.deleteFully(storageDir);
 
     // we will format the empty directory
     RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
@@ -68,7 +67,7 @@ public class TestRaftStorage extends BaseTest {
     }
 
     storage.close();
-    FileUtils.fullyDelete(storageDir);
+    FileUtils.deleteFully(storageDir);
     Assert.assertTrue(storageDir.createNewFile());
     try {
       new RaftStorage(storageDir, StartupOption.REGULAR);
@@ -156,7 +155,7 @@ public class TestRaftStorage extends BaseTest {
 
     RaftStorageDirectory sd = new RaftStorageDirectory(storageDir);
     File metaFile = sd.getMetaFile();
-    NativeIO.renameTo(metaFile, sd.getMetaTmpFile());
+    FileUtils.move(metaFile, sd.getMetaTmpFile());
 
     Assert.assertEquals(StorageState.NOT_FORMATTED, sd.analyzeStorage(false));
 

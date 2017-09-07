@@ -67,7 +67,6 @@ import java.util.function.Consumer;
 public class SegmentedRaftLog extends RaftLog {
   static final String HEADER_STR = "RAFTLOG1";
   static final byte[] HEADER_BYTES = HEADER_STR.getBytes(StandardCharsets.UTF_8);
-  static final LogSegment[] EMPTY_SEGMENT_ARRAY = new LogSegment[0];
 
   /**
    * I/O task definitions.
@@ -111,7 +110,7 @@ public class SegmentedRaftLog extends RaftLog {
     this.storage = storage;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     cache = new RaftLogCache(storage, properties);
-    fileLogWorker = new RaftLogWorker(server, storage, properties);
+    fileLogWorker = new RaftLogWorker(selfId, server, storage, properties);
     lastCommitted.set(lastIndexInSnapshot);
   }
 

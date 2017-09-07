@@ -85,7 +85,6 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
     // enforce leader change
     RaftPeerId newLeader = RaftTestUtil.changeLeader(cluster, leaderId);
-    Assert.assertNotEquals(leaderId, newLeader);
 
     if (killNewLeader) {
       // kill the new leader
@@ -124,7 +123,6 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
     // enforce leader change
     RaftPeerId newLeader = RaftTestUtil.changeLeader(cluster, leaderId);
-    Assert.assertNotEquals(leaderId, newLeader);
 
     // also add two new peers
     // add two more peers

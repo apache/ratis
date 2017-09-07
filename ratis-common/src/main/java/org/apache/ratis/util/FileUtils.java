@@ -17,143 +17,101 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.io.nativeio.NativeIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 
-public class FileUtils {
-  public static final Logger LOG = LoggerFactory.getLogger(FileUtils.class);
+public interface FileUtils {
+  Logger LOG = LoggerFactory.getLogger(FileUtils.class);
 
-  public static void truncateFile(File f, long target) throws IOException {
-    try (FileOutputStream out = new FileOutputStream(f, true)) {
-      out.getChannel().truncate(target);
-    }
+  static void truncateFile(File f, long target) throws IOException {
+    LogUtils.runAndLog(LOG,
+        () -> {
+          try (FileOutputStream out = new FileOutputStream(f, true)) {
+            out.getChannel().truncate(target);
+          }},
+        () -> "FileOutputStream.getChannel().truncate " + f + " to target length " + target);
   }
 
-  public static void deleteFile(File f) throws IOException {
-    try {
-      Files.delete(f.toPath());
-    } catch (IOException e) {
-      LOG.warn("Could not delete " + f);
-      throw e;
-    }
+  static void createDirectories(File dir) throws IOException {
+    createDirectories(dir.toPath());
   }
 
-  /**
-   * Delete a directory and all its contents.  If
-   * we return false, the directory may be partially-deleted.
-   * (1) If dir is symlink to a file, the symlink is deleted. The file pointed
-   *     to by the symlink is not deleted.
-   * (2) If dir is symlink to a directory, symlink is deleted. The directory
-   *     pointed to by symlink is not deleted.
-   * (3) If dir is a normal file, it is deleted.
-   * (4) If dir is a normal directory, then dir and all its contents recursively
-   *     are deleted.
-   */
-  public static boolean fullyDelete(final File dir) {
-    if (deleteImpl(dir, false)) {
-      // dir is (a) normal file, (b) symlink to a file, (c) empty directory or
-      // (d) symlink to a directory
-      return true;
-    }
-    // handle nonempty directory deletion
-    return fullyDeleteContents(dir) && deleteImpl(dir, true);
+  static void createDirectories(Path dir) throws IOException {
+    LogUtils.runAndLog(LOG,
+        () -> Files.createDirectories(dir),
+        () -> "Files.createDirectories " + dir);
   }
 
-  private static boolean deleteImpl(final File f, final boolean doLog) {
-    if (f == null) {
-      LOG.warn("null file argument.");
-      return false;
-    }
-    final boolean wasDeleted = f.delete();
-    if (wasDeleted) {
-      LOG.debug("Deleted file or dir {}", f.getAbsolutePath());
-      return true;
-    }
-    final boolean ex = f.exists();
-    if (doLog && ex) {
-      LOG.warn("Failed to delete file or dir ["
-          + f.getAbsolutePath() + "]: it still exists.");
-    }
-    return !ex;
+  static void move(File src, File dst) throws IOException {
+    move(src.toPath(), dst.toPath());
+  }
+
+  static void move(Path src, Path dst) throws IOException {
+    LogUtils.runAndLog(LOG,
+        () -> Files.move(src, dst),
+        () -> "Files.move " + src + " to " + dst);
+  }
+
+
+  /** The same as passing f.toPath() to {@link #delete(Path)}. */
+  static void deleteFile(File f) throws IOException {
+    delete(f.toPath());
   }
 
   /**
-   * Delete the contents of a directory, not the directory itself.  If
-   * we return false, the directory may be partially-deleted.
-   * If dir is a symlink to a directory, all the contents of the actual
-   * directory pointed to by dir will be deleted.
+   * Use {@link Files#delete(Path)} to delete the given path.
+   *
+   * This method may print log messages using {@link #LOG}.
    */
-  private static boolean fullyDeleteContents(final File dir) {
-    boolean deletionSucceeded = true;
-    final File[] contents = dir.listFiles();
-    if (contents != null) {
-      for (File content : contents) {
-        if (content.isFile()) {
-          if (!deleteImpl(content, true)) {
-            deletionSucceeded = false;
-          }
-        } else {
-          // Either directory or symlink to another directory.
-          // Try deleting the directory as this might be a symlink
-          if (deleteImpl(content, false)) {
-            // this was indeed a symlink or an empty directory
-            continue;
-          }
-          // if not an empty directory or symlink let
-          // fullyDelete handle it.
-          if (!fullyDelete(content)) {
-            deletionSucceeded = false;
-            // continue deletion of other files/dirs under dir
-          }
+  static void delete(Path p) throws IOException {
+    LogUtils.runAndLog(LOG,
+        () -> Files.delete(p),
+        () -> "Files.delete " + p);
+  }
+
+  /** The same as passing f.toPath() to {@link #deleteFully(Path)}. */
+  static void deleteFully(File f) throws IOException {
+    LOG.trace("deleteFully {}", f);
+    deleteFully(f.toPath());
+  }
+
+  /**
+   * Delete fully the given path.
+   *
+   * (1) If it is a file, the file will be deleted.
+   *
+   * (2) If it is a directory, the directory and all its contents will be recursively deleted.
+   *     If an exception is thrown, the directory may possibly be partially deleted.*
+   *
+   * (3) If it is a symlink, the symlink will be deleted but the symlink target will not be deleted.
+   */
+  static void deleteFully(Path p) throws IOException {
+    if (!Files.exists(p, LinkOption.NOFOLLOW_LINKS)) {
+      LOG.trace("deleteFully: {} does not exist.");
+      return;
+    }
+    Files.walkFileTree(p, new SimpleFileVisitor<Path>() {
+      @Override
+      public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+        delete(file);
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult postVisitDirectory(Path dir, IOException e) throws IOException {
+        if (e != null) {
+          // directory iteration failed
+          throw e;
         }
+        delete(dir);
+        return FileVisitResult.CONTINUE;
       }
-    }
-    return deletionSucceeded;
-  }
-
-  /**
-   * A wrapper for {@link File#listFiles()}. This java.io API returns null
-   * when a dir is not a directory or for any I/O error. Instead of having
-   * null check everywhere File#listFiles() is used, we will add utility API
-   * to get around this problem. For the majority of cases where we prefer
-   * an IOException to be thrown.
-   * @param dir directory for which listing should be performed
-   * @return list of files or empty list
-   * @exception IOException for invalid directory or for a bad disk.
-   */
-  public static File[] listFiles(File dir) throws IOException {
-    File[] files = dir.listFiles();
-    if(files == null) {
-      throw new IOException("Invalid directory or I/O error occurred for dir: "
-          + dir.toString());
-    }
-    return files;
-  }
-
-  /**
-   * Platform independent implementation for {@link File#canWrite()}
-   * @param f input file
-   * @return On Unix, same as {@link File#canWrite()}
-   *         On Windows, true if process has write access on the path
-   */
-  public static boolean canWrite(File f) {
-    if (PlatformUtils.WINDOWS) {
-      try {
-        return NativeIO.Windows.access(f.getCanonicalPath(),
-            NativeIO.Windows.AccessRight.ACCESS_WRITE);
-      } catch (IOException e) {
-        return false;
-      }
-    } else {
-      return f.canWrite();
-    }
+    });
   }
 }

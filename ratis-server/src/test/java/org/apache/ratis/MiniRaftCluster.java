@@ -113,12 +113,6 @@ public abstract class MiniRaftCluster {
         + "/" + getClass().getSimpleName() + "/" + id);
   }
 
-  private static void formatDir(File dir) {
-    Preconditions.assertTrue(FileUtils.fullyDelete(dir),
-        "Failed to format directory %s", dir);
-    LOG.info("Formatted directory {}", dir);
-  }
-
   public static String[] generateIds(int numServers, int base) {
     String[] ids = new String[numServers];
     for (int i = 0; i < numServers; i++) {
@@ -203,7 +197,8 @@ public abstract class MiniRaftCluster {
     try {
       final File dir = getStorageDir(id);
       if (format) {
-        formatDir(dir);
+        FileUtils.deleteFully(dir);
+        LOG.info("Formatted directory {}", dir);
       }
       final RaftProperties prop = new RaftProperties(properties);
       RaftServerConfigKeys.setStorageDir(prop, dir);
@@ -444,7 +439,11 @@ public abstract class MiniRaftCluster {
   }
 
   public void shutdown() {
-    LOG.info("Stopping " + getClass().getSimpleName());
+    LOG.info("************************************************************** ");
+    LOG.info("*** ");
+    LOG.info("***     Stopping " + getClass().getSimpleName());
+    LOG.info("*** ");
+    LOG.info("************************************************************** ");
     getServerAliveStream().map(RaftServerImpl::getProxy).forEach(RaftServerProxy::close);
 
     if (ExitUtils.isTerminated()) {

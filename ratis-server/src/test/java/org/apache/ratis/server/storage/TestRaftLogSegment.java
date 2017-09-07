@@ -63,7 +63,7 @@ public class TestRaftLogSegment extends BaseTest {
   @After
   public void tearDown() throws Exception {
     if (storageDir != null) {
-      FileUtils.fullyDelete(storageDir.getParentFile());
+      FileUtils.deleteFully(storageDir.getParentFile());
     }
   }
 

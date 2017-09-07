@@ -31,7 +31,7 @@ import static org.apache.ratis.hadooprpc.MiniRaftClusterWithHadoopRpc.sendServer
 
 public class TestRaftWithHadoopRpc extends RaftBasicTests {
   static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.TRACE);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
     LogUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
   }

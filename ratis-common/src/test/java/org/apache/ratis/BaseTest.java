@@ -20,6 +20,7 @@ package org.apache.ratis;
 import org.apache.log4j.Level;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.util.CheckedRunnable;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
@@ -38,6 +39,7 @@ public abstract class BaseTest {
 
   {
     LogUtils.setLogLevel(ConfUtils.LOG, Level.WARN);
+    LogUtils.setLogLevel(FileUtils.LOG, Level.TRACE);
   }
 
   @Rule

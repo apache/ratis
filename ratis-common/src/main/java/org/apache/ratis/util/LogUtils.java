@@ -24,6 +24,8 @@ import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.slf4j.Logger;
 
+import java.util.function.Supplier;
+
 /**
  * Logging (as in log4j) related utility methods.
  */
@@ -33,4 +35,21 @@ public interface LogUtils {
     LogManager.getLogger(logger.getName()).setLevel(level);
   }
 
+  static <THROWABLE extends Throwable> void runAndLog(
+      Logger log, CheckedRunnable<THROWABLE> op, Supplier<String> opName)
+      throws THROWABLE {
+    try {
+      op.run();
+      if (log.isTraceEnabled()) {
+        log.trace("Executed " + opName.get() + " successfully.");
+      }
+    } catch (Throwable t) {
+      if (log.isTraceEnabled()) {
+        log.trace("Failed to " + opName.get(), t);
+      } else if (log.isWarnEnabled()){
+        log.warn("Failed to " + opName.get() + ": " + t);
+      }
+      throw t;
+    }
+  }
 }

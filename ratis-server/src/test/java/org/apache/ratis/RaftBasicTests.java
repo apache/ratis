@@ -170,11 +170,7 @@ public abstract class RaftBasicTests extends BaseTest {
 
       RaftServerImpl leader = cluster.getLeader();
       if (leader != null) {
-        final RaftPeerId oldLeader = leader.getId();
-        LOG.info("Block all requests sent by leader " + oldLeader);
-        RaftPeerId newLeader = RaftTestUtil.changeLeader(cluster, oldLeader);
-        LOG.info("Changed leader from " + oldLeader + " to " + newLeader);
-        Assert.assertFalse(newLeader.equals(oldLeader));
+        RaftTestUtil.changeLeader(cluster, leader.getId());
       }
     }
 

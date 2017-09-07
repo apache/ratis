@@ -55,7 +55,7 @@ public class TestArithmetic extends BaseTest {
     try {
       RaftTestUtil.waitForLeader(cluster);
       try (final RaftClient client = cluster.createClient()) {
-        runTestPythagorean(client, 3, 100);
+        runTestPythagorean(client, 3, 10);
       }
     } finally {
       cluster.shutdown();

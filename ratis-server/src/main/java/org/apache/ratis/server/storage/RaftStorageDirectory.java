@@ -117,13 +117,10 @@ public class RaftStorageDirectory {
 
   void clearDirectory(File dir) throws IOException {
     if (dir.exists()) {
-      File[] files = FileUtils.listFiles(dir);
-      LOG.info("Will remove files: " + Arrays.toString(files));
-      if (!(FileUtils.fullyDelete(dir)))
-        throw new IOException("Cannot remove directory: " + dir);
+      LOG.info(dir + " already exists.  Deleting it ...");
+      FileUtils.deleteFully(dir);
     }
-    if (!dir.mkdirs())
-      throw new IOException("Cannot create directory " + dir);
+    FileUtils.createDirectories(dir);
   }
 
   /**
@@ -231,18 +228,16 @@ public class RaftStorageDirectory {
     String rootPath = root.getCanonicalPath();
     try { // check that storage exists
       if (!root.exists()) {
-        LOG.info(rootPath + " does not exist. Creating ...");
-        if (!root.mkdirs()) {
-          throw new IOException("Cannot create directory " + rootPath);
-        }
+        LOG.info("The storage directory " + rootPath + " does not exist. Creating ...");
+        FileUtils.createDirectories(root);
       }
       // or is inaccessible
       if (!root.isDirectory()) {
-        LOG.warn(rootPath + "is not a directory");
+        LOG.warn(rootPath + " is not a directory");
         return StorageState.NON_EXISTENT;
       }
-      if (!FileUtils.canWrite(root)) {
-        LOG.warn("Cannot access storage directory " + rootPath);
+      if (!Files.isWritable(root.toPath())) {
+        LOG.warn("The storage directory " + rootPath + " is not writable.");
         return StorageState.NON_EXISTENT;
       }
     } catch(SecurityException ex) {

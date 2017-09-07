@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.io.nativeio.NativeIO;
-import org.apache.ratis.io.nativeio.NativeIOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,13 +70,7 @@ public class AtomicFileOutputStream extends FilterOutputStream {
           if (origFile.exists() && !origFile.delete()) {
             throw new IOException("Could not delete original file " + origFile);
           }
-          try {
-            NativeIO.renameTo(tmpFile, origFile);
-          } catch (NativeIOException e) {
-            throw new IOException("Could not rename temporary file " + tmpFile
-                + " to " + origFile + " due to failure in native rename. "
-                + e.toString());
-          }
+          FileUtils.move(tmpFile, origFile);
         }
       } else {
         if (!triedToClose) {

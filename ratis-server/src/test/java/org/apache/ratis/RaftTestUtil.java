@@ -32,6 +32,7 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Preconditions;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -257,12 +258,17 @@ public interface RaftTestUtil {
   static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
       throws InterruptedException {
     cluster.setBlockRequestsFrom(oldLeader.toString(), true);
-    RaftPeerId newLeader = oldLeader;
-    for(int i = 0; i < 10 && newLeader.equals(oldLeader); i++) {
-      newLeader = RaftTestUtil.waitForLeader(cluster).getId();
+    try {
+      return JavaUtils.attempt(() -> {
+        final RaftPeerId newLeader = waitForLeader(cluster).getId();
+        Preconditions.assertTrue(!newLeader.equals(oldLeader),
+            () -> "Failed to change leader: newLeader=" + newLeader + " equals oldLeader=" + oldLeader);
+        LOG.info("Changed leader from " + oldLeader + " to " + newLeader);
+        return newLeader;
+      }, 10, 100L, "changeLeader", LOG);
+    } finally {
+      cluster.setBlockRequestsFrom(oldLeader.toString(), false);
     }
-    cluster.setBlockRequestsFrom(oldLeader.toString(), false);
-    return newLeader;
   }
 
   static <SERVER extends RaftServer> void blockQueueAndSetDelay(

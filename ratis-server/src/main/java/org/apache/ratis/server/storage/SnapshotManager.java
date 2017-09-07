@@ -58,7 +58,7 @@ public class SnapshotManager {
     final RaftStorageDirectory dir = storage.getStorageDir();
 
     File tmpDir = dir.getNewTempDir();
-    tmpDir.mkdirs();
+    FileUtils.createDirectories(tmpDir);
     tmpDir.deleteOnExit();
 
     LOG.info("Installing snapshot:{}, to tmp dir:{}", request, tmpDir);
@@ -85,7 +85,7 @@ public class SnapshotManager {
         // same last index.
         if (chunk.getOffset() == 0) {
           if (tmpSnapshotFile.exists()) {
-            FileUtils.fullyDelete(tmpSnapshotFile);
+            FileUtils.deleteFully(tmpSnapshotFile);
           }
           // create the temp snapshot file and put padding inside
           out = new FileOutputStream(tmpSnapshotFile);

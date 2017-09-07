@@ -59,8 +59,8 @@ public class RaftServerProxy implements RaftServer {
     final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
     this.factory = ServerFactory.cast(rpcType.newFactory(parameters));
 
-    this.impl = CompletableFuture.completedFuture(initImpl(group));
     this.serverRpc = initRaftServerRpc(factory, this, group);
+    this.impl = CompletableFuture.completedFuture(initImpl(group));
   }
 
   private RaftServerImpl initImpl(RaftGroup group) throws IOException {

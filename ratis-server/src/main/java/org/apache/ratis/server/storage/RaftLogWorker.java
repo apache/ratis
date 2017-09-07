@@ -17,14 +17,8 @@
  */
 package org.apache.ratis.server.storage;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.io.nativeio.NativeIO;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -39,12 +33,20 @@ import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+
 /**
  * This class takes the responsibility of all the raft log related I/O ops for a
  * raft peer.
  */
 class RaftLogWorker implements Runnable {
   static final Logger LOG = LoggerFactory.getLogger(RaftLogWorker.class);
+
+  private final String name;
   /**
    * The task queue accessed by rpc handler threads and the io worker thread.
    */
@@ -70,17 +72,21 @@ class RaftLogWorker implements Runnable {
 
   private final  RaftProperties properties;
 
-  RaftLogWorker(RaftServerImpl raftServer, RaftStorage storage,
+  RaftLogWorker(RaftPeerId selfId, RaftServerImpl raftServer, RaftStorage storage,
                 RaftProperties properties) {
+    this.name = selfId + "-" + getClass().getSimpleName();
+    LOG.info("new {} for {}", name, storage);
+
     this.raftServer = raftServer;
+
     this.storage = storage;
     this.properties = properties;
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
-    workerThread = new Thread(this,
-        getClass().getSimpleName() + " for " + storage);
+    this.workerThread = new Thread(this, name);
   }
 
   void start(long latestIndex, File openSegmentFile) throws IOException {
+    LOG.trace("{} start(latestIndex={}, openSegmentFile={})", name, latestIndex, openSegmentFile);
     lastWrittenIndex = latestIndex;
     flushedIndex = latestIndex;
     if (openSegmentFile != null) {
@@ -98,7 +104,7 @@ class RaftLogWorker implements Runnable {
     } catch (InterruptedException ignored) {
     }
     IOUtils.cleanup(LOG, out);
-    LOG.info("{} closes.", this.toString());
+    LOG.info("{} close()", name);
   }
 
   /**
@@ -114,16 +120,14 @@ class RaftLogWorker implements Runnable {
 
   @Override
   public String toString() {
-    return this.getClass().getSimpleName() + "-"
-        + (raftServer != null ? raftServer.getId() : "");
+    return name;
   }
 
   /**
    * This is protected by the RaftServer and RaftLog's lock.
    */
   private Task addIOTask(Task task) {
-    LOG.debug("{} adds IO task {}",
-        raftServer != null ? raftServer.getId() : "", task);
+    LOG.debug("{} adds IO task {}", name, task);
     try {
       if (!queue.offer(task, 1, TimeUnit.SECONDS)) {
         Preconditions.assertTrue(isAlive(),
@@ -275,8 +279,7 @@ class RaftLogWorker implements Runnable {
 
       File openFile = storage.getStorageDir()
           .getOpenLogFile(segmentToClose.getStartIndex());
-      LOG.info("{} finalizing log segment {}", RaftLogWorker.this.toString(),
-          openFile.getAbsolutePath());
+      LOG.info("{} finalizing log segment {}", name, openFile);
       Preconditions.assertTrue(openFile.exists(),
           "File %s does not exist.", openFile);
       if (segmentToClose.numOfEntries() > 0) {
@@ -285,7 +288,7 @@ class RaftLogWorker implements Runnable {
             segmentToClose.getStartIndex(), segmentToClose.getEndIndex());
         Preconditions.assertTrue(!dstFile.exists());
 
-        NativeIO.renameTo(openFile, dstFile);
+        FileUtils.move(openFile, dstFile);
       } else { // delete the file of the empty segment
         FileUtils.deleteFile(openFile);
       }
@@ -308,12 +311,13 @@ class RaftLogWorker implements Runnable {
     @Override
     void execute() throws IOException {
       File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
-      LOG.info("{} creating new log segment {}", RaftLogWorker.this.toString(),
-          openFile.getAbsolutePath());
+      LOG.info("{} creating new log segment {}", name, openFile);
       Preconditions.assertTrue(!openFile.exists(), "open file %s exists for %s",
-          openFile.getAbsolutePath(), RaftLogWorker.this.toString());
+          openFile, name);
       Preconditions.assertTrue(out == null && pendingFlushNum == 0);
       out = new LogOutputStream(openFile, false, properties);
+      Preconditions.assertTrue(openFile.exists(), "Failed to create file %s for %s",
+          openFile.getAbsolutePath(), name);
     }
 
     @Override
@@ -346,7 +350,7 @@ class RaftLogWorker implements Runnable {
         File dstFile = storage.getStorageDir().getClosedLogFile(
             segments.toTruncate.startIndex, segments.toTruncate.newEndIndex);
         Preconditions.assertTrue(!dstFile.exists());
-        NativeIO.renameTo(fileToTruncate, dstFile);
+        FileUtils.move(fileToTruncate, dstFile);
 
         // update lastWrittenIndex
         lastWrittenIndex = segments.toTruncate.newEndIndex;

@@ -124,7 +124,7 @@ public interface JavaUtils {
         }
         if (log != null && log.isWarnEnabled()) {
           log.warn("FAILED " + name + " attempt #" + i + "/" + numAttempts
-              + ": " + t + ", sleep " + sleepMs + "ms and then retry.");
+              + ": " + t + ", sleep " + sleepMs + "ms and then retry.", t);
         }
       }
 

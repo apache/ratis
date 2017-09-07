@@ -86,7 +86,8 @@ public class RaftStorage implements Closeable {
     StorageState storageState = storageDir.analyzeStorage(toLock);
     if (storageState == StorageState.NORMAL) {
       metaFile = new MetaFile(storageDir.getMetaFile());
-      assert metaFile.exists();
+      Preconditions.assertTrue(metaFile.exists(),
+          () -> "Meta file " + metaFile + " does not exists.");
       metaFile.readFile();
       // Existence of raft-meta.tmp means the change of votedFor/term has not
       // been committed. Thus we should delete the tmp file.
