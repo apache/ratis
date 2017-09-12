@@ -21,6 +21,7 @@ import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.netty.NettyRpcProxy;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.shaded.proto.RaftProtos;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
@@ -49,13 +50,23 @@ public class NettyClientRpc implements RaftClientRpc {
           (SetConfigurationRequest)request);
       b.setSetConfigurationRequest(proto);
       rpcRequest = proto.getRpcRequest();
+    } else if (request instanceof ServerInformatonRequest) {
+      final RaftProtos.ServerInformationRequestProto proto = ClientProtoUtils.toServerInformationRequestProto(
+          (ServerInformatonRequest)request);
+      b.setServerInformationRequest(proto);
+      rpcRequest = proto.getRpcRequest();
     } else {
       final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
       b.setRaftClientRequest(proto);
       rpcRequest = proto.getRpcRequest();
     }
-    return ClientProtoUtils.toRaftClientReply(
-        proxy.send(rpcRequest, b.build()).getRaftClientReply());
+    if (request instanceof ServerInformatonRequest) {
+      return ClientProtoUtils.toServerInformationReply(
+          proxy.send(rpcRequest, b.build()).getServerInfoReply());
+    } else {
+      return ClientProtoUtils.toRaftClientReply(
+          proxy.send(rpcRequest, b.build()).getRaftClientReply());
+    }
   }
 
   @Override

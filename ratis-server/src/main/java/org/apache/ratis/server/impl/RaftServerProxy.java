@@ -32,6 +32,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -186,6 +188,31 @@ public class RaftServerProxy implements RaftServer {
         return new RaftClientReply(request, (Message) null);
       } finally {
         reinitializeRequest.set(null);
+      }
+    });
+  }
+
+  @Override
+  public ServerInformationReply getInfo(ServerInformatonRequest request)
+      throws IOException {
+    return RaftServerImpl.waitForReply(getId(), request, getInfoAsync(request),
+        ServerInformationReply::new);
+  }
+
+  @Override
+  public CompletableFuture<ServerInformationReply> getInfoAsync(
+      ServerInformatonRequest request) throws IOException {
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        RaftServerImpl server = impl.get();
+        Collection<RaftPeer> peers = server.getRaftConf().getPeers();
+        RaftGroupId groupId = server.getGroupId();
+        RaftGroup group = new RaftGroup(groupId, peers);
+        return new ServerInformationReply(request, null, group);
+      } catch (Exception e) {
+        final RaftException re = new RaftException(
+            "Failed to get info, request=" + request, e);
+        return new ServerInformationReply(request, re);
       }
     });
   }

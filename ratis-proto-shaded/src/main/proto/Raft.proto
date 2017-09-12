@@ -186,6 +186,11 @@ message RaftClientReplyProto {
   }
 }
 
+message ServerInformationReplyProto {
+  RaftRpcReplyProto rpcReply = 1;
+  RaftGroupProto group = 2;
+}
+
 // setConfiguration request
 message SetConfigurationRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
@@ -196,4 +201,9 @@ message SetConfigurationRequestProto {
 message ReinitializeRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
   RaftGroupProto group = 2; // the target group.
+}
+
+// server info request
+message ServerInformationRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
 }

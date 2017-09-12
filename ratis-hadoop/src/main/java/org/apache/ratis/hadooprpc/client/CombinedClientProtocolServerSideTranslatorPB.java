@@ -29,6 +29,8 @@ import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationReplyProto;
 
 @InterfaceAudience.Private
 public class CombinedClientProtocolServerSideTranslatorPB
@@ -76,6 +78,20 @@ public class CombinedClientProtocolServerSideTranslatorPB
       final RaftClientReply reply = impl.reinitialize(request);
       return ClientProtoUtils.toRaftClientReplyProto(reply);
     } catch(IOException ioe) {
+      throw new ServiceException(ioe);
+    }
+  }
+
+  @Override
+  public ServerInformationReplyProto serverInformation(
+      RpcController controller, ServerInformationRequestProto proto)
+    throws ServiceException {
+    final ServerInformatonRequest request;
+    try {
+      request = ClientProtoUtils.toServerInformationRequest(proto);
+      final ServerInformationReply reply = impl.getInfo(request);
+      return ClientProtoUtils.toServerInformationReplyProto(reply);
+    } catch (IOException ioe) {
       throw new ServiceException(ioe);
     }
   }

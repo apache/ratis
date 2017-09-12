@@ -110,6 +110,15 @@ final class RaftClientImpl implements RaftClient {
         clientId, server, groupId, callId, newGroup));
   }
 
+  @Override
+  public RaftClientReply serverInformation(RaftPeerId server)
+      throws IOException {
+    Objects.requireNonNull(server, "server == null");
+
+    return sendRequest(new ServerInformatonRequest(clientId, server,
+        groupId, nextCallId()));
+  }
+
   private void addServers(Stream<RaftPeer> peersInNewConf) {
     clientRpc.addServers(
         peersInNewConf.filter(p -> !peers.contains(p))::iterator);

@@ -78,7 +78,8 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
   public void setConfiguration(SetConfigurationRequestProto proto,
       StreamObserver<RaftClientReplyProto> responseObserver) {
     final SetConfigurationRequest request = ClientProtoUtils.toSetConfigurationRequest(proto);
-    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.setConfigurationAsync(request));
+    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.setConfigurationAsync(request),
+        ClientProtoUtils::toRaftClientReplyProto);
   }
 
   @Override

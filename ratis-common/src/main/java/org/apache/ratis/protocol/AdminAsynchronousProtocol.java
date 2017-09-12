@@ -24,4 +24,7 @@ import java.util.concurrent.CompletableFuture;
 public interface AdminAsynchronousProtocol {
   CompletableFuture<RaftClientReply> reinitializeAsync(
       ReinitializeRequest request) throws IOException;
+
+  CompletableFuture<ServerInformationReply> getInfoAsync(
+      ServerInformatonRequest request) throws IOException;
 }

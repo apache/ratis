@@ -24,9 +24,10 @@ import org.apache.ratis.hadooprpc.Proxy;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.ReinitializeRequest;
+import org.apache.ratis.protocol.ServerInformatonRequest;
+import org.apache.ratis.protocol.ServerInformationReply;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.util.CheckedFunction;
 import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
@@ -50,31 +51,48 @@ public class CombinedClientProtocolClientSideTranslatorPB
   @Override
   public RaftClientReply submitClientRequest(RaftClientRequest request)
       throws IOException {
-    return handleRequest(request, ClientProtoUtils::toRaftClientRequestProto,
+    return handleRequest(request,
+        ClientProtoUtils::toRaftClientRequestProto,
+        ClientProtoUtils::toRaftClientReply,
         p -> getProtocol().submitClientRequest(null, p));
   }
 
   @Override
   public RaftClientReply setConfiguration(SetConfigurationRequest request)
       throws IOException {
-    return handleRequest(request, ClientProtoUtils::toSetConfigurationRequestProto,
+    return handleRequest(request,
+        ClientProtoUtils::toSetConfigurationRequestProto,
+        ClientProtoUtils::toRaftClientReply,
         p -> getProtocol().setConfiguration(null, p));
   }
 
   @Override
   public RaftClientReply reinitialize(ReinitializeRequest request) throws IOException {
-    return handleRequest(request, ClientProtoUtils::toReinitializeRequestProto,
-      p -> getProtocol().reinitialize(null, p));
+    return handleRequest(request,
+        ClientProtoUtils::toReinitializeRequestProto,
+        ClientProtoUtils::toRaftClientReply,
+        p -> getProtocol().reinitialize(null, p));
   }
 
-  static <REQUEST extends RaftClientRequest, PROTO> RaftClientReply handleRequest(
-      REQUEST request, Function<REQUEST, PROTO> toProto,
-      CheckedFunction<PROTO, RaftClientReplyProto, ServiceException> handler)
+  @Override
+  public ServerInformationReply getInfo(ServerInformatonRequest request) throws IOException {
+    return handleRequest(request,
+        ClientProtoUtils::toServerInformationRequestProto,
+        ClientProtoUtils::toServerInformationReply,
+        p -> getProtocol().serverInformation(null, p));
+  }
+
+  static <REQUEST extends RaftClientRequest, REPLY extends RaftClientReply,
+      PROTO_REQ, PROTO_REP> REPLY handleRequest(
+      REQUEST request,
+      Function<REQUEST, PROTO_REQ> reqToProto,
+      Function<PROTO_REP, REPLY> repToProto,
+      CheckedFunction<PROTO_REQ, PROTO_REP, ServiceException> handler)
       throws IOException {
-    final PROTO proto = toProto.apply(request);
+    final PROTO_REQ proto = reqToProto.apply(request);
     try {
-      final RaftClientReplyProto reply = handler.apply(proto);
-      return ClientProtoUtils.toRaftClientReply(reply);
+      final PROTO_REP reply = handler.apply(proto);
+      return repToProto.apply(reply);
     } catch (ServiceException se) {
       LOG.trace("Failed to handle " + request, se);
       throw ProtoUtils.toIOException(se);

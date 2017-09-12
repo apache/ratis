@@ -31,6 +31,7 @@ import org.apache.ratis.util.StringUtils;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 public interface RaftGrpcUtil {
   Metadata.Key<String> EXCEPTION_TYPE_KEY =
@@ -73,15 +74,16 @@ public interface RaftGrpcUtil {
     return e;
   }
 
-  static void asyncCall(
-      StreamObserver<RaftClientReplyProto> responseObserver,
-      CheckedSupplier<CompletableFuture<RaftClientReply>, IOException> supplier) {
+  static <REPLY extends RaftClientReply, REPLY_PROTO> void asyncCall(
+      StreamObserver<REPLY_PROTO> responseObserver,
+      CheckedSupplier<CompletableFuture<REPLY>, IOException> supplier,
+      Function<REPLY, REPLY_PROTO> toProto) {
     try {
       supplier.get().whenCompleteAsync((reply, exception) -> {
         if (exception != null) {
           responseObserver.onError(RaftGrpcUtil.wrapException(exception));
         } else {
-          responseObserver.onNext(ClientProtoUtils.toRaftClientReplyProto(reply));
+          responseObserver.onNext(toProto.apply(reply));
           responseObserver.onCompleted();
         }
       });

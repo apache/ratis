@@ -19,10 +19,7 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.util.Preconditions;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * Description of a raft group. It has a globally unique ID and a group of raft
@@ -42,7 +39,7 @@ public class RaftGroup {
     this(groupId, Arrays.asList(peers));
   }
 
-  public RaftGroup(RaftGroupId groupId, List<RaftPeer> peers) {
+  public RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers) {
     Preconditions.assertTrue(peers != null);
     this.groupId = groupId;
     this.peers = Collections.unmodifiableList(new ArrayList<>(peers));

@@ -22,9 +22,12 @@ import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.ReinitializeRequest;
+import org.apache.ratis.protocol.ServerInformatonRequest;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
+import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationRequestProto;
 import org.apache.ratis.shaded.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolServiceImplBase;
 
 public class AdminProtocolService extends AdminProtocolServiceImplBase {
@@ -40,6 +43,15 @@ public class AdminProtocolService extends AdminProtocolServiceImplBase {
   public void reinitialize(ReinitializeRequestProto proto,
                            StreamObserver<RaftClientReplyProto> responseObserver) {
     final ReinitializeRequest request = ClientProtoUtils.toReinitializeRequest(proto);
-    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.reinitializeAsync(request));
+    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.reinitializeAsync(request),
+        ClientProtoUtils::toRaftClientReplyProto);
+  }
+
+  @Override
+  public void serverInformation(ServerInformationRequestProto proto,
+      StreamObserver<ServerInformationReplyProto> responseObserver) {
+    final ServerInformatonRequest request = ClientProtoUtils.toServerInformationRequest(proto);
+    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.getInfoAsync(request),
+        ClientProtoUtils::toServerInformationReplyProto);
   }
 }

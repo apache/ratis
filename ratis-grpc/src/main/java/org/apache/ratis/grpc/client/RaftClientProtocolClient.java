@@ -23,6 +23,8 @@ import org.apache.ratis.shaded.io.grpc.ManagedChannel;
 import org.apache.ratis.shaded.io.grpc.ManagedChannelBuilder;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
+import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
@@ -61,6 +63,11 @@ public class RaftClientProtocolClient implements Closeable {
   RaftClientReplyProto reinitialize(
       ReinitializeRequestProto request) throws IOException {
     return blockingCall(() -> adminBlockingStub.reinitialize(request));
+  }
+
+  ServerInformationReplyProto serverInformation(
+      ServerInformationRequestProto request) throws IOException {
+    return adminBlockingStub.serverInformation(request);
   }
 
   RaftClientReplyProto setConfiguration(

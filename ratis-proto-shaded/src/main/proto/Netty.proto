@@ -36,6 +36,7 @@ message RaftNettyServerRequestProto {
     ratis.common.RaftClientRequestProto raftClientRequest = 4;
     ratis.common.SetConfigurationRequestProto setConfigurationRequest = 5;
     ratis.common.ReinitializeRequestProto reinitializeRequest = 6;
+    ratis.common.ServerInformationRequestProto serverInformationRequest = 7;
   }
 }
 
@@ -45,6 +46,7 @@ message RaftNettyServerReplyProto {
     ratis.common.AppendEntriesReplyProto appendEntriesReply = 2;
     ratis.common.InstallSnapshotReplyProto installSnapshotReply = 3;
     ratis.common.RaftClientReplyProto raftClientReply = 4;
-    RaftNettyExceptionReplyProto exceptionReply = 5;
+    ratis.common.ServerInformationReplyProto serverInfoReply = 5;
+    RaftNettyExceptionReplyProto exceptionReply = 6;
   }
 }

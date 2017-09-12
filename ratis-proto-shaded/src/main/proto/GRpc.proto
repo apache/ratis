@@ -48,4 +48,7 @@ service AdminProtocolService {
   // A client-to-server RPC to reinitialize the server
   rpc reinitialize(ratis.common.ReinitializeRequestProto)
       returns(ratis.common.RaftClientReplyProto) {}
+
+  rpc serverInformation(ratis.common.ServerInformationRequestProto)
+      returns(ratis.common.ServerInformationReplyProto) {}
 }

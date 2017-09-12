@@ -15,13 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.grpc;
 
-import java.io.IOException;
+import org.apache.ratis.server.impl.ServerInformationBaseTest;
 
-/** For server administration. */
-public interface AdminProtocol {
-  RaftClientReply reinitialize(ReinitializeRequest request) throws IOException;
-
-  ServerInformationReply getInfo(ServerInformatonRequest request) throws IOException;
+public class TestServerInformationWithGrpc
+    extends ServerInformationBaseTest<MiniRaftClusterWithGRpc>
+    implements MiniRaftClusterWithGRpc.FactoryGet {
 }

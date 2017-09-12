@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc.client;
 
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
@@ -28,6 +29,7 @@ import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PeerProxyMap;
+import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,6 +59,11 @@ public class GrpcClientRpc implements RaftClientRpc {
       SetConfigurationRequestProto setConf =
           toSetConfigurationRequestProto((SetConfigurationRequest) request);
       return toRaftClientReply(proxy.setConfiguration(setConf));
+    } else if (request instanceof ServerInformatonRequest){
+      RaftProtos.ServerInformationRequestProto proto =
+          toServerInformationRequestProto((ServerInformatonRequest) request);
+      return ClientProtoUtils.toServerInformationReply(
+          proxy.serverInformation(proto));
     } else {
       RaftClientRequestProto requestProto = toRaftClientRequestProto(request);
       CompletableFuture<RaftClientReplyProto> replyFuture =

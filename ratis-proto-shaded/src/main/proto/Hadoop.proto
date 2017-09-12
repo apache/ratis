@@ -33,6 +33,9 @@ service CombinedClientProtocolService {
 
   rpc reinitialize(ratis.common.ReinitializeRequestProto)
       returns(ratis.common.RaftClientReplyProto);
+
+  rpc serverInformation(ratis.common.ServerInformationRequestProto)
+      returns(ratis.common.ServerInformationReplyProto);
 }
 
 service RaftServerProtocolService {

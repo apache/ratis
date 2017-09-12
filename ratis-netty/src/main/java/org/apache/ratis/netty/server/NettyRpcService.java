@@ -23,6 +23,7 @@ import org.apache.ratis.netty.NettyRpcProxy;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.ServerInformationReply;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
@@ -207,6 +208,15 @@ public final class NettyRpcService implements RaftServerRpc {
               ClientProtoUtils.toReinitializeRequest(request));
           return RaftNettyServerReplyProto.newBuilder()
               .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
+              .build();
+        }
+        case SERVERINFORMATIONREQUEST: {
+          final ServerInformationRequestProto request = proto.getServerInformationRequest();
+          rpcRequest = request.getRpcRequest();
+          final ServerInformationReply reply = server.getInfo(
+              ClientProtoUtils.toServerInformationRequest(request));
+          return RaftNettyServerReplyProto.newBuilder()
+              .setServerInfoReply(ClientProtoUtils.toServerInformationReplyProto(reply))
               .build();
         }
         case RAFTNETTYSERVERREQUEST_NOT_SET:

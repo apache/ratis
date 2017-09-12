@@ -44,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -486,6 +487,13 @@ public class RaftServerImpl implements RaftServerProtocol,
   static RaftClientReply waitForReply(RaftPeerId id,
       RaftClientRequest request, CompletableFuture<RaftClientReply> future)
       throws IOException {
+    return waitForReply(id, request, future, RaftClientReply::new);
+  }
+
+  static <REPLY extends RaftClientReply> REPLY waitForReply(
+      RaftPeerId id, RaftClientRequest request, CompletableFuture<REPLY> future,
+      BiFunction<RaftClientRequest, RaftException, REPLY> exceptionReply)
+      throws IOException {
     try {
       return future.get();
     } catch (InterruptedException e) {
@@ -499,7 +507,7 @@ public class RaftServerImpl implements RaftServerProtocol,
       }
       if (cause instanceof NotLeaderException ||
           cause instanceof StateMachineException) {
-        return new RaftClientReply(request, (RaftException) cause);
+        return exceptionReply.apply(request, (RaftException) cause);
       } else {
         throw IOUtils.asIOException(cause);
       }
