@@ -55,6 +55,6 @@ public abstract class RaftClientMessage implements RaftRpcMessage {
   @Override
   public String toString() {
     return getClass().getSimpleName() + "(" + clientId + "->" + serverId
-        + ") in raft group " + groupId;
+        + ") in " + groupId;
   }
 }

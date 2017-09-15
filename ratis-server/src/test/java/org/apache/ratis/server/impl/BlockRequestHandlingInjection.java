@@ -45,10 +45,12 @@ public class BlockRequestHandlingInjection implements CodeInjectionForTesting.Co
   private BlockRequestHandlingInjection() {}
 
   public void blockRequestor(String requestor) {
+    LOG.info("Block requestor " + requestor);
     requestors.put(requestor, true);
   }
 
   public void unblockRequestor(String requestor) {
+    LOG.info("UnBlock requestor " + requestor);
     requestors.remove(requestor);
   }
 
@@ -67,20 +69,29 @@ public class BlockRequestHandlingInjection implements CodeInjectionForTesting.Co
 
   @Override
   public boolean execute(Object localId, Object remoteId, Object... args) {
-    if (shouldBlock(localId, remoteId)) {
-      try {
-        RaftTestUtil.block(() -> shouldBlock(localId, remoteId));
-        return true;
-      } catch (InterruptedException e) {
-        LOG.debug("Interrupted while blocking request handling from " + remoteId
-            + " to " + localId);
-      }
+    if (!shouldBlock(localId, remoteId)) {
+      return false;
     }
-    return false;
+
+    LOG.info(localId + ": Block request from " + remoteId);
+    try {
+      RaftTestUtil.block(() -> shouldBlock(localId, remoteId));
+    } catch (InterruptedException e) {
+      LOG.debug("Interrupted while blocking request from " + remoteId + " to " + localId, e);
+    }
+    LOG.info(localId + ": unBlock request from " + remoteId);
+    return true;
   }
 
   private boolean shouldBlock(Object localId, Object remoteId) {
     return (localId != null && repliers.containsKey(localId.toString())) ||
         (remoteId != null && requestors.containsKey(remoteId.toString()));
+  }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName()
+        + ": requestors=" + requestors.keySet()
+        + ", repliers=" + repliers.keySet();
   }
 }

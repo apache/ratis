@@ -66,14 +66,15 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
           try {
             proxy.close();
           } catch (IOException e) {
-            LOG.warn("Failed to close proxy for peer {}, proxy class: ",
-                peer, proxy.getClass());
+            LOG.warn("{}: Failed to close proxy for peer {}, proxy class: ",
+                name, peer, proxy.getClass());
           }
         }
       });
     }
   }
 
+  private volatile String name;
   private final Map<RaftPeerId, PeerAndProxy> peers = new ConcurrentHashMap<>();
   private final Object resetLock = new Object();
 
@@ -82,8 +83,13 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
   public PeerProxyMap(CheckedFunction<RaftPeer, PROXY, IOException> createProxy) {
     this.createProxy = createProxy;
   }
+
   public PeerProxyMap() {
     this.createProxy = this::createProxyImpl;
+  }
+
+  public void setName(String name) {
+    this.name = name;
   }
 
   public PROXY getProxy(RaftPeerId id) throws IOException {
@@ -91,7 +97,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     if (p == null) {
       synchronized (resetLock) {
         p = Objects.requireNonNull(peers.get(id),
-            "Server " + id + " not found: peers=" + peers.keySet());
+            () -> name + ": Server " + id + " not found: peers=" + peers.keySet());
       }
     }
     return p.getProxy();
@@ -108,6 +114,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
   }
 
   public void resetProxy(RaftPeerId id) {
+    LOG.debug("{}: reset proxy for {}", name, id );
     synchronized (resetLock) {
       final PeerAndProxy pp = peers.remove(id);
       final RaftPeer peer = pp.getPeer();

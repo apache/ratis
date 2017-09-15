@@ -96,4 +96,9 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
     RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequest,
         leaderId, delayMs, getMaxTimeout());
   }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() + ": sendServerRequest=" + sendServerRequest;
+  }
 }

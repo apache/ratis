@@ -147,7 +147,7 @@ final class RaftClientImpl implements RaftClient {
 
   private RaftClientReply sendRequest(RaftClientRequest request)
       throws StateMachineException, GroupMismatchException {
-    LOG.debug("{}: {}", clientId, request);
+    LOG.debug("{}: send {}", clientId, request);
     RaftClientReply reply = null;
     try {
       reply = clientRpc.sendRequest(request);
@@ -157,7 +157,7 @@ final class RaftClientImpl implements RaftClient {
       handleIOException(request, ioe, null);
     }
     if (reply != null) {
-      LOG.debug("{}: {}", clientId, reply);
+      LOG.debug("{}: receive {}", clientId, reply);
       if (reply.isNotLeader()) {
         handleNotLeaderException(request, reply.getNotLeaderException());
         return null;
@@ -196,6 +196,8 @@ final class RaftClientImpl implements RaftClient {
     }
 
     final RaftPeerId oldLeader = request.getServerId();
+    clientRpc.handleException(oldLeader, ioe);
+
     if (newLeader == null && oldLeader.equals(leaderId)) {
       newLeader = CollectionUtils.random(oldLeader,
           CollectionUtils.as(peers, RaftPeer::getId));

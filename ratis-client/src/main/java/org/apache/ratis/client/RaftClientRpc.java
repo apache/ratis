@@ -23,12 +23,19 @@ import java.io.IOException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 
 /** The client side rpc of a raft service. */
 public interface RaftClientRpc extends Closeable {
+  /** Set the client name */
+  void setName(String name);
+
   /** Send a request. */
   RaftClientReply sendRequest(RaftClientRequest request) throws IOException;
 
   /** Add the information of the given raft servers */
   void addServers(Iterable<RaftPeer> servers);
+
+  /** Handle the given exception.  For example, try reconnecting. */
+  void handleException(RaftPeerId serverId, Exception e);
 }

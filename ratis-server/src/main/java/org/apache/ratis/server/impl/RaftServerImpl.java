@@ -407,7 +407,6 @@ public class RaftServerImpl implements RaftServerProtocol,
   private CompletableFuture<RaftClientReply> appendTransaction(
       RaftClientRequest request, TransactionContext context,
       RetryCache.CacheEntry cacheEntry) throws IOException {
-    LOG.debug("{}: receive client request({})", getId(), request);
     assertLifeCycleState(RUNNING);
     CompletableFuture<RaftClientReply> reply;
 
@@ -441,6 +440,7 @@ public class RaftServerImpl implements RaftServerProtocol,
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
+    LOG.debug("{}: receive client request({})", getId(), request);
     // first check the server's leader state
     CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
     if (reply != null) {
@@ -690,7 +690,7 @@ public class RaftServerImpl implements RaftServerProtocol,
   static void logAppendEntries(boolean isHeartbeat, Supplier<String> message) {
     if (isHeartbeat) {
       if (LOG.isTraceEnabled()) {
-        LOG.trace(message.get());
+        LOG.trace("HEARTBEAT: " + message.get());
       }
     } else {
       if (LOG.isDebugEnabled()) {

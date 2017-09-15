@@ -17,11 +17,11 @@
  */
 package org.apache.ratis.hadooprpc;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftBasicTests;
-import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.LogUtils;
 import org.junit.Test;
 
@@ -31,16 +31,18 @@ import static org.apache.ratis.hadooprpc.MiniRaftClusterWithHadoopRpc.sendServer
 
 public class TestRaftWithHadoopRpc extends RaftBasicTests {
   static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
     LogUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
   }
 
   private final MiniRaftClusterWithHadoopRpc cluster;
 
   public TestRaftWithHadoopRpc() throws IOException {
+    final Configuration conf = new Configuration();
+    HadoopConfigKeys.Ipc.setHandlers(conf, 20);
+    conf.setInt(CommonConfigurationKeys.IPC_SERVER_HANDLER_QUEUE_SIZE_KEY, 1000);
+    conf.setInt(CommonConfigurationKeys.IPC_CLIENT_RPC_TIMEOUT_KEY, 1000);
     cluster = MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(
-        NUM_SERVERS, getProperties());
+        NUM_SERVERS, getProperties(), conf);
   }
 
   @Override

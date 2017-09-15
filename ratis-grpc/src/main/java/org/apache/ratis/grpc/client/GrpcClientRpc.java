@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.grpc.client;
 
-import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.client.impl.RaftClientRpcWithProxy;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
@@ -29,7 +29,6 @@ import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PeerProxyMap;
-import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,17 +39,18 @@ import java.util.concurrent.ExecutionException;
 
 import static org.apache.ratis.client.impl.ClientProtoUtils.*;
 
-public class GrpcClientRpc implements RaftClientRpc {
+public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClient> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientRpc.class);
 
-  private final PeerProxyMap<RaftClientProtocolClient> proxies
-      = new PeerProxyMap<>(RaftClientProtocolClient::new);
+  public GrpcClientRpc() {
+    super(new PeerProxyMap<>(RaftClientProtocolClient::new));
+  }
 
   @Override
   public RaftClientReply sendRequest(RaftClientRequest request)
       throws IOException {
     final RaftPeerId serverId = request.getServerId();
-    final RaftClientProtocolClient proxy = proxies.getProxy(serverId);
+    final RaftClientProtocolClient proxy = getProxies().getProxy(serverId);
     if (request instanceof ReinitializeRequest) {
       RaftProtos.ReinitializeRequestProto proto =
           toReinitializeRequestProto((ReinitializeRequest) request);
@@ -109,15 +109,5 @@ public class GrpcClientRpc implements RaftClientRpc {
         throw IOUtils.toIOException(e);
       }
     }
-  }
-
-  @Override
-  public void addServers(Iterable<RaftPeer> servers) {
-    proxies.addPeers(servers);
-  }
-
-  @Override
-  public void close() throws IOException {
-    proxies.close();
   }
 }

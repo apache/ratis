@@ -297,12 +297,4 @@ public interface RaftTestUtil {
 
     Thread.sleep(3 * maxTimeout);
   }
-
-  static void setBlockRequestsFrom(String src, boolean block) {
-    if (block) {
-      BlockRequestHandlingInjection.getInstance().blockRequestor(src);
-    } else {
-      BlockRequestHandlingInjection.getInstance().unblockRequestor(src);
-    }
-  }
 }

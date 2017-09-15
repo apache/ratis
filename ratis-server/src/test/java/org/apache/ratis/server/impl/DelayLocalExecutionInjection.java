@@ -70,4 +70,9 @@ public class DelayLocalExecutionInjection implements CodeInjectionForTesting.Cod
     }
     return true;
   }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() + ": delays=" + delays;
+  }
 }

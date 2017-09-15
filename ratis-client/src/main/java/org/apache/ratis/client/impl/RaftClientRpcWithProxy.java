@@ -15,38 +15,54 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.simulation;
+package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.PeerProxyMap;
+import org.apache.ratis.util.ReflectionUtils;
 
-class SimulatedClientRpc
-    extends SimulatedRequestReply<RaftClientRequest, RaftClientReply>
+import java.io.Closeable;
+import java.io.EOFException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.nio.channels.ClosedChannelException;
+
+/** An abstract {@link RaftClientRpc} implementation using {@link PeerProxyMap}. */
+public abstract class RaftClientRpcWithProxy<PROXY extends Closeable>
     implements RaftClientRpc {
-  SimulatedClientRpc(int simulateLatencyMs) {
-    super(simulateLatencyMs);
+  private final PeerProxyMap<PROXY> proxies;
+
+  protected RaftClientRpcWithProxy(PeerProxyMap<PROXY> proxies) {
+    this.proxies = proxies;
+  }
+
+  public PeerProxyMap<PROXY> getProxies() {
+    return proxies;
   }
 
   @Override
   public void setName(String name) {
-    // do nothing
+    proxies.setName(name);
   }
 
   @Override
   public void addServers(Iterable<RaftPeer> servers) {
-    // do nothing
+    proxies.addPeers(servers);
   }
 
   @Override
   public void handleException(RaftPeerId serverId, Exception e) {
-    // do nothing
+    if (ReflectionUtils.isInstance(e,
+        SocketException.class, SocketTimeoutException.class,
+        ClosedChannelException.class, EOFException.class)) {
+      proxies.resetProxy(serverId);
+    }
   }
 
   @Override
   public void close() {
-    // do nothing
+    proxies.close();
   }
 }

@@ -55,6 +55,10 @@ public interface HadoopConfigKeys {
           HANDLERS_KEY, HANDLERS_DEFAULT, requireMin(1));
     }
 
+    static void setHandlers(Configuration conf, int handers) {
+      set(conf::setInt, HANDLERS_KEY, handers);
+    }
+
     static InetSocketAddress address(Configuration conf) {
       return getInetSocketAddress(conf::getTrimmed,
           ADDRESS_KEY, ADDRESS_DEFAULT);

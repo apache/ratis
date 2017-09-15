@@ -236,6 +236,7 @@ public class LeaderState {
 
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
       TransactionContext entry) {
+    LOG.debug("{}: addPendingRequest at index={}, request={}", server.getId(), index, request);
     return pendingRequests.addPendingRequest(index, request, entry);
   }
 

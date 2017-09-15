@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RunWith(Parameterized.class)
 public class TestMultiRaftGroup extends BaseTest {
   static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.TRACE);
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
   }
 
   @Parameterized.Parameters

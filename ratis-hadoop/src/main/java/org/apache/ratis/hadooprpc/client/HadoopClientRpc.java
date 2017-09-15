@@ -19,19 +19,16 @@ package org.apache.ratis.hadooprpc.client;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.ipc.RemoteException;
-import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.client.impl.RaftClientRpcWithProxy;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.PeerProxyMap;
 
 import java.io.IOException;
 
-public class HadoopClientRpc implements RaftClientRpc {
-
-  private final PeerProxyMap<CombinedClientProtocolClientSideTranslatorPB> proxies;
-
+public class HadoopClientRpc extends RaftClientRpcWithProxy<CombinedClientProtocolClientSideTranslatorPB> {
   public HadoopClientRpc(final Configuration conf) {
-    this.proxies  = new PeerProxyMap<>(
-        p -> new CombinedClientProtocolClientSideTranslatorPB(p.getAddress(), conf));
+    super(new PeerProxyMap<>(
+        p -> new CombinedClientProtocolClientSideTranslatorPB(p.getAddress(), conf)));
   }
 
   @Override
@@ -39,7 +36,7 @@ public class HadoopClientRpc implements RaftClientRpc {
       throws IOException {
     final RaftPeerId serverId = request.getServerId();
     final CombinedClientProtocolClientSideTranslatorPB proxy =
-        proxies.getProxy(serverId);
+        getProxies().getProxy(serverId);
     try {
       if (request instanceof ReinitializeRequest) {
         return proxy.reinitialize((ReinitializeRequest) request);
@@ -59,15 +56,5 @@ public class HadoopClientRpc implements RaftClientRpc {
           LeaderNotReadyException.class,
           GroupMismatchException.class);
     }
-  }
-
-  @Override
-  public void addServers(Iterable<RaftPeer> servers) {
-    proxies.addPeers(servers);
-  }
-
-  @Override
-  public void close() {
-    proxies.close();
   }
 }

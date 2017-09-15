@@ -17,24 +17,42 @@
  */
 package org.apache.ratis;
 
+import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.junit.*;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LogUtils;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.ratis.RaftTestUtil.waitAndKillLeader;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 public abstract class RaftBasicTests extends BaseTest {
+  {
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+  }
+
   public static final int NUM_SERVERS = 5;
 
   protected static final RaftProperties properties = new RaftProperties();
@@ -105,32 +123,51 @@ public abstract class RaftBasicTests extends BaseTest {
     waitForLeader(cluster, leader);
   }
 
-  static class Client4TestWithLoad extends Thread {
-    final RaftClient client;
+  class Client4TestWithLoad extends Thread {
+    final int index;
     final SimpleMessage[] messages;
 
+    final AtomicBoolean isRunning = new AtomicBoolean(true);
     final AtomicInteger step = new AtomicInteger();
-    volatile Exception exceptionInClientThread;
+    final AtomicReference<Throwable> exceptionInClientThread = new AtomicReference<>();
 
-    Client4TestWithLoad(RaftClient client, int numMessages) {
-      this.client = client;
-      this.messages = SimpleMessage.create(numMessages, client.getId().toString());
+    Client4TestWithLoad(int index, int numMessages) {
+      super("client-" + index);
+      this.index = index;
+      this.messages = SimpleMessage.create(numMessages, index + "-");
     }
 
     boolean isRunning() {
-      return step.get() < messages.length && exceptionInClientThread == null;
+      return isRunning.get();
     }
 
     @Override
     public void run() {
-      try {
-        for (; isRunning(); ) {
-          client.send(messages[step.getAndIncrement()]);
+      try(RaftClient client = getCluster().createClient()) {
+        for (; step.get() < messages.length; ) {
+          final RaftClientReply reply = client.send(messages[step.getAndIncrement()]);
+          Assert.assertTrue(reply.isSuccess());
         }
-        client.close();
-      } catch (IOException ioe) {
-        exceptionInClientThread = ioe;
+      } catch(Throwable t) {
+        if (exceptionInClientThread.compareAndSet(null, t)) {
+          LOG.error(this + " failed", t);
+        } else {
+          exceptionInClientThread.get().addSuppressed(t);
+          LOG.error(this + " failed again!", t);
+        }
+      } finally {
+        isRunning.set(false);
       }
+    }
+
+    @Override
+    public String toString() {
+      return getClass().getSimpleName() + index
+          + "(step=" + step + "/" + messages.length
+          + ", isRunning=" + isRunning
+          + ", isAlive=" + isAlive()
+          + ", exception=" + exceptionInClientThread
+          + ")";
     }
   }
 
@@ -149,23 +186,56 @@ public abstract class RaftBasicTests extends BaseTest {
 
     final List<Client4TestWithLoad> clients
         = Stream.iterate(0, i -> i+1).limit(numClients)
-        .map(i -> cluster.createClient())
-        .map(c -> new Client4TestWithLoad(c, numMessages))
+        .map(i -> new Client4TestWithLoad(i, numMessages))
         .collect(Collectors.toList());
+    final AtomicInteger lastStep = new AtomicInteger();
+
+    final Timer timer = new Timer();
+    timer.schedule(new TimerTask() {
+      private int previousLastStep = lastStep.get();
+
+      @Override
+      public void run() {
+        LOG.info(cluster.printServers());
+        LOG.info(BlockRequestHandlingInjection.getInstance().toString());
+        LOG.info(cluster.toString());
+        clients.forEach(c -> LOG.info("  " + c));
+        JavaUtils.dumpAllThreads(s -> LOG.info(s));
+
+        final int last = lastStep.get();
+        if (last != previousLastStep) {
+          previousLastStep = last;
+        } else {
+          final RaftServerImpl leader = cluster.getLeader();
+          LOG.info("NO PROGRESS at " + last + ", try to restart leader=" + leader);
+          if (leader != null) {
+            try {
+              cluster.restartServer(leader.getId(), false);
+              LOG.info("Restarted leader=" + leader);
+            } catch (IOException e) {
+              LOG.error("Failed to restart leader=" + leader);
+            }
+          }
+        }
+      }
+    }, 5_000L, 10_000L);
+
     clients.forEach(Thread::start);
 
     int count = 0;
-    for(int lastStep = 0;; ) {
+    for(;; ) {
       if (clients.stream().filter(Client4TestWithLoad::isRunning).count() == 0) {
         break;
       }
 
       final int n = clients.stream().mapToInt(c -> c.step.get()).sum();
-      if (n - lastStep < 50 * numClients) { // Change leader at least 50 steps.
+      Assert.assertTrue(n >= lastStep.get());
+
+      if (n - lastStep.get() < 50 * numClients) { // Change leader at least 50 steps.
         Thread.sleep(10);
         continue;
       }
-      lastStep = n;
+      lastStep.set(n);
       count++;
 
       RaftServerImpl leader = cluster.getLeader();
@@ -173,17 +243,14 @@ public abstract class RaftBasicTests extends BaseTest {
         RaftTestUtil.changeLeader(cluster, leader.getId());
       }
     }
+    LOG.info("Leader change count=" + count);
+    timer.cancel();
 
     for(Client4TestWithLoad c : clients) {
-      c.join();
-    }
-    for(Client4TestWithLoad c : clients) {
-      if (c.exceptionInClientThread != null) {
-        throw new AssertionError(c.exceptionInClientThread);
+      if (c.exceptionInClientThread.get() != null) {
+        throw new AssertionError(c.exceptionInClientThread.get());
       }
       RaftTestUtil.assertLogEntries(cluster.getServers(), c.messages);
     }
-
-    LOG.info("Leader change count=" + count + cluster.printAllLogs());
   }
 }

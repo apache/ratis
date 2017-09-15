@@ -58,6 +58,6 @@ public class RaftClientRequest extends RaftClientMessage {
   @Override
   public String toString() {
     return super.toString() + ", callId: " + callId + ", "
-        + (isReadOnly()? "RO": "RW");
+        + (isReadOnly()? "RO": "RW") + ", " + getMessage();
   }
 }

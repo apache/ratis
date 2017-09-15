@@ -76,7 +76,6 @@ public final class NettyRpcService implements RaftServerRpc {
     return new Builder();
   }
 
-
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
   private final RaftServer server;
   private final RaftPeerId id;
@@ -100,6 +99,7 @@ public final class NettyRpcService implements RaftServerRpc {
   private NettyRpcService(RaftServer server) {
     this.server = server;
     this.id = server.getId();
+    this.proxies.setName(id.toString());
 
     final ChannelInitializer<SocketChannel> initializer
         = new ChannelInitializer<SocketChannel>() {

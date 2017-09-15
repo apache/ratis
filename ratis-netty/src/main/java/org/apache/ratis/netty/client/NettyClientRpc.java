@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.netty.client;
 
-import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.client.impl.RaftClientRpcWithProxy;
 import org.apache.ratis.netty.NettyRpcProxy;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.proto.RaftProtos;
@@ -30,13 +30,15 @@ import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerRequestPro
 
 import java.io.IOException;
 
-public class NettyClientRpc implements RaftClientRpc {
-  private final NettyRpcProxy.PeerMap proxies = new NettyRpcProxy.PeerMap();
+public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
+  public NettyClientRpc() {
+    super(new NettyRpcProxy.PeerMap());
+  }
 
   @Override
   public RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
     final RaftPeerId serverId = request.getServerId();
-    final NettyRpcProxy proxy = proxies.getProxy(serverId);
+    final NettyRpcProxy proxy = getProxies().getProxy(serverId);
 
     final RaftNettyServerRequestProto.Builder b = RaftNettyServerRequestProto.newBuilder();
     final RaftRpcRequestProto rpcRequest;
@@ -67,15 +69,5 @@ public class NettyClientRpc implements RaftClientRpc {
       return ClientProtoUtils.toRaftClientReply(
           proxy.send(rpcRequest, b.build()).getRaftClientReply());
     }
-  }
-
-  @Override
-  public void addServers(Iterable<RaftPeer> servers) {
-    proxies.addPeers(servers);
-  }
-
-  @Override
-  public void close() {
-    proxies.close();
   }
 }
