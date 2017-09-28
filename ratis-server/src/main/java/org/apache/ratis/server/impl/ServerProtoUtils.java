@@ -56,7 +56,10 @@ public class ServerProtoUtils {
     return TermIndex.toString(entry.getTerm(), entry.getIndex());
   }
 
-  private static String toLogEntryString(LogEntryProto entry) {
+  public static String toLogEntryString(LogEntryProto entry) {
+    if (entry == null) {
+      return null;
+    }
     final ByteString clientId = entry.getClientId();
     return toTermIndexString(entry) + entry.getLogEntryBodyCase()
         + ", " + (clientId.isEmpty()? "<empty clientId>": ClientId.valueOf(clientId))

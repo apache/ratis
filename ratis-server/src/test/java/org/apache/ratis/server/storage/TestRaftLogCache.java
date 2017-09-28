@@ -40,7 +40,7 @@ public class TestRaftLogCache {
 
   @Before
   public void setup() {
-    cache = new RaftLogCache(null, prop);
+    cache = new RaftLogCache(null, null, prop);
   }
 
   private LogSegment prepareLogSegment(long start, long end, boolean isOpen) {

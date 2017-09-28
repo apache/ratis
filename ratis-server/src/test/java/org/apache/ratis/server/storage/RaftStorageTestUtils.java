@@ -17,13 +17,19 @@
  */
 package org.apache.ratis.server.storage;
 
+import org.apache.log4j.Level;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.shaded.proto.RaftProtos;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.LogUtils;
 
 import java.util.function.Consumer;
 
 public interface RaftStorageTestUtils {
+  static void setRaftLogWorkerLogLevel(Level level) {
+    LogUtils.setLogLevel(RaftLogWorker.LOG, level);
+  }
+
   static void printLog(RaftLog log, Consumer<String> println) {
     if (log == null) {
       println.accept("log == null");

@@ -455,11 +455,7 @@ public abstract class MiniRaftCluster {
     LOG.info("************************************************************** ");
     getServerAliveStream().map(RaftServerImpl::getProxy).forEach(RaftServerProxy::close);
 
-    if (ExitUtils.isTerminated()) {
-      LOG.error("Test resulted in an unexpected exit",
-          ExitUtils.getFirstExitException());
-      throw new AssertionError("Test resulted in an unexpected exit");
-    }
+    ExitUtils.assertNotTerminated();
   }
 
   /**

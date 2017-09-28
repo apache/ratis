@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.storage.RaftLogCache.SegmentFileInfo;
 import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.ratis.server.storage.SegmentedRaftLog.Task;
@@ -262,6 +263,11 @@ class RaftLogWorker implements Runnable {
     long getEndIndex() {
       return entry.getIndex();
     }
+
+    @Override
+    public String toString() {
+      return super.toString() + ": " + ServerProtoUtils.toLogEntryString(entry);
+    }
   }
 
   private class FinalizeLogSegment extends Task {
@@ -281,7 +287,8 @@ class RaftLogWorker implements Runnable {
           .getOpenLogFile(segmentToClose.getStartIndex());
       LOG.info("{} finalizing log segment {}", name, openFile);
       Preconditions.assertTrue(openFile.exists(),
-          "File %s does not exist.", openFile);
+          () -> name + ": File " + openFile + " does not exist, segmentToClose="
+              + segmentToClose.toDebugString());
       if (segmentToClose.numOfEntries() > 0) {
         // finalize the current open segment
         File dstFile = storage.getStorageDir().getClosedLogFile(
@@ -298,6 +305,11 @@ class RaftLogWorker implements Runnable {
     @Override
     long getEndIndex() {
       return segmentToClose.getEndIndex();
+    }
+
+    @Override
+    public String toString() {
+      return super.toString() + ": " + segmentToClose.toDebugString();
     }
   }
 
@@ -383,6 +395,11 @@ class RaftLogWorker implements Runnable {
         return segments.toDelete[segments.toDelete.length - 1].endIndex;
       }
       return RaftServerConstants.INVALID_LOG_INDEX;
+    }
+
+    @Override
+    public String toString() {
+      return super.toString() + ": " + segments;
     }
   }
 

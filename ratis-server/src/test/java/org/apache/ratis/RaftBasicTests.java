@@ -22,10 +22,11 @@ import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.storage.RaftStorageTestUtils;
+import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.junit.After;
@@ -85,6 +86,20 @@ public abstract class RaftBasicTests extends BaseTest {
     waitAndKillLeader(cluster, true);
     waitAndKillLeader(cluster, true);
     waitAndKillLeader(cluster, false);
+  }
+
+  @Test
+  public void testChangeLeader() throws Exception {
+    RaftStorageTestUtils.setRaftLogWorkerLogLevel(Level.TRACE);
+    LOG.info("Running testChangeLeader");
+    final MiniRaftCluster cluster = getCluster();
+
+    RaftPeerId leader = RaftTestUtil.waitForLeader(cluster).getId();
+    for(int i = 0; i < 10; i++) {
+      leader = RaftTestUtil.changeLeader(cluster, leader);
+      ExitUtils.assertNotTerminated();
+    }
+    RaftStorageTestUtils.setRaftLogWorkerLogLevel(Level.INFO);
   }
 
   @Test

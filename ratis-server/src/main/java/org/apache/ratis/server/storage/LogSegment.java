@@ -29,12 +29,7 @@ import org.apache.ratis.util.ProtoUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -174,6 +169,20 @@ class LogSegment implements Comparable<Long> {
     return isOpen ?
         storage.getStorageDir().getOpenLogFile(startIndex) :
         storage.getStorageDir().getClosedLogFile(startIndex, endIndex);
+  }
+
+  public String toDebugString() {
+    final StringBuilder b = new StringBuilder()
+        .append("startIndex=").append(startIndex)
+        .append(", endIndex=").append(endIndex)
+        .append(", numOfEntries=").append(numOfEntries())
+        .append(", isOpen? ").append(isOpen)
+        .append(", file=").append(getSegmentFile());
+    records.stream().map(LogRecord::getTermIndex).forEach(
+        ti -> b.append("  ").append(ti).append(", cache=")
+            .append(ServerProtoUtils.toLogEntryString(entryCache.get(ti)))
+    );
+    return b.toString();
   }
 
   private volatile boolean isOpen;

@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
@@ -91,7 +92,7 @@ public class SegmentedRaftLog extends RaftLog {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + "-" + getEndIndex();
+      return getClass().getSimpleName() + ":" + getEndIndex();
     }
   }
   private static final ThreadLocal<Task> myTask = new ThreadLocal<>();
@@ -109,7 +110,7 @@ public class SegmentedRaftLog extends RaftLog {
     this.server = server;
     this.storage = storage;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
-    cache = new RaftLogCache(storage, properties);
+    cache = new RaftLogCache(selfId, storage, properties);
     fileLogWorker = new RaftLogWorker(selfId, server, storage, properties);
     lastCommitted.set(lastIndexInSnapshot);
   }
@@ -245,11 +246,15 @@ public class SegmentedRaftLog extends RaftLog {
   @Override
   void appendEntry(LogEntryProto entry) {
     checkLogState();
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("{}: appendEntry {}", server.getId(),
+          ServerProtoUtils.toLogEntryString(entry));
+    }
     try(AutoCloseableLock writeLock = writeLock()) {
       final LogSegment currentOpenSegment = cache.getOpenSegment();
       if (currentOpenSegment == null) {
-        cache.addSegment(LogSegment.newOpenSegment(storage, entry.getIndex()));
-        fileLogWorker.startLogSegment(getNextIndex());
+        cache.addOpenSegment(entry.getIndex());
+        fileLogWorker.startLogSegment(entry.getIndex());
       } else if (isSegmentFull(currentOpenSegment, entry)) {
         cache.rollOpenSegment(true);
         fileLogWorker.rollLogSegment(currentOpenSegment);
@@ -303,6 +308,12 @@ public class SegmentedRaftLog extends RaftLog {
         if (storedEntry.getTerm() != entries[index].getTerm()) {
           // we should truncate from the storedEntry's index
           truncateIndex = storedEntry.getIndex();
+          if (LOG.isTraceEnabled()) {
+            LOG.trace("{}: truncate to {}, index={}, ti={}, storedEntry={}, entries={}",
+                server.getId(), truncateIndex, index,
+                ServerProtoUtils.toTermIndex(entries[index]), storedEntry,
+                ServerProtoUtils.toString(entries));
+          }
           break;
         }
       }

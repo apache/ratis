@@ -56,6 +56,12 @@ public class ExitUtils {
     return firstExitException != null;
   }
 
+  public static void assertNotTerminated() {
+    if (ExitUtils.isTerminated()) {
+      throw new AssertionError("Unexpected exited.", getFirstExitException());
+    }
+  }
+
   /** Disable the use of {@link System#exit(int)} for testing. */
   public static void disableSystemExit() {
     systemExitDisabled = true;

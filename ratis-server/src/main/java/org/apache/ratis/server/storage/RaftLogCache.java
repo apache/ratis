@@ -17,17 +17,8 @@
  */
 package org.apache.ratis.server.storage;
 
-import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.function.Consumer;
-
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -35,8 +26,15 @@ import org.apache.ratis.server.storage.CacheInvalidationPolicy.CacheInvalidation
 import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
-
 import org.apache.ratis.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.function.Consumer;
+
+import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
 /**
  * In-memory RaftLog Cache. Currently we provide a simple implementation that
@@ -44,6 +42,8 @@ import org.apache.ratis.util.Preconditions;
  * requires external lock protection.
  */
 class RaftLogCache {
+  public static final Logger LOG = LoggerFactory.getLogger(RaftLogCache.class);
+
   static class SegmentFileInfo {
     final long startIndex; // start index of the segment
     final long endIndex; // original end index
@@ -59,6 +59,13 @@ class RaftLogCache {
       this.targetLength = targetLength;
       this.newEndIndex = newEndIndex;
     }
+
+    @Override
+    public String toString() {
+      return "(" + startIndex + ", " + endIndex
+          + ") isOpen? " + isOpen + ", length=" + targetLength
+          + ", newEndIndex=" + newEndIndex;
+    }
   }
 
   static class TruncationSegments {
@@ -72,11 +79,14 @@ class RaftLogCache {
       this.toTruncate = toTruncate;
     }
 
-    int getDeletionSize() {
-      return toDelete == null ? 0 : toDelete.length;
+    @Override
+    public String toString() {
+      return "toTruncate: " + toTruncate
+          + "\n  toDelete: " + Arrays.toString(toDelete);
     }
   }
 
+  private final String name;
   private volatile LogSegment openSegment;
   private final List<LogSegment> closedSegments;
   private final RaftStorage storage;
@@ -84,7 +94,8 @@ class RaftLogCache {
   private final int maxCachedSegments;
   private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
 
-  RaftLogCache(RaftStorage storage, RaftProperties properties) {
+  RaftLogCache(RaftPeerId selfId, RaftStorage storage, RaftProperties properties) {
+    this.name = selfId + "-" + getClass().getSimpleName();
     this.storage = storage;
     maxCachedSegments = RaftServerConfigKeys.Log.maxCachedSegmentNum(properties);
     closedSegments = new ArrayList<>();
@@ -118,10 +129,6 @@ class RaftLogCache {
     }
   }
 
-  private boolean areConsecutiveSegments(LogSegment prev, LogSegment segment) {
-    return !prev.isOpen() && prev.getEndIndex() + 1 == segment.getStartIndex();
-  }
-
   private LogSegment getLastClosedSegment() {
     return closedSegments.isEmpty() ?
         null : closedSegments.get(closedSegments.size() - 1);
@@ -129,22 +136,35 @@ class RaftLogCache {
 
   private void validateAdding(LogSegment segment) {
     final LogSegment lastClosed = getLastClosedSegment();
-    if (!segment.isOpen()) {
-      Preconditions.assertTrue(lastClosed == null ||
-          areConsecutiveSegments(lastClosed, segment));
-    } else {
-      Preconditions.assertTrue(openSegment == null &&
-          (lastClosed == null || areConsecutiveSegments(lastClosed, segment)));
+    if (lastClosed != null) {
+      Preconditions.assertTrue(!lastClosed.isOpen());
+      Preconditions.assertTrue(lastClosed.getEndIndex() + 1 == segment.getStartIndex());
     }
   }
 
   void addSegment(LogSegment segment) {
     validateAdding(segment);
     if (segment.isOpen()) {
-      openSegment = segment;
+      setOpenSegment(segment);
     } else {
       closedSegments.add(segment);
     }
+  }
+
+  void addOpenSegment(long startIndex) {
+    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex));
+  }
+
+  private void setOpenSegment(LogSegment openSegment) {
+    LOG.trace("{}: setOpenSegment to {}", name, openSegment);
+    Preconditions.assertTrue(this.openSegment == null);
+    this.openSegment = Objects.requireNonNull(openSegment);
+  }
+
+  private void clearOpenSegment() {
+    LOG.trace("{}: clearOpenSegment {}", name, openSegment);
+    Objects.requireNonNull(openSegment);
+    this.openSegment = null;
   }
 
   LogSegment getOpenSegment() {
@@ -160,10 +180,9 @@ class RaftLogCache {
     final long nextIndex = openSegment.getEndIndex() + 1;
     openSegment.close();
     closedSegments.add(openSegment);
+    clearOpenSegment();
     if (createNewOpen) {
-      openSegment = LogSegment.newOpenSegment(storage, nextIndex);
-    } else {
-      openSegment = null;
+      addOpenSegment(nextIndex);
     }
   }
 
@@ -273,7 +292,7 @@ class RaftLogCache {
     openSegment.clear();
     SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
         oldEnd, true, 0, openSegment.getEndIndex());
-    openSegment = null;
+    clearOpenSegment();
     return info;
   }
 
@@ -296,7 +315,7 @@ class RaftLogCache {
               oldEnd, true, openSegment.getTotalSize(),
               openSegment.getEndIndex());
           closedSegments.add(openSegment);
-          openSegment = null;
+          clearOpenSegment();
           return new TruncationSegments(info, Collections.emptyList());
         }
       }
@@ -389,7 +408,7 @@ class RaftLogCache {
   void clear() {
     if (openSegment != null) {
       openSegment.clear();
-      openSegment = null;
+      clearOpenSegment();
     }
     closedSegments.forEach(LogSegment::clear);
     closedSegments.clear();
