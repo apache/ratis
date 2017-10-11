@@ -31,13 +31,52 @@ import java.util.stream.Collectors;
 class PendingRequests {
   private static final Logger LOG = RaftServerImpl.LOG;
 
+  private static class RequestMap {
+    private final Object name;
+    private final ConcurrentMap<Long, PendingRequest> map = new ConcurrentHashMap<>();
+
+    RequestMap(Object name) {
+      this.name = name;
+    }
+
+    void put(long index, PendingRequest p) {
+      LOG.debug("{}: PendingRequests.put {} -> {}", name, index, p);
+      final PendingRequest previous = map.put(index, p);
+      Preconditions.assertTrue(previous == null);
+    }
+
+    PendingRequest get(long index) {
+      final PendingRequest r = map.get(index);
+      LOG.debug("{}: PendingRequests.get {} returns {}", name, index, r);
+      return r;
+    }
+
+    PendingRequest remove(long index) {
+      final PendingRequest r = map.remove(index);
+      LOG.debug("{}: PendingRequests.remove{} returns {}", name, index, r);
+      return r;
+    }
+
+    Collection<TransactionContext> setNotLeaderException(NotLeaderException nle) {
+      LOG.debug("{}: PendingRequests.setNotLeaderException", name);
+      try {
+        return map.values().stream()
+            .map(p -> p.setNotLeaderException(nle))
+            .collect(Collectors.toList());
+      } finally {
+        map.clear();
+      }
+    }
+  }
+
   private PendingRequest pendingSetConf;
   private final RaftServerImpl server;
-  private final ConcurrentMap<Long, PendingRequest> pendingRequests = new ConcurrentHashMap<>();
+  private final RequestMap pendingRequests;
   private PendingRequest last = null;
 
   PendingRequests(RaftServerImpl server) {
     this.server = server;
+    this.pendingRequests = new RequestMap(server.getId());
   }
 
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
@@ -92,7 +131,7 @@ class PendingRequests {
   }
 
   void replyPendingRequest(long index, RaftClientReply reply) {
-    final PendingRequest pending = pendingRequests.get(index);
+    final PendingRequest pending = pendingRequests.remove(index);
     if (pending != null) {
       Preconditions.assertTrue(pending.getIndex() == index);
       pending.setReply(reply);
@@ -107,19 +146,11 @@ class PendingRequests {
     LOG.info("{} sends responses before shutting down PendingRequestsHandler",
         server.getId());
 
-    Collection<TransactionContext> pendingEntries = pendingRequests.values().stream()
-        .map(PendingRequest::getEntry).collect(Collectors.toList());
     // notify the state machine about stepping down
-    server.getStateMachine().notifyNotLeader(pendingEntries);
-    pendingRequests.values().forEach(this::setNotLeaderException);
+    final NotLeaderException nle = server.generateNotLeaderException();
+    server.getStateMachine().notifyNotLeader(pendingRequests.setNotLeaderException(nle));
     if (pendingSetConf != null) {
-      setNotLeaderException(pendingSetConf);
+      pendingSetConf.setNotLeaderException(nle);
     }
-  }
-
-  private void setNotLeaderException(PendingRequest pending) {
-    RaftClientReply reply = new RaftClientReply(pending.getRequest(),
-        server.generateNotLeaderException());
-    pending.setReply(reply);
   }
 }

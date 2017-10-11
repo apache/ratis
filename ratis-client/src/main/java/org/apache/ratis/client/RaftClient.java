@@ -82,7 +82,7 @@ public interface RaftClient extends Closeable {
         retryInterval = RaftClientConfigKeys.Rpc.timeout(properties);
       }
       return ClientImplUtils.newRaftClient(clientId,
-          Objects.requireNonNull(group, "The 'servers' field is not initialized."),
+          Objects.requireNonNull(group, "The 'group' field is not initialized."),
           leaderId,
           Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."),
           retryInterval);

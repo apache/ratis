@@ -17,10 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
 
@@ -71,6 +68,11 @@ public class PendingRequest implements Comparable<PendingRequest> {
   synchronized void setReply(RaftClientReply r) {
     Preconditions.assertTrue(r != null);
     future.complete(r);
+  }
+
+  TransactionContext setNotLeaderException(NotLeaderException nle) {
+    setReply(new RaftClientReply(getRequest(), nle));
+    return getEntry();
   }
 
   void setSuccessReply(Message message) {
