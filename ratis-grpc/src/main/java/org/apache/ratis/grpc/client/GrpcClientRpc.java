@@ -42,8 +42,8 @@ import static org.apache.ratis.client.impl.ClientProtoUtils.*;
 public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClient> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientRpc.class);
 
-  public GrpcClientRpc() {
-    super(new PeerProxyMap<>(RaftClientProtocolClient::new));
+  public GrpcClientRpc(ClientId clientId) {
+    super(new PeerProxyMap<>(clientId.toString(), RaftClientProtocolClient::new));
   }
 
   @Override

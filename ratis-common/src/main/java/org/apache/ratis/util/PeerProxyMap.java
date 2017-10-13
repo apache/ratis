@@ -74,22 +74,20 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     }
   }
 
-  private volatile String name;
+  private final String name;
   private final Map<RaftPeerId, PeerAndProxy> peers = new ConcurrentHashMap<>();
   private final Object resetLock = new Object();
 
   private final CheckedFunction<RaftPeer, PROXY, IOException> createProxy;
 
-  public PeerProxyMap(CheckedFunction<RaftPeer, PROXY, IOException> createProxy) {
+  public PeerProxyMap(String name, CheckedFunction<RaftPeer, PROXY, IOException> createProxy) {
+    this.name = name;
     this.createProxy = createProxy;
   }
 
-  public PeerProxyMap() {
-    this.createProxy = this::createProxyImpl;
-  }
-
-  public void setName(String name) {
+  public PeerProxyMap(String name) {
     this.name = name;
+    this.createProxy = this::createProxyImpl;
   }
 
   public PROXY getProxy(RaftPeerId id) throws IOException {

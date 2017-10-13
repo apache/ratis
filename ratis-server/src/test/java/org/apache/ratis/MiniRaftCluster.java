@@ -17,16 +17,13 @@
  */
 package org.apache.ratis;
 
-import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
@@ -127,7 +124,6 @@ public abstract class MiniRaftCluster {
     return ids;
   }
 
-  protected final ClientFactory clientFactory;
   protected RaftGroup group;
   protected final RaftProperties properties;
   protected final Parameters parameters;
@@ -137,10 +133,6 @@ public abstract class MiniRaftCluster {
     this.group = initRaftGroup(Arrays.asList(ids));
     this.properties = new RaftProperties(properties);
     this.parameters = parameters;
-
-    final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
-    this.clientFactory = ClientFactory.cast(
-        rpcType.newFactory(parameters));
 
     ExitUtils.disableSystemExit();
   }
@@ -436,15 +428,12 @@ public abstract class MiniRaftCluster {
   }
 
   public RaftClient createClient(RaftPeerId leaderId, RaftGroup group) {
-    final RaftClientRpc rpc = clientFactory.newRaftClientRpc();
-    final RaftClient client = RaftClient.newBuilder()
+    return RaftClient.newBuilder()
         .setRaftGroup(group)
         .setLeaderId(leaderId)
-        .setClientRpc(rpc)
         .setProperties(properties)
+        .setParameters(parameters)
         .build();
-    rpc.setName(client.getId().toString());
-    return client;
   }
 
   public void shutdown() {

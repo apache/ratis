@@ -31,11 +31,6 @@ class SimulatedClientRpc
   }
 
   @Override
-  public void setName(String name) {
-    // do nothing
-  }
-
-  @Override
   public void addServers(Iterable<RaftPeer> servers) {
     // do nothing
   }

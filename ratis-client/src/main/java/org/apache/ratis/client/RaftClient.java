@@ -17,8 +17,11 @@
  */
 package org.apache.ratis.client;
 
+import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.impl.ClientImplUtils;
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.protocol.*;
 import org.slf4j.Logger;
@@ -70,6 +73,7 @@ public interface RaftClient extends Closeable {
     private RaftPeerId leaderId;
     private RaftProperties properties;
     private TimeDuration retryInterval = RaftClientConfigKeys.Rpc.TIMEOUT_DEFAULT;
+    private Parameters parameters;
 
     private Builder() {}
 
@@ -80,6 +84,12 @@ public interface RaftClient extends Closeable {
       }
       if (properties != null) {
         retryInterval = RaftClientConfigKeys.Rpc.timeout(properties);
+
+        if (clientRpc == null) {
+          final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
+          final ClientFactory factory = ClientFactory.cast(rpcType.newFactory(parameters));
+          clientRpc = factory.newRaftClientRpc(clientId);
+        }
       }
       return ClientImplUtils.newRaftClient(clientId,
           Objects.requireNonNull(group, "The 'group' field is not initialized."),
@@ -115,6 +125,12 @@ public interface RaftClient extends Closeable {
     /** Set {@link RaftProperties}. */
     public Builder setProperties(RaftProperties properties) {
       this.properties = properties;
+      return this;
+    }
+
+    /** Set {@link Parameters}. */
+    public Builder setParameters(Parameters parameters) {
+      this.parameters = parameters;
       return this;
     }
   }

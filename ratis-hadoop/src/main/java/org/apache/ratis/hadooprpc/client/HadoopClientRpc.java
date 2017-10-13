@@ -26,8 +26,8 @@ import org.apache.ratis.util.PeerProxyMap;
 import java.io.IOException;
 
 public class HadoopClientRpc extends RaftClientRpcWithProxy<CombinedClientProtocolClientSideTranslatorPB> {
-  public HadoopClientRpc(final Configuration conf) {
-    super(new PeerProxyMap<>(
+  public HadoopClientRpc(ClientId clientId, Configuration conf) {
+    super(new PeerProxyMap<>(clientId.toString(),
         p -> new CombinedClientProtocolClientSideTranslatorPB(p.getAddress(), conf)));
   }
 

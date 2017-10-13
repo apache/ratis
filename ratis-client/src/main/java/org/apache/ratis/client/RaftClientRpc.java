@@ -27,9 +27,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 
 /** The client side rpc of a raft service. */
 public interface RaftClientRpc extends Closeable {
-  /** Set the client name */
-  void setName(String name);
-
   /** Send a request. */
   RaftClientReply sendRequest(RaftClientRequest request) throws IOException;
 

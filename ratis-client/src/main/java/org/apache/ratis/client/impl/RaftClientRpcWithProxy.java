@@ -43,11 +43,6 @@ public abstract class RaftClientRpcWithProxy<PROXY extends Closeable>
   }
 
   @Override
-  public void setName(String name) {
-    proxies.setName(name);
-  }
-
-  @Override
   public void addServers(Iterable<RaftPeer> servers) {
     proxies.addPeers(servers);
   }

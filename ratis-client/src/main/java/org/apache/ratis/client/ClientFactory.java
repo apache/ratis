@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client;
 
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.RpcFactory;
 
 /** A factory interface for creating client components. */
@@ -31,5 +32,5 @@ public interface ClientFactory extends RpcFactory {
   }
 
   /** Create a {@link RaftClientRpc}. */
-  RaftClientRpc newRaftClientRpc();
+  RaftClientRpc newRaftClientRpc(ClientId clientId);
 }

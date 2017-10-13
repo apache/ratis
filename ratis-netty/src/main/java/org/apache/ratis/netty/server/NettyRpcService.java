@@ -84,7 +84,7 @@ public final class NettyRpcService implements RaftServerRpc {
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final ChannelFuture channelFuture;
 
-  private final NettyRpcProxy.PeerMap proxies = new NettyRpcProxy.PeerMap();
+  private final NettyRpcProxy.PeerMap proxies;
 
   @ChannelHandler.Sharable
   class InboundHandler extends SimpleChannelInboundHandler<RaftNettyServerRequestProto> {
@@ -99,7 +99,7 @@ public final class NettyRpcService implements RaftServerRpc {
   private NettyRpcService(RaftServer server) {
     this.server = server;
     this.id = server.getId();
-    this.proxies.setName(id.toString());
+    this.proxies = new NettyRpcProxy.PeerMap(id.toString());
 
     final ChannelInitializer<SocketChannel> initializer
         = new ChannelInitializer<SocketChannel>() {

@@ -45,6 +45,10 @@ public class NettyRpcProxy implements Closeable {
   public static class PeerMap extends PeerProxyMap<NettyRpcProxy> {
     private final EventLoopGroup group = new NioEventLoopGroup();
 
+    public PeerMap(String name) {
+      super(name);
+    }
+
     @Override
     public NettyRpcProxy createProxyImpl(RaftPeer peer)
         throws IOException {
