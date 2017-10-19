@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.server;
 
-import org.apache.ratis.protocol.RaftPeer;
-
 import java.util.List;
 
 /**

@@ -34,11 +34,9 @@ import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.management.MBeanServer;
 import javax.management.ObjectName;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.lang.management.ManagementFactory;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -75,6 +73,7 @@ public class RaftServerImpl implements RaftServerProtocol,
 
   private final LifeCycle lifeCycle;
   private final ServerState state;
+  private final RaftGroupId groupId;
   private volatile Role role;
 
   /** used when the peer is follower, to monitor election timeout */
@@ -88,7 +87,7 @@ public class RaftServerImpl implements RaftServerProtocol,
 
   private final RetryCache retryCache;
 
-  private final RaftGroupId groupId;
+  private final RaftServerJmxAdapter jmxAdapter;
 
   RaftServerImpl(RaftPeerId id, RaftGroup group, RaftServerProxy proxy,
       RaftProperties properties) throws IOException {
@@ -102,6 +101,8 @@ public class RaftServerImpl implements RaftServerProtocol,
     this.proxy = proxy;
     this.state = new ServerState(id, group, properties, this, proxy.getStateMachine());
     this.retryCache = initRetryCache(properties);
+
+    this.jmxAdapter = new RaftServerJmxAdapter();
   }
 
   private RetryCache initRetryCache(RaftProperties prop) {
@@ -168,20 +169,17 @@ public class RaftServerImpl implements RaftServerProtocol,
       LOG.debug("{} starts with initializing state, conf={}", getId(), conf);
       startInitializing();
     }
-    registerMBean();
 
+    registerMBean(getId(), getGroupId(), jmxAdapter, jmxAdapter);
   }
 
-  private void registerMBean() {
-    try {
-      final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-      ObjectName name =
-          new ObjectName("Ratis:service=RaftServer,group=" + getGroupId() + ",id=" + getId());
-      mbs.registerMBean(new RaftServerJmxAdapter(), name);
-    } catch (Exception ex) {
-      LOG.error("RaftServer JMX bean can't be registered", ex);
-    }
-
+  static boolean registerMBean(
+      RaftPeerId id, RaftGroupId groupdId, RaftServerMXBean mBean, JmxRegister jmx) {
+    final String prefix = "Ratis:service=RaftServer,group=" + groupdId + ",id=";
+    final String registered = jmx.register(mBean, Arrays.asList(
+        () -> prefix + id,
+        () -> prefix + ObjectName.quote(id.toString())));
+    return registered != null;
   }
 
   /**
@@ -217,6 +215,11 @@ public class RaftServerImpl implements RaftServerProtocol,
 
   void shutdown() {
     lifeCycle.checkStateAndClose(() -> {
+      try {
+        jmxAdapter.unregister();
+      } catch (Exception ignored) {
+        LOG.warn("Failed to un-register RaftServer JMX bean for " + getId(), ignored);
+      }
       try {
         shutdownHeartbeatMonitor();
       } catch (Exception ignored) {
@@ -971,8 +974,7 @@ public class RaftServerImpl implements RaftServerProtocol,
     }
   }
 
-  private class RaftServerJmxAdapter implements RaftServerMXBean {
-
+  private class RaftServerJmxAdapter extends JmxRegister implements RaftServerMXBean {
     @Override
     public String getId() {
       return getState().getSelfId().toString();
@@ -1005,8 +1007,7 @@ public class RaftServerImpl implements RaftServerProtocol,
               leader.getFollowers().stream()
                   .map(RaftPeer::toString)
                   .collect(Collectors.toList()))
-          .orElse(new ArrayList<>());
+          .orElse(Collections.emptyList());
     }
-
   }
 }
