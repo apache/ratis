@@ -27,6 +27,7 @@ import org.apache.ratis.protocol.ServerInformationReply;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.impl.RaftServerRpcWithProxy;
 import org.apache.ratis.shaded.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.shaded.io.netty.channel.*;
 import org.apache.ratis.shaded.io.netty.channel.nio.NioEventLoopGroup;
@@ -43,6 +44,7 @@ import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyExceptionReplyPr
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.ratis.util.CodeInjectionForTesting;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ProtoUtils;
 
@@ -50,11 +52,12 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A netty server endpoint that acts as the communication layer.
  */
-public final class NettyRpcService implements RaftServerRpc {
+public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy, NettyRpcProxy.PeerMap> {
   static final String CLASS_NAME = NettyRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
@@ -76,15 +79,11 @@ public final class NettyRpcService implements RaftServerRpc {
     return new Builder();
   }
 
-  private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
   private final RaftServer server;
-  private final RaftPeerId id;
 
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final ChannelFuture channelFuture;
-
-  private final NettyRpcProxy.PeerMap proxies;
 
   @ChannelHandler.Sharable
   class InboundHandler extends SimpleChannelInboundHandler<RaftNettyServerRequestProto> {
@@ -97,9 +96,8 @@ public final class NettyRpcService implements RaftServerRpc {
 
   /** Constructs a netty server with the given port. */
   private NettyRpcService(RaftServer server) {
+    super(server::getId, id -> new NettyRpcProxy.PeerMap(id.toString()));
     this.server = server;
-    this.id = server.getId();
-    this.proxies = new NettyRpcProxy.PeerMap(id.toString());
 
     final ChannelInitializer<SocketChannel> initializer
         = new ChannelInitializer<SocketChannel>() {
@@ -135,19 +133,17 @@ public final class NettyRpcService implements RaftServerRpc {
   }
 
   @Override
-  public void start() {
-    lifeCycle.startAndTransition(() -> channelFuture.syncUninterruptibly());
+  public void startImpl() {
+    channelFuture.syncUninterruptibly();
   }
 
   @Override
-  public void close() {
-    lifeCycle.checkStateAndClose(() -> {
-      bossGroup.shutdownGracefully();
-      workerGroup.shutdownGracefully();
-      final ChannelFuture f = getChannel().close();
-      proxies.close();
-      f.syncUninterruptibly();
-    });
+  public void closeImpl() {
+    bossGroup.shutdownGracefully();
+    workerGroup.shutdownGracefully();
+    final ChannelFuture f = getChannel().close();
+    super.closeImpl();
+    f.syncUninterruptibly();
   }
 
   @Override
@@ -247,7 +243,7 @@ public final class NettyRpcService implements RaftServerRpc {
 
   @Override
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) throws IOException {
-    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
+    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, getId(), null, request);
 
     final RaftNettyServerRequestProto proto = RaftNettyServerRequestProto.newBuilder()
         .setRequestVoteRequest(request)
@@ -258,7 +254,7 @@ public final class NettyRpcService implements RaftServerRpc {
 
   @Override
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request) throws IOException {
-    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
+    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, getId(), null, request);
 
     final RaftNettyServerRequestProto proto = RaftNettyServerRequestProto.newBuilder()
         .setAppendEntriesRequest(request)
@@ -269,7 +265,7 @@ public final class NettyRpcService implements RaftServerRpc {
 
   @Override
   public InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException {
-    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
+    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, getId(), null, request);
 
     final RaftNettyServerRequestProto proto = RaftNettyServerRequestProto.newBuilder()
         .setInstallSnapshotRequest(request)
@@ -282,17 +278,12 @@ public final class NettyRpcService implements RaftServerRpc {
       RaftRpcRequestProto request, RaftNettyServerRequestProto proto)
       throws IOException {
     final RaftPeerId id = RaftPeerId.valueOf(request.getReplyId());
-    final NettyRpcProxy p = proxies.getProxy(id);
+    final NettyRpcProxy p = getProxies().getProxy(id);
     try {
       return p.send(request, proto);
     } catch (ClosedChannelException cce) {
-      proxies.resetProxy(id);
+      getProxies().resetProxy(id);
       throw cce;
     }
-  }
-
-  @Override
-  public void addPeers(Iterable<RaftPeer> peers) {
-    proxies.addPeers(peers);
   }
 }

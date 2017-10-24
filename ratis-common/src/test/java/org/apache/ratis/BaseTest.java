@@ -43,10 +43,10 @@ public abstract class BaseTest {
   }
 
   @Rule
-  public final Timeout globalTimeout = new Timeout(getGlobalTimeoutMs());
+  public final Timeout globalTimeout = new Timeout(getGlobalTimeoutSeconds() * 1000);
 
-  public int getGlobalTimeoutMs() {
-    return 100_000;
+  public int getGlobalTimeoutSeconds() {
+    return 100;
   }
 
   private static final Supplier<File> rootTestDir = JavaUtils.memoize(

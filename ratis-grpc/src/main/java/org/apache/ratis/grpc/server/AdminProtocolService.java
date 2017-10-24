@@ -20,22 +20,19 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.ReinitializeRequest;
 import org.apache.ratis.protocol.ServerInformatonRequest;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
-import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationRequestProto;
 import org.apache.ratis.shaded.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolServiceImplBase;
 
 public class AdminProtocolService extends AdminProtocolServiceImplBase {
-  private final RaftPeerId id;
   private final AdminAsynchronousProtocol protocol;
 
-  public AdminProtocolService(RaftPeerId id, AdminAsynchronousProtocol protocol) {
-    this.id = id;
+  public AdminProtocolService(AdminAsynchronousProtocol protocol) {
     this.protocol = protocol;
   }
 

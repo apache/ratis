@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase {
   static final Logger LOG = LoggerFactory.getLogger(RaftClientProtocolService.class);
@@ -66,12 +67,16 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
   }
   private static final PendingAppend COMPLETED = new PendingAppend(Long.MAX_VALUE);
 
-  private final RaftPeerId id;
+  private final Supplier<RaftPeerId> idSupplier;
   private final RaftClientAsynchronousProtocol protocol;
 
-  public RaftClientProtocolService(RaftPeerId id, RaftClientAsynchronousProtocol protocol) {
-    this.id = id;
+  public RaftClientProtocolService(Supplier<RaftPeerId> idSupplier, RaftClientAsynchronousProtocol protocol) {
+    this.idSupplier = idSupplier;
     this.protocol = protocol;
+  }
+
+  RaftPeerId getId() {
+    return idSupplier.get();
   }
 
   @Override
@@ -145,7 +150,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
         });
       } catch (Throwable e) {
         LOG.info("{} got exception when handling client append request {}: {}",
-            id, request.getRpcRequest(), e);
+            getId(), request.getRpcRequest(), e);
         responseObserver.onError(RaftGrpcUtil.wrapException(e));
       }
     }
@@ -165,7 +170,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     @Override
     public void onError(Throwable t) {
       // for now we just log a msg
-      LOG.warn("{} onError: client Append cancelled", id, t);
+      LOG.warn("{} onError: client Append cancelled", getId(), t);
       synchronized (pendingList) {
         pendingList.clear();
       }

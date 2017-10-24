@@ -41,6 +41,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /** A grpc implementation of {@link RaftServerRpc}. */
 public class RaftGRpcService implements RaftServerRpc {
@@ -70,7 +71,7 @@ public class RaftGRpcService implements RaftServerRpc {
   private final InetSocketAddress address;
   private final Map<RaftPeerId, RaftServerProtocolClient> peers =
       Collections.synchronizedMap(new HashMap<>());
-  private final RaftPeerId selfId;
+  private final Supplier<RaftPeerId> idSupplier;
 
   private RaftGRpcService(RaftServer server) {
     this(server,
@@ -79,17 +80,21 @@ public class RaftGRpcService implements RaftServerRpc {
   }
   private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize) {
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);
-    selfId = raftServer.getId();
+    idSupplier = raftServer::getId;
     server = ((NettyServerBuilder) serverBuilder).maxMessageSize(maxMessageSize)
-        .addService(new RaftServerProtocolService(selfId, raftServer))
-        .addService(new RaftClientProtocolService(selfId, raftServer))
-        .addService(new AdminProtocolService(selfId, raftServer))
+        .addService(new RaftServerProtocolService(idSupplier, raftServer))
+        .addService(new RaftClientProtocolService(idSupplier, raftServer))
+        .addService(new AdminProtocolService(raftServer))
         .build();
 
     // start service to determine the port (in case port is configured as 0)
     startService();
     address = new InetSocketAddress(server.getPort());
     LOG.info("Server started, listening on " + address.getPort());
+  }
+
+  RaftPeerId getId() {
+    return idSupplier.get();
   }
 
   @Override
@@ -145,7 +150,7 @@ public class RaftGRpcService implements RaftServerRpc {
   @Override
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request)
       throws IOException {
-    CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, selfId,
+    CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, getId(),
         null, request);
 
     RaftServerProtocolClient target = Objects.requireNonNull(

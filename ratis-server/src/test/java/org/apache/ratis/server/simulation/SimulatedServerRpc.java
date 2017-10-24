@@ -21,7 +21,6 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.Daemon;
@@ -35,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 class SimulatedServerRpc implements RaftServerRpc {
   static final Logger LOG = LoggerFactory.getLogger(SimulatedServerRpc.class);
@@ -48,10 +48,10 @@ class SimulatedServerRpc implements RaftServerRpc {
       SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply,
       SimulatedRequestReply<RaftClientRequest, RaftClientReply> clientRequestReply) {
     this.server = (RaftServerProxy)server;
-    this.serverHandler = new RequestHandler<>(server.getId().toString(),
-        "serverHandler", serverRequestReply, serverHandlerImpl, 3);
-    this.clientHandler = new RequestHandler<>(server.getId().toString(),
-        "clientHandler", clientRequestReply, clientHandlerImpl, 3);
+
+    final Supplier<String> id = () -> server.getId().toString();
+    this.serverHandler = new RequestHandler<>(id, "serverHandler", serverRequestReply, serverHandlerImpl, 3);
+    this.clientHandler = new RequestHandler<>(id, "clientHandler", clientRequestReply, clientHandlerImpl, 3);
   }
 
   @Override

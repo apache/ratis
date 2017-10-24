@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class RequestHandler<REQUEST extends RaftRpcMessage,
     REPLY extends RaftRpcMessage> {
@@ -40,17 +41,17 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
     REPLY handleRequest(REQUEST r) throws IOException;
   }
 
-  private final String serverId;
+  private final Supplier<String> serverIdSupplier;
   private final String name;
   private final SimulatedRequestReply<REQUEST, REPLY> rpc;
   private final HandlerInterface<REQUEST, REPLY> handlerImpl;
   private final List<HandlerDaemon> daemons;
 
-  RequestHandler(String serverId, String name,
+  RequestHandler(Supplier<String> serverIdSupplier, String name,
                  SimulatedRequestReply<REQUEST, REPLY> rpc,
                  HandlerInterface<REQUEST, REPLY> handlerImpl,
                  int numHandlers) {
-    this.serverId = serverId;
+    this.serverIdSupplier = serverIdSupplier;
     this.name = name;
     this.rpc = rpc;
     this.handlerImpl = handlerImpl;
@@ -61,12 +62,16 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
     }
   }
 
+  private String getServerId() {
+    return serverIdSupplier.get();
+  }
+
   void startDaemon() {
     daemons.forEach(Thread::start);
   }
 
   void shutdown() {
-    rpc.shutdown(serverId);
+    rpc.shutdown(getServerId());
   }
 
   void interruptAndJoinDaemon() throws InterruptedException {
@@ -106,14 +111,14 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
 
     @Override
     public String toString() {
-      return serverId + "." + name + id;
+      return getServerId() + "." + name + id;
     }
 
     @Override
     public void run() {
       while (handlerImpl.isAlive()) {
         try {
-          handleRequest(rpc.takeRequest(serverId));
+          handleRequest(rpc.takeRequest(getServerId()));
         } catch (InterruptedIOException e) {
           LOG.info(this + " is interrupted by " + e);
           LOG.trace("TRACE", e);

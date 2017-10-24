@@ -24,11 +24,11 @@ import org.apache.ratis.hadooprpc.HadoopConfigKeys;
 import org.apache.ratis.hadooprpc.Proxy;
 import org.apache.ratis.hadooprpc.client.CombinedClientProtocolPB;
 import org.apache.ratis.hadooprpc.client.CombinedClientProtocolServerSideTranslatorPB;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.impl.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.shaded.com.google.protobuf.BlockingService;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
@@ -47,7 +47,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 
 /** Server side Hadoop RPC service. */
-public class HadoopRpcService implements RaftServerRpc {
+public class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftServerProtocolPB>, PeerProxyMap<Proxy<RaftServerProtocolPB>>> {
   public static final Logger LOG = LoggerFactory.getLogger(HadoopRpcService.class);
   static final String CLASS_NAME = HadoopRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
@@ -84,16 +84,13 @@ public class HadoopRpcService implements RaftServerRpc {
     return new Builder();
   }
 
-  private final RaftPeerId id;
   private final RPC.Server ipcServer;
   private final InetSocketAddress ipcServerAddress;
 
-  private final PeerProxyMap<Proxy<RaftServerProtocolPB>> proxies;
-
   private HadoopRpcService(RaftServer server, final Configuration conf) {
-    this.id = server.getId();
-    this.proxies = new PeerProxyMap<>(id.toString(),
-        p -> new Proxy<>(RaftServerProtocolPB.class, p.getAddress(), conf));
+    super(server::getId,
+        id -> new PeerProxyMap<>(id.toString(),
+            p -> new Proxy<>(RaftServerProtocolPB.class, p.getAddress(), conf)));
     try {
       this.ipcServer = newRpcServer(server, conf);
     } catch (IOException e) {
@@ -147,13 +144,14 @@ public class HadoopRpcService implements RaftServerRpc {
   }
 
   @Override
-  public void start() {
+  public void startImpl() {
     ipcServer.start();
   }
 
   @Override
-  public void close() {
+  public void closeImpl() {
     ipcServer.stop();
+    super.closeImpl();
   }
 
   @Override
@@ -181,19 +179,14 @@ public class HadoopRpcService implements RaftServerRpc {
       REQUEST request, ByteString replyId,
       CheckedFunction<RaftServerProtocolPB, REPLY, ServiceException> f)
       throws IOException {
-    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, id, null, request);
+    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, getId(), null, request);
 
-    final RaftServerProtocolPB proxy = proxies.getProxy(
+    final RaftServerProtocolPB proxy = getProxies().getProxy(
         RaftPeerId.valueOf(replyId)).getProtocol();
     try {
       return f.apply(proxy);
     } catch (ServiceException se) {
       throw ProtoUtils.toIOException(se);
     }
-  }
-
-  @Override
-  public void addPeers(Iterable<RaftPeer> peers) {
-    proxies.addPeers(peers);
   }
 }

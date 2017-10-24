@@ -21,25 +21,26 @@ import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.function.Supplier;
+
 public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerProtocolService.class);
 
-  private final RaftPeerId id;
+  private final Supplier<RaftPeerId> idSupplier;
   private final RaftServerProtocol server;
 
-  public RaftServerProtocolService(RaftPeerId id, RaftServerProtocol server) {
-    this.id = id;
+  public RaftServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServerProtocol server) {
+    this.idSupplier = idSupplier;
     this.server = server;
+  }
+
+  RaftPeerId getId() {
+    return idSupplier.get();
   }
 
   @Override
@@ -51,7 +52,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       responseObserver.onCompleted();
     } catch (Throwable e) {
       LOG.info("{} got exception when handling requestVote {}: {}",
-          id, request.getServerRequest(), e);
+          getId(), request.getServerRequest(), e);
       responseObserver.onError(RaftGrpcUtil.wrapException(e));
     }
   }
@@ -67,7 +68,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
           responseObserver.onNext(reply);
         } catch (Throwable e) {
           LOG.info("{} got exception when handling appendEntries {}: {}",
-              id, request.getServerRequest(), e);
+              getId(), request.getServerRequest(), e);
           responseObserver.onError(RaftGrpcUtil.wrapException(e));
         }
       }
@@ -75,12 +76,12 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       @Override
       public void onError(Throwable t) {
         // for now we just log a msg
-        LOG.info("{}: appendEntries on error. Exception: {}", id, t);
+        LOG.info("{}: appendEntries on error. Exception: {}", getId(), t);
       }
 
       @Override
       public void onCompleted() {
-        LOG.info("{}: appendEntries completed", id);
+        LOG.info("{}: appendEntries completed", getId());
         responseObserver.onCompleted();
       }
     };
@@ -97,19 +98,19 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
           responseObserver.onNext(reply);
         } catch (Throwable e) {
           LOG.info("{} got exception when handling installSnapshot {}: {}",
-              id, request.getServerRequest(), e);
+              getId(), request.getServerRequest(), e);
           responseObserver.onError(RaftGrpcUtil.wrapException(e));
         }
       }
 
       @Override
       public void onError(Throwable t) {
-        LOG.info("{}: installSnapshot on error. Exception: {}", id, t);
+        LOG.info("{}: installSnapshot on error. Exception: {}", getId(), t);
       }
 
       @Override
       public void onCompleted() {
-        LOG.info("{}: installSnapshot completed", id);
+        LOG.info("{}: installSnapshot completed", getId());
         responseObserver.onCompleted();
       }
     };

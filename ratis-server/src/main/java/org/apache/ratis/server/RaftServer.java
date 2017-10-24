@@ -61,15 +61,15 @@ public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
   class Builder {
     private RaftPeerId serverId;
     private StateMachine stateMachine;
-    private RaftGroup group;
+    private RaftGroup group = RaftGroup.emptyGroup();
     private RaftProperties properties;
     private Parameters parameters;
 
     /** @return a {@link RaftServer} object. */
     public RaftServer build() throws IOException {
       return ServerImplUtils.newRaftServer(
-          Objects.requireNonNull(serverId, "The 'serverId' field is not initialized."),
-          Objects.requireNonNull(group, "The 'peers' field is not initialized."),
+          serverId,
+          group,
           Objects.requireNonNull(stateMachine, "The 'stateMachine' is not initialized."),
           Objects.requireNonNull(properties, "The 'properties' field is not initialized."),
           parameters);

@@ -32,8 +32,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
+import java.net.InetSocketAddress;
 import java.util.Collection;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -54,14 +55,14 @@ public class RaftServerProxy implements RaftServer {
   RaftServerProxy(RaftPeerId id, StateMachine stateMachine,
       RaftGroup group, RaftProperties properties, Parameters parameters)
       throws IOException {
-    this.id = id;
     this.properties = properties;
     this.stateMachine = stateMachine;
 
     final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
     this.factory = ServerFactory.cast(rpcType.newFactory(parameters));
 
-    this.serverRpc = initRaftServerRpc(factory, this, group);
+    this.serverRpc = factory.newRaftServerRpc(this);
+    this.id = id != null? id: RaftPeerId.valueOf(getIdStringFrom(serverRpc));
     this.impl = CompletableFuture.completedFuture(initImpl(group));
   }
 
@@ -69,14 +70,10 @@ public class RaftServerProxy implements RaftServer {
     return new RaftServerImpl(id, group, this, properties);
   }
 
-  private static RaftServerRpc initRaftServerRpc(
-      ServerFactory factory, RaftServer server, RaftGroup group) {
-    final RaftServerRpc rpc = factory.newRaftServerRpc(server);
-    // add peers into rpc service
-    if (group != null) {
-      rpc.addPeers(group.getPeers());
-    }
-    return rpc;
+  private static String getIdStringFrom(RaftServerRpc rpc) {
+    final InetSocketAddress address = rpc.getInetSocketAddress();
+    return address != null? address.getHostName() + "_" + address.getPort()
+        : rpc.getRpcType() + "-" + UUID.randomUUID();
   }
 
   @Override

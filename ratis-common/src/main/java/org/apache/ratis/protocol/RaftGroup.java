@@ -26,6 +26,12 @@ import java.util.*;
  * peers.
  */
 public class RaftGroup {
+  private static RaftGroup EMPTY_GROUP = new RaftGroup(RaftGroupId.emptyGroupId(), Collections.emptyList());
+
+  public static RaftGroup emptyGroup() {
+    return EMPTY_GROUP;
+  }
+
   /** UTF-8 string as id */
   private final RaftGroupId groupId;
   /** The group of raft peers */

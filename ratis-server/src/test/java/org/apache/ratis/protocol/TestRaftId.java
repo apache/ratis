@@ -24,8 +24,8 @@ import org.junit.Test;
 
 public class TestRaftId extends BaseTest {
   @Override
-  public int getGlobalTimeoutMs() {
-    return 1000;
+  public int getGlobalTimeoutSeconds() {
+    return 1;
   }
 
   @Test

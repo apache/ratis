@@ -33,17 +33,23 @@ public class ServerImplUtils {
   public static RaftServerProxy newRaftServer(
       RaftPeerId id, RaftGroup group, StateMachine stateMachine,
       RaftProperties properties, Parameters parameters) throws IOException {
+    final RaftServerProxy proxy;
     try {
       // attempt multiple times to avoid temporary bind exception
-      return JavaUtils.attempt(
+      proxy = JavaUtils.attempt(
           () -> new RaftServerProxy(id, stateMachine, group, properties, parameters),
-          5, 500L, "newRaftServer", RaftServerImpl.LOG);
+          5, 500L, "new RaftServerProxy", RaftServerProxy.LOG);
     } catch (InterruptedException e) {
       throw IOUtils.toInterruptedIOException(
           "Interrupted when creating RaftServer " + id + ", " + group, e);
     } catch (IOException e) {
       throw new IOException("Failed to create RaftServer " + id + ", " + group, e);
     }
+    // add peers into rpc service
+    if (!group.getPeers().isEmpty()) {
+      proxy.getServerRpc().addPeers(group.getPeers());
+    }
+    return proxy;
   }
 
   public static TermIndex newTermIndex(long term, long index) {
