@@ -122,41 +122,40 @@
     </profile>
 
     <profile>
-      <id>skipCompileProto</id>
-      <activation>
-        <file>
-          <exists>${shaded.sources.dir}</exists>
-        </file>
-        <property>
-          <name>!compile-protobuf</name>
-        </property>
-      </activation>
-    </profile>
-
-    <profile>
       <id>clean-shade</id>
       <activation>
-        <activeByDefault>false</activeByDefault>
+        <property>
+          <name>!skipCleanShade</name>
+        </property>
       </activation>
       <build>
         <plugins>
           <plugin>
             <artifactId>maven-clean-plugin</artifactId>
-            <configuration>
-              <filesets>
-                <fileset>
-                  <directory>${shaded.sources.dir}</directory>
-                  <followSymlinks>false</followSymlinks>
-                </fileset>
-                <fileset>
-                  <directory>.</directory>
-                  <includes>
-                    <include>dependency-reduced-pom.xml</include>
-                  </includes>
-                  <followSymlinks>false</followSymlinks>
-                </fileset>
-              </filesets>
-            </configuration>
+            <executions>
+              <execution>
+                <id>shaded-clean</id>
+                <goals>
+                  <goal>clean</goal>
+                </goals>
+                <phase>clean</phase>
+                <configuration>
+                  <filesets>
+                    <fileset>
+                      <directory>${shaded.sources.dir}</directory>
+                      <followSymlinks>false</followSymlinks>
+                    </fileset>
+                    <fileset>
+                      <directory>.</directory>
+                      <includes>
+                        <include>dependency-reduced-pom.xml</include>
+                      </includes>
+                      <followSymlinks>false</followSymlinks>
+                    </fileset>
+                  </filesets>
+                </configuration>
+              </execution>
+            </executions>
           </plugin>
         </plugins>
       </build>
@@ -168,7 +167,9 @@
          Shade and drop the generated java files under src/main/java.
       -->
       <activation>
-        <activeByDefault>true</activeByDefault>
+        <property>
+          <name>!skipShade</name>
+        </property>
       </activation>
       <properties>
         <profile.id>compile-protobuf</profile.id>
