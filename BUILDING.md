@@ -42,11 +42,8 @@ ratis-hadoop-shaded/src/main/java/
 ```
 They are not checked-in to git though.
 
-By default protobuf compilation and shading are triggered at every build. To make more faster the
-additional builds, you can turn them off:
-```
-$ mvn package -DskipTests -DskipShade
-```
+Protobuf compilation and shading are triggered
+when the corresponding shaded source directory is missing.
 
 During the clean lifecycle all the shaded classes are also deleted. You can clean the
 compiled files but keep the shaded classes with the following command:
