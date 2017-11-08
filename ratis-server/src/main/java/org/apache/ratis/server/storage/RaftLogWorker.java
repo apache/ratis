@@ -27,18 +27,14 @@ import org.apache.ratis.server.storage.RaftLogCache.SegmentFileInfo;
 import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.ratis.server.storage.SegmentedRaftLog.Task;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.util.ExitUtils;
-import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.IOUtils;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * This class takes the responsibility of all the raft log related I/O ops for a
@@ -58,6 +54,7 @@ class RaftLogWorker implements Runnable {
   private final RaftStorage storage;
   private volatile LogOutputStream out;
   private final RaftServerImpl raftServer;
+  private final StateMachine stateMachine;
 
   /**
    * The number of entries that have been written into the LogOutputStream but
@@ -81,6 +78,7 @@ class RaftLogWorker implements Runnable {
     LOG.info("new {} for {}", name, storage);
 
     this.raftServer = raftServer;
+    this.stateMachine = raftServer != null? raftServer.getStateMachine(): null;
 
     this.storage = storage;
     this.segmentMaxSize =
@@ -251,9 +249,32 @@ class RaftLogWorker implements Runnable {
 
   private class WriteLog extends Task {
     private final LogEntryProto entry;
+    private final CompletableFuture<?> stateMachineFuture;
 
     WriteLog(LogEntryProto entry) {
-      this.entry = entry;
+      this.entry = ProtoUtils.removeStateMachineData(entry);
+      if (this.entry == entry || stateMachine == null) {
+        this.stateMachineFuture = null;
+      } else {
+        // this.entry != entry iff the entry has state machine data
+        this.stateMachineFuture = stateMachine.writeStateMachineData(entry);
+      }
+    }
+
+    @Override
+    void waitForDone() throws InterruptedException {
+      super.waitForDone();
+      // TODO: It does not work since logSync only wait for the last task L.
+      // TODO: If some task T earlier than L has a writeStateMachineData future, it will not be sync'ed.
+      // TODO: Need RATIS-124
+
+      if (stateMachineFuture != null) {
+        try {
+          stateMachineFuture.get();
+        } catch (ExecutionException e) {
+          // ignore
+        }
+      }
     }
 
     @Override

@@ -177,4 +177,10 @@ public interface JavaUtils {
       println.accept(ti.toString());
     }
   }
+
+  static <E> CompletableFuture<E> completeExceptionally(Throwable t) {
+    final CompletableFuture<E> future = new CompletableFuture<>();
+    future.completeExceptionally(t);
+    return future;
+  }
 }

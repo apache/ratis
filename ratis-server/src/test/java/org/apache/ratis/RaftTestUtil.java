@@ -33,12 +33,12 @@ import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ProtoUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
@@ -162,10 +162,6 @@ public interface RaftTestUtil {
     }
   }
 
-  static ByteString toByteString(String string) {
-    return ByteString.copyFrom(string, StandardCharsets.UTF_8);
-  }
-
   class SimpleMessage implements Message {
     public static SimpleMessage[] create(int numMessages) {
       return create(numMessages, "m");
@@ -180,9 +176,11 @@ public interface RaftTestUtil {
     }
 
     final String messageId;
+    final ByteString bytes;
 
     public SimpleMessage(final String messageId) {
       this.messageId = messageId;
+      this.bytes = ProtoUtils.toByteString(messageId);
     }
 
     @Override
@@ -209,15 +207,18 @@ public interface RaftTestUtil {
 
     @Override
     public ByteString getContent() {
-      return toByteString(messageId);
+      return bytes;
     }
   }
 
   class SimpleOperation {
     private final String op;
+    private final SMLogEntryProto smLogEntryProto;
 
     public SimpleOperation(String op) {
       this.op = Objects.requireNonNull(op);
+      this.smLogEntryProto = SMLogEntryProto.newBuilder()
+          .setData(ProtoUtils.toByteString(op)).build();
     }
 
     @Override
@@ -238,7 +239,7 @@ public interface RaftTestUtil {
     }
 
     public SMLogEntryProto getLogEntryContent() {
-      return SMLogEntryProto.newBuilder().setData(toByteString(op)).build();
+      return smLogEntryProto;
     }
   }
 

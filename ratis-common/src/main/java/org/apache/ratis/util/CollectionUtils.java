@@ -23,6 +23,7 @@ package org.apache.ratis.util;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -81,5 +82,17 @@ public interface CollectionUtils {
   static <INPUT, OUTPUT> Iterable<OUTPUT> as(
       INPUT[] array, Function<INPUT, OUTPUT> converter) {
     return as(Arrays.asList(array), converter);
+  }
+
+  static <K, V> void putNew(K key, V value, Map<K, V> map, Supplier<String> name) {
+    final V returned = map.put(key, value);
+    Preconditions.assertTrue(returned == null,
+        () -> "Entry already exists for key " + key + " in map " + name.get());
+  }
+
+  static <K, V> void replaceExisting(K key, V oldValue, V newValue, Map<K, V> map, Supplier<String> name) {
+    final boolean replaced = map.replace(key, oldValue, newValue);
+    Preconditions.assertTrue(replaced,
+        () -> "Entry not found for key " + key + " in map " + name.get());
   }
 }

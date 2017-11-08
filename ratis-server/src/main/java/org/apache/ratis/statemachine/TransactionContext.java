@@ -19,11 +19,13 @@ package org.apache.ratis.statemachine;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Optional;
+import java.util.Objects;
 
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.ratis.util.Preconditions;
 
 /**
  * Context for a transaction.
@@ -129,8 +131,8 @@ public class TransactionContext {
    */
   public TransactionContext(StateMachine stateMachine, LogEntryProto logEntry) {
     this(stateMachine);
+    setLogEntry(logEntry);
     this.smLogEntryProto = logEntry.getSmLogEntry();
-    this.logEntry = logEntry;
   }
 
   public RaftClientRequest getClientRequest() {
@@ -155,6 +157,11 @@ public class TransactionContext {
   }
 
   public TransactionContext setLogEntry(LogEntryProto logEntry) {
+    Objects.requireNonNull(logEntry, "logEntry == null");
+    Preconditions.assertTrue(logEntry.getLogEntryBodyCase() == LogEntryBodyCase.SMLOGENTRY,
+        () -> "LogEntryBodyCase = " + logEntry.getLogEntryBodyCase()
+            + " != " + LogEntryBodyCase.SMLOGENTRY + ", logEntry=" + logEntry);
+    Preconditions.assertTrue(this.logEntry == null, "this.logEntry != null");
     this.logEntry = logEntry;
     return this;
   }

@@ -23,9 +23,7 @@ import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
 import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.STATEMACHINEEXCEPTION;
@@ -125,7 +123,7 @@ public class ClientProtoUtils {
         final Throwable t = sme.getCause() != null ? sme.getCause() : sme;
         smeBuilder.setExceptionClassName(t.getClass().getName())
             .setErrorMsg(t.getMessage())
-            .setStacktrace(ProtoUtils.toByteString(t.getStackTrace()));
+            .setStacktrace(ProtoUtils.writeObject2ByteString(t.getStackTrace()));
         b.setStateMachineException(smeBuilder.build());
       }
     }

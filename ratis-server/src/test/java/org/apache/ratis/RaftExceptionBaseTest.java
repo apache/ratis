@@ -50,7 +50,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   @Before
   public void setup() throws IOException {
-    cluster = getFactory().newCluster(NUM_PEERS, new RaftProperties());
+    cluster = newCluster(NUM_PEERS);
     cluster.start();
   }
 

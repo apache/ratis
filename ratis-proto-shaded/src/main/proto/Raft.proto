@@ -44,6 +44,8 @@ message SMLogEntryProto {
   // TODO: This is not super efficient if the SM itself uses PB to serialize its own data for a
   // log entry. Data will be copied twice. We should directly support having any Message from SM
   bytes data = 1;
+
+  bytes stateMachineData = 2; // State machine specific data which is not written to log.
 }
 
 message LeaderNoOp {

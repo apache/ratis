@@ -22,8 +22,10 @@ import org.apache.ratis.shaded.com.google.common.collect.Interners;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.ByteBuffer;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 public class StringUtils {
   public static final String[] EMPTY_STRING_ARRAY = {};
@@ -64,11 +66,17 @@ public class StringUtils {
 
   public static String bytes2HexString(byte[] bytes) {
     Objects.requireNonNull(bytes, "bytes == null");
+    return bytes2HexString(ByteBuffer.wrap(bytes));
+  }
 
-    final StringBuilder s = new StringBuilder(2 * bytes.length);
-    for(byte b : bytes) {
-      s.append(format("%02x", b));
+  public static String bytes2HexString(ByteBuffer bytes) {
+    Objects.requireNonNull(bytes, "bytes == null");
+
+    final StringBuilder s = new StringBuilder(2 * bytes.remaining());
+    for(; bytes.remaining() > 0; ) {
+      s.append(format("%02x", bytes.get()));
     }
+    bytes.flip();
     return s.toString();
   }
 
@@ -92,5 +100,14 @@ public class StringUtils {
     e.printStackTrace(wrt);
     wrt.close();
     return stm.toString();
+  }
+
+  public static Object stringSupplierAsObject(Supplier<String> supplier) {
+    return new Object() {
+      @Override
+      public String toString() {
+        return supplier.get();
+      }
+    };
   }
 }

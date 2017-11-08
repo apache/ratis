@@ -52,7 +52,7 @@ public abstract class BaseTest {
   private static final Supplier<File> rootTestDir = JavaUtils.memoize(
       () -> JavaUtils.callAsUnchecked(() -> {
         final File dir = new File(System.getProperty("test.build.data", "target/test/data"),
-            Long.toHexString(ThreadLocalRandom.current().nextLong()));
+            Integer.toHexString(ThreadLocalRandom.current().nextInt()));
         if (dir.exists() && !dir.isDirectory()) {
           throw new IOException(dir + " already exists and is not a directory");
         } else if (!dir.exists() && !dir.mkdirs()) {

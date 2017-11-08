@@ -38,10 +38,15 @@ import org.apache.ratis.util.LifeCycle;
  */
 public class BaseStateMachine implements StateMachine {
 
+  private volatile RaftPeerId id;
   protected RaftProperties properties;
   protected RaftStorage storage;
   protected RaftConfiguration raftConf;
   protected final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
+
+  public RaftPeerId getId() {
+    return id;
+  }
 
   @Override
   public LifeCycle.State getLifeCycleState() {
@@ -51,6 +56,7 @@ public class BaseStateMachine implements StateMachine {
   @Override
   public void initialize(RaftPeerId id, RaftProperties properties,
       RaftStorage storage) throws IOException {
+    this.id = id;
     lifeCycle.setName(getClass().getSimpleName() + ":" + id);
     this.properties = properties;
     this.storage = storage;

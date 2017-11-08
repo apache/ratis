@@ -41,22 +41,15 @@ public abstract class ServerInformationBaseTest<CLUSTER extends MiniRaftCluster>
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  static final RaftProperties prop = new RaftProperties();
-
-  public MiniRaftCluster getCluster(int peerNum) throws IOException {
-    return getFactory().newCluster(peerNum, prop);
-  }
-
   @Test
   public void testServerInformation() throws Exception {
     runTest(5);
   }
 
-
   private void runTest(int num) throws Exception {
     LOG.info("Running server info test with " + num);
 
-    final MiniRaftCluster cluster = getCluster(num);
+    final MiniRaftCluster cluster = newCluster(num);
 
     cluster.start();
     // all the peers in the cluster are in the same group, get it.

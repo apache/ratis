@@ -21,7 +21,6 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyRpcProxy;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.ServerInformationReply;
 import org.apache.ratis.rpc.SupportedRpcType;
@@ -44,15 +43,12 @@ import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyExceptionReplyPr
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.ratis.util.CodeInjectionForTesting;
-import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 /**
  * A netty server endpoint that acts as the communication layer.
@@ -237,7 +233,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
         .setSuccess(false);
     final RaftNettyExceptionReplyProto.Builder ioe = RaftNettyExceptionReplyProto.newBuilder()
         .setRpcReply(rpcReply)
-        .setException(ProtoUtils.toByteString(e));
+        .setException(ProtoUtils.writeObject2ByteString(e));
     return RaftNettyServerReplyProto.newBuilder().setExceptionReply(ioe).build();
   }
 

@@ -24,7 +24,9 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftConfiguration;
+import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.LifeCycle;
 
 import java.io.Closeable;
@@ -122,6 +124,17 @@ public interface StateMachine extends Closeable {
    */
   TransactionContext startTransaction(RaftClientRequest request)
       throws IOException;
+
+  /**
+   * Write asynchronously the state machine data to this state machine.
+   *
+   * @return a future for the write task
+   *         if {@link RaftLog#logSync()} should also sync writing the state machine data;
+   *         otherwise, return null.
+   */
+  default CompletableFuture<?> writeStateMachineData(LogEntryProto entry) {
+    return null;
+  }
 
   /**
    * This is called before the transaction passed from the StateMachine is appended to the raft log.

@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 
@@ -36,6 +37,12 @@ public interface FileUtils {
             out.getChannel().truncate(target);
           }},
         () -> "FileOutputStream.getChannel().truncate " + f + " to target length " + target);
+  }
+
+  static OutputStream createNewFile(Path p) throws IOException {
+    return LogUtils.supplyAndLog(LOG,
+        () -> Files.newOutputStream(p, StandardOpenOption.CREATE_NEW),
+        () -> "Files.newOutputStream " + StandardOpenOption.CREATE_NEW + " " + p);
   }
 
   static void createDirectories(File dir) throws IOException {
@@ -93,7 +100,7 @@ public interface FileUtils {
    */
   static void deleteFully(Path p) throws IOException {
     if (!Files.exists(p, LinkOption.NOFOLLOW_LINKS)) {
-      LOG.trace("deleteFully: {} does not exist.");
+      LOG.trace("deleteFully: {} does not exist.", p);
       return;
     }
     Files.walkFileTree(p, new SimpleFileVisitor<Path>() {

@@ -24,6 +24,8 @@ import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.slf4j.Logger;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 /**
@@ -40,9 +42,6 @@ public interface LogUtils {
       throws THROWABLE {
     try {
       op.run();
-      if (log.isTraceEnabled()) {
-        log.trace("Executed " + opName.get() + " successfully.");
-      }
     } catch (Throwable t) {
       if (log.isTraceEnabled()) {
         log.trace("Failed to " + opName.get(), t);
@@ -51,5 +50,73 @@ public interface LogUtils {
       }
       throw t;
     }
+
+    if (log.isTraceEnabled()) {
+      log.trace("Successfully ran " + opName.get());
+    }
+  }
+
+  static <OUTPUT, THROWABLE extends Throwable> OUTPUT supplyAndLog(
+      Logger log, CheckedSupplier<OUTPUT, THROWABLE> supplier, Supplier<String> name)
+      throws THROWABLE {
+    final OUTPUT output;
+    try {
+      output = supplier.get();
+    } catch (Throwable t) {
+      if (log.isTraceEnabled()) {
+        log.trace("Failed to " + name.get(), t);
+      } else if (log.isWarnEnabled()){
+        log.warn("Failed to " + name.get() + ": " + t);
+      }
+      throw (THROWABLE)t;
+    }
+
+    if (log.isTraceEnabled()) {
+      log.trace("Successfully supplied " + name.get());
+    }
+    return output;
+  }
+
+  static Runnable newRunnable(Logger log, Runnable runnable, Supplier<String> name) {
+    return new Runnable() {
+      @Override
+      public void run() {
+        runAndLog(log, runnable::run, name);
+      }
+
+      @Override
+      public String toString() {
+        return name.get();
+      }
+    };
+  }
+
+  static <T> Callable<T> newCallable(Logger log, Callable<T> callable, Supplier<String> name) {
+    return new Callable<T>() {
+      @Override
+      public T call() throws Exception {
+        return supplyAndLog(log, callable::call, name);
+      }
+
+      @Override
+      public String toString() {
+        return name.get();
+      }
+    };
+  }
+
+  static <OUTPUT, THROWABLE extends Throwable> CheckedSupplier<OUTPUT, THROWABLE> newCheckedSupplier(
+      Logger log, CheckedSupplier<OUTPUT, THROWABLE> supplier, Supplier<String> name) {
+    return new CheckedSupplier<OUTPUT, THROWABLE>() {
+      @Override
+      public OUTPUT get() throws THROWABLE {
+        return supplyAndLog(log, supplier, name);
+      }
+
+      @Override
+      public String toString() {
+        return name.get();
+      }
+    };
   }
 }

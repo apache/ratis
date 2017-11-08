@@ -136,7 +136,7 @@ public class RaftServerImpl implements RaftServerProtocol,
     return groupId;
   }
 
-  StateMachine getStateMachine() {
+  public StateMachine getStateMachine() {
     return proxy.getStateMachine();
   }
 

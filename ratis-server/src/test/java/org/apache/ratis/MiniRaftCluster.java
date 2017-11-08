@@ -43,6 +43,7 @@ import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -56,7 +57,17 @@ public abstract class MiniRaftCluster {
 
   public static abstract class Factory<CLUSTER extends MiniRaftCluster> {
     public interface Get<CLUSTER extends MiniRaftCluster> {
+      Supplier<RaftProperties> properties = JavaUtils.memoize(() -> new RaftProperties());
+
       Factory<CLUSTER> getFactory();
+
+      default RaftProperties getProperties() {
+        return properties.get();
+      }
+
+      default CLUSTER newCluster(int numPeers) throws IOException {
+        return getFactory().newCluster(numPeers, getProperties());
+      }
     }
 
     public abstract CLUSTER newCluster(
@@ -216,7 +227,21 @@ public abstract class MiniRaftCluster {
         STATEMACHINE_CLASS_KEY,
         STATEMACHINE_CLASS_DEFAULT,
         StateMachine.class);
-    return ReflectionUtils.newInstance(smClass);
+
+    final RuntimeException exception;
+    try {
+      return ReflectionUtils.newInstance(smClass);
+    } catch(RuntimeException e) {
+      exception = e;
+    }
+
+    try {
+      final Class<?>[] argClasses = {RaftProperties.class};
+      return ReflectionUtils.newInstance(smClass, argClasses, properties);
+    } catch(RuntimeException e) {
+      exception.addSuppressed(e);
+    }
+    throw exception;
   }
 
   public static List<RaftPeer> toRaftPeers(

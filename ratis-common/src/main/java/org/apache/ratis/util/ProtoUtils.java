@@ -21,6 +21,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
+import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -29,8 +30,8 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-public class ProtoUtils {
-  public static ByteString toByteString(Object obj) {
+public interface ProtoUtils {
+  public static ByteString writeObject2ByteString(Object obj) {
     final ByteString.Output byteOut = ByteString.newOutput();
     try(final ObjectOutputStream objOut = new ObjectOutputStream(byteOut)) {
       objOut.writeObject(obj);
@@ -50,6 +51,10 @@ public class ProtoUtils {
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  static ByteString toByteString(String string) {
+    return ByteString.copyFromUtf8(string);
   }
 
   public static ByteString toByteString(byte[] bytes) {
@@ -130,6 +135,27 @@ public class ProtoUtils {
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
         .setSmLogEntry(operation)
         .setClientId(clientId.toByteString()).setCallId(callId)
+        .build();
+  }
+
+  /**
+   * If the given entry is {@link LogEntryBodyCase#SMLOGENTRY} and it has state machine data,
+   * build a new entry without the state machine data.
+   *
+   * @return a new entry without the state machine data if the given has state machine data;
+   *         otherwise, return the given entry.
+   */
+  static LogEntryProto removeStateMachineData(LogEntryProto entry) {
+    if (entry.getLogEntryBodyCase() != LogEntryBodyCase.SMLOGENTRY) {
+      return entry;
+    }
+    final SMLogEntryProto smLog = entry.getSmLogEntry();
+    if (smLog.getStateMachineData().isEmpty()) {
+      return entry;
+    }
+    // build a new LogEntryProto without state machine data
+    return LogEntryProto.newBuilder(entry)
+        .setSmLogEntry(SMLogEntryProto.newBuilder().setData(smLog.getData()))
         .build();
   }
 

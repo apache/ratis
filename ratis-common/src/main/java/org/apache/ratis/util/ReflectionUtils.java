@@ -173,7 +173,8 @@ public interface ReflectionUtils {
       ctor = Constructors.get(clazz, argClasses);
     } catch (NoSuchMethodException e) {
       throw new UnsupportedOperationException(
-          "Unable to find suitable constructor for class " + clazz.getName(), e);
+          "Unable to find suitable constructor for class " + clazz.getName()
+          + ", argument classes = " + Arrays.toString(argClasses), e);
     }
     return instantiate(clazz.getName(), ctor, args);
   }
