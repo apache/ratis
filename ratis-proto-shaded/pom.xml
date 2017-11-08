@@ -466,9 +466,9 @@
          files or update the protobuf version.
       -->
       <activation>
-        <file>
-          <missing>${shaded.sources.dir}</missing>
-        </file>
+        <property>
+          <name>!skipShade</name>
+        </property>
       </activation>
       <properties>
         <profile.id>compile-protobuf</profile.id>

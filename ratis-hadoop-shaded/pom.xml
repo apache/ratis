@@ -167,9 +167,9 @@
          Shade and drop the generated java files under src/main/java.
       -->
       <activation>
-        <file>
-          <missing>${shaded.sources.dir}</missing>
-        </file>
+        <property>
+          <name>!skipShade</name>
+        </property>
       </activation>
       <properties>
         <profile.id>compile-protobuf</profile.id>
