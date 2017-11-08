@@ -186,13 +186,14 @@
             <artifactId>maven-shade-plugin</artifactId>
             <executions>
               <execution>
-                <phase>package</phase>
+                <phase>process-resources</phase>
                 <goals>
                   <goal>shade</goal>
                 </goals>
                 <configuration>
                   <shadeSourcesContent>true</shadeSourcesContent>
                   <createSourcesJar>true</createSourcesJar>
+                  <shadedArtifactAttached>true</shadedArtifactAttached>
                   <relocations>
                     <relocation>
                       <pattern>com.google.protobuf</pattern>
@@ -215,6 +216,8 @@
 
                   <artifactSet>
                     <excludes>
+                      <exclude>org.apache.ratis:ratis-hadoop-shaded</exclude>
+
                       <exclude>com.google.code.findbugs:jsr305</exclude>
                       <exclude>com.google.code.gson:gson</exclude>
                       <exclude>com.google.guava:guava</exclude>
@@ -309,7 +312,7 @@
             <executions>
               <execution>
                 <id>unpack</id>
-                <phase>package</phase>
+                <phase>process-resources</phase>
                 <goals>
                   <goal>unpack</goal>
                 </goals>
@@ -319,7 +322,7 @@
                       <groupId>${project.groupId}</groupId>
                       <artifactId>${project.artifactId}</artifactId>
                       <version>${project.version}</version>
-                      <classifier>sources</classifier>
+                      <classifier>shaded-sources</classifier>
                       <type>jar</type>
                       <overWrite>true</overWrite>
                       <outputDirectory>${basedir}/${shaded.sources.dir}</outputDirectory>

@@ -484,9 +484,7 @@
         <plugins>
           <!--
             We are not cleaning the generated files from src/main/java since we do not check-in the
-            generated files there. Shading only happens in the build phase package (which is after
-            compile), so for mvn test and mvn compile to work, you should run mvn package or mvn
-            install one time so that src/main/java will be populated.
+            generated files there.
           -->
           <plugin>
             <groupId>org.xolstice.maven.plugins</groupId>
@@ -495,10 +493,13 @@
               <protocArtifact>
                 com.google.protobuf:protoc:${shaded.protobuf.version}:exe:${os.detected.classifier}
               </protocArtifact>
+              <outputDirectory>src/main/java</outputDirectory>
+              <clearOutputDirectory>false</clearOutputDirectory>
             </configuration>
             <executions>
               <execution>
                 <id>1</id>
+                <phase>generate-sources</phase>
                 <goals>
                   <goal>compile</goal>
                   <goal>test-compile</goal>
@@ -520,19 +521,42 @@
               </execution>
             </executions>
           </plugin>
-
+          <plugin>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <executions>
+              <execution>
+                <phase>generate-sources</phase>
+                <configuration>
+                  <tasks>
+                    <replace token="com.google." value="org.apache.ratis.shaded.com.google."
+                             dir="src/main/java/org/apache/ratis/shaded/proto">
+                      <include name="**/*.java"/>
+                    </replace>
+                    <replace token="io.grpc." value="org.apache.ratis.shaded.io.grpc."
+                             dir="src/main/java/org/apache/ratis/shaded/proto">
+                      <include name="**/*.java"/>
+                    </replace>
+                  </tasks>
+                </configuration>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-shade-plugin</artifactId>
             <executions>
               <execution>
-                <phase>package</phase>
+                <phase>process-resources</phase>
                 <goals>
                   <goal>shade</goal>
                 </goals>
                 <configuration>
                   <shadeSourcesContent>true</shadeSourcesContent>
                   <createSourcesJar>true</createSourcesJar>
+                  <shadedArtifactAttached>true</shadedArtifactAttached>
                   <relocations>
                     <relocation>
                       <pattern>com.google.common</pattern>
@@ -567,6 +591,8 @@
 
                   <artifactSet>
                     <excludes>
+                      <exclude>org.apache.ratis:ratis-proto-shaded</exclude>
+
                       <exclude>com.barchart.udt:barchart-udt-bundle</exclude>
                       <exclude>com.github.jponge:lzma-java</exclude>
 
@@ -629,7 +655,7 @@
             <executions>
               <execution>
                 <id>unpack</id>
-                <phase>package</phase>
+                <phase>process-resources</phase>
                 <goals>
                   <goal>unpack</goal>
                 </goals>
@@ -639,7 +665,7 @@
                       <groupId>${project.groupId}</groupId>
                       <artifactId>${project.artifactId}</artifactId>
                       <version>${project.version}</version>
-                      <classifier>sources</classifier>
+                      <classifier>shaded-sources</classifier>
                       <type>jar</type>
                       <overWrite>true</overWrite>
                       <outputDirectory>${basedir}/${shaded.sources.dir}</outputDirectory>
