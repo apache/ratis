@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -68,6 +69,12 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
   private final TermIndexTracker termIndexTracker = new TermIndexTracker();
   private final RaftProperties properties = new RaftProperties();
+  private long segmentMaxSize =
+      RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
+  private long preallocatedSize =
+      RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
+  private int bufferSize =
+      RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
 
   private volatile boolean running = true;
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
@@ -143,7 +150,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
         termIndex.getIndex());
     LOG.debug("Taking a snapshot with t:{}, i:{}, file:{}", termIndex.getTerm(),
         termIndex.getIndex(), snapshotFile);
-    try (LogOutputStream out = new LogOutputStream(snapshotFile, false, properties)) {
+    try (LogOutputStream out = new LogOutputStream(snapshotFile, false,
+        segmentMaxSize, preallocatedSize, bufferSize)) {
       for (final LogEntryProto entry : list) {
         if (entry.getIndex() > endIndex) {
           break;

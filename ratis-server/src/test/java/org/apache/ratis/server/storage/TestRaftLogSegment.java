@@ -52,12 +52,21 @@ public class TestRaftLogSegment extends BaseTest {
   private static final long callId = 0;
 
   private File storageDir;
-  private final RaftProperties properties = new RaftProperties();
+  private long segmentMaxSize;
+  private long preallocatedSize;
+  private int bufferSize;
 
   @Before
   public void setup() throws Exception {
+    RaftProperties properties = new RaftProperties();
     storageDir = getTestDir();
     RaftServerConfigKeys.setStorageDir(properties, storageDir);
+    this.segmentMaxSize =
+        RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
+    this.preallocatedSize =
+        RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
+    this.bufferSize =
+        RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
   }
 
   @After
@@ -74,7 +83,8 @@ public class TestRaftLogSegment extends BaseTest {
         storage.getStorageDir().getClosedLogFile(start, start + size - 1);
 
     LogEntryProto[] entries = new LogEntryProto[size];
-    try (LogOutputStream out = new LogOutputStream(file, false, properties)) {
+    try (LogOutputStream out = new LogOutputStream(file, false,
+        segmentMaxSize, preallocatedSize, bufferSize)) {
       for (int i = 0; i < size; i++) {
         SimpleOperation op = new SimpleOperation("m" + i);
         entries[i] = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
@@ -228,13 +238,6 @@ public class TestRaftLogSegment extends BaseTest {
         SegmentedRaftLog.HEADER_BYTES.length, term);
   }
 
-  private RaftProperties getProperties(long maxSegmentSize, int preallocatedSize) {
-    RaftProperties p = new RaftProperties();
-    RaftServerConfigKeys.Log.setSegmentSizeMax(p, SizeInBytes.valueOf(maxSegmentSize));
-    RaftServerConfigKeys.Log.setPreallocatedSize(p, SizeInBytes.valueOf(preallocatedSize));
-    return p;
-  }
-
   @Test
   public void testPreallocateSegment() throws Exception {
     RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
@@ -249,7 +252,7 @@ public class TestRaftLogSegment extends BaseTest {
     for (int max : maxSizes) {
       for (int a : preallocated) {
         try (LogOutputStream ignored =
-                 new LogOutputStream(file, false, getProperties(max, a))) {
+                 new LogOutputStream(file, false, max, a, bufferSize)) {
           Assert.assertEquals("max=" + max + ", a=" + a, file.length(), Math.min(max, a));
         }
         try (LogInputStream in =
@@ -265,7 +268,7 @@ public class TestRaftLogSegment extends BaseTest {
     Arrays.fill(content, (byte) 1);
     final long size;
     try (LogOutputStream out = new LogOutputStream(file, false,
-        getProperties(1024, 1024))) {
+        1024, 1024, bufferSize)) {
       SimpleOperation op = new SimpleOperation(new String(content));
       LogEntryProto entry = ProtoUtils.toLogEntryProto(op.getLogEntryContent(),
           0, 0, clientId, callId);
@@ -289,9 +292,6 @@ public class TestRaftLogSegment extends BaseTest {
   @Test
   public void testPreallocationAndAppend() throws Exception {
     final SizeInBytes max = SizeInBytes.valueOf(2, TraditionalBinaryPrefix.MEGA);
-    RaftServerConfigKeys.Log.setSegmentSizeMax(properties, max);
-    RaftServerConfigKeys.Log.setPreallocatedSize(properties, SizeInBytes.valueOf("16KB"));
-    RaftServerConfigKeys.Log.setWriteBufferSize(properties, SizeInBytes.valueOf("10KB"));
     RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     final File file = storage.getStorageDir().getOpenLogFile(0);
 
@@ -304,7 +304,8 @@ public class TestRaftLogSegment extends BaseTest {
 
     long totalSize = SegmentedRaftLog.HEADER_BYTES.length;
     long preallocated = 16 * 1024;
-    try (LogOutputStream out = new LogOutputStream(file, false, properties)) {
+    try (LogOutputStream out = new LogOutputStream(file, false,
+        max.getSize(), 16 * 1024, 10 * 1024)) {
       Assert.assertEquals(preallocated, file.length());
       while (totalSize + entrySize < max.getSize()) {
         totalSize += entrySize;

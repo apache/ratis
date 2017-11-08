@@ -71,7 +71,9 @@ class RaftLogWorker implements Runnable {
 
   private final int forceSyncNum;
 
-  private final  RaftProperties properties;
+  private final long segmentMaxSize;
+  private final long preallocatedSize;
+  private final int bufferSize;
 
   RaftLogWorker(RaftPeerId selfId, RaftServerImpl raftServer, RaftStorage storage,
                 RaftProperties properties) {
@@ -81,7 +83,12 @@ class RaftLogWorker implements Runnable {
     this.raftServer = raftServer;
 
     this.storage = storage;
-    this.properties = properties;
+    this.segmentMaxSize =
+        RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
+    this.preallocatedSize =
+        RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
+    this.bufferSize =
+        RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
     this.workerThread = new Thread(this, name);
   }
@@ -92,7 +99,8 @@ class RaftLogWorker implements Runnable {
     flushedIndex = latestIndex;
     if (openSegmentFile != null) {
       Preconditions.assertTrue(openSegmentFile.exists());
-      out = new LogOutputStream(openSegmentFile, true, properties);
+      out = new LogOutputStream(openSegmentFile, true, segmentMaxSize,
+          preallocatedSize, bufferSize);
     }
     workerThread.start();
   }
@@ -227,6 +235,8 @@ class RaftLogWorker implements Runnable {
   }
 
   void rollLogSegment(LogSegment segmentToClose) {
+    LOG.info("Rolling segment:{} index to:{}", name,
+        (segmentToClose.getEndIndex() + 1));
     addIOTask(new FinalizeLogSegment(segmentToClose));
     addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
   }
@@ -285,7 +295,7 @@ class RaftLogWorker implements Runnable {
 
       File openFile = storage.getStorageDir()
           .getOpenLogFile(segmentToClose.getStartIndex());
-      LOG.info("{} finalizing log segment {}", name, openFile);
+      LOG.debug("{} finalizing log segment {}", name, openFile);
       Preconditions.assertTrue(openFile.exists(),
           () -> name + ": File " + openFile + " does not exist, segmentToClose="
               + segmentToClose.toDebugString());
@@ -323,11 +333,12 @@ class RaftLogWorker implements Runnable {
     @Override
     void execute() throws IOException {
       File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
-      LOG.info("{} creating new log segment {}", name, openFile);
+      LOG.debug("{} creating new log segment {}", name, openFile);
       Preconditions.assertTrue(!openFile.exists(), "open file %s exists for %s",
           openFile, name);
       Preconditions.assertTrue(out == null && pendingFlushNum == 0);
-      out = new LogOutputStream(openFile, false, properties);
+      out = new LogOutputStream(openFile, false, segmentMaxSize,
+          preallocatedSize, bufferSize);
       Preconditions.assertTrue(openFile.exists(), "Failed to create file %s for %s",
           openFile.getAbsolutePath(), name);
     }

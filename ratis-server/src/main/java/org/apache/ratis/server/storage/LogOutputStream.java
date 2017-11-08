@@ -57,18 +57,18 @@ public class LogOutputStream implements Closeable {
   private final long preallocatedSize;
   private long preallocatedPos;
 
-  public LogOutputStream(File file, boolean append, RaftProperties properties)
+  public LogOutputStream(File file, boolean append, long segmentMaxSize,
+      long preallocatedSize, int bufferSize)
       throws IOException {
     this.file = file;
     this.checksum = new PureJavaCrc32C();
-    this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
-    this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
+    this.segmentMaxSize = segmentMaxSize;
+    this.preallocatedSize = preallocatedSize;
     RandomAccessFile rp = new RandomAccessFile(file, "rw");
     fc = rp.getChannel();
     fc.position(fc.size());
     preallocatedPos = fc.size();
 
-    final int bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     out = new BufferedWriteChannel(fc, bufferSize);
 
     if (!append) {

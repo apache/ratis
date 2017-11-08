@@ -40,7 +40,8 @@ class FollowerState extends Daemon {
 
   void updateLastRpcTime(boolean inLogSync) {
     lastRpcTime = new Timestamp();
-    LOG.trace("{} update last rpc time to {}", server.getId(), lastRpcTime);
+    LOG.trace("{} update last rpc time to {} {}", server.getId(),
+        lastRpcTime, inLogSync);
     this.inLogSync = inLogSync;
   }
 
@@ -69,7 +70,7 @@ class FollowerState extends Daemon {
         synchronized (server) {
           if (!inLogSync && lastRpcTime.elapsedTimeMs() >= electionTimeout) {
             LOG.info("{} changes to CANDIDATE, lastRpcTime:{}, electionTimeout:{}ms",
-                server.getId(), lastRpcTime, electionTimeout);
+                server.getId(), lastRpcTime.elapsedTimeMs(), electionTimeout);
             // election timeout, should become a candidate
             server.changeToCandidate();
             break;

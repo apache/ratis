@@ -70,6 +70,9 @@ public class TestSegmentedRaftLog extends BaseTest {
   private File storageDir;
   private RaftProperties properties;
   private RaftStorage storage;
+  private long segmentMaxSize;
+  private long preallocatedSize;
+  private int bufferSize;
 
   @Before
   public void setup() throws Exception {
@@ -77,6 +80,12 @@ public class TestSegmentedRaftLog extends BaseTest {
     properties = new RaftProperties();
     RaftServerConfigKeys.setStorageDir(properties, storageDir);
     storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
+    this.segmentMaxSize =
+        RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
+    this.preallocatedSize =
+        RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
+    this.bufferSize =
+        RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
   }
 
   @After
@@ -95,7 +104,8 @@ public class TestSegmentedRaftLog extends BaseTest {
 
       final int size = (int) (range.end - range.start + 1);
       LogEntryProto[] entries = new LogEntryProto[size];
-      try (LogOutputStream out = new LogOutputStream(file, false, properties)) {
+      try (LogOutputStream out = new LogOutputStream(file, false,
+          segmentMaxSize, preallocatedSize, bufferSize)) {
         for (int i = 0; i < size; i++) {
           SimpleOperation m = new SimpleOperation("m" + (i + range.start));
           entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
