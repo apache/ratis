@@ -268,6 +268,7 @@ public class SegmentedRaftLog extends RaftLog {
             currentTerm, entry.getTerm());
         cache.rollOpenSegment(true);
         fileLogWorker.rollLogSegment(currentOpenSegment);
+        checkAndEvictCache();
       }
 
       cache.appendEntry(entry);
