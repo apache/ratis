@@ -17,6 +17,7 @@
  */
 package org.apache.ratis;
 
+import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -44,6 +45,8 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
+import java.util.function.Predicate;
+
 
 public interface RaftTestUtil {
 
@@ -131,6 +134,25 @@ public interface RaftTestUtil {
     return idxExpected == expectedMessages.length;
   }
 
+  static void checkLogEntries(RaftLog log, SimpleMessage[] expectedMessages,
+      Predicate<LogEntryProto> predicate) {
+    TermIndex[] termIndices = log.getEntries(0, Long.MAX_VALUE);
+    for (int i = 0; i < termIndices.length; i++) {
+      for (int j = 0; j < expectedMessages.length; j++) {
+        final LogEntryProto e;
+        try {
+          e = log.get(termIndices[i].getIndex());
+          if (Arrays.equals(expectedMessages[j].getContent().toByteArray(),
+                  e.getSmLogEntry().getData().toByteArray())) {
+            Assert.assertTrue(predicate.test(e));
+          }
+        } catch (IOException exception) {
+          exception.printStackTrace();
+        }
+      }
+    }
+  }
+
   static void assertLogEntries(Collection<RaftServerProxy> servers,
       SimpleMessage... expectedMessages) {
     final int size = servers.size();
@@ -146,7 +168,7 @@ public interface RaftTestUtil {
   }
 
   static void assertLogEntries(RaftLog log, TermIndex[] entries,
-      long startIndex, long expertedTerm, SimpleMessage... expectedMessages) {
+      long startIndex, long expectedTerm, SimpleMessage... expectedMessages) {
     Assert.assertEquals(expectedMessages.length, entries.length);
     for(int i = 0; i < entries.length; i++) {
       final LogEntryProto e;
@@ -155,7 +177,7 @@ public interface RaftTestUtil {
       } catch (IOException exception) {
         throw new RuntimeException(exception);
       }
-      Assert.assertEquals(expertedTerm, e.getTerm());
+      Assert.assertEquals(expectedTerm, e.getTerm());
       Assert.assertEquals(startIndex + i, e.getIndex());
       Assert.assertArrayEquals(expectedMessages[i].getContent().toByteArray(),
           e.getSmLogEntry().getData().toByteArray());
@@ -297,5 +319,18 @@ public interface RaftTestUtil {
         });
 
     Thread.sleep(3 * maxTimeout);
+  }
+
+  static void sendMessageInNewThread(MiniRaftCluster cluster, SimpleMessage... messages) {
+    RaftPeerId leaderId = cluster.getLeader().getId();
+    new Thread(() -> {
+      try (final RaftClient client = cluster.createClient(leaderId)) {
+        for (SimpleMessage mssg: messages) {
+          client.send(mssg);
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }).start();
   }
 }

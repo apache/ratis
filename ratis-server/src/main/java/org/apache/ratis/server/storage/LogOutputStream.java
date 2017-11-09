@@ -17,11 +17,10 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PureJavaCrc32C;
 import org.slf4j.Logger;
@@ -68,11 +67,27 @@ public class LogOutputStream implements Closeable {
     fc = rp.getChannel();
     fc.position(fc.size());
     preallocatedPos = fc.size();
-
     out = new BufferedWriteChannel(fc, bufferSize);
 
-    if (!append) {
-      create();
+    try {
+      fc = rp.getChannel();
+      fc.position(fc.size());
+      preallocatedPos = fc.size();
+
+      out = new BufferedWriteChannel(fc, bufferSize);
+      if (!append) {
+        create();
+      }
+    } catch (IOException ioe) {
+      LOG.warn("Hit IOException while creating log segment " + file
+          + ", delete the partial file.");
+      // hit IOException, clean up the in-progress log file
+      try {
+        FileUtils.deleteFully(file);
+      } catch (IOException e) {
+        LOG.warn("Failed to delete the file " + file, e);
+      }
+      throw ioe;
     }
   }
 

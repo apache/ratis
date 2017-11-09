@@ -21,18 +21,27 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
+import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.ExitUtils;
+
+
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.apache.ratis.server.storage.RaftLog;
+
+
+import static org.apache.ratis.RaftTestUtil.*;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.List;
@@ -42,11 +51,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.ratis.RaftTestUtil.waitAndKillLeader;
-import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 public abstract class RaftBasicTests extends BaseTest {
   {
@@ -129,6 +137,84 @@ public abstract class RaftBasicTests extends BaseTest {
   }
 
   @Test
+  public void testOldLeaderCommit() throws Exception {
+    LOG.info("Running testOldLeaderCommit");
+    final MiniRaftCluster cluster = getCluster();
+    final RaftServerImpl leader = waitForLeader(cluster);
+    final RaftPeerId leaderId = leader.getId();
+    final long term = leader.getState().getCurrentTerm();
+
+    List<RaftServerImpl> followers = cluster.getFollowers();
+    final RaftServerImpl followerToSendLog = followers.get(0);
+    for (int i = 1; i < NUM_SERVERS - 1; i++) {
+      RaftServerImpl follower = followers.get(i);
+      cluster.killServer(follower.getId());
+    }
+
+    SimpleMessage[] messages = SimpleMessage.create(1);
+    RaftTestUtil.sendMessageInNewThread(cluster, messages);
+
+    Thread.sleep(cluster.getMaxTimeout() + 100);
+    RaftLog followerLog = followerToSendLog.getState().getLog();
+    assertTrue(logEntriesContains(followerLog, messages));
+
+    LOG.info(String.format("killing old leader: %s", leaderId.toString()));
+    cluster.killServer(leaderId);
+
+    for (int i = 1; i < 3; i++) {
+      RaftServerImpl follower = followers.get(i);
+      LOG.info(String.format("restarting follower: %s", follower.getId().toString()));
+      cluster.restartServer(follower.getId(), false );
+    }
+
+    Thread.sleep(cluster.getMaxTimeout() * 5);
+    // confirm the server with log is elected as new leader.
+    final RaftPeerId newLeaderId = waitForLeader(cluster).getId();
+    Assert.assertEquals(followerToSendLog.getId(), newLeaderId);
+
+    cluster.getServerAliveStream()
+            .map(s -> s.getState().getLog())
+            .forEach(log -> RaftTestUtil.assertLogEntries(log,
+                    log.getEntries(1, 2), 1, term, messages));
+    LOG.info("terminating testOldLeaderCommit test");
+  }
+
+  @Test
+  public void testOldLeaderNotCommit() throws Exception {
+    LOG.info("Running testOldLeaderNotCommit");
+    final MiniRaftCluster cluster = getCluster();
+    final RaftPeerId leaderId = waitForLeader(cluster).getId();
+
+    List<RaftServerImpl> followers = cluster.getFollowers();
+    final RaftServerImpl followerToCommit = followers.get(0);
+    for (int i = 1; i < NUM_SERVERS - 1; i++) {
+      RaftServerImpl follower = followers.get(i);
+      cluster.killServer(follower.getId());
+    }
+
+    SimpleMessage[] messages = SimpleMessage.create(1);
+    sendMessageInNewThread(cluster, messages);
+
+    Thread.sleep(cluster.getMaxTimeout() + 100);
+    logEntriesContains(followerToCommit.getState().getLog(), messages);
+
+    cluster.killServer(leaderId);
+    cluster.killServer(followerToCommit.getId());
+
+    for (int i = 1; i < NUM_SERVERS - 1; i++) {
+      RaftServerImpl follower = followers.get(i);
+      cluster.restartServer(follower.getId(), false );
+    }
+    waitForLeader(cluster);
+    Thread.sleep(cluster.getMaxTimeout() + 100);
+
+    final Predicate<LogEntryProto> predicate = l -> l.getTerm() != 1;
+    cluster.getServerAliveStream()
+            .map(s -> s.getState().getLog())
+            .forEach(log -> RaftTestUtil.checkLogEntries(log, messages, predicate));
+  }
+
+  @Test
   public void testEnforceLeader() throws Exception {
     LOG.info("Running testEnforceLeader");
     final String leader = "s" + ThreadLocalRandom.current().nextInt(NUM_SERVERS);
@@ -161,7 +247,7 @@ public abstract class RaftBasicTests extends BaseTest {
       try(RaftClient client = getCluster().createClient()) {
         for (; step.get() < messages.length; ) {
           final RaftClientReply reply = client.send(messages[step.getAndIncrement()]);
-          Assert.assertTrue(reply.isSuccess());
+          assertTrue(reply.isSuccess());
         }
       } catch(Throwable t) {
         if (exceptionInClientThread.compareAndSet(null, t)) {
@@ -244,7 +330,7 @@ public abstract class RaftBasicTests extends BaseTest {
       }
 
       final int n = clients.stream().mapToInt(c -> c.step.get()).sum();
-      Assert.assertTrue(n >= lastStep.get());
+      assertTrue(n >= lastStep.get());
 
       if (n - lastStep.get() < 50 * numClients) { // Change leader at least 50 steps.
         Thread.sleep(10);
