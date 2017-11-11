@@ -19,6 +19,7 @@ package org.apache.ratis.server.simulation;
 
 import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
@@ -70,7 +71,7 @@ class SimulatedRpc implements RpcType {
     }
 
     @Override
-    public SimulatedClientRpc newRaftClientRpc(ClientId clientId) {
+    public SimulatedClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties) {
       return Objects.requireNonNull(client2serverRequestReply);
     }
 

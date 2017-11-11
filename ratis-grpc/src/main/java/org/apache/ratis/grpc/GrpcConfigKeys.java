@@ -40,13 +40,6 @@ public interface GrpcConfigKeys {
       setInt(properties::setInt, PORT_KEY, port);
     }
 
-    String MESSAGE_SIZE_MAX_KEY = PREFIX + ".message.size.max";
-    SizeInBytes MESSAGE_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("64MB");
-    static SizeInBytes messageSizeMax(RaftProperties properties) {
-      return getSizeInBytes(properties::getSizeInBytes,
-          MESSAGE_SIZE_MAX_KEY, MESSAGE_SIZE_MAX_DEFAULT);
-    }
-
     String LEADER_OUTSTANDING_APPENDS_MAX_KEY = PREFIX + ".leader.outstanding.appends.max";
     int LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT = 128;
     static int leaderOutstandingAppendsMax(RaftProperties properties) {
@@ -88,6 +81,13 @@ public interface GrpcConfigKeys {
       return getInt(properties::getInt,
           OUTSTANDING_APPENDS_MAX_KEY, OUTSTANDING_APPENDS_MAX_DEFAULT, requireMin(0));
     }
+  }
+
+  String MESSAGE_SIZE_MAX_KEY = PREFIX + ".message.size.max";
+  SizeInBytes MESSAGE_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("64MB");
+  static SizeInBytes messageSizeMax(RaftProperties properties) {
+    return getSizeInBytes(properties::getSizeInBytes,
+        MESSAGE_SIZE_MAX_KEY, MESSAGE_SIZE_MAX_DEFAULT);
   }
 
   static void main(String[] args) {

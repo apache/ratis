@@ -71,6 +71,7 @@ public class AppendStreamer implements Closeable {
   private final Deque<RaftClientRequestProto> dataQueue;
   private final Deque<RaftClientRequestProto> ackQueue;
   private final int maxPendingNum;
+  private final int maxMessageSize;
 
   private final PeerProxyMap<RaftClientProtocolProxy> proxyMap;
   private final Map<RaftPeerId, RaftPeer> peers;
@@ -87,6 +88,7 @@ public class AppendStreamer implements Closeable {
       RaftPeerId leaderId, ClientId clientId) {
     this.clientId = clientId;
     maxPendingNum = GrpcConfigKeys.OutputStream.outstandingAppendsMax(prop);
+    maxMessageSize = GrpcConfigKeys.messageSizeMax(prop).getSizeInt();
     dataQueue = new ConcurrentLinkedDeque<>();
     ackQueue = new ConcurrentLinkedDeque<>();
     exceptionAndRetry = new ExceptionAndRetry(prop);
@@ -155,6 +157,10 @@ public class AppendStreamer implements Closeable {
       // wrap the current buffer into a RaftClientRequestProto
       final RaftClientRequestProto request = ClientProtoUtils.toRaftClientRequestProto(
           clientId, leaderId, groupId, seqNum, content, false);
+      if (request.getSerializedSize() > maxMessageSize) {
+        throw new IOException("msg size:" + request.getSerializedSize() +
+            " exceeds maximum:" + maxMessageSize);
+      }
       dataQueue.offer(request);
       this.notifyAll();
     } else {

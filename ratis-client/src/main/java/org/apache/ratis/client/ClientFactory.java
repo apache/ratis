@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.RpcFactory;
 
@@ -32,5 +33,5 @@ public interface ClientFactory extends RpcFactory {
   }
 
   /** Create a {@link RaftClientRpc}. */
-  RaftClientRpc newRaftClientRpc(ClientId clientId);
+  RaftClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties);
 }

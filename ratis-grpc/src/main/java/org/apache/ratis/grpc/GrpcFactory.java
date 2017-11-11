@@ -19,6 +19,7 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.GrpcClientRpc;
 import org.apache.ratis.grpc.server.GRpcLogAppender;
 import org.apache.ratis.protocol.ClientId;
@@ -48,7 +49,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   @Override
-  public GrpcClientRpc newRaftClientRpc(ClientId clientId) {
-    return new GrpcClientRpc(clientId);
+  public GrpcClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties) {
+    return new GrpcClientRpc(clientId, properties);
   }
 }

@@ -76,7 +76,7 @@ public class RaftGRpcService implements RaftServerRpc {
   private RaftGRpcService(RaftServer server) {
     this(server,
         GrpcConfigKeys.Server.port(server.getProperties()),
-        GrpcConfigKeys.Server.messageSizeMax(server.getProperties()).getSizeInt());
+        GrpcConfigKeys.messageSizeMax(server.getProperties()).getSizeInt());
   }
   private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize) {
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);

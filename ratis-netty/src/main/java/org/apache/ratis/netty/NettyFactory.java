@@ -19,6 +19,7 @@ package org.apache.ratis.netty;
 
 import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.client.NettyClientRpc;
 import org.apache.ratis.netty.server.NettyRpcService;
 import org.apache.ratis.protocol.ClientId;
@@ -40,7 +41,7 @@ public class NettyFactory extends ServerFactory.BaseFactory implements ClientFac
   }
 
   @Override
-  public NettyClientRpc newRaftClientRpc(ClientId clientId) {
+  public NettyClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties) {
     return new NettyClientRpc(clientId);
   }
 }

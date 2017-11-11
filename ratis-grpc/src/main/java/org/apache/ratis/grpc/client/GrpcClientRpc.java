@@ -19,6 +19,8 @@ package org.apache.ratis.grpc.client;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.RaftClientRpcWithProxy;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
@@ -41,9 +43,11 @@ import static org.apache.ratis.client.impl.ClientProtoUtils.*;
 
 public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClient> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientRpc.class);
+  private final int maxMessageSize;
 
-  public GrpcClientRpc(ClientId clientId) {
+  public GrpcClientRpc(ClientId clientId, RaftProperties properties) {
     super(new PeerProxyMap<>(clientId.toString(), RaftClientProtocolClient::new));
+    maxMessageSize = GrpcConfigKeys.messageSizeMax(properties).getSizeInt();
   }
 
   @Override
@@ -66,6 +70,10 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
           proxy.serverInformation(proto));
     } else {
       RaftClientRequestProto requestProto = toRaftClientRequestProto(request);
+      if (requestProto.getSerializedSize() > maxMessageSize) {
+        throw new IOException("msg size:" + requestProto.getSerializedSize() +
+            " exceeds maximum:" + maxMessageSize);
+      }
       CompletableFuture<RaftClientReplyProto> replyFuture =
           new CompletableFuture<>();
       final StreamObserver<RaftClientRequestProto> requestObserver =
