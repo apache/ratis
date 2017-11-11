@@ -40,9 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
@@ -167,18 +165,40 @@ public interface RaftTestUtil {
     }
   }
 
-  static void assertLogEntries(RaftLog log, TermIndex[] entries,
-      long startIndex, long expectedTerm, SimpleMessage... expectedMessages) {
-    Assert.assertEquals(expectedMessages.length, entries.length);
-    for(int i = 0; i < entries.length; i++) {
+  static void assertLogEntries(RaftLog log, long expectedTerm,
+      SimpleMessage... expectedMessages) {
+
+    final TermIndex[] termIndices = log.getEntries(1, Long.MAX_VALUE);
+    final List<LogEntryProto> entries = new ArrayList<>(expectedMessages.length);
+    for (TermIndex ti : termIndices) {
       final LogEntryProto e;
       try {
-        e = log.get(entries[i].getIndex());
+        e = log.get(ti.getIndex());
       } catch (IOException exception) {
-        throw new RuntimeException(exception);
+        throw new AssertionError("Failed to get log at " + ti, exception);
       }
-      Assert.assertEquals(expectedTerm, e.getTerm());
-      Assert.assertEquals(startIndex + i, e.getIndex());
+
+      if (e.getLogEntryBodyCase() == LogEntryProto.LogEntryBodyCase.SMLOGENTRY) {
+        entries.add(e);
+      } else if (e.getLogEntryBodyCase() == LogEntryProto.LogEntryBodyCase.NOOP) {
+        LOG.info("Found " + LogEntryProto.LogEntryBodyCase.NOOP + " at " + ti
+            + ", ignoring it.");
+      } else {
+        throw new AssertionError(
+            "Unexpected LogEntryBodyCase " + e.getLogEntryBodyCase() + " at " + ti);
+      }
+    }
+
+    long logIndex = 0;
+    Assert.assertEquals(expectedMessages.length, entries.size());
+    for (int i = 0; i < expectedMessages.length; i++) {
+      final LogEntryProto e = entries.get(i);
+      Assert.assertTrue(e.getTerm() >= expectedTerm);
+      if (e.getTerm() > expectedTerm) {
+        expectedTerm = e.getTerm();
+      }
+      Assert.assertTrue(e.getIndex() > logIndex);
+      logIndex = e.getIndex();
       Assert.assertArrayEquals(expectedMessages[i].getContent().toByteArray(),
           e.getSmLogEntry().getData().toByteArray());
     }
