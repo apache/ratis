@@ -130,8 +130,10 @@ public abstract class RaftBasicTests extends BaseTest {
     Thread.sleep(cluster.getMaxTimeout() + 100);
     LOG.info(cluster.printAllLogs());
 
-    cluster.getServerAliveStream().map(s -> s.getState().getLog())
-        .forEach(log -> RaftTestUtil.assertLogEntries(log, term, messages));
+    cluster.getServerAliveStream()
+        .map(s -> s.getState().getLog())
+        .forEach(log -> RaftTestUtil.assertLogEntries(log,
+            log.getEntries(1, Long.MAX_VALUE), 1, term, messages));
   }
 
   @Test
@@ -170,8 +172,10 @@ public abstract class RaftBasicTests extends BaseTest {
     final RaftPeerId newLeaderId = waitForLeader(cluster).getId();
     Assert.assertEquals(followerToSendLog.getId(), newLeaderId);
 
-    cluster.getServerAliveStream().map(s -> s.getState().getLog())
-        .forEach(log -> RaftTestUtil.assertLogEntries(log, term, messages));
+    cluster.getServerAliveStream()
+            .map(s -> s.getState().getLog())
+            .forEach(log -> RaftTestUtil.assertLogEntries(log,
+                    log.getEntries(1, 2), 1, term, messages));
     LOG.info("terminating testOldLeaderCommit test");
   }
 
