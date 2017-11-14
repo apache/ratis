@@ -56,6 +56,11 @@ public class TestRaftWithGrpc extends RaftBasicTests {
     BlockRequestHandlingInjection.getInstance().unblockAll();
   }
 
+  @Test
+  public void testBasicAppendEntriesAsync() throws Exception {
+    super.testBasicAppendEntries(true);
+  }
+
   @Override
   @Test
   public void testWithLoad() throws Exception {

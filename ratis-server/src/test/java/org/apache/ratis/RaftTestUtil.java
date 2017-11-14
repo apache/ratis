@@ -165,7 +165,7 @@ public interface RaftTestUtil {
     }
   }
 
-  static void assertLogEntries(RaftLog log, long expectedTerm,
+  static void assertLogEntries(RaftLog log, boolean async, long expectedTerm,
       SimpleMessage... expectedMessages) {
 
     final TermIndex[] termIndices = log.getEntries(1, Long.MAX_VALUE);
@@ -189,6 +189,11 @@ public interface RaftTestUtil {
       }
     }
 
+    if (async) {
+      Collections.sort(entries, Comparator
+          .comparing(e -> e.getSmLogEntry().getData().toStringUtf8()));
+    }
+
     long logIndex = 0;
     Assert.assertEquals(expectedMessages.length, entries.size());
     for (int i = 0; i < expectedMessages.length; i++) {
@@ -197,7 +202,9 @@ public interface RaftTestUtil {
       if (e.getTerm() > expectedTerm) {
         expectedTerm = e.getTerm();
       }
-      Assert.assertTrue(e.getIndex() > logIndex);
+      if (!async) {
+        Assert.assertTrue(e.getIndex() > logIndex);
+      }
       logIndex = e.getIndex();
       Assert.assertArrayEquals(expectedMessages[i].getContent().toByteArray(),
           e.getSmLogEntry().getData().toByteArray());

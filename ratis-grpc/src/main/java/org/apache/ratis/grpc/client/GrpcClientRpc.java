@@ -51,6 +51,20 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
   }
 
   @Override
+  public CompletableFuture<RaftClientReply> sendRequestAsync(
+      RaftClientRequest request) {
+    final RaftPeerId serverId = request.getServerId();
+    try {
+      return sendRequestAsync(request, getProxies().getProxy(serverId));
+    } catch (IOException e) {
+      final CompletableFuture<RaftClientReply> replyFuture =
+          new CompletableFuture<>();
+      replyFuture.completeExceptionally(e);
+      return replyFuture;
+    }
+  }
+
+  @Override
   public RaftClientReply sendRequest(RaftClientRequest request)
       throws IOException {
     final RaftPeerId serverId = request.getServerId();
@@ -74,42 +88,11 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
         throw new IOException("msg size:" + requestProto.getSerializedSize() +
             " exceeds maximum:" + maxMessageSize);
       }
-      CompletableFuture<RaftClientReplyProto> replyFuture =
-          new CompletableFuture<>();
-      final StreamObserver<RaftClientRequestProto> requestObserver =
-          proxy.append(new StreamObserver<RaftClientReplyProto>() {
-            @Override
-            public void onNext(RaftClientReplyProto value) {
-              replyFuture.complete(value);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-              // This implementation is used as RaftClientRpc. Retry
-              // logic on Exception is in RaftClient.
-              final IOException e;
-              if (t instanceof StatusRuntimeException) {
-                e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
-              } else {
-                e = IOUtils.asIOException(t);
-              }
-              replyFuture.completeExceptionally(e);
-            }
-
-            @Override
-            public void onCompleted() {
-              if (!replyFuture.isDone()) {
-                replyFuture.completeExceptionally(
-                    new IOException("No reply for request " + request));
-              }
-            }
-          });
-      requestObserver.onNext(requestProto);
-      requestObserver.onCompleted();
-
+      final CompletableFuture<RaftClientReply> replyFuture =
+                     sendRequestAsync(request, proxy);
       // TODO: timeout support
       try {
-        return toRaftClientReply(replyFuture.get());
+        return replyFuture.get();
       } catch (InterruptedException e) {
         throw new InterruptedIOException(
             "Interrupted while waiting for response of request " + request);
@@ -117,5 +100,45 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
         throw IOUtils.toIOException(e);
       }
     }
+  }
+
+  private CompletableFuture<RaftClientReply> sendRequestAsync(
+      RaftClientRequest request, RaftClientProtocolClient proxy) {
+    final RaftClientRequestProto requestProto =
+        toRaftClientRequestProto(request);
+    final CompletableFuture<RaftClientReplyProto> replyFuture =
+        new CompletableFuture<>();
+    final StreamObserver<RaftClientRequestProto> requestObserver =
+        proxy.append(new StreamObserver<RaftClientReplyProto>() {
+          @Override
+          public void onNext(RaftClientReplyProto value) {
+            replyFuture.complete(value);
+          }
+
+          @Override
+          public void onError(Throwable t) {
+            // This implementation is used as RaftClientRpc. Retry
+            // logic on Exception is in RaftClient.
+            final IOException e;
+            if (t instanceof StatusRuntimeException) {
+              e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
+            } else {
+              e = IOUtils.asIOException(t);
+            }
+            replyFuture.completeExceptionally(e);
+          }
+
+          @Override
+          public void onCompleted() {
+            if (!replyFuture.isDone()) {
+              replyFuture.completeExceptionally(
+                  new IOException("No reply for request " + request));
+            }
+          }
+        });
+    requestObserver.onNext(requestProto);
+    requestObserver.onCompleted();
+
+    return replyFuture.thenApply(replyProto -> toRaftClientReply(replyProto));
   }
 }

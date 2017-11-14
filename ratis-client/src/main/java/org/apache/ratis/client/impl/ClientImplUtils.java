@@ -22,10 +22,7 @@ import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-
-import java.util.Collection;
 
 /** Client utilities for internal use. */
 public class ClientImplUtils {

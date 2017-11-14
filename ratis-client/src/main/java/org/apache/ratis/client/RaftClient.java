@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 /** A client who sends requests to a raft service. */
 public interface RaftClient extends Closeable {
@@ -40,6 +41,16 @@ public interface RaftClient extends Closeable {
 
   /** @return the client rpct. */
   RaftClientRpc getClientRpc();
+
+  /**
+   * Async call to send the given message to the raft service.
+   * The message may change the state of the service.
+   * For readonly messages, use {@link #sendReadOnlyAsync(Message)} instead.
+   */
+  CompletableFuture<RaftClientReply> sendAsync(Message message);
+
+  /** Async call to send the given readonly message to the raft service. */
+  CompletableFuture<RaftClientReply> sendReadOnlyAsync(Message message);
 
   /**
    * Send the given message to the raft service.

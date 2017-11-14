@@ -47,6 +47,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -112,6 +113,10 @@ public abstract class RaftBasicTests extends BaseTest {
 
   @Test
   public void testBasicAppendEntries() throws Exception {
+    testBasicAppendEntries(false);
+  }
+
+  protected void testBasicAppendEntries(boolean async) throws Exception {
     LOG.info("Running testBasicAppendEntries");
     final MiniRaftCluster cluster = getCluster();
     RaftServerImpl leader = waitForLeader(cluster);
@@ -121,9 +126,28 @@ public abstract class RaftBasicTests extends BaseTest {
     LOG.info(cluster.printServers());
 
     final SimpleMessage[] messages = SimpleMessage.create(10);
-    try(final RaftClient client = cluster.createClient()) {
+
+    try (final RaftClient client = cluster.createClient()) {
+      final AtomicInteger asyncReplyCount = new AtomicInteger();
+      final CompletableFuture<Void> f = new CompletableFuture<>();
+
       for (SimpleMessage message : messages) {
-        client.send(message);
+        if (async) {
+          client.sendAsync(message).thenAcceptAsync(reply -> {
+            if (!reply.isSuccess()) {
+              f.completeExceptionally(
+                  new AssertionError("Failed with reply " + reply));
+            } else if (asyncReplyCount.incrementAndGet() == messages.length) {
+              f.complete(null);
+            }
+          });
+        } else {
+          client.send(message);
+        }
+      }
+      if (async) {
+        f.join();
+        Assert.assertEquals(messages.length, asyncReplyCount.get());
       }
     }
 
@@ -131,7 +155,7 @@ public abstract class RaftBasicTests extends BaseTest {
     LOG.info(cluster.printAllLogs());
 
     cluster.getServerAliveStream().map(s -> s.getState().getLog())
-        .forEach(log -> RaftTestUtil.assertLogEntries(log, term, messages));
+        .forEach(log -> RaftTestUtil.assertLogEntries(log, async, term, messages));
   }
 
   @Test
@@ -171,7 +195,7 @@ public abstract class RaftBasicTests extends BaseTest {
     Assert.assertEquals(followerToSendLog.getId(), newLeaderId);
 
     cluster.getServerAliveStream().map(s -> s.getState().getLog())
-        .forEach(log -> RaftTestUtil.assertLogEntries(log, term, messages));
+        .forEach(log -> RaftTestUtil.assertLogEntries(log, false, term, messages));
     LOG.info("terminating testOldLeaderCommit test");
   }
 

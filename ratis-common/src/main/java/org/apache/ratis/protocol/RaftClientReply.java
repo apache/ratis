@@ -93,4 +93,12 @@ public class RaftClientReply extends RaftClientMessage {
   public boolean hasStateMachineException() {
     return exception instanceof StateMachineException;
   }
+
+  public boolean hasGroupMismatchException(){
+    return exception instanceof GroupMismatchException;
+  }
+
+  public RaftException getException(){
+    return exception;
+  }
 }

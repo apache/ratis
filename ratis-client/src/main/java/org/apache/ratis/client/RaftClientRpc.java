@@ -17,16 +17,30 @@
  */
 package org.apache.ratis.client;
 
-import java.io.Closeable;
-import java.io.IOException;
-
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+
 /** The client side rpc of a raft service. */
 public interface RaftClientRpc extends Closeable {
+  /** Async call to send a request. */
+  default CompletableFuture<RaftClientReply> sendRequestAsync(
+      RaftClientRequest request) {
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        return sendRequest(request);
+      } catch (Exception e) {
+        throw new CompletionException(e);
+      }
+    });
+  }
+
   /** Send a request. */
   RaftClientReply sendRequest(RaftClientRequest request) throws IOException;
 
