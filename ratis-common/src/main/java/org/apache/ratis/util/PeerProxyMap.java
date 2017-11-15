@@ -103,12 +103,12 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
 
   public void addPeers(Iterable<RaftPeer> newPeers) {
     for(RaftPeer p : newPeers) {
-      peers.put(p.getId(), new PeerAndProxy(p));
+      computeIfAbsent(p);
     }
   }
 
-  public void putIfAbsent(RaftPeer p) {
-    peers.putIfAbsent(p.getId(), new PeerAndProxy(p));
+  public void computeIfAbsent(RaftPeer p) {
+    peers.computeIfAbsent(p.getId(), k -> new PeerAndProxy(p));
   }
 
   public void resetProxy(RaftPeerId id) {
@@ -117,7 +117,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
       final PeerAndProxy pp = peers.remove(id);
       final RaftPeer peer = pp.getPeer();
       pp.close();
-      peers.put(id, new PeerAndProxy(peer));
+      computeIfAbsent(peer);
     }
   }
 

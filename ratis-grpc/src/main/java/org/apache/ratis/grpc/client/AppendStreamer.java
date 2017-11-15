@@ -380,7 +380,7 @@ public class AppendStreamer implements Closeable {
       // belongs to the current raft conf
       Arrays.stream(newPeers).forEach(peer -> {
         peers.putIfAbsent(peer.getId(), peer);
-        proxyMap.putIfAbsent(peer);
+        proxyMap.computeIfAbsent(peer);
       });
 
       LOG.debug("refreshed peers: {}", peers);
