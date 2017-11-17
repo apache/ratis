@@ -171,7 +171,10 @@ public class ArithmeticStateMachine extends BaseStateMachine {
       updateLatestTermIndex(entry.getTerm(), index);
     }
     final Expression r = Expression.Utils.double2Expression(result);
-    LOG.debug("{}: {} = {}, variables={}", index, assignment, r, variables);
+    LOG.debug("{}-{}: {} = {}", getId(), index, assignment, r);
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("{}-{}: variables={}", getId(), index, variables);
+    }
     return CompletableFuture.completedFuture(Expression.Utils.toMessage(r));
   }
 

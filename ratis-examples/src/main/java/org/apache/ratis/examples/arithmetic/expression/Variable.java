@@ -82,6 +82,14 @@ public class Variable implements Expression {
     return name;
   }
 
+  public AssignmentMessage assign(double value) {
+    return assign(new DoubleValue(value));
+  }
+
+  public AssignmentMessage assign(Expression e) {
+    return new AssignmentMessage(this, e);
+  }
+
   @Override
   public int toBytes(byte[] buf, int offset) {
     System.arraycopy(encoded, 0, buf, offset, encoded.length);

@@ -23,7 +23,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.examples.RaftExamplesTestUtil;
+import org.apache.ratis.examples.ParameterizedBaseTest;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
@@ -72,7 +72,7 @@ public class TestRaftStateMachineException extends BaseTest {
 
   @Parameterized.Parameters
   public static Collection<Object[]> data() throws IOException {
-    return RaftExamplesTestUtil.getMiniRaftClusters(
+    return ParameterizedBaseTest.getMiniRaftClusters(
         StateMachineWithException.class, 3);
   }
 

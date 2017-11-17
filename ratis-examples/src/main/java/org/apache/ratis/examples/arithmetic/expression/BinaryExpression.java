@@ -20,9 +20,10 @@ package org.apache.ratis.examples.arithmetic.expression;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Map;
+import java.util.function.BinaryOperator;
 
 public class BinaryExpression implements Expression {
-  public enum Op {
+  public enum Op implements BinaryOperator<Expression> {
     ADD("+"), SUBTRACT("-"), MULT("*"), DIV("/");
 
     final String symbol;
@@ -33,6 +34,23 @@ public class BinaryExpression implements Expression {
 
     byte byteValue() {
       return (byte) ordinal();
+    }
+
+    @Override
+    public BinaryExpression apply(Expression left, Expression right) {
+      return new BinaryExpression(this, left, right);
+    }
+
+    public BinaryExpression apply(double left, Expression right) {
+      return apply(new DoubleValue(left), right);
+    }
+
+    public BinaryExpression apply(Expression left, double right) {
+      return apply(left, new DoubleValue(right));
+    }
+
+    public BinaryExpression apply(double left, double right) {
+      return apply(new DoubleValue(left), new DoubleValue(right));
     }
 
     @Override

@@ -21,7 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.examples.RaftExamplesTestUtil;
+import org.apache.ratis.examples.ParameterizedBaseTest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -56,7 +56,7 @@ public class TestRestartRaftPeer extends BaseTest {
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("8KB"));
-    return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3);
+    return ParameterizedBaseTest.getMiniRaftClusters(prop, 3);
   }
 
   @Parameterized.Parameter

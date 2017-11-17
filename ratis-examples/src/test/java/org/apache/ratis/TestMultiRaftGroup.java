@@ -20,7 +20,7 @@ package org.apache.ratis;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.examples.RaftExamplesTestUtil;
+import org.apache.ratis.examples.ParameterizedBaseTest;
 import org.apache.ratis.examples.arithmetic.ArithmeticStateMachine;
 import org.apache.ratis.examples.arithmetic.TestArithmetic;
 import org.apache.ratis.protocol.RaftGroup;
@@ -44,7 +44,7 @@ public class TestMultiRaftGroup extends BaseTest {
 
   @Parameterized.Parameters
   public static Collection<Object[]> data() throws IOException {
-    return RaftExamplesTestUtil.getMiniRaftClusters(ArithmeticStateMachine.class, 0);
+    return ParameterizedBaseTest.getMiniRaftClusters(ArithmeticStateMachine.class, 0);
   }
 
   @Parameterized.Parameter

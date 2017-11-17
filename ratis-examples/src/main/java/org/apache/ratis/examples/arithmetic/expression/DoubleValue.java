@@ -56,6 +56,7 @@ public class DoubleValue implements Expression {
 
   @Override
   public String toString() {
-    return String.valueOf(value);
+    final long n = (long)value;
+    return n == value? String.valueOf(n): String.valueOf(value);
   }
 }

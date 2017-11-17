@@ -173,7 +173,12 @@ public abstract class MiniRaftCluster {
   }
 
   public void start() {
-    LOG.info("Starting " + getClass().getSimpleName());
+    LOG.info(".............................................................. ");
+    LOG.info("... ");
+    LOG.info("...     Starting " + getClass().getSimpleName());
+    LOG.info("... ");
+    LOG.info(".............................................................. ");
+
     initServers();
     servers.values().forEach(RaftServer::start);
   }

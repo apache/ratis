@@ -21,7 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.examples.RaftExamplesTestUtil;
+import org.apache.ratis.examples.ParameterizedBaseTest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -65,7 +65,7 @@ public class TestBatchAppend extends BaseTest {
     // set batch appending buffer size to 4KB
     RaftServerConfigKeys.Log.Appender.setBufferCapacity(prop, SizeInBytes.valueOf("4KB"));
 
-    return RaftExamplesTestUtil.getMiniRaftClusters(prop, 3);
+    return ParameterizedBaseTest.getMiniRaftClusters(prop, 3);
   }
 
   @Parameterized.Parameter

@@ -20,15 +20,26 @@ package org.apache.ratis.examples.arithmetic.expression;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.DoubleFunction;
+import java.util.function.UnaryOperator;
 
 public class UnaryExpression implements Expression {
-  public enum Op {
-    NEG("~"), SQRT("√");
+  static final BiFunction<Op, Expression, String> PREFIX_OP_TO_STRING = (op, e) -> op + "" + e;
+  static final BiFunction<Op, Expression, String> POSTFIX_OP_TO_STRING = (op, e) -> e + "" + op;
+
+  public enum Op implements UnaryOperator<Expression>, DoubleFunction<Expression> {
+    NEG("~"), SQRT("√"), SQUARE("^2", POSTFIX_OP_TO_STRING);
 
     final String symbol;
+    final BiFunction<Op, Expression, String> stringFunction;
 
     Op(String symbol) {
+      this(symbol, PREFIX_OP_TO_STRING);
+    }
+    Op(String symbol, BiFunction<Op, Expression, String> stringFunction) {
       this.symbol = symbol;
+      this.stringFunction = stringFunction;
     }
 
     byte byteValue() {
@@ -36,8 +47,22 @@ public class UnaryExpression implements Expression {
     }
 
     @Override
+    public Expression apply(Expression e) {
+      return new UnaryExpression(this, e);
+    }
+
+    @Override
+    public Expression apply(double value) {
+      return new UnaryExpression(this, new DoubleValue(value));
+    }
+
+    @Override
     public String toString() {
       return symbol;
+    }
+
+    public String toString(Expression e) {
+      return stringFunction.apply(this, e);
     }
 
     static final Op[] VALUES = Op.values();
@@ -83,6 +108,8 @@ public class UnaryExpression implements Expression {
         return -value;
       case SQRT:
         return Math.sqrt(value);
+      case SQUARE:
+        return value * value;
       default:
         throw new AssertionError("Unexpected op value: " + op);
     }
@@ -90,6 +117,6 @@ public class UnaryExpression implements Expression {
 
   @Override
   public String toString() {
-    return op + " " + expression;
+    return op.toString(expression);
   }
 }

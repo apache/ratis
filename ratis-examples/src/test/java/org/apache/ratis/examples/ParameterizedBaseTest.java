@@ -17,21 +17,51 @@
  */
 package org.apache.ratis.examples;
 
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.MiniRaftClusterWithGRpc;
 import org.apache.ratis.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.ratis.netty.MiniRaftClusterWithNetty;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.statemachine.StateMachine;
+import org.junit.AfterClass;
+import org.junit.Test;
+import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
-public class RaftExamplesTestUtil {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftExamplesTestUtil.class);
+public class ParameterizedBaseTest extends BaseTest {
+  public static final Logger LOG = LoggerFactory.getLogger(ParameterizedBaseTest.class);
+
+  /** For {@link Parameterized} test so that a cluster can be shared by multiple {@link Test} */
+  private static final AtomicReference<MiniRaftCluster> currentCluster = new AtomicReference<>();
+
+  /** Set {@link #currentCluster} to the given cluster and start it if {@link #currentCluster} is changed. */
+  public static void setAndStart(MiniRaftCluster cluster) throws InterruptedException {
+    final MiniRaftCluster previous = currentCluster.getAndSet(cluster);
+    if (previous != cluster) {
+      if (previous != null) {
+        previous.shutdown();
+      }
+
+      cluster.start();
+      RaftTestUtil.waitForLeader(cluster);
+    }
+  }
+
+  @AfterClass
+  public static void shutdownCurrentCluster() {
+    final MiniRaftCluster cluster = currentCluster.getAndSet(null);
+    if (cluster != null) {
+      cluster.shutdown();
+    }
+  }
 
   private static void add(
       Collection<Object[]> clusters, MiniRaftCluster.Factory factory,
