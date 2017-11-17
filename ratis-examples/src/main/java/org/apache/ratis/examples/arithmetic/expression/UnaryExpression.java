@@ -20,6 +20,7 @@ package org.apache.ratis.examples.arithmetic.expression;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.DoubleFunction;
 import java.util.function.UnaryOperator;
@@ -71,6 +72,10 @@ public class UnaryExpression implements Expression {
       Preconditions.assertTrue(b < VALUES.length);
       return VALUES[b];
     }
+
+    public String getSymbol() {
+      return symbol;
+    }
   }
 
   final Op op;
@@ -113,6 +118,20 @@ public class UnaryExpression implements Expression {
       default:
         throw new AssertionError("Unexpected op value: " + op);
     }
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    UnaryExpression that = (UnaryExpression) o;
+    return op == that.op &&
+        Objects.equals(expression, that.expression);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(expression);
   }
 
   @Override

@@ -20,6 +20,7 @@ package org.apache.ratis.examples.arithmetic.expression;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BinaryOperator;
 
 public class BinaryExpression implements Expression {
@@ -63,6 +64,10 @@ public class BinaryExpression implements Expression {
     static Op valueOf(byte b) {
       Preconditions.assertTrue(b < VALUES.length);
       return VALUES[b];
+    }
+
+    public String getSymbol() {
+      return symbol;
     }
   }
 
@@ -117,5 +122,20 @@ public class BinaryExpression implements Expression {
   @Override
   public String toString() {
     return "(" + left + " " + op + " " + right + ")";
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    BinaryExpression that = (BinaryExpression) o;
+    return op == that.op &&
+        Objects.equals(left, that.left) &&
+        Objects.equals(right, that.right);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(op);
   }
 }

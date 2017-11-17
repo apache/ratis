@@ -20,6 +20,7 @@ package org.apache.ratis.examples.arithmetic.expression;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Map;
+import java.util.Objects;
 
 public class DoubleValue implements Expression {
   public static final DoubleValue ZERO = new DoubleValue(0);
@@ -58,5 +59,18 @@ public class DoubleValue implements Expression {
   public String toString() {
     final long n = (long)value;
     return n == value? String.valueOf(n): String.valueOf(value);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    DoubleValue that = (DoubleValue) o;
+    return Double.compare(that.value, value) == 0;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(value);
   }
 }
