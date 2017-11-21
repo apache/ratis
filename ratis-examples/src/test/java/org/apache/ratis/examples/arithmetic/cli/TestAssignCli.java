@@ -17,37 +17,40 @@
  */
 package org.apache.ratis.examples.arithmetic.cli;
 
-import org.apache.ratis.examples.arithmetic.expression.BinaryExpression;
 import org.apache.ratis.examples.arithmetic.expression.DoubleValue;
-import org.apache.ratis.examples.arithmetic.expression.UnaryExpression;
 import org.apache.ratis.examples.arithmetic.expression.Variable;
 import org.junit.Assert;
 import org.junit.Test;
 
-public class AssignTest {
+import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.ADD;
+import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.Op.MULT;
+import static org.apache.ratis.examples.arithmetic.expression.UnaryExpression.Op.SQRT;
+
+public class TestAssignCli {
   @Test
   public void createExpression() throws Exception {
-    //  Assert.assertEquals(new DoubleValue(2.0), new Assign().createExpression("2.0"));
+    Assert.assertEquals(
+        new DoubleValue(2.0),
+        new Assign().createExpression("2.0"));
 
     Assert.assertEquals(
-        new BinaryExpression(BinaryExpression.Op.MULT, new DoubleValue(2.0), new Variable("a")),
+        MULT.apply(2.0, new Variable("a")),
         new Assign().createExpression("2*a"));
 
     Assert.assertEquals(
-        new BinaryExpression(BinaryExpression.Op.ADD, new DoubleValue(2.0), new DoubleValue(1.0)),
+        ADD.apply(2.0, 1.0),
         new Assign().createExpression("2+1"));
 
     Assert.assertEquals(
-        new BinaryExpression(BinaryExpression.Op.ADD, new Variable("a"), new Variable("b")),
+        ADD.apply(new Variable("a"), new Variable("b")),
         new Assign().createExpression("a+b"));
 
     Assert.assertEquals(
-        new UnaryExpression(UnaryExpression.Op.SQRT, new Variable("a")),
+        SQRT.apply(new Variable("a")),
         new Assign().createExpression("√a"));
 
     Assert.assertEquals(
-        new UnaryExpression(UnaryExpression.Op.SQRT, new DoubleValue(2.0)),
+        SQRT.apply(2.0),
         new Assign().createExpression("√2"));
   }
-
 }

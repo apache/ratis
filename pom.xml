@@ -41,17 +41,19 @@
   </licenses>
 
   <modules>
-    <module>ratis-assembly</module>
-    <module>ratis-client</module>
-    <module>ratis-common</module>
-    <module>ratis-examples</module>
-    <module>ratis-grpc</module>
-    <module>ratis-hadoop</module>
-    <module>ratis-hadoop-shaded</module>
-    <module>ratis-netty</module>
     <module>ratis-proto-shaded</module>
-    <module>ratis-replicated-map</module>
+    <module>ratis-common</module>
+    <module>ratis-client</module>
     <module>ratis-server</module>
+
+    <module>ratis-grpc</module>
+    <module>ratis-netty</module>
+    <module>ratis-hadoop-shaded</module>
+    <module>ratis-hadoop</module>
+
+    <module>ratis-assembly</module>
+    <module>ratis-examples</module>
+    <module>ratis-replicated-map</module>
   </modules>
 
   <pluginRepositories>
