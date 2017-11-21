@@ -20,10 +20,7 @@ package org.apache.ratis;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftGroup;
-import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
@@ -47,6 +44,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
 public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
@@ -370,6 +369,22 @@ public abstract class MiniRaftCluster {
     return b.toString();
   }
 
+  public RaftServerImpl getLeaderAndSendFirstMessage() throws IOException {
+    return getLeaderAndSendFirstMessage(false);
+  }
+
+  public RaftServerImpl getLeaderAndSendFirstMessage(boolean ignoreException) throws IOException {
+    final RaftServerImpl leader = getLeader();
+    try(RaftClient client = createClient(leader.getId())) {
+      client.send(new RaftTestUtil.SimpleMessage("first msg to make leader ready"));
+    } catch (IOException e) {
+      if (!ignoreException) {
+        throw e;
+      }
+    }
+    return leader;
+  }
+
   public RaftServerImpl getLeader() {
     return getLeader((RaftGroupId)null);
   }
@@ -464,6 +479,27 @@ public abstract class MiniRaftCluster {
         .setProperties(properties)
         .setParameters(parameters)
         .build();
+  }
+
+  public RaftClientRequest newRaftClientRequest(
+      ClientId clientId, RaftPeerId leaderId, Message message) {
+    return new RaftClientRequest(clientId, leaderId, getGroupId(),
+        DEFAULT_CALLID, message);
+  }
+
+  public SetConfigurationRequest newSetConfigurationRequest(
+      ClientId clientId, RaftPeerId leaderId,
+      RaftPeer... peers) throws IOException {
+    return new SetConfigurationRequest(clientId, leaderId, getGroupId(),
+        DEFAULT_CALLID, peers);
+  }
+
+  public void setConfiguration(RaftPeer... peers) throws IOException {
+    final RaftServerImpl leader = getLeader();
+    final SetConfigurationRequest r = newSetConfigurationRequest(
+        ClientId.randomId(), leader.getId(), peers);
+    LOG.info("Start changing the configuration: {}", r);
+    leader.setConfiguration(r);
   }
 
   public void shutdown() {

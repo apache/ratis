@@ -20,12 +20,12 @@ package org.apache.ratis.server.simulation;
 import java.io.IOException;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.RaftRetryCacheTests;
+import org.apache.ratis.RetryCacheTests;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.LogUtils;
 
-public class TestRetryCacheWithSimulatedRpc extends RaftRetryCacheTests {
+public class TestRetryCacheWithSimulatedRpc extends RetryCacheTests {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);

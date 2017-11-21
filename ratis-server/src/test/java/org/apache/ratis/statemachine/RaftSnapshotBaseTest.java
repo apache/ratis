@@ -24,10 +24,8 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
@@ -46,8 +44,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.List;
-
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
 public abstract class RaftSnapshotBaseTest extends BaseTest {
   static {
@@ -197,10 +193,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
           new String[]{"s3", "s4"}, true);
       // trigger setConfiguration
-      SetConfigurationRequest request = new SetConfigurationRequest(ClientId.randomId(),
-          cluster.getLeader().getId(), cluster.getGroupId(), DEFAULT_CALLID, change.allPeersInNewConf);
-      LOG.info("Start changing the configuration: {}", request);
-      cluster.getLeader().setConfiguration(request);
+      cluster.setConfiguration(change.allPeersInNewConf);
 
       RaftServerTestUtil.waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
     } finally {

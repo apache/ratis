@@ -53,7 +53,7 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         FileStoreStateMachine.class, StateMachine.class);
     ConfUtils.setFile(p::setFile, FileStoreCommon.STATEMACHINE_DIR_KEY,
-        new File(BaseTest.getRootTestDir(), "filestore"));
+        new File(getClassTestDir(), "filestore"));
   }
 
   static final int NUM_PEERS = 3;

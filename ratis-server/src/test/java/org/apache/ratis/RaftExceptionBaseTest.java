@@ -21,19 +21,19 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.util.LogUtils;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
-
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
 public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -95,10 +95,8 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     reply= null;
     for (int i = 0; reply == null && i < 10; i++) {
       try {
-        reply = rpc.sendRequest(
-            new RaftClientRequest(ClientId.randomId(), leaderId,
-                cluster.getGroupId(), DEFAULT_CALLID,
-                new SimpleMessage("m2")));
+        reply = rpc.sendRequest(cluster.newRaftClientRequest(
+            ClientId.randomId(), leaderId, new SimpleMessage("m2")));
       } catch (IOException ignored) {
         Thread.sleep(1000);
       }
@@ -142,10 +140,8 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     // it is possible that the remote peer's rpc server is not ready. need retry
     for (int i = 0; reply == null && i < 10; i++) {
       try {
-        reply = rpc.sendRequest(
-            new RaftClientRequest(ClientId.randomId(), leaderId,
-                cluster.getGroupId(), DEFAULT_CALLID,
-                new SimpleMessage("m1")));
+        reply = rpc.sendRequest(cluster.newRaftClientRequest(
+            ClientId.randomId(), leaderId, new SimpleMessage("m1")));
       } catch (IOException ignored) {
         Thread.sleep(1000);
       }

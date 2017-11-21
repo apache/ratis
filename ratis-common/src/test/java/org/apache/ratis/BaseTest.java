@@ -25,6 +25,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
 import org.junit.Rule;
+import org.junit.rules.TestName;
 import org.junit.rules.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +45,9 @@ public abstract class BaseTest {
 
   @Rule
   public final Timeout globalTimeout = new Timeout(getGlobalTimeoutSeconds() * 1000);
+
+  @Rule
+  public final TestName testName = new TestName();
 
   public int getGlobalTimeoutSeconds() {
     return 100;
@@ -66,12 +70,12 @@ public abstract class BaseTest {
     return rootTestDir.get();
   }
 
-  public static File getClassTestDir(Class<?> caller) {
-    return new File(getRootTestDir(), caller.getSimpleName());
+  public File getClassTestDir() {
+    return new File(getRootTestDir(), getClass().getSimpleName());
   }
 
   public File getTestDir() {
-    return getClassTestDir(getClass());
+    return new File(getClassTestDir(), testName.getMethodName());
   }
 
   public static void testFailureCase(

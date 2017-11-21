@@ -18,14 +18,14 @@
 package org.apache.ratis.hadooprpc;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.RaftRetryCacheTests;
+import org.apache.ratis.RetryCacheTests;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.LogUtils;
 
 import java.io.IOException;
 
-public class TestRetryCacheWithHadoopRpc extends RaftRetryCacheTests {
+public class TestRetryCacheWithHadoopRpc extends RetryCacheTests {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);

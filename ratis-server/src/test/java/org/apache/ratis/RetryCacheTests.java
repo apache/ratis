@@ -18,6 +18,7 @@
 package org.apache.ratis;
 
 import org.apache.ratis.MiniRaftCluster.PeerChanges;
+import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
@@ -25,7 +26,6 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.junit.After;
@@ -36,9 +36,8 @@ import org.junit.Test;
 import java.io.IOException;
 
 import static java.util.Arrays.asList;
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 
-public abstract class RaftRetryCacheTests extends BaseTest {
+public abstract class RetryCacheTests extends BaseTest {
   public static final int NUM_SERVERS = 3;
   protected static final RaftProperties properties = new RaftProperties();
 
@@ -71,11 +70,11 @@ public abstract class RaftRetryCacheTests extends BaseTest {
     final MiniRaftCluster cluster = getCluster();
     RaftTestUtil.waitForLeader(cluster);
 
-    final RaftPeerId leaderId = cluster.getLeader().getId();
-    RaftClient client = cluster.createClient(leaderId);
-    client.send(new RaftTestUtil.SimpleMessage("first msg to make leader ready"));
+
+    final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage().getId();
     long oldLastApplied = cluster.getLeader().getState().getLastAppliedIndex();
 
+    final RaftClient client = cluster.createClient(leaderId);
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
@@ -106,6 +105,7 @@ public abstract class RaftRetryCacheTests extends BaseTest {
       Assert.assertEquals(oldLastApplied + 1,
           server.getState().getLastAppliedIndex());
     }
+    client.close();
   }
 
   /**
@@ -116,10 +116,8 @@ public abstract class RaftRetryCacheTests extends BaseTest {
     final MiniRaftCluster cluster = getCluster();
     RaftTestUtil.waitForLeader(cluster);
 
-    final RaftPeerId leaderId = cluster.getLeader().getId();
-    RaftClient client = cluster.createClient(leaderId);
-    client.send(new RaftTestUtil.SimpleMessage("first msg to make leader ready"));
-
+    final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage().getId();
+    final RaftClient client = cluster.createClient(leaderId);
     RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
@@ -134,11 +132,7 @@ public abstract class RaftRetryCacheTests extends BaseTest {
     RaftPeer[] allPeers = cluster.removePeers(2, true,
         asList(change.newPeers)).allPeersInNewConf;
     // trigger setConfiguration
-    SetConfigurationRequest request = new SetConfigurationRequest(
-        client.getId(), cluster.getLeader().getId(), cluster.getGroupId(),
-        DEFAULT_CALLID, allPeers);
-    LOG.info("Start changing the configuration: {}", request);
-    cluster.getLeader().setConfiguration(request);
+    cluster.setConfiguration(allPeers);
 
     RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId newLeaderId = cluster.getLeader().getId();
@@ -162,5 +156,6 @@ public abstract class RaftRetryCacheTests extends BaseTest {
     // check the new leader and make sure the retry did not get committed
     Assert.assertEquals(oldLastApplied + 3,
         cluster.getLeader().getState().getLastAppliedIndex());
+    client.close();
   }
 }

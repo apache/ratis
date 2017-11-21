@@ -40,7 +40,6 @@ import static org.apache.ratis.examples.arithmetic.expression.BinaryExpression.O
 import static org.apache.ratis.examples.arithmetic.expression.UnaryExpression.Op.SQRT;
 import static org.apache.ratis.examples.arithmetic.expression.UnaryExpression.Op.SQUARE;
 
-@RunWith(Parameterized.class)
 public class TestArithmetic extends ParameterizedBaseTest {
   {
     LogUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.DEBUG);

@@ -28,6 +28,7 @@ import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.statemachine.StateMachine;
 import org.junit.AfterClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
+@RunWith(Parameterized.class)
 public class ParameterizedBaseTest extends BaseTest {
   public static final Logger LOG = LoggerFactory.getLogger(ParameterizedBaseTest.class);
 
@@ -93,14 +95,14 @@ public class ParameterizedBaseTest extends BaseTest {
     if (isAll || classes.contains(MiniRaftClusterWithSimulatedRpc.class)) {
       add(clusters, MiniRaftClusterWithSimulatedRpc.FACTORY, ids.next(), prop);
     }
-    if (isAll || classes.contains(MiniRaftClusterWithHadoopRpc.class)) {
-      add(clusters, MiniRaftClusterWithHadoopRpc.FACTORY, ids.next(), prop);
+    if (isAll || classes.contains(MiniRaftClusterWithGRpc.class)) {
+      add(clusters, MiniRaftClusterWithGRpc.FACTORY, ids.next(), prop);
     }
     if (isAll || classes.contains(MiniRaftClusterWithNetty.class)) {
       add(clusters, MiniRaftClusterWithNetty.FACTORY, ids.next(), prop);
     }
-    if (isAll || classes.contains(MiniRaftClusterWithGRpc.class)) {
-      add(clusters, MiniRaftClusterWithGRpc.FACTORY, ids.next(), prop);
+    if (isAll || classes.contains(MiniRaftClusterWithHadoopRpc.class)) {
+      add(clusters, MiniRaftClusterWithHadoopRpc.FACTORY, ids.next(), prop);
     }
     for(int i = 0; i < clusters.size(); i++) {
       LOG.info(i + ": " + clusters.get(i)[0].getClass().getSimpleName());
