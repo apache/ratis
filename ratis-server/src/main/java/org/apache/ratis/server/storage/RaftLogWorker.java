@@ -17,7 +17,10 @@
  */
 package org.apache.ratis.server.storage;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.RatisMetricsRegistry;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -35,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.*;
+import java.util.function.Supplier;
 
 /**
  * This class takes the responsibility of all the raft log related I/O ops for a
@@ -55,6 +59,7 @@ class RaftLogWorker implements Runnable {
   private volatile LogOutputStream out;
   private final RaftServerImpl raftServer;
   private final StateMachine stateMachine;
+  private final Supplier<Timer> logFlushTimer;
 
   /**
    * The number of entries that have been written into the LogOutputStream but
@@ -89,6 +94,9 @@ class RaftLogWorker implements Runnable {
         RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
     this.workerThread = new Thread(this, name);
+    this.logFlushTimer = JavaUtils.memoize(() -> RatisMetricsRegistry.getRegistry()
+        .timer(MetricRegistry.name(RaftLogWorker.class, raftServer.getId().toString(),
+            "flush-time")));
   }
 
   void start(long latestIndex, File openSegmentFile) throws IOException {
@@ -208,7 +216,12 @@ class RaftLogWorker implements Runnable {
   private void flushWrites() throws IOException {
     if (out != null) {
       LOG.debug("flush data to " + out + ", reset pending_sync_number to 0");
-      out.flush();
+      final Timer.Context timerContext = logFlushTimer.get().time();
+      try {
+        out.flush();
+      } finally {
+        timerContext.stop();
+      }
       updateFlushedIndex();
     }
   }
