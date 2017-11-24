@@ -30,3 +30,17 @@ function personality_globals
   #shellcheck disable=SC2034
   GITHUB_REPO="apache/incubator-ratis"
 }
+
+
+## @description  Queue up modules for this personality
+## @audience     private
+## @stability    evolving
+## @param        repostatus
+## @param        testtype
+function personality_modules
+{
+  #Ratis is not a big project, we can always run everything on the whole project.
+  #Especially as we need the generated sources and shaded client.
+  clear_personality_queue
+  personality_enqueue_module .
+}
