@@ -99,6 +99,10 @@ public class RetryCache implements Closeable {
       return isFailed() || replyFuture.isDone();
     }
 
+    boolean isCompletedNormally() {
+      return !failed && replyFuture.isDone() && !replyFuture.isCompletedExceptionally() && !replyFuture.isCancelled();
+    }
+
     void updateResult(RaftClientReply reply) {
       assert !replyFuture.isDone() && !replyFuture.isCancelled();
       replyFuture.complete(reply);
@@ -162,7 +166,7 @@ public class RetryCache implements Closeable {
     } catch (ExecutionException e) {
       throw new IllegalStateException(e);
     }
-    Preconditions.assertTrue(entry != null && !entry.isDone(),
+    Preconditions.assertTrue(entry != null && !entry.isCompletedNormally(),
         "retry cache entry should be pending: %s", entry);
     return entry;
   }

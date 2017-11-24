@@ -21,6 +21,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.CollectionUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.protocol.*;
 
@@ -49,13 +50,14 @@ final class RaftClientImpl implements RaftClient {
   private volatile RaftPeerId leaderId;
 
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
+  private final Semaphore asyncRequestSemaphore = new Semaphore(100);
 
   RaftClientImpl(ClientId clientId, RaftGroup group,
       RaftPeerId leaderId, RaftClientRpc clientRpc,
       TimeDuration retryInterval) {
     this.clientId = clientId;
     this.clientRpc = clientRpc;
-    this.peers = new ArrayList<>(group.getPeers());
+    this.peers = new ConcurrentLinkedQueue<>(group.getPeers());
     this.groupId = group.getGroupId();
     this.leaderId = leaderId != null? leaderId
         : !peers.isEmpty()? peers.iterator().next().getId(): null;
@@ -82,15 +84,21 @@ final class RaftClientImpl implements RaftClient {
   private CompletableFuture<RaftClientReply> sendAsync(Message message,
       boolean readOnly) {
     Objects.requireNonNull(message, "message == null");
+    try {
+      asyncRequestSemaphore.acquire();
+    } catch (InterruptedException e) {
+      throw new CompletionException(IOUtils.toInterruptedIOException(
+          "Interrupted when sending " + message, e));
+    }
     final long callId = nextCallId();
     return sendRequestWithRetryAsync(
         () -> new RaftClientRequest(clientId, leaderId, groupId, callId, message, readOnly)
-    ).thenApplyAsync(reply -> {
+    ).thenApply(reply -> {
       if (reply.hasStateMachineException() || reply.hasGroupMismatchException()) {
         throw new CompletionException(reply.getException());
       }
       return reply;
-    });
+    }).whenComplete((r, e) -> asyncRequestSemaphore.release());
   }
 
   @Override
@@ -188,7 +196,7 @@ final class RaftClientImpl implements RaftClient {
   private CompletableFuture<RaftClientReply> sendRequestAsync(
       RaftClientRequest request) {
     LOG.debug("{}: sendAsync {}", clientId, request);
-    return clientRpc.sendRequestAsync(request).thenApplyAsync(reply -> {
+    return clientRpc.sendRequestAsync(request).thenApply(reply -> {
       LOG.debug("{}: receive {}", clientId, reply);
       if (reply != null && reply.isNotLeader()) {
         handleNotLeaderException(request, reply.getNotLeaderException());
@@ -197,7 +205,7 @@ final class RaftClientImpl implements RaftClient {
       return reply;
     }).exceptionally(e -> {
       final Throwable cause = e.getCause();
-      if (cause instanceof RaftException) {
+      if (cause instanceof GroupMismatchException) {
         return new RaftClientReply(request, (RaftException) cause);
       } else if (cause instanceof IOException) {
         handleIOException(request, (IOException) cause, null);
@@ -267,6 +275,11 @@ final class RaftClientImpl implements RaftClient {
       LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);
       this.leaderId = newLeader;
     }
+  }
+
+  void assertAsyncRequestSemaphore(int expectedAvailablePermits, int expectedQueueLength) {
+    Preconditions.assertTrue(asyncRequestSemaphore.availablePermits() == expectedAvailablePermits);
+    Preconditions.assertTrue(asyncRequestSemaphore.getQueueLength() == expectedQueueLength);
   }
 
   @Override

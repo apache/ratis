@@ -45,6 +45,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Semaphore;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -77,6 +78,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
 
   private volatile boolean running = true;
+  private boolean blockTransaction = false;
+  private final Semaphore blockingSemaphore = new Semaphore(1);
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
 
   SimpleStateMachine4Testing() {
@@ -225,6 +228,16 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   @Override
   public TransactionContext startTransaction(RaftClientRequest request)
       throws IOException {
+    if (blockTransaction) {
+      try {
+        //blocks until blockTransaction is set to false
+        blockingSemaphore.acquire();
+        blockingSemaphore.release();
+      } catch (InterruptedException e) {
+        LOG.error("Could not block applyTransaction", e);
+        Thread.currentThread().interrupt();
+      }
+    }
     return new TransactionContext(this, request, SMLogEntryProto.newBuilder()
         .setData(request.getMessage().getContent())
         .build());
@@ -245,5 +258,14 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   public LogEntryProto[] getContent() {
     return list.toArray(new LogEntryProto[list.size()]);
+  }
+
+  public void setBlockTransaction(boolean blockTransactionVal) throws InterruptedException {
+    this.blockTransaction = blockTransactionVal;
+    if (blockTransactionVal) {
+      blockingSemaphore.acquire();
+    } else {
+      blockingSemaphore.release();
+    }
   }
 }
