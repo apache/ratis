@@ -1,0 +1,196 @@
+<!--
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License. See accompanying LICENSE file.
+-->
+{{ partial "header.html" . }}
+<div class="main-section">
+    <div class="container">
+              <div class="row">
+                <div class="col-md-8 col-md-offset-2">
+                <div class="panel panel-default">
+                    <div class="panel-heading">Disclaimer</div>
+                      <div class="panel-body">
+                          <img class="pull-right" src="apache_incubator.png" alt="Apache Incubator"></img>
+                          Apache Ratis is an effort undergoing <a href="https://incubator.apache.org">incubation</a> at
+                          <a href="https://www.apache.org">The Apache Software Foundation (ASF)</a>, sponsored by the Apache Incubator PMC.
+                          Incubation is required of all newly accepted projects until a further review indicates that the infrastructure,
+                          communications, and decision making process have stabilized in a manner consistent with other successful ASF projects.
+                          While incubation status is not necessarily a reflection of the completeness or stability of the code,
+                          it does indicate that the project has yet to be fully endorsed by the ASF.
+                      </div>
+                    </div>
+                  </div>
+              </div>
+    </div>
+</div>
+
+<div class="whatis bg-light">
+    <div class="container">
+        <div class="row header">
+            <h2>What is Apache Ratis&trade;?</h2>
+            <p class="lead">
+                Apache Ratis is a highly customizable Raft protocol implementation in Java.</p>
+            <p class="lead"><a href="https://raft.github.io/">Raft</a> is a easily understandable consensus algorithm to manage replicated state.</p>
+            <p class="lead">Apache Ratis could be used in any Java application where state should be replicated between multiple instances.</p>
+            </p>
+            <p></p>
+        </div>
+    </div>
+</div>
+
+
+<div class="main-section feature-list-group">
+    <div class="container">
+        <div class="row feature-list">
+            <h2>Features</h2>
+            <div class="col-md-4 col-sm-4 feature-item">
+                <span class="glyphicon glyphicon-transfer" aria-hidden="true"></span>
+                <i class="fa fa-5x fa-fw m-y-3 text-info fa-child"></i>
+                <h4>Pluggable transport</h4>
+                <p>
+                    Ratis provides a pluggable transport layer. By default gRPC, Netty+Protobuf and Apache Hadoop RPC based transports are provided.
+                </p>
+                <p>
+
+                </p>
+                <p></p>
+            </div>
+            <div class="col-md-4 col-sm-4 feature-item">
+                <span class="glyphicon glyphicon-log-in" aria-hidden="true"></span>
+                <h4>Pluggable state machine</h4>
+                <p>
+                    Ratis supports a log and state machine. State machine typically contains the data that you want to make highly avialable. Ratis makes it easy to use your own state machine.
+                </p>
+            </div>
+            <div class="col-md-4 col-sm-4 feature-item">
+                <span class="glyphicon glyphicon-tasks" aria-hidden="true"></span>
+                <h4>Pluggable raft log</h4>
+                <p>RAFT log is also pluggable, users can provide their own log implementation. The default
+                    implementation
+                    stores log in local files.</p>
+                <p>
+                    Application can define the polices of how to write data and where it should be written easily.
+                </p>
+            </div>
+
+
+        </div><!-- /.feature-list -->
+
+
+    </div><!-- /.container -->
+</div><!-- /.feature-list-group -->
+
+
+<a name="news"></a>
+<div class="main-section bg-light">
+    <div class="container">
+        <div class="row header">
+            <h2>Latest news</h2>
+            {{ range where .Data.Pages "Section" "post" }}
+            <div class="panel-heading clearfix"><a class="pull-left" href="{{.URL}}">{{.Title}}</a>
+                <small class="pull-right">{{dateFormat "2006 Jan 2 " .Date}}</small>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<a name="download"></a>
+<div class="main-section">
+    <div class="container">
+        <div class="row header">
+            <h2>Download</h2>
+
+            <p>Apache Ratis is a Java <b>library</b> that can be used directly from your applications.</p>
+
+            <p>It is released as source code tarballs. The downloads are distributed via mirror sites and should be checked
+                for tampering using <a href="https://www.apache.org/info/verification.html">GPG or SHA-256</a></p>
+            <p>
+
+            <p>The source tarball contains detailed instruction about how can it be built.</p>
+
+            <p>The binaries are also uploaded to the maven central for convenience. (See the getting started guide for more details)</p>
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>Release date</th>
+                    <th>Source download</th>
+                    <th>Announcement</th>
+                </tr>
+                </thead>
+                {{range first 5 (where .Site.Pages ".Params.type" "release")}}
+                <tr>
+                    <td>{{.BaseFileName }}</td>
+                    <td>{{dateFormat "2006 Jan 2 " .Date}}</td>
+                    <td>
+                        <a href="https://www.apache.org/dyn/closer.cgi/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-src.tar.gz">source</a>
+                        (<a href="https://dist.apache.org/repos/dist/release/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-src.tar.gz.asc">checksum</a>
+                        <a href="https://dist.apache.org/repos/dist/release/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-src.tar.gz.mds">signature</a>)
+                    </td>
+                  
+                    <td>
+                        <a href="post/{{.BaseFileName }}.html">Announcement</a>
+                    </td>
+                </tr>
+                {{end}}
+            </table>
+            </p>
+
+
+        </div>
+    </div>
+</div>
+
+<a name="gettingstarted"></a>
+<div class="main-section bg-light">
+    <div class="container">
+        <div class="row header">
+            {{range where .Site.Pages "Title" "Getting started"}}
+            <h2>{{.Title}}</h2>
+            {{.Content}}
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<a name="community"></a>
+<div class="main-section">
+    <div class="container">
+        <div class="row header">
+            {{range where .Site.Pages "Title" "Community"}}
+            <h2>{{.Title}}</h2>
+            {{.Content}}
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<a name="source"></a>
+<div class="main-section bg-light">
+    <div class="container">
+        <div class="row header">
+            {{range where .Site.Pages "Title" "Source"}}
+            <h2>{{.Title}}</h2>
+            {{.Content}}
+            {{end}}
+        </div>
+    </div>
+</div>
+
+<a name="source"></a>
+
+
+
+
+
+{{ partial "footer.html" . }}

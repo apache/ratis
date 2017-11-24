@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl"?>
+<rdf:RDF xml:lang="en"
+         xmlns="http://usefulinc.com/ns/doap#"
+         xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:asfext="http://projects.apache.org/ns/asfext#"
+         xmlns:foaf="http://xmlns.com/foaf/0.1/">
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+  <Project rdf:about="https://ratis.incubator.apache.org">
+    <created>2017-12-01</created>
+    <license rdf:resource="http://www.apache.org/licenses/LICENSE-2.0" />
+    <name>Apache Ratis</name>
+    <homepage rdf:resource="https://ratis.incubator.apache.org" />
+    <asfext:pmc rdf:resource="https://ratis.incubator.apache.org" />
+    <shortdesc>Apache Ratis is a Raft library in Java.</shortdesc>
+    <description>Apache Ratis is a higly customizable RAFT protocol implementation in Java supporting pluggable transport, state machine and raft log.</description>
+    <bug-database rdf:resource="https://issues.apache.org/jira/browse/RATIS" />
+    <mailing-list rdf:resource="https://ratis.incubator.apache.org/#community" />
+    <download-page rdf:resource="https://ratis.incubator.apache.org/#download" />
+    <programming-language>Java</programming-language>
+    <category rdf:resource="http://projects.apache.org/category/big-data" />
+    <category rdf:resource="http://projects.apache.org/category/library" />
+  </Project>
+</rdf:RDF>
