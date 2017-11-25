@@ -94,8 +94,12 @@ class RaftLogWorker implements Runnable {
         RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
     this.workerThread = new Thread(this, name);
+
+    // Server Id can be null in unit tests
+    Supplier<String> serverId = () -> raftServer == null || raftServer.getId() == null
+        ? "null" : raftServer.getId().toString();
     this.logFlushTimer = JavaUtils.memoize(() -> RatisMetricsRegistry.getRegistry()
-        .timer(MetricRegistry.name(RaftLogWorker.class, raftServer.getId().toString(),
+        .timer(MetricRegistry.name(RaftLogWorker.class, serverId.get(),
             "flush-time")));
   }
 
