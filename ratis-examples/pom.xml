@@ -143,7 +143,69 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>license-maven-plugin</artifactId>
+        <version>1.10</version>
+        <configuration>
+          <canUpdateCopyright>false</canUpdateCopyright>
+          <roots>
+            <root>${project.basedir}</root>
+          </roots>
+        </configuration>
+        <executions>
+          <execution>
+            <id>update-pom-license</id>
+            <goals>
+              <goal>update-file-header</goal>
+            </goals>
+            <phase>package</phase>
+            <configuration>
+              <licenseName>apache_v2</licenseName>
+              <includes>
+                <include>dependency-reduced-pom.xml</include>
+              </includes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>clean-shade</id>
+      <activation>
+        <property>
+          <name>!skipCleanShade</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>shaded-clean</id>
+                <goals>
+                  <goal>clean</goal>
+                </goals>
+                <phase>clean</phase>
+                <configuration>
+                  <filesets>
+                    <fileset>
+                      <directory>.</directory>
+                      <includes>
+                        <include>dependency-reduced-pom.xml</include>
+                      </includes>
+                      <followSymlinks>false</followSymlinks>
+                    </fileset>
+                  </filesets>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
-    
