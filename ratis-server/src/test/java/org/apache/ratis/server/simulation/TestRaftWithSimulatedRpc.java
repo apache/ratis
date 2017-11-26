@@ -22,7 +22,6 @@ import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.LogUtils;
-import org.junit.Test;
 
 import java.io.IOException;
 
@@ -44,8 +43,4 @@ public class TestRaftWithSimulatedRpc extends RaftBasicTests {
     return cluster;
   }
 
-  @Test
-  public void testBasicAppendEntriesAsync() throws Exception {
-    super.testBasicAppendEntries(true);
-  }
 }

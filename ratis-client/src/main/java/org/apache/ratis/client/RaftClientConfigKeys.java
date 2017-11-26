@@ -39,6 +39,34 @@ public interface RaftClientConfigKeys {
     }
   }
 
+  interface Async {
+    String PREFIX = RaftClientConfigKeys.PREFIX + ".async";
+
+    String MAX_OUTSTANDING_REQUESTS_KEY = PREFIX + ".outstanding-requests.max";
+    int MAX_OUTSTANDING_REQUESTS_DEFAULT = 100;
+
+    static int maxOutstandingRequests(RaftProperties properties) {
+      return getInt(properties::getInt, MAX_OUTSTANDING_REQUESTS_KEY,
+          MAX_OUTSTANDING_REQUESTS_DEFAULT, requireMin(2));
+    }
+
+    static void setMaxOutstandingRequests(RaftProperties properties, int outstandingRequests) {
+      setInt(properties::setInt, MAX_OUTSTANDING_REQUESTS_KEY, outstandingRequests);
+    }
+
+    String SCHEDULER_THREADS_KEY = PREFIX + ".scheduler-threads";
+    int SCHEDULER_THREADS_DEFAULT = 3;
+
+    static int schedulerThreads(RaftProperties properties) {
+      return getInt(properties::getInt, SCHEDULER_THREADS_KEY,
+          SCHEDULER_THREADS_DEFAULT);
+    }
+
+    static void setSchedulerThreads(RaftProperties properties, int schedulerThreads) {
+      setInt(properties::setInt, SCHEDULER_THREADS_KEY, schedulerThreads);
+    }
+  }
+
   static void main(String[] args) {
     printAll(RaftClientConfigKeys.class);
   }

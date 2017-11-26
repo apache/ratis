@@ -18,7 +18,9 @@
 package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.Preconditions;
@@ -49,12 +51,11 @@ final class RaftClientImpl implements RaftClient {
 
   private volatile RaftPeerId leaderId;
 
-  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(3);
-  private final Semaphore asyncRequestSemaphore = new Semaphore(100);
+  private final ScheduledExecutorService scheduler;
+  private final Semaphore asyncRequestSemaphore;
 
-  RaftClientImpl(ClientId clientId, RaftGroup group,
-      RaftPeerId leaderId, RaftClientRpc clientRpc,
-      TimeDuration retryInterval) {
+  RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId,
+      RaftClientRpc clientRpc, TimeDuration retryInterval, RaftProperties properties) {
     this.clientId = clientId;
     this.clientRpc = clientRpc;
     this.peers = new ConcurrentLinkedQueue<>(group.getPeers());
@@ -62,7 +63,8 @@ final class RaftClientImpl implements RaftClient {
     this.leaderId = leaderId != null? leaderId
         : !peers.isEmpty()? peers.iterator().next().getId(): null;
     this.retryInterval = retryInterval;
-
+    asyncRequestSemaphore = new Semaphore(RaftClientConfigKeys.Async.maxOutstandingRequests(properties));
+    scheduler = Executors.newScheduledThreadPool(RaftClientConfigKeys.Async.schedulerThreads(properties));
     clientRpc.addServers(peers);
   }
 
@@ -280,6 +282,10 @@ final class RaftClientImpl implements RaftClient {
   void assertAsyncRequestSemaphore(int expectedAvailablePermits, int expectedQueueLength) {
     Preconditions.assertTrue(asyncRequestSemaphore.availablePermits() == expectedAvailablePermits);
     Preconditions.assertTrue(asyncRequestSemaphore.getQueueLength() == expectedQueueLength);
+  }
+
+  void assertScheduler(int numThreads) {
+    Preconditions.assertTrue(((ScheduledThreadPoolExecutor) scheduler).getCorePoolSize() == numThreads);
   }
 
   @Override

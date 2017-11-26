@@ -106,7 +106,7 @@ public interface RaftClient extends Closeable {
           Objects.requireNonNull(group, "The 'group' field is not initialized."),
           leaderId,
           Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."),
-          retryInterval);
+          retryInterval, properties);
     }
 
     /** Set {@link RaftClient} ID. */

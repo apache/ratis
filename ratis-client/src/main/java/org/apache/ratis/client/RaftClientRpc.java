@@ -25,20 +25,12 @@ import org.apache.ratis.protocol.RaftPeerId;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 
 /** The client side rpc of a raft service. */
 public interface RaftClientRpc extends Closeable {
   /** Async call to send a request. */
-  default CompletableFuture<RaftClientReply> sendRequestAsync(
-      RaftClientRequest request) {
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        return sendRequest(request);
-      } catch (Exception e) {
-        throw new CompletionException(e);
-      }
-    });
+  default CompletableFuture<RaftClientReply> sendRequestAsync(RaftClientRequest request) {
+    throw new UnsupportedOperationException(getClass() + " does not support this method.");
   }
 
   /** Send a request. */

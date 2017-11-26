@@ -25,4 +25,8 @@ public interface RaftClientTestUtil {
       RaftClient client, int expectedAvailablePermits, int expectedQueueLength) {
     ((RaftClientImpl) client).assertAsyncRequestSemaphore(expectedAvailablePermits, expectedQueueLength);
   }
+
+  static void assertScheduler(RaftClient client, int numThreads){
+    ((RaftClientImpl) client).assertScheduler(numThreads);
+  }
 }

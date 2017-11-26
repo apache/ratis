@@ -19,16 +19,16 @@ package org.apache.ratis;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.LogUtils;
 import org.junit.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.*;
@@ -43,37 +43,48 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  {
-    final RaftProperties p = getProperties();
-    p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        SimpleStateMachine4Testing.class, StateMachine.class);
-  }
+  private RaftProperties properties;
 
-  private static final Logger LOG = LoggerFactory.getLogger(RaftAsyncTests.class);
-
-  public static final int NUM_SERVERS = 5;
-
-  private CLUSTER cluster = null;
+  public static final int NUM_SERVERS = 3;
 
   @Before
   public void setup() throws IOException {
-    cluster = newCluster(NUM_SERVERS);
-    Assert.assertNull(cluster.getLeader());
-    cluster.start();
+    properties = new RaftProperties();
+    properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        SimpleStateMachine4Testing.class, StateMachine.class);
   }
 
-  @After
-  public void tearDown() {
-    cluster.shutdown();
+  @Test
+  public void testAsyncConfiguration(){
+    LOG.info("Running testAsyncConfiguration");
+    RaftClient.Builder clientBuilder = RaftClient.newBuilder()
+        .setRaftGroup(RaftGroup.emptyGroup())
+        .setProperties(properties);
+    RaftClient client = clientBuilder.build();
+    int numThreads = RaftClientConfigKeys.Async.SCHEDULER_THREADS_DEFAULT;
+    int maxOutstandingRequests = RaftClientConfigKeys.Async.MAX_OUTSTANDING_REQUESTS_DEFAULT;
+    RaftClientTestUtil.assertScheduler(client, numThreads);
+    RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
+
+    numThreads = 200;
+    maxOutstandingRequests = 5;
+    RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties, maxOutstandingRequests);
+    RaftClientConfigKeys.Async.setSchedulerThreads(properties, numThreads);
+    client = clientBuilder.build();
+    RaftClientTestUtil.assertScheduler(client, numThreads);
+    RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
   }
 
   @Test
   public void testAsyncRequestSemaphore()
       throws InterruptedException, IOException {
-    LOG.info("Running testBasicAppendEntries");
+    LOG.info("Running testAsyncRequestSemaphore");
+    CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+    Assert.assertNull(cluster.getLeader());
+    cluster.start();
     waitForLeader(cluster);
 
-    int numMessages = 100;
+    int numMessages = RaftClientConfigKeys.Async.maxOutstandingRequests(properties);
     CompletableFuture[] futures = new CompletableFuture[numMessages + 1];
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numMessages);
     final RaftClient client = cluster.createClient();
@@ -115,5 +126,6 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       futures[i].join();
     }
     Assert.assertTrue(blockedRequestsCount.get() == 0);
+    cluster.shutdown();
   }
 }
