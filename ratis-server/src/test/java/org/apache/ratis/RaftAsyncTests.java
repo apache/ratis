@@ -55,24 +55,32 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   }
 
   @Test
-  public void testAsyncConfiguration(){
+  public void testAsyncConfiguration() throws IOException {
     LOG.info("Running testAsyncConfiguration");
     RaftClient.Builder clientBuilder = RaftClient.newBuilder()
         .setRaftGroup(RaftGroup.emptyGroup())
         .setProperties(properties);
-    RaftClient client = clientBuilder.build();
     int numThreads = RaftClientConfigKeys.Async.SCHEDULER_THREADS_DEFAULT;
     int maxOutstandingRequests = RaftClientConfigKeys.Async.MAX_OUTSTANDING_REQUESTS_DEFAULT;
-    RaftClientTestUtil.assertScheduler(client, numThreads);
-    RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
+    try(RaftClient client = clientBuilder.build()) {
+      RaftClientTestUtil.assertScheduler(client, numThreads);
+      RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
+    }
 
     numThreads = 200;
     maxOutstandingRequests = 5;
     RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties, maxOutstandingRequests);
     RaftClientConfigKeys.Async.setSchedulerThreads(properties, numThreads);
-    client = clientBuilder.build();
-    RaftClientTestUtil.assertScheduler(client, numThreads);
-    RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
+    try(RaftClient client = clientBuilder.build()) {
+      RaftClientTestUtil.assertScheduler(client, numThreads);
+      RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
+    }
+
+    // reset to default for other tests.
+    RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties,
+        RaftClientConfigKeys.Async.MAX_OUTSTANDING_REQUESTS_DEFAULT);
+    RaftClientConfigKeys.Async.setSchedulerThreads(properties,
+        RaftClientConfigKeys.Async.SCHEDULER_THREADS_DEFAULT);
   }
 
   @Test
@@ -126,6 +134,16 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       futures[i].join();
     }
     Assert.assertTrue(blockedRequestsCount.get() == 0);
+    cluster.shutdown();
+  }
+
+  @Test
+  public void testBasicAppendEntriesAsync() throws Exception {
+    LOG.info("Running testBasicAppendEntriesAsync");
+    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+    cluster.start();
+    waitForLeader(cluster);
+    RaftBasicTests.runTestBasicAppendEntries(true, 10, cluster, LOG);
     cluster.shutdown();
   }
 }

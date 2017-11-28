@@ -46,6 +46,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
 public abstract class MiniRaftCluster {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
@@ -325,6 +326,7 @@ public abstract class MiniRaftCluster {
   }
 
   public void killServer(RaftPeerId id) {
+    LOG.info("killServer " + id);
     servers.get(id).close();
   }
 
@@ -484,7 +486,7 @@ public abstract class MiniRaftCluster {
   public RaftClientRequest newRaftClientRequest(
       ClientId clientId, RaftPeerId leaderId, Message message) {
     return new RaftClientRequest(clientId, leaderId, getGroupId(),
-        DEFAULT_CALLID, message);
+        DEFAULT_CALLID, DEFAULT_SEQNUM, message);
   }
 
   public SetConfigurationRequest newSetConfigurationRequest(

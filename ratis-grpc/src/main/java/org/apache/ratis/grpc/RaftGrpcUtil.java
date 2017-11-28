@@ -17,20 +17,20 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.shaded.io.grpc.Metadata;
 import org.apache.ratis.shaded.io.grpc.Status;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.util.CheckedSupplier;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.ReflectionUtils;
 import org.apache.ratis.util.StringUtils;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 
 public interface RaftGrpcUtil {
@@ -38,6 +38,13 @@ public interface RaftGrpcUtil {
       Metadata.Key.of("exception-type", Metadata.ASCII_STRING_MARSHALLER);
 
   static StatusRuntimeException wrapException(Throwable t) {
+    Objects.requireNonNull(t, "t == null");
+    if (t instanceof CompletionException) {
+      if (t.getCause() != null) {
+        t = t.getCause();
+      }
+    }
+
     Metadata trailers = new Metadata();
     trailers.put(EXCEPTION_TYPE_KEY, t.getClass().getCanonicalName());
     return new StatusRuntimeException(

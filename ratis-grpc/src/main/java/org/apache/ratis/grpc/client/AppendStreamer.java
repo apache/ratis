@@ -156,7 +156,7 @@ public class AppendStreamer implements Closeable {
     if (isRunning()) {
       // wrap the current buffer into a RaftClientRequestProto
       final RaftClientRequestProto request = ClientProtoUtils.toRaftClientRequestProto(
-          clientId, leaderId, groupId, seqNum, content, false);
+          clientId, leaderId, groupId, seqNum, seqNum, content, false);
       if (request.getSerializedSize() > maxMessageSize) {
         throw new IOException("msg size:" + request.getSerializedSize() +
             " exceeds maximum:" + maxMessageSize);
@@ -219,6 +219,7 @@ public class AppendStreamer implements Closeable {
             }
           }
           if (running == RunningState.RUNNING) {
+            Preconditions.assertTrue(!dataQueue.isEmpty(), "dataQueue is empty");
             RaftClientRequestProto next = dataQueue.poll();
             leaderProxy.onNext(next);
             ackQueue.offer(next);
@@ -261,14 +262,14 @@ public class AppendStreamer implements Closeable {
         return;
       }
       synchronized (AppendStreamer.this) {
-        RaftClientRequestProto pending = Objects.requireNonNull(
-            ackQueue.peek());
+        RaftClientRequestProto pending = Objects.requireNonNull(ackQueue.peek());
         if (reply.getRpcReply().getSuccess()) {
-          Preconditions.assertTrue(pending.getRpcRequest().getCallId() ==
-              reply.getRpcReply().getCallId());
+          Preconditions.assertTrue(pending.getRpcRequest().getCallId() == reply.getRpcReply().getCallId(),
+              () -> "pending=" + ClientProtoUtils.toString(pending) + " but reply=" + ClientProtoUtils.toString(reply));
           ackQueue.poll();
-          LOG.trace("{} received success ack for request {}", this,
-              pending.getRpcRequest());
+          if (LOG.isTraceEnabled()) {
+            LOG.trace("{} received success ack for {}", this, ClientProtoUtils.toString(pending));
+          }
           // we've identified the correct leader
           if (running == RunningState.LOOK_FOR_LEADER) {
             running = RunningState.RUNNING;
@@ -288,6 +289,7 @@ public class AppendStreamer implements Closeable {
 
     @Override
     public void onError(Throwable t) {
+      LOG.warn(this + " onError", t);
       if (active) {
         synchronized (AppendStreamer.this) {
           handleError(t, this);
@@ -361,14 +363,11 @@ public class AppendStreamer implements Closeable {
     if (isRunning()) {
       // resend all the pending requests
       while (!ackQueue.isEmpty()) {
-        RaftClientRequestProto oldRequest = ackQueue.pollLast();
-        RaftRpcRequestProto r = oldRequest.getRpcRequest();
-        RaftClientRequestProto newRequest = RaftClientRequestProto.newBuilder()
-            .setMessage(oldRequest.getMessage())
-            .setReadOnly(oldRequest.getReadOnly())
-            .setRpcRequest(ClientProtoUtils.toRaftRpcRequestProtoBuilder(
-                clientId, newLeader, groupId, r.getCallId()))
-            .build();
+        final RaftClientRequestProto oldRequest = ackQueue.pollLast();
+        final RaftRpcRequestProto.Builder newRpc = RaftRpcRequestProto.newBuilder(oldRequest.getRpcRequest())
+            .setReplyId(newLeader.toByteString());
+        final RaftClientRequestProto newRequest = RaftClientRequestProto.newBuilder(oldRequest)
+            .setRpcRequest(newRpc).build();
         dataQueue.offerFirst(newRequest);
       }
     }

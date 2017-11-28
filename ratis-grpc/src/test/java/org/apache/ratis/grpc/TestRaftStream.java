@@ -21,14 +21,16 @@ import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.util.LogUtils;
-import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.grpc.client.AppendStreamer;
 import org.apache.ratis.grpc.client.RaftOutputStream;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.shaded.proto.RaftProtos;
+import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.StringUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -39,6 +41,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
@@ -75,7 +78,8 @@ public class TestRaftStream extends BaseTest {
 
   @Test
   public void testSimpleWrite() throws Exception {
-    LOG.info("Running testSimpleWrite");
+    final int numRequests = 500;
+    LOG.info("Running testSimpleWrite, numRequests=" + numRequests);
 
     // default 64K is too large for a test
     GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(4));
@@ -84,20 +88,17 @@ public class TestRaftStream extends BaseTest {
     cluster.start();
     RaftServerImpl leader = waitForLeader(cluster);
 
-    final Random r = new Random();
-    final long seed = r.nextLong();
-    r.setSeed(seed);
     try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.randomId(),
         cluster.getGroup(), leader.getId())) {
-      for (int i = 0; i < 500; i++) { // generate 500 requests
-        out.write(toBytes(r.nextInt()));
+      for (int i = 0; i < numRequests; i++) { // generate requests
+        out.write(toBytes(i));
       }
     }
 
     // check the leader's raft log
     final RaftLog raftLog = leader.getState().getLog();
-    r.setSeed(seed);
-    checkLog(raftLog, 500, () -> toBytes(r.nextInt()));
+    final AtomicInteger i = new AtomicInteger();
+    checkLog(raftLog, numRequests, () -> toBytes(i.getAndIncrement()));
   }
 
   private void checkLog(RaftLog raftLog, long expectedCommittedIndex,
@@ -107,10 +108,11 @@ public class TestRaftStream extends BaseTest {
     // check the log content
     TermIndex[] entries = raftLog.getEntries(1, expectedCommittedIndex + 1);
     for (TermIndex entry : entries) {
-      byte[] logData = raftLog.get(entry.getIndex()).getSmLogEntry().getData().toByteArray();
+      RaftProtos.LogEntryProto log  = raftLog.get(entry.getIndex());
+      byte[] logData = log.getSmLogEntry().getData().toByteArray();
       byte[] expected = s.get();
-      Assert.assertEquals("log entry: " + entry,
-          expected.length, logData.length);
+      LOG.info("log " + entry + " " + log.getLogEntryBodyCase() + " " + StringUtils.bytes2HexString(logData));
+      Assert.assertEquals(expected.length, logData.length);
       Assert.assertArrayEquals(expected, logData);
     }
   }
@@ -262,7 +264,7 @@ public class TestRaftStream extends BaseTest {
     final RaftServerImpl leader = waitForLeader(cluster);
 
     final AtomicBoolean running  = new AtomicBoolean(true);
-    final AtomicBoolean success = new AtomicBoolean(false);
+    final AtomicReference<Boolean> success = new AtomicReference<>();
     final AtomicInteger result = new AtomicInteger(0);
     final CountDownLatch latch = new CountDownLatch(1);
 
@@ -294,6 +296,7 @@ public class TestRaftStream extends BaseTest {
 
     running.set(false);
     latch.await(5, TimeUnit.SECONDS);
+    LOG.info("Writer success? " + success.get());
     Assert.assertTrue(success.get());
     // total number of tx should be >= result + 2, where 2 means two NoOp from
     // leaders. It may be larger than result+2 because the client may resend

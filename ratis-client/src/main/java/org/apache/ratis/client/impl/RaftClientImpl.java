@@ -51,6 +51,7 @@ final class RaftClientImpl implements RaftClient {
 
   private volatile RaftPeerId leaderId;
 
+  private final AtomicLong asyncSeqNum = new AtomicLong();
   private final ScheduledExecutorService scheduler;
   private final Semaphore asyncRequestSemaphore;
 
@@ -66,6 +67,10 @@ final class RaftClientImpl implements RaftClient {
     asyncRequestSemaphore = new Semaphore(RaftClientConfigKeys.Async.maxOutstandingRequests(properties));
     scheduler = Executors.newScheduledThreadPool(RaftClientConfigKeys.Async.schedulerThreads(properties));
     clientRpc.addServers(peers);
+  }
+
+  private long nextSeqNum() {
+    return asyncSeqNum.getAndIncrement() & Long.MAX_VALUE;
   }
 
   @Override
@@ -93,8 +98,9 @@ final class RaftClientImpl implements RaftClient {
           "Interrupted when sending " + message, e));
     }
     final long callId = nextCallId();
+    final long seqNum = nextSeqNum();
     return sendRequestWithRetryAsync(
-        () -> new RaftClientRequest(clientId, leaderId, groupId, callId, message, readOnly)
+        () -> new RaftClientRequest(clientId, leaderId, groupId, callId, seqNum, message, readOnly)
     ).thenApply(reply -> {
       if (reply.hasStateMachineException() || reply.hasGroupMismatchException()) {
         throw new CompletionException(reply.getException());
@@ -118,7 +124,7 @@ final class RaftClientImpl implements RaftClient {
 
     final long callId = nextCallId();
     return sendRequestWithRetry(() -> new RaftClientRequest(
-        clientId, leaderId, groupId, callId, message, readOnly));
+        clientId, leaderId, groupId, callId, 0L, message, readOnly));
   }
 
   @Override

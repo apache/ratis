@@ -38,6 +38,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.apache.ratis.server.storage.RaftLog;
+import org.slf4j.Logger;
 
 
 import static org.apache.ratis.RaftTestUtil.*;
@@ -113,19 +114,19 @@ public abstract class RaftBasicTests extends BaseTest {
 
   @Test
   public void testBasicAppendEntries() throws Exception {
-    testBasicAppendEntries(false);
+    runTestBasicAppendEntries(false, 10, getCluster(), LOG);
   }
 
-  protected void testBasicAppendEntries(boolean async) throws Exception {
-    LOG.info("Running testBasicAppendEntries");
-    final MiniRaftCluster cluster = getCluster();
+  static void runTestBasicAppendEntries(
+      boolean async, int numMessages, MiniRaftCluster cluster, Logger LOG) throws Exception {
+    LOG.info("runTestBasicAppendEntries: async? " + async + ", numMessages=" + numMessages);
     RaftServerImpl leader = waitForLeader(cluster);
     final long term = leader.getState().getCurrentTerm();
-    final RaftPeerId killed = cluster.getFollowers().get(3).getId();
+    final RaftPeerId killed = cluster.getFollowers().get(0).getId();
     cluster.killServer(killed);
     LOG.info(cluster.printServers());
 
-    final SimpleMessage[] messages = SimpleMessage.create(10);
+    final SimpleMessage[] messages = SimpleMessage.create(numMessages);
 
     try (final RaftClient client = cluster.createClient()) {
       final AtomicInteger asyncReplyCount = new AtomicInteger();

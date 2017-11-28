@@ -53,7 +53,7 @@ class PendingRequests {
 
     PendingRequest remove(long index) {
       final PendingRequest r = map.remove(index);
-      LOG.debug("{}: PendingRequests.remove{} returns {}", name, index, r);
+      LOG.debug("{}: PendingRequests.remove {} returns {}", name, index, r);
       return r;
     }
 

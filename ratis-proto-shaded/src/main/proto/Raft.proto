@@ -76,16 +76,19 @@ message TermIndexProto {
 message RaftRpcRequestProto {
   bytes requestorId = 1;
   bytes replyId = 2;
-  uint64 callId = 3;
-  RaftGroupIdProto raftGroupId = 4;
+  RaftGroupIdProto raftGroupId = 3;
+  uint64 callId = 4;
+
+  uint64 seqNum = 15;
 }
 
 message RaftRpcReplyProto {
   bytes requestorId = 1;
   bytes replyId = 2;
-  uint64 callId = 3;
-  bool success = 4;
-  RaftGroupIdProto raftGroupId = 5;
+  RaftGroupIdProto raftGroupId = 3;
+  uint64 callId = 4;
+
+  bool success = 15;
 }
 
 message FileChunkProto {

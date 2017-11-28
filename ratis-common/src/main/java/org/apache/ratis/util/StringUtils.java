@@ -19,6 +19,7 @@ package org.apache.ratis.util;
 
 import org.apache.ratis.shaded.com.google.common.collect.Interner;
 import org.apache.ratis.shaded.com.google.common.collect.Interners;
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -62,6 +63,21 @@ public class StringUtils {
   /** The same as String.format(Locale.ENGLISH, format, objects). */
   public static String format(final String format, final Object... objects) {
     return String.format(Locale.ENGLISH, format, objects);
+  }
+
+  public static String bytes2HexShortString(ByteString bytes) {
+    final int size = bytes.size();
+    if (size > 10) {
+      // return only the first 10 bytes
+      return bytes2HexString(bytes.substring(0, 10)) + "...(size=" + size + ")";
+    } else {
+      return bytes2HexString(bytes);
+    }
+  }
+
+  public static String bytes2HexString(ByteString bytes) {
+    Objects.requireNonNull(bytes, "bytes == null");
+    return bytes2HexString(bytes.asReadOnlyByteBuffer());
   }
 
   public static String bytes2HexString(byte[] bytes) {

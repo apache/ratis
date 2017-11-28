@@ -19,10 +19,7 @@ package org.apache.ratis.grpc.client;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.RaftGrpcUtil;
-import org.apache.ratis.protocol.RaftClientAsynchronousProtocol;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
@@ -33,18 +30,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase {
   static final Logger LOG = LoggerFactory.getLogger(RaftClientProtocolService.class);
 
   private static class PendingAppend implements Comparable<PendingAppend> {
-    private final long callId;
+    private final RaftClientRequest request;
     private volatile RaftClientReply reply;
 
-    PendingAppend(long callId) {
-      this.callId = callId;
+    PendingAppend(RaftClientRequest request) {
+      this.request = request;
     }
 
     boolean isReady() {
@@ -55,17 +51,25 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
       this.reply = reply;
     }
 
+    RaftClientRequest getRequest() {
+      return request;
+    }
+
+    long getSeqNum() {
+      return request != null? request.getSeqNum(): Long.MAX_VALUE;
+    }
+
     @Override
-    public int compareTo(PendingAppend p) {
-      return callId == p.callId ? 0 : (callId < p.callId ? -1 : 1);
+    public int compareTo(PendingAppend that) {
+      return Long.compare(this.getSeqNum(), that.getSeqNum());
     }
 
     @Override
     public String toString() {
-      return callId + ", reply:" + (reply == null ? "null" : reply.toString());
+      return request != null? getSeqNum() + ":" + reply: "COMPLETED";
     }
   }
-  private static final PendingAppend COMPLETED = new PendingAppend(Long.MAX_VALUE);
+  private static final PendingAppend COMPLETED = new PendingAppend(null);
 
   private final Supplier<RaftPeerId> idSupplier;
   private final RaftClientAsynchronousProtocol protocol;
@@ -105,31 +109,30 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     @Override
     public void onNext(RaftClientRequestProto request) {
       try {
-        PendingAppend p = new PendingAppend(request.getRpcRequest().getCallId());
+        final RaftClientRequest r = ClientProtoUtils.toRaftClientRequest(request);
+        final PendingAppend p = new PendingAppend(r);
+        final long replySeq = p.getSeqNum();
         synchronized (pendingList) {
           pendingList.add(p);
         }
 
-        CompletableFuture<RaftClientReply> future = protocol.submitClientRequestAsync(
-            ClientProtoUtils.toRaftClientRequest(request));
-        future.whenCompleteAsync((reply, exception) -> {
+        protocol.submitClientRequestAsync(r
+        ).whenCompleteAsync((reply, exception) -> {
           if (exception != null) {
             // TODO: the exception may be from either raft or state machine.
             // Currently we skip all the following responses when getting an
             // exception from the state machine.
             responseObserver.onError(RaftGrpcUtil.wrapException(exception));
           } else {
-            final long replySeq = reply.getCallId();
             synchronized (pendingList) {
               Preconditions.assertTrue(!pendingList.isEmpty(),
-                  "PendingList is empty when handling onNext for callId %s",
-                  replySeq);
-              final long headSeqNum = pendingList.get(0).callId;
-              // we assume the callId is consecutive for a stream RPC call
+                  "PendingList is empty when handling onNext for seqNum %s", replySeq);
+              final long headSeqNum = pendingList.get(0).getSeqNum();
+              // stream seqNum is consecutive
               final PendingAppend pendingForReply = pendingList.get(
                   (int) (replySeq - headSeqNum));
               Preconditions.assertTrue(pendingForReply != null &&
-                      pendingForReply.callId == replySeq,
+                      pendingForReply.getSeqNum() == replySeq,
                   "pending for reply is: %s, the pending list: %s",
                   pendingForReply, pendingList);
               pendingForReply.setReply(reply);

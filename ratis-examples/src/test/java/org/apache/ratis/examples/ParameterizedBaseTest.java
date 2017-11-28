@@ -38,8 +38,14 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 @RunWith(Parameterized.class)
-public class ParameterizedBaseTest extends BaseTest {
+public abstract class ParameterizedBaseTest extends BaseTest {
   public static final Logger LOG = LoggerFactory.getLogger(ParameterizedBaseTest.class);
+
+  /** Subclasses should override this method to provide real data parameters. */
+  @Parameterized.Parameters
+  public static Collection<Object[]> data() throws IOException {
+    return Collections.emptyList();
+  }
 
   /** For {@link Parameterized} test so that a cluster can be shared by multiple {@link Test} */
   private static final AtomicReference<MiniRaftCluster> currentCluster = new AtomicReference<>();

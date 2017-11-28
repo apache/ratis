@@ -70,15 +70,15 @@ public abstract class RetryCacheTests extends BaseTest {
     final MiniRaftCluster cluster = getCluster();
     RaftTestUtil.waitForLeader(cluster);
 
-
     final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage().getId();
     long oldLastApplied = cluster.getLeader().getState().getLastAppliedIndex();
 
     final RaftClient client = cluster.createClient(leaderId);
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
+    final long seqNum = 111;
     RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
-        cluster.getGroupId(), callId, new RaftTestUtil.SimpleMessage("message"));
+        cluster.getGroupId(), callId, seqNum, new SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertEquals(callId, reply.getCallId());
     Assert.assertTrue(reply.isSuccess());
@@ -117,11 +117,13 @@ public abstract class RetryCacheTests extends BaseTest {
     RaftTestUtil.waitForLeader(cluster);
 
     final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage().getId();
+
     final RaftClient client = cluster.createClient(leaderId);
     RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
+    final long seqNum = 111;
     RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
-        cluster.getGroupId(), callId, new RaftTestUtil.SimpleMessage("message"));
+        cluster.getGroupId(), callId, seqNum, new SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertEquals(callId, reply.getCallId());
     Assert.assertTrue(reply.isSuccess());
@@ -139,7 +141,7 @@ public abstract class RetryCacheTests extends BaseTest {
     Assert.assertNotEquals(leaderId, newLeaderId);
     // same clientId and callId in the request
     r = new RaftClientRequest(client.getId(), newLeaderId, cluster.getGroupId(),
-        callId, new RaftTestUtil.SimpleMessage("message"));
+        callId, seqNum, new SimpleMessage("message"));
     for (int i = 0; i < 10; i++) {
       try {
         reply = rpc.sendRequest(r);

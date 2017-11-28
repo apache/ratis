@@ -22,6 +22,7 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
+import org.apache.ratis.util.StringUtils;
 
 import java.util.Arrays;
 
@@ -42,18 +43,19 @@ public class ClientProtoUtils {
   }
 
   public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      ByteString requesterId, ByteString replyId, RaftGroupId groupId, long callId) {
+      ByteString requesterId, ByteString replyId, RaftGroupId groupId, long callId, long seqNum) {
     return RaftRpcRequestProto.newBuilder()
         .setRequestorId(requesterId)
         .setReplyId(replyId)
         .setRaftGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId))
-        .setCallId(callId);
+        .setCallId(callId)
+        .setSeqNum(seqNum);
   }
 
   public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
-      ClientId requesterId, RaftPeerId replyId, RaftGroupId groupId, long callId) {
+      ClientId requesterId, RaftPeerId replyId, RaftGroupId groupId, long callId, long seqNum) {
     return toRaftRpcRequestProtoBuilder(
-        requesterId.toByteString(), replyId.toByteString(), groupId, callId);
+        requesterId.toByteString(), replyId.toByteString(), groupId, callId, seqNum);
   }
 
   private static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
@@ -62,7 +64,8 @@ public class ClientProtoUtils {
         request.getClientId(),
         request.getServerId(),
         request.getRaftGroupId(),
-        request.getCallId());
+        request.getCallId(),
+        request.getSeqNum());
   }
 
   public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
@@ -72,6 +75,7 @@ public class ClientProtoUtils {
         RaftPeerId.valueOf(request.getReplyId()),
         ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
         request.getCallId(),
+        request.getSeqNum(),
         toMessage(p.getMessage()), p.getReadOnly());
   }
 
@@ -86,10 +90,10 @@ public class ClientProtoUtils {
 
   public static RaftClientRequestProto toRaftClientRequestProto(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
-      ByteString content, boolean readOnly) {
+      long seqNum, ByteString content, boolean readOnly) {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(
-            clientId, serverId, groupId, callId))
+            clientId, serverId, groupId, callId, seqNum))
         .setMessage(toClientMessageEntryProtoBuilder(content))
         .setReadOnly(readOnly)
         .build();
@@ -204,7 +208,17 @@ public class ClientProtoUtils {
   }
 
   private static Message toMessage(final ClientMessageEntryProto p) {
-    return p::getContent;
+    return new Message() {
+      @Override
+      public ByteString getContent() {
+        return p.getContent();
+      }
+
+      @Override
+      public String toString() {
+        return StringUtils.bytes2HexShortString(getContent());
+      }
+    };
   }
 
   private static ClientMessageEntryProto.Builder toClientMessageEntryProtoBuilder(ByteString message) {
@@ -269,5 +283,17 @@ public class ClientProtoUtils {
     return ServerInformationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .build();
+  }
+
+  public static String toString(RaftClientRequestProto proto) {
+    final RaftRpcRequestProto rpc = proto.getRpcRequest();
+    return ClientId.valueOf(rpc.getRequestorId()) + "->" + rpc.getReplyId().toStringUtf8()
+        + "#" + rpc.getCallId() + "-" + rpc.getSeqNum();
+  }
+
+  public static String toString(RaftClientReplyProto proto) {
+    final RaftRpcReplyProto rpc = proto.getRpcReply();
+    return ClientId.valueOf(rpc.getRequestorId()) + "<-" + rpc.getReplyId().toStringUtf8()
+        + "#" + rpc.getCallId();
   }
 }
