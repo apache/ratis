@@ -39,6 +39,7 @@ public class TestRaftWithHadoopRpc extends RaftBasicTests {
   public TestRaftWithHadoopRpc() throws IOException {
     final Configuration conf = new Configuration();
     HadoopConfigKeys.Ipc.setHandlers(conf, 20);
+    conf.setInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, 0);
     conf.setInt(CommonConfigurationKeys.IPC_SERVER_HANDLER_QUEUE_SIZE_KEY, 1000);
     conf.setInt(CommonConfigurationKeys.IPC_CLIENT_RPC_TIMEOUT_KEY, 1000);
     cluster = MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(

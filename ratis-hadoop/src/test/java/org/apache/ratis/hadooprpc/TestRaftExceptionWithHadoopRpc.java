@@ -17,9 +17,26 @@
  */
 package org.apache.ratis.hadooprpc;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.ratis.RaftExceptionBaseTest;
+import org.apache.ratis.conf.RaftProperties;
+
+import java.io.IOException;
 
 public class TestRaftExceptionWithHadoopRpc
     extends RaftExceptionBaseTest<MiniRaftClusterWithHadoopRpc>
     implements MiniRaftClusterWithHadoopRpc.Factory.Get {
+
+  @Override
+  public MiniRaftClusterWithHadoopRpc newCluster(int numPeers) throws IOException {
+    final Configuration conf = new Configuration();
+    HadoopConfigKeys.Ipc.setHandlers(conf, 20);
+    conf.setInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, 0);
+    conf.setInt(CommonConfigurationKeys.IPC_SERVER_HANDLER_QUEUE_SIZE_KEY, 1000);
+    conf.setInt(CommonConfigurationKeys.IPC_CLIENT_RPC_TIMEOUT_KEY, 1000);
+    return MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(numPeers, getProperties(), conf);
+  }
+
+
 }
