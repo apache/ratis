@@ -22,6 +22,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.ExamplesProtos.*;
 import org.apache.ratis.util.CheckedFunction;
@@ -57,8 +58,9 @@ public class FileStoreClient implements Closeable {
       ByteString request, CheckedFunction<Message, RaftClientReply, IOException> sendFunction)
       throws IOException {
     final RaftClientReply reply = sendFunction.apply(() -> request);
-    if (reply.hasStateMachineException()) {
-      throw new IOException("Failed to send request " + request, reply.getStateMachineException());
+    final StateMachineException sme = reply.getStateMachineException();
+    if (sme != null) {
+      throw new IOException("Failed to send request " + request, sme);
     }
     Preconditions.assertTrue(reply.isSuccess(), () -> "reply=" + reply);
     return reply.getMessage().getContent();

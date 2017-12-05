@@ -40,5 +40,5 @@ public interface RaftClientRpc extends Closeable {
   void addServers(Iterable<RaftPeer> servers);
 
   /** Handle the given exception.  For example, try reconnecting. */
-  void handleException(RaftPeerId serverId, Exception e);
+  void handleException(RaftPeerId serverId, Exception e, boolean shouldClose);
 }

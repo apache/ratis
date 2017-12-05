@@ -35,6 +35,7 @@ import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.Assert.fail;
@@ -146,7 +147,7 @@ public class TestRaftStateMachineException extends ParameterizedBaseTest {
     RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
         cluster.getGroupId(), callId, seqNum, new SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
-    Assert.assertTrue(reply.hasStateMachineException());
+    Objects.requireNonNull(reply.getStateMachineException());
 
     RetryCache.CacheEntry oldEntry = RaftServerTestUtil.getRetryEntry(
         cluster.getLeader(), client.getId(), callId);
@@ -155,7 +156,7 @@ public class TestRaftStateMachineException extends ParameterizedBaseTest {
 
     // retry
     reply = rpc.sendRequest(r);
-    Assert.assertTrue(reply.hasStateMachineException());
+    Objects.requireNonNull(reply.getStateMachineException());
 
     RetryCache.CacheEntry currentEntry = RaftServerTestUtil.getRetryEntry(
         cluster.getLeader(), client.getId(), callId);

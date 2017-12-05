@@ -27,8 +27,12 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.util.Objects;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -38,6 +42,15 @@ import java.util.function.Supplier;
  */
 public interface JavaUtils {
   Logger LOG = LoggerFactory.getLogger(JavaUtils.class);
+
+  /**
+   * The same as {@link Class#cast(Object)} except that
+   * this method returns null (but not throw {@link ClassCastException})
+   * if the given object is not an instance of the given class.
+   */
+  static <T> T cast(Object obj, Class<T> clazz) {
+    return clazz.isInstance(obj)? clazz.cast(obj): null;
+  }
 
   /**
    * Invoke {@link Callable#call()} and, if there any,
@@ -171,6 +184,20 @@ public interface JavaUtils {
     }
   }
 
+  Supplier<Timer> TIMER = memoize(() -> new Timer(true));
+
+  static UncheckedAutoCloseable runRepeatedly(Runnable runnable, long delay, long period, TimeUnit unit) {
+    final Timer timer = TIMER.get();
+    timer.schedule(new TimerTask() {
+      @Override
+      public void run() {
+        runnable.run();
+      }
+    }, unit.toMillis(delay), unit.toMillis(period));
+
+    return timer::cancel;
+  }
+
   static void dumpAllThreads(Consumer<String> println) {
     final ThreadMXBean threadMxBean = ManagementFactory.getThreadMXBean();
     for (ThreadInfo ti : threadMxBean.dumpAllThreads(true, true)) {
@@ -182,5 +209,10 @@ public interface JavaUtils {
     final CompletableFuture<E> future = new CompletableFuture<>();
     future.completeExceptionally(t);
     return future;
+  }
+
+  static Throwable unwrapCompletionException(Throwable t) {
+    Objects.requireNonNull(t, "t == null");
+    return t instanceof CompletionException && t.getCause() != null? t.getCause(): t;
   }
 }

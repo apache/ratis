@@ -18,41 +18,49 @@
 package org.apache.ratis.grpc.client;
 
 import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.shaded.io.grpc.ManagedChannel;
 import org.apache.ratis.shaded.io.grpc.ManagedChannelBuilder;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
-import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.grpc.AdminProtocolServiceGrpc;
 import org.apache.ratis.shaded.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolServiceBlockingStub;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceBlockingStub;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceStub;
 import org.apache.ratis.util.CheckedSupplier;
+import org.apache.ratis.util.JavaUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.function.Supplier;
 
 public class RaftClientProtocolClient implements Closeable {
+  public static final Logger LOG = LoggerFactory.getLogger(RaftClientProtocolClient.class);
+
+  private final Supplier<String> name;
   private final RaftPeer target;
   private final ManagedChannel channel;
   private final RaftClientProtocolServiceBlockingStub blockingStub;
   private final RaftClientProtocolServiceStub asyncStub;
   private final AdminProtocolServiceBlockingStub adminBlockingStub;
 
-  public RaftClientProtocolClient(RaftPeer target) {
+  public RaftClientProtocolClient(ClientId id, RaftPeer target) {
+    this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
     channel = ManagedChannelBuilder.forTarget(target.getAddress())
         .usePlaintext(true).build();
     blockingStub = RaftClientProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftClientProtocolServiceGrpc.newStub(channel);
     adminBlockingStub = AdminProtocolServiceGrpc.newBlockingStub(channel);
+  }
+
+  String getName() {
+    return name.get();
   }
 
   @Override

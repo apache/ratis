@@ -32,6 +32,7 @@ import java.io.InterruptedIOException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -56,14 +57,15 @@ final class RaftClientImpl implements RaftClient {
   private final Semaphore asyncRequestSemaphore;
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId,
-      RaftClientRpc clientRpc, TimeDuration retryInterval, RaftProperties properties) {
+      RaftClientRpc clientRpc, RaftProperties properties) {
     this.clientId = clientId;
     this.clientRpc = clientRpc;
     this.peers = new ConcurrentLinkedQueue<>(group.getPeers());
     this.groupId = group.getGroupId();
     this.leaderId = leaderId != null? leaderId
         : !peers.isEmpty()? peers.iterator().next().getId(): null;
-    this.retryInterval = retryInterval;
+    this.retryInterval = RaftClientConfigKeys.Rpc.timeout(properties);
+
     asyncRequestSemaphore = new Semaphore(RaftClientConfigKeys.Async.maxOutstandingRequests(properties));
     scheduler = Executors.newScheduledThreadPool(RaftClientConfigKeys.Async.schedulerThreads(properties));
     clientRpc.addServers(peers);
@@ -101,12 +103,8 @@ final class RaftClientImpl implements RaftClient {
     final long seqNum = nextSeqNum();
     return sendRequestWithRetryAsync(
         () -> new RaftClientRequest(clientId, leaderId, groupId, callId, seqNum, message, readOnly)
-    ).thenApply(reply -> {
-      if (reply.hasStateMachineException() || reply.hasGroupMismatchException()) {
-        throw new CompletionException(reply.getException());
-      }
-      return reply;
-    }).whenComplete((r, e) -> asyncRequestSemaphore.release());
+    ).thenApply(reply -> handleStateMachineException(reply, CompletionException::new)
+    ).whenComplete((r, e) -> asyncRequestSemaphore.release());
   }
 
   @Override
@@ -203,15 +201,12 @@ final class RaftClientImpl implements RaftClient {
 
   private CompletableFuture<RaftClientReply> sendRequestAsync(
       RaftClientRequest request) {
-    LOG.debug("{}: sendAsync {}", clientId, request);
+    LOG.debug("{}: send* {}", clientId, request);
     return clientRpc.sendRequestAsync(request).thenApply(reply -> {
-      LOG.debug("{}: receive {}", clientId, reply);
-      if (reply != null && reply.isNotLeader()) {
-        handleNotLeaderException(request, reply.getNotLeaderException());
-        return null;
-      }
-      return reply;
+      LOG.debug("{}: receive* {}", clientId, reply);
+      return handleNotLeaderException(request, reply);
     }).exceptionally(e -> {
+      LOG.debug("{}: Failed {} with {}", clientId, request, e);
       final Throwable cause = e.getCause();
       if (cause instanceof GroupMismatchException) {
         return new RaftClientReply(request, (RaftException) cause);
@@ -233,26 +228,40 @@ final class RaftClientImpl implements RaftClient {
     } catch (IOException ioe) {
       handleIOException(request, ioe, null);
     }
-    if (reply != null) {
-      LOG.debug("{}: receive {}", clientId, reply);
-      if (reply.isNotLeader()) {
-        handleNotLeaderException(request, reply.getNotLeaderException());
-        return null;
-      } else if (reply.hasStateMachineException()) {
-        throw reply.getStateMachineException();
-      } else {
-        return reply;
-      }
-    }
-    return null;
+    LOG.debug("{}: receive {}", clientId, reply);
+    reply = handleNotLeaderException(request, reply);
+    reply = handleStateMachineException(reply, Function.identity());
+    return reply;
   }
 
-  private void handleNotLeaderException(RaftClientRequest request,
-      NotLeaderException nle) {
+  static <E extends Throwable> RaftClientReply handleStateMachineException(
+      RaftClientReply reply, Function<StateMachineException, E> converter) throws E {
+    if (reply != null) {
+      final StateMachineException sme = reply.getStateMachineException();
+      if (sme != null) {
+        throw converter.apply(sme);
+      }
+    }
+    return reply;
+  }
+
+  /**
+   * @return null if the reply is null or it has {@link NotLeaderException};
+   *         otherwise return the same reply.
+   */
+  private RaftClientReply handleNotLeaderException(RaftClientRequest request, RaftClientReply reply) {
+    if (reply == null) {
+      return null;
+    }
+    final NotLeaderException nle = reply.getNotLeaderException();
+    if (nle == null) {
+      return reply;
+    }
     refreshPeers(Arrays.asList(nle.getPeers()));
     final RaftPeerId newLeader = nle.getSuggestedLeader() == null ? null
         : nle.getSuggestedLeader().getId();
     handleIOException(request, nle, newLeader);
+    return null;
   }
 
   private void refreshPeers(Collection<RaftPeer> newPeers) {
@@ -266,23 +275,29 @@ final class RaftClientImpl implements RaftClient {
 
   private void handleIOException(RaftClientRequest request, IOException ioe,
       RaftPeerId newLeader) {
-    LOG.debug("{}: suggested new leader: {}. Failed with {}", clientId,
-        newLeader, ioe);
+    LOG.debug("{}: suggested new leader: {}. Failed {} with {}",
+        clientId, newLeader, request, ioe);
     if (LOG.isTraceEnabled()) {
       LOG.trace("Stack trace", new Throwable("TRACE"));
     }
 
-    final RaftPeerId oldLeader = request.getServerId();
-    clientRpc.handleException(oldLeader, ioe);
+    if (ioe instanceof LeaderNotReadyException) {
+      return;
+    }
 
-    if (newLeader == null && oldLeader.equals(leaderId)) {
+    final RaftPeerId oldLeader = request.getServerId();
+    final boolean stillLeader = oldLeader.equals(leaderId);
+    if (newLeader == null && stillLeader) {
       newLeader = CollectionUtils.random(oldLeader,
           CollectionUtils.as(peers, RaftPeer::getId));
     }
-    if (newLeader != null && oldLeader.equals(leaderId)) {
+
+    final boolean changeLeader = newLeader != null && stillLeader;
+    if (changeLeader) {
       LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);
       this.leaderId = newLeader;
     }
+    clientRpc.handleException(oldLeader, ioe, changeLeader);
   }
 
   void assertAsyncRequestSemaphore(int expectedAvailablePermits, int expectedQueueLength) {

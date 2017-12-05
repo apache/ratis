@@ -67,8 +67,11 @@ public abstract class RaftId {
     this(toUuid(uuidBytes), () -> uuidBytes);
   }
 
+  /** @return the last 12 hex digits. */
   String createUuidString(UUID uuid) {
-    return uuid.toString().toUpperCase();
+    final String s = uuid.toString().toUpperCase();
+    final int i = s.lastIndexOf('-');
+    return s.substring(i + 1);
   }
 
   public ByteString toByteString() {

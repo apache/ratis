@@ -23,13 +23,13 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
-import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,10 +43,13 @@ import static org.apache.ratis.client.impl.ClientProtoUtils.*;
 
 public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClient> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientRpc.class);
+
+  private final ClientId clientId;
   private final int maxMessageSize;
 
   public GrpcClientRpc(ClientId clientId, RaftProperties properties) {
-    super(new PeerProxyMap<>(clientId.toString(), RaftClientProtocolClient::new));
+    super(new PeerProxyMap<>(clientId.toString(), p -> new RaftClientProtocolClient(clientId, p)));
+    this.clientId = clientId;
     maxMessageSize = GrpcConfigKeys.messageSizeMax(properties).getSizeInt();
   }
 
@@ -57,10 +60,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
     try {
       return sendRequestAsync(request, getProxies().getProxy(serverId));
     } catch (IOException e) {
-      final CompletableFuture<RaftClientReply> replyFuture =
-          new CompletableFuture<>();
-      replyFuture.completeExceptionally(e);
-      return replyFuture;
+      return JavaUtils.completeExceptionally(e);
     }
   }
 
@@ -83,16 +83,10 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
       return ClientProtoUtils.toServerInformationReply(
           proxy.serverInformation(proto));
     } else {
-      RaftClientRequestProto requestProto = toRaftClientRequestProto(request);
-      if (requestProto.getSerializedSize() > maxMessageSize) {
-        throw new IOException("msg size:" + requestProto.getSerializedSize() +
-            " exceeds maximum:" + maxMessageSize);
-      }
-      final CompletableFuture<RaftClientReply> replyFuture =
-                     sendRequestAsync(request, proxy);
+      final CompletableFuture<RaftClientReply> f = sendRequestAsync(request, proxy);
       // TODO: timeout support
       try {
-        return replyFuture.get();
+        return f.get();
       } catch (InterruptedException e) {
         throw new InterruptedIOException(
             "Interrupted while waiting for response of request " + request);
@@ -103,7 +97,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
   }
 
   private CompletableFuture<RaftClientReply> sendRequestAsync(
-      RaftClientRequest request, RaftClientProtocolClient proxy) {
+      RaftClientRequest request, RaftClientProtocolClient proxy) throws IOException {
     final RaftClientRequestProto requestProto =
         toRaftClientRequestProto(request);
     final CompletableFuture<RaftClientReplyProto> replyFuture =
@@ -117,22 +111,14 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
 
           @Override
           public void onError(Throwable t) {
-            // This implementation is used as RaftClientRpc. Retry
-            // logic on Exception is in RaftClient.
-            final IOException e;
-            if (t instanceof StatusRuntimeException) {
-              e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
-            } else {
-              e = IOUtils.asIOException(t);
-            }
-            replyFuture.completeExceptionally(e);
+            replyFuture.completeExceptionally(RaftGrpcUtil.unwrapIOException(t));
           }
 
           @Override
           public void onCompleted() {
             if (!replyFuture.isDone()) {
               replyFuture.completeExceptionally(
-                  new IOException("No reply for request " + request));
+                  new IOException(clientId + ": Stream completed but no reply for request " + request));
             }
           }
         });
@@ -140,5 +126,14 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
     requestObserver.onCompleted();
 
     return replyFuture.thenApply(replyProto -> toRaftClientReply(replyProto));
+  }
+
+  RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request) throws IOException {
+    final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
+    if (proto.getSerializedSize() > maxMessageSize) {
+      throw new IOException(clientId + ": Message size:" + proto.getSerializedSize()
+          + " exceeds maximum:" + maxMessageSize);
+    }
+    return proto;
   }
 }

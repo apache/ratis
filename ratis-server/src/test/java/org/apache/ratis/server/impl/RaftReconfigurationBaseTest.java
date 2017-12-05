@@ -532,7 +532,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
           final RaftClientRpc sender = client.getClientRpc();
           RaftClientReply reply = sender.sendRequest(cluster.newSetConfigurationRequest(
               client.getId(), leaderId, change.allPeersInNewConf));
-          if (reply.isNotLeader()) {
+          if (reply.getNotLeaderException() != null) {
             gotNotLeader.set(true);
           }
         } catch (IOException e) {

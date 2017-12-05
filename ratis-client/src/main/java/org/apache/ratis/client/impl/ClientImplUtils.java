@@ -28,8 +28,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 /** Client utilities for internal use. */
 public class ClientImplUtils {
   public static RaftClient newRaftClient(ClientId clientId, RaftGroup group,
-      RaftPeerId leaderId, RaftClientRpc clientRpc, TimeDuration retryInterval,
-      RaftProperties properties) {
-    return new RaftClientImpl(clientId, group, leaderId, clientRpc, retryInterval, properties);
+      RaftPeerId leaderId, RaftClientRpc clientRpc, RaftProperties properties) {
+    return new RaftClientImpl(clientId, group, leaderId, clientRpc, properties);
   }
 }

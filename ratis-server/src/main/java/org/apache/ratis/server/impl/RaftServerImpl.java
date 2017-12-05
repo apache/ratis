@@ -367,7 +367,7 @@ public class RaftServerImpl implements RaftServerProtocol,
       return RetryCache.failWithReply(reply, entry);
     } else {
       if (leaderState == null || !leaderState.isReady()) {
-        return RetryCache.failWithException(new LeaderNotReadyException(), entry);
+        return RetryCache.failWithException(new LeaderNotReadyException(getId()), entry);
       }
     }
     return null;
@@ -732,8 +732,8 @@ public class RaftServerImpl implements RaftServerProtocol,
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
             leaderId, getId(), groupId, currentTerm, nextIndex, NOT_LEADER);
         if (LOG.isDebugEnabled()) {
-          LOG.debug("{}: do not recognize leader. Reply: {}",
-              getId(), ProtoUtils.toString(reply));
+          LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
+              getId(), leaderId, leaderTerm, state, ProtoUtils.toString(reply));
         }
         return reply;
       }

@@ -23,6 +23,7 @@ package org.apache.ratis.util;
 import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -32,9 +33,16 @@ import java.util.function.Supplier;
  * Logging (as in log4j) related utility methods.
  */
 public interface LogUtils {
+  Logger LOG = LoggerFactory.getLogger(LogUtils.class);
 
   static void setLogLevel(Logger logger, Level level) {
-    LogManager.getLogger(logger.getName()).setLevel(level);
+    final String name = logger.getName();
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("", new Throwable("Set " + name + " log level to " + level));
+    } else {
+      LOG.info("Set {} log level to {}", name, level);
+    }
+    LogManager.getLogger(name).setLevel(level);
   }
 
   static <THROWABLE extends Throwable> void runAndLog(

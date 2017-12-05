@@ -27,6 +27,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.shaded.com.google.common.cache.Cache;
 import org.apache.ratis.shaded.com.google.common.cache.CacheBuilder;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -243,10 +244,7 @@ public class RetryCache implements Closeable {
       entry.failWithException(t);
       return entry.getReplyFuture();
     } else {
-      final CompletableFuture<RaftClientReply> future = new CompletableFuture<>();
-      future.completeExceptionally(t);
-      return future;
+      return JavaUtils.completeExceptionally(t);
     }
   }
-
 }

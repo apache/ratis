@@ -97,7 +97,7 @@ public class AppendStreamer implements Closeable {
     this.peers = group.getPeers().stream().collect(
         Collectors.toMap(RaftPeer::getId, Function.identity()));
     proxyMap = new PeerProxyMap<>(clientId.toString(),
-        raftPeer -> new RaftClientProtocolProxy(raftPeer, ResponseHandler::new));
+        raftPeer -> new RaftClientProtocolProxy(clientId, raftPeer, ResponseHandler::new));
     proxyMap.addPeers(group.getPeers());
     refreshLeaderProxy(leaderId, null);
 
@@ -277,10 +277,11 @@ public class AppendStreamer implements Closeable {
         } else {
           // this may be a NotLeaderException
           RaftClientReply r = ClientProtoUtils.toRaftClientReply(reply);
-          if (r.isNotLeader()) {
+          final NotLeaderException nle = r.getNotLeaderException();
+          if (nle != null) {
             LOG.debug("{} received a NotLeaderException from {}", this,
                 r.getServerId());
-            handleNotLeader(r.getNotLeaderException(), targetId);
+            handleNotLeader(nle, targetId);
           }
         }
         AppendStreamer.this.notifyAll();

@@ -145,6 +145,7 @@ public abstract class MiniRaftCluster {
     this.properties = new RaftProperties(properties);
     this.parameters = parameters;
 
+    JavaUtils.runRepeatedly(() -> LOG.info("TIMED-PRINT" + printServers()), 10, 10, TimeUnit.SECONDS);
     ExitUtils.disableSystemExit();
   }
 
@@ -468,6 +469,14 @@ public abstract class MiniRaftCluster {
 
   public RaftClient createClient(RaftGroup g) {
     return createClient(null, g);
+  }
+
+  public RaftClient createClientWithLeader() {
+    return createClient(getLeader().getId(), group);
+  }
+
+  public RaftClient createClientWithFollower() {
+    return createClient(getFollowers().get(0).getId(), group);
   }
 
   public RaftClient createClient(RaftPeerId leaderId) {

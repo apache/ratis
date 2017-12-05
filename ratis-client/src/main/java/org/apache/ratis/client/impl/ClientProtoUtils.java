@@ -109,8 +109,10 @@ public class ClientProtoUtils {
       if (reply.getMessage() != null) {
         b.setMessage(toClientMessageEntryProtoBuilder(reply.getMessage()));
       }
-      if (reply.isNotLeader()) {
-        NotLeaderException nle = reply.getNotLeaderException();
+
+      final NotLeaderException nle = reply.getNotLeaderException();
+      final StateMachineException sme;
+      if (nle != null) {
         NotLeaderExceptionProto.Builder nleBuilder =
             NotLeaderExceptionProto.newBuilder();
         final RaftPeer suggestedLeader = nle.getSuggestedLeader();
@@ -120,8 +122,7 @@ public class ClientProtoUtils {
         nleBuilder.addAllPeersInConf(
             ProtoUtils.toRaftPeerProtos(Arrays.asList(nle.getPeers())));
         b.setNotLeaderException(nleBuilder.build());
-      } else if (reply.hasStateMachineException()) {
-        StateMachineException sme = reply.getStateMachineException();
+      } else if ((sme = reply.getStateMachineException()) != null) {
         StateMachineExceptionProto.Builder smeBuilder =
             StateMachineExceptionProto.newBuilder();
         final Throwable t = sme.getCause() != null ? sme.getCause() : sme;

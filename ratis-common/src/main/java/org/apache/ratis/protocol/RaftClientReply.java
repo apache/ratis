@@ -17,6 +17,10 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ReflectionUtils;
+
 /**
  * Reply from server to client
  */
@@ -40,6 +44,14 @@ public class RaftClientReply extends RaftClientMessage {
     this.callId = callId;
     this.message = message;
     this.exception = exception;
+
+    if (exception != null) {
+      Preconditions.assertTrue(!success,
+          () -> "Inconsistent parameters: success && exception != null: " + this);
+      Preconditions.assertTrue(
+          ReflectionUtils.isInstance(exception, NotLeaderException.class, StateMachineException.class),
+          () -> "Unexpected exception class: " + this);
+    }
   }
 
   public RaftClientReply(RaftClientRequest request,
@@ -64,8 +76,8 @@ public class RaftClientReply extends RaftClientMessage {
 
   @Override
   public String toString() {
-    return super.toString() + ", callId: " + getCallId()
-        + ", success: " + isSuccess();
+    return super.toString() + ", cid=" + getCallId()
+        + ", success? " + isSuccess() + ", exception=" + exception;
   }
 
   public boolean isSuccess() {
@@ -76,29 +88,13 @@ public class RaftClientReply extends RaftClientMessage {
     return message;
   }
 
-  public boolean isNotLeader() {
-    return exception instanceof NotLeaderException;
-  }
-
+  /** If this reply has {@link NotLeaderException}, return it; otherwise return null. */
   public NotLeaderException getNotLeaderException() {
-    assert isNotLeader();
-    return (NotLeaderException) exception;
+    return JavaUtils.cast(exception, NotLeaderException.class);
   }
 
+  /** If this reply has {@link StateMachineException}, return it; otherwise return null. */
   public StateMachineException getStateMachineException() {
-    assert hasStateMachineException();
-    return (StateMachineException) exception;
-  }
-
-  public boolean hasStateMachineException() {
-    return exception instanceof StateMachineException;
-  }
-
-  public boolean hasGroupMismatchException(){
-    return exception instanceof GroupMismatchException;
-  }
-
-  public RaftException getException(){
-    return exception;
+    return JavaUtils.cast(exception, StateMachineException.class);
   }
 }

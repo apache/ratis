@@ -48,8 +48,8 @@ public abstract class RaftClientRpcWithProxy<PROXY extends Closeable>
   }
 
   @Override
-  public void handleException(RaftPeerId serverId, Exception e) {
-    if (ReflectionUtils.isInstance(e,
+  public void handleException(RaftPeerId serverId, Exception e, boolean shouldClose) {
+    if (shouldClose || ReflectionUtils.isInstance(e,
         SocketException.class, SocketTimeoutException.class,
         ClosedChannelException.class, EOFException.class)) {
       proxies.resetProxy(serverId);

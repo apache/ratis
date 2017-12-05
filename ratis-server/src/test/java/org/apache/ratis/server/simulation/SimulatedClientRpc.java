@@ -36,7 +36,7 @@ class SimulatedClientRpc
   }
 
   @Override
-  public void handleException(RaftPeerId serverId, Exception e) {
+  public void handleException(RaftPeerId serverId, Exception e, boolean shouldClose) {
     // do nothing
   }
 

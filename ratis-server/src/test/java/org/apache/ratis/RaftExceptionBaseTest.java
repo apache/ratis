@@ -34,6 +34,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
 
 public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -103,9 +104,9 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     }
     Assert.assertNotNull(reply);
     Assert.assertFalse(reply.isSuccess());
-    Assert.assertTrue(reply.isNotLeader());
-    Assert.assertEquals(newLeader,
-        reply.getNotLeaderException().getSuggestedLeader().getId());
+    final NotLeaderException nle = reply.getNotLeaderException();
+    Objects.requireNonNull(nle);
+    Assert.assertEquals(newLeader, nle.getSuggestedLeader().getId());
 
     reply = client.send(new SimpleMessage("m3"));
     Assert.assertTrue(reply.isSuccess());
@@ -148,9 +149,9 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     }
     Assert.assertNotNull(reply);
     Assert.assertFalse(reply.isSuccess());
-    Assert.assertTrue(reply.isNotLeader());
-    Assert.assertEquals(newLeader,
-        reply.getNotLeaderException().getSuggestedLeader().getId());
+    final NotLeaderException nle = reply.getNotLeaderException();
+    Objects.requireNonNull(nle);
+    Assert.assertEquals(newLeader, nle.getSuggestedLeader().getId());
     Collection<RaftPeer> peers = cluster.getPeers();
     RaftPeer[] peersFromReply = reply.getNotLeaderException().getPeers();
     Assert.assertEquals(peers.size(), peersFromReply.length);

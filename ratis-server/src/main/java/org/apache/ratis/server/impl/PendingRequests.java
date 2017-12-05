@@ -21,6 +21,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -29,7 +30,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 class PendingRequests {
-  private static final Logger LOG = RaftServerImpl.LOG;
+  public static final Logger LOG = LoggerFactory.getLogger(PendingRequests.class);
 
   private static class RequestMap {
     private final Object name;

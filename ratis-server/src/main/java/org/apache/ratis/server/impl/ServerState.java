@@ -35,8 +35,10 @@ import org.apache.ratis.util.ProtoUtils;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.function.Consumer;
 
+import static org.apache.ratis.server.impl.RaftServerImpl.LOG;
 import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
 /**
@@ -169,7 +171,7 @@ public class ServerState implements Closeable {
     if (newTerm > currentTerm) {
       currentTerm = newTerm;
       votedFor = null;
-      leaderId = null;
+      setLeader(null);
       return true;
     }
     return false;
@@ -188,7 +190,7 @@ public class ServerState implements Closeable {
    */
   long initElection() {
     votedFor = selfId;
-    leaderId = null;
+    setLeader(null);
     return ++currentTerm;
   }
 
@@ -201,15 +203,18 @@ public class ServerState implements Closeable {
    */
   void grantVote(RaftPeerId candidateId) {
     votedFor = candidateId;
-    leaderId = null;
+    setLeader(null);
   }
 
-  void setLeader(RaftPeerId leaderId) {
-    this.leaderId = leaderId;
+  void setLeader(RaftPeerId newLeaderId) {
+    if (!Objects.equals(leaderId, newLeaderId)) {
+      LOG.info("{}: change Leader from {} to {}", selfId, leaderId, newLeaderId);
+      leaderId = newLeaderId;
+    }
   }
 
   void becomeLeader() {
-    leaderId = selfId;
+    setLeader(selfId);
   }
 
   public RaftLog getLog() {
@@ -280,7 +285,7 @@ public class ServerState implements Closeable {
 
   public void setRaftConf(long logIndex, RaftConfiguration conf) {
     configurationManager.addConfiguration(logIndex, conf);
-    RaftServerImpl.LOG.info("{}: successfully update the configuration {}",
+    LOG.info("{}: successfully update the configuration {}",
         getSelfId(), conf);
   }
 
@@ -313,7 +318,7 @@ public class ServerState implements Closeable {
   @Override
   public void close() throws IOException {
     stateMachineUpdater.stop();
-    RaftServerImpl.LOG.info("{} closes. The last applied log index is {}",
+    LOG.info("{} closes. The last applied log index is {}",
         getSelfId(), getLastAppliedIndex());
 
     log.close();

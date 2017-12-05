@@ -15,20 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.util;
 
 /**
- * This exception is sent from the server to a client. The server has just
- * become the current leader, but has not committed its first place-holder
- * log entry yet. Thus the leader cannot accept any new client requests since
- * it cannot determine whether a request is just a retry.
+ * The same as {@link AutoCloseable}
+ * except that the close method does not throw {@link Exception}.
  */
-public class LeaderNotReadyException extends RaftException {
-  public LeaderNotReadyException(RaftPeerId id) {
-    this(id + " is in LEADER state but not ready yet.");
-  }
-
-  public LeaderNotReadyException(String msg) {
-    super(msg);
-  }
+public interface UncheckedAutoCloseable extends AutoCloseable {
+  @Override
+  void close();
 }
