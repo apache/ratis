@@ -31,7 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public interface ProtoUtils {
-  public static ByteString writeObject2ByteString(Object obj) {
+  static ByteString writeObject2ByteString(Object obj) {
     final ByteString.Output byteOut = ByteString.newOutput();
     try(final ObjectOutputStream objOut = new ObjectOutputStream(byteOut)) {
       objOut.writeObject(obj);
@@ -42,7 +42,7 @@ public interface ProtoUtils {
     return byteOut.toByteString();
   }
 
-  public static Object toObject(ByteString bytes) {
+  static Object toObject(ByteString bytes) {
     try(final ObjectInputStream in = new ObjectInputStream(bytes.newInput())) {
       return in.readObject();
     } catch (IOException e) {
@@ -57,17 +57,17 @@ public interface ProtoUtils {
     return ByteString.copyFromUtf8(string);
   }
 
-  public static ByteString toByteString(byte[] bytes) {
+  static ByteString toByteString(byte[] bytes) {
     return toByteString(bytes, 0, bytes.length);
   }
 
-  public static ByteString toByteString(byte[] bytes, int offset, int size) {
+  static ByteString toByteString(byte[] bytes, int offset, int size) {
     // return singleton to reduce object allocation
     return bytes.length == 0 ?
         ByteString.EMPTY : ByteString.copyFrom(bytes, offset, size);
   }
 
-  public static RaftPeerProto toRaftPeerProto(RaftPeer peer) {
+  static RaftPeerProto toRaftPeerProto(RaftPeer peer) {
     RaftPeerProto.Builder builder = RaftPeerProto.newBuilder()
         .setId(peer.getId().toByteString());
     if (peer.getAddress() != null) {
@@ -76,11 +76,11 @@ public interface ProtoUtils {
     return builder.build();
   }
 
-  public static RaftPeer toRaftPeer(RaftPeerProto p) {
+  static RaftPeer toRaftPeer(RaftPeerProto p) {
     return new RaftPeer(RaftPeerId.valueOf(p.getId()), p.getAddress());
   }
 
-  public static RaftPeer[] toRaftPeerArray(List<RaftPeerProto> protos) {
+  static RaftPeer[] toRaftPeerArray(List<RaftPeerProto> protos) {
     final RaftPeer[] peers = new RaftPeer[protos.size()];
     for (int i = 0; i < peers.length; i++) {
       peers[i] = toRaftPeer(protos.get(i));
@@ -88,7 +88,7 @@ public interface ProtoUtils {
     return peers;
   }
 
-  public static Iterable<RaftPeerProto> toRaftPeerProtos(
+  static Iterable<RaftPeerProto> toRaftPeerProtos(
       final Collection<RaftPeer> peers) {
     return () -> new Iterator<RaftPeerProto>() {
       final Iterator<RaftPeer> i = peers.iterator();
@@ -105,31 +105,31 @@ public interface ProtoUtils {
     };
   }
 
-  public static RaftGroupId toRaftGroupId(RaftGroupIdProto proto) {
+  static RaftGroupId toRaftGroupId(RaftGroupIdProto proto) {
     return RaftGroupId.valueOf(proto.getId());
   }
 
-  public static RaftGroupIdProto.Builder toRaftGroupIdProtoBuilder(RaftGroupId id) {
+  static RaftGroupIdProto.Builder toRaftGroupIdProtoBuilder(RaftGroupId id) {
     return RaftGroupIdProto.newBuilder().setId(id.toByteString());
   }
 
-  public static RaftGroup toRaftGroup(RaftGroupProto proto) {
+  static RaftGroup toRaftGroup(RaftGroupProto proto) {
     return new RaftGroup(toRaftGroupId(proto.getGroupId()),
         toRaftPeerArray(proto.getPeersList()));
   }
 
-  public static RaftGroupProto.Builder toRaftGroupProtoBuilder(RaftGroup group) {
+  static RaftGroupProto.Builder toRaftGroupProtoBuilder(RaftGroup group) {
     return RaftGroupProto.newBuilder()
         .setGroupId(toRaftGroupIdProtoBuilder(group.getGroupId()))
         .addAllPeers(toRaftPeerProtos(group.getPeers()));
   }
 
-  public static boolean isConfigurationLogEntry(LogEntryProto entry) {
+  static boolean isConfigurationLogEntry(LogEntryProto entry) {
     return entry.getLogEntryBodyCase() ==
         LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
   }
 
-  public static LogEntryProto toLogEntryProto(
+  static LogEntryProto toLogEntryProto(
       SMLogEntryProto operation, long term, long index,
       ClientId clientId, long callId) {
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
@@ -159,7 +159,7 @@ public interface ProtoUtils {
         .build();
   }
 
-  public static IOException toIOException(ServiceException se) {
+  static IOException toIOException(ServiceException se) {
     final Throwable t = se.getCause();
     if (t == null) {
       return new IOException(se);
@@ -167,20 +167,20 @@ public interface ProtoUtils {
     return t instanceof IOException? (IOException)t : new IOException(se);
   }
 
-  public static String toString(RaftRpcRequestProto proto) {
+  static String toString(RaftRpcRequestProto proto) {
     return proto.getRequestorId().toStringUtf8() + "->" + proto.getReplyId().toStringUtf8()
         + "#" + proto.getCallId();
   }
 
-  public static String toString(RaftRpcReplyProto proto) {
+  static String toString(RaftRpcReplyProto proto) {
     return proto.getRequestorId().toStringUtf8() + "<-" + proto.getReplyId().toStringUtf8()
         + "#" + proto.getCallId() + ":"
         + (proto.getSuccess()? "OK": "FAIL");
   }
-  public static String toString(RequestVoteReplyProto proto) {
+  static String toString(RequestVoteReplyProto proto) {
     return toString(proto.getServerReply()) + "-t" + proto.getTerm();
   }
-  public static String toString(AppendEntriesReplyProto proto) {
+  static String toString(AppendEntriesReplyProto proto) {
     return toString(proto.getServerReply()) + "-t" + proto.getTerm()
         + ", nextIndex=" + proto.getNextIndex()
         + ", result: " + proto.getResult();
