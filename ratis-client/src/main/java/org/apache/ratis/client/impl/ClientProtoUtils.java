@@ -29,9 +29,9 @@ import java.util.Arrays;
 import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
 import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.STATEMACHINEEXCEPTION;
 
-public class ClientProtoUtils {
+public interface ClientProtoUtils {
 
-  public static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
+  static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
       ByteString requestorId, ByteString replyId, RaftGroupId groupId,
       long callId, boolean success) {
     return RaftRpcReplyProto.newBuilder()
@@ -42,7 +42,7 @@ public class ClientProtoUtils {
         .setSuccess(success);
   }
 
-  public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
+  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       ByteString requesterId, ByteString replyId, RaftGroupId groupId, long callId, long seqNum) {
     return RaftRpcRequestProto.newBuilder()
         .setRequestorId(requesterId)
@@ -52,13 +52,13 @@ public class ClientProtoUtils {
         .setSeqNum(seqNum);
   }
 
-  public static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
+  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       ClientId requesterId, RaftPeerId replyId, RaftGroupId groupId, long callId, long seqNum) {
     return toRaftRpcRequestProtoBuilder(
         requesterId.toByteString(), replyId.toByteString(), groupId, callId, seqNum);
   }
 
-  private static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
+  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       RaftClientRequest request) {
     return toRaftRpcRequestProtoBuilder(
         request.getClientId(),
@@ -68,7 +68,7 @@ public class ClientProtoUtils {
         request.getSeqNum());
   }
 
-  public static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
+  static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
     final RaftRpcRequestProto request = p.getRpcRequest();
     return new RaftClientRequest(
         ClientId.valueOf(request.getRequestorId()),
@@ -79,7 +79,7 @@ public class ClientProtoUtils {
         toMessage(p.getMessage()), p.getReadOnly());
   }
 
-  public static RaftClientRequestProto toRaftClientRequestProto(
+  static RaftClientRequestProto toRaftClientRequestProto(
       RaftClientRequest request) {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
@@ -88,7 +88,7 @@ public class ClientProtoUtils {
         .build();
   }
 
-  public static RaftClientRequestProto toRaftClientRequestProto(
+  static RaftClientRequestProto toRaftClientRequestProto(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
       long seqNum, ByteString content, boolean readOnly) {
     return RaftClientRequestProto.newBuilder()
@@ -99,7 +99,7 @@ public class ClientProtoUtils {
         .build();
   }
 
-  public static RaftClientReplyProto toRaftClientReplyProto(
+  static RaftClientReplyProto toRaftClientReplyProto(
       RaftClientReply reply) {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
@@ -135,7 +135,7 @@ public class ClientProtoUtils {
     return b.build();
   }
 
-  public static ServerInformationReplyProto toServerInformationReplyProto(
+  static ServerInformationReplyProto toServerInformationReplyProto(
       ServerInformationReply reply) {
     final ServerInformationReplyProto.Builder b =
         ServerInformationReplyProto.newBuilder();
@@ -150,7 +150,7 @@ public class ClientProtoUtils {
     return b.build();
   }
 
-  public static RaftClientReply toRaftClientReply(
+  static RaftClientReply toRaftClientReply(
       RaftClientReplyProto replyProto) {
     final RaftRpcReplyProto rp = replyProto.getRpcReply();
     RaftException e = null;
@@ -175,7 +175,7 @@ public class ClientProtoUtils {
         toMessage(replyProto.getMessage()), e);
   }
 
-  public static ServerInformationReply toServerInformationReply(
+  static ServerInformationReply toServerInformationReply(
       ServerInformationReplyProto replyProto) {
     final RaftRpcReplyProto rp = replyProto.getRpcReply();
     ClientId clientId = ClientId.valueOf(rp.getRequestorId());
@@ -186,7 +186,7 @@ public class ClientProtoUtils {
         null, raftGroup);
   }
 
-  private static StateMachineException wrapStateMachineException(
+  static StateMachineException wrapStateMachineException(
       RaftPeerId serverId, String className, String errorMsg,
       ByteString stackTraceBytes) {
     StateMachineException sme;
@@ -208,7 +208,7 @@ public class ClientProtoUtils {
     return sme;
   }
 
-  private static Message toMessage(final ClientMessageEntryProto p) {
+  static Message toMessage(final ClientMessageEntryProto p) {
     return new Message() {
       @Override
       public ByteString getContent() {
@@ -222,15 +222,15 @@ public class ClientProtoUtils {
     };
   }
 
-  private static ClientMessageEntryProto.Builder toClientMessageEntryProtoBuilder(ByteString message) {
+  static ClientMessageEntryProto.Builder toClientMessageEntryProtoBuilder(ByteString message) {
     return ClientMessageEntryProto.newBuilder().setContent(message);
   }
 
-  private static ClientMessageEntryProto.Builder toClientMessageEntryProtoBuilder(Message message) {
+  static ClientMessageEntryProto.Builder toClientMessageEntryProtoBuilder(Message message) {
     return toClientMessageEntryProtoBuilder(message.getContent());
   }
 
-  public static SetConfigurationRequest toSetConfigurationRequest(
+  static SetConfigurationRequest toSetConfigurationRequest(
       SetConfigurationRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
     final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(p.getPeersList());
@@ -241,7 +241,7 @@ public class ClientProtoUtils {
         p.getRpcRequest().getCallId(), peers);
   }
 
-  public static SetConfigurationRequestProto toSetConfigurationRequestProto(
+  static SetConfigurationRequestProto toSetConfigurationRequestProto(
       SetConfigurationRequest request) {
     return SetConfigurationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
@@ -250,7 +250,7 @@ public class ClientProtoUtils {
         .build();
   }
 
-  public static ReinitializeRequest toReinitializeRequest(
+  static ReinitializeRequest toReinitializeRequest(
       ReinitializeRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
     return new ReinitializeRequest(
@@ -261,7 +261,7 @@ public class ClientProtoUtils {
         ProtoUtils.toRaftGroup(p.getGroup()));
   }
 
-  public static ServerInformatonRequest toServerInformationRequest(
+  static ServerInformatonRequest toServerInformationRequest(
       ServerInformationRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
     return new ServerInformatonRequest(
@@ -271,7 +271,7 @@ public class ClientProtoUtils {
         m.getCallId());
   }
 
-  public static ReinitializeRequestProto toReinitializeRequestProto(
+  static ReinitializeRequestProto toReinitializeRequestProto(
       ReinitializeRequest request) {
     return ReinitializeRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
@@ -279,20 +279,20 @@ public class ClientProtoUtils {
         .build();
   }
 
-  public static ServerInformationRequestProto toServerInformationRequestProto(
+  static ServerInformationRequestProto toServerInformationRequestProto(
       ServerInformatonRequest request) {
     return ServerInformationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .build();
   }
 
-  public static String toString(RaftClientRequestProto proto) {
+  static String toString(RaftClientRequestProto proto) {
     final RaftRpcRequestProto rpc = proto.getRpcRequest();
     return ClientId.valueOf(rpc.getRequestorId()) + "->" + rpc.getReplyId().toStringUtf8()
         + "#" + rpc.getCallId() + "-" + rpc.getSeqNum();
   }
 
-  public static String toString(RaftClientReplyProto proto) {
+  static String toString(RaftClientReplyProto proto) {
     final RaftRpcReplyProto rpc = proto.getRpcReply();
     return ClientId.valueOf(rpc.getRequestorId()) + "<-" + rpc.getReplyId().toStringUtf8()
         + "#" + rpc.getCallId();
