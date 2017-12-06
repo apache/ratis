@@ -23,15 +23,8 @@ import org.apache.ratis.util.NativeCodeLoader;
 import org.apache.ratis.util.PlatformUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.misc.Unsafe;
 
-import java.io.File;
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.lang.reflect.Field;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -116,10 +109,6 @@ public class NativeIO {
 
       public long getMemlockLimit() {
         return NativeIO.getMemlockLimit();
-      }
-
-      public long getOperatingSystemPageSize() {
-        return NativeIO.getOperatingSystemPageSize();
       }
 
       public void posixFadviseIfPossible(String identifier,
@@ -265,26 +254,6 @@ public class NativeIO {
         throw new IOException("Cannot mlock a non-direct ByteBuffer");
       }
       mlock_native(buffer, len);
-    }
-
-    /**
-     * Unmaps the block from memory. See munmap(2).
-     *
-     * There isn't any portable way to unmap a memory region in Java.
-     * So we use the sun.nio method here.
-     * Note that unmapping a memory region could cause crashes if code
-     * continues to reference the unmapped code.  However, if we don't
-     * manually unmap the memory, we are dependent on the finalizer to
-     * do it, and we have no idea when the finalizer will run.
-     *
-     * @param buffer    The buffer to unmap.
-     */
-    public static void munmap(MappedByteBuffer buffer) {
-      if (buffer instanceof sun.nio.ch.DirectBuffer) {
-        sun.misc.Cleaner cleaner =
-            ((sun.nio.ch.DirectBuffer)buffer).cleaner();
-        cleaner.clean();
-      }
     }
 
     /** Linux only methods used for getOwner() implementation */
@@ -555,21 +524,6 @@ public class NativeIO {
   }
 
   private static native long getMemlockLimit0();
-
-  /**
-   * @return the operating system's page size.
-   */
-  static long getOperatingSystemPageSize() {
-    try {
-      Field f = Unsafe.class.getDeclaredField("theUnsafe");
-      f.setAccessible(true);
-      Unsafe unsafe = (Unsafe)f.get(null);
-      return unsafe.pageSize();
-    } catch (Throwable e) {
-      LOG.warn("Unable to get operating system page size.  Guessing 4096.", e);
-      return 4096;
-    }
-  }
 
   private static class CachedUid {
     final long timestamp;
