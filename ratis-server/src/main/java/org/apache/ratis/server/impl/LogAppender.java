@@ -114,13 +114,20 @@ public class LogAppender extends Daemon {
     private final List<LogEntryProto> buf = new ArrayList<>();
     private int totalSize = 0;
 
-    void addEntry(LogEntryProto entry) {
-      buf.add(entry);
-      totalSize += entry.getSerializedSize();
-    }
-
-    boolean isFull() {
-      return totalSize >= maxBufferSize;
+    /**
+     * Adds a log entry to the Log entry buffer.
+     * Checks if enough space is available before adding the entry to the buffer.
+     * @return true if the entry is added successfully;
+     *         otherwise, the entry is not added, return false.
+     */
+    boolean addEntry(LogEntryProto entry) {
+      final long entrySize = entry.getSerializedSize();
+      if (totalSize + entrySize <= maxBufferSize) {
+        buf.add(entry);
+        totalSize += entrySize;
+        return true;
+      }
+      return false;
     }
 
     boolean isEmpty() {
@@ -159,20 +166,20 @@ public class LogAppender extends Daemon {
     final TermIndex previous = getPrevious();
     final long leaderNext = raftLog.getNextIndex();
     long next = follower.getNextIndex() + buffer.getPendingEntryNum();
-    boolean toSend = false;
+    final boolean toSend;
 
     if (leaderNext == next && !buffer.isEmpty()) {
       // no new entries, then send out the entries in the buffer
       toSend = true;
     } else if (leaderNext > next) {
-      while (leaderNext > next && !buffer.isFull()) {
-        // stop adding entry once the buffer size is >= the max size
-        buffer.addEntry(raftLog.get(next++));
+      boolean hasSpace = true;
+      for(; hasSpace && leaderNext > next;) {
+        hasSpace = buffer.addEntry(raftLog.get(next++));
       }
-      if (buffer.isFull() || !batchSending) {
-        // buffer is full or batch sending is disabled, send out a request
-        toSend = true;
-      }
+      // buffer is full or batch sending is disabled, send out a request
+      toSend = !hasSpace || !batchSending;
+    } else {
+      toSend = false;
     }
 
     if (toSend || shouldHeartbeat()) {

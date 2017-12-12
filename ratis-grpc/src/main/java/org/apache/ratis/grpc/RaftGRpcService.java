@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.shaded.io.grpc.Server;
 import org.apache.ratis.shaded.io.grpc.ServerBuilder;
@@ -32,6 +33,7 @@ import org.apache.ratis.shaded.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.ExitUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,9 +78,18 @@ public class RaftGRpcService implements RaftServerRpc {
   private RaftGRpcService(RaftServer server) {
     this(server,
         GrpcConfigKeys.Server.port(server.getProperties()),
-        GrpcConfigKeys.messageSizeMax(server.getProperties()).getSizeInt());
+        GrpcConfigKeys.messageSizeMax(server.getProperties()).getSizeInt(),
+        GrpcConfigKeys.messageSizeMax(server.getProperties()),
+        RaftServerConfigKeys.Log.Appender.bufferCapacity(server.getProperties()));
   }
-  private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize) {
+  private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize,
+      SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize) {
+    if (appenderBufferSize.getSize() > grpcMessageSizeMax.getSize()) {
+      throw new IllegalArgumentException("Illegal configuration: "
+          + RaftServerConfigKeys.Log.Appender.BUFFER_CAPACITY_KEY + " = " + appenderBufferSize
+          + " > " + GrpcConfigKeys.MESSAGE_SIZE_MAX_KEY + " = " + grpcMessageSizeMax);
+    }
+
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);
     idSupplier = raftServer::getId;
     server = ((NettyServerBuilder) serverBuilder).maxMessageSize(maxMessageSize)
