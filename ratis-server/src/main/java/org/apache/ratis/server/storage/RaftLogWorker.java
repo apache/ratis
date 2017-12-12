@@ -37,7 +37,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -267,31 +270,23 @@ class RaftLogWorker implements Runnable {
   private class WriteLog extends Task {
     private final LogEntryProto entry;
     private final CompletableFuture<?> stateMachineFuture;
+    private final CompletableFuture<Long> combined;
 
     WriteLog(LogEntryProto entry) {
       this.entry = ProtoUtils.removeStateMachineData(entry);
       if (this.entry == entry || stateMachine == null) {
         this.stateMachineFuture = null;
+        this.combined = super.getFuture();
       } else {
         // this.entry != entry iff the entry has state machine data
         this.stateMachineFuture = stateMachine.writeStateMachineData(entry);
+        this.combined = super.getFuture().thenCombine(stateMachineFuture, (index, stateMachineResult) -> index);
       }
     }
 
     @Override
-    void waitForDone() throws InterruptedException {
-      super.waitForDone();
-      // TODO: It does not work since logSync only wait for the last task L.
-      // TODO: If some task T earlier than L has a writeStateMachineData future, it will not be sync'ed.
-      // TODO: Need RATIS-124
-
-      if (stateMachineFuture != null) {
-        try {
-          stateMachineFuture.get();
-        } catch (ExecutionException e) {
-          // ignore
-        }
-      }
+    CompletableFuture<Long> getFuture() {
+      return combined;
     }
 
     @Override

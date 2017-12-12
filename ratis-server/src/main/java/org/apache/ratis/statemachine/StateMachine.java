@@ -128,8 +128,7 @@ public interface StateMachine extends Closeable {
   /**
    * Write asynchronously the state machine data to this state machine.
    *
-   * @return a future for the write task
-   *         if {@link RaftLog#logSync()} should also sync writing the state machine data;
+   * @return a future for the write task if the state machine data should be sync'ed;
    *         otherwise, return null.
    */
   default CompletableFuture<?> writeStateMachineData(LogEntryProto entry) {

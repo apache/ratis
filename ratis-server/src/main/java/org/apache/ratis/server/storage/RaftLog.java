@@ -35,10 +35,11 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
-
 /**
  * Base class of RaftLog. Currently we provide two types of RaftLog
  * implementation:
@@ -207,13 +208,13 @@ public abstract class RaftLog implements Closeable {
    * Truncate the log entries till the given index. The log with the given index
    * will also be truncated (i.e., inclusive).
    */
-  abstract void truncate(long index);
+  abstract CompletableFuture<Long> truncate(long index);
 
   /**
    * Used by the leader when appending a new entry based on client's request
    * or configuration change.
    */
-  abstract void appendEntry(LogEntryProto entry);
+  abstract CompletableFuture<Long> appendEntry(LogEntryProto entry);
 
   /**
    * Append all the given log entries. Used by the followers.
@@ -224,15 +225,9 @@ public abstract class RaftLog implements Closeable {
    * This method, {@link #append(long, TransactionContext, ClientId, long)},
    * {@link #append(long, RaftConfiguration)}, and {@link #truncate(long)},
    * do not guarantee the changes are persisted.
-   * Need to call {@link #logSync()} to persist the changes.
+   * Need to wait for the returned futures to persist the changes.
    */
-  public abstract void append(LogEntryProto... entries);
-
-  /**
-   * Flush and sync the log.
-   * It is triggered by AppendEntries RPC request from the leader.
-   */
-  public abstract void logSync() throws InterruptedException;
+  public abstract List<CompletableFuture<Long>> append(LogEntryProto... entries);
 
   /**
    * @return the index of the latest entry that has been flushed to the local

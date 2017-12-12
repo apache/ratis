@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 public class TestSegmentedRaftLog extends BaseTest {
@@ -192,8 +193,7 @@ public class TestSegmentedRaftLog extends BaseTest {
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
       // append entries to the raftlog
-      entries.forEach(raftLog::appendEntry);
-      raftLog.logSync();
+      entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
     }
 
     try (SegmentedRaftLog raftLog =
@@ -221,8 +221,7 @@ public class TestSegmentedRaftLog extends BaseTest {
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
       // append entries to the raftlog
-      entries.forEach(raftLog::appendEntry);
-      raftLog.logSync();
+      entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
     }
 
     try (SegmentedRaftLog raftLog =
@@ -244,8 +243,7 @@ public class TestSegmentedRaftLog extends BaseTest {
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
       // append entries to the raftlog
-      entries.forEach(raftLog::appendEntry);
-      raftLog.logSync();
+      entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
     }
 
     for (long fromIndex = 900; fromIndex >= 0; fromIndex -= 150) {
@@ -259,8 +257,8 @@ public class TestSegmentedRaftLog extends BaseTest {
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
       // truncate the log
-      raftLog.truncate(fromIndex);
-      raftLog.logSync();
+      raftLog.truncate(fromIndex).join();
+
 
       checkEntries(raftLog, entries, 0, (int) fromIndex);
     }
@@ -317,8 +315,7 @@ public class TestSegmentedRaftLog extends BaseTest {
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
       // append entries to the raftlog
-      entries.forEach(raftLog::appendEntry);
-      raftLog.logSync();
+      entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
     }
 
     // append entries whose first 100 entries are the same with existing log,
@@ -332,8 +329,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
-      raftLog.append(newEntries.toArray(new LogEntryProto[newEntries.size()]));
-      raftLog.logSync();
+      raftLog.append(newEntries.toArray(new LogEntryProto[newEntries.size()])).forEach(CompletableFuture::join);
 
       checkEntries(raftLog, entries, 0, 650);
       checkEntries(raftLog, newEntries, 100, 100);

@@ -29,14 +29,16 @@ import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
-import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.Preconditions;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
@@ -73,18 +75,16 @@ public class SegmentedRaftLog extends RaftLog {
    * I/O task definitions.
    */
   static abstract class Task {
-    private boolean done = false;
+    private final CompletableFuture<Long> future = new CompletableFuture<>();
 
-    synchronized void done() {
-      done = true;
-      notifyAll();
+    CompletableFuture<Long> getFuture() {
+      return future;
     }
 
-    synchronized void waitForDone() throws InterruptedException {
-      while (!done) {
-        wait();
-      }
+    void done() {
+      future.complete(getEndIndex());
     }
+
 
     abstract void execute() throws IOException;
 
@@ -95,7 +95,6 @@ public class SegmentedRaftLog extends RaftLog {
       return getClass().getSimpleName() + ":" + getEndIndex();
     }
   }
-  private static final ThreadLocal<Task> myTask = new ThreadLocal<>();
 
   private final RaftServerImpl server;
   private final RaftStorage storage;
@@ -232,19 +231,21 @@ public class SegmentedRaftLog extends RaftLog {
    * {@link #append(LogEntryProto...)} need protection of RaftServer's lock.
    */
   @Override
-  void truncate(long index) {
+  CompletableFuture<Long> truncate(long index) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       RaftLogCache.TruncationSegments ts = cache.truncate(index);
       if (ts != null) {
         Task task = fileLogWorker.truncate(ts);
-        myTask.set(task);
+        return task.getFuture();
       }
     }
+    return CompletableFuture.completedFuture(index);
   }
 
   @Override
-  void appendEntry(LogEntryProto entry) {
+  CompletableFuture<Long> appendEntry(LogEntryProto entry) {
+
     checkLogState();
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: appendEntry {}", server.getId(),
@@ -272,7 +273,7 @@ public class SegmentedRaftLog extends RaftLog {
       }
 
       cache.appendEntry(entry);
-      myTask.set(fileLogWorker.writeLogEntry(entry));
+      return fileLogWorker.writeLogEntry(entry).getFuture();
     }
   }
 
@@ -289,11 +290,13 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public void append(LogEntryProto... entries) {
+  public List<CompletableFuture<Long>> append(LogEntryProto... entries) {
+
     checkLogState();
     if (entries == null || entries.length == 0) {
-      return;
+      return Collections.emptyList();
     }
+
     try(AutoCloseableLock writeLock = writeLock()) {
       Iterator<TermIndex> iter = cache.iterator(entries[0].getIndex());
       int index = 0;
@@ -318,25 +321,21 @@ public class SegmentedRaftLog extends RaftLog {
           break;
         }
       }
+
+      final List<CompletableFuture<Long>> futures;
       if (truncateIndex != -1) {
-        // truncate from truncateIndex
-        truncate(truncateIndex);
+        futures = new ArrayList<>(entries.length - index + 1);
+        futures.add(truncate(truncateIndex));
+      } else {
+        futures = new ArrayList<>(entries.length - index);
       }
-      // append from entries[index]
       for (int i = index; i < entries.length; i++) {
-        appendEntry(entries[i]);
+        futures.add(appendEntry(entries[i]));
       }
+      return futures;
     }
   }
 
-  @Override
-  public void logSync() throws InterruptedException {
-    CodeInjectionForTesting.execute(LOG_SYNC, getSelfId(), null);
-    final Task task = myTask.get();
-    if (task != null) {
-      task.waitForDone();
-    }
-  }
 
   @Override
   public long getLatestFlushedIndex() {

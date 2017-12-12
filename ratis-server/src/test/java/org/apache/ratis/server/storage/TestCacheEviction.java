@@ -41,6 +41,7 @@ import org.mockito.Mockito;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public class TestCacheEviction extends BaseTest {
   private static final CacheInvalidationPolicy policy = new CacheInvalidationPolicyDefault();
@@ -168,8 +169,7 @@ public class TestCacheEviction extends BaseTest {
     raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
     List<SegmentRange> slist = TestSegmentedRaftLog.prepareRanges(maxCachedNum, 7, 0);
     LogEntryProto[] entries = generateEntries(slist);
-    raftLog.append(entries);
-    raftLog.logSync();
+    raftLog.append(entries).forEach(CompletableFuture::join);
 
     // check the current cached segment number: the last segment is still open
     Assert.assertEquals(maxCachedNum - 1,
@@ -179,8 +179,7 @@ public class TestCacheEviction extends BaseTest {
     Mockito.when(state.getLastAppliedIndex()).thenReturn(35L);
     slist = TestSegmentedRaftLog.prepareRanges(2, 7, 7 * maxCachedNum);
     entries = generateEntries(slist);
-    raftLog.append(entries);
-    raftLog.logSync();
+    raftLog.append(entries).forEach(CompletableFuture::join);
 
     // check the cached segment number again. since the slowest follower is on
     // index 21, the eviction should happen and evict 3 segments

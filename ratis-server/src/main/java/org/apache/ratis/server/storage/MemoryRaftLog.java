@@ -17,9 +17,6 @@
  */
 package org.apache.ratis.server.storage;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -27,9 +24,13 @@ import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
-import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * A simple RaftLog implementation in memory. Used only for testing.
@@ -79,7 +80,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  void truncate(long index) {
+  CompletableFuture<Long> truncate(long index) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       Preconditions.assertTrue(index >= 0);
@@ -88,6 +89,7 @@ public class MemoryRaftLog extends RaftLog {
         entries.remove(i);
       }
     }
+    return CompletableFuture.completedFuture(index);
   }
 
   @Override
@@ -100,11 +102,12 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  void appendEntry(LogEntryProto entry) {
+  CompletableFuture<Long> appendEntry(LogEntryProto entry) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       entries.add(entry);
     }
+    return CompletableFuture.completedFuture(entry.getIndex());
   }
 
   @Override
@@ -126,11 +129,11 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public void append(LogEntryProto... entries) {
+  public List<CompletableFuture<Long>> append(LogEntryProto... entries) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       if (entries == null || entries.length == 0) {
-        return;
+        return Collections.emptyList();
       }
       // Before truncating the entries, we first need to check if some
       // entries are duplicated. If the leader sends entry 6, entry 7, then
@@ -151,12 +154,18 @@ public class MemoryRaftLog extends RaftLog {
           break;
         }
       }
+      final List<CompletableFuture<Long>> futures;
       if (toTruncate) {
-        truncate(truncateIndex);
+        futures = new ArrayList<>(entries.length - index + 1);
+        futures.add(truncate(truncateIndex));
+      } else {
+        futures = new ArrayList<>(entries.length - index);
       }
       for (int i = index; i < entries.length; i++) {
         this.entries.add(entries[i]);
+        futures.add(CompletableFuture.completedFuture(entries[i].getIndex()));
       }
+      return futures;
     }
   }
 
@@ -168,12 +177,6 @@ public class MemoryRaftLog extends RaftLog {
 
   public String getEntryString() {
     return "entries=" + entries;
-  }
-
-  @Override
-  public void logSync() {
-    CodeInjectionForTesting.execute(LOG_SYNC, getSelfId(), null);
-    // do nothing
   }
 
   @Override

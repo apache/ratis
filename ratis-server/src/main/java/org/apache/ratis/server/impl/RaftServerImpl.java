@@ -25,6 +25,7 @@ import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
+import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -36,7 +37,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.management.ObjectName;
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -723,6 +723,8 @@ public class RaftServerImpl implements RaftServerProtocol,
       throw new IOException(e);
     }
 
+    final List<CompletableFuture<Long>> futures;
+
     final long currentTerm;
     long nextIndex = state.getLog().getNextIndex();
     synchronized (this) {
@@ -764,16 +766,17 @@ public class RaftServerImpl implements RaftServerProtocol,
         return reply;
       }
 
-      state.getLog().append(entries);
+      futures = state.getLog().append(entries);
+
       state.updateConfiguration(entries);
       state.updateStatemachine(leaderCommit, currentTerm);
     }
     if (entries.length > 0) {
-      try {
-        state.getLog().logSync();
-      } catch (InterruptedException e) {
-        throw new InterruptedIOException("logSync got interrupted");
+      CodeInjectionForTesting.execute(RaftLog.LOG_SYNC, getId(), null);
+      for (CompletableFuture future : futures) {
+        future.join();
       }
+
       nextIndex = entries[entries.length - 1].getIndex() + 1;
     }
     synchronized (this) {
