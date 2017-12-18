@@ -85,6 +85,9 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, SEGMENT_CACHE_MAX_NUM_KEY,
           SEGMENT_CACHE_MAX_NUM_DEFAULT, requireMin(0));
     }
+    static void setMaxCachedSegmentNum(RaftProperties properties, int maxCachedSegmentNum) {
+      setInt(properties::setInt, SEGMENT_CACHE_MAX_NUM_KEY, maxCachedSegmentNum);
+    }
 
     String PREALLOCATED_SIZE_KEY = PREFIX + ".preallocated.size";
     SizeInBytes PREALLOCATED_SIZE_DEFAULT = SizeInBytes.valueOf("4MB");
@@ -111,6 +114,9 @@ public interface RaftServerConfigKeys {
     static int forceSyncNum(RaftProperties properties) {
       return getInt(properties::getInt,
           FORCE_SYNC_NUM_KEY, FORCE_SYNC_NUM_DEFAULT, requireMin(0));
+    }
+    static void setForceSyncNum(RaftProperties properties, int forceSyncNum) {
+      setInt(properties::setInt, FORCE_SYNC_NUM_KEY, forceSyncNum);
     }
 
     interface Appender {
@@ -140,6 +146,9 @@ public interface RaftServerConfigKeys {
       static SizeInBytes snapshotChunkSizeMax(RaftProperties properties) {
         return getSizeInBytes(properties::getSizeInBytes,
             SNAPSHOT_CHUNK_SIZE_MAX_KEY, SNAPSHOT_CHUNK_SIZE_MAX_DEFAULT);
+      }
+      static void setSnapshotChunkSizeMax(RaftProperties properties, SizeInBytes maxChunkSize) {
+        setSizeInBytes(properties::set, SNAPSHOT_CHUNK_SIZE_MAX_KEY, maxChunkSize);
       }
     }
   }
@@ -181,6 +190,9 @@ public interface RaftServerConfigKeys {
       return getTimeDuration(properties.getTimeDuration(TIMEOUT_MIN_DEFAULT.getUnit()),
           TIMEOUT_MIN_KEY, TIMEOUT_MIN_DEFAULT);
     }
+    static void setTimeoutMin(RaftProperties properties, TimeDuration minDuration) {
+      setTimeDuration(properties::setTimeDuration, TIMEOUT_MIN_KEY, minDuration);
+    }
 
     String TIMEOUT_MAX_KEY = PREFIX + ".timeout.max";
     TimeDuration TIMEOUT_MAX_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
@@ -188,12 +200,18 @@ public interface RaftServerConfigKeys {
       return getTimeDuration(properties.getTimeDuration(TIMEOUT_MAX_DEFAULT.getUnit()),
           TIMEOUT_MAX_KEY, TIMEOUT_MAX_DEFAULT);
     }
+    static void setTimeoutMax(RaftProperties properties, TimeDuration maxDuration) {
+      setTimeDuration(properties::setTimeDuration, TIMEOUT_MAX_KEY, maxDuration);
+    }
 
     String SLEEP_TIME_KEY = PREFIX + ".sleep.time";
     TimeDuration SLEEP_TIME_DEFAULT = TimeDuration.valueOf(25, TimeUnit.MILLISECONDS);
     static TimeDuration sleepTime(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(SLEEP_TIME_DEFAULT.getUnit()),
           SLEEP_TIME_KEY, SLEEP_TIME_DEFAULT);
+    }
+    static void setSleepTime(RaftProperties properties, TimeDuration sleepTime) {
+      setTimeDuration(properties::setTimeDuration, SLEEP_TIME_KEY, sleepTime);
     }
   }
 
@@ -208,11 +226,14 @@ public interface RaftServerConfigKeys {
           ConfUtils.requireMin(0));
     }
 
-    String EXPIRYTIME_KEY = PREFIX + ".expirytime";
-    TimeDuration EXPIRYTIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
+    String EXPIRY_TIME_KEY = PREFIX + ".expirytime";
+    TimeDuration EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
     static TimeDuration expiryTime(RaftProperties properties) {
-      return getTimeDuration(properties.getTimeDuration(EXPIRYTIME_DEFAULT.getUnit()),
-          EXPIRYTIME_KEY, EXPIRYTIME_DEFAULT);
+      return getTimeDuration(properties.getTimeDuration(EXPIRY_TIME_DEFAULT.getUnit()),
+          EXPIRY_TIME_KEY, EXPIRY_TIME_DEFAULT);
+    }
+    static void setExpiryTime(RaftProperties properties, TimeDuration expiryTime) {
+      setTimeDuration(properties::setTimeDuration, EXPIRY_TIME_KEY, expiryTime);
     }
   }
 

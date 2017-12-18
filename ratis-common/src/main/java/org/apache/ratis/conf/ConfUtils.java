@@ -201,6 +201,13 @@ public interface ConfUtils {
   }
 
   @SafeVarargs
+  static void setTimeDuration(
+      BiConsumer<String, TimeDuration> timeDurationSetter, String key, TimeDuration value,
+      BiConsumer<String, TimeDuration>... assertions) {
+    set(timeDurationSetter, key, value, assertions);
+  }
+
+  @SafeVarargs
   static <T> void set(
       BiConsumer<String, T> setter, String key, T value,
       BiConsumer<String, T>... assertions) {

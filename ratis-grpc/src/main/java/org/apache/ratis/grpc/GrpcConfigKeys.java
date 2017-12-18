@@ -46,6 +46,9 @@ public interface GrpcConfigKeys {
       return getInt(properties::getInt,
           LEADER_OUTSTANDING_APPENDS_MAX_KEY, LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT, requireMin(0));
     }
+    static void setLeaderOutstandingAppendsMax(RaftProperties properties, int maxAppend) {
+      setInt(properties::setInt, LEADER_OUTSTANDING_APPENDS_MAX_KEY, maxAppend);
+    }
   }
 
   interface OutputStream {
@@ -67,6 +70,9 @@ public interface GrpcConfigKeys {
       return getInt(properties::getInt,
           RETRY_TIMES_KEY, RETRY_TIMES_DEFAULT, requireMin(1));
     }
+    static void setRetryTimes(RaftProperties properties, int retryTimes) {
+      setInt(properties::setInt, RETRY_TIMES_KEY, retryTimes);
+    }
 
     String RETRY_INTERVAL_KEY = PREFIX + ".retry.interval";
     TimeDuration RETRY_INTERVAL_DEFAULT = RaftClientConfigKeys.Rpc.TIMEOUT_DEFAULT;
@@ -74,12 +80,18 @@ public interface GrpcConfigKeys {
       return getTimeDuration(properties.getTimeDuration(RETRY_INTERVAL_DEFAULT.getUnit()),
           RETRY_INTERVAL_KEY, RETRY_INTERVAL_DEFAULT);
     }
+    static void setRetryInterval(RaftProperties properties, TimeDuration retryInterval) {
+      setTimeDuration(properties::setTimeDuration, RETRY_INTERVAL_KEY, retryInterval);
+    }
 
     String OUTSTANDING_APPENDS_MAX_KEY = PREFIX + ".outstanding.appends.max";
     int OUTSTANDING_APPENDS_MAX_DEFAULT = 128;
     static int outstandingAppendsMax(RaftProperties properties) {
       return getInt(properties::getInt,
           OUTSTANDING_APPENDS_MAX_KEY, OUTSTANDING_APPENDS_MAX_DEFAULT, requireMin(0));
+    }
+    static void setOutstandingAppendsMax(RaftProperties properties, int maxOutstandingAppends) {
+      setInt(properties::setInt, OUTSTANDING_APPENDS_MAX_KEY, maxOutstandingAppends);
     }
   }
 
@@ -89,7 +101,9 @@ public interface GrpcConfigKeys {
     return getSizeInBytes(properties::getSizeInBytes,
         MESSAGE_SIZE_MAX_KEY, MESSAGE_SIZE_MAX_DEFAULT);
   }
-
+  static void setMessageSizeMax(RaftProperties properties, SizeInBytes maxMessageSize) {
+    setSizeInBytes(properties::set, MESSAGE_SIZE_MAX_KEY, maxMessageSize);
+  }
   static void main(String[] args) {
     printAll(GrpcConfigKeys.class);
   }
