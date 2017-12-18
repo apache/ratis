@@ -63,7 +63,7 @@ public class TestBatchAppend extends BaseTest {
     // enable batch appending
     RaftServerConfigKeys.Log.Appender.setBatchEnabled(prop, true);
     // set batch appending buffer size to 4KB
-    RaftServerConfigKeys.Log.Appender.setBufferCapacity(prop, SizeInBytes.valueOf("4KB"));
+    RaftServerConfigKeys.Log.Appender.setBufferCapacity(prop, SizeInBytes.valueOf("8KB"));
 
     return ParameterizedBaseTest.getMiniRaftClusters(prop, 3);
   }
