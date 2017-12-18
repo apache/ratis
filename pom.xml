@@ -377,7 +377,11 @@
           <artifactId>maven-javadoc-plugin</artifactId>
           <version>${maven-javadoc-plugin.version}</version>
           <configuration>
-            <additionalparam>-Xmaxwarns 10000</additionalparam>
+            <additionalJOptions>
+              <additionalJOption>-Xmaxwarns</additionalJOption>
+              <additionalJOption>10000</additionalJOption>
+              <additionalJOption>-Xdoclint:-missing</additionalJOption>
+            </additionalJOptions>
           </configuration>
         </plugin>
         <plugin>
