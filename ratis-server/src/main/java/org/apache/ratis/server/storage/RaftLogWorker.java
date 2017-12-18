@@ -276,12 +276,12 @@ class RaftLogWorker implements Runnable {
       this.entry = ProtoUtils.removeStateMachineData(entry);
       if (this.entry == entry || stateMachine == null) {
         this.stateMachineFuture = null;
-        this.combined = super.getFuture();
       } else {
         // this.entry != entry iff the entry has state machine data
         this.stateMachineFuture = stateMachine.writeStateMachineData(entry);
-        this.combined = super.getFuture().thenCombine(stateMachineFuture, (index, stateMachineResult) -> index);
       }
+      this.combined = stateMachineFuture == null? super.getFuture()
+          : super.getFuture().thenCombine(stateMachineFuture, (index, stateMachineResult) -> index);
     }
 
     @Override
