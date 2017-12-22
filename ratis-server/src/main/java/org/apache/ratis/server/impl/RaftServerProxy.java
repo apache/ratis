@@ -63,7 +63,17 @@ public class RaftServerProxy implements RaftServer {
 
     this.serverRpc = factory.newRaftServerRpc(this);
     this.id = id != null? id: RaftPeerId.valueOf(getIdStringFrom(serverRpc));
-    this.impl = CompletableFuture.completedFuture(initImpl(group));
+    try {
+      this.impl = CompletableFuture.completedFuture(initImpl(group));
+    } catch (IOException ioe) {
+      try {
+        serverRpc.close();
+      } catch (IOException closeIoe) {
+        ioe.addSuppressed(closeIoe);
+      } finally {
+        throw ioe;
+      }
+    }
   }
 
   private RaftServerImpl initImpl(RaftGroup group) throws IOException {
