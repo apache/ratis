@@ -97,12 +97,13 @@
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
           <!--Else will use ratis-assembly as final name.-->
-          <finalName>ratis-${project.version}</finalName>
+          <finalName>ratis-incubator-${project.version}</finalName>
           <skipAssembly>false</skipAssembly>
           <appendAssemblyId>true</appendAssemblyId>
           <tarLongFileMode>gnu</tarLongFileMode>
           <descriptors>
-            <descriptor>src/main/assembly/src.xml/</descriptor>
+            <descriptor>src/main/assembly/src.xml</descriptor>
+            <descriptor>src/main/assembly/bin.xml</descriptor>
           </descriptors>
         </configuration>
       </plugin>
@@ -136,6 +137,11 @@
     <!-- Intra-project dependencies -->
     <dependency>
       <artifactId>ratis-proto-shaded</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+
+    <dependency>
+      <artifactId>ratis-examples</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
 
