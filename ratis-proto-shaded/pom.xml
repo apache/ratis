@@ -31,10 +31,10 @@
     <shaded.sources.dir>src/main/java</shaded.sources.dir>
 
     <!--Version of grpc to be shaded -->
-    <shaded.grpc.version>1.7.1</shaded.grpc.version>
+    <shaded.grpc.version>1.0.1</shaded.grpc.version>
     <!--Version of Netty to be shaded -->
-    <shaded.netty.version>4.1.16.Final</shaded.netty.version>
-    <tcnative.version>2.0.6.Final</tcnative.version>
+    <shaded.netty.version>4.1.3.Final</shaded.netty.version>
+    <tcnative.version>1.1.33.Fork19</tcnative.version>
   </properties>
 
   <build>
@@ -402,34 +402,6 @@
       <artifactId>jctools-core</artifactId>
       <optional>true</optional>
     </dependency>
-
-    <dependency>
-      <groupId>com.google.auto.value</groupId>
-      <artifactId>auto-value</artifactId>
-      <version>1.5</version>
-      <optional>true</optional>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.auto</groupId>
-      <artifactId>auto-common</artifactId>
-      <version>0.8</version>
-      <optional>true</optional>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.auto.service</groupId>
-      <artifactId>auto-service</artifactId>
-      <version>1.0-rc2</version>
-      <optional>true</optional>
-    </dependency>
-
-    <dependency>
-      <groupId>com.fasterxml</groupId>
-      <artifactId>aalto-xml</artifactId>
-      <version>1.0.0</version>
-      <optional>true</optional>
-    </dependency>
   </dependencies>
 
   <profiles>
@@ -599,44 +571,12 @@
                       <shadedPattern>org.apache.ratis.shaded.com.google.protobuf</shadedPattern>
                     </relocation>
                     <relocation>
-                      <pattern>com.google.instrumentation</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.com.google.instrumentation</shadedPattern>
-                    </relocation>
-                    <relocation>
-                      <pattern>com.google.rpc</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.com.google.rpc</shadedPattern>
-                    </relocation>
-                    <relocation>
-                      <pattern>com.google.api</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.com.google.api</shadedPattern>
-                    </relocation>
-                    <relocation>
-                      <pattern>com.google.type</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.com.google.type</shadedPattern>
-                    </relocation>
-                    <relocation>
-                      <pattern>com.google.cloud.audit</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.com.google.cloud.audit</shadedPattern>
-                    </relocation>
-                    <relocation>
-                      <pattern>com.google.longrunning</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.com.google.longrunning</shadedPattern>
-                    </relocation>
-                    <relocation>
-                      <pattern>com.google.logging.type</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.com.google.logging.type</shadedPattern>
-                    </relocation>
-                    <relocation>
                       <pattern>io.grpc</pattern>
                       <shadedPattern>org.apache.ratis.shaded.io.grpc</shadedPattern>
                     </relocation>
                     <relocation>
                       <pattern>io.netty</pattern>
                       <shadedPattern>org.apache.ratis.shaded.io.netty</shadedPattern>
-                    </relocation>
-                    <relocation>
-                      <pattern>io.opencensus</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.io.opencensus</shadedPattern>
                     </relocation>
                   </relocations>
 
@@ -688,12 +628,6 @@
                       <exclude>io.netty:netty-transport-sctp</exclude>
                       <exclude>io.netty:netty-transport-udt</exclude>
                       <exclude>io.netty:netty-transport</exclude>
-                      <exclude>com.google.auto.value:auto-value</exclude>
-                      <exclude>com.google.auto:auto-common</exclude>
-                      <exclude>com.google.auto.service:auto-service</exclude>
-                      <exclude>org.conscrypt:conscrypt-openjdk-uber</exclude>
-                      <exclude>com.fasterxml:aalto-xml</exclude>
-                      <exclude>org.codehaus.woodstox:stax2-api</exclude>
 
                       <exclude>log4j:log4j</exclude>
                       <exclude>net.jpountz.lz4:lz4</exclude>

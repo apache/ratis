@@ -62,16 +62,8 @@ $ mvn clean -DskipCleanShade
 | `com.google.common`                 | `org.apache.ratis.shaded.com.google.common`                  |
 | `com.google.protobuf`               | `org.apache.ratis.shaded.com.google.protobuf`                |
 | `com.google.thirdparty.publicsuffix`| `org.apache.ratis.shaded.com.google.thirdparty.publicsuffix` |
-| `com.google.instrumentation`        | `org.apache.ratis.shaded.com.google.instrumentation`         |
-| `com.google.rpc`                    | `org.apache.ratis.shaded.com.google.rpc`                     |
-| `com.google.api`                    | `org.apache.ratis.shaded.com.google.api`                     |
-| `com.google.type`                   | `org.apache.ratis.shaded.com.google.type`                    |
-| `com.google.cloud.audit`            | `org.apache.ratis.shaded.com.google.cloud.audit`             |
-| `com.google.longrunning`            | `org.apache.ratis.shaded.com.google.longrunning`             |
-| `com.google.logging.type`           | `org.apache.ratis.shaded.com.google.logging.type`            |
 | `io.grpc`                           | `org.apache.ratis.shaded.io.grpc`                            |
 | `io.netty`                          | `org.apache.ratis.shaded.io.netty`                           |
-| `io.opencensus`                     | `org.apache.ratis.shaded.io.opencensus`                      |
 | `org.apache.hadoop.ipc.protobuf`    | `org.apache.ratis.shaded.org.apache.hadoop.ipc.protobuf`     |
 
 The protos defined in this project are stored in the `org.apache.ratis.shaded.proto` package.
