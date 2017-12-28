@@ -25,17 +25,21 @@ import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceImplBase;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.SlidingWindow;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.io.IOException;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase {
-  static final Logger LOG = LoggerFactory.getLogger(RaftClientProtocolService.class);
+  public static final Logger LOG = LoggerFactory.getLogger(RaftClientProtocolService.class);
 
-  private static class PendingAppend implements Comparable<PendingAppend> {
+  private static class PendingAppend implements SlidingWindow.Request<RaftClientReply> {
     private final RaftClientRequest request;
     private volatile RaftClientReply reply;
 
@@ -43,25 +47,27 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
       this.request = request;
     }
 
-    boolean isReady() {
+    @Override
+    public boolean hasReply() {
       return reply != null || this == COMPLETED;
     }
 
-    void setReply(RaftClientReply reply) {
+    @Override
+    public void setReply(RaftClientReply reply) {
       this.reply = reply;
+    }
+
+    RaftClientReply getReply() {
+      return reply;
     }
 
     RaftClientRequest getRequest() {
       return request;
     }
 
-    long getSeqNum() {
-      return request != null? request.getSeqNum(): Long.MAX_VALUE;
-    }
-
     @Override
-    public int compareTo(PendingAppend that) {
-      return Long.compare(this.getSeqNum(), that.getSeqNum());
+    public long getSeqNum() {
+      return request != null? request.getSeqNum(): Long.MAX_VALUE;
     }
 
     @Override
@@ -97,13 +103,35 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     return new AppendRequestStreamObserver(responseObserver);
   }
 
+  private final AtomicInteger streamCount = new AtomicInteger();
+
   private class AppendRequestStreamObserver implements
       StreamObserver<RaftClientRequestProto> {
-    private final List<PendingAppend> pendingList = new LinkedList<>();
+    private final String name = getId() + "-" +  streamCount.getAndIncrement();
     private final StreamObserver<RaftClientReplyProto> responseObserver;
+    private final SlidingWindow.Server<PendingAppend, RaftClientReply> slidingWindow
+        = new SlidingWindow.Server<>(name, COMPLETED);
 
     AppendRequestStreamObserver(StreamObserver<RaftClientReplyProto> ro) {
+      LOG.debug("new AppendRequestStreamObserver {}", name);
       this.responseObserver = ro;
+    }
+
+    void processClientRequestAsync(PendingAppend pending) {
+      try {
+        protocol.submitClientRequestAsync(pending.getRequest()
+        ).thenAcceptAsync(reply -> slidingWindow.receiveReply(
+            pending.getSeqNum(), reply, this::sendReply, this::processClientRequestAsync)
+        ).exceptionally(exception -> {
+          // TODO: the exception may be from either raft or state machine.
+          // Currently we skip all the following responses when getting an
+          // exception from the state machine.
+          responseError(exception, () -> "processClientRequestAsync for " + pending.getRequest());
+          return null;
+        });
+      } catch (IOException e) {
+        throw new CompletionException("Failed processClientRequestAsync for " + pending.getRequest(), e);
+      }
     }
 
     @Override
@@ -111,83 +139,48 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
       try {
         final RaftClientRequest r = ClientProtoUtils.toRaftClientRequest(request);
         final PendingAppend p = new PendingAppend(r);
-        final long replySeq = p.getSeqNum();
-        synchronized (pendingList) {
-          pendingList.add(p);
-        }
-
-        protocol.submitClientRequestAsync(r
-        ).whenCompleteAsync((reply, exception) -> {
-          if (exception != null) {
-            // TODO: the exception may be from either raft or state machine.
-            // Currently we skip all the following responses when getting an
-            // exception from the state machine.
-            responseObserver.onError(RaftGrpcUtil.wrapException(exception));
-          } else {
-            synchronized (pendingList) {
-              Preconditions.assertTrue(!pendingList.isEmpty(),
-                  "PendingList is empty when handling onNext for seqNum %s", replySeq);
-              final long headSeqNum = pendingList.get(0).getSeqNum();
-              // stream seqNum is consecutive
-              final PendingAppend pendingForReply = pendingList.get(
-                  (int) (replySeq - headSeqNum));
-              Preconditions.assertTrue(pendingForReply != null &&
-                      pendingForReply.getSeqNum() == replySeq,
-                  "pending for reply is: %s, the pending list: %s",
-                  pendingForReply, pendingList);
-              pendingForReply.setReply(reply);
-
-              if (headSeqNum == replySeq) {
-                Collection<PendingAppend> readySet = new ArrayList<>();
-                // if this is head, we send back all the ready responses
-                Iterator<PendingAppend> iter = pendingList.iterator();
-                PendingAppend pending;
-                while (iter.hasNext() && ((pending = iter.next()).isReady())) {
-                  readySet.add(pending);
-                  iter.remove();
-                }
-                sendReadyReplies(readySet);
-              }
-            }
-          }
-        });
+        slidingWindow.receivedRequest(p, this::processClientRequestAsync);
       } catch (Throwable e) {
-        LOG.info("{} got exception when handling client append request {}: {}",
-            getId(), request.getRpcRequest(), e);
-        responseObserver.onError(RaftGrpcUtil.wrapException(e));
+        responseError(e, () -> "onNext for " + ClientProtoUtils.toString(request));
       }
     }
 
-    private void sendReadyReplies(Collection<PendingAppend> readySet) {
-      readySet.forEach(ready -> {
-        Preconditions.assertTrue(ready.isReady());
+    private void sendReply(PendingAppend ready) {
+        Preconditions.assertTrue(ready.hasReply());
         if (ready == COMPLETED) {
-          responseObserver.onCompleted();
+          close();
         } else {
+          LOG.debug("{}: sendReply seq={}, {}", name, ready.getSeqNum(), ready.getReply());
           responseObserver.onNext(
-              ClientProtoUtils.toRaftClientReplyProto(ready.reply));
+              ClientProtoUtils.toRaftClientReplyProto(ready.getReply()));
         }
-      });
     }
 
     @Override
     public void onError(Throwable t) {
       // for now we just log a msg
-      LOG.warn("{} onError: client Append cancelled", getId(), t);
-      synchronized (pendingList) {
-        pendingList.clear();
-      }
+      LOG.warn(name + ": onError", t);
+      slidingWindow.close();
     }
 
     @Override
     public void onCompleted() {
-      synchronized (pendingList) {
-        if (pendingList.isEmpty()) {
-          responseObserver.onCompleted();
-        } else {
-          pendingList.add(COMPLETED);
-        }
+      if (slidingWindow.endOfRequests()) {
+        close();
       }
+    }
+
+    private void close() {
+      LOG.debug("{}: close", name);
+      responseObserver.onCompleted();
+      slidingWindow.close();
+    }
+
+    void responseError(Throwable t, Supplier<String> message) {
+      t = JavaUtils.unwrapCompletionException(t);
+      LOG.warn(name + ": Failed " + message.get(), t);
+      responseObserver.onError(RaftGrpcUtil.wrapException(t));
+      slidingWindow.close();
     }
   }
 }

@@ -59,7 +59,7 @@ public interface RaftClientConfigKeys {
 
     static int schedulerThreads(RaftProperties properties) {
       return getInt(properties::getInt, SCHEDULER_THREADS_KEY,
-          SCHEDULER_THREADS_DEFAULT);
+          SCHEDULER_THREADS_DEFAULT, requireMin(1));
     }
 
     static void setSchedulerThreads(RaftProperties properties, int schedulerThreads) {

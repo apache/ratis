@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.grpc.client;
 
+import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.RaftGrpcUtil;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.io.grpc.ManagedChannel;
 import org.apache.ratis.shaded.io.grpc.ManagedChannelBuilder;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
@@ -31,12 +31,17 @@ import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceBlockingStub;
 import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceStub;
 import org.apache.ratis.util.CheckedSupplier;
+import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class RaftClientProtocolClient implements Closeable {
@@ -48,6 +53,8 @@ public class RaftClientProtocolClient implements Closeable {
   private final RaftClientProtocolServiceBlockingStub blockingStub;
   private final RaftClientProtocolServiceStub asyncStub;
   private final AdminProtocolServiceBlockingStub adminBlockingStub;
+
+  private final AtomicReference<AsyncStreamObservers> appendStreamObservers = new AtomicReference<>();
 
   public RaftClientProtocolClient(ClientId id, RaftPeer target) {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
@@ -65,6 +72,10 @@ public class RaftClientProtocolClient implements Closeable {
 
   @Override
   public void close() {
+    final AsyncStreamObservers observers = appendStreamObservers.get();
+    if (observers != null) {
+      observers.close();
+    }
     channel.shutdownNow();
   }
 
@@ -98,7 +109,88 @@ public class RaftClientProtocolClient implements Closeable {
     return asyncStub.append(responseHandler);
   }
 
+  AsyncStreamObservers getAppendStreamObservers() {
+    return appendStreamObservers.updateAndGet(a -> a != null? a : new AsyncStreamObservers());
+  }
+
   public RaftPeer getTarget() {
     return target;
+  }
+
+  class AsyncStreamObservers implements Closeable {
+    /** Request map: callId -> future */
+    private final AtomicReference<Map<Long, CompletableFuture<RaftClientReply>>> replies = new AtomicReference<>(new ConcurrentHashMap<>());
+    private final StreamObserver<RaftClientReplyProto> replyStreamObserver = new StreamObserver<RaftClientReplyProto>() {
+      @Override
+      public void onNext(RaftClientReplyProto proto) {
+        final Map<Long, CompletableFuture<RaftClientReply>> map = replies.get();
+        if (map == null) {
+          LOG.warn("replyStreamObserver onNext map == null");
+          return;
+        }
+        final long callId = proto.getRpcReply().getCallId();
+        try {
+          final RaftClientReply reply = ClientProtoUtils.toRaftClientReply(proto);
+          final NotLeaderException nle = reply.getNotLeaderException();
+          if (nle != null) {
+            completeReplyExceptionally(nle, NotLeaderException.class.getName());
+            return;
+          }
+          map.remove(callId).complete(reply);
+        } catch (Throwable t) {
+          map.get(callId).completeExceptionally(t);
+        }
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        final IOException ioe = RaftGrpcUtil.unwrapIOException(t);
+        completeReplyExceptionally(ioe, "onError");
+      }
+
+      @Override
+      public void onCompleted() {
+        completeReplyExceptionally(null, "completed");
+      }
+    };
+    private final StreamObserver<RaftClientRequestProto> requestStreamObserver = append(replyStreamObserver);
+
+    CompletableFuture<RaftClientReply> onNext(RaftClientRequest request) {
+      final Map<Long, CompletableFuture<RaftClientReply>> map = replies.get();
+      if (map == null) {
+        return JavaUtils.completeExceptionally(new IOException("Already closed."));
+      }
+      final CompletableFuture<RaftClientReply> f = new CompletableFuture<>();
+      CollectionUtils.putNew(request.getCallId(), f, map,
+          () -> getName() + ":" + getClass().getSimpleName());
+      try {
+        requestStreamObserver.onNext(ClientProtoUtils.toRaftClientRequestProto(request));
+      } catch(Throwable t) {
+        f.completeExceptionally(t);
+      }
+      return f;
+    }
+
+    @Override
+    public void close() {
+      requestStreamObserver.onCompleted();
+      completeReplyExceptionally(null, "close");
+    }
+
+    private void completeReplyExceptionally(Throwable t, String event) {
+      appendStreamObservers.compareAndSet(this, null);
+      final Map<Long, CompletableFuture<RaftClientReply>> map = replies.getAndSet(null);
+      if (map == null) {
+        return;
+      }
+      for (Map.Entry<Long, CompletableFuture<RaftClientReply>> entry : map.entrySet()) {
+        final CompletableFuture<RaftClientReply> f = entry.getValue();
+        if (!f.isDone()) {
+          f.completeExceptionally(t != null? t
+              : new IOException(getName() + ": Stream " + event
+                  + ": no reply for async request cid=" + entry.getKey()));
+        }
+      }
+    }
   }
 }

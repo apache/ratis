@@ -189,11 +189,6 @@ public interface RaftTestUtil {
       }
     }
 
-    if (async) {
-      Collections.sort(entries, Comparator
-          .comparing(e -> e.getSmLogEntry().getData().toStringUtf8()));
-    }
-
     long logIndex = 0;
     Assert.assertEquals(expectedMessages.length, entries.size());
     for (int i = 0; i < expectedMessages.length; i++) {

@@ -209,10 +209,14 @@ public interface ClientProtoUtils {
   }
 
   static Message toMessage(final ClientMessageEntryProto p) {
+    return toMessage(p.getContent());
+  }
+
+  static Message toMessage(final ByteString bytes) {
     return new Message() {
       @Override
       public ByteString getContent() {
-        return p.getContent();
+        return bytes;
       }
 
       @Override
