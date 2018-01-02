@@ -171,7 +171,7 @@ public class ServerState implements Closeable {
     if (newTerm > currentTerm) {
       currentTerm = newTerm;
       votedFor = null;
-      setLeader(null);
+      setLeader(null, "updateCurrentTerm");
       return true;
     }
     return false;
@@ -190,7 +190,7 @@ public class ServerState implements Closeable {
    */
   long initElection() {
     votedFor = selfId;
-    setLeader(null);
+    setLeader(null, "initElection");
     return ++currentTerm;
   }
 
@@ -203,18 +203,19 @@ public class ServerState implements Closeable {
    */
   void grantVote(RaftPeerId candidateId) {
     votedFor = candidateId;
-    setLeader(null);
+    setLeader(null, "grantVote");
   }
 
-  void setLeader(RaftPeerId newLeaderId) {
+  void setLeader(RaftPeerId newLeaderId, String op) {
     if (!Objects.equals(leaderId, newLeaderId)) {
-      LOG.info("{}: change Leader from {} to {}", selfId, leaderId, newLeaderId);
+      LOG.info("{}: change Leader from {} to {} at term {} for {}",
+          selfId, leaderId, newLeaderId, getCurrentTerm(), op);
       leaderId = newLeaderId;
     }
   }
 
   void becomeLeader() {
-    setLeader(selfId);
+    setLeader(selfId, "becomeLeader");
   }
 
   public RaftLog getLog() {

@@ -18,38 +18,28 @@
 package org.apache.ratis;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.RaftTestUtil.SimpleMessage;
+import org.apache.ratis.RaftTestUtil.*;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.storage.RaftStorageTestUtils;
+import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.util.ExitUtils;
-
-
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.apache.ratis.server.storage.RaftLog;
 import org.slf4j.Logger;
-
-
-import static org.apache.ratis.RaftTestUtil.*;
-import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -57,6 +47,8 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.ratis.RaftTestUtil.*;
+import static org.junit.Assert.assertTrue;
 
 public abstract class RaftBasicTests extends BaseTest {
   {
@@ -86,30 +78,6 @@ public abstract class RaftBasicTests extends BaseTest {
     if (cluster != null) {
       cluster.shutdown();
     }
-  }
-
-  @Test
-  public void testBasicLeaderElection() throws Exception {
-    LOG.info("Running testBasicLeaderElection");
-    final MiniRaftCluster cluster = getCluster();
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, false);
-  }
-
-  @Test
-  public void testChangeLeader() throws Exception {
-    RaftStorageTestUtils.setRaftLogWorkerLogLevel(Level.TRACE);
-    LOG.info("Running testChangeLeader");
-    final MiniRaftCluster cluster = getCluster();
-
-    RaftPeerId leader = RaftTestUtil.waitForLeader(cluster).getId();
-    for(int i = 0; i < 10; i++) {
-      leader = RaftTestUtil.changeLeader(cluster, leader);
-      ExitUtils.assertNotTerminated();
-    }
-    RaftStorageTestUtils.setRaftLogWorkerLogLevel(Level.INFO);
   }
 
   @Test
@@ -233,16 +201,6 @@ public abstract class RaftBasicTests extends BaseTest {
     cluster.getServerAliveStream()
             .map(s -> s.getState().getLog())
             .forEach(log -> RaftTestUtil.checkLogEntries(log, messages, predicate));
-  }
-
-  @Test
-  public void testEnforceLeader() throws Exception {
-    LOG.info("Running testEnforceLeader");
-    final String leader = "s" + ThreadLocalRandom.current().nextInt(NUM_SERVERS);
-    LOG.info("enforce leader to " + leader);
-    final MiniRaftCluster cluster = getCluster();
-    waitForLeader(cluster);
-    waitForLeader(cluster, leader);
   }
 
   class Client4TestWithLoad extends Thread {

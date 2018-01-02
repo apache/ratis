@@ -17,29 +17,19 @@
  */
 package org.apache.ratis.netty;
 
-import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
+import org.apache.ratis.server.impl.LeaderElectionTests;
 import org.junit.Test;
 
-import java.io.IOException;
-
-public class TestRaftWithNetty extends RaftBasicTests {
-  private final MiniRaftClusterWithNetty cluster;
-
-  public TestRaftWithNetty() throws IOException {
-    cluster = MiniRaftClusterWithNetty.FACTORY.newCluster(
-        NUM_SERVERS, getProperties());
-  }
-
-  @Override
-  public MiniRaftClusterWithNetty getCluster() {
-    return cluster;
-  }
-
+public class TestLeaderElectionWithNetty
+    extends LeaderElectionTests<MiniRaftClusterWithNetty>
+    implements MiniRaftClusterWithNetty.FactoryGet {
   @Override
   @Test
-  public void testWithLoad() throws Exception {
-    super.testWithLoad();
+  public void testEnforceLeader() throws Exception {
+    super.testEnforceLeader();
+
+    MiniRaftClusterWithNetty.sendServerRequest.clear();
     BlockRequestHandlingInjection.getInstance().unblockAll();
   }
 }

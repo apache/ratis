@@ -140,12 +140,15 @@ public abstract class MiniRaftCluster {
   protected final Parameters parameters;
   protected final Map<RaftPeerId, RaftServerProxy> servers = new ConcurrentHashMap<>();
 
+  private final Timer timer;
+
   protected MiniRaftCluster(String[] ids, RaftProperties properties, Parameters parameters) {
     this.group = initRaftGroup(Arrays.asList(ids));
     this.properties = new RaftProperties(properties);
     this.parameters = parameters;
 
-    JavaUtils.runRepeatedly(() -> LOG.info("TIMED-PRINT" + printServers()), 10, 10, TimeUnit.SECONDS);
+    this.timer = JavaUtils.runRepeatedly(() -> LOG.info("TIMED-PRINT: " + printServers()),
+        10, 10, TimeUnit.SECONDS);
     ExitUtils.disableSystemExit();
   }
 
@@ -519,6 +522,8 @@ public abstract class MiniRaftCluster {
     LOG.info("***     Stopping " + getClass().getSimpleName());
     LOG.info("*** ");
     LOG.info("************************************************************** ");
+
+    timer.cancel();
     getServerAliveStream().map(RaftServerImpl::getProxy).forEach(RaftServerProxy::close);
 
     ExitUtils.assertNotTerminated();

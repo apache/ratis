@@ -184,10 +184,8 @@ public interface JavaUtils {
     }
   }
 
-  Supplier<Timer> TIMER = memoize(() -> new Timer(true));
-
-  static UncheckedAutoCloseable runRepeatedly(Runnable runnable, long delay, long period, TimeUnit unit) {
-    final Timer timer = TIMER.get();
+  static Timer runRepeatedly(Runnable runnable, long delay, long period, TimeUnit unit) {
+    final Timer timer = new Timer();
     timer.schedule(new TimerTask() {
       @Override
       public void run() {
@@ -195,7 +193,7 @@ public interface JavaUtils {
       }
     }, unit.toMillis(delay), unit.toMillis(period));
 
-    return timer::cancel;
+    return timer;
   }
 
   static void dumpAllThreads(Consumer<String> println) {

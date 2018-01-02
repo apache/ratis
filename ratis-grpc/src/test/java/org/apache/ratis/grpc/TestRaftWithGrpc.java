@@ -17,23 +17,14 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
 
 public class TestRaftWithGrpc extends RaftBasicTests {
-  static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(FileUtils.LOG, Level.DEBUG);
-  }
-
   private final MiniRaftClusterWithGRpc cluster;
 
   public TestRaftWithGrpc() throws IOException {
@@ -45,15 +36,6 @@ public class TestRaftWithGrpc extends RaftBasicTests {
   @Override
   public MiniRaftClusterWithGRpc getCluster() {
     return cluster;
-  }
-
-  @Override
-  @Test
-  public void testEnforceLeader() throws Exception {
-    super.testEnforceLeader();
-
-    MiniRaftClusterWithGRpc.sendServerRequestInjection.clear();
-    BlockRequestHandlingInjection.getInstance().unblockAll();
   }
 
   @Override

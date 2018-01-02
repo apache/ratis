@@ -15,31 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.netty;
+package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.RaftBasicTests;
-import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
-import org.junit.Test;
+import org.apache.ratis.server.impl.LeaderElectionTests;
 
-import java.io.IOException;
-
-public class TestRaftWithNetty extends RaftBasicTests {
-  private final MiniRaftClusterWithNetty cluster;
-
-  public TestRaftWithNetty() throws IOException {
-    cluster = MiniRaftClusterWithNetty.FACTORY.newCluster(
-        NUM_SERVERS, getProperties());
-  }
-
-  @Override
-  public MiniRaftClusterWithNetty getCluster() {
-    return cluster;
-  }
-
-  @Override
-  @Test
-  public void testWithLoad() throws Exception {
-    super.testWithLoad();
-    BlockRequestHandlingInjection.getInstance().unblockAll();
-  }
+public class TestLeaderElectionWithSimulatedRpc
+    extends LeaderElectionTests<MiniRaftClusterWithSimulatedRpc>
+    implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
 }
