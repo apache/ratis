@@ -17,6 +17,13 @@
  */
 package org.apache.ratis.grpc.server;
 
+import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.RaftGRpcService;
+import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.server.impl.FollowerInfo;
+import org.apache.ratis.server.impl.LeaderState;
+import org.apache.ratis.server.impl.LogAppender;
+import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.RaftLogIOException;
 import org.apache.ratis.shaded.io.grpc.Status;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
@@ -24,17 +31,9 @@ import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.grpc.RaftGRpcService;
-import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.server.impl.FollowerInfo;
-import org.apache.ratis.server.impl.LeaderState;
-import org.apache.ratis.server.impl.LogAppender;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.Preconditions;
-
-import static org.apache.ratis.grpc.RaftGRpcService.GRPC_SEND_SERVER_REQUEST;
 
 import java.util.LinkedList;
 import java.util.Objects;
@@ -151,8 +150,8 @@ public class GRpcLogAppender extends LogAppender {
 
   private void sendRequest(AppendEntriesRequestProto request,
       StreamObserver<AppendEntriesRequestProto> s) {
-    CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, server.getId(),
-        null, request);
+    CodeInjectionForTesting.execute(RaftGRpcService.GRPC_SEND_SERVER_REQUEST,
+        server.getId(), null, request);
 
     s.onNext(request);
     follower.updateLastRpcSendTime();
@@ -223,8 +222,10 @@ public class GRpcLogAppender extends LogAppender {
         LOG.info("{} is stopped", GRpcLogAppender.this);
         return;
       }
-      LOG.warn("{} got error when appending entries to {}, exception: {}.",
-          server.getId(), follower.getPeer().getId(), t);
+      if (LOG.isWarnEnabled()) {
+        LOG.warn("{} got error when appending entries to {}, exception: {}.",
+            server.getId(), follower.getPeer().getId(), RaftGrpcUtil.unwrapThrowable(t));
+      }
 
       synchronized (this) {
         final Status cause = Status.fromThrowable(t);

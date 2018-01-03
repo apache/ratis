@@ -25,10 +25,15 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.util.ExitUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.TimeDuration;
+import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.RaftTestUtil.waitAndKillLeader;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
@@ -80,5 +85,40 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     waitForLeader(cluster);
     waitForLeader(cluster, leader);
     cluster.shutdown();
+  }
+
+  @Test
+  public void testLateServerStart() throws Exception {
+    final int numServer = 3;
+    LOG.info("Running testLateServerStart");
+    final MiniRaftCluster cluster = newCluster(numServer);
+    cluster.initServers();
+
+    // start all except one servers
+    final Iterator<RaftServerProxy> i = cluster.getServers().iterator();
+    for(int j = 1; j < numServer; j++) {
+      i.next().start();
+    }
+
+    final RaftServerImpl leader = waitForLeader(cluster);
+    final TimeDuration sleepTime = TimeDuration.valueOf(5, TimeUnit.SECONDS);
+    LOG.info("sleep " + sleepTime);
+    sleepTime.sleep();
+
+    // start the last server
+    final RaftServerProxy lastServer = i.next();
+    lastServer.start();
+    final RaftPeerId lastServerLeaderId = JavaUtils.attempt(
+        () -> getLeader(lastServer.getImpl().getState()),
+        10, 1000, "getLeaderId", LOG);
+    Assert.assertEquals(leader.getId(), lastServerLeaderId);
+  }
+
+  static RaftPeerId getLeader(ServerState state) {
+    final RaftPeerId leader = state.getLeaderId();
+    if (leader == null) {
+      throw new IllegalStateException("No leader yet");
+    }
+    return leader;
   }
 }

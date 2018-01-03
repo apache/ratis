@@ -40,8 +40,14 @@ public interface RaftGrpcUtil {
     Metadata trailers = new Metadata();
     trailers.put(EXCEPTION_TYPE_KEY, t.getClass().getCanonicalName());
     return new StatusRuntimeException(
-        Status.INTERNAL.withDescription(StringUtils.stringifyException(t)),
-        trailers);
+        Status.INTERNAL.withCause(t).withDescription(t.getMessage()), trailers);
+  }
+
+  static Throwable unwrapThrowable(Throwable t) {
+    if (t instanceof StatusRuntimeException) {
+      return unwrapException((StatusRuntimeException)t);
+    }
+    return t;
   }
 
   static IOException unwrapException(StatusRuntimeException se) {

@@ -571,9 +571,14 @@ public class RaftServerImpl implements RaftServerProtocol,
     return pending.getFuture();
   }
 
-  private boolean shouldWithholdVotes() {
-    return isLeader() || (isFollower() && state.hasLeader()
-        && heartbeatMonitor.shouldWithholdVotes());
+  private boolean shouldWithholdVotes(long candidateTerm) {
+    if (state.getCurrentTerm() < candidateTerm) {
+      return false;
+    } else if (isLeader()) {
+      return true;
+    } else {
+      return isFollower() && state.hasLeader() && heartbeatMonitor.shouldWithholdVotes();
+    }
   }
 
   /**
@@ -618,11 +623,10 @@ public class RaftServerImpl implements RaftServerProtocol,
     boolean shouldShutdown = false;
     final RequestVoteReplyProto reply;
     synchronized (this) {
-      if (shouldWithholdVotes()) {
-        LOG.info("{} Withhold vote from server {} with term {}. " +
-            "This server:{}, last rpc time from leader {} is {}", getId(),
-            candidateId, candidateTerm, this, this.getState().getLeaderId(),
-            (isFollower() ? heartbeatMonitor.getLastRpcTime() : -1));
+      if (shouldWithholdVotes(candidateTerm)) {
+        LOG.info("{}-{}: Withhold vote from candidate {} with term {}. State: leader={}, term={}, lastRpcElapsed={}",
+            getId(), role, candidateId, candidateTerm, state.getLeaderId(), state.getCurrentTerm(),
+            isFollower()? heartbeatMonitor.getLastRpcTime().elapsedTimeMs() + "ms": null);
       } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
         boolean termUpdated = changeToFollower(candidateTerm, false);
         // see Section 5.4.1 Election restriction

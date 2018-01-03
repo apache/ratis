@@ -23,6 +23,7 @@ import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
+import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,8 +68,10 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
           final AppendEntriesReplyProto reply = server.appendEntries(request);
           responseObserver.onNext(reply);
         } catch (Throwable e) {
-          LOG.info("{} got exception when handling appendEntries {}: {}",
-              getId(), request.getServerRequest(), e);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("{} got exception when appendEntries {}: {}",
+                getId(), ProtoUtils.toString(request.getServerRequest()), e);
+          }
           responseObserver.onError(RaftGrpcUtil.wrapException(e));
         }
       }
