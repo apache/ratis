@@ -367,10 +367,12 @@ public class RaftServerImpl implements RaftServerProtocol,
       NotLeaderException exception = generateNotLeaderException();
       final RaftClientReply reply = new RaftClientReply(request, exception);
       return RetryCache.failWithReply(reply, entry);
-    } else {
-      if (leaderState == null || !leaderState.isReady()) {
-        return RetryCache.failWithException(new LeaderNotReadyException(getId()), entry);
+    } else if (leaderState == null || !leaderState.isReady()) {
+      RetryCache.CacheEntry cacheEntry = retryCache.get(request.getClientId(), request.getCallId());
+      if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
+        return cacheEntry.getReplyFuture();
       }
+      return RetryCache.failWithException(new LeaderNotReadyException(getId()), entry);
     }
     return null;
   }
