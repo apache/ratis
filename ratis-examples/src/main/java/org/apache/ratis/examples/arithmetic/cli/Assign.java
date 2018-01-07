@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
 @Parameters(commandDescription = "Assign value to a variable.")
 public class Assign extends Client {
 
-  Pattern binaryOperationPattern = Pattern.compile("([a-z1-9]+)([\\*\\-/\\+])([a-z1-9])");
+  Pattern binaryOperationPattern = Pattern.compile("([a-z1-9]*)([\\*\\-/\\+])([a-z1-9]*)");
   Pattern unaryOperationPattern = Pattern.compile("([√~])([a-z1-9]+)");
 
   @Parameter(names = {
@@ -57,7 +57,7 @@ public class Assign extends Client {
 
   @VisibleForTesting
   protected Expression createExpression(String value) {
-    if (value.matches("\\d(\\.\\d*)?")) {
+    if (value.matches("\\d*(\\.\\d*)?")) {
       return new DoubleValue(Double.valueOf(value));
     } else if (value.matches("[a-zA-Z]+")) {
       return new Variable(value);
