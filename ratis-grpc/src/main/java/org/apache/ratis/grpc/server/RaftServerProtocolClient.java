@@ -18,7 +18,7 @@
 package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.shaded.io.grpc.ManagedChannel;
-import org.apache.ratis.shaded.io.grpc.ManagedChannelBuilder;
+import org.apache.ratis.shaded.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.grpc.RaftServerProtocolServiceGrpc;
@@ -35,9 +35,10 @@ public class RaftServerProtocolClient {
   private final RaftServerProtocolServiceBlockingStub blockingStub;
   private final RaftServerProtocolServiceStub asyncStub;
 
-  public RaftServerProtocolClient(RaftPeer target) {
-    channel = ManagedChannelBuilder.forTarget(target.getAddress())
-        .usePlaintext(true).build();
+  public RaftServerProtocolClient(RaftPeer target, int flowControlWindow) {
+    channel = NettyChannelBuilder.forTarget(target.getAddress())
+        .usePlaintext(true).flowControlWindow(flowControlWindow)
+        .build();
     blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
   }

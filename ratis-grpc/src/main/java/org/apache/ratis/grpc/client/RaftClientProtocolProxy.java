@@ -22,6 +22,7 @@ import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.util.SizeInBytes;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -34,8 +35,9 @@ public class RaftClientProtocolProxy implements Closeable {
 
   public RaftClientProtocolProxy(
       ClientId clientId, RaftPeer target,
-      Function<RaftPeer, CloseableStreamObserver> responseHandlerCreation) {
-    proxy = new RaftClientProtocolClient(clientId, target);
+      Function<RaftPeer, CloseableStreamObserver> responseHandlerCreation,
+      SizeInBytes flowControlWindow) {
+    proxy = new RaftClientProtocolClient(clientId, target, flowControlWindow);
     this.responseHandlerCreation = responseHandlerCreation;
   }
 

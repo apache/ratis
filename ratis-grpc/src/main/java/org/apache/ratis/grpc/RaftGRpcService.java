@@ -74,25 +74,30 @@ public class RaftGRpcService implements RaftServerRpc {
   private final Map<RaftPeerId, RaftServerProtocolClient> peers =
       Collections.synchronizedMap(new HashMap<>());
   private final Supplier<RaftPeerId> idSupplier;
+  private final int flowControlWindow;
 
   private RaftGRpcService(RaftServer server) {
     this(server,
         GrpcConfigKeys.Server.port(server.getProperties()),
         GrpcConfigKeys.messageSizeMax(server.getProperties()).getSizeInt(),
         GrpcConfigKeys.messageSizeMax(server.getProperties()),
-        RaftServerConfigKeys.Log.Appender.bufferCapacity(server.getProperties()));
+        RaftServerConfigKeys.Log.Appender.bufferCapacity(server.getProperties()),
+        GrpcConfigKeys.flowControlWindow(server.getProperties()));
   }
   private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize,
-      SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize) {
+      SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
+      SizeInBytes flowControlWindowSize) {
     if (appenderBufferSize.getSize() > grpcMessageSizeMax.getSize()) {
       throw new IllegalArgumentException("Illegal configuration: "
           + RaftServerConfigKeys.Log.Appender.BUFFER_CAPACITY_KEY + " = " + appenderBufferSize
           + " > " + GrpcConfigKeys.MESSAGE_SIZE_MAX_KEY + " = " + grpcMessageSizeMax);
     }
+    this.flowControlWindow = flowControlWindowSize.getSizeInt();
 
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);
     idSupplier = raftServer::getId;
     server = ((NettyServerBuilder) serverBuilder).maxMessageSize(maxMessageSize)
+        .flowControlWindow(flowControlWindow)
         .addService(new RaftServerProtocolService(idSupplier, raftServer))
         .addService(new RaftClientProtocolService(idSupplier, raftServer))
         .addService(new AdminProtocolService(raftServer))
@@ -173,7 +178,7 @@ public class RaftGRpcService implements RaftServerRpc {
   public void addPeers(Iterable<RaftPeer> newPeers) {
     for (RaftPeer p : newPeers) {
       if (!peers.containsKey(p.getId())) {
-        peers.put(p.getId(), new RaftServerProtocolClient(p));
+        peers.put(p.getId(), new RaftServerProtocolClient(p, flowControlWindow));
       }
     }
   }

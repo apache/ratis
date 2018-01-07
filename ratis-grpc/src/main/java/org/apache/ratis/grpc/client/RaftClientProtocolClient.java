@@ -21,8 +21,8 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.io.grpc.ManagedChannel;
-import org.apache.ratis.shaded.io.grpc.ManagedChannelBuilder;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
+import org.apache.ratis.shaded.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.grpc.AdminProtocolServiceGrpc;
@@ -33,6 +33,7 @@ import org.apache.ratis.shaded.proto.grpc.RaftClientProtocolServiceGrpc.RaftClie
 import org.apache.ratis.util.CheckedSupplier;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,11 +57,13 @@ public class RaftClientProtocolClient implements Closeable {
 
   private final AtomicReference<AsyncStreamObservers> appendStreamObservers = new AtomicReference<>();
 
-  public RaftClientProtocolClient(ClientId id, RaftPeer target) {
+  public RaftClientProtocolClient(ClientId id, RaftPeer target,
+      SizeInBytes flowControlWindow) {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
-    channel = ManagedChannelBuilder.forTarget(target.getAddress())
-        .usePlaintext(true).build();
+    channel = NettyChannelBuilder.forTarget(target.getAddress())
+        .usePlaintext(true).flowControlWindow(flowControlWindow.getSizeInt())
+        .build();
     blockingStub = RaftClientProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftClientProtocolServiceGrpc.newStub(channel);
     adminBlockingStub = AdminProtocolServiceGrpc.newBlockingStub(channel);

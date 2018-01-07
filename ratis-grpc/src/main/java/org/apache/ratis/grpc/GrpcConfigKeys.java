@@ -104,6 +104,17 @@ public interface GrpcConfigKeys {
   static void setMessageSizeMax(RaftProperties properties, SizeInBytes maxMessageSize) {
     setSizeInBytes(properties::set, MESSAGE_SIZE_MAX_KEY, maxMessageSize);
   }
+
+  String FLOW_CONTROL_WINDOW_KEY = PREFIX + ".flow.control.window";
+  SizeInBytes FLOW_CONTROL_WINDOW_DEFAULT = SizeInBytes.valueOf("1MB");
+  static SizeInBytes flowControlWindow(RaftProperties properties) {
+    return getSizeInBytes(properties::getSizeInBytes,
+        FLOW_CONTROL_WINDOW_KEY, FLOW_CONTROL_WINDOW_DEFAULT);
+  }
+  static void setFlowControlWindow(RaftProperties properties, SizeInBytes flowControlWindowSize) {
+    setSizeInBytes(properties::set, FLOW_CONTROL_WINDOW_KEY, flowControlWindowSize);
+  }
+
   static void main(String[] args) {
     printAll(GrpcConfigKeys.class);
   }

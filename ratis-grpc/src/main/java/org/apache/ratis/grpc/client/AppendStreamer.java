@@ -97,7 +97,8 @@ public class AppendStreamer implements Closeable {
     this.peers = group.getPeers().stream().collect(
         Collectors.toMap(RaftPeer::getId, Function.identity()));
     proxyMap = new PeerProxyMap<>(clientId.toString(),
-        raftPeer -> new RaftClientProtocolProxy(clientId, raftPeer, ResponseHandler::new));
+        raftPeer -> new RaftClientProtocolProxy(clientId, raftPeer, ResponseHandler::new,
+            GrpcConfigKeys.flowControlWindow(prop)));
     proxyMap.addPeers(group.getPeers());
     refreshLeaderProxy(leaderId, null);
 
