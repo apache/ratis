@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
@@ -40,6 +41,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
@@ -52,7 +54,7 @@ import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBod
 import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.SMLOGENTRY;
 import static org.apache.ratis.util.LifeCycle.State.*;
 
-public class RaftServerImpl implements RaftServerProtocol,
+public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerImpl.class);
 
@@ -686,13 +688,23 @@ public class RaftServerImpl implements RaftServerProtocol,
   @Override
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto r)
       throws IOException {
+    try {
+      return appendEntriesAsync(r).join();
+    } catch (CompletionException e) {
+      throw IOUtils.asIOException(JavaUtils.unwrapCompletionException(e));
+    }
+  }
+
+  @Override
+  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto r)
+      throws IOException {
     // TODO avoid converting list to array
     final RaftRpcRequestProto request = r.getServerRequest();
     final LogEntryProto[] entries = r.getEntriesList()
         .toArray(new LogEntryProto[r.getEntriesCount()]);
     final TermIndex previous = r.hasPreviousLog() ?
         ServerProtoUtils.toTermIndex(r.getPreviousLog()) : null;
-    return appendEntries(RaftPeerId.valueOf(request.getRequestorId()),
+    return appendEntriesAsync(RaftPeerId.valueOf(request.getRequestorId()),
         ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
         r.getLeaderTerm(), previous, r.getLeaderCommit(), r.getInitializing(),
         entries);
@@ -710,7 +722,7 @@ public class RaftServerImpl implements RaftServerProtocol,
     }
   }
 
-  private AppendEntriesReplyProto appendEntries(
+  private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
       RaftPeerId leaderId, RaftGroupId leaderGroupId, long leaderTerm,
       TermIndex previous, long leaderCommit, boolean initializing,
       LogEntryProto... entries) throws IOException {
@@ -745,7 +757,7 @@ public class RaftServerImpl implements RaftServerProtocol,
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
               getId(), leaderId, leaderTerm, state, ProtoUtils.toString(reply));
         }
-        return reply;
+        return CompletableFuture.completedFuture(reply);
       }
       changeToFollower(leaderTerm, true);
       state.setLeader(leaderId, "appendEntries");
@@ -771,7 +783,7 @@ public class RaftServerImpl implements RaftServerProtocol,
           LOG.debug("{}: inconsistency entries. Leader previous:{}, Reply:{}",
               getId(), previous, ServerProtoUtils.toString(reply));
         }
-        return reply;
+        return CompletableFuture.completedFuture(reply);
       }
 
       futures = state.getLog().append(entries);
@@ -781,10 +793,6 @@ public class RaftServerImpl implements RaftServerProtocol,
     }
     if (entries.length > 0) {
       CodeInjectionForTesting.execute(RaftLog.LOG_SYNC, getId(), null);
-      for (CompletableFuture future : futures) {
-        future.join();
-      }
-
       nextIndex = entries[entries.length - 1].getIndex() + 1;
     }
     synchronized (this) {
@@ -800,7 +808,9 @@ public class RaftServerImpl implements RaftServerProtocol,
     logAppendEntries(isHeartbeat,
         () -> getId() + ": succeeded to handle AppendEntries. Reply: "
             + ServerProtoUtils.toString(reply));
-    return reply;
+    return CompletableFuture
+        .allOf(futures.toArray(new CompletableFuture[futures.size()]))
+        .thenApply(v -> reply);
   }
 
   private boolean containPrevious(TermIndex previous) {

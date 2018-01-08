@@ -241,6 +241,12 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
+  public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
+      AppendEntriesRequestProto r) throws IOException {
+    return getImpl().appendEntriesAsync(r);
+  }
+
+  @Override
   public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto r)
       throws IOException {
     return getImpl().appendEntries(r);

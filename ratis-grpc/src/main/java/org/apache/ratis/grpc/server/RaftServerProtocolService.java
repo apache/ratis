@@ -19,7 +19,7 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.protocol.RaftServerProtocol;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
@@ -33,9 +33,9 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerProtocolService.class);
 
   private final Supplier<RaftPeerId> idSupplier;
-  private final RaftServerProtocol server;
+  private final RaftServer server;
 
-  public RaftServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServerProtocol server) {
+  public RaftServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server) {
     this.idSupplier = idSupplier;
     this.server = server;
   }
@@ -65,8 +65,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       @Override
       public void onNext(AppendEntriesRequestProto request) {
         try {
-          final AppendEntriesReplyProto reply = server.appendEntries(request);
-          responseObserver.onNext(reply);
+          server.appendEntriesAsync(request).thenAccept(responseObserver::onNext);
         } catch (Throwable e) {
           if (LOG.isDebugEnabled()) {
             LOG.debug("{} got exception when appendEntries {}: {}",

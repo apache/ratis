@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.server.impl.ServerImplUtils;
+import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.statemachine.StateMachine;
 
@@ -31,7 +32,8 @@ import java.io.IOException;
 import java.util.Objects;
 
 /** Raft server interface */
-public interface RaftServer extends Closeable, RpcType.Get, RaftServerProtocol,
+public interface RaftServer extends Closeable, RpcType.Get,
+    RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol,
     AdminProtocol, AdminAsynchronousProtocol {
   /** @return the server ID. */
