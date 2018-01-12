@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
@@ -111,10 +112,12 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     private final StreamObserver<RaftClientReplyProto> responseObserver;
     private final SlidingWindow.Server<PendingAppend, RaftClientReply> slidingWindow
         = new SlidingWindow.Server<>(name, COMPLETED);
+    private final AtomicBoolean isClosed;
 
     AppendRequestStreamObserver(StreamObserver<RaftClientReplyProto> ro) {
       LOG.debug("new AppendRequestStreamObserver {}", name);
       this.responseObserver = ro;
+      this.isClosed = new AtomicBoolean(false);
     }
 
     void processClientRequestAsync(PendingAppend pending) {
@@ -171,9 +174,11 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     }
 
     private void close() {
-      LOG.debug("{}: close", name);
-      responseObserver.onCompleted();
-      slidingWindow.close();
+      if (isClosed.compareAndSet(false, true)) {
+        LOG.debug("{}: close", name);
+        responseObserver.onCompleted();
+        slidingWindow.close();
+      }
     }
 
     void responseError(Throwable t, Supplier<String> message) {
