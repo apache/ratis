@@ -126,6 +126,10 @@ public class RetryCache implements Closeable {
     CompletableFuture<RaftClientReply> getReplyFuture() {
       return replyFuture;
     }
+
+    CacheKey getKey() {
+      return key;
+    }
   }
 
   static class CacheQueryResult {
@@ -172,7 +176,7 @@ public class RetryCache implements Closeable {
     return entry;
   }
 
-  private CacheEntry refreshEntry(CacheEntry newEntry) {
+  CacheEntry refreshEntry(CacheEntry newEntry) {
     cache.put(newEntry.key, newEntry);
     return newEntry;
   }
