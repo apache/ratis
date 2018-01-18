@@ -182,10 +182,12 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     }
 
     void responseError(Throwable t, Supplier<String> message) {
-      t = JavaUtils.unwrapCompletionException(t);
-      LOG.warn(name + ": Failed " + message.get(), t);
-      responseObserver.onError(RaftGrpcUtil.wrapException(t));
-      slidingWindow.close();
+      if (isClosed.compareAndSet(false, true)) {
+        t = JavaUtils.unwrapCompletionException(t);
+        LOG.debug(name + ": Failed " + message.get(), t);
+        responseObserver.onError(RaftGrpcUtil.wrapException(t));
+        slidingWindow.close();
+      }
     }
   }
 }
