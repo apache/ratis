@@ -27,6 +27,8 @@ import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase {
@@ -62,16 +64,27 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
   public StreamObserver<AppendEntriesRequestProto> appendEntries(
       StreamObserver<AppendEntriesReplyProto> responseObserver) {
     return new StreamObserver<AppendEntriesRequestProto>() {
+      private final AtomicReference<CompletableFuture<Void>> previousOnNext =
+          new AtomicReference<>(CompletableFuture.completedFuture(null));
+
       @Override
       public void onNext(AppendEntriesRequestProto request) {
+        final CompletableFuture<Void> current = new CompletableFuture<>();
+        final CompletableFuture<Void> previous = previousOnNext.getAndSet(current);
         try {
-          server.appendEntriesAsync(request).thenAccept(responseObserver::onNext);
+          server.appendEntriesAsync(request).thenCombine(previous,
+              (reply, v) -> {
+            responseObserver.onNext(reply);
+            current.complete(null);
+            return null;
+          });
         } catch (Throwable e) {
           if (LOG.isDebugEnabled()) {
             LOG.debug("{} got exception when appendEntries {}: {}",
                 getId(), ProtoUtils.toString(request.getServerRequest()), e);
           }
           responseObserver.onError(RaftGrpcUtil.wrapException(e));
+          current.completeExceptionally(e);
         }
       }
 
