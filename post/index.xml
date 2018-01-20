@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Posts on Apache Ratis</title>
+    <link>https://ratis.incubator.apache.org/post.html</link>
+    <description>Recent content in Posts on Apache Ratis</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <copyright>&amp;copy; 2017 Apache Software Foundation</copyright>
+    <lastBuildDate>Tue, 02 May 2017 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="https://ratis.incubator.apache.org/post/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>Release 0.1.0-alpha is available</title>
+      <link>https://ratis.incubator.apache.org/post/0.1.0-alpha.html</link>
+      <pubDate>Tue, 02 May 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.incubator.apache.org/post/0.1.0-alpha.html</guid>
+      <description>This is the first incubator release of Apache Ratis.
+Key features:
+ Pluggable transports (Hadoop Rpc, GRpc, Netty) Pluggable statemachine Pluggable raft log implementation.  </description>
+    </item>
+    
+  </channel>
+</rss>

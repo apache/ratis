@@ -1,0 +1,187 @@
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Open source Java implementation for RAFT consensus protocol.">
+    <meta name="keywords" content="raft, java, ratis, library"/>
+    <meta name="robots" content="index,follow"/>
+    <meta name="language" content="en"/>
+
+    <title>Apache Ratis</title>
+
+    <base href="https://ratis.incubator.apache.org/">
+
+    <link rel="canonical" href="http://ratis.incubator.apache.org/">
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+          integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+
+<div class="topnav">
+    <div class="container">
+        <ul class="breadcrumb col-md-6">
+            <li>
+                <img class="asf-logo" src="asf_feather.png"/>
+                <a  href="https://www.apache.org">Apache Software Foundation</span></a>
+            </li>
+            <li><img class="asf-logo" src="logo-white.png"/><a href="https://ratis.incubator.apache.org/">Apache Ratis&trade;</a></li>
+        </ul>
+        <div class="col-md-6">
+            <ul class="pull-right breadcrumb">
+                <li><a href="http://www.apache.org/licenses/">License</a></li>
+                <li><a href="http://www.apache.org/foundation/sponsorship.html">Sponsorship</a></li>
+                <li><a href="http://www.apache.org/foundation/thanks.html">Thanks</a></li>
+                <li><a href="http://www.apache.org/security/">Security</a></li>
+        </ul>
+        </div>
+    </div>
+
+    <nav class="navbar navbar-default navbar-static-top" role="navigation">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse"
+                        data-target="#ratis-menu" aria-expanded="false">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+            </div>
+
+            <div id="ratis-menu" class="collapse navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="#download">Download</a></li>
+                    <li><a href="#gettingstarted">Getting started</a></li>
+                    <li><a href="#source">Source</a></li>
+                    <li><a href="#community">Community</a></li>
+                </ul>
+            </div>
+
+
+            <div class="jumbotron">
+                <h1>
+                    Open source Java implementation for Raft consensus protocol.
+                </h1>
+                <p>
+                    <a class="btn btn-default download" role="button" href="#download">Download Apache Ratis</a>
+                </p>
+                <p>
+
+                    <a class="changelog"
+                       href="#gettingstarted">Getting started
+                    </a>
+                </p>
+            </div>
+        </div>
+
+    </nav>
+</div>
+
+<div class="container">
+<h1>Getting started</h1>
+
+
+<!---
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+
+<p>Ratis is a <a href="https://raft.github.io/">Raft</a> protocol <em>library</em> in Java. It&rsquo;s not a standalone server application like Zookeeper or Consul.</p>
+
+<h3 id="examples">Examples</h3>
+
+<p>To demonstrate how to use Ratis from the code, Please look at the following examples.</p>
+
+<ul>
+<li><p><a href="https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/arithmetic">Arithmetic example</a>: This is a simple distributed calculator that replicates the values defined and allows user to perform arithmetic operations on these replicated values.</p></li>
+
+<li><p><a href="https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/filestore">FileStore example</a>: This is an example of using Ratis for reading and writing files.</p></li>
+</ul>
+
+<!-- TODO: We should have the following as documentation in the github.  -->
+
+<p>The source code the examples could be found in the ratis-examples subproject.</p>
+
+<p>Arithmetic example also has some simple cli script to start it:</p>
+
+<ol>
+<li>First do a full build on the ratis source code: <code>mvn clean install -DskipTests</code></li>
+<li>Go the the bin directory of the examples: <code>cd ratis-examples/src/main/bin</code></li>
+<li>Start three Ratis server instances (with arithmetic state matchine). <code>./start-all</code> (This helper script starts 3
+Java instances in the background).</li>
+<li>Create a new variable in the state machine: <code>./client.sh assign --name a --value 3</code></li>
+<li>Assign a new variable: <code>./client.sh assign --name b --value a+5</code></li>
+<li>Get a variable from the state machine: <code>./client.sh get --name b</code></li>
+</ol>
+
+<h3 id="maven-usage">Maven usage</h3>
+
+<p>To use in our project you can access the latest binaries from maven central:</p>
+
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
+   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-server<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
+
+<p>You also need to include <em>one</em> of the transports:</p>
+
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
+   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-netty<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
+
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"> <span style="color:#f92672">&lt;dependency&gt;</span>
+   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-grpc<span style="color:#f92672">&lt;/artifactId&gt;</span>
+<span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
+
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml">    <span style="color:#f92672">&lt;dependency&gt;</span>
+      <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+      <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-hadoop-shaded<span style="color:#f92672">&lt;/artifactId&gt;</span>
+    <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
+
+<p>Please note that Apache Hadoop dependencies are shaded, so it&rsquo;s safe to use hadoop transport with different versions of Hadoop.</p>
+
+</div>
+
+<footer>
+    <div class="container">
+
+        <div class="col-md-12 trademark">
+            <p>&copy; 2018 <a href="http://apache.org">The Apache Software Foundation</a>,
+                Apache, Apache Ratis, the Apache feather logo, Apache Ratis logo, Apache Incubator logo are trademarks of The Apache Software Foundation.
+            <p>
+        </div>
+    </div>
+</footer>
+
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<script src="./js/underscore-min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
+        integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
+        crossorigin="anonymous"></script>
+
+
+</body>
+</html>
+
