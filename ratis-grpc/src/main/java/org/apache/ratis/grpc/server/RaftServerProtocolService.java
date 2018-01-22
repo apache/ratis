@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -66,6 +67,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
     return new StreamObserver<AppendEntriesRequestProto>() {
       private final AtomicReference<CompletableFuture<Void>> previousOnNext =
           new AtomicReference<>(CompletableFuture.completedFuture(null));
+      private final AtomicBoolean isClosed = new AtomicBoolean(false);
 
       @Override
       public void onNext(AppendEntriesRequestProto request) {
@@ -74,7 +76,9 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
         try {
           server.appendEntriesAsync(request).thenCombine(previous,
               (reply, v) -> {
-            responseObserver.onNext(reply);
+            if (!isClosed.get()) {
+              responseObserver.onNext(reply);
+            }
             current.complete(null);
             return null;
           });
@@ -96,8 +100,10 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
 
       @Override
       public void onCompleted() {
-        LOG.info("{}: appendEntries completed", getId());
-        responseObserver.onCompleted();
+        if (isClosed.compareAndSet(false, true)) {
+          LOG.info("{}: appendEntries completed", getId());
+          responseObserver.onCompleted();
+        }
       }
     };
   }
