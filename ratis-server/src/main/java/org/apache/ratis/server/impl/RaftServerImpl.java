@@ -795,14 +795,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       CodeInjectionForTesting.execute(RaftLog.LOG_SYNC, getId(), null);
       nextIndex = entries[entries.length - 1].getIndex() + 1;
     }
-    synchronized (this) {
-      if (lifeCycle.getCurrentState() == RUNNING && isFollower()
-          && getState().getCurrentTerm() == currentTerm) {
-        // reset election timer to avoid punishing the leader for our own
-        // long disk writes
-        heartbeatMonitor.updateLastRpcTime(false);
-      }
-    }
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
         leaderId, getId(), groupId, currentTerm, nextIndex, SUCCESS);
     logAppendEntries(isHeartbeat,
@@ -810,7 +802,19 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             + ServerProtoUtils.toString(reply));
     return CompletableFuture
         .allOf(futures.toArray(new CompletableFuture[futures.size()]))
-        .thenApply(v -> reply);
+        .thenApply(v -> {
+          // reset election timer to avoid punishing the leader for our own
+          // long disk writes
+          synchronized (this) {
+            if (lifeCycle.getCurrentState() == RUNNING && isFollower()
+                && getState().getCurrentTerm() == currentTerm) {
+              // reset election timer to avoid punishing the leader for our own
+              // long disk writes
+              heartbeatMonitor.updateLastRpcTime(false);
+            }
+          }
+          return reply;
+        });
   }
 
   private boolean containPrevious(TermIndex previous) {
