@@ -203,7 +203,8 @@ public abstract class RaftBasicTests extends BaseTest {
             .forEach(log -> RaftTestUtil.checkLogEntries(log, messages, predicate));
   }
 
-  class Client4TestWithLoad extends Thread {
+  static class Client4TestWithLoad extends Thread {
+    boolean useAsync;
     final int index;
     final SimpleMessage[] messages;
 
@@ -211,10 +212,17 @@ public abstract class RaftBasicTests extends BaseTest {
     final AtomicInteger step = new AtomicInteger();
     final AtomicReference<Throwable> exceptionInClientThread = new AtomicReference<>();
 
-    Client4TestWithLoad(int index, int numMessages) {
+    final MiniRaftCluster cluster;
+    final Logger LOG;
+
+    Client4TestWithLoad(int index, int numMessages, boolean useAsync,
+        MiniRaftCluster cluster, Logger LOG) {
       super("client-" + index);
       this.index = index;
       this.messages = SimpleMessage.create(numMessages, index + "-");
+      this.useAsync = useAsync;
+      this.cluster = cluster;
+      this.LOG = LOG;
     }
 
     boolean isRunning() {
@@ -223,10 +231,31 @@ public abstract class RaftBasicTests extends BaseTest {
 
     @Override
     public void run() {
-      try(RaftClient client = getCluster().createClient()) {
-        for (; step.get() < messages.length; ) {
-          final RaftClientReply reply = client.send(messages[step.getAndIncrement()]);
-          assertTrue(reply.isSuccess());
+      try (RaftClient client = cluster.createClient()) {
+        final CompletableFuture f = new CompletableFuture();
+        for (int i = 0; i < messages.length; i++) {
+          if (!useAsync) {
+            final RaftClientReply reply =
+                client.send(messages[step.getAndIncrement()]);
+            Assert.assertTrue(reply.isSuccess());
+          } else {
+            final CompletableFuture<RaftClientReply> replyFuture =
+                client.sendAsync(messages[i]);
+            replyFuture.thenAcceptAsync(r -> {
+              if (!r.isSuccess()) {
+                f.completeExceptionally(
+                    new AssertionError("Failed with reply: " + r));
+              }
+              if (step.incrementAndGet() == messages.length) {
+                f.complete(null);
+              }
+              Assert.assertTrue(r.isSuccess());
+            });
+          }
+        }
+        if (useAsync) {
+          f.join();
+          Assert.assertTrue(step.get() == messages.length);
         }
       } catch(Throwable t) {
         if (exceptionInClientThread.compareAndSet(null, t)) {
@@ -253,20 +282,19 @@ public abstract class RaftBasicTests extends BaseTest {
 
   @Test
   public void testWithLoad() throws Exception {
-    testWithLoad(10, 500);
+    testWithLoad(10, 500, false, getCluster(), LOG);
   }
 
-  private void testWithLoad(final int numClients, final int numMessages)
-      throws Exception {
+  public static void testWithLoad(final int numClients, final int numMessages,
+      boolean useAsync, MiniRaftCluster cluster, Logger LOG) throws Exception {
     LOG.info("Running testWithLoad: numClients=" + numClients
-        + ", numMessages=" + numMessages);
+        + ", numMessages=" + numMessages + ", async=" + useAsync);
 
-    final MiniRaftCluster cluster = getCluster();
-    LOG.info(cluster.printServers());
+    waitForLeader(cluster);
 
     final List<Client4TestWithLoad> clients
         = Stream.iterate(0, i -> i+1).limit(numClients)
-        .map(i -> new Client4TestWithLoad(i, numMessages))
+        .map(i -> new Client4TestWithLoad(i, numMessages, useAsync, cluster, LOG))
         .collect(Collectors.toList());
     final AtomicInteger lastStep = new AtomicInteger();
 

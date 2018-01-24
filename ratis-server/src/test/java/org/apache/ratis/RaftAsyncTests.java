@@ -147,4 +147,15 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     RaftBasicTests.runTestBasicAppendEntries(true, 1000, cluster, LOG);
     cluster.shutdown();
   }
+
+  @Test
+  public void testWithLoadAsync() throws Exception {
+    LOG.info("Running testWithLoadAsync");
+    RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties, 100);
+    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+    cluster.start();
+    waitForLeader(cluster);
+    RaftBasicTests.testWithLoad(10, 500, true, cluster, LOG);
+    cluster.shutdown();
+  }
 }
