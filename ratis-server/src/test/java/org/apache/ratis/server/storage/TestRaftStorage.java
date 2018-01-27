@@ -21,7 +21,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
-import org.apache.ratis.statemachine.SimpleStateMachineStorage;
+import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.FileUtils;
 import org.junit.After;
 import org.junit.Assert;

@@ -27,10 +27,11 @@ import org.apache.ratis.shaded.com.google.protobuf.InvalidProtocolBufferExceptio
 import org.apache.ratis.shaded.proto.ExamplesProtos.*;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
-import org.apache.ratis.statemachine.BaseStateMachine;
-import org.apache.ratis.statemachine.SimpleStateMachineStorage;
+import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
@@ -106,7 +107,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
       log = SMLogEntryProto.newBuilder().setData(content).build();
     }
 
-    return new TransactionContext(this, request, log);
+    return new TransactionContextImpl(this, request, log);
   }
 
   @Override

@@ -45,151 +45,74 @@ import org.apache.ratis.util.Preconditions;
  * The {@link TransactionContext} will be a committed entry coming from
  * the RAFT log from the leader.
  */
-public class TransactionContext {
-
-  /** The {@link StateMachine} that originated the transaction. */
-  private final StateMachine stateMachine;
-
-  /** Original request from the client */
-  private RaftClientRequest clientRequest;
-
-  /** Exception from the {@link StateMachine} or from the log */
-  private Exception exception;
-
-  /** Data from the {@link StateMachine} */
-  private SMLogEntryProto smLogEntryProto;
+public interface TransactionContext {
 
   /**
-   * Context specific to the state machine.
-   * The {@link StateMachine} can use this object to carry state between
-   * {@link StateMachine#startTransaction(RaftClientRequest)} and
-   * {@link StateMachine#applyTransaction(TransactionContext)}.
+   * Returns the original request from the {@link RaftClientRequest}
+   * @return the original request from the {@link RaftClientRequest}
    */
-  private Object stateMachineContext;
+  RaftClientRequest getClientRequest();
 
   /**
-   * Whether to commit the transaction to the RAFT Log.
-   * In some cases the {@link StateMachine} may want to indicate
-   * that the transaction should not be committed
+   * Returns the data from the {@link StateMachine}
+   * @return the data from the {@link StateMachine}
    */
-  private boolean shouldCommit = true;
-
-  /** Committed LogEntry. */
-  private LogEntryProto logEntry;
-
-  private TransactionContext(StateMachine stateMachine) {
-    this.stateMachine = stateMachine;
-  }
-
-  /** The same as this(stateMachine, clientRequest, smLogEntryProto, null). */
-  public TransactionContext(
-      StateMachine stateMachine, RaftClientRequest clientRequest,
-      SMLogEntryProto smLogEntryProto) {
-    this(stateMachine, clientRequest, smLogEntryProto, null);
-  }
+  SMLogEntryProto getSMLogEntry();
 
   /**
-   * Construct a {@link TransactionContext} from a client request.
-   * Used by the state machine to start a transaction
-   * and send the Log entry representing the transaction data
-   * to be applied to the raft log.
+   * Returns the exception from the {@link StateMachine} or the log
+   * @return the exception from the {@link StateMachine} or the log
    */
-  public TransactionContext(
-      StateMachine stateMachine, RaftClientRequest clientRequest,
-      SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
-    this(stateMachine);
-    this.clientRequest = clientRequest;
-    this.smLogEntryProto = smLogEntryProto;
-    this.stateMachineContext = stateMachineContext;
-  }
-
-  /** The same as this(stateMachine, clientRequest, exception, null). */
-  public TransactionContext(
-      StateMachine stateMachine, RaftClientRequest clientRequest,
-      Exception exception) {
-    this(stateMachine, clientRequest, exception, null);
-  }
+  Exception getException();
 
   /**
-   * Construct a {@link TransactionContext} from a client request to signal
-   * an exception so that the RAFT server will fail the request on behalf
-   * of the {@link StateMachine}.
+   * Sets the {@link StateMachine} the {@link TransactionContext} is specific to, the method would
+   * not create a new transaction context, it updates the {@link StateMachine} it associates with
+   * @param stateMachineContext state machine context
+   * @return transaction context specific to the given {@link StateMachine}
    */
-  public TransactionContext(
-      StateMachine stateMachine, RaftClientRequest clientRequest,
-      Exception exception, Object stateMachineContext) {
-    this(stateMachine);
-    this.clientRequest = clientRequest;
-    this.exception = exception;
-    this.stateMachineContext = stateMachineContext;
-  }
+  TransactionContext setStateMachineContext(Object stateMachineContext);
 
   /**
-   * Construct a {@link TransactionContext} from a {@link LogEntryProto}.
-   * Used by followers for applying committed entries to the state machine.
-   * @param logEntry the log entry to be applied
+   * Returns the {@link StateMachine} the current {@link TransactionContext} specific to
+   * @return the {@link StateMachine} the current {@link TransactionContext} specific to
    */
-  public TransactionContext(StateMachine stateMachine, LogEntryProto logEntry) {
-    this(stateMachine);
-    setLogEntry(logEntry);
-    this.smLogEntryProto = logEntry.getSmLogEntry();
-  }
+  Object getStateMachineContext();
 
-  public RaftClientRequest getClientRequest() {
-    return clientRequest;
-  }
+  /**
+   * Set the {@link LogEntryProto} the current {@link TransactionContext} specific to. The log
+   * entry's body case must be {@link LogEntryBodyCase#SMLOGENTRY}. The current
+   * {@link TransactionContext} log entry must be null, otherwise, a exception will be thrown
+   * @param logEntry target {@link LogEntryProto}
+   * @return the current {@link TransactionContext} itself
+   */
+  TransactionContext setLogEntry(LogEntryProto logEntry);
 
-  public SMLogEntryProto getSMLogEntry() {
-    return smLogEntryProto;
-  }
+  /**
+   * Sets the data from the {@link StateMachine}
+   * @param smLogEntryProto data from {@link StateMachine}
+   * @return the current {@link TransactionContext} itself
+   */
+  TransactionContext setSmLogEntryProto(SMLogEntryProto smLogEntryProto);
 
-  public Exception getException() {
-    return exception;
-  }
+  /**
+   * Returns the committed log entry
+   * @return the committed log entry
+   */
+  LogEntryProto getLogEntry();
 
-  public TransactionContext setStateMachineContext(Object stateMachineContext) {
-    this.stateMachineContext = stateMachineContext;
-    return this;
-  }
+  /**
+   * Sets whether to commit the transaction to the RAFT log or not
+   * @param shouldCommit true if the transaction is supposed to be committed to the RAFT log
+   * @return the current {@link TransactionContext} itself
+   */
+  TransactionContext setShouldCommit(boolean shouldCommit);
 
-  public Object getStateMachineContext() {
-    return stateMachineContext;
-  }
-
-  public TransactionContext setLogEntry(LogEntryProto logEntry) {
-    Objects.requireNonNull(logEntry, "logEntry == null");
-    Preconditions.assertTrue(logEntry.getLogEntryBodyCase() == LogEntryBodyCase.SMLOGENTRY,
-        () -> "LogEntryBodyCase = " + logEntry.getLogEntryBodyCase()
-            + " != " + LogEntryBodyCase.SMLOGENTRY + ", logEntry=" + logEntry);
-    Preconditions.assertTrue(this.logEntry == null, "this.logEntry != null");
-    this.logEntry = logEntry;
-    return this;
-  }
-
-  public TransactionContext setSmLogEntryProto(SMLogEntryProto smLogEntryProto) {
-    this.smLogEntryProto = smLogEntryProto;
-    return this;
-  }
-
-  public LogEntryProto getLogEntry() {
-    return logEntry;
-  }
-
-  private TransactionContext setException(IOException ioe) {
-    assert exception != null;
-    this.exception = ioe;
-    return this;
-  }
-
-  public TransactionContext setShouldCommit(boolean shouldCommit) {
-    this.shouldCommit = shouldCommit;
-    return this;
-  }
-
-  public boolean shouldCommit() {
-    // TODO: Hook this up in the server to bypass the RAFT Log and send back a response to client
-    return this.shouldCommit;
-  }
+  /**
+   * It indicates if the transaction should be committed to the RAFT log
+   * @return true if it commits the transaction to the RAFT log, otherwise, false
+   */
+  boolean shouldCommit();
 
   // proxy StateMachine methods. We do not want to expose the SM to the RaftLog
 
@@ -200,18 +123,12 @@ public class TransactionContext {
    * log append, it is important to do only required operations here.
    * @return The Transaction context.
    */
-  public TransactionContext preAppendTransaction() throws IOException {
-    return stateMachine.preAppendTransaction(this);
-  }
+  public TransactionContext preAppendTransaction() throws IOException;
 
   /**
    * Called to notify the state machine that the Transaction passed cannot be appended (or synced).
    * The exception field will indicate whether there was an exception or not.
    * @return cancelled transaction
    */
-  public TransactionContext cancelTransaction() throws IOException {
-    // TODO: This is not called from Raft server / log yet. When an IOException happens, we should
-    // call this to let the SM know that Transaction cannot be synced
-    return stateMachine.cancelTransaction(this);
-  }
+  public TransactionContext cancelTransaction() throws IOException;
 }

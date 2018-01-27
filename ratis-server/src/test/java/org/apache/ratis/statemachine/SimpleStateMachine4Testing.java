@@ -34,6 +34,10 @@ import org.apache.ratis.server.storage.LogOutputStream;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
+import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
+import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.MD5FileUtil;
@@ -238,7 +242,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
         Thread.currentThread().interrupt();
       }
     }
-    return new TransactionContext(this, request, SMLogEntryProto.newBuilder()
+    return new TransactionContextImpl(this, request, SMLogEntryProto.newBuilder()
         .setData(request.getMessage().getContent())
         .build());
   }

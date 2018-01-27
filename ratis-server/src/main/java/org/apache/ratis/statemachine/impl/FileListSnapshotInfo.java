@@ -15,13 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.statemachine;
+package org.apache.ratis.statemachine.impl;
 
 import java.util.Collections;
 import java.util.List;
 
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
+import org.apache.ratis.statemachine.SnapshotInfo;
 
 /**
  * Each snapshot has a list of files.

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.statemachine;
+package org.apache.ratis.statemachine.impl;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -31,6 +31,10 @@ import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.StateMachineStorage;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.LifeCycle;
 
 /**
@@ -135,7 +139,7 @@ public class BaseStateMachine implements StateMachine {
   @Override
   public TransactionContext startTransaction(RaftClientRequest request)
       throws IOException {
-    return new TransactionContext(this, request,
+    return new TransactionContextImpl(this, request,
         SMLogEntryProto.newBuilder()
             .setData(request.getMessage().getContent())
             .build());

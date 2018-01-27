@@ -15,12 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.statemachine;
+package org.apache.ratis.statemachine.impl;
 
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.MD5FileUtil;
 import org.slf4j.Logger;

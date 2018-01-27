@@ -31,6 +31,7 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.util.LogUtils;
 import org.junit.*;
 
@@ -109,7 +110,7 @@ public class TestStateMachine extends BaseTest {
       // only leader will get this call
       isLeader.set(true);
       // send the next transaction id as the "context" from SM
-      return new TransactionContext(this, request, SMLogEntryProto.newBuilder()
+      return new TransactionContextImpl(this, request, SMLogEntryProto.newBuilder()
           .setData(request.getMessage().getContent())
           .build(), transactions.incrementAndGet());
     }
