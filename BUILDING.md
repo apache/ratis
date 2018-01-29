@@ -67,35 +67,3 @@ $ mvn clean -DskipCleanShade
 | `org.apache.hadoop.ipc.protobuf`    | `org.apache.ratis.shaded.org.apache.hadoop.ipc.protobuf`     |
 
 The protos defined in this project are stored in the `org.apache.ratis.shaded.proto` package.
-
-# How to deploy
-
-To publish, use the following settings.xml file ( placed in ~/.m2/settings.xml )
-```
-<settings>
-<servers>
-  <server>
-    <id>apache.releases.https</id>
-    <username>ratis_committer</username>
-    <password>********</password>
-  </server>
-  
-  <server>
-    <id>apache.snapshots.https</id>
-    <username>ratis_committer</username>
-    <password>********</password>
-  </server>
-</servers>
-</settings>
-```
-
-Then use
-```
-$ mvn deploy
-(or)
-$ mvn -s /my/path/settings.xml deploy
-```
-We also use release profile for building the release
-```
-$ mvn install -Prelease -Papache-release
-```
