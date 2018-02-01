@@ -27,30 +27,24 @@ import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.statemachine.*;
+import org.apache.ratis.statemachine.StateMachineStorage;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.util.AutoCloseableLock;
-import org.apache.ratis.util.Preconditions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class ArithmeticStateMachine extends BaseStateMachine {
-  static final Logger LOG = LoggerFactory.getLogger(ArithmeticStateMachine.class);
-
   private final Map<String, Double> variables = new ConcurrentHashMap<>();
 
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
-  private final AtomicReference<TermIndex> latestTermIndex = new AtomicReference<>();
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
@@ -64,7 +58,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
 
   void reset() {
     variables.clear();
-    latestTermIndex.set(null);
+    setLastAppliedTermIndex(null);
   }
 
   @Override
@@ -83,12 +77,12 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public long takeSnapshot() throws IOException {
+  public long takeSnapshot() {
     final Map<String, Double> copy;
     final TermIndex last;
     try(final AutoCloseableLock readLock = readLock()) {
       copy = new HashMap<>(variables);
-      last = latestTermIndex.get();
+      last = getLastAppliedTermIndex();
     }
 
     final File snapshotFile =  storage.getSnapshotFile(last.getTerm(), last.getIndex());
@@ -127,7 +121,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
       if (reload) {
         reset();
       }
-      latestTermIndex.set(last);
+      setLastAppliedTermIndex(last);
       variables.putAll((Map<String, Double>) in.readObject());
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
@@ -171,7 +165,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     final Double result;
     try(final AutoCloseableLock writeLock = writeLock()) {
       result = assignment.evaluate(variables);
-      updateLatestTermIndex(entry.getTerm(), index);
+      updateLastAppliedTermIndex(entry.getTerm(), index);
     }
     final Expression r = Expression.Utils.double2Expression(result);
     LOG.debug("{}-{}: {} = {}", getId(), index, assignment, r);
@@ -179,13 +173,5 @@ public class ArithmeticStateMachine extends BaseStateMachine {
       LOG.trace("{}-{}: variables={}", getId(), index, variables);
     }
     return CompletableFuture.completedFuture(Expression.Utils.toMessage(r));
-  }
-
-  private void updateLatestTermIndex(long term, long index) {
-    final TermIndex newTI = TermIndex.newTermIndex(term, index);
-    final TermIndex oldTI = latestTermIndex.getAndSet(newTI);
-    if (oldTI != null) {
-      Preconditions.assertTrue(newTI.compareTo(oldTI) >= 0);
-    }
   }
 }

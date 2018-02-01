@@ -18,20 +18,21 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.Daemon;
-import org.apache.ratis.util.ExitUtils;
-import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * This class tracks the log entries that have been committed in a quorum and
@@ -140,6 +141,8 @@ class StateMachineUpdater implements Runnable {
           state = State.RUNNING;
         }
 
+        final MemoizedSupplier<List<CompletableFuture<Message>>> futures
+            = MemoizedSupplier.valueOf(() -> new ArrayList<>());
         while (lastAppliedIndex < committedIndex) {
           final long nextIndex = lastAppliedIndex + 1;
           final LogEntryProto next = raftLog.get(nextIndex);
@@ -148,7 +151,10 @@ class StateMachineUpdater implements Runnable {
               LOG.debug("{}: applying nextIndex={}, nextLog={}",
                   this, nextIndex, ServerProtoUtils.toString(next));
             }
-            server.applyLogToStateMachine(next);
+            final CompletableFuture<Message> f = server.applyLogToStateMachine(next);
+            if (f != null) {
+              futures.get().add(f);
+            }
             lastAppliedIndex = nextIndex;
           } else {
             LOG.debug("{}: logEntry {} is null. There may be snapshot to load. state:{}",
@@ -159,6 +165,9 @@ class StateMachineUpdater implements Runnable {
 
         // check if need to trigger a snapshot
         if (shouldTakeSnapshot(lastAppliedIndex)) {
+          if (futures.isInitialized()) {
+            JavaUtils.allOf(futures.get()).get();
+          }
           stateMachine.takeSnapshot();
           // TODO purge logs, including log cache. but should keep log for leader's RPCSenders
           lastSnapshotIndex = lastAppliedIndex;

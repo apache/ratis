@@ -801,8 +801,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     logAppendEntries(isHeartbeat,
         () -> getId() + ": succeeded to handle AppendEntries. Reply: "
             + ServerProtoUtils.toString(reply));
-    return CompletableFuture
-        .allOf(futures.toArray(new CompletableFuture[futures.size()]))
+    return JavaUtils.allOf(futures)
         .thenApply(v -> {
           // reset election timer to avoid punishing the leader for our own
           // long disk writes
@@ -932,8 +931,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
    * @param stateMachineFuture the future returned by the state machine
    *                           from which we will get transaction result later
    */
-  private void replyPendingRequest(LogEntryProto logEntry,
-      CompletableFuture<Message> stateMachineFuture) {
+  private CompletableFuture<Message> replyPendingRequest(
+      LogEntryProto logEntry, CompletableFuture<Message> stateMachineFuture) {
     // update the retry cache
     final ClientId clientId = ClientId.valueOf(logEntry.getClientId());
     final long callId = logEntry.getCallId();
@@ -944,7 +943,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       retryCache.refreshEntry(new RetryCache.CacheEntry(cacheEntry.getKey()));
     }
 
-    stateMachineFuture.whenComplete((reply, exception) -> {
+    return stateMachineFuture.whenComplete((reply, exception) -> {
       final RaftClientReply r;
       if (exception == null) {
         r = new RaftClientReply(clientId, serverId, groupId, callId, true, reply, null);
@@ -980,7 +979,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return s.getFollowerNextIndices();
   }
 
-  public void applyLogToStateMachine(LogEntryProto next) {
+  CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) {
     final StateMachine stateMachine = getStateMachine();
     if (next.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
       // the reply should have already been set. only need to record
@@ -1000,8 +999,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // TODO: This step can be parallelized
       CompletableFuture<Message> stateMachineFuture =
           stateMachine.applyTransaction(trx);
-      replyPendingRequest(next, stateMachineFuture);
+      return replyPendingRequest(next, stateMachineFuture);
     }
+    return null;
   }
 
   private class RaftServerJmxAdapter extends JmxRegister implements RaftServerMXBean {

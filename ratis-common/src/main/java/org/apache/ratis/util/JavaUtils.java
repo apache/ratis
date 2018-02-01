@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.util.List;
 import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -88,26 +89,8 @@ public interface JavaUtils {
    * @param <T> The supplier result type.
    * @return a memoized supplier which is thread-safe.
    */
-  static <T> Supplier<T> memoize(Supplier<T> initializer) {
-    Objects.requireNonNull(initializer, "initializer == null");
-    return new Supplier<T>() {
-      private volatile T value = null;
-
-      @Override
-      public T get() {
-        T v = value;
-        if (v == null) {
-          synchronized (this) {
-            v = value;
-            if (v == null) {
-              v = value = Objects.requireNonNull(initializer.get(),
-                  "initializer.get() returns null");
-            }
-          }
-        }
-        return v;
-      }
-    };
+  static <T> MemoizedSupplier<T> memoize(Supplier<T> initializer) {
+    return MemoizedSupplier.valueOf(initializer);
   }
 
   Supplier<ThreadGroup> ROOT_THREAD_GROUP = memoize(() -> {
@@ -212,5 +195,9 @@ public interface JavaUtils {
   static Throwable unwrapCompletionException(Throwable t) {
     Objects.requireNonNull(t, "t == null");
     return t instanceof CompletionException && t.getCause() != null? t.getCause(): t;
+  }
+
+  static <T> CompletableFuture<Void> allOf(List<CompletableFuture<T>> futures) {
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[futures.size()]));
   }
 }

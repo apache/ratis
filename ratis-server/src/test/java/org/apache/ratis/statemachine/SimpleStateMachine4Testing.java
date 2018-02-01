@@ -27,7 +27,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.LogInputStream;
 import org.apache.ratis.server.storage.LogOutputStream;
@@ -72,7 +71,6 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       Collections.synchronizedList(new ArrayList<>());
   private final Daemon checkpointer;
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
-  private final TermIndexTracker termIndexTracker = new TermIndexTracker();
   private final RaftProperties properties = new RaftProperties();
   private long segmentMaxSize =
       RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
@@ -89,7 +87,6 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   SimpleStateMachine4Testing() {
     checkpointer = new Daemon(() -> {
       while (running) {
-        try {
           if (list.get(list.size() - 1).getIndex() - endIndexLastCkpt >=
               SNAPSHOT_THRESHOLD) {
             endIndexLastCkpt = takeSnapshot();
@@ -98,9 +95,6 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
             Thread.sleep(1000);
           } catch (InterruptedException ignored) {
           }
-        } catch (IOException ioe) {
-          LOG.warn("Received IOException in Checkpointer", ioe);
-        }
       }
     });
   }
@@ -139,14 +133,14 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
     list.add(entry);
-    termIndexTracker.update(ServerProtoUtils.toTermIndex(entry));
+    updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
     return CompletableFuture.completedFuture(
         new SimpleMessage(entry.getIndex() + " OK"));
   }
 
   @Override
-  public long takeSnapshot() throws IOException {
-    TermIndex termIndex = termIndexTracker.getLatestTermIndex();
+  public long takeSnapshot() {
+    final TermIndex termIndex = getLastAppliedTermIndex();
     if (termIndex.getTerm() <= 0 || termIndex.getIndex() <= 0) {
       return RaftServerConstants.INVALID_LOG_INDEX;
     }
@@ -209,14 +203,14 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
           list.add(entry);
-          termIndexTracker.update(ServerProtoUtils.toTermIndex(entry));
+          updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
         }
       }
       Preconditions.assertTrue(
           !list.isEmpty() && endIndex == list.get(list.size() - 1).getIndex(),
           "endIndex=%s, list=%s", endIndex, list);
       this.endIndexLastCkpt = endIndex;
-      termIndexTracker.init(snapshot.getTermIndex());
+      setLastAppliedTermIndex(snapshot.getTermIndex());
       this.storage.loadLatestSnapshot();
       return endIndex;
     }
@@ -245,11 +239,6 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return new TransactionContextImpl(this, request, SMLogEntryProto.newBuilder()
         .setData(request.getMessage().getContent())
         .build());
-  }
-
-  @Override
-  public void notifyNotLeader(Collection<TransactionContext> pendingEntries) {
-    // do nothing
   }
 
   @Override

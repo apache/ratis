@@ -19,35 +19,30 @@ package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.shaded.proto.ExamplesProtos.*;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
-import org.apache.ratis.statemachine.impl.BaseStateMachine;
-import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.util.FileUtils;
-import org.apache.ratis.util.Preconditions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class FileStoreStateMachine extends BaseStateMachine {
-  public static final Logger LOG = LoggerFactory.getLogger(FileStoreStateMachine.class);
-
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
-  private final AtomicReference<TermIndex> latestTermIndex = new AtomicReference<>();
 
   private final FileStore files;
 
@@ -73,7 +68,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
   @Override
   public void close() {
     files.close();
-    latestTermIndex.set(null);
+    setLastAppliedTermIndex(null);
   }
 
   @Override
@@ -137,7 +132,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
     final LogEntryProto entry = trx.getLogEntry();
 
     final long index = entry.getIndex();
-    updateLatestTermIndex(entry.getTerm(), index);
+    updateLastAppliedTermIndex(entry.getTerm(), index);
 
     final SMLogEntryProto smLog = entry.getSmLogEntry();
     final FileStoreRequestProto request;
@@ -175,13 +170,5 @@ public class FileStoreStateMachine extends BaseStateMachine {
     return files.delete(index, path).thenApply(resolved -> () ->
         DeleteReplyProto.newBuilder().setResolvedPath(
             FileStoreCommon.toByteString(resolved)).build().toByteString());
-  }
-
-  private void updateLatestTermIndex(long term, long index) {
-    final TermIndex newTI = TermIndex.newTermIndex(term, index);
-    final TermIndex oldTI = latestTermIndex.getAndSet(newTI);
-    if (oldTI != null) {
-      Preconditions.assertTrue(newTI.compareTo(oldTI) >= 0);
-    }
   }
 }

@@ -17,15 +17,13 @@
  */
 package org.apache.ratis.statemachine;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.Objects;
-
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
-import org.apache.ratis.util.Preconditions;
+
+import java.io.IOException;
+import java.util.Collection;
 
 /**
  * Context for a transaction.
@@ -123,12 +121,12 @@ public interface TransactionContext {
    * log append, it is important to do only required operations here.
    * @return The Transaction context.
    */
-  public TransactionContext preAppendTransaction() throws IOException;
+  TransactionContext preAppendTransaction() throws IOException;
 
   /**
    * Called to notify the state machine that the Transaction passed cannot be appended (or synced).
    * The exception field will indicate whether there was an exception or not.
    * @return cancelled transaction
    */
-  public TransactionContext cancelTransaction() throws IOException;
+  TransactionContext cancelTransaction() throws IOException;
 }

@@ -18,10 +18,6 @@
 
 package org.apache.ratis.statemachine.impl;
 
-import java.io.IOException;
-import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
-
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -29,6 +25,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -36,17 +33,24 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.Preconditions;
+
+import java.io.IOException;
+import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Base implementation for StateMachines.
  */
 public class BaseStateMachine implements StateMachine {
-
   private volatile RaftPeerId id;
   protected RaftProperties properties;
   protected RaftStorage storage;
   protected RaftConfiguration raftConf;
   protected final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
+
+  private final AtomicReference<TermIndex> lastAppliedTermIndex = new AtomicReference<>();
 
   public RaftPeerId getId() {
     return id;
@@ -105,6 +109,30 @@ public class BaseStateMachine implements StateMachine {
     // return the same message contained in the entry
     Message msg = () -> trx.getLogEntry().getSmLogEntry().getData();
     return CompletableFuture.completedFuture(msg);
+  }
+
+  @Override
+  public TermIndex getLastAppliedTermIndex() {
+    return lastAppliedTermIndex.get();
+  }
+
+  protected void setLastAppliedTermIndex(TermIndex newTI) {
+    lastAppliedTermIndex.set(newTI);
+  }
+
+  protected boolean updateLastAppliedTermIndex(long term, long index) {
+    final TermIndex newTI = TermIndex.newTermIndex(term, index);
+    final TermIndex oldTI = lastAppliedTermIndex.getAndSet(newTI);
+    if (!newTI.equals(oldTI)) {
+      LOG.debug("{}: update lastAppliedTermIndex from {} to {}", getId(), oldTI, newTI);
+      if (oldTI != null) {
+        Preconditions.assertTrue(newTI.compareTo(oldTI) >= 0,
+            () -> getId() + ": Failed updateLastAppliedTermIndex: newTI = "
+                + newTI + " < oldTI = " + oldTI);
+      }
+      return true;
+    }
+    return false;
   }
 
   @Override

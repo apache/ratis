@@ -24,10 +24,12 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftConfiguration;
-import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.LifeCycle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -40,6 +42,8 @@ import java.util.concurrent.CompletableFuture;
  * (see https://en.wikipedia.org/wiki/State_machine_replication).
  */
 public interface StateMachine extends Closeable {
+  Logger LOG = LoggerFactory.getLogger(StateMachine.class);
+
   /**
    * Initializes the State Machine with the given properties and storage. The state machine is
    * responsible reading the latest snapshot from the file system (if any) and initialize itself
@@ -172,6 +176,8 @@ public interface StateMachine extends Closeable {
    */
   // TODO: We do not need to return CompletableFuture
   CompletableFuture<Message> applyTransaction(TransactionContext trx);
+
+  TermIndex getLastAppliedTermIndex();
 
   /**
    * Notify the state machine that the raft peer is no longer leader.
