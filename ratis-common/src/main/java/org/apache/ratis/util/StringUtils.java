@@ -67,7 +67,9 @@ public class StringUtils {
 
   public static String bytes2HexShortString(ByteString bytes) {
     final int size = bytes.size();
-    if (size > 10) {
+    if (size == 0) {
+      return "<EMPTY>";
+    } else if (size > 10) {
       // return only the first 10 bytes
       return bytes2HexString(bytes.substring(0, 10)) + "...(size=" + size + ")";
     } else {

@@ -18,11 +18,37 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.util.MemoizedSupplier;
+import org.apache.ratis.util.StringUtils;
+
+import java.util.function.Supplier;
 
 /**
  * The information clients append to the raft ring.
  */
 public interface Message {
+  static Message valueOf(ByteString bytes, Supplier<String> stringSupplier) {
+    return new Message() {
+      private final MemoizedSupplier<String> memoized = MemoizedSupplier.valueOf(stringSupplier);
+
+      @Override
+      public ByteString getContent() {
+        return bytes;
+      }
+
+      @Override
+      public String toString() {
+        return memoized.get();
+      }
+    };
+  }
+
+  static Message valueOf(ByteString bytes) {
+    return valueOf(bytes, () -> "Message:" + StringUtils.bytes2HexShortString(bytes));
+  }
+
+  Message EMPTY = valueOf(ByteString.EMPTY);
+
   /**
    * @return the content of the message
    */

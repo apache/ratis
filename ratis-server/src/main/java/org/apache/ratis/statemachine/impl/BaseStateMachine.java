@@ -20,7 +20,6 @@ package org.apache.ratis.statemachine.impl;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftConfiguration;
@@ -107,8 +106,8 @@ public class BaseStateMachine implements StateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     // return the same message contained in the entry
-    Message msg = () -> trx.getLogEntry().getSmLogEntry().getData();
-    return CompletableFuture.completedFuture(msg);
+    return CompletableFuture.completedFuture(
+        Message.valueOf(trx.getLogEntry().getSmLogEntry().getData()));
   }
 
   @Override
@@ -159,8 +158,7 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> query(
-      RaftClientRequest request) {
+  public CompletableFuture<Message> query(Message request) {
     return null;
   }
 

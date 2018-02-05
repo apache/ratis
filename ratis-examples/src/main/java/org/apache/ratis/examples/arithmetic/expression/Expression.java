@@ -46,12 +46,10 @@ public interface Expression extends Evaluable {
 
   class Utils {
     public static Message toMessage(final Expression e) {
-      return () -> {
-        final byte[] buf = new byte[e.length()];
-        final int length = e.toBytes(buf, 0);
-        Preconditions.assertTrue(length == buf.length);
-        return toByteString(buf);
-      };
+      final byte[] buf = new byte[e.length()];
+      final int length = e.toBytes(buf, 0);
+      Preconditions.assertTrue(length == buf.length);
+      return Message.valueOf(toByteString(buf), () -> "Message:" + e);
     }
 
     public static Expression double2Expression(Double d) {

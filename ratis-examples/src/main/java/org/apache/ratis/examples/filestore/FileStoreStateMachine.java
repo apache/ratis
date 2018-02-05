@@ -20,7 +20,6 @@ package org.apache.ratis.examples.filestore;
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -72,17 +71,17 @@ public class FileStoreStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> query(RaftClientRequest request) {
+  public CompletableFuture<Message> query(Message request) {
     final ReadRequestProto proto;
     try {
-      proto = ReadRequestProto.parseFrom(request.getMessage().getContent());
+      proto = ReadRequestProto.parseFrom(request.getContent());
     } catch (InvalidProtocolBufferException e) {
       return FileStoreCommon.completeExceptionally("Failed to parse " + request, e);
     }
 
     final String path = proto.getPath().toStringUtf8();
     return files.read(path, proto.getOffset(), proto.getLength())
-        .thenApply(reply -> new RaftClientReply(request, () -> reply.toByteString()));
+        .thenApply(reply -> Message.valueOf(reply.toByteString()));
   }
 
   @Override
@@ -162,13 +161,14 @@ public class FileStoreStateMachine extends BaseStateMachine {
       long index, WriteRequestHeaderProto header, int size) {
     final String path = header.getPath().toStringUtf8();
     return files.submitCommit(index, path, header.getClose(), header.getOffset(), size)
-        .thenApply(reply -> () -> reply.toByteString());
+        .thenApply(reply -> Message.valueOf(reply.toByteString()));
   }
 
   private CompletableFuture<Message> delete(long index, DeleteRequestProto request) {
     final String path = request.getPath().toStringUtf8();
-    return files.delete(index, path).thenApply(resolved -> () ->
-        DeleteReplyProto.newBuilder().setResolvedPath(
-            FileStoreCommon.toByteString(resolved)).build().toByteString());
+    return files.delete(index, path).thenApply(resolved ->
+        Message.valueOf(DeleteReplyProto.newBuilder().setResolvedPath(
+            FileStoreCommon.toByteString(resolved)).build().toByteString(),
+            () -> "Message:" + resolved));
   }
 }

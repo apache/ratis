@@ -57,7 +57,7 @@ public class FileStoreClient implements Closeable {
   static ByteString send(
       ByteString request, CheckedFunction<Message, RaftClientReply, IOException> sendFunction)
       throws IOException {
-    final RaftClientReply reply = sendFunction.apply(() -> request);
+    final RaftClientReply reply = sendFunction.apply(Message.valueOf(request));
     final StateMachineException sme = reply.getStateMachineException();
     if (sme != null) {
       throw new IOException("Failed to send request " + request, sme);

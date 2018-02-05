@@ -43,8 +43,8 @@ public class AssignmentMessage implements Message, Evaluable {
     expression = Expression.Utils.bytes2Expression(buf, offset + variable.length());
   }
 
-  public AssignmentMessage(Message message) {
-    this(message.getContent().toByteArray(), 0);
+  public AssignmentMessage(ByteString bytes) {
+    this(bytes.toByteArray(), 0);
   }
 
   public Variable getVariable() {

@@ -21,7 +21,6 @@ import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
@@ -31,16 +30,14 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.LogInputStream;
 import org.apache.ratis.server.storage.LogOutputStream;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
-import org.apache.ratis.util.Daemon;
-import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.MD5FileUtil;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -216,11 +213,26 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     }
   }
 
+  /**
+   * Query the n-th log entry.
+   * @param request an index represented in a UTF-8 String, or an empty message.
+   * @return a completed future of the n-th log entry,
+   *         where n is the last applied index if the request is empty,
+   *         otherwise, n is the index represented in the request.
+   */
   @Override
-  public CompletableFuture<RaftClientReply> query(
-      RaftClientRequest request) {
-    return CompletableFuture.completedFuture(
-        new RaftClientReply(request, new SimpleMessage("query success")));
+  public CompletableFuture<Message> query(Message request) {
+    final ByteString bytes = request.getContent();
+    try {
+      final long index = bytes.isEmpty()? getLastAppliedTermIndex().getIndex()
+          : Long.parseLong(bytes.toStringUtf8());
+      LOG.info("query log index " + index);
+      final LogEntryProto entry = list.get(Math.toIntExact(index));
+      return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));
+    } catch (Exception e) {
+      LOG.warn("Failed request " + request, e);
+      return JavaUtils.completeExceptionally(e);
+    }
   }
 
   @Override

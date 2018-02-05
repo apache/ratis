@@ -20,8 +20,6 @@ package org.apache.ratis.examples.arithmetic;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -135,19 +133,15 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> query(
-      RaftClientRequest request) {
-    final Expression q = Expression.Utils.bytes2Expression(
-        request.getMessage().getContent().toByteArray(), 0);
+  public CompletableFuture<Message> query(Message request) {
+    final Expression q = Expression.Utils.bytes2Expression(request.getContent().toByteArray(), 0);
     final Double result;
     try(final AutoCloseableLock readLock = readLock()) {
       result = q.evaluate(variables);
     }
     final Expression r = Expression.Utils.double2Expression(result);
     LOG.debug("QUERY: {} = {}", q, r);
-    final RaftClientReply reply = new RaftClientReply(request,
-        Expression.Utils.toMessage(r));
-    return CompletableFuture.completedFuture(reply);
+    return CompletableFuture.completedFuture(Expression.Utils.toMessage(r));
   }
 
   @Override
@@ -158,8 +152,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     final LogEntryProto entry = trx.getLogEntry();
-    final AssignmentMessage assignment = new AssignmentMessage(
-        () -> entry.getSmLogEntry().getData());
+    final AssignmentMessage assignment = new AssignmentMessage(entry.getSmLogEntry().getData());
 
     final long index = entry.getIndex();
     final Double result;

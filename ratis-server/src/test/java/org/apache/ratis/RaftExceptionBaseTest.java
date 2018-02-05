@@ -175,11 +175,11 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     // Create client using another group
     try(RaftClient client = cluster.createClient(anotherGroup)) {
       testFailureCase("send(..) with client group being different from the server group",
-          () -> client.send(() -> ByteString.EMPTY),
+          () -> client.send(Message.EMPTY),
           GroupMismatchException.class);
 
       testFailureCase("sendReadOnly(..) with client group being different from the server group",
-          () -> client.sendReadOnly(() -> ByteString.EMPTY),
+          () -> client.sendReadOnly(Message.EMPTY),
           GroupMismatchException.class);
 
       testFailureCase("setConfiguration(..) with client group being different from the server group",

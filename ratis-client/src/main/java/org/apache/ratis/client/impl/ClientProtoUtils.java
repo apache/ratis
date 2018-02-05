@@ -209,21 +209,7 @@ public interface ClientProtoUtils {
   }
 
   static Message toMessage(final ClientMessageEntryProto p) {
-    return toMessage(p.getContent());
-  }
-
-  static Message toMessage(final ByteString bytes) {
-    return new Message() {
-      @Override
-      public ByteString getContent() {
-        return bytes;
-      }
-
-      @Override
-      public String toString() {
-        return StringUtils.bytes2HexShortString(getContent());
-      }
-    };
+    return Message.valueOf(p.getContent());
   }
 
   static ClientMessageEntryProto.Builder toClientMessageEntryProtoBuilder(ByteString message) {

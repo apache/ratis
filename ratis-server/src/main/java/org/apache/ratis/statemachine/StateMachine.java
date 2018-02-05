@@ -19,7 +19,6 @@ package org.apache.ratis.statemachine;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -116,9 +115,8 @@ public interface StateMachine extends Closeable {
 
   /**
    * Query the state machine. The request must be read-only.
-   * TODO: extend RaftClientRequest to have a read-only request subclass.
    */
-  CompletableFuture<RaftClientReply> query(RaftClientRequest request);
+  CompletableFuture<Message> query(Message request);
 
   /**
    * Validate/pre-process the incoming update request in the state machine.

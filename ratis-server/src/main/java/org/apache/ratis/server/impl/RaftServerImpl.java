@@ -462,7 +462,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     if (request.isReadOnly()) {
       // TODO: We might not be the leader anymore by the time this completes.
       // See the RAFT paper section 8 (last part)
-      return stateMachine.query(request);
+      return stateMachine.query(request.getMessage())
+          .thenApply(r -> new RaftClientReply(request, r));
     }
 
     // query the retry cache
