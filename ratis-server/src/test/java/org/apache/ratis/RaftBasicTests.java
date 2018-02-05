@@ -346,7 +346,7 @@ public abstract class RaftBasicTests extends BaseTest {
       lastStep.set(n);
       count++;
 
-      RaftServerImpl leader = cluster.getLeader();
+      RaftServerImpl leader = waitForLeader(cluster, true);
       if (leader != null) {
         RaftTestUtil.changeLeader(cluster, leader.getId());
       }
