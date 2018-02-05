@@ -318,6 +318,20 @@ public class SegmentedRaftLog extends RaftLog {
                 ServerProtoUtils.toTermIndex(entries[index]), storedEntry,
                 ServerProtoUtils.toString(entries));
           }
+          while (true) {
+            try {
+              final LogEntryProto entry = get(storedEntry.getIndex());
+              server.failClientRequest(entry);
+            } catch (RaftLogIOException e) {
+              LOG.error("Failed to read log " + storedEntry, e);
+            }
+
+            if (iter.hasNext()) {
+              storedEntry = iter.next();
+            } else {
+              break;
+            }
+          }
           break;
         }
       }

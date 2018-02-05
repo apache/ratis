@@ -25,6 +25,9 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.server.impl.RetryCacheTestUtil;
+import org.apache.ratis.server.impl.RetryCache;
+import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
@@ -44,6 +47,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestSegmentedRaftLog extends BaseTest {
   static {
@@ -175,7 +183,7 @@ public class TestSegmentedRaftLog extends BaseTest {
             new SimpleOperation("m" + index) :
             new SimpleOperation(stringSupplier.get());
         eList.add(ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-            range.term, index, clientId, callId));
+            range.term, index, clientId, index));
       }
     }
     return eList;
@@ -302,6 +310,16 @@ public class TestSegmentedRaftLog extends BaseTest {
     }
   }
 
+  private void checkFailedEntries(List<LogEntryProto> entries, long fromIndex, RetryCache retryCache) {
+    for (int i = 0; i < entries.size(); i++) {
+      if (i < fromIndex) {
+        RetryCacheTestUtil.assertFailure(retryCache, entries.get(i), false);
+      } else {
+        RetryCacheTestUtil.assertFailure(retryCache, entries.get(i), true);
+      }
+    }
+  }
+
   /**
    * Test append with inconsistent entries
    */
@@ -311,9 +329,14 @@ public class TestSegmentedRaftLog extends BaseTest {
     List<SegmentRange> ranges = prepareRanges(5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
+    RaftServerImpl server = mock(RaftServerImpl.class);
+    RetryCache retryCache = RetryCacheTestUtil.createRetryCache();
+    when(server.getRetryCache()).thenReturn(retryCache);
+    doCallRealMethod().when(server).failClientRequest(any(LogEntryProto.class));
     try (SegmentedRaftLog raftLog =
-             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
+             new SegmentedRaftLog(peerId, server, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      entries.stream().forEach(entry -> RetryCacheTestUtil.createEntry(retryCache, entry));
       // append entries to the raftlog
       entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
     }
@@ -327,10 +350,11 @@ public class TestSegmentedRaftLog extends BaseTest {
         Arrays.asList(r1, r2, r3), null);
 
     try (SegmentedRaftLog raftLog =
-             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
+             new SegmentedRaftLog(peerId, server, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
       raftLog.append(newEntries.toArray(new LogEntryProto[newEntries.size()])).forEach(CompletableFuture::join);
 
+      checkFailedEntries(entries, 650, retryCache);
       checkEntries(raftLog, entries, 0, 650);
       checkEntries(raftLog, newEntries, 100, 100);
       Assert.assertEquals(newEntries.get(newEntries.size() - 1),
@@ -341,7 +365,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     // load the raftlog again and check
     try (SegmentedRaftLog raftLog =
-             new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
+             new SegmentedRaftLog(peerId, server, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
       checkEntries(raftLog, entries, 0, 650);
       checkEntries(raftLog, newEntries, 100, 100);

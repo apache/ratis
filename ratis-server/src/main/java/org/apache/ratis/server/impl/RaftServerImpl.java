@@ -144,7 +144,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   @VisibleForTesting
-  RetryCache getRetryCache() {
+  public RetryCache getRetryCache() {
     return retryCache;
   }
 
@@ -1003,6 +1003,18 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       return replyPendingRequest(next, stateMachineFuture);
     }
     return null;
+  }
+
+  public void failClientRequest(LogEntryProto logEntry) {
+    if (logEntry.getLogEntryBodyCase() == LogEntryProto.LogEntryBodyCase.SMLOGENTRY) {
+      final ClientId clientId = ClientId.valueOf(logEntry.getClientId());
+      final RetryCache.CacheEntry cacheEntry = getRetryCache().get(clientId, logEntry.getCallId());
+      if (cacheEntry != null) {
+        final RaftClientReply reply = new RaftClientReply(clientId, getId(), getGroupId(),
+            logEntry.getCallId(), false, null, generateNotLeaderException());
+        cacheEntry.failWithReply(reply);
+      }
+    }
   }
 
   private class RaftServerJmxAdapter extends JmxRegister implements RaftServerMXBean {
