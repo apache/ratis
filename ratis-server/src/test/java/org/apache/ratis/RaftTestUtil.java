@@ -71,6 +71,7 @@ public interface RaftTestUtil {
     LOG.info(cluster.printServers(groupId));
     RaftServerImpl leader = null;
     for(int i = 0; leader == null && i < 10; i++) {
+      Thread.sleep(sleepTime);
       try {
         leader = cluster.getLeader(groupId);
       } catch(IllegalStateException e) {
@@ -78,7 +79,6 @@ public interface RaftTestUtil {
           throw e;
         }
       }
-      Thread.sleep(sleepTime);
     }
     LOG.info(cluster.printServers(groupId));
     return leader;
