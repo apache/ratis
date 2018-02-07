@@ -49,7 +49,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
 
   public GrpcClientRpc(ClientId clientId, RaftProperties properties) {
     super(new PeerProxyMap<>(clientId.toString(), p -> new RaftClientProtocolClient(clientId, p,
-        GrpcConfigKeys.flowControlWindow(properties))));
+        GrpcConfigKeys.flowControlWindow(properties), GrpcConfigKeys.messageSizeMax(properties))));
     this.clientId = clientId;
     maxMessageSize = GrpcConfigKeys.messageSizeMax(properties).getSizeInt();
   }
@@ -129,10 +129,10 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
     requestObserver.onNext(requestProto);
     requestObserver.onCompleted();
 
-    return replyFuture.thenApply(replyProto -> toRaftClientReply(replyProto));
+    return replyFuture.thenApply(ClientProtoUtils::toRaftClientReply);
   }
 
-  RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request) throws IOException {
+  private RaftClientRequestProto toRaftClientRequestProto(RaftClientRequest request) throws IOException {
     final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
     if (proto.getSerializedSize() > maxMessageSize) {
       throw new IOException(clientId + ": Message size:" + proto.getSerializedSize()

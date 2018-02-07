@@ -36,8 +36,8 @@ public class RaftClientProtocolProxy implements Closeable {
   public RaftClientProtocolProxy(
       ClientId clientId, RaftPeer target,
       Function<RaftPeer, CloseableStreamObserver> responseHandlerCreation,
-      SizeInBytes flowControlWindow) {
-    proxy = new RaftClientProtocolClient(clientId, target, flowControlWindow);
+      SizeInBytes flowControlWindow, SizeInBytes maxMessageSize) {
+    proxy = new RaftClientProtocolClient(clientId, target, flowControlWindow, maxMessageSize);
     this.responseHandlerCreation = responseHandlerCreation;
   }
 

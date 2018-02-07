@@ -58,11 +58,12 @@ public class RaftClientProtocolClient implements Closeable {
   private final AtomicReference<AsyncStreamObservers> appendStreamObservers = new AtomicReference<>();
 
   public RaftClientProtocolClient(ClientId id, RaftPeer target,
-      SizeInBytes flowControlWindow) {
+      SizeInBytes flowControlWindow, SizeInBytes maxMessageSize) {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
     channel = NettyChannelBuilder.forTarget(target.getAddress())
         .usePlaintext(true).flowControlWindow(flowControlWindow.getSizeInt())
+        .maxMessageSize(maxMessageSize.getSizeInt())
         .build();
     blockingStub = RaftClientProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftClientProtocolServiceGrpc.newStub(channel);

@@ -71,7 +71,7 @@ public class AppendStreamer implements Closeable {
   private final Deque<RaftClientRequestProto> dataQueue;
   private final Deque<RaftClientRequestProto> ackQueue;
   private final int maxPendingNum;
-  private final int maxMessageSize;
+  private final SizeInBytes maxMessageSize;
 
   private final PeerProxyMap<RaftClientProtocolProxy> proxyMap;
   private final Map<RaftPeerId, RaftPeer> peers;
@@ -88,7 +88,7 @@ public class AppendStreamer implements Closeable {
       RaftPeerId leaderId, ClientId clientId) {
     this.clientId = clientId;
     maxPendingNum = GrpcConfigKeys.OutputStream.outstandingAppendsMax(prop);
-    maxMessageSize = GrpcConfigKeys.messageSizeMax(prop).getSizeInt();
+    maxMessageSize = GrpcConfigKeys.messageSizeMax(prop);
     dataQueue = new ConcurrentLinkedDeque<>();
     ackQueue = new ConcurrentLinkedDeque<>();
     exceptionAndRetry = new ExceptionAndRetry(prop);
@@ -98,7 +98,7 @@ public class AppendStreamer implements Closeable {
         Collectors.toMap(RaftPeer::getId, Function.identity()));
     proxyMap = new PeerProxyMap<>(clientId.toString(),
         raftPeer -> new RaftClientProtocolProxy(clientId, raftPeer, ResponseHandler::new,
-            GrpcConfigKeys.flowControlWindow(prop)));
+            GrpcConfigKeys.flowControlWindow(prop), maxMessageSize));
     proxyMap.addPeers(group.getPeers());
     refreshLeaderProxy(leaderId, null);
 
@@ -158,9 +158,9 @@ public class AppendStreamer implements Closeable {
       // wrap the current buffer into a RaftClientRequestProto
       final RaftClientRequestProto request = ClientProtoUtils.toRaftClientRequestProto(
           clientId, leaderId, groupId, seqNum, seqNum, content, false);
-      if (request.getSerializedSize() > maxMessageSize) {
+      if (request.getSerializedSize() > maxMessageSize.getSizeInt()) {
         throw new IOException("msg size:" + request.getSerializedSize() +
-            " exceeds maximum:" + maxMessageSize);
+            " exceeds maximum:" + maxMessageSize.getSizeInt());
       }
       dataQueue.offer(request);
       this.notifyAll();
