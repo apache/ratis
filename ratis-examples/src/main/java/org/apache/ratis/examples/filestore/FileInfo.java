@@ -35,8 +35,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -123,6 +125,33 @@ abstract class FileInfo {
     }
   }
 
+  static class WriteInfo {
+    /** Future to make sure that each commit is executed after the corresponding write. */
+    private final CompletableFuture<Integer> writeFuture;
+    /** Future to make sure that each commit is executed after the previous commit. */
+    private final CompletableFuture<Integer> commitFuture;
+    /** Previous commit index. */
+    private final long previousIndex;
+
+    WriteInfo(CompletableFuture<Integer> writeFuture, long previousIndex) {
+      this.writeFuture = writeFuture;
+      this.commitFuture = new CompletableFuture<>();
+      this.previousIndex = previousIndex;
+    }
+
+    CompletableFuture<Integer> getCommitFuture() {
+      return commitFuture;
+    }
+
+    CompletableFuture<Integer> getWriteFuture() {
+      return writeFuture;
+    }
+
+    long getPreviousIndex() {
+      return previousIndex;
+    }
+  }
+
   static class UnderConstruction extends FileInfo {
     private FileOut out;
 
@@ -135,10 +164,9 @@ abstract class FileInfo {
 
     /** A queue to make sure that the writes are in order. */
     private final TaskQueue writeQueue = new TaskQueue("writeQueue");
-    /** A queue to make sure that the commits are in order. */
-    private final TaskQueue commitQueue = new TaskQueue("commitQueue");
-    /** Futures to make sure that each commit is executed the corresponding write. */
-    private final Map<Long, CompletableFuture<Integer>> writeFutures = new ConcurrentHashMap<>();
+    private final Map<Long, WriteInfo> writeInfos = new ConcurrentHashMap<>();
+
+    private final AtomicLong lastWriteIndex = new AtomicLong(-1L);
 
     UnderConstruction(Path relativePath) {
       super(relativePath);
@@ -179,11 +207,12 @@ abstract class FileInfo {
     }
 
     private CompletableFuture<Integer> submitWrite(
-        CheckedSupplier<Integer, IOException> task, ExecutorService executor,
-      RaftPeerId id, long index) {
+        CheckedSupplier<Integer, IOException> task,
+        ExecutorService executor, RaftPeerId id, long index) {
       final CompletableFuture<Integer> f = writeQueue.submit(task, executor,
           e -> new IOException("Failed " + task, e));
-      CollectionUtils.putNew(index, f, writeFutures, () ->  id + ":writeFutures");
+      final WriteInfo info = new WriteInfo(f, lastWriteIndex.getAndSet(index));
+      CollectionUtils.putNew(index, info, writeInfos, () ->  id + ":writeInfos");
       return f;
     }
 
@@ -230,10 +259,18 @@ abstract class FileInfo {
     }
 
     CompletableFuture<Integer> submitCommit(
-        long offset, int size, Function<UnderConstruction, ReadOnly> converter,
+        long offset, int size, Function<UnderConstruction, ReadOnly> closeFunction,
         ExecutorService executor, RaftPeerId id, long index) {
+      final boolean close = closeFunction != null;
       final Supplier<String> name = () -> "commit(" + getRelativePath() + ", "
-          + offset + ", " + size + ") @" + id + ":" + index;
+          + offset + ", " + size + ", close? " + close + ") @" + id + ":" + index;
+
+      final WriteInfo info = writeInfos.get(index);
+      if (info == null) {
+        return JavaUtils.completeExceptionally(
+            new IOException(name.get() + " is already committed."));
+      }
+
       final CheckedSupplier<Integer, IOException> task = LogUtils.newCheckedSupplier(LOG, () -> {
         if (offset != committedSize) {
           throw new IOException("Offset/size mismatched: offset = "
@@ -245,21 +282,26 @@ abstract class FileInfo {
         }
         committedSize += size;
 
-        if (converter != null) {
-          converter.apply(this);
+        if (close) {
+          closeFunction.apply(this);
+          writeInfos.remove(index);
         }
+        info.getCommitFuture().complete(size);
         return size;
       }, name);
 
-      final CompletableFuture<Integer> write = writeFutures.remove(index);
-      if (write == null) {
-        return JavaUtils.completeExceptionally(
-            new IOException(name.get() + " is already committed."));
-      }
-      return write.thenComposeAsync(writeSize -> {
+      // Remove previous info, if there is any.
+      final WriteInfo previous = writeInfos.remove(info.getPreviousIndex());
+      final CompletableFuture<Integer> previousCommit = previous != null?
+          previous.getCommitFuture(): CompletableFuture.completedFuture(0);
+      // Commit after both current write and previous commit completed.
+      return info.getWriteFuture().thenCombineAsync(previousCommit, (writeSize, previousCommitSize) -> {
         Preconditions.assertTrue(size == writeSize);
-        return commitQueue.submit(task, executor,
-            e -> new IOException("Failed " + task, e));
+        try {
+          return task.get();
+        } catch (IOException e) {
+          throw new CompletionException("Failed " + task, e);
+        }
       }, executor);
     }
   }

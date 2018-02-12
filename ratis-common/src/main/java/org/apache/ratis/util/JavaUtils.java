@@ -200,4 +200,15 @@ public interface JavaUtils {
   static <T> CompletableFuture<Void> allOf(List<CompletableFuture<T>> futures) {
     return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[futures.size()]));
   }
+
+  static <OUTPUT, THROWABLE extends Throwable> OUTPUT supplyAndWrapAsCompletionException(
+      CheckedSupplier<OUTPUT, THROWABLE> supplier) {
+    try {
+      return supplier.get();
+    } catch (RuntimeException e) {
+      throw e;
+    } catch (Throwable t) {
+      throw new CompletionException(t);
+    }
+  }
 }

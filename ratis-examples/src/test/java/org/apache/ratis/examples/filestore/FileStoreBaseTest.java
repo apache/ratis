@@ -37,11 +37,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Random;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -78,7 +77,7 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
       throws Exception {
     LOG.info("runTestSingleFile with path={}, fileLength={}", path, fileLength);
 
-    try (final Writer w = new Writer(path, fileLength, newClient)) {
+    try (final Writer w = new Writer(path, fileLength, null, newClient)) {
       w.write().verify().delete();
     }
   }
@@ -95,7 +94,7 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
     for (int i = 0; i < numFile; i++) {
       final String path = String.format("%s%02d", pathPrefix, i);
       final Callable<Writer> callable = LogUtils.newCallable(LOG,
-          () -> new Writer(path, fileLength, newClient).write(),
+          () -> new Writer(path, fileLength, null, newClient).write(),
           () -> path + ":" + fileLength);
       writerFutures.add(executor.submit(callable));
     }
@@ -123,12 +122,15 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
     final String fileName;
     final SizeInBytes fileSize;
     final FileStoreClient client;
+    final Executor asyncExecutor;
 
-    Writer(String fileName, SizeInBytes fileSize, CheckedSupplier<FileStoreClient, IOException> newClient)
+    Writer(String fileName, SizeInBytes fileSize, Executor asyncExecutor,
+        CheckedSupplier<FileStoreClient, IOException> clientSupplier)
         throws IOException {
       this.fileName = fileName;
       this.fileSize = fileSize;
-      this.client = newClient.get();
+      this.client = clientSupplier.get();
+      this.asyncExecutor = asyncExecutor;
     }
 
     ByteBuffer randomBytes(int length, Random random) {
@@ -145,17 +147,57 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
 
       for(int offset = 0; offset < size; ) {
         final int remaining = size - offset;
-        final int n = Math.min(remaining, buffer.length);
-        final boolean close = n == remaining;
+        final int length = Math.min(remaining, buffer.length);
+        final boolean close = length == remaining;
 
-        final ByteBuffer b = randomBytes(n, r);
+        final ByteBuffer b = randomBytes(length, r);
 
-        LOG.trace("client write {}, offset={}", fileName, offset);
+        LOG.trace("write {}, offset={}, length={}, close? {}",
+            fileName, offset, length, close);
         final long written = client.write(fileName, offset, close, b);
-        Assert.assertEquals(n, written);
+        Assert.assertEquals(length, written);
         offset += written;
       }
       return this;
+    }
+
+    CompletableFuture<Writer> writeAsync() {
+      Objects.requireNonNull(asyncExecutor, "asyncExecutor == null");
+      final Random r = new Random(seed);
+      final int size = fileSize.getSizeInt();
+
+      final CompletableFuture<Writer> returnFuture = new CompletableFuture<>();
+      final AtomicInteger callCount = new AtomicInteger();
+      final AtomicInteger n = new AtomicInteger();
+      for(; n.get() < size; ) {
+        final int offset = n.get();
+        final int remaining = size - offset;
+        final int length = Math.min(remaining, buffer.length);
+        final boolean close = length == remaining;
+
+        final ByteBuffer b = randomBytes(length, r);
+
+        callCount.incrementAndGet();
+        n.addAndGet(length);
+
+        LOG.trace("writeAsync {}, offset={}, length={}, close? {}",
+            fileName, offset, length, close);
+        client.writeAsync(fileName, offset, close, b)
+            .thenAcceptAsync(written -> Assert.assertEquals(length, (long)written), asyncExecutor)
+            .thenRun(() -> {
+              final int count = callCount.decrementAndGet();
+              LOG.trace("writeAsync {}, offset={}, length={}, close? {}: n={}, callCount={}",
+                  fileName, offset, length, close, n.get(), count);
+              if (n.get() == size && count == 0) {
+                returnFuture.complete(this);
+              }
+            })
+            .exceptionally(e -> {
+              returnFuture.completeExceptionally(e);
+              return null;
+            });
+      }
+      return returnFuture;
     }
 
     Writer verify() throws IOException {
@@ -165,16 +207,58 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
       for(int offset = 0; offset < size; ) {
         final int remaining = size - offset;
         final int n = Math.min(remaining, buffer.length);
-
         final ByteString read = client.read(fileName, offset, n);
-        Assert.assertEquals(n, read.size());
-
-        final ByteBuffer b = randomBytes(n, r);
-
-        assertBuffers(offset, n, b, read.asReadOnlyByteBuffer());
+        final ByteBuffer expected = randomBytes(n, r);
+        verify(read, offset, n, expected);
         offset += n;
       }
       return this;
+    }
+
+    CompletableFuture<Writer> verifyAsync() {
+      Objects.requireNonNull(asyncExecutor, "asyncExecutor == null");
+      final Random r = new Random(seed);
+      final int size = fileSize.getSizeInt();
+
+      final CompletableFuture<Writer> returnFuture = new CompletableFuture<>();
+      final AtomicInteger callCount = new AtomicInteger();
+      final AtomicInteger n = new AtomicInteger();
+      for(; n.get() < size; ) {
+        final int offset = n.get();
+        final int remaining = size - offset;
+        final int length = Math.min(remaining, buffer.length);
+
+        callCount.incrementAndGet();
+        n.addAndGet(length);
+        final ByteBuffer expected = ByteString.copyFrom(randomBytes(length, r)).asReadOnlyByteBuffer();
+
+        client.readAsync(fileName, offset, length)
+            .thenAcceptAsync(read -> verify(read, offset, length, expected), asyncExecutor)
+            .thenRun(() -> {
+              final int count = callCount.decrementAndGet();
+              LOG.trace("verifyAsync {}, offset={}, length={}: n={}, callCount={}",
+                  fileName, offset, length, n.get(), count);
+              if (n.get() == size && count == 0) {
+                returnFuture.complete(this);
+              }
+            })
+            .exceptionally(e -> {
+              returnFuture.completeExceptionally(e);
+              return null;
+            });
+      }
+      Assert.assertEquals(size, n.get());
+      return returnFuture;
+    }
+
+    void verify(ByteString read, int offset, int length, ByteBuffer expected) {
+      Assert.assertEquals(length, read.size());
+      assertBuffers(offset, length, expected, read.asReadOnlyByteBuffer());
+    }
+
+    CompletableFuture<Writer> deleteAsync() {
+      Objects.requireNonNull(asyncExecutor, "asyncExecutor == null");
+      return client.deleteAsync(fileName).thenApplyAsync(reply -> this, asyncExecutor);
     }
 
     Writer delete() throws IOException {
@@ -193,8 +277,8 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
       Assert.assertEquals(expected, computed);
     } catch(AssertionError e) {
       LOG.error("Buffer mismatched at offset=" + offset + ", length=" + length
-          + "expected = " + StringUtils.bytes2HexString(expected) + "\n"
-          + "computed = " + StringUtils.bytes2HexString(computed) + "\n", e);
+          + "\n  expected = " + StringUtils.bytes2HexString(expected)
+          + "\n  computed = " + StringUtils.bytes2HexString(computed), e);
       throw e;
     }
   }

@@ -80,7 +80,7 @@ public interface LogUtils {
     }
 
     if (log.isTraceEnabled()) {
-      log.trace("Successfully supplied " + name.get());
+      log.trace("Successfully supplied " + name.get() + ": " + output);
     }
     return output;
   }
