@@ -71,12 +71,8 @@ public class PendingRequest implements Comparable<PendingRequest> {
   }
 
   TransactionContext setNotLeaderException(NotLeaderException nle) {
-    setReply(new RaftClientReply(getRequest(), nle));
+    setReply(new RaftClientReply(getRequest(), nle, null));
     return getEntry();
-  }
-
-  void setSuccessReply(Message message) {
-    setReply(new RaftClientReply(getRequest(), message));
   }
 
   @Override

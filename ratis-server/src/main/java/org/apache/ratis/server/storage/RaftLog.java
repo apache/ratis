@@ -80,8 +80,9 @@ public abstract class RaftLog implements Closeable {
    * Update the last committed index.
    * @param majorityIndex the index that has achieved majority.
    * @param currentTerm the current term.
+   * @return true if update is applied; otherwise, return false, i.e. no update required.
    */
-  public void updateLastCommitted(long majorityIndex, long currentTerm) {
+  public boolean updateLastCommitted(long majorityIndex, long currentTerm) {
     try(AutoCloseableLock writeLock = writeLock()) {
       if (lastCommitted.get() < majorityIndex) {
         // Only update last committed index for current term. See §5.4.2 in
@@ -90,9 +91,11 @@ public abstract class RaftLog implements Closeable {
         if (entry != null && entry.getTerm() == currentTerm) {
           LOG.debug("{}: Updating lastCommitted to {}", selfId, majorityIndex);
           lastCommitted.set(majorityIndex);
+          return true;
         }
       }
     }
+    return false;
   }
 
   /**

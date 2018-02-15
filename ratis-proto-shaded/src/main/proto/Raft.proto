@@ -118,6 +118,11 @@ message RequestVoteReplyProto {
   bool shouldShutdown = 3;
 }
 
+message CommitInfoProto {
+  RaftPeerProto server = 1;
+  uint64 commitIndex = 2;
+}
+
 message AppendEntriesRequestProto {
   RaftRpcRequestProto serverRequest = 1;
   uint64 leaderTerm = 2;
@@ -125,6 +130,8 @@ message AppendEntriesRequestProto {
   repeated LogEntryProto entries = 4;
   uint64 leaderCommit = 5;
   bool initializing = 6;
+
+  repeated CommitInfoProto commitInfos = 15;
 }
 
 message AppendEntriesReplyProto {
@@ -189,11 +196,8 @@ message RaftClientReplyProto {
     NotLeaderExceptionProto notLeaderException = 3;
     StateMachineExceptionProto stateMachineException = 4;
   }
-}
 
-message ServerInformationReplyProto {
-  RaftRpcReplyProto rpcReply = 1;
-  RaftGroupProto group = 2;
+  repeated CommitInfoProto commitInfos = 15;
 }
 
 // setConfiguration request
@@ -211,4 +215,10 @@ message ReinitializeRequestProto {
 // server info request
 message ServerInformationRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
+}
+
+message ServerInformationReplyProto {
+  RaftRpcReplyProto rpcReply = 1;
+  RaftGroupProto group = 2;
+  repeated CommitInfoProto commitInfos = 3;
 }

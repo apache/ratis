@@ -17,9 +17,15 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.shaded.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
+
+import java.util.Collection;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 /**
  * Reply from server to client
@@ -36,9 +42,13 @@ public class RaftClientReply extends RaftClientMessage {
   private final RaftException exception;
   private final Message message;
 
-  public RaftClientReply(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId, long callId, boolean success, Message message,
-      RaftException exception) {
+  /** The commit information when the reply is created. */
+  private final Collection<CommitInfoProto> commitInfos;
+
+  public RaftClientReply(
+      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
+      long callId, boolean success, Message message, RaftException exception,
+      Collection<CommitInfoProto> commitInfos) {
     super(clientId, serverId, groupId);
     this.success = success;
     this.callId = callId;
@@ -52,17 +62,32 @@ public class RaftClientReply extends RaftClientMessage {
           ReflectionUtils.isInstance(exception, NotLeaderException.class, StateMachineException.class),
           () -> "Unexpected exception class: " + this);
     }
+
+    this.commitInfos = commitInfos;
   }
 
-  public RaftClientReply(RaftClientRequest request,
-      RaftException exception) {
+  public RaftClientReply(RaftClientRequest request, RaftException exception, Collection<CommitInfoProto> commitInfos) {
     this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
-        request.getCallId(), false, null, exception);
+        request.getCallId(), false, null, exception, commitInfos);
   }
 
-  public RaftClientReply(RaftClientRequest request, Message message) {
+  public RaftClientReply(RaftClientRequest request, Collection<CommitInfoProto> commitInfos) {
+    this(request, (Message) null, commitInfos);
+  }
+
+  public RaftClientReply(RaftClientRequest request, Message message, Collection<CommitInfoProto> commitInfos) {
     this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
-        request.getCallId(), true, message, null);
+        request.getCallId(), true, message, null, commitInfos);
+  }
+
+  /**
+   * Get the commit information for the entire group.
+   * The commit information may be unavailable for exception reply.
+   *
+   * @return the commit information if it is available; otherwise, return null.
+   */
+  public Collection<CommitInfoProto> getCommitInfos() {
+    return commitInfos;
   }
 
   @Override
@@ -76,8 +101,9 @@ public class RaftClientReply extends RaftClientMessage {
 
   @Override
   public String toString() {
-    return super.toString() + ", cid=" + getCallId()
-        + ", success? " + isSuccess() + ", exception=" + exception;
+    return super.toString() + ", cid=" + getCallId() + ", "
+        + (isSuccess()? "SUCCESS":  "FAILED " + exception)
+        + ", commits" + ProtoUtils.toString(commitInfos);
   }
 
   public boolean isSuccess() {

@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LeaderState.StateUpdateEventType;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -57,7 +58,6 @@ public class LogAppender extends Daemon {
   private final int maxBufferSize;
   private final boolean batchSending;
   private final LogEntryBuffer buffer;
-  private final long leaderTerm;
   private final int snapshotChunkMaxSize;
 
   private volatile boolean sending = true;
@@ -74,7 +74,6 @@ public class LogAppender extends Daemon {
     this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties).getSizeInt();
 
     this.buffer = new LogEntryBuffer();
-    this.leaderTerm = server.getState().getCurrentTerm();
   }
 
   @Override
@@ -107,6 +106,10 @@ public class LogAppender extends Daemon {
     return follower;
   }
 
+  RaftPeerId getFollowerId() {
+    return getFollower().getPeer().getId();
+  }
+
   /**
    * A buffer for log entries with size limitation.
    */
@@ -135,9 +138,8 @@ public class LogAppender extends Daemon {
     }
 
     AppendEntriesRequestProto getAppendRequest(TermIndex previous) {
-      final AppendEntriesRequestProto request = server
-          .createAppendEntriesRequest(leaderTerm, follower.getPeer().getId(),
-              previous, buf, !follower.isAttendingVote());
+      final AppendEntriesRequestProto request = leaderState.newAppendEntriesRequestProto(
+          getFollowerId(), previous, buf, !follower.isAttendingVote());
       buf.clear();
       totalSize = 0;
       return request;
@@ -209,10 +211,10 @@ public class LogAppender extends Daemon {
         }
 
         follower.updateLastRpcSendTime();
-        final AppendEntriesReplyProto r = server.getServerRpc()
-            .appendEntries(request);
+        final AppendEntriesReplyProto r = server.getServerRpc().appendEntries(request);
         follower.updateLastRpcResponseTime();
 
+        updateCommitIndex(request.getLeaderCommit());
         return r;
       } catch (InterruptedIOException | RaftLogIOException e) {
         throw e;
@@ -225,6 +227,10 @@ public class LogAppender extends Daemon {
       }
     }
     return null;
+  }
+
+  protected void updateCommitIndex(long commitIndex) {
+    follower.updateCommitIndex(commitIndex);
   }
 
   protected class SnapshotRequestIter

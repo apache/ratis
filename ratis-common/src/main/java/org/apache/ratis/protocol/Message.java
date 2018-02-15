@@ -47,6 +47,10 @@ public interface Message {
     return valueOf(bytes, () -> "Message:" + StringUtils.bytes2HexShortString(bytes));
   }
 
+  static Message valueOf(String string) {
+    return valueOf(ByteString.copyFromUtf8(string), () -> "Message:" + string);
+  }
+
   Message EMPTY = valueOf(ByteString.EMPTY);
 
   /**

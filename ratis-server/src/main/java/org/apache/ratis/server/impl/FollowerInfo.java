@@ -17,11 +17,13 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.Timestamp;
+
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.util.Timestamp;
 
 public class FollowerInfo {
   private final RaftPeer peer;
@@ -29,6 +31,7 @@ public class FollowerInfo {
   private final AtomicReference<Timestamp> lastRpcSendTime;
   private long nextIndex;
   private final AtomicLong matchIndex;
+  private final AtomicLong commitIndex = new AtomicLong(RaftServerConstants.INVALID_LOG_INDEX);
   private volatile boolean attendVote;
 
   FollowerInfo(RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
@@ -47,6 +50,18 @@ public class FollowerInfo {
 
   long getMatchIndex() {
     return matchIndex.get();
+  }
+
+  /** @return the commit index acked by the follower. */
+  long getCommitIndex() {
+    return commitIndex.get();
+  }
+
+  boolean updateCommitIndex(long newCommitIndex) {
+    final long old = commitIndex.getAndUpdate(oldCommitIndex -> newCommitIndex);
+    Preconditions.assertTrue(newCommitIndex >= old,
+        () -> "newCommitIndex = " + newCommitIndex + " < old = " + old);
+    return old != newCommitIndex;
   }
 
   public synchronized long getNextIndex() {

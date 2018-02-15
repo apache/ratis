@@ -113,7 +113,7 @@ class PendingRequests {
     if (pendingSetConf != null) {
       // for setConfiguration we do not need to wait for statemachine. send back
       // reply after it's committed.
-      pendingSetConf.setSuccessReply(null);
+      pendingSetConf.setReply(new RaftClientReply(pendingSetConf.getRequest(), server.getCommitInfos()));
       pendingSetConf = null;
     }
   }

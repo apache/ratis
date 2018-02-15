@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -161,7 +160,8 @@ public class RaftServerProxy implements RaftServer {
 
   @Override
   public RaftClientReply reinitialize(ReinitializeRequest request) throws IOException {
-    return RaftServerImpl.waitForReply(getId(), request, reinitializeAsync(request));
+    return RaftServerImpl.waitForReply(getId(), request, reinitializeAsync(request),
+        e -> new RaftClientReply(request, e, null));
   }
 
   @Override
@@ -187,13 +187,13 @@ public class RaftServerProxy implements RaftServer {
               "Failed to reinitialize, request=" + request, ioe);
           impl.completeExceptionally(new IOException(
               "Server " + getId() + " is not initialized.", re));
-          return new RaftClientReply(request, re);
+          return new RaftClientReply(request, re, null);
         }
 
         getServerRpc().addPeers(request.getGroup().getPeers());
         newImpl.start();
         impl.complete(newImpl);
-        return new RaftClientReply(request, (Message) null);
+        return new RaftClientReply(request, newImpl.getCommitInfos());
       } finally {
         reinitializeRequest.set(null);
       }
@@ -204,25 +204,13 @@ public class RaftServerProxy implements RaftServer {
   public ServerInformationReply getInfo(ServerInformatonRequest request)
       throws IOException {
     return RaftServerImpl.waitForReply(getId(), request, getInfoAsync(request),
-        ServerInformationReply::new);
+        r -> null);
   }
 
   @Override
   public CompletableFuture<ServerInformationReply> getInfoAsync(
-      ServerInformatonRequest request) throws IOException {
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        RaftServerImpl server = impl.get();
-        Collection<RaftPeer> peers = server.getRaftConf().getPeers();
-        RaftGroupId groupId = server.getGroupId();
-        RaftGroup group = new RaftGroup(groupId, peers);
-        return new ServerInformationReply(request, null, group);
-      } catch (Exception e) {
-        final RaftException re = new RaftException(
-            "Failed to get info, request=" + request, e);
-        return new ServerInformationReply(request, re);
-      }
-    });
+      ServerInformatonRequest request) {
+    return impl.thenApply(server -> server.getServerInformation(request));
   }
 
   /**

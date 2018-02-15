@@ -18,13 +18,11 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftGroup;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.StateMachineException;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.*;
+import org.apache.ratis.shaded.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -46,6 +44,7 @@ import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBod
  */
 public class ServerState implements Closeable {
   private final RaftPeerId selfId;
+  private final RaftPeer peer;
   private final RaftServerImpl server;
   /** Raft log */
   private final RaftLog log;
@@ -79,10 +78,11 @@ public class ServerState implements Closeable {
    */
   private TermIndex latestInstalledSnapshot;
 
-  ServerState(RaftPeerId id, RaftGroup group, RaftProperties prop,
+  ServerState(RaftPeer peer, RaftGroup group, RaftProperties prop,
               RaftServerImpl server, StateMachine stateMachine)
       throws IOException {
-    this.selfId = id;
+    this.selfId = peer.getId();
+    this.peer = peer;
     this.server = server;
     RaftConfiguration initialConf = RaftConfiguration.newBuilder()
         .setConf(group.getPeers()).build();
@@ -91,14 +91,14 @@ public class ServerState implements Closeable {
     final File dir = RaftServerConfigKeys.storageDir(prop);
     storage = new RaftStorage(new File(dir, group.getGroupId().toString()),
         RaftServerConstants.StartupOption.REGULAR);
-    snapshotManager = new SnapshotManager(storage, id);
+    snapshotManager = new SnapshotManager(storage, peer.getId());
 
     long lastApplied = initStatemachine(stateMachine, prop);
 
     leaderId = null;
     // we cannot apply log entries to the state machine in this step, since we
     // do not know whether the local log entries have been committed.
-    log = initLog(id, prop, lastApplied, entry -> {
+    log = initLog(peer.getId(), prop, lastApplied, entry -> {
       if (entry.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
         configurationManager.addConfiguration(entry.getIndex(),
             ServerProtoUtils.toRaftConfiguration(entry.getIndex(),
@@ -161,6 +161,10 @@ public class ServerState implements Closeable {
 
   public RaftPeerId getSelfId() {
     return this.selfId;
+  }
+
+  CommitInfoProto updateCommitInfo(CommitInfoCache cache) {
+    return cache.update(peer, log.getLastCommittedIndex());
   }
 
   public long getCurrentTerm() {
@@ -304,15 +308,16 @@ public class ServerState implements Closeable {
     }
   }
 
-  void updateStatemachine(long majorityIndex, long currentTerm) {
-    log.updateLastCommitted(majorityIndex, currentTerm);
-    stateMachineUpdater.notifyUpdater();
+  boolean updateStatemachine(long majorityIndex, long currentTerm) {
+    if (log.updateLastCommitted(majorityIndex, currentTerm)) {
+      stateMachineUpdater.notifyUpdater();
+      return true;
+    }
+    return false;
   }
 
-  void reloadStateMachine(long lastIndexInSnapshot, long currentTerm)
-      throws IOException {
+  void reloadStateMachine(long lastIndexInSnapshot, long currentTerm) {
     log.updateLastCommitted(lastIndexInSnapshot, currentTerm);
-
     stateMachineUpdater.reloadStateMachine();
   }
 
@@ -350,9 +355,5 @@ public class ServerState implements Closeable {
 
   public long getLastAppliedIndex() {
     return stateMachineUpdater.getLastAppliedIndex();
-  }
-
-  boolean isCurrentConfCommitted() {
-    return getRaftConf().getLogEntryIndex() <= getLog().getLastCommittedIndex();
   }
 }

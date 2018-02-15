@@ -263,6 +263,8 @@ public class GRpcLogAppender extends LogAppender {
 
   private void onSuccess(AppendEntriesReplyProto reply) {
     AppendEntriesRequestProto request = pendingRequests.poll();
+    updateCommitIndex(request.getLeaderCommit());
+
     final long replyNextIndex = reply.getNextIndex();
     Objects.requireNonNull(request,
         () -> "Got reply with next index " + replyNextIndex

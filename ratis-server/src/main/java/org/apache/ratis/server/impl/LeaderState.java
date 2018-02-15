@@ -22,6 +22,8 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.shaded.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.LeaderNoOp;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -256,6 +258,19 @@ public class LeaderState {
   private void updateConfiguration(long logIndex, RaftConfiguration newConf) {
     voterLists = divideFollowers(newConf);
     server.getState().setRaftConf(logIndex, newConf);
+  }
+
+  void updateFollowerCommitInfos(CommitInfoCache cache, List<CommitInfoProto> protos) {
+    senders.stream().map(LogAppender::getFollower)
+        .map(f -> cache.update(f.getPeer(), f.getCommitIndex()))
+        .forEach(protos::add);
+  }
+
+  AppendEntriesRequestProto newAppendEntriesRequestProto(
+      RaftPeerId targetId, TermIndex previous, List<LogEntryProto> entries, boolean initializing) {
+    return ServerProtoUtils.toAppendEntriesRequestProto(server.getId(), targetId,
+        server.getGroupId(), currentTerm, entries, raftLog.getLastCommittedIndex(),
+        initializing, previous, server.getCommitInfos());
   }
 
   /**

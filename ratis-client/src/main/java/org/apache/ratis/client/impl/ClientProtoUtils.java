@@ -22,7 +22,6 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
-import org.apache.ratis.util.StringUtils;
 
 import java.util.Arrays;
 
@@ -109,6 +108,7 @@ public interface ClientProtoUtils {
       if (reply.getMessage() != null) {
         b.setMessage(toClientMessageEntryProtoBuilder(reply.getMessage()));
       }
+      ProtoUtils.addCommitInfos(reply.getCommitInfos(), i -> b.addCommitInfos(i));
 
       final NotLeaderException nle = reply.getNotLeaderException();
       final StateMachineException sme;
@@ -146,6 +146,7 @@ public interface ClientProtoUtils {
       if (reply.getRaftGroupId() != null) {
         b.setGroup(ProtoUtils.toRaftGroupProtoBuilder(reply.getGroup()));
       }
+      ProtoUtils.addCommitInfos(reply.getCommitInfos(), i -> b.addCommitInfos(i));
     }
     return b.build();
   }
@@ -172,7 +173,8 @@ public interface ClientProtoUtils {
     final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
     return new RaftClientReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
         groupId, rp.getCallId(), rp.getSuccess(),
-        toMessage(replyProto.getMessage()), e);
+        toMessage(replyProto.getMessage()), e,
+        replyProto.getCommitInfosList());
   }
 
   static ServerInformationReply toServerInformationReply(
@@ -182,8 +184,8 @@ public interface ClientProtoUtils {
     final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
     final RaftGroup raftGroup = ProtoUtils.toRaftGroup(replyProto.getGroup());
     return new ServerInformationReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
-        groupId, rp.getCallId(), rp.getSuccess(), null,
-        null, raftGroup);
+        groupId, rp.getCallId(), rp.getSuccess(),
+        replyProto.getCommitInfosList(), raftGroup);
   }
 
   static StateMachineException wrapStateMachineException(

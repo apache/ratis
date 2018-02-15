@@ -21,19 +21,17 @@ import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.*;
 import org.apache.ratis.util.ProtoUtils;
-
 
 /** Server proto utilities for internal use. */
 public class ServerProtoUtils {
@@ -187,7 +185,7 @@ public class ServerProtoUtils {
   public static AppendEntriesRequestProto toAppendEntriesRequestProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, long leaderTerm,
       List<LogEntryProto> entries, long leaderCommit, boolean initializing,
-      TermIndex previous) {
+      TermIndex previous, Collection<CommitInfoProto> commitInfos) {
     final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto
         .newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId, groupId))
@@ -201,6 +199,7 @@ public class ServerProtoUtils {
     if (previous != null) {
       b.setPreviousLog(toTermIndexProto(previous));
     }
+    ProtoUtils.addCommitInfos(commitInfos, i -> b.addCommitInfos(i));
     return b.build();
   }
 

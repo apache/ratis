@@ -29,6 +29,8 @@ import java.io.ObjectOutputStream;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public interface ProtoUtils {
   static ByteString writeObject2ByteString(Object obj) {
@@ -122,6 +124,27 @@ public interface ProtoUtils {
     return RaftGroupProto.newBuilder()
         .setGroupId(toRaftGroupIdProtoBuilder(group.getGroupId()))
         .addAllPeers(toRaftPeerProtos(group.getPeers()));
+  }
+
+  static CommitInfoProto toCommitInfoProto(RaftPeer peer, long commitIndex) {
+    return CommitInfoProto.newBuilder()
+        .setServer(toRaftPeerProto(peer))
+        .setCommitIndex(commitIndex)
+        .build();
+  }
+
+  static void addCommitInfos(Collection<CommitInfoProto> commitInfos, Consumer<CommitInfoProto> adder) {
+    if (commitInfos != null && !commitInfos.isEmpty()) {
+      commitInfos.stream().forEach(i -> adder.accept(i));
+    }
+  }
+
+  static String toString(CommitInfoProto proto) {
+    return RaftPeerId.valueOf(proto.getServer().getId()) + ":c" + proto.getCommitIndex();
+  }
+
+  static String toString(Collection<CommitInfoProto> protos) {
+    return protos.stream().map(ProtoUtils::toString).collect(Collectors.toList()).toString();
   }
 
   static boolean isConfigurationLogEntry(LogEntryProto entry) {

@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.util.Preconditions;
-
 import java.util.*;
 
 /**
@@ -26,7 +24,7 @@ import java.util.*;
  * peers.
  */
 public class RaftGroup {
-  private static RaftGroup EMPTY_GROUP = new RaftGroup(RaftGroupId.emptyGroupId(), Collections.emptyList());
+  private static RaftGroup EMPTY_GROUP = new RaftGroup(RaftGroupId.emptyGroupId());
 
   public static RaftGroup emptyGroup() {
     return EMPTY_GROUP;
@@ -35,32 +33,43 @@ public class RaftGroup {
   /** UTF-8 string as id */
   private final RaftGroupId groupId;
   /** The group of raft peers */
-  private final List<RaftPeer> peers;
+  private final Map<RaftPeerId, RaftPeer> peers;
 
   public RaftGroup(RaftGroupId groupId) {
     this(groupId, Collections.emptyList());
   }
 
-  public RaftGroup(RaftGroupId groupId, RaftPeer[] peers) {
+  public RaftGroup(RaftGroupId groupId, RaftPeer... peers) {
     this(groupId, Arrays.asList(peers));
   }
 
   public RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers) {
-    Preconditions.assertTrue(peers != null);
-    this.groupId = groupId;
-    this.peers = Collections.unmodifiableList(new ArrayList<>(peers));
+    this.groupId = Objects.requireNonNull(groupId, "groupId == null");
+
+    if (peers == null || peers.isEmpty()) {
+      this.peers = Collections.emptyMap();
+    } else {
+      final Map<RaftPeerId, RaftPeer> map = new HashMap<>();
+      peers.stream().forEach(p -> map.put(p.getId(), p));
+      this.peers = Collections.unmodifiableMap(map);
+    }
   }
 
   public RaftGroupId getGroupId() {
     return groupId;
   }
 
-  public List<RaftPeer> getPeers() {
-    return peers;
+  public Collection<RaftPeer> getPeers() {
+    return peers.values();
+  }
+
+  /** @return the peer with the given id if it is in this group; otherwise, return null. */
+  public RaftPeer getPeer(RaftPeerId id) {
+    return peers.get(Objects.requireNonNull(id, "id == null"));
   }
 
   @Override
   public String toString() {
-    return groupId + ":" + peers;
+    return groupId + ":" + peers.values();
   }
 }

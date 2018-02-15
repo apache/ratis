@@ -17,34 +17,30 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.shaded.proto.RaftProtos.CommitInfoProto;
+
+import java.util.Collection;
+
 /**
  * The response of server information request. Sent from server to client.
- *
- * TODO : currently, only information returned is the info of the group the
- * server belongs to.
  */
 public class ServerInformationReply extends RaftClientReply {
-  RaftGroup group;
+  private final RaftGroup group;
 
-  public ServerInformationReply(RaftClientRequest request, Message message,
-      RaftGroup group) {
-    super(request, message);
+  public ServerInformationReply(
+      RaftClientRequest request, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
+    super(request, commitInfos);
     this.group = group;
   }
 
-  public ServerInformationReply(RaftClientRequest request,
-      RaftException ex) {
-    super(request, ex);
+  public ServerInformationReply(
+      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
+      long callId, boolean success, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
+    super(clientId, serverId, groupId, callId, success, null, null, commitInfos);
+    this.group = group;
   }
 
   public RaftGroup getGroup() {
     return group;
-  }
-
-  public ServerInformationReply(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId, long callId, boolean success, Message message,
-      RaftException exception, RaftGroup group) {
-    super(clientId, serverId, groupId, callId, success, message, exception);
-    this.group = group;
   }
 }
