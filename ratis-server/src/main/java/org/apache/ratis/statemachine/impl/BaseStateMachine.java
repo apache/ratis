@@ -36,6 +36,8 @@ import org.apache.ratis.util.Preconditions;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -50,6 +52,8 @@ public class BaseStateMachine implements StateMachine {
   protected final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
 
   private final AtomicReference<TermIndex> lastAppliedTermIndex = new AtomicReference<>();
+
+  private final SortedMap<Long, CompletableFuture<Void>> transactionFutures = new TreeMap<>();
 
   public RaftPeerId getId() {
     return id;
@@ -131,6 +135,12 @@ public class BaseStateMachine implements StateMachine {
       }
       return true;
     }
+
+    synchronized (transactionFutures) {
+      for(long i; !transactionFutures.isEmpty() && (i = transactionFutures.firstKey()) <= index; ) {
+        transactionFutures.remove(i).complete(null);
+      }
+    }
     return false;
   }
 
@@ -158,8 +168,21 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
+  public CompletableFuture<Message> queryStale(Message request, long minIndex) {
+    if (getLastAppliedTermIndex().getIndex() < minIndex) {
+      synchronized (transactionFutures) {
+        if (getLastAppliedTermIndex().getIndex() < minIndex) {
+          return transactionFutures.computeIfAbsent(minIndex, key -> new CompletableFuture<>())
+              .thenCompose(v -> query(request));
+        }
+      }
+    }
+    return query(request);
+  }
+
+  @Override
   public CompletableFuture<Message> query(Message request) {
-    return null;
+    return CompletableFuture.completedFuture(null);
   }
 
   @Override

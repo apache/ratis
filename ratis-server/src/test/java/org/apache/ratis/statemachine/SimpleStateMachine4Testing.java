@@ -23,6 +23,7 @@ import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -227,11 +228,12 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       final long index = bytes.isEmpty()? getLastAppliedTermIndex().getIndex()
           : Long.parseLong(bytes.toStringUtf8());
       LOG.info("query log index " + index);
-      final LogEntryProto entry = list.get(Math.toIntExact(index));
+      final LogEntryProto entry = list.get(Math.toIntExact(index - 1));
       return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));
     } catch (Exception e) {
       LOG.warn("Failed request " + request, e);
-      return JavaUtils.completeExceptionally(e);
+      return JavaUtils.completeExceptionally(new StateMachineException(
+          "Failed request " + request, e));
     }
   }
 

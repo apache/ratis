@@ -119,6 +119,19 @@ public interface StateMachine extends Closeable {
   CompletableFuture<Message> query(Message request);
 
   /**
+   * Query the state machine, provided minIndex <= commit index.
+   * The request must be read-only.
+   * Since the commit index of this server may lag behind the Raft service,
+   * the returned result may possibly be stale.
+   *
+   * When minIndex > {@link #getLastAppliedTermIndex()},
+   * the state machine may choose to either
+   * (1) return exceptionally, or
+   * (2) wait until minIndex <= {@link #getLastAppliedTermIndex()} before running the query.
+   */
+  CompletableFuture<Message> queryStale(Message request, long minIndex);
+
+  /**
    * Validate/pre-process the incoming update request in the state machine.
    * @return the content to be written to the log entry. Null means the request
    * should be rejected.

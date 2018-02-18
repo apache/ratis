@@ -51,6 +51,9 @@ public interface RaftClient extends Closeable {
   /** Async call to send the given readonly message to the raft service. */
   CompletableFuture<RaftClientReply> sendReadOnlyAsync(Message message);
 
+  /** Async call to send the given stale-read message to the given server (not the raft service). */
+  CompletableFuture<RaftClientReply> sendStaleReadAsync(Message message, long minIndex, RaftPeerId server);
+
   /**
    * Send the given message to the raft service.
    * The message may change the state of the service.
@@ -60,6 +63,9 @@ public interface RaftClient extends Closeable {
 
   /** Send the given readonly message to the raft service. */
   RaftClientReply sendReadOnly(Message message) throws IOException;
+
+  /** Send the given stale-read message to the given server (not the raft service). */
+  RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server) throws IOException;
 
   /** Send set configuration request to the raft service. */
   RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException;

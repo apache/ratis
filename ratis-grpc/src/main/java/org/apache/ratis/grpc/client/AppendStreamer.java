@@ -157,7 +157,7 @@ public class AppendStreamer implements Closeable {
     if (isRunning()) {
       // wrap the current buffer into a RaftClientRequestProto
       final RaftClientRequestProto request = ClientProtoUtils.toRaftClientRequestProto(
-          clientId, leaderId, groupId, seqNum, seqNum, content, false);
+          clientId, leaderId, groupId, seqNum, seqNum, content);
       if (request.getSerializedSize() > maxMessageSize.getSizeInt()) {
         throw new IOException("msg size:" + request.getSerializedSize() +
             " exceeds maximum:" + maxMessageSize.getSizeInt());

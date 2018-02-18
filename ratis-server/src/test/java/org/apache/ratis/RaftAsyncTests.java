@@ -22,15 +22,24 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.shaded.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.shaded.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.junit.*;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -48,7 +57,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   public static final int NUM_SERVERS = 3;
 
   @Before
-  public void setup() throws IOException {
+  public void setup() {
     properties = new RaftProperties();
     properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
@@ -157,5 +166,81 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     waitForLeader(cluster);
     RaftBasicTests.testWithLoad(10, 500, true, cluster, LOG);
     cluster.shutdown();
+  }
+
+  @Test
+  public void testStaleReadAsync() throws Exception {
+    final int numMesssages = 10;
+    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+
+    try (RaftClient client = cluster.createClient()) {
+      cluster.start();
+      RaftTestUtil.waitForLeader(cluster);
+
+      // submit some messages
+      final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
+      for (int i = 0; i < numMesssages; i++) {
+        final String s = "m" + i;
+        LOG.info("sendAsync " + s);
+        futures.add(client.sendAsync(new RaftTestUtil.SimpleMessage(s)));
+      }
+      Assert.assertEquals(numMesssages, futures.size());
+      RaftClientReply lastWriteReply = null;
+      for (CompletableFuture<RaftClientReply> f : futures) {
+        lastWriteReply = f.join();
+        Assert.assertTrue(lastWriteReply.isSuccess());
+      }
+      futures.clear();
+
+      // Use a follower with the max commit index
+      final RaftPeerId leader = lastWriteReply.getServerId();
+      LOG.info("leader = " + leader);
+      final Collection<CommitInfoProto> commitInfos = lastWriteReply.getCommitInfos();
+      LOG.info("commitInfos = " + commitInfos);
+      final CommitInfoProto followerCommitInfo = commitInfos.stream()
+          .filter(info -> !RaftPeerId.valueOf(info.getServer().getId()).equals(leader))
+          .max(Comparator.comparing(CommitInfoProto::getCommitIndex)).get();
+      final RaftPeerId follower = RaftPeerId.valueOf(followerCommitInfo.getServer().getId());
+      LOG.info("max follower = " + follower);
+
+      // test a failure case
+      testFailureCaseAsync("sendStaleReadAsync(..) with a larger commit index",
+          () -> client.sendStaleReadAsync(
+              new RaftTestUtil.SimpleMessage("" + (numMesssages + 1)),
+              followerCommitInfo.getCommitIndex(), follower),
+          StateMachineException.class, IndexOutOfBoundsException.class);
+
+      // test sendStaleReadAsync
+      for (int i = 1; i < followerCommitInfo.getCommitIndex(); i++) {
+        final int query = i;
+        LOG.info("sendStaleReadAsync, query=" + query);
+        final Message message = new RaftTestUtil.SimpleMessage("" + query);
+        final CompletableFuture<RaftClientReply> readFuture = client.sendReadOnlyAsync(message);
+        final CompletableFuture<RaftClientReply> staleReadFuture = client.sendStaleReadAsync(
+            message, followerCommitInfo.getCommitIndex(), follower);
+
+        futures.add(readFuture.thenApply(r -> getMessageContent(r))
+            .thenCombine(staleReadFuture.thenApply(r -> getMessageContent(r)), (expected, computed) -> {
+              try {
+                LOG.info("query " + query + " returns "
+                    + LogEntryProto.parseFrom(expected).getSmLogEntry().getData().toStringUtf8());
+              } catch (InvalidProtocolBufferException e) {
+                throw new CompletionException(e);
+              }
+
+              Assert.assertEquals("log entry mismatch for query=" + query, expected, computed);
+              return null;
+            })
+        );
+      }
+      JavaUtils.allOf(futures).join();
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
+  static ByteString getMessageContent(RaftClientReply reply) {
+    Assert.assertTrue(reply.isSuccess());
+    return reply.getMessage().getContent();
   }
 }

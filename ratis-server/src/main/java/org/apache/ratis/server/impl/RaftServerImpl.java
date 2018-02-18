@@ -474,7 +474,12 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
+    assertLifeCycleState(RUNNING);
     LOG.debug("{}: receive client request({})", getId(), request);
+    if (request.isStaleRead()) {
+      return staleReadAsync(request);
+    }
+
     // first check the server's leader state
     CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
     if (reply != null) {
@@ -486,8 +491,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     if (request.isReadOnly()) {
       // TODO: We might not be the leader anymore by the time this completes.
       // See the RAFT paper section 8 (last part)
-      return stateMachine.query(request.getMessage())
-          .thenApply(r -> new RaftClientReply(request, r, getCommitInfos()));
+      return processQueryFuture(stateMachine.query(request.getMessage()), request);
     }
 
     // query the retry cache
@@ -511,6 +515,31 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       return CompletableFuture.completedFuture(exceptionReply);
     }
     return appendTransaction(request, context, cacheEntry);
+  }
+
+  private CompletableFuture<RaftClientReply> staleReadAsync(RaftClientRequest request) {
+    final long minIndex = request.getMinIndex();
+    final long commitIndex = state.getLog().getLastCommittedIndex();
+    LOG.debug("{}: minIndex={}, commitIndex={}", getId(), minIndex, commitIndex);
+    if (commitIndex < minIndex) {
+      final StaleReadException e = new StaleReadException(
+          "Unable to serve stale-read due to server commit index = " + commitIndex + " < min = " + minIndex);
+      return CompletableFuture.completedFuture(
+          new RaftClientReply(request, new StateMachineException(getId(), e), getCommitInfos()));
+    }
+    return processQueryFuture(getStateMachine().queryStale(request.getMessage(), minIndex), request);
+  }
+
+  CompletableFuture<RaftClientReply> processQueryFuture(
+      CompletableFuture<Message> queryFuture, RaftClientRequest request) {
+    return queryFuture.thenApply(r -> new RaftClientReply(request, r, getCommitInfos()))
+        .exceptionally(e -> {
+          e = JavaUtils.unwrapCompletionException(e);
+          if (e instanceof StateMachineException) {
+            return new RaftClientReply(request, (StateMachineException)e, getCommitInfos());
+          }
+          throw new CompletionException(e);
+        });
   }
 
   @Override

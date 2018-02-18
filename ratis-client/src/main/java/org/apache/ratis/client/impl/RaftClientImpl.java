@@ -22,6 +22,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.util.*;
 
 import java.io.IOException;
@@ -35,6 +36,10 @@ import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+
+import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.Type.READ;
+import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.Type.STALE_READ;
+import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.Type.WRITE;
 
 /** A client who sends requests to a raft service. */
 final class RaftClientImpl implements RaftClient {
@@ -91,7 +96,9 @@ final class RaftClientImpl implements RaftClient {
 
   private volatile RaftPeerId leaderId;
 
-  private final SlidingWindow.Client<PendingAsyncRequest, RaftClientReply> slidingWindow;
+  /** Map: id -> {@link SlidingWindow}, in order to support async calls to the RAFT service or individual servers. */
+  private final ConcurrentMap<String, SlidingWindow.Client<PendingAsyncRequest, RaftClientReply>>
+      slidingWindows = new ConcurrentHashMap<>();
   private final ScheduledExecutorService scheduler;
   private final Semaphore asyncRequestSemaphore;
 
@@ -107,7 +114,6 @@ final class RaftClientImpl implements RaftClient {
 
     asyncRequestSemaphore = new Semaphore(RaftClientConfigKeys.Async.maxOutstandingRequests(properties));
     scheduler = Executors.newScheduledThreadPool(RaftClientConfigKeys.Async.schedulerThreads(properties));
-    slidingWindow = new SlidingWindow.Client<>(getId());
     clientRpc.addServers(peers);
   }
 
@@ -116,18 +122,32 @@ final class RaftClientImpl implements RaftClient {
     return clientId;
   }
 
+  private SlidingWindow.Client<PendingAsyncRequest, RaftClientReply> getSlidingWindow(RaftClientRequest request) {
+    return getSlidingWindow(request.isStaleRead()? request.getServerId(): null);
+  }
+
+  private SlidingWindow.Client<PendingAsyncRequest, RaftClientReply> getSlidingWindow(RaftPeerId target) {
+    final String id = target != null? target.toString(): "RAFT";
+    return slidingWindows.computeIfAbsent(id, key -> new SlidingWindow.Client<>(getId() + "->" + key));
+  }
+
   @Override
   public CompletableFuture<RaftClientReply> sendAsync(Message message) {
-    return sendAsync(message, false);
+    return sendAsync(WRITE, message, 0L, null);
   }
 
   @Override
   public CompletableFuture<RaftClientReply> sendReadOnlyAsync(Message message) {
-    return sendAsync(message, true);
+    return sendAsync(READ, message, 0L, null);
   }
 
-  private CompletableFuture<RaftClientReply> sendAsync(Message message,
-      boolean readOnly) {
+  @Override
+  public CompletableFuture<RaftClientReply> sendStaleReadAsync(Message message, long minIndex, RaftPeerId server) {
+    return sendAsync(STALE_READ, message, minIndex, server);
+  }
+
+  private CompletableFuture<RaftClientReply> sendAsync(
+      RaftClientRequestProto.Type type, Message message, long minIndex, RaftPeerId server) {
     Objects.requireNonNull(message, "message == null");
     try {
       asyncRequestSemaphore.acquire();
@@ -137,29 +157,43 @@ final class RaftClientImpl implements RaftClient {
     }
     final long callId = nextCallId();
     final LongFunction<PendingAsyncRequest> constructor = seqNum -> new PendingAsyncRequest(seqNum,
-        seq -> new RaftClientRequest(clientId, leaderId, groupId, callId, seq, message, readOnly));
-    return slidingWindow.submitNewRequest(constructor, this::sendRequestWithRetryAsync
+        seq -> newRaftClientRequest(server, callId, seq, type, message, minIndex));
+    return getSlidingWindow(server).submitNewRequest(constructor, this::sendRequestWithRetryAsync
     ).getReplyFuture(
     ).thenApply(reply -> handleStateMachineException(reply, CompletionException::new)
     ).whenComplete((r, e) -> asyncRequestSemaphore.release());
   }
 
+  private RaftClientRequest newRaftClientRequest(
+      RaftPeerId server, long callId, long seq,
+      RaftClientRequestProto.Type type, Message message, long minIndex) {
+    return new RaftClientRequest(clientId, server != null? server: leaderId, groupId,
+        callId, seq, type, message, minIndex);
+  }
+
   @Override
   public RaftClientReply send(Message message) throws IOException {
-    return send(message, false);
+    return send(WRITE, message, 0L, null);
   }
 
   @Override
   public RaftClientReply sendReadOnly(Message message) throws IOException {
-    return send(message, true);
+    return send(READ, message, 0L, null);
   }
 
-  private RaftClientReply send(Message message, boolean readOnly) throws IOException {
+  @Override
+  public RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server)
+      throws IOException {
+    return send(STALE_READ, message, minIndex, server);
+  }
+
+  private RaftClientReply send(RaftClientRequestProto.Type type, Message message, long minIndex, RaftPeerId server)
+      throws IOException {
     Objects.requireNonNull(message, "message == null");
 
     final long callId = nextCallId();
-    return sendRequestWithRetry(() -> new RaftClientRequest(
-        clientId, leaderId, groupId, callId, 0L, message, readOnly));
+    return sendRequestWithRetry(() -> newRaftClientRequest(
+        server, callId, 0L, type, message, minIndex));
   }
 
   @Override
@@ -207,7 +241,7 @@ final class RaftClientImpl implements RaftClient {
     return sendRequestAsync(request).thenCompose(reply -> {
       if (reply == null) {
         final TimeUnit unit = retryInterval.getUnit();
-        scheduler.schedule(() -> slidingWindow.retry(pending, this::sendRequestWithRetryAsync),
+        scheduler.schedule(() -> getSlidingWindow(request).retry(pending, this::sendRequestWithRetryAsync),
             retryInterval.toLong(unit), unit);
       } else {
         f.complete(reply);
@@ -244,15 +278,13 @@ final class RaftClientImpl implements RaftClient {
       LOG.debug("{}: receive* {}", clientId, reply);
       reply = handleNotLeaderException(request, reply);
       if (reply != null) {
-        slidingWindow.receiveReply(
+        getSlidingWindow(request).receiveReply(
             request.getSeqNum(), reply, this::sendRequestWithRetryAsync);
       }
       return reply;
     }).exceptionally(e -> {
       LOG.debug("{}: Failed {} with {}", clientId, request, e);
-      if (e instanceof CompletionException) {
-        e = e.getCause();
-      }
+      e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof GroupMismatchException) {
         throw new CompletionException(e);
       } else if (e instanceof IOException) {
@@ -328,7 +360,7 @@ final class RaftClientImpl implements RaftClient {
       LOG.trace("Stack trace", new Throwable("TRACE"));
     }
 
-    slidingWindow.resetFirstSeqNum();
+    getSlidingWindow(request).resetFirstSeqNum();
     if (ioe instanceof LeaderNotReadyException) {
       return;
     }

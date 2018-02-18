@@ -45,7 +45,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  public static final int NUM_PEERS = 5;
+  public static final int NUM_PEERS = 3;
 
   private CLUSTER cluster;
 
@@ -189,6 +189,17 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
       testFailureCase("reinitialize(..) with client group being different from the server group",
           () -> client.reinitialize(anotherGroup, clusterGroup.getPeers().iterator().next().getId()),
           GroupMismatchException.class);
+    }
+  }
+
+  @Test
+  public void testStaleReadException() throws Exception {
+    RaftTestUtil.waitForLeader(cluster);
+    try (RaftClient client = cluster.createClient()) {
+      final RaftPeerId follower = cluster.getFollowers().iterator().next().getId();
+      testFailureCase("sendStaleRead(..) with a large commit index",
+          () -> client.sendStaleRead(Message.EMPTY, 1_000_000_000L, follower),
+          StateMachineException.class, StaleReadException.class);
     }
   }
 }

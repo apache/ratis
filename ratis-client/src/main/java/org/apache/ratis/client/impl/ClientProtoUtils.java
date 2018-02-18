@@ -75,26 +75,27 @@ public interface ClientProtoUtils {
         ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
         request.getCallId(),
         request.getSeqNum(),
-        toMessage(p.getMessage()), p.getReadOnly());
+        p.getType(), toMessage(p.getMessage()), p.getMinIndex());
   }
 
   static RaftClientRequestProto toRaftClientRequestProto(
       RaftClientRequest request) {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
+        .setType(request.getType())
         .setMessage(toClientMessageEntryProtoBuilder(request.getMessage()))
-        .setReadOnly(request.isReadOnly())
+        .setMinIndex(request.getMinIndex())
         .build();
   }
 
   static RaftClientRequestProto toRaftClientRequestProto(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId,
-      long seqNum, ByteString content, boolean readOnly) {
+      long seqNum, ByteString content) {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(
             clientId, serverId, groupId, callId, seqNum))
+        .setType(RaftClientRequestProto.Type.WRITE)
         .setMessage(toClientMessageEntryProtoBuilder(content))
-        .setReadOnly(readOnly)
         .build();
   }
 

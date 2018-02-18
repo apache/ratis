@@ -17,16 +17,11 @@
  */
 package org.apache.ratis.protocol;
 
-public class StateMachineException extends RaftException {
-  public StateMachineException(RaftPeerId serverId, Throwable cause) {
-    super(cause.getClass().getName() + " from Server " + serverId, cause);
-  }
-
-  public StateMachineException(String msg) {
-    super(msg);
-  }
-
-  public StateMachineException(String message, Throwable cause) {
-    super(message, cause);
+/**
+ * This exception indicates the failure of a stale-read.
+ */
+public class StaleReadException extends RaftException {
+  public StaleReadException(String message) {
+    super(message);
   }
 }
