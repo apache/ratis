@@ -77,8 +77,8 @@ public abstract class RetryCacheTests extends BaseTest {
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     final long seqNum = 111;
-    RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
-        cluster.getGroupId(), callId, seqNum, new SimpleMessage("message"));
+    RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
+        callId, seqNum, new SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertEquals(callId, reply.getCallId());
     Assert.assertTrue(reply.isSuccess());
@@ -122,8 +122,8 @@ public abstract class RetryCacheTests extends BaseTest {
     RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     final long seqNum = 111;
-    RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
-        cluster.getGroupId(), callId, seqNum, new SimpleMessage("message"));
+    RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
+        callId, seqNum, new SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertEquals(callId, reply.getCallId());
     Assert.assertTrue(reply.isSuccess());
@@ -140,7 +140,7 @@ public abstract class RetryCacheTests extends BaseTest {
     final RaftPeerId newLeaderId = cluster.getLeader().getId();
     Assert.assertNotEquals(leaderId, newLeaderId);
     // same clientId and callId in the request
-    r = new RaftClientRequest(client.getId(), newLeaderId, cluster.getGroupId(),
+    r = cluster.newRaftClientRequest(client.getId(), newLeaderId,
         callId, seqNum, new SimpleMessage("message"));
     for (int i = 0; i < 10; i++) {
       try {

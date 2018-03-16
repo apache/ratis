@@ -170,18 +170,26 @@ message ClientMessageEntryProto {
   bytes content = 1;
 }
 
+message WriteRequestTypeProto {
+}
+
+message ReadRequestTypeProto {
+}
+
+message StaleReadRequestTypeProto {
+  uint64 minIndex = 1;
+}
+
 // normal client request
 message RaftClientRequestProto {
-  enum Type {
-    WRITE = 0;
-    READ = 1;
-    STALE_READ = 2;
-  }
-
   RaftRpcRequestProto rpcRequest = 1;
-  Type type = 2;
-  ClientMessageEntryProto message = 3;
-  uint64 minIndex = 4;
+  ClientMessageEntryProto message = 2;
+
+  oneof Type {
+    WriteRequestTypeProto write = 3;
+    ReadRequestTypeProto read = 4;
+    StaleReadRequestTypeProto staleRead = 5;
+  }
 }
 
 message NotLeaderExceptionProto {

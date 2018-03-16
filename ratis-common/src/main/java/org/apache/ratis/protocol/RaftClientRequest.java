@@ -18,45 +18,135 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ReadRequestTypeProto;
+import org.apache.ratis.shaded.proto.RaftProtos.StaleReadRequestTypeProto;
+import org.apache.ratis.shaded.proto.RaftProtos.WriteRequestTypeProto;
 import org.apache.ratis.util.Preconditions;
 
-import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.Type.READ;
-import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.Type.STALE_READ;
-import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.Type.WRITE;
+import java.util.Objects;
+
+import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.TypeCase.*;
 
 /**
  * Request from client to server
  */
 public class RaftClientRequest extends RaftClientMessage {
+  private static final Type DEFAULT_WRITE = new Type(WriteRequestTypeProto.getDefaultInstance());
+  private static final Type DEFAULT_READ = new Type(ReadRequestTypeProto.getDefaultInstance());
+  private static final Type DEFAULT_STALE_READ = new Type(StaleReadRequestTypeProto.getDefaultInstance());
+
+  public static Type writeRequestType() {
+    return DEFAULT_WRITE;
+  }
+
+  public static Type readRequestType() {
+    return DEFAULT_READ;
+  }
+
+  public static Type staleReadRequestType(long minIndex) {
+    return minIndex == 0L? DEFAULT_STALE_READ
+        : new Type(StaleReadRequestTypeProto.newBuilder().setMinIndex(minIndex).build());
+  }
+
+  /** The type of a request (oneof write, read, staleRead; see the message RaftClientRequestProto). */
+  public static class Type {
+    public static Type valueOf(WriteRequestTypeProto write) {
+      return DEFAULT_WRITE;
+    }
+
+    public static Type valueOf(ReadRequestTypeProto read) {
+      return DEFAULT_READ;
+    }
+
+    public static Type valueOf(StaleReadRequestTypeProto staleRead) {
+      return staleRead.getMinIndex() == 0? DEFAULT_STALE_READ
+          : new Type(staleRead);
+    }
+
+    /**
+     * The type case of the proto.
+     * Only the corresponding proto (must be non-null) is used.
+     * The other protos are ignored.
+     */
+    private final RaftClientRequestProto.TypeCase typeCase;
+    private final WriteRequestTypeProto write;
+    private final ReadRequestTypeProto read;
+    private final StaleReadRequestTypeProto staleRead;
+
+    private Type(WriteRequestTypeProto write) {
+      this.typeCase = WRITE;
+      this.write = Objects.requireNonNull(write);
+      this.read = null;
+      this.staleRead = null;
+    }
+
+    private Type(ReadRequestTypeProto read) {
+      this.typeCase = READ;
+      this.write = null;
+      this.read = Objects.requireNonNull(read);
+      this.staleRead = null;
+    }
+
+    private Type(StaleReadRequestTypeProto staleRead) {
+      this.typeCase = STALEREAD;
+      this.write = null;
+      this.read = null;
+      this.staleRead = Objects.requireNonNull(staleRead);
+    }
+
+    public RaftClientRequestProto.TypeCase getTypeCase() {
+      return typeCase;
+    }
+
+    public WriteRequestTypeProto getWrite() {
+      Preconditions.assertTrue(typeCase == WRITE);
+      return write;
+    }
+
+    public ReadRequestTypeProto getRead() {
+      Preconditions.assertTrue(typeCase == READ);
+      return read;
+    }
+
+    public StaleReadRequestTypeProto getStaleRead() {
+      Preconditions.assertTrue(typeCase == STALEREAD);
+      return staleRead;
+    }
+
+    @Override
+    public String toString() {
+      switch (typeCase) {
+        case WRITE:
+          return "RW";
+        case READ:
+          return "RO";
+        case STALEREAD:
+          return "StaleRead(" + staleRead.getMinIndex() + ")";
+        default:
+          throw new IllegalStateException("Unexpected request type: " + typeCase);
+      }
+    }
+  }
+
   private final long callId;
   private final long seqNum;
 
-  private final RaftClientRequestProto.Type type;
   private final Message message;
-
-  private final long minIndex;
-
-  public RaftClientRequest(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId, long callId, Message message) {
-    this(clientId, serverId, groupId, callId, 0L, WRITE, message, 0L);
-  }
+  private final Type type;
 
   public RaftClientRequest(ClientId clientId, RaftPeerId serverId,
-       RaftGroupId groupId, long callId, long seqNum, Message message) {
-    this(clientId, serverId, groupId, callId, seqNum, WRITE, message, 0L);
+      RaftGroupId groupId, long callId) {
+    this(clientId, serverId, groupId, callId, 0L, null, writeRequestType());
   }
 
   public RaftClientRequest(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
-      long callId, long seqNum, RaftClientRequestProto.Type type, Message message, long minIndex) {
+      long callId, long seqNum, Message message, Type type) {
     super(clientId, serverId, groupId);
     this.callId = callId;
     this.seqNum = seqNum;
-    this.type = type;
     this.message = message;
-    this.minIndex = minIndex;
-
-    Preconditions.assertTrue(minIndex >= 0, "minIndex < 0");
+    this.type = type;
   }
 
   @Override
@@ -76,27 +166,17 @@ public class RaftClientRequest extends RaftClientMessage {
     return message;
   }
 
-  public RaftClientRequestProto.Type getType() {
+  public Type getType() {
     return type;
   }
 
-  public boolean isReadOnly() {
-    return getType() != WRITE;
-  }
-
-  public boolean isStaleRead() {
-    return getType() == STALE_READ;
-  }
-
-  /** @return the minimum required commit index for processing the request. */
-  public long getMinIndex() {
-    return minIndex;
+  public boolean is(RaftClientRequestProto.TypeCase typeCase) {
+    return getType().getTypeCase() == typeCase;
   }
 
   @Override
   public String toString() {
     return super.toString() + ", cid=" + callId + ", seq=" + seqNum + " "
-        + (!isReadOnly()? "RW": isStaleRead()? "StaleRead(" + getMinIndex() + ")": "RO")
-        + ", " + getMessage();
+        + type + ", " + getMessage();
   }
 }

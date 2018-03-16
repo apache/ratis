@@ -24,6 +24,6 @@ package org.apache.ratis.protocol;
 public class ServerInformatonRequest extends RaftClientRequest {
   public ServerInformatonRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId) {
-    super(clientId, serverId, groupId, callId, null);
+    super(clientId, serverId, groupId, callId, 0L, null, RaftClientRequest.readRequestType());
   }
 }

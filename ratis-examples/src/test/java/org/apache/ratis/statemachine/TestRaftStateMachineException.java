@@ -102,8 +102,8 @@ public class TestRaftStateMachineException extends ParameterizedBaseTest {
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     final long seqNum = 111;
-    RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
-        cluster.getGroupId(), callId, seqNum, new SimpleMessage("message"));
+    RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
+        callId, seqNum, new SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertFalse(reply.isSuccess());
     Assert.assertNotNull(reply.getStateMachineException());
@@ -144,8 +144,8 @@ public class TestRaftStateMachineException extends ParameterizedBaseTest {
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     final long seqNum = 111;
-    RaftClientRequest r = new RaftClientRequest(client.getId(), leaderId,
-        cluster.getGroupId(), callId, seqNum, new SimpleMessage("message"));
+    RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
+        callId, seqNum, new SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Objects.requireNonNull(reply.getStateMachineException());
 

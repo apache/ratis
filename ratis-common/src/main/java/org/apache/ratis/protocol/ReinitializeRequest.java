@@ -22,7 +22,7 @@ public class ReinitializeRequest extends RaftClientRequest {
 
   public ReinitializeRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, RaftGroup group) {
-    super(clientId, serverId, groupId, callId, null);
+    super(clientId, serverId, groupId, callId);
     this.group = group;
   }
 

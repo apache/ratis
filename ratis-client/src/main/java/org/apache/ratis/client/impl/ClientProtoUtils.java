@@ -67,7 +67,22 @@ public interface ClientProtoUtils {
         request.getSeqNum());
   }
 
+  static RaftClientRequest.Type toRaftClientRequestType(RaftClientRequestProto p) {
+    switch (p.getTypeCase()) {
+      case WRITE:
+        return RaftClientRequest.Type.valueOf(p.getWrite());
+      case READ:
+        return RaftClientRequest.Type.valueOf(p.getRead());
+      case STALEREAD:
+        return RaftClientRequest.Type.valueOf(p.getStaleRead());
+      default:
+        throw new IllegalArgumentException("Unexpected request type: " + p.getTypeCase()
+            + " in request proto " + p);
+    }
+  }
+
   static RaftClientRequest toRaftClientRequest(RaftClientRequestProto p) {
+    final RaftClientRequest.Type type = toRaftClientRequestType(p);
     final RaftRpcRequestProto request = p.getRpcRequest();
     return new RaftClientRequest(
         ClientId.valueOf(request.getRequestorId()),
@@ -75,17 +90,33 @@ public interface ClientProtoUtils {
         ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
         request.getCallId(),
         request.getSeqNum(),
-        p.getType(), toMessage(p.getMessage()), p.getMinIndex());
+        toMessage(p.getMessage()),
+        type);
   }
 
   static RaftClientRequestProto toRaftClientRequestProto(
       RaftClientRequest request) {
-    return RaftClientRequestProto.newBuilder()
+    final RaftClientRequestProto.Builder b = RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .setType(request.getType())
-        .setMessage(toClientMessageEntryProtoBuilder(request.getMessage()))
-        .setMinIndex(request.getMinIndex())
-        .build();
+        .setMessage(toClientMessageEntryProtoBuilder(request.getMessage()));
+
+    final RaftClientRequest.Type type = request.getType();
+    switch (type.getTypeCase()) {
+      case WRITE:
+        b.setWrite(type.getWrite());
+        break;
+      case READ:
+        b.setRead(type.getRead());
+        break;
+      case STALEREAD:
+        b.setStaleRead(type.getStaleRead());
+        break;
+      default:
+        throw new IllegalArgumentException("Unexpected request type: " + request.getType()
+            + " in request " + request);
+    }
+
+    return b.build();
   }
 
   static RaftClientRequestProto toRaftClientRequestProto(
@@ -94,7 +125,7 @@ public interface ClientProtoUtils {
     return RaftClientRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(
             clientId, serverId, groupId, callId, seqNum))
-        .setType(RaftClientRequestProto.Type.WRITE)
+        .setWrite(WriteRequestTypeProto.getDefaultInstance())
         .setMessage(toClientMessageEntryProtoBuilder(content))
         .build();
   }

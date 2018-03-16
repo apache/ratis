@@ -22,7 +22,6 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.util.*;
 
 import java.io.IOException;
@@ -37,9 +36,7 @@ import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.Type.READ;
-import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.Type.STALE_READ;
-import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.Type.WRITE;
+import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.TypeCase.STALEREAD;
 
 /** A client who sends requests to a raft service. */
 final class RaftClientImpl implements RaftClient {
@@ -123,7 +120,7 @@ final class RaftClientImpl implements RaftClient {
   }
 
   private SlidingWindow.Client<PendingAsyncRequest, RaftClientReply> getSlidingWindow(RaftClientRequest request) {
-    return getSlidingWindow(request.isStaleRead()? request.getServerId(): null);
+    return getSlidingWindow(request.is(STALEREAD)? request.getServerId(): null);
   }
 
   private SlidingWindow.Client<PendingAsyncRequest, RaftClientReply> getSlidingWindow(RaftPeerId target) {
@@ -133,21 +130,21 @@ final class RaftClientImpl implements RaftClient {
 
   @Override
   public CompletableFuture<RaftClientReply> sendAsync(Message message) {
-    return sendAsync(WRITE, message, 0L, null);
+    return sendAsync(RaftClientRequest.writeRequestType(), message, null);
   }
 
   @Override
   public CompletableFuture<RaftClientReply> sendReadOnlyAsync(Message message) {
-    return sendAsync(READ, message, 0L, null);
+    return sendAsync(RaftClientRequest.readRequestType(), message, null);
   }
 
   @Override
   public CompletableFuture<RaftClientReply> sendStaleReadAsync(Message message, long minIndex, RaftPeerId server) {
-    return sendAsync(STALE_READ, message, minIndex, server);
+    return sendAsync(RaftClientRequest.staleReadRequestType(minIndex), message, server);
   }
 
   private CompletableFuture<RaftClientReply> sendAsync(
-      RaftClientRequestProto.Type type, Message message, long minIndex, RaftPeerId server) {
+      RaftClientRequest.Type type, Message message, RaftPeerId server) {
     Objects.requireNonNull(message, "message == null");
     try {
       asyncRequestSemaphore.acquire();
@@ -157,7 +154,7 @@ final class RaftClientImpl implements RaftClient {
     }
     final long callId = nextCallId();
     final LongFunction<PendingAsyncRequest> constructor = seqNum -> new PendingAsyncRequest(seqNum,
-        seq -> newRaftClientRequest(server, callId, seq, type, message, minIndex));
+        seq -> newRaftClientRequest(server, callId, seq, message, type));
     return getSlidingWindow(server).submitNewRequest(constructor, this::sendRequestWithRetryAsync
     ).getReplyFuture(
     ).thenApply(reply -> handleStateMachineException(reply, CompletionException::new)
@@ -165,35 +162,34 @@ final class RaftClientImpl implements RaftClient {
   }
 
   private RaftClientRequest newRaftClientRequest(
-      RaftPeerId server, long callId, long seq,
-      RaftClientRequestProto.Type type, Message message, long minIndex) {
+      RaftPeerId server, long callId, long seq, Message message, RaftClientRequest.Type type) {
     return new RaftClientRequest(clientId, server != null? server: leaderId, groupId,
-        callId, seq, type, message, minIndex);
+        callId, seq, message, type);
   }
 
   @Override
   public RaftClientReply send(Message message) throws IOException {
-    return send(WRITE, message, 0L, null);
+    return send(RaftClientRequest.writeRequestType(), message, null);
   }
 
   @Override
   public RaftClientReply sendReadOnly(Message message) throws IOException {
-    return send(READ, message, 0L, null);
+    return send(RaftClientRequest.readRequestType(), message, null);
   }
 
   @Override
   public RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server)
       throws IOException {
-    return send(STALE_READ, message, minIndex, server);
+    return send(RaftClientRequest.staleReadRequestType(minIndex), message, server);
   }
 
-  private RaftClientReply send(RaftClientRequestProto.Type type, Message message, long minIndex, RaftPeerId server)
+  private RaftClientReply send(RaftClientRequest.Type type, Message message, RaftPeerId server)
       throws IOException {
     Objects.requireNonNull(message, "message == null");
 
     final long callId = nextCallId();
     return sendRequestWithRetry(() -> newRaftClientRequest(
-        server, callId, 0L, type, message, minIndex));
+        server, callId, 0L, message, type));
   }
 
   @Override

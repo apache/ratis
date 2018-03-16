@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
@@ -83,7 +84,7 @@ class PendingRequests {
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
       TransactionContext entry) {
     // externally synced for now
-    Preconditions.assertTrue(!request.isReadOnly());
+    Preconditions.assertTrue(request.is(RaftClientRequestProto.TypeCase.WRITE));
     if (last != null && !(last.getRequest() instanceof SetConfigurationRequest)) {
       Preconditions.assertTrue(index == last.getIndex() + 1,
           () -> "index = " + index + " != last.getIndex() + 1, last=" + last);

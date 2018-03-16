@@ -476,7 +476,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       RaftClientRequest request) throws IOException {
     assertLifeCycleState(RUNNING);
     LOG.debug("{}: receive client request({})", getId(), request);
-    if (request.isStaleRead()) {
+    if (request.is(RaftClientRequestProto.TypeCase.STALEREAD)) {
       return staleReadAsync(request);
     }
 
@@ -488,7 +488,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     // let the state machine handle read-only request from client
     final StateMachine stateMachine = getStateMachine();
-    if (request.isReadOnly()) {
+    if (request.is(RaftClientRequestProto.TypeCase.READ)) {
       // TODO: We might not be the leader anymore by the time this completes.
       // See the RAFT paper section 8 (last part)
       return processQueryFuture(stateMachine.query(request.getMessage()), request);
@@ -518,7 +518,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   private CompletableFuture<RaftClientReply> staleReadAsync(RaftClientRequest request) {
-    final long minIndex = request.getMinIndex();
+    final long minIndex = request.getType().getStaleRead().getMinIndex();
     final long commitIndex = state.getLog().getLastCommittedIndex();
     LOG.debug("{}: minIndex={}, commitIndex={}", getId(), minIndex, commitIndex);
     if (commitIndex < minIndex) {

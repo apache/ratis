@@ -24,7 +24,7 @@ public class SetConfigurationRequest extends RaftClientRequest {
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, RaftPeer[] peers) {
-    super(clientId, serverId, groupId, callId, null);
+    super(clientId, serverId, groupId, callId);
     this.peers = peers;
   }
 

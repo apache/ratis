@@ -497,13 +497,19 @@ public abstract class MiniRaftCluster {
 
   public RaftClientRequest newRaftClientRequest(
       ClientId clientId, RaftPeerId leaderId, Message message) {
-    return new RaftClientRequest(clientId, leaderId, getGroupId(),
+    return newRaftClientRequest(clientId, leaderId,
         DEFAULT_CALLID, DEFAULT_SEQNUM, message);
+  }
+
+  public RaftClientRequest newRaftClientRequest(
+      ClientId clientId, RaftPeerId leaderId, long callId, long seqNum, Message message) {
+    return new RaftClientRequest(clientId, leaderId, getGroupId(),
+        callId, seqNum, message, RaftClientRequest.writeRequestType());
   }
 
   public SetConfigurationRequest newSetConfigurationRequest(
       ClientId clientId, RaftPeerId leaderId,
-      RaftPeer... peers) throws IOException {
+      RaftPeer... peers) {
     return new SetConfigurationRequest(clientId, leaderId, getGroupId(),
         DEFAULT_CALLID, peers);
   }
