@@ -23,6 +23,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 
 public class TestRaftWithGrpc extends RaftBasicTests {
   private final MiniRaftClusterWithGRpc cluster;
@@ -43,5 +44,11 @@ public class TestRaftWithGrpc extends RaftBasicTests {
   public void testWithLoad() throws Exception {
     super.testWithLoad();
     BlockRequestHandlingInjection.getInstance().unblockAll();
+  }
+
+  @Test
+  public void testRequestTimeout()
+      throws IOException, InterruptedException, ExecutionException {
+    testRequestTimeout(false, getCluster(), LOG, getProperties());
   }
 }

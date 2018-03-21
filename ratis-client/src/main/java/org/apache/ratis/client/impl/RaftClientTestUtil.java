@@ -29,4 +29,8 @@ public interface RaftClientTestUtil {
   static void assertScheduler(RaftClient client, int numThreads){
     ((RaftClientImpl) client).assertScheduler(numThreads);
   }
+
+  static long getCallId(RaftClient client) {
+    return ((RaftClientImpl) client).getCallId();
+  }
 }

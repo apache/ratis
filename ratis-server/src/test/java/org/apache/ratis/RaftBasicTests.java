@@ -20,15 +20,19 @@ package org.apache.ratis;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.*;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -40,6 +44,8 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -54,6 +60,8 @@ public abstract class RaftBasicTests extends BaseTest {
   {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+    RaftServerConfigKeys.RetryCache.setExpiryTime(properties, TimeDuration
+        .valueOf(10, TimeUnit.SECONDS));
   }
 
   public static final int NUM_SERVERS = 5;
@@ -363,6 +371,37 @@ public abstract class RaftBasicTests extends BaseTest {
         throw new AssertionError(c.exceptionInClientThread.get());
       }
       RaftTestUtil.assertLogEntries(cluster.getServers(), c.messages);
+    }
+  }
+
+  public static void testRequestTimeout(boolean async, MiniRaftCluster cluster, Logger LOG,
+      RaftProperties properties) throws InterruptedException, IOException, ExecutionException {
+    LOG.info("Running testRequestTimeout");
+    waitForLeader(cluster);
+    long time = System.currentTimeMillis();
+    try (final RaftClient client = cluster.createClient()) {
+      // Get the next callId to be used by the client
+      long callId = RaftClientTestUtil.getCallId(client);
+      // Create an entry corresponding to the callId and clientId
+      // in each server's retry cache.
+      cluster.getServerAliveStream().forEach(
+          raftServer -> RetryCacheTestUtil.getOrCreateEntry(raftServer.getRetryCache(), client.getId(), callId));
+      // Client request for the callId now waits
+      // as there is already a cache entry in the server for the request.
+      // Ideally the client request should timeout and the client should retry.
+      // The retry is successful when the retry cache entry for the corresponding callId and clientId expires.
+      if (async) {
+        CompletableFuture<RaftClientReply> replyFuture = client.sendAsync(new SimpleMessage("abc"));
+        replyFuture.get();
+      } else {
+        client.send(new SimpleMessage("abc"));
+      }
+      // Eventually the request would be accepted by the server
+      // when the retry cache entry is invalidated.
+      // The duration for which the client waits should be more than the retryCacheExpiryDuration.
+      TimeDuration duration = TimeDuration.valueOf(System.currentTimeMillis() - time, TimeUnit.MILLISECONDS);
+      TimeDuration retryCacheExpiryDuration = RaftServerConfigKeys.RetryCache.expiryTime(properties);
+      Assert.assertTrue(duration.compareTo(retryCacheExpiryDuration) >= 0);
     }
   }
 }

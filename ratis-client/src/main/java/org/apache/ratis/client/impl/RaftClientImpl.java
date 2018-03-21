@@ -385,6 +385,10 @@ final class RaftClientImpl implements RaftClient {
     Preconditions.assertTrue(((ScheduledThreadPoolExecutor) scheduler).getCorePoolSize() == numThreads);
   }
 
+  long getCallId() {
+    return callIdCounter.get();
+  }
+
   @Override
   public RaftClientRpc getClientRpc() {
     return clientRpc;

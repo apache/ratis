@@ -25,6 +25,9 @@ import org.apache.ratis.shaded.proto.grpc.RaftServerProtocolServiceGrpc;
 import org.apache.ratis.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceBlockingStub;
 import org.apache.ratis.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceStub;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.util.TimeDuration;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * This is a RaftClient implementation that supports streaming data to the raft
@@ -32,6 +35,7 @@ import org.apache.ratis.protocol.RaftPeer;
  */
 public class RaftServerProtocolClient {
   private final ManagedChannel channel;
+  private TimeDuration timeout = TimeDuration.valueOf(3, TimeUnit.SECONDS);
   private final RaftServerProtocolServiceBlockingStub blockingStub;
   private final RaftServerProtocolServiceStub asyncStub;
 
@@ -49,7 +53,9 @@ public class RaftServerProtocolClient {
 
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) {
     // the StatusRuntimeException will be handled by the caller
-    return blockingStub.requestVote(request);
+    TimeUnit unit = timeout.getUnit();
+    RequestVoteReplyProto r= blockingStub.withDeadlineAfter(timeout.toInt(unit), unit).requestVote(request);
+    return r;
   }
 
   StreamObserver<AppendEntriesRequestProto> appendEntries(
@@ -59,6 +65,7 @@ public class RaftServerProtocolClient {
 
   StreamObserver<InstallSnapshotRequestProto> installSnapshot(
       StreamObserver<InstallSnapshotReplyProto> responseHandler) {
-    return asyncStub.installSnapshot(responseHandler);
+    TimeUnit unit = timeout.getUnit();
+    return asyncStub.withDeadlineAfter(timeout.toInt(unit), unit).installSnapshot(responseHandler);
   }
 }

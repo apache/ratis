@@ -45,4 +45,8 @@ public class RetryCacheTestUtil {
       Assert.assertEquals(isFailed, cache.get(clientId, callId).isFailed());
     }
   }
+
+  public static void getOrCreateEntry(RetryCache cache, ClientId clientId, long callId){
+    cache.getOrCreateEntry(clientId, callId);
+  }
 }
