@@ -80,9 +80,9 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
       SetConfigurationRequestProto setConf =
           toSetConfigurationRequestProto((SetConfigurationRequest) request);
       return toRaftClientReply(proxy.setConfiguration(setConf));
-    } else if (request instanceof ServerInformatonRequest){
+    } else if (request instanceof ServerInformationRequest){
       RaftProtos.ServerInformationRequestProto proto =
-          toServerInformationRequestProto((ServerInformatonRequest) request);
+          toServerInformationRequestProto((ServerInformationRequest) request);
       return ClientProtoUtils.toServerInformationReply(
           proxy.serverInformation(proto));
     } else {

@@ -359,7 +359,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return infos;
   }
 
-  ServerInformationReply getServerInformation(ServerInformatonRequest request) {
+  ServerInformationReply getServerInformation(ServerInformationRequest request) {
     final RaftGroup group = new RaftGroup(groupId, getRaftConf().getPeers());
     return new ServerInformationReply(request, getCommitInfos(), group);
   }

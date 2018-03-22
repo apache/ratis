@@ -21,7 +21,7 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.ReinitializeRequest;
-import org.apache.ratis.protocol.ServerInformatonRequest;
+import org.apache.ratis.protocol.ServerInformationRequest;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
@@ -47,7 +47,7 @@ public class AdminProtocolService extends AdminProtocolServiceImplBase {
   @Override
   public void serverInformation(ServerInformationRequestProto proto,
       StreamObserver<ServerInformationReplyProto> responseObserver) {
-    final ServerInformatonRequest request = ClientProtoUtils.toServerInformationRequest(proto);
+    final ServerInformationRequest request = ClientProtoUtils.toServerInformationRequest(proto);
     RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.getInfoAsync(request),
         ClientProtoUtils::toServerInformationReplyProto);
   }

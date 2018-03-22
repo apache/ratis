@@ -221,7 +221,7 @@ final class RaftClientImpl implements RaftClient {
       throws IOException {
     Objects.requireNonNull(server, "server == null");
 
-    return sendRequest(new ServerInformatonRequest(clientId, server,
+    return sendRequest(new ServerInformationRequest(clientId, server,
         groupId, nextCallId()));
   }
 

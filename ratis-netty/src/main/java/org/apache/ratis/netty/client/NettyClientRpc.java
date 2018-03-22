@@ -52,9 +52,9 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
           (SetConfigurationRequest)request);
       b.setSetConfigurationRequest(proto);
       rpcRequest = proto.getRpcRequest();
-    } else if (request instanceof ServerInformatonRequest) {
+    } else if (request instanceof ServerInformationRequest) {
       final RaftProtos.ServerInformationRequestProto proto = ClientProtoUtils.toServerInformationRequestProto(
-          (ServerInformatonRequest)request);
+          (ServerInformationRequest)request);
       b.setServerInformationRequest(proto);
       rpcRequest = proto.getRpcRequest();
     } else {
@@ -62,7 +62,7 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
       b.setRaftClientRequest(proto);
       rpcRequest = proto.getRpcRequest();
     }
-    if (request instanceof ServerInformatonRequest) {
+    if (request instanceof ServerInformationRequest) {
       return ClientProtoUtils.toServerInformationReply(
           proxy.send(rpcRequest, b.build()).getServerInfoReply());
     } else {

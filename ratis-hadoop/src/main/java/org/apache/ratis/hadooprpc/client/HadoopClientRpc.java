@@ -42,8 +42,8 @@ public class HadoopClientRpc extends RaftClientRpcWithProxy<CombinedClientProtoc
         return proxy.reinitialize((ReinitializeRequest) request);
       } else if (request instanceof SetConfigurationRequest) {
         return proxy.setConfiguration((SetConfigurationRequest) request);
-      } else if (request instanceof ServerInformatonRequest) {
-        return proxy.getInfo((ServerInformatonRequest) request);
+      } else if (request instanceof ServerInformationRequest) {
+        return proxy.getInfo((ServerInformationRequest) request);
       } else {
         return proxy.submitClientRequest(request);
       }

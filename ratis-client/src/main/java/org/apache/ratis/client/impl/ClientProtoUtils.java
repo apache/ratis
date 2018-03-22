@@ -285,10 +285,10 @@ public interface ClientProtoUtils {
         ProtoUtils.toRaftGroup(p.getGroup()));
   }
 
-  static ServerInformatonRequest toServerInformationRequest(
+  static ServerInformationRequest toServerInformationRequest(
       ServerInformationRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    return new ServerInformatonRequest(
+    return new ServerInformationRequest(
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
@@ -304,7 +304,7 @@ public interface ClientProtoUtils {
   }
 
   static ServerInformationRequestProto toServerInformationRequestProto(
-      ServerInformatonRequest request) {
+      ServerInformationRequest request) {
     return ServerInformationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .build();

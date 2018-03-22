@@ -23,5 +23,5 @@ import java.io.IOException;
 public interface AdminProtocol {
   RaftClientReply reinitialize(ReinitializeRequest request) throws IOException;
 
-  ServerInformationReply getInfo(ServerInformatonRequest request) throws IOException;
+  ServerInformationReply getInfo(ServerInformationRequest request) throws IOException;
 }

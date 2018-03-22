@@ -26,5 +26,5 @@ public interface AdminAsynchronousProtocol {
       ReinitializeRequest request) throws IOException;
 
   CompletableFuture<ServerInformationReply> getInfoAsync(
-      ServerInformatonRequest request) throws IOException;
+      ServerInformationRequest request) throws IOException;
 }

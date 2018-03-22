@@ -201,7 +201,7 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public ServerInformationReply getInfo(ServerInformatonRequest request)
+  public ServerInformationReply getInfo(ServerInformationRequest request)
       throws IOException {
     return RaftServerImpl.waitForReply(getId(), request, getInfoAsync(request),
         r -> null);
@@ -209,7 +209,7 @@ public class RaftServerProxy implements RaftServer {
 
   @Override
   public CompletableFuture<ServerInformationReply> getInfoAsync(
-      ServerInformatonRequest request) {
+      ServerInformationRequest request) {
     return impl.thenApply(server -> server.getServerInformation(request));
   }
 

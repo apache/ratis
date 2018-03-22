@@ -86,7 +86,7 @@ public class CombinedClientProtocolServerSideTranslatorPB
   public ServerInformationReplyProto serverInformation(
       RpcController controller, ServerInformationRequestProto proto)
     throws ServiceException {
-    final ServerInformatonRequest request;
+    final ServerInformationRequest request;
     try {
       request = ClientProtoUtils.toServerInformationRequest(proto);
       final ServerInformationReply reply = impl.getInfo(request);

@@ -24,7 +24,7 @@ import org.apache.ratis.hadooprpc.Proxy;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.ReinitializeRequest;
-import org.apache.ratis.protocol.ServerInformatonRequest;
+import org.apache.ratis.protocol.ServerInformationRequest;
 import org.apache.ratis.protocol.ServerInformationReply;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
@@ -75,7 +75,7 @@ public class CombinedClientProtocolClientSideTranslatorPB
   }
 
   @Override
-  public ServerInformationReply getInfo(ServerInformatonRequest request) throws IOException {
+  public ServerInformationReply getInfo(ServerInformationRequest request) throws IOException {
     return handleRequest(request,
         ClientProtoUtils::toServerInformationRequestProto,
         ClientProtoUtils::toServerInformationReply,
