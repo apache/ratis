@@ -61,7 +61,7 @@ public abstract class RaftBasicTests extends BaseTest {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
     RaftServerConfigKeys.RetryCache.setExpiryTime(properties, TimeDuration
-        .valueOf(10, TimeUnit.SECONDS));
+        .valueOf(5, TimeUnit.SECONDS));
   }
 
   public static final int NUM_SERVERS = 5;

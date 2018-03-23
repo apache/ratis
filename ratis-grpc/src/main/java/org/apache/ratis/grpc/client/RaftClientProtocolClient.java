@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.client;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.rpc.RpcTimeout;
 import org.apache.ratis.shaded.io.grpc.ManagedChannel;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.shaded.io.grpc.netty.NettyChannelBuilder;
@@ -41,10 +42,12 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class RaftClientProtocolClient implements Closeable {
@@ -136,14 +139,11 @@ public class RaftClientProtocolClient implements Closeable {
   class AsyncStreamObservers implements Closeable {
     /** Request map: callId -> future */
     private final AtomicReference<Map<Long, CompletableFuture<RaftClientReply>>> replies = new AtomicReference<>(new ConcurrentHashMap<>());
+    private final RpcTimeout
+        rpcTimeout = new RpcTimeout(timeout, true);
     private final StreamObserver<RaftClientReplyProto> replyStreamObserver = new StreamObserver<RaftClientReplyProto>() {
       @Override
       public void onNext(RaftClientReplyProto proto) {
-        final Map<Long, CompletableFuture<RaftClientReply>> map = replies.get();
-        if (map == null) {
-          LOG.warn("replyStreamObserver onNext map == null");
-          return;
-        }
         final long callId = proto.getRpcReply().getCallId();
         try {
           final RaftClientReply reply = ClientProtoUtils.toRaftClientReply(proto);
@@ -152,9 +152,9 @@ public class RaftClientProtocolClient implements Closeable {
             completeReplyExceptionally(nle, NotLeaderException.class.getName());
             return;
           }
-          map.remove(callId).complete(reply);
+          handleReplyFuture(callId, f -> f.complete(reply));
         } catch (Throwable t) {
-          map.get(callId).completeExceptionally(t);
+          handleReplyFuture(callId, f -> f.completeExceptionally(t));
         }
       }
 
@@ -181,16 +181,29 @@ public class RaftClientProtocolClient implements Closeable {
           () -> getName() + ":" + getClass().getSimpleName());
       try {
         requestStreamObserver.onNext(ClientProtoUtils.toRaftClientRequestProto(request));
+        rpcTimeout.onTimeout(() -> timeoutCheck(request));
       } catch(Throwable t) {
-        f.completeExceptionally(t);
+        handleReplyFuture(request.getCallId(), future -> future.completeExceptionally(t));
       }
       return f;
+    }
+
+    private void timeoutCheck(RaftClientRequest request) {
+      handleReplyFuture(request.getCallId(),
+          f -> f.completeExceptionally(new IOException("Request timeout " + rpcTimeout.getCallTimeout() + ": " + request)));
+    }
+
+    private void handleReplyFuture(long callId, Consumer<CompletableFuture<RaftClientReply>> handler) {
+      Optional.ofNullable(replies.get())
+          .map(replyMap -> replyMap.remove(callId))
+          .ifPresent(handler);
     }
 
     @Override
     public void close() {
       requestStreamObserver.onCompleted();
       completeReplyExceptionally(null, "close");
+      rpcTimeout.close();
     }
 
     private void completeReplyExceptionally(Throwable t, String event) {

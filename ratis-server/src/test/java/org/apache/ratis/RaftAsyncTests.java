@@ -23,6 +23,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
@@ -33,6 +34,7 @@ import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.*;
 
 import java.io.IOException;
@@ -61,6 +63,8 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     properties = new RaftProperties();
     properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
+    TimeDuration retryCacheExpiryDuration = TimeDuration.valueOf(5, TimeUnit.SECONDS);
+    RaftServerConfigKeys.RetryCache.setExpiryTime(properties, retryCacheExpiryDuration);
   }
 
   @Test
@@ -242,5 +246,14 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   static ByteString getMessageContent(RaftClientReply reply) {
     Assert.assertTrue(reply.isSuccess());
     return reply.getMessage().getContent();
+  }
+
+  @Test
+  public void testRequestTimeout()
+      throws IOException, InterruptedException, ExecutionException {
+    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+    cluster.start();
+    RaftBasicTests.testRequestTimeout(true, cluster, LOG, properties);
+    cluster.shutdown();
   }
 }
