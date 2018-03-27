@@ -272,8 +272,17 @@ public class SegmentedRaftLog extends RaftLog {
         checkAndEvictCache();
       }
 
+      // If the entry has state machine data, then the entry should be inserted
+      // to statemachine first and then to the cache. Not following the order
+      // will leave a spurious entry in the cache.
+      CompletableFuture<Long> writeFuture =
+          fileLogWorker.writeLogEntry(entry).getFuture();
       cache.appendEntry(entry);
-      return fileLogWorker.writeLogEntry(entry).getFuture();
+      return writeFuture;
+    } catch (Throwable throwable) {
+      LOG.error(getSelfId() + "exception while appending entry with index:" +
+          entry.getIndex(), throwable);
+      throw throwable;
     }
   }
 
