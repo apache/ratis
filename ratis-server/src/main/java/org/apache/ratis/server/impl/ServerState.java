@@ -146,7 +146,9 @@ public class ServerState implements Closeable {
       throws IOException {
     final RaftLog log;
     if (RaftServerConfigKeys.Log.useMemory(prop)) {
-      log = new MemoryRaftLog(id);
+      final int maxBufferSize =
+          RaftServerConfigKeys.Log.Appender.bufferCapacity(prop).getSizeInt();
+      log = new MemoryRaftLog(id, maxBufferSize);
     } else {
       log = new SegmentedRaftLog(id, server, this.storage,
           lastIndexInSnapshot, prop);

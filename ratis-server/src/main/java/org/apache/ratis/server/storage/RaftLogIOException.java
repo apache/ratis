@@ -26,4 +26,8 @@ public class RaftLogIOException extends RaftException {
   public RaftLogIOException(Throwable cause) {
     super(cause);
   }
+
+  public RaftLogIOException(String msg) {
+    super(msg);
+  }
 }

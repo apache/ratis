@@ -59,12 +59,14 @@ public abstract class RaftLog implements Closeable {
   protected final AtomicLong lastCommitted =
       new AtomicLong(RaftServerConstants.INVALID_LOG_INDEX);
   private final RaftPeerId selfId;
+  private final int maxBufferSize;
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
   private volatile boolean isOpen = false;
 
-  public RaftLog(RaftPeerId selfId) {
+  public RaftLog(RaftPeerId selfId, int maxBufferSize) {
     this.selfId = selfId;
+    this.maxBufferSize = maxBufferSize;
   }
 
   public long getLastCommittedIndex() {
@@ -147,6 +149,12 @@ public abstract class RaftLog implements Closeable {
       final LogEntryProto e = ProtoUtils.toLogEntryProto(
           operation.getSMLogEntry(), term, nextIndex, clientId, callId);
 
+      int entrySize = e.getSerializedSize();
+      if (entrySize > maxBufferSize) {
+        throw new StateMachineException(selfId, new RaftLogIOException(
+            "Log entry size " + entrySize + " exceeds the max buffer limit of "
+                + maxBufferSize));
+      }
       appendEntry(e);
       operation.setLogEntry(e);
       return nextIndex;

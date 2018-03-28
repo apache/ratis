@@ -21,10 +21,12 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.storage.RaftLog;
-import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.LogUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -51,6 +53,9 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   @Before
   public void setup() throws IOException {
+    final RaftProperties prop = getProperties();
+    RaftServerConfigKeys.Log.Appender
+        .setBufferCapacity(prop, SizeInBytes.valueOf("4KB"));
     cluster = newCluster(NUM_PEERS);
     cluster.start();
   }
@@ -200,6 +205,24 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
       testFailureCase("sendStaleRead(..) with a large commit index",
           () -> client.sendStaleRead(Message.EMPTY, 1_000_000_000L, follower),
           StateMachineException.class, StaleReadException.class);
+    }
+  }
+
+  @Test
+  public void testLogAppenderBufferCapacity() throws Exception {
+    RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId leaderId = cluster.getLeader().getId();
+    final RaftClient client = cluster.createClient(leaderId);
+    byte[] bytes = new byte[8192];
+    Arrays.fill(bytes, (byte) 1);
+    SimpleMessage msg =
+        new SimpleMessage(new String(bytes));
+    try {
+      client.send(msg);
+      Assert.fail("Expected StateMachineException  not thrown");
+    } catch (StateMachineException sme) {
+      Assert.assertTrue(sme.getMessage()
+          .contains("exceeds the max buffer limit"));
     }
   }
 }

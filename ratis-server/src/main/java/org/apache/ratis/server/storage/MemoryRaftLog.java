@@ -38,8 +38,8 @@ import java.util.concurrent.CompletableFuture;
 public class MemoryRaftLog extends RaftLog {
   private final List<LogEntryProto> entries = new ArrayList<>();
 
-  public MemoryRaftLog(RaftPeerId selfId) {
-    super(selfId);
+  public MemoryRaftLog(RaftPeerId selfId, int maxBufferSize) {
+    super(selfId, maxBufferSize);
   }
 
   @Override
