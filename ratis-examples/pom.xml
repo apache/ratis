@@ -69,6 +69,7 @@
     <dependency>
       <artifactId>ratis-hadoop</artifactId>
       <groupId>org.apache.ratis</groupId>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <artifactId>ratis-hadoop</artifactId>
@@ -79,6 +80,7 @@
     <dependency>
       <artifactId>ratis-hadoop-shaded</artifactId>
       <groupId>org.apache.ratis</groupId>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -121,6 +123,14 @@
   </dependencies>
   <build>
     <plugins>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>*.jar</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
