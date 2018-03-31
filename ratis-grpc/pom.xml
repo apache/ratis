@@ -84,5 +84,16 @@
       <groupId>org.jctools</groupId>
       <artifactId>jctools-core</artifactId>
     </dependency>
+
+    <dependency>
+      <groupId>io.opencensus</groupId>
+      <artifactId>opencensus-api</artifactId>
+      <version>${io.opencensus.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.opencensus</groupId>
+      <artifactId>opencensus-contrib-grpc-metrics</artifactId>
+      <version>${io.opencensus.version}</version>
+    </dependency>
   </dependencies>
 </project>

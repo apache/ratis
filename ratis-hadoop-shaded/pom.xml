@@ -95,7 +95,7 @@
     <dependency>
       <groupId>com.google.protobuf.nano</groupId>
       <artifactId>protobuf-javanano</artifactId>
-      <version>${shaded.protobuf.version}</version>
+      <version>${shaded.protobuf-javanano.version}</version>
       <optional>true</optional>
     </dependency>
 
@@ -285,6 +285,7 @@
                       <exclude>org.apache.kerby:kerby-util</exclude>
                       <exclude>org.apache.zookeeper:zookeeper</exclude>
 
+                      <exclude>org.checkerframework:checker-compat-qual</exclude>
                       <exclude>org.codehaus.jackson:jackson-core-asl</exclude>
                       <exclude>org.codehaus.jackson:jackson-jaxrs</exclude>
                       <exclude>org.codehaus.jackson:jackson-mapper-asl</exclude>
@@ -332,13 +333,6 @@
                 </configuration>
               </execution>
             </executions>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-install-plugin</artifactId>
-            <configuration>
-              <skip>true</skip>
-            </configuration>
           </plugin>
         </plugins>
       </build>
