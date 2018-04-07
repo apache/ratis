@@ -256,4 +256,45 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     RaftBasicTests.testRequestTimeout(true, cluster, LOG, properties);
     cluster.shutdown();
   }
+
+  @Test
+  public void testAppendEntriesTimeout()
+      throws IOException, InterruptedException, ExecutionException {
+    LOG.info("Running testAppendEntriesTimeout");
+    TimeDuration retryCacheExpiryDuration = TimeDuration.valueOf(20, TimeUnit.SECONDS);
+    RaftServerConfigKeys.RetryCache.setExpiryTime(properties, retryCacheExpiryDuration);
+    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+    cluster.start();
+    waitForLeader(cluster);
+    long time = System.currentTimeMillis();
+    long waitTime = 5000;
+    try (final RaftClient client = cluster.createClient()) {
+      // block append requests
+      cluster.getServerAliveStream().forEach(raftServer -> {
+        try {
+          if (!raftServer.isLeader()) {
+            ((SimpleStateMachine4Testing) raftServer.getStateMachine()).setBlockAppend(true);
+          }
+        } catch (InterruptedException e) {
+          LOG.error("Interrupted while blocking append", e);
+        }
+      });
+      CompletableFuture<RaftClientReply> replyFuture = client.sendAsync(new RaftTestUtil.SimpleMessage("abc"));
+      Thread.sleep(waitTime);
+      // replyFuture should not be completed until append request is unblocked.
+      Assert.assertTrue(!replyFuture.isDone());
+      // unblock append request.
+      cluster.getServerAliveStream().forEach(raftServer -> {
+        try {
+          ((SimpleStateMachine4Testing) raftServer.getStateMachine()).setBlockAppend(false);
+        } catch (InterruptedException e) {
+          LOG.error("Interrupted while unblocking append", e);
+        }
+      });
+      client.send(new RaftTestUtil.SimpleMessage("abc"));
+      replyFuture.get();
+      Assert.assertTrue(System.currentTimeMillis() - time > waitTime);
+    }
+    cluster.shutdown();
+  }
 }

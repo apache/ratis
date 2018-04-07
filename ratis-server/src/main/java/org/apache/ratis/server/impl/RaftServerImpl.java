@@ -761,8 +761,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final TermIndex previous = r.hasPreviousLog() ?
         ServerProtoUtils.toTermIndex(r.getPreviousLog()) : null;
     return appendEntriesAsync(RaftPeerId.valueOf(request.getRequestorId()),
-        ProtoUtils.toRaftGroupId(request.getRaftGroupId()),
-        r.getLeaderTerm(), previous, r.getLeaderCommit(), r.getInitializing(),
+        ProtoUtils.toRaftGroupId(request.getRaftGroupId()), r.getLeaderTerm(),
+        previous, r.getLeaderCommit(), request.getCallId(), r.getInitializing(),
         r.getCommitInfosList(), entries);
   }
 
@@ -780,7 +780,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
       RaftPeerId leaderId, RaftGroupId leaderGroupId, long leaderTerm,
-      TermIndex previous, long leaderCommit, boolean initializing,
+      TermIndex previous, long leaderCommit, long callId, boolean initializing,
       List<CommitInfoProto> commitInfos, LogEntryProto... entries) throws IOException {
     CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(),
         leaderId, leaderTerm, previous, leaderCommit, initializing, entries);
@@ -809,7 +809,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-            leaderId, getId(), groupId, currentTerm, nextIndex, NOT_LEADER);
+            leaderId, getId(), groupId, currentTerm, nextIndex, NOT_LEADER, callId);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
               getId(), leaderId, leaderTerm, state, ProtoUtils.toString(reply));
@@ -835,7 +835,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (previous != null && !containPrevious(previous)) {
         final AppendEntriesReplyProto reply =
             ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(), groupId,
-                currentTerm, Math.min(nextIndex, previous.getIndex()), INCONSISTENCY);
+                currentTerm, Math.min(nextIndex, previous.getIndex()), INCONSISTENCY, callId);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: inconsistency entries. Leader previous:{}, Reply:{}",
               getId(), previous, ServerProtoUtils.toString(reply));
@@ -855,7 +855,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       nextIndex = entries[entries.length - 1].getIndex() + 1;
     }
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-        leaderId, getId(), groupId, currentTerm, nextIndex, SUCCESS);
+        leaderId, getId(), groupId, currentTerm, nextIndex, SUCCESS, callId);
     logAppendEntries(isHeartbeat,
         () -> getId() + ": succeeded to handle AppendEntries. Reply: "
             + ServerProtoUtils.toString(reply));

@@ -266,11 +266,12 @@ public class LeaderState {
         .forEach(protos::add);
   }
 
-  AppendEntriesRequestProto newAppendEntriesRequestProto(
-      RaftPeerId targetId, TermIndex previous, List<LogEntryProto> entries, boolean initializing) {
+  AppendEntriesRequestProto newAppendEntriesRequestProto(RaftPeerId targetId,
+      TermIndex previous, List<LogEntryProto> entries, boolean initializing,
+      long callId) {
     return ServerProtoUtils.toAppendEntriesRequestProto(server.getId(), targetId,
         server.getGroupId(), currentTerm, entries, raftLog.getLastCommittedIndex(),
-        initializing, previous, server.getCommitInfos());
+        initializing, previous, server.getCommitInfos(), callId);
   }
 
   /**

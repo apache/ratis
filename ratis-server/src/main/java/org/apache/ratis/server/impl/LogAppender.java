@@ -43,6 +43,7 @@ import java.io.InterruptedIOException;
 import java.nio.file.Path;
 import java.util.*;
 
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
 /**
@@ -137,9 +138,9 @@ public class LogAppender extends Daemon {
       return buf.isEmpty();
     }
 
-    AppendEntriesRequestProto getAppendRequest(TermIndex previous) {
+    AppendEntriesRequestProto getAppendRequest(TermIndex previous, long callId) {
       final AppendEntriesRequestProto request = leaderState.newAppendEntriesRequestProto(
-          getFollowerId(), previous, buf, !follower.isAttendingVote());
+          getFollowerId(), previous, buf, !follower.isAttendingVote(), callId);
       buf.clear();
       totalSize = 0;
       return request;
@@ -164,7 +165,7 @@ public class LogAppender extends Daemon {
     return previous;
   }
 
-  protected AppendEntriesRequestProto createRequest() throws RaftLogIOException {
+  protected AppendEntriesRequestProto createRequest(long callId) throws RaftLogIOException {
     final TermIndex previous = getPrevious();
     final long leaderNext = raftLog.getNextIndex();
     long next = follower.getNextIndex() + buffer.getPendingEntryNum();
@@ -185,7 +186,7 @@ public class LogAppender extends Daemon {
     }
 
     if (toSend || shouldHeartbeat()) {
-      return buffer.getAppendRequest(previous);
+      return buffer.getAppendRequest(previous, callId);
     }
     return null;
   }
@@ -198,7 +199,7 @@ public class LogAppender extends Daemon {
     while (isAppenderRunning()) { // keep retrying for IOException
       try {
         if (request == null || request.getEntriesCount() == 0) {
-          request = createRequest();
+          request = createRequest(DEFAULT_CALLID);
         }
 
         if (request == null) {

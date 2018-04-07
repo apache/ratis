@@ -173,10 +173,12 @@ public class ServerProtoUtils {
 
   public static AppendEntriesReplyProto toAppendEntriesReplyProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, long term,
-      long nextIndex, AppendResult result) {
+      long nextIndex, AppendResult result, long callId) {
+    RaftRpcReplyProto.Builder rpcReply = toRaftRpcReplyProtoBuilder(
+        requestorId, replyId, groupId, result == AppendResult.SUCCESS)
+        .setCallId(callId);
     return AppendEntriesReplyProto.newBuilder()
-        .setServerReply(toRaftRpcReplyProtoBuilder(
-            requestorId, replyId, groupId, result == AppendResult.SUCCESS))
+        .setServerReply(rpcReply)
         .setTerm(term)
         .setNextIndex(nextIndex)
         .setResult(result).build();
@@ -185,10 +187,12 @@ public class ServerProtoUtils {
   public static AppendEntriesRequestProto toAppendEntriesRequestProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, long leaderTerm,
       List<LogEntryProto> entries, long leaderCommit, boolean initializing,
-      TermIndex previous, Collection<CommitInfoProto> commitInfos) {
+      TermIndex previous, Collection<CommitInfoProto> commitInfos, long callId) {
+    RaftRpcRequestProto.Builder rpcRequest = toRaftRpcRequestProtoBuilder(requestorId, replyId, groupId)
+        .setCallId(callId);
     final AppendEntriesRequestProto.Builder b = AppendEntriesRequestProto
         .newBuilder()
-        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId, groupId))
+        .setServerRequest(rpcRequest)
         .setLeaderTerm(leaderTerm)
         .setLeaderCommit(leaderCommit)
         .setInitializing(initializing);

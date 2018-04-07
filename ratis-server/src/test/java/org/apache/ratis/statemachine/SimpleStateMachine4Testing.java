@@ -78,7 +78,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
 
   private volatile boolean running = true;
-  private boolean blockTransaction = false;
+  private volatile boolean blockTransaction = false;
+  private volatile boolean blockAppend = false;
   private final Semaphore blockingSemaphore = new Semaphore(1);
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
 
@@ -252,7 +253,23 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     }
     return new TransactionContextImpl(this, request, SMLogEntryProto.newBuilder()
         .setData(request.getMessage().getContent())
-        .build());
+        .setStateMachineData(ByteString.copyFromUtf8("StateMachine Data")).build());
+  }
+
+  @Override
+  public CompletableFuture<?> writeStateMachineData(LogEntryProto entry) {
+    CompletableFuture f = new CompletableFuture();
+    if (blockAppend) {
+      try {
+        blockingSemaphore.acquire();
+        blockingSemaphore.release();
+      } catch (InterruptedException e) {
+        LOG.error("Could not block writeStateMachineData", e);
+        Thread.currentThread().interrupt();
+      }
+    }
+    f.complete(null);
+    return f;
   }
 
   @Override
@@ -270,6 +287,15 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public void setBlockTransaction(boolean blockTransactionVal) throws InterruptedException {
     this.blockTransaction = blockTransactionVal;
     if (blockTransactionVal) {
+      blockingSemaphore.acquire();
+    } else {
+      blockingSemaphore.release();
+    }
+  }
+
+  public void setBlockAppend(boolean blockAppendVal) throws InterruptedException {
+    this.blockAppend = blockAppendVal;
+    if (blockAppendVal) {
       blockingSemaphore.acquire();
     } else {
       blockingSemaphore.release();

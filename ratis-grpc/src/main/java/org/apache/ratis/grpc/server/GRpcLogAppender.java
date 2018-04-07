@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.RaftGRpcService;
 import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.rpc.RpcTimeout;
 import org.apache.ratis.server.impl.FollowerInfo;
 import org.apache.ratis.server.impl.LeaderState;
 import org.apache.ratis.server.impl.LogAppender;
@@ -34,12 +35,15 @@ import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.TimeDuration;
 
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -47,12 +51,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class GRpcLogAppender extends LogAppender {
   private final RaftServerProtocolClient client;
-  private final Queue<AppendEntriesRequestProto> pendingRequests;
+  private final Map<Long, AppendEntriesRequestProto> pendingRequests;
   private final int maxPendingRequestsNum;
+  private long callId = 0;
   private volatile boolean firstResponseReceived = false;
 
   private final AppendLogResponseHandler appendResponseHandler;
   private final InstallSnapshotResponseHandler snapshotResponseHandler;
+  private static RpcTimeout rpcTimeout = new RpcTimeout(
+      TimeDuration.valueOf(3, TimeUnit.SECONDS));
 
   private volatile StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver;
   private StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver;
@@ -65,10 +72,11 @@ public class GRpcLogAppender extends LogAppender {
     client = rpcService.getRpcClient(f.getPeer());
     maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(
         server.getProxy().getProperties());
-    pendingRequests = new ConcurrentLinkedQueue<>();
+    pendingRequests = new ConcurrentHashMap<>();
 
     appendResponseHandler = new AppendLogResponseHandler();
     snapshotResponseHandler = new InstallSnapshotResponseHandler();
+    rpcTimeout.addUser();
   }
 
   @Override
@@ -134,9 +142,9 @@ public class GRpcLogAppender extends LogAppender {
         // prepare and enqueue the append request. note changes on follower's
         // nextIndex and ops on pendingRequests should always be associated
         // together and protected by the lock
-        pending = createRequest();
+        pending = createRequest(callId++);
         if (pending != null) {
-          Preconditions.assertTrue(pendingRequests.offer(pending));
+          pendingRequests.put(pending.getServerRequest().getCallId(), pending);
           updateNextIndex(pending);
         }
       }
@@ -154,7 +162,16 @@ public class GRpcLogAppender extends LogAppender {
         server.getId(), null, request);
 
     s.onNext(request);
+    rpcTimeout.onTimeout(() -> timeoutAppendRequest(request),
+        () -> "Timeout check failed for append entry request: " + request);
     follower.updateLastRpcSendTime();
+  }
+
+  private void timeoutAppendRequest(AppendEntriesRequestProto request) {
+    AppendEntriesRequestProto pendingRequest = pendingRequests.remove(request.getServerRequest().getCallId());
+    if (pendingRequest != null) {
+      LOG.info("Timeout executed for append entry request: " + pendingRequest);
+    }
   }
 
   private void updateNextIndex(AppendEntriesRequestProto request) {
@@ -227,6 +244,7 @@ public class GRpcLogAppender extends LogAppender {
             server.getId(), follower.getPeer().getId(), RaftGrpcUtil.unwrapThrowable(t));
       }
 
+      long callId = RaftGrpcUtil.getCallId(t);
       synchronized (this) {
         final Status cause = Status.fromThrowable(t);
         if (cause != null && cause.getCode() == Status.Code.INTERNAL) {
@@ -240,7 +258,7 @@ public class GRpcLogAppender extends LogAppender {
         }
 
         // clear the pending requests queue and reset the next index of follower
-        AppendEntriesRequestProto request = pendingRequests.peek();
+        AppendEntriesRequestProto request = pendingRequests.get(callId);
         if (request != null) {
           final long nextIndex = request.hasPreviousLog() ?
               request.getPreviousLog().getIndex() + 1 : raftLog.getStartIndex();
@@ -262,7 +280,12 @@ public class GRpcLogAppender extends LogAppender {
   }
 
   private void onSuccess(AppendEntriesReplyProto reply) {
-    AppendEntriesRequestProto request = pendingRequests.poll();
+    AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
+    if (request == null) {
+      // If reply comes after timeout, the reply is ignored.
+      LOG.warn("Ignoring reply: " + reply);
+      return;
+    }
     updateCommitIndex(request.getLeaderCommit());
 
     final long replyNextIndex = reply.getNextIndex();
@@ -293,11 +316,22 @@ public class GRpcLogAppender extends LogAppender {
   }
 
   private synchronized void onInconsistency(AppendEntriesReplyProto reply) {
-    AppendEntriesRequestProto request = pendingRequests.peek();
+    AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
+    if (request == null) {
+      // If reply comes after timeout, the reply is ignored.
+      LOG.warn("Ignoring reply: " + reply);
+      return;
+    }
     Preconditions.assertTrue(request.hasPreviousLog());
     if (request.getPreviousLog().getIndex() >= reply.getNextIndex()) {
       clearPendingRequests(reply.getNextIndex());
     }
+  }
+
+  @Override
+  public LogAppender stopSender() {
+    rpcTimeout.removeUser();
+    return super.stopSender();
   }
 
   private class InstallSnapshotResponseHandler

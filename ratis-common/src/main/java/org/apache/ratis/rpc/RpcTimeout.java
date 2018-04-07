@@ -17,39 +17,54 @@
  */
 package org.apache.ratis.rpc;
 
+import org.apache.ratis.shaded.com.google.common.base.Supplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class RpcTimeout {
+  private static final Logger LOG = LoggerFactory.getLogger(RpcTimeout.class);
   private ScheduledExecutorService timeoutScheduler = null;
-  private TimeDuration callTimeout;
+  private final TimeDuration callTimeout;
+  private int numUsers = 0;
 
-  public RpcTimeout(TimeDuration callTimeout, boolean initialize) {
+  public RpcTimeout(TimeDuration callTimeout) {
     this.callTimeout = callTimeout;
-    if (initialize) {
-      initialize();
+  }
+
+  public synchronized void addUser() {
+    if (timeoutScheduler == null) {
+      timeoutScheduler = Executors.newScheduledThreadPool(1);
+    }
+    numUsers++;
+  }
+
+  public synchronized void removeUser() {
+    numUsers--;
+    if (timeoutScheduler != null && numUsers == 0) {
+      timeoutScheduler.shutdown();
+      timeoutScheduler = null;
     }
   }
 
-  public synchronized void initialize() {
-    timeoutScheduler = Executors.newScheduledThreadPool(1);
-  }
-
-  public void onTimeout(Runnable task) {
+  public synchronized void onTimeout(Runnable task, Supplier<String> errorMsg) {
     Preconditions.assertTrue(timeoutScheduler != null);
     TimeUnit unit = callTimeout.getUnit();
-    timeoutScheduler.schedule(task, callTimeout.toInt(unit), unit);
+    timeoutScheduler.schedule(() -> {
+      try {
+        task.run();
+      } catch (Throwable t) {
+        LOG.error(errorMsg.get(), t);
+      }
+    }, callTimeout.toInt(unit), unit);
   }
 
   public TimeDuration getCallTimeout() {
     return callTimeout;
-  }
-
-  public void close() {
-    timeoutScheduler.shutdown();
   }
 }

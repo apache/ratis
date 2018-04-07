@@ -87,7 +87,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
             LOG.debug("{} got exception when appendEntries {}: {}",
                 getId(), ProtoUtils.toString(request.getServerRequest()), e);
           }
-          responseObserver.onError(RaftGrpcUtil.wrapException(e));
+          responseObserver.onError(RaftGrpcUtil.wrapException(e, request.getServerRequest().getCallId()));
           current.completeExceptionally(e);
         }
       }

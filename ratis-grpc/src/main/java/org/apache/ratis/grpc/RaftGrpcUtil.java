@@ -25,20 +25,27 @@ import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.util.*;
 
 import java.io.IOException;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.function.Function;
 
 public interface RaftGrpcUtil {
   Metadata.Key<String> EXCEPTION_TYPE_KEY =
       Metadata.Key.of("exception-type", Metadata.ASCII_STRING_MARSHALLER);
+  Metadata.Key<String> CALL_ID =
+      Metadata.Key.of("call-id", Metadata.ASCII_STRING_MARSHALLER);
 
   static StatusRuntimeException wrapException(Throwable t) {
+    return wrapException(t, -1);
+  }
+
+  static StatusRuntimeException wrapException(Throwable t, long callId) {
     t = JavaUtils.unwrapCompletionException(t);
 
     Metadata trailers = new Metadata();
     trailers.put(EXCEPTION_TYPE_KEY, t.getClass().getCanonicalName());
+    if (callId > 0) {
+      trailers.put(CALL_ID, String.valueOf(callId));
+    }
     return new StatusRuntimeException(
         Status.INTERNAL.withCause(t).withDescription(t.getMessage()), trailers);
   }
@@ -67,6 +74,15 @@ public interface RaftGrpcUtil {
       }
     }
     return new IOException(se);
+  }
+
+  static long getCallId(Throwable t) {
+    if (t instanceof StatusRuntimeException) {
+      final Metadata trailers = ((StatusRuntimeException)t).getTrailers();
+      String callId = trailers.get(CALL_ID);
+      return callId != null ? Integer.parseInt(callId) : -1;
+    }
+    return -1;
   }
 
   static IOException unwrapIOException(Throwable t) {
