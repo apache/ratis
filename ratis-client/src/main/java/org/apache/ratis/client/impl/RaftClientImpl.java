@@ -22,6 +22,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.util.*;
 
 import java.io.IOException;
@@ -129,8 +130,8 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> sendAsync(Message message) {
-    return sendAsync(RaftClientRequest.writeRequestType(), message, null);
+  public CompletableFuture<RaftClientReply> sendAsync(Message message, ReplicationLevel replication) {
+    return sendAsync(RaftClientRequest.writeRequestType(replication), message, null);
   }
 
   @Override
@@ -168,8 +169,8 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientReply send(Message message) throws IOException {
-    return send(RaftClientRequest.writeRequestType(), message, null);
+  public RaftClientReply send(Message message, ReplicationLevel replication) throws IOException {
+    return send(RaftClientRequest.writeRequestType(replication), message, null);
   }
 
   @Override

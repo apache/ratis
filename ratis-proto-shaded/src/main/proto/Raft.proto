@@ -170,7 +170,13 @@ message ClientMessageEntryProto {
   bytes content = 1;
 }
 
+enum ReplicationLevel {
+  MAJORITY = 0;
+  ALL = 1;
+}
+
 message WriteRequestTypeProto {
+  ReplicationLevel replication = 1;
 }
 
 message ReadRequestTypeProto {

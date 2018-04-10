@@ -24,12 +24,14 @@ import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -90,16 +92,39 @@ public abstract class RaftBasicTests extends BaseTest {
 
   @Test
   public void testBasicAppendEntries() throws Exception {
-    runTestBasicAppendEntries(false, 10, getCluster(), LOG);
+    runTestBasicAppendEntries(false, ReplicationLevel.MAJORITY, 10, getCluster(), LOG);
+  }
+
+  @Test
+  public void testBasicAppendEntriesWithAllReplication() throws Exception {
+    runTestBasicAppendEntries(false, ReplicationLevel.ALL, 10, getCluster(), LOG);
   }
 
   static void runTestBasicAppendEntries(
-      boolean async, int numMessages, MiniRaftCluster cluster, Logger LOG) throws Exception {
+      boolean async, ReplicationLevel replication, int numMessages, MiniRaftCluster cluster, Logger LOG) throws Exception {
     LOG.info("runTestBasicAppendEntries: async? " + async + ", numMessages=" + numMessages);
+    for (RaftServer s : cluster.getServers()) {
+      cluster.restartServer(s.getId(), false);
+    }
     RaftServerImpl leader = waitForLeader(cluster);
     final long term = leader.getState().getCurrentTerm();
+
     final RaftPeerId killed = cluster.getFollowers().get(0).getId();
     cluster.killServer(killed);
+
+    if (replication == ReplicationLevel.ALL) {
+      new Thread(() -> {
+        try {
+          Thread.sleep(3000);
+          LOG.info("restart server: " + killed.toString());
+          cluster.restartServer(killed, false);
+        } catch (Exception e) {
+          LOG.info("cannot restart server: " + killed.toString());
+          e.printStackTrace();
+        }
+      }).start();
+    }
+
     LOG.info(cluster.printServers());
 
     final SimpleMessage[] messages = SimpleMessage.create(numMessages);
@@ -110,7 +135,7 @@ public abstract class RaftBasicTests extends BaseTest {
 
       for (SimpleMessage message : messages) {
         if (async) {
-          client.sendAsync(message).thenAcceptAsync(reply -> {
+          client.sendAsync(message, replication).thenAcceptAsync(reply -> {
             if (!reply.isSuccess()) {
               f.completeExceptionally(
                   new AssertionError("Failed with reply " + reply));
@@ -119,7 +144,7 @@ public abstract class RaftBasicTests extends BaseTest {
             }
           });
         } else {
-          client.send(message);
+          client.send(message, replication);
         }
       }
       if (async) {
@@ -127,13 +152,15 @@ public abstract class RaftBasicTests extends BaseTest {
         Assert.assertEquals(messages.length, asyncReplyCount.get());
       }
     }
-
-    Thread.sleep(cluster.getMaxTimeout() + 100);
+    if (replication != ReplicationLevel.ALL) {
+      Thread.sleep(cluster.getMaxTimeout() + 100);
+    }
     LOG.info(cluster.printAllLogs());
 
     cluster.getServerAliveStream().map(s -> s.getState().getLog())
         .forEach(log -> RaftTestUtil.assertLogEntries(log, async, term, messages));
   }
+
 
   @Test
   public void testOldLeaderCommit() throws Exception {

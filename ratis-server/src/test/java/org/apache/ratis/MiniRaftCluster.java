@@ -28,6 +28,7 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.storage.MemoryRaftLog;
 import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.*;
@@ -450,6 +451,9 @@ public abstract class MiniRaftCluster {
   public static Stream<RaftServerImpl> getServerStream(Collection<RaftServerProxy> servers) {
     return servers.stream().map(RaftTestUtil::getImplAsUnchecked);
   }
+  public Stream<RaftServerImpl> getServerStream() {
+    return getServerStream(getServers());
+  }
   public Stream<RaftServerImpl> getServerAliveStream() {
     return getServerStream(getServers()).filter(RaftServerImpl::isAlive);
   }
@@ -504,7 +508,7 @@ public abstract class MiniRaftCluster {
   public RaftClientRequest newRaftClientRequest(
       ClientId clientId, RaftPeerId leaderId, long callId, long seqNum, Message message) {
     return new RaftClientRequest(clientId, leaderId, getGroupId(),
-        callId, seqNum, message, RaftClientRequest.writeRequestType());
+        callId, seqNum, message, RaftClientRequest.writeRequestType(ReplicationLevel.MAJORITY));
   }
 
   public SetConfigurationRequest newSetConfigurationRequest(

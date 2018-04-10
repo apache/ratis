@@ -30,12 +30,15 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.shaded.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.*;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -157,7 +160,18 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
     cluster.start();
     waitForLeader(cluster);
-    RaftBasicTests.runTestBasicAppendEntries(true, 1000, cluster, LOG);
+    RaftBasicTests.runTestBasicAppendEntries(true, ReplicationLevel.MAJORITY, 1000, cluster, LOG);
+    cluster.shutdown();
+  }
+
+  @Test
+  public void testBasicAppendEntriesAsyncWithAllReplication() throws Exception {
+    LOG.info("Running testBasicAppendEntriesAsync");
+    RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties, 100);
+    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+    cluster.start();
+    waitForLeader(cluster);
+    RaftBasicTests.runTestBasicAppendEntries(true, ReplicationLevel.ALL, 1000, cluster, LOG);
     cluster.shutdown();
   }
 

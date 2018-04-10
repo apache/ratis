@@ -17,10 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.ReadRequestTypeProto;
-import org.apache.ratis.shaded.proto.RaftProtos.StaleReadRequestTypeProto;
-import org.apache.ratis.shaded.proto.RaftProtos.WriteRequestTypeProto;
+import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Objects;
@@ -31,12 +28,20 @@ import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.Ty
  * Request from client to server
  */
 public class RaftClientRequest extends RaftClientMessage {
-  private static final Type DEFAULT_WRITE = new Type(WriteRequestTypeProto.getDefaultInstance());
+  private static final Type WRITE_DEFAULT = new Type(WriteRequestTypeProto.getDefaultInstance());
+  private static final Type WRITE_ALL = new Type(
+      WriteRequestTypeProto.newBuilder().setReplication(ReplicationLevel.ALL).build());
+
   private static final Type DEFAULT_READ = new Type(ReadRequestTypeProto.getDefaultInstance());
   private static final Type DEFAULT_STALE_READ = new Type(StaleReadRequestTypeProto.getDefaultInstance());
 
-  public static Type writeRequestType() {
-    return DEFAULT_WRITE;
+  public static Type writeRequestType(ReplicationLevel replication) {
+    switch (replication) {
+      case MAJORITY: return WRITE_DEFAULT;
+      case ALL: return WRITE_ALL;
+      default:
+        throw new IllegalArgumentException("Unexpected replication: " + replication);
+    }
   }
 
   public static Type readRequestType() {
@@ -51,7 +56,7 @@ public class RaftClientRequest extends RaftClientMessage {
   /** The type of a request (oneof write, read, staleRead; see the message RaftClientRequestProto). */
   public static class Type {
     public static Type valueOf(WriteRequestTypeProto write) {
-      return DEFAULT_WRITE;
+      return writeRequestType(write.getReplication());
     }
 
     public static Type valueOf(ReadRequestTypeProto read) {
@@ -136,7 +141,7 @@ public class RaftClientRequest extends RaftClientMessage {
 
   public RaftClientRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId) {
-    this(clientId, serverId, groupId, callId, 0L, null, writeRequestType());
+    this(clientId, serverId, groupId, callId, 0L, null, WRITE_DEFAULT);
   }
 
   public RaftClientRequest(

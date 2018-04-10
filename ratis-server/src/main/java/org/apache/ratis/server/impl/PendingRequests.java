@@ -18,16 +18,20 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 class PendingRequests {
@@ -71,14 +75,63 @@ class PendingRequests {
     }
   }
 
+  private static class DelayedReplies {
+    private final String name;
+    private final PriorityQueue<PendingRequest> q = new PriorityQueue<>();
+    private AtomicLong allAckedIndex = new AtomicLong();
+
+    private DelayedReplies(Object name) {
+      this.name = name + "-" + getClass().getSimpleName();
+    }
+
+    boolean delay(PendingRequest request, RaftClientReply reply) {
+      if (request.getIndex() <= allAckedIndex.get()) {
+        return false; // delay is not required.
+      }
+
+      LOG.debug("{}: delay request {}", name, request);
+      request.setDelayedReply(reply);
+      final boolean offered;
+      synchronized (q) {
+        offered = q.offer(request);
+      }
+      Preconditions.assertTrue(offered);
+      return true;
+    }
+
+    void update(final long allAcked) {
+      final long old = allAckedIndex.getAndUpdate(n -> allAcked > n? allAcked : n);
+      if (allAcked <= old) {
+        return;
+      }
+
+      LOG.debug("{}: update allAckedIndex {} -> {}", name, old, allAcked);
+      for(;;) {
+        final PendingRequest polled;
+        synchronized (q) {
+          final PendingRequest peeked = q.peek();
+          if (peeked == null || peeked.getIndex() > allAcked) {
+            return;
+          }
+          polled = q.poll();
+          Preconditions.assertTrue(polled == peeked);
+        }
+        polled.completeDelayedReply();
+      }
+    }
+  }
+
   private PendingRequest pendingSetConf;
   private final RaftServerImpl server;
   private final RequestMap pendingRequests;
   private PendingRequest last = null;
 
+  private final DelayedReplies delayedReplies;
+
   PendingRequests(RaftServerImpl server) {
     this.server = server;
     this.pendingRequests = new RequestMap(server.getId());
+    this.delayedReplies = new DelayedReplies(server.getId());
   }
 
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
@@ -132,12 +185,20 @@ class PendingRequests {
     return pendingRequest != null ? pendingRequest.getEntry() : null;
   }
 
-  void replyPendingRequest(long index, RaftClientReply reply) {
+  boolean replyPendingRequest(long index, RaftClientReply reply) {
     final PendingRequest pending = pendingRequests.remove(index);
     if (pending != null) {
       Preconditions.assertTrue(pending.getIndex() == index);
+
+      final ReplicationLevel replication = pending.getRequest().getType().getWrite().getReplication();
+      if (replication == ReplicationLevel.ALL) {
+        if (delayedReplies.delay(pending, reply)) {
+          return false;
+        }
+      }
       pending.setReply(reply);
     }
+    return true;
   }
 
   /**
@@ -154,5 +215,9 @@ class PendingRequests {
     if (pendingSetConf != null) {
       pendingSetConf.setNotLeaderException(nle);
     }
+  }
+
+  void checkDelayedReplies(long allAckedIndex) {
+    delayedReplies.update(allAckedIndex);
   }
 }

@@ -23,6 +23,7 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,8 +46,17 @@ public interface RaftClient extends Closeable {
    * Async call to send the given message to the raft service.
    * The message may change the state of the service.
    * For readonly messages, use {@link #sendReadOnlyAsync(Message)} instead.
+   *
+   * @param message The request message.
+   * @param replication The replication level required.
+   * @return a future of the reply.
    */
-  CompletableFuture<RaftClientReply> sendAsync(Message message);
+  CompletableFuture<RaftClientReply> sendAsync(Message message, ReplicationLevel replication);
+
+  /** The same as sendAsync(message, MAJORITY). */
+  default CompletableFuture<RaftClientReply> sendAsync(Message message) {
+    return sendAsync(message, ReplicationLevel.MAJORITY);
+  }
 
   /** Async call to send the given readonly message to the raft service. */
   CompletableFuture<RaftClientReply> sendReadOnlyAsync(Message message);
@@ -58,8 +68,17 @@ public interface RaftClient extends Closeable {
    * Send the given message to the raft service.
    * The message may change the state of the service.
    * For readonly messages, use {@link #sendReadOnly(Message)} instead.
+   *
+   * @param message The request message.
+   * @param replication The replication level required.
+   * @return the reply.
    */
-  RaftClientReply send(Message message) throws IOException;
+  RaftClientReply send(Message message, ReplicationLevel replication) throws IOException;
+
+  /** The same as send(message, MAJORITY). */
+  default RaftClientReply send(Message message) throws IOException {
+    return send(message, ReplicationLevel.MAJORITY);
+  }
 
   /** Send the given readonly message to the raft service. */
   RaftClientReply sendReadOnly(Message message) throws IOException;

@@ -448,16 +448,14 @@ public class LeaderState {
       return;
     }
 
-    final long majorityInNewConf = computeLastCommitted(followers, includeSelf);
-    final long oldLastCommitted = raftLog.getLastCommittedIndex();
-    final TermIndex[] entriesToCommit;
+    final long[] indicesInNewConf = computeCommittedIndices(followers, includeSelf);
+    final long majorityInNewConf = getMajority(indicesInNewConf);
+    final long majority;
+    final long min;
+
     if (!conf.isTransitional()) {
-      // copy the entries that may get committed out of the raftlog, to prevent
-      // the possible race that the log gets purged after the statemachine does
-      // a snapshot
-      entriesToCommit = raftLog.getEntries(oldLastCommitted + 1,
-          Math.max(majorityInNewConf, oldLastCommitted) + 1);
-      server.getState().updateStatemachine(majorityInNewConf, currentTerm);
+      majority = majorityInNewConf;
+      min = indicesInNewConf[0];
     } else { // configuration is in transitional state
       final List<FollowerInfo> oldFollowers = voterLists.get(1);
       final boolean includeSelfInOldConf = conf.containsInOldConf(selfId);
@@ -465,13 +463,23 @@ public class LeaderState {
         return;
       }
 
-      final long majorityInOldConf = computeLastCommitted(oldFollowers, includeSelfInOldConf);
-      final long majority = Math.min(majorityInNewConf, majorityInOldConf);
-      entriesToCommit = raftLog.getEntries(oldLastCommitted + 1,
-          Math.max(majority, oldLastCommitted) + 1);
-      server.getState().updateStatemachine(majority, currentTerm);
+      final long[] indicesInOldConf = computeCommittedIndices(oldFollowers, includeSelfInOldConf);
+      final long majorityInOldConf = getMajority(indicesInOldConf);
+      majority = Math.min(majorityInNewConf, majorityInOldConf);
+      min = Math.min(indicesInNewConf[0], indicesInOldConf[0]);
     }
-    checkAndUpdateConfiguration(entriesToCommit);
+
+    final long oldLastCommitted = raftLog.getLastCommittedIndex();
+    if (majority > oldLastCommitted) {
+      // copy the entries out from the raftlog, in order to prevent that
+      // the log gets purged after the statemachine does a snapshot
+      final TermIndex[] entriesToCommit = raftLog.getEntries(
+          oldLastCommitted + 1, majority + 1);
+      server.getState().updateStatemachine(majority, currentTerm);
+      checkAndUpdateConfiguration(entriesToCommit);
+    }
+
+    pendingRequests.checkDelayedReplies(min);
   }
 
   private boolean committedConf(TermIndex[] entries) {
@@ -529,8 +537,11 @@ public class LeaderState {
     notifySenders();
   }
 
-  private long computeLastCommitted(List<FollowerInfo> followers,
-      boolean includeSelf) {
+  static long getMajority(long[] indices) {
+    return indices[(indices.length - 1) / 2];
+  }
+
+  private long[] computeCommittedIndices(List<FollowerInfo> followers, boolean includeSelf) {
     final int length = includeSelf ? followers.size() + 1 : followers.size();
     if (length == 0) {
       throw new IllegalArgumentException("followers.size() == "
@@ -546,7 +557,7 @@ public class LeaderState {
     }
 
     Arrays.sort(indices);
-    return indices[(indices.length - 1) / 2];
+    return indices;
   }
 
   private List<List<FollowerInfo>> divideFollowers(RaftConfiguration conf) {
@@ -567,7 +578,9 @@ public class LeaderState {
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {
-    pendingRequests.replyPendingRequest(logIndex, reply);
+    if (!pendingRequests.replyPendingRequest(logIndex, reply)) {
+      submitUpdateStateEvent(UPDATE_COMMIT_EVENT);
+    }
   }
 
   TransactionContext getTransactionContext(long index) {

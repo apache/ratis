@@ -17,10 +17,14 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.NotLeaderException;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 public class PendingRequest implements Comparable<PendingRequest> {
@@ -28,6 +32,8 @@ public class PendingRequest implements Comparable<PendingRequest> {
   private final RaftClientRequest request;
   private final TransactionContext entry;
   private final CompletableFuture<RaftClientReply> future;
+
+  private volatile RaftClientReply delayed;
 
   PendingRequest(long index, RaftClientRequest request,
                  TransactionContext entry) {
@@ -68,6 +74,16 @@ public class PendingRequest implements Comparable<PendingRequest> {
   synchronized void setReply(RaftClientReply r) {
     Preconditions.assertTrue(r != null);
     future.complete(r);
+  }
+
+  synchronized void setDelayedReply(RaftClientReply r) {
+    Objects.requireNonNull(r);
+    Preconditions.assertTrue(delayed == null);
+    delayed = r;
+  }
+
+  synchronized void completeDelayedReply() {
+    setReply(delayed);
   }
 
   TransactionContext setNotLeaderException(NotLeaderException nle) {
