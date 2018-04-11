@@ -20,7 +20,7 @@ package org.apache.ratis.grpc.client;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
-import org.apache.ratis.rpc.RpcTimeout;
+import org.apache.ratis.util.TimeoutScheduler;
 import org.apache.ratis.shaded.io.grpc.ManagedChannel;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.shaded.io.grpc.netty.NettyChannelBuilder;
@@ -139,7 +139,6 @@ public class RaftClientProtocolClient implements Closeable {
   class AsyncStreamObservers implements Closeable {
     /** Request map: callId -> future */
     private final AtomicReference<Map<Long, CompletableFuture<RaftClientReply>>> replies = new AtomicReference<>(new ConcurrentHashMap<>());
-    private final RpcTimeout rpcTimeout = new RpcTimeout(timeout);
     private final StreamObserver<RaftClientReplyProto> replyStreamObserver = new StreamObserver<RaftClientReplyProto>() {
       @Override
       public void onNext(RaftClientReplyProto proto) {
@@ -170,10 +169,6 @@ public class RaftClientProtocolClient implements Closeable {
     };
     private final StreamObserver<RaftClientRequestProto> requestStreamObserver = append(replyStreamObserver);
 
-    private AsyncStreamObservers() {
-      rpcTimeout.addUser();
-    }
-
     CompletableFuture<RaftClientReply> onNext(RaftClientRequest request) {
       final Map<Long, CompletableFuture<RaftClientReply>> map = replies.get();
       if (map == null) {
@@ -184,7 +179,8 @@ public class RaftClientProtocolClient implements Closeable {
           () -> getName() + ":" + getClass().getSimpleName());
       try {
         requestStreamObserver.onNext(ClientProtoUtils.toRaftClientRequestProto(request));
-        rpcTimeout.onTimeout(() -> timeoutCheck(request), () -> "Timeout check failed for client request: " + request);
+        TimeoutScheduler.onTimeout(timeout, () -> timeoutCheck(request), LOG,
+            () -> "Timeout check failed for client request: " + request);
       } catch(Throwable t) {
         handleReplyFuture(request.getCallId(), future -> future.completeExceptionally(t));
       }
@@ -193,7 +189,7 @@ public class RaftClientProtocolClient implements Closeable {
 
     private void timeoutCheck(RaftClientRequest request) {
       handleReplyFuture(request.getCallId(), f -> f.completeExceptionally(
-          new IOException("Request timeout " + rpcTimeout.getCallTimeout() + ": " + request)));
+          new IOException("Request timeout " + timeout + ": " + request)));
     }
 
     private void handleReplyFuture(long callId, Consumer<CompletableFuture<RaftClientReply>> handler) {
@@ -206,7 +202,6 @@ public class RaftClientProtocolClient implements Closeable {
     public void close() {
       requestStreamObserver.onCompleted();
       completeReplyExceptionally(null, "close");
-      rpcTimeout.removeUser();
     }
 
     private void completeReplyExceptionally(Throwable t, String event) {

@@ -103,6 +103,10 @@ public class TimeDuration implements Comparable<TimeDuration> {
     this.unit = Objects.requireNonNull(unit, "unit = null");
   }
 
+  public long getDuration() {
+    return duration;
+  }
+
   public TimeUnit getUnit() {
     return unit;
   }

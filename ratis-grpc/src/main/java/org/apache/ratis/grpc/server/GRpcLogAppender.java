@@ -20,7 +20,7 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.RaftGRpcService;
 import org.apache.ratis.grpc.RaftGrpcUtil;
-import org.apache.ratis.rpc.RpcTimeout;
+import org.apache.ratis.util.TimeoutScheduler;
 import org.apache.ratis.server.impl.FollowerInfo;
 import org.apache.ratis.server.impl.LeaderState;
 import org.apache.ratis.server.impl.LogAppender;
@@ -58,8 +58,7 @@ public class GRpcLogAppender extends LogAppender {
 
   private final AppendLogResponseHandler appendResponseHandler;
   private final InstallSnapshotResponseHandler snapshotResponseHandler;
-  private static RpcTimeout rpcTimeout = new RpcTimeout(
-      TimeDuration.valueOf(3, TimeUnit.SECONDS));
+  private static TimeDuration rpcTimeout = TimeDuration.valueOf(3, TimeUnit.SECONDS);
 
   private volatile StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver;
   private StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver;
@@ -76,7 +75,6 @@ public class GRpcLogAppender extends LogAppender {
 
     appendResponseHandler = new AppendLogResponseHandler();
     snapshotResponseHandler = new InstallSnapshotResponseHandler();
-    rpcTimeout.addUser();
   }
 
   @Override
@@ -162,7 +160,7 @@ public class GRpcLogAppender extends LogAppender {
         server.getId(), null, request);
 
     s.onNext(request);
-    rpcTimeout.onTimeout(() -> timeoutAppendRequest(request),
+    TimeoutScheduler.onTimeout(rpcTimeout, () -> timeoutAppendRequest(request), LOG,
         () -> "Timeout check failed for append entry request: " + request);
     follower.updateLastRpcSendTime();
   }
@@ -326,12 +324,6 @@ public class GRpcLogAppender extends LogAppender {
     if (request.getPreviousLog().getIndex() >= reply.getNextIndex()) {
       clearPendingRequests(reply.getNextIndex());
     }
-  }
-
-  @Override
-  public LogAppender stopSender() {
-    rpcTimeout.removeUser();
-    return super.stopSender();
   }
 
   private class InstallSnapshotResponseHandler
