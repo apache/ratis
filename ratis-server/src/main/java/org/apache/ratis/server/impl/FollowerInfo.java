@@ -18,7 +18,6 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.Timestamp;
 
@@ -48,7 +47,7 @@ public class FollowerInfo {
     this.matchIndex.set(matchIndex);
   }
 
-  long getMatchIndex() {
+  public long getMatchIndex() {
     return matchIndex.get();
   }
 

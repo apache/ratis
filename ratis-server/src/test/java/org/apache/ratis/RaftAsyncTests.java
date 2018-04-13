@@ -305,7 +305,6 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
           LOG.error("Interrupted while unblocking append", e);
         }
       });
-      client.send(new RaftTestUtil.SimpleMessage("abc"));
       replyFuture.get();
       Assert.assertTrue(System.currentTimeMillis() - time > waitTime);
     }

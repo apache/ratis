@@ -641,4 +641,8 @@ public class LeaderState {
         .map(sender -> sender.getFollower().getPeer())
         .collect(Collectors.toList()));
   }
+
+  Stream<LogAppender> getLogAppenders() {
+    return senders.stream();
+  }
 }

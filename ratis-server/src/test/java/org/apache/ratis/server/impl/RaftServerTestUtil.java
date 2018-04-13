@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.stream.Stream;
 
 public class RaftServerTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftServerTestUtil.class);
@@ -88,5 +89,9 @@ public class RaftServerTestUtil {
   public static RaftServerProxy getRaftServerProxy(RaftPeerId id, StateMachine stateMachine,
       RaftGroup group, RaftProperties properties, Parameters parameters) throws IOException {
     return new RaftServerProxy(id, stateMachine, group, properties, parameters);
+  }
+
+  public static Stream<LogAppender> getLogAppenders(RaftServerImpl server) {
+    return server.getLeaderState().getLogAppenders();
   }
 }

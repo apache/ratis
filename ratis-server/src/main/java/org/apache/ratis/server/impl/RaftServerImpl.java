@@ -208,6 +208,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return state;
   }
 
+  LeaderState getLeaderState() {
+    return leaderState;
+  }
+
   public RaftPeerId getId() {
     return getState().getSelfId();
   }

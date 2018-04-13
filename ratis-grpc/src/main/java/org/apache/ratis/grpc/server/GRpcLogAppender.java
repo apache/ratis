@@ -278,7 +278,7 @@ public class GRpcLogAppender extends LogAppender {
     follower.decreaseNextIndex(newNextIndex);
   }
 
-  private void onSuccess(AppendEntriesReplyProto reply) {
+  protected synchronized void onSuccess(AppendEntriesReplyProto reply) {
     AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
     if (request == null) {
       // If reply comes after timeout, the reply is ignored.
@@ -292,19 +292,26 @@ public class GRpcLogAppender extends LogAppender {
         () -> "Got reply with next index " + replyNextIndex
             + " but the pending queue is empty");
 
+    final long lastIndex = replyNextIndex - 1;
+    final boolean updateMatchIndex;
+
     if (request.getEntriesCount() == 0) {
       Preconditions.assertTrue(!request.hasPreviousLog() ||
-              replyNextIndex - 1 == request.getPreviousLog().getIndex(),
+              lastIndex == request.getPreviousLog().getIndex(),
           "reply's next index is %s, request's previous is %s",
           replyNextIndex, request.getPreviousLog());
+      updateMatchIndex = request.hasPreviousLog() && follower.getMatchIndex() < lastIndex;
     } else {
       // check if the reply and the pending request is consistent
       final long lastEntryIndex = request
           .getEntries(request.getEntriesCount() - 1).getIndex();
-      Preconditions.assertTrue(replyNextIndex == lastEntryIndex + 1,
+      Preconditions.assertTrue(lastIndex == lastEntryIndex,
           "reply's next index is %s, request's last entry index is %s",
           replyNextIndex, lastEntryIndex);
-      follower.updateMatchIndex(lastEntryIndex);
+      updateMatchIndex = true;
+    }
+    if (updateMatchIndex) {
+      follower.updateMatchIndex(lastIndex);
       submitEventOnSuccessAppend();
     }
   }
