@@ -17,7 +17,10 @@
  */
 package org.apache.ratis.grpc.client;
 
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.TimeoutScheduler;
@@ -56,7 +59,7 @@ public class RaftClientProtocolClient implements Closeable {
   private final Supplier<String> name;
   private final RaftPeer target;
   private final ManagedChannel channel;
-  private TimeDuration timeout = TimeDuration.valueOf(3, TimeUnit.SECONDS);
+  private final TimeDuration requestTimeoutDuration;
   private final RaftClientProtocolServiceBlockingStub blockingStub;
   private final RaftClientProtocolServiceStub asyncStub;
   private final AdminProtocolServiceBlockingStub adminBlockingStub;
@@ -64,9 +67,11 @@ public class RaftClientProtocolClient implements Closeable {
   private final AtomicReference<AsyncStreamObservers> appendStreamObservers = new AtomicReference<>();
 
   public RaftClientProtocolClient(ClientId id, RaftPeer target,
-      SizeInBytes flowControlWindow, SizeInBytes maxMessageSize) {
+      RaftProperties properties) {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
+    SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties);
+    SizeInBytes maxMessageSize = GrpcConfigKeys.messageSizeMax(properties);
     channel = NettyChannelBuilder.forTarget(target.getAddress())
         .usePlaintext(true).flowControlWindow(flowControlWindow.getSizeInt())
         .maxMessageSize(maxMessageSize.getSizeInt())
@@ -74,6 +79,7 @@ public class RaftClientProtocolClient implements Closeable {
     blockingStub = RaftClientProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftClientProtocolServiceGrpc.newStub(channel);
     adminBlockingStub = AdminProtocolServiceGrpc.newBlockingStub(channel);
+    this.requestTimeoutDuration = RaftClientConfigKeys.Rpc.requestTimeout(properties);
   }
 
   String getName() {
@@ -91,20 +97,23 @@ public class RaftClientProtocolClient implements Closeable {
 
   RaftClientReplyProto reinitialize(
       ReinitializeRequestProto request) throws IOException {
-    TimeUnit unit = timeout.getUnit();
-    return blockingCall(() -> adminBlockingStub.withDeadlineAfter(timeout.toInt(unit), unit).reinitialize(request));
+    return blockingCall(() -> adminBlockingStub
+        .withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+        .reinitialize(request));
   }
 
   ServerInformationReplyProto serverInformation(
       ServerInformationRequestProto request) throws IOException {
-    TimeUnit unit = timeout.getUnit();
-    return adminBlockingStub.withDeadlineAfter(timeout.toInt(unit), unit).serverInformation(request);
+    return adminBlockingStub
+        .withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+        .serverInformation(request);
   }
 
   RaftClientReplyProto setConfiguration(
       SetConfigurationRequestProto request) throws IOException {
-    TimeUnit unit = timeout.getUnit();
-    return blockingCall(() -> blockingStub.withDeadlineAfter(timeout.toInt(unit), unit).setConfiguration(request));
+    return blockingCall(() -> blockingStub
+        .withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+        .setConfiguration(request));
   }
 
   private static RaftClientReplyProto blockingCall(
@@ -124,8 +133,8 @@ public class RaftClientProtocolClient implements Closeable {
 
   StreamObserver<RaftClientRequestProto> appendWithTimeout(
       StreamObserver<RaftClientReplyProto> responseHandler) {
-    TimeUnit unit = timeout.getUnit();
-    return asyncStub.withDeadlineAfter(timeout.toInt(unit), unit).append(responseHandler);
+    return asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+        .append(responseHandler);
   }
 
   AsyncStreamObservers getAppendStreamObservers() {
@@ -179,7 +188,7 @@ public class RaftClientProtocolClient implements Closeable {
           () -> getName() + ":" + getClass().getSimpleName());
       try {
         requestStreamObserver.onNext(ClientProtoUtils.toRaftClientRequestProto(request));
-        TimeoutScheduler.onTimeout(timeout, () -> timeoutCheck(request), LOG,
+        TimeoutScheduler.onTimeout(requestTimeoutDuration, () -> timeoutCheck(request), LOG,
             () -> "Timeout check failed for client request: " + request);
       } catch(Throwable t) {
         handleReplyFuture(request.getCallId(), future -> future.completeExceptionally(t));
@@ -189,7 +198,7 @@ public class RaftClientProtocolClient implements Closeable {
 
     private void timeoutCheck(RaftClientRequest request) {
       handleReplyFuture(request.getCallId(), f -> f.completeExceptionally(
-          new IOException("Request timeout " + timeout + ": " + request)));
+          new IOException("Request timeout " + requestTimeoutDuration + ": " + request)));
     }
 
     private void handleReplyFuture(long callId, Consumer<CompletableFuture<RaftClientReply>> handler) {

@@ -30,12 +30,21 @@ public interface RaftClientConfigKeys {
   interface Rpc {
     String PREFIX = RaftClientConfigKeys.PREFIX + ".rpc";
 
-    String TIMEOUT_KEY = PREFIX + ".timeout";
-    TimeDuration TIMEOUT_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
+    String RETRY_INTERVAL_KEY = PREFIX + ".retryInterval";
+    TimeDuration RETRY_INTERVAL_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
+    static TimeDuration retryInterval(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(RETRY_INTERVAL_DEFAULT.getUnit()),
+          RETRY_INTERVAL_KEY, RETRY_INTERVAL_DEFAULT);
+    }
 
-    static TimeDuration timeout(RaftProperties properties) {
-      return getTimeDuration(properties.getTimeDuration(TIMEOUT_DEFAULT.getUnit()),
-          TIMEOUT_KEY, TIMEOUT_DEFAULT);
+    String REQUEST_TIMEOUT_KEY = PREFIX + ".request.timeout";
+    TimeDuration REQUEST_TIMEOUT_DEFAULT = TimeDuration.valueOf(3000, TimeUnit.MILLISECONDS);
+    static TimeDuration requestTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(REQUEST_TIMEOUT_DEFAULT.getUnit()),
+          REQUEST_TIMEOUT_KEY, REQUEST_TIMEOUT_DEFAULT);
+    }
+    static void setRequestTimeout(RaftProperties properties, TimeDuration timeoutDuration) {
+      setTimeDuration(properties::setTimeDuration, REQUEST_TIMEOUT_KEY, timeoutDuration);
     }
   }
 
@@ -44,24 +53,20 @@ public interface RaftClientConfigKeys {
 
     String MAX_OUTSTANDING_REQUESTS_KEY = PREFIX + ".outstanding-requests.max";
     int MAX_OUTSTANDING_REQUESTS_DEFAULT = 100;
-
     static int maxOutstandingRequests(RaftProperties properties) {
       return getInt(properties::getInt, MAX_OUTSTANDING_REQUESTS_KEY,
           MAX_OUTSTANDING_REQUESTS_DEFAULT, requireMin(2));
     }
-
     static void setMaxOutstandingRequests(RaftProperties properties, int outstandingRequests) {
       setInt(properties::setInt, MAX_OUTSTANDING_REQUESTS_KEY, outstandingRequests);
     }
 
     String SCHEDULER_THREADS_KEY = PREFIX + ".scheduler-threads";
     int SCHEDULER_THREADS_DEFAULT = 3;
-
     static int schedulerThreads(RaftProperties properties) {
       return getInt(properties::getInt, SCHEDULER_THREADS_KEY,
           SCHEDULER_THREADS_DEFAULT, requireMin(1));
     }
-
     static void setSchedulerThreads(RaftProperties properties, int schedulerThreads) {
       setInt(properties::setInt, SCHEDULER_THREADS_KEY, schedulerThreads);
     }

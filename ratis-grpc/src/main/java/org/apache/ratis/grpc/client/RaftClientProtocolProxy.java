@@ -17,12 +17,12 @@
  */
 package org.apache.ratis.grpc.client;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.util.SizeInBytes;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -33,11 +33,10 @@ public class RaftClientProtocolProxy implements Closeable {
   private final Function<RaftPeer, CloseableStreamObserver> responseHandlerCreation;
   private RpcSession currentSession;
 
-  public RaftClientProtocolProxy(
-      ClientId clientId, RaftPeer target,
+  public RaftClientProtocolProxy(ClientId clientId, RaftPeer target,
       Function<RaftPeer, CloseableStreamObserver> responseHandlerCreation,
-      SizeInBytes flowControlWindow, SizeInBytes maxMessageSize) {
-    proxy = new RaftClientProtocolClient(clientId, target, flowControlWindow, maxMessageSize);
+      RaftProperties properties) {
+    proxy = new RaftClientProtocolClient(clientId, target, properties);
     this.responseHandlerCreation = responseHandlerCreation;
   }
 

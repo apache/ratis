@@ -108,7 +108,7 @@ final class RaftClientImpl implements RaftClient {
     this.groupId = group.getGroupId();
     this.leaderId = leaderId != null? leaderId
         : !peers.isEmpty()? peers.iterator().next().getId(): null;
-    this.retryInterval = RaftClientConfigKeys.Rpc.timeout(properties);
+    this.retryInterval = RaftClientConfigKeys.Rpc.retryInterval(properties);
 
     asyncRequestSemaphore = new Semaphore(RaftClientConfigKeys.Async.maxOutstandingRequests(properties));
     scheduler = Executors.newScheduledThreadPool(RaftClientConfigKeys.Async.schedulerThreads(properties));

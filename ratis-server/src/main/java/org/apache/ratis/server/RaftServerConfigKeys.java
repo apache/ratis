@@ -204,6 +204,16 @@ public interface RaftServerConfigKeys {
       setTimeDuration(properties::setTimeDuration, TIMEOUT_MAX_KEY, maxDuration);
     }
 
+    String REQUEST_TIMEOUT_KEY = PREFIX + ".request.timeout";
+    TimeDuration REQUEST_TIMEOUT_DEFAULT = TimeDuration.valueOf(3000, TimeUnit.MILLISECONDS);
+    static TimeDuration requestTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(REQUEST_TIMEOUT_DEFAULT.getUnit()),
+          REQUEST_TIMEOUT_KEY, REQUEST_TIMEOUT_DEFAULT);
+    }
+    static void setRequestTimeout(RaftProperties properties, TimeDuration timeoutDuration) {
+      setTimeDuration(properties::setTimeDuration, REQUEST_TIMEOUT_KEY, timeoutDuration);
+    }
+
     String SLEEP_TIME_KEY = PREFIX + ".sleep.time";
     TimeDuration SLEEP_TIME_DEFAULT = TimeDuration.valueOf(25, TimeUnit.MILLISECONDS);
     static TimeDuration sleepTime(RaftProperties properties) {

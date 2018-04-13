@@ -34,6 +34,7 @@ import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,6 +76,7 @@ public class RaftGRpcService implements RaftServerRpc {
       Collections.synchronizedMap(new HashMap<>());
   private final Supplier<RaftPeerId> idSupplier;
   private final int flowControlWindow;
+  private final TimeDuration requestTimeoutDuration;
 
   private RaftGRpcService(RaftServer server) {
     this(server,
@@ -82,17 +84,19 @@ public class RaftGRpcService implements RaftServerRpc {
         GrpcConfigKeys.messageSizeMax(server.getProperties()).getSizeInt(),
         GrpcConfigKeys.messageSizeMax(server.getProperties()),
         RaftServerConfigKeys.Log.Appender.bufferCapacity(server.getProperties()),
-        GrpcConfigKeys.flowControlWindow(server.getProperties()));
+        GrpcConfigKeys.flowControlWindow(server.getProperties()),
+        RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()));
   }
   private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
-      SizeInBytes flowControlWindowSize) {
+      SizeInBytes flowControlWindowSize, TimeDuration requestTimeoutDuration) {
     if (appenderBufferSize.getSize() > grpcMessageSizeMax.getSize()) {
       throw new IllegalArgumentException("Illegal configuration: "
           + RaftServerConfigKeys.Log.Appender.BUFFER_CAPACITY_KEY + " = " + appenderBufferSize
           + " > " + GrpcConfigKeys.MESSAGE_SIZE_MAX_KEY + " = " + grpcMessageSizeMax);
     }
     this.flowControlWindow = flowControlWindowSize.getSizeInt();
+    this.requestTimeoutDuration = requestTimeoutDuration;
 
     ServerBuilder serverBuilder = ServerBuilder.forPort(port);
     idSupplier = raftServer::getId;
@@ -178,7 +182,7 @@ public class RaftGRpcService implements RaftServerRpc {
   public void addPeers(Iterable<RaftPeer> newPeers) {
     for (RaftPeer p : newPeers) {
       if (!peers.containsKey(p.getId())) {
-        peers.put(p.getId(), new RaftServerProtocolClient(p, flowControlWindow));
+        peers.put(p.getId(), new RaftServerProtocolClient(p, flowControlWindow, requestTimeoutDuration));
       }
     }
   }

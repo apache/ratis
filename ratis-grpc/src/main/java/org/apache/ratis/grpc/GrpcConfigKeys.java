@@ -75,7 +75,7 @@ public interface GrpcConfigKeys {
     }
 
     String RETRY_INTERVAL_KEY = PREFIX + ".retry.interval";
-    TimeDuration RETRY_INTERVAL_DEFAULT = RaftClientConfigKeys.Rpc.TIMEOUT_DEFAULT;
+    TimeDuration RETRY_INTERVAL_DEFAULT = RaftClientConfigKeys.Rpc.RETRY_INTERVAL_DEFAULT;
     static TimeDuration retryInterval(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(RETRY_INTERVAL_DEFAULT.getUnit()),
           RETRY_INTERVAL_KEY, RETRY_INTERVAL_DEFAULT);
