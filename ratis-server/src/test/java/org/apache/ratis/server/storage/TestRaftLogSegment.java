@@ -37,6 +37,8 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -319,5 +321,24 @@ public class TestRaftLogSegment extends BaseTest {
     }
 
     Assert.assertEquals(totalSize, file.length());
+  }
+
+  @Test
+  public void testZeroSizeInProgressFile() throws Exception {
+    final RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    final File file = storage.getStorageDir().getOpenLogFile(0);
+    storage.close();
+
+    // create zero size in-progress file
+    LOG.info("file: " + file);
+    Assert.assertTrue(file.createNewFile());
+    final Path path = file.toPath();
+    Assert.assertTrue(Files.exists(path));
+    Assert.assertEquals(0, Files.size(path));
+
+    // getLogSegmentFiles should remove it.
+    final List<RaftStorageDirectory.LogPathAndIndex> logs = storage.getStorageDir().getLogSegmentFiles();
+    Assert.assertEquals(0, logs.size());
+    Assert.assertFalse(Files.exists(path));
   }
 }

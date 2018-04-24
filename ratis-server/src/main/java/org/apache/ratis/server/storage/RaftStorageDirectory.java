@@ -52,8 +52,6 @@ public class RaftStorageDirectory {
   static final Pattern CLOSED_SEGMENT_REGEX = Pattern.compile("log_(\\d+)-(\\d+)");
   static final Pattern OPEN_SEGMENT_REGEX = Pattern.compile("log_inprogress_(\\d+)(?:\\..*)?");
 
-  private static final List<Pattern> LOGSEGMENTS_REGEXES =
-      Arrays.asList(CLOSED_SEGMENT_REGEX, OPEN_SEGMENT_REGEX);
 
   enum StorageState {
     NON_EXISTENT,
@@ -182,13 +180,19 @@ public class RaftStorageDirectory {
     try (DirectoryStream<Path> stream =
              Files.newDirectoryStream(getCurrentDir().toPath())) {
       for (Path path : stream) {
-        for (Pattern pattern : LOGSEGMENTS_REGEXES) {
+        for (Pattern pattern : Arrays.asList(CLOSED_SEGMENT_REGEX, OPEN_SEGMENT_REGEX)) {
           Matcher matcher = pattern.matcher(path.getFileName().toString());
           if (matcher.matches()) {
+            if (pattern == OPEN_SEGMENT_REGEX && Files.size(path) == 0L) {
+              Files.delete(path);
+              LOG.info("Delete zero size file " + path);
+              break;
+            }
             final long startIndex = Long.parseLong(matcher.group(1));
             final long endIndex = matcher.groupCount() == 2 ?
                 Long.parseLong(matcher.group(2)) : INVALID_LOG_INDEX;
             list.add(new LogPathAndIndex(path, startIndex, endIndex));
+            break;
           }
         }
       }

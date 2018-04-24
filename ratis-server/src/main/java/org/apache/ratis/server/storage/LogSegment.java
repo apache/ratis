@@ -138,7 +138,10 @@ class LogSegment implements Comparable<Long> {
       FileUtils.truncateFile(file, segment.getTotalSize());
     }
 
-    Preconditions.assertTrue(start == segment.records.get(0).getTermIndex().getIndex());
+    Preconditions.assertTrue(start == segment.getStartIndex());
+    if (!segment.records.isEmpty()) {
+      Preconditions.assertTrue(start == segment.records.get(0).getTermIndex().getIndex());
+    }
     if (!isOpen) {
       Preconditions.assertTrue(segment.getEndIndex() == end);
     }
