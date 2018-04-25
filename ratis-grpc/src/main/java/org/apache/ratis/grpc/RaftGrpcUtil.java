@@ -18,15 +18,18 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.ServerNotReadyException;
 import org.apache.ratis.shaded.io.grpc.Metadata;
 import org.apache.ratis.shaded.io.grpc.Status;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.util.*;
+import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public interface RaftGrpcUtil {
   Metadata.Key<String> EXCEPTION_TYPE_KEY =
@@ -52,12 +55,20 @@ public interface RaftGrpcUtil {
 
   static Throwable unwrapThrowable(Throwable t) {
     if (t instanceof StatusRuntimeException) {
-      return unwrapException((StatusRuntimeException)t);
+      final IOException ioe = tryUnwrapException((StatusRuntimeException)t);
+      if (ioe != null) {
+        return ioe;
+      }
     }
     return t;
   }
 
   static IOException unwrapException(StatusRuntimeException se) {
+    final IOException ioe = tryUnwrapException(se);
+    return ioe != null? ioe: new IOException(se);
+  }
+
+  static IOException tryUnwrapException(StatusRuntimeException se) {
     final Metadata trailers = se.getTrailers();
     final Status status = se.getStatus();
     if (trailers != null && status != null) {
@@ -69,11 +80,12 @@ public interface RaftGrpcUtil {
               clazz.asSubclass(Exception.class), status.getDescription(), se);
           return IOUtils.asIOException(unwrapped);
         } catch (Exception e) {
+          se.addSuppressed(e);
           return new IOException(se);
         }
       }
     }
-    return new IOException(se);
+    return null;
   }
 
   static long getCallId(Throwable t) {
@@ -111,5 +123,9 @@ public interface RaftGrpcUtil {
     } catch (Exception e) {
       responseObserver.onError(RaftGrpcUtil.wrapException(e));
     }
+  }
+
+  static void warn(Logger log, Supplier<String> message, Throwable t) {
+    LogUtils.warn(log, message, unwrapThrowable(t), StatusRuntimeException.class, ServerNotReadyException.class);
   }
 }

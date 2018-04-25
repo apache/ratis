@@ -162,7 +162,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     @Override
     public void onError(Throwable t) {
       // for now we just log a msg
-      LOG.warn(name + ": onError", t);
+      RaftGrpcUtil.warn(LOG, () -> name + ": onError", t);
       slidingWindow.close();
     }
 
@@ -184,7 +184,9 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     void responseError(Throwable t, Supplier<String> message) {
       if (isClosed.compareAndSet(false, true)) {
         t = JavaUtils.unwrapCompletionException(t);
-        LOG.debug(name + ": Failed " + message.get(), t);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug(name + ": Failed " + message.get(), t);
+        }
         responseObserver.onError(RaftGrpcUtil.wrapException(t));
         slidingWindow.close();
       }

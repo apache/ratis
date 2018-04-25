@@ -238,10 +238,7 @@ public class GRpcLogAppender extends LogAppender {
         LOG.info("{} is stopped", GRpcLogAppender.this);
         return;
       }
-      if (LOG.isWarnEnabled()) {
-        LOG.warn("{} got error when appending entries to {}, exception: {}.",
-            server.getId(), follower.getPeer().getId(), RaftGrpcUtil.unwrapThrowable(t));
-      }
+      RaftGrpcUtil.warn(LOG, () -> server.getId() + ": Failed appendEntries to " + follower.getPeer().getId(), t);
 
       long callId = RaftGrpcUtil.getCallId(t);
       synchronized (this) {

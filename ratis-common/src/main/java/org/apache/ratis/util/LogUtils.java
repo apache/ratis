@@ -127,4 +127,15 @@ public interface LogUtils {
       }
     };
   }
+
+  static void warn(Logger log, Supplier<String> message, Throwable t, Class<?>... exceptionClasses) {
+    if (log.isWarnEnabled()) {
+      if (ReflectionUtils.isInstance(t, exceptionClasses)) {
+        // do not print stack trace for known exceptions.
+        log.warn(message.get() + ": " + t);
+      } else {
+        log.warn(message.get(), t);
+      }
+    }
+  }
 }

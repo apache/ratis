@@ -55,8 +55,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
     } catch (Throwable e) {
-      LOG.info("{} got exception when handling requestVote {}: {}",
-          getId(), request.getServerRequest(), e);
+      RaftGrpcUtil.warn(LOG, () -> getId() + ": Failed requestVote " + ProtoUtils.toString(request.getServerRequest()), e);
       responseObserver.onError(RaftGrpcUtil.wrapException(e));
     }
   }
@@ -83,10 +82,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
             return null;
           });
         } catch (Throwable e) {
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("{} got exception when appendEntries {}: {}",
-                getId(), ProtoUtils.toString(request.getServerRequest()), e);
-          }
+          RaftGrpcUtil.warn(LOG, () -> getId() + ": Failed appendEntries " + ProtoUtils.toString(request.getServerRequest()), e);
           responseObserver.onError(RaftGrpcUtil.wrapException(e, request.getServerRequest().getCallId()));
           current.completeExceptionally(e);
         }
@@ -95,7 +91,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       @Override
       public void onError(Throwable t) {
         // for now we just log a msg
-        LOG.info("{}: appendEntries on error. Exception: {}", getId(), t);
+        RaftGrpcUtil.warn(LOG, () -> getId() + ": appendEntries onError", t);
       }
 
       @Override
@@ -118,15 +114,14 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
           final InstallSnapshotReplyProto reply = server.installSnapshot(request);
           responseObserver.onNext(reply);
         } catch (Throwable e) {
-          LOG.info("{} got exception when handling installSnapshot {}: {}",
-              getId(), request.getServerRequest(), e);
+          RaftGrpcUtil.warn(LOG, () -> getId() + ": Failed installSnapshot " + ProtoUtils.toString(request.getServerRequest()), e);
           responseObserver.onError(RaftGrpcUtil.wrapException(e));
         }
       }
 
       @Override
       public void onError(Throwable t) {
-        LOG.info("{}: installSnapshot on error. Exception: {}", getId(), t);
+        RaftGrpcUtil.warn(LOG, () -> getId() + ": installSnapshot onError", t);
       }
 
       @Override
