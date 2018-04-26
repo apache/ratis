@@ -108,7 +108,7 @@ public abstract class ParameterizedBaseTest extends BaseTest {
       add(clusters, MiniRaftClusterWithNetty.FACTORY, ids.next(), prop);
     }
     if (isAll || classes.contains(MiniRaftClusterWithHadoopRpc.class)) {
-      add(clusters, MiniRaftClusterWithHadoopRpc.FACTORY, ids.next(), prop);
+//      add(clusters, MiniRaftClusterWithHadoopRpc.FACTORY, ids.next(), prop);
     }
     for(int i = 0; i < clusters.size(); i++) {
       LOG.info(i + ": " + clusters.get(i)[0].getClass().getSimpleName());

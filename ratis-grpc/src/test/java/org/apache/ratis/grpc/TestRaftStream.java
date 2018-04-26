@@ -33,6 +33,7 @@ import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -47,6 +48,7 @@ import java.util.function.Supplier;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.junit.Assert.fail;
 
+@Ignore
 public class TestRaftStream extends BaseTest {
   static {
     LogUtils.setLogLevel(AppendStreamer.LOG, Level.ALL);
