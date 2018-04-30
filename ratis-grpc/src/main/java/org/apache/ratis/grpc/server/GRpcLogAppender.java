@@ -21,28 +21,20 @@ import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.RaftGRpcService;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.util.TimeoutScheduler;
 import org.apache.ratis.server.impl.FollowerInfo;
 import org.apache.ratis.server.impl.LeaderState;
 import org.apache.ratis.server.impl.LogAppender;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.storage.RaftLogIOException;
-import org.apache.ratis.shaded.io.grpc.Status;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
-import org.apache.ratis.util.CodeInjectionForTesting;
-import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.*;
 
-import java.util.LinkedList;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Queue;
-import java.util.UUID;
+import java.io.IOException;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -50,107 +42,126 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * A new log appender implementation using grpc bi-directional stream API.
  */
 public class GRpcLogAppender extends LogAppender {
-  private final RaftServerProtocolClient client;
+  private final RaftGRpcService rpcService;
   private final Map<Long, AppendEntriesRequestProto> pendingRequests;
   private final int maxPendingRequestsNum;
   private long callId = 0;
   private volatile boolean firstResponseReceived = false;
 
-  private final AppendLogResponseHandler appendResponseHandler;
-  private final InstallSnapshotResponseHandler snapshotResponseHandler;
   private static TimeDuration requestTimeoutDuration;
 
   private volatile StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver;
-  private StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver;
 
   public GRpcLogAppender(RaftServerImpl server, LeaderState leaderState,
                          FollowerInfo f) {
     super(server, leaderState, f);
 
-    RaftGRpcService rpcService = (RaftGRpcService) server.getServerRpc();
-    client = rpcService.getRpcClient(f.getPeer());
+    this.rpcService = (RaftGRpcService) server.getServerRpc();
+
     maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(
         server.getProxy().getProperties());
     requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(server.getProxy().getProperties());
     pendingRequests = new ConcurrentHashMap<>();
+  }
 
-    appendResponseHandler = new AppendLogResponseHandler();
-    snapshotResponseHandler = new InstallSnapshotResponseHandler();
+  private RaftServerProtocolClient getClient() throws IOException {
+    return rpcService.getProxies().getProxy(follower.getPeer().getId());
+  }
+
+  private synchronized void resetClient(AppendEntriesRequestProto request) {
+    rpcService.getProxies().resetProxy(follower.getPeer().getId());
+    appendLogRequestObserver = null;
+    firstResponseReceived = false;
+
+    // clear the pending requests queue and reset the next index of follower
+    final long nextIndex = request != null && request.hasPreviousLog()?
+        request.getPreviousLog().getIndex() + 1: raftLog.getStartIndex();
+    clearPendingRequests(nextIndex);
   }
 
   @Override
   public void run() {
-    while (isAppenderRunning()) {
+    for(; isAppenderRunning(); mayWait()) {
       if (shouldSendRequest()) {
         SnapshotInfo snapshot = shouldInstallSnapshot();
         if (snapshot != null) {
-          installSnapshot(snapshot, snapshotResponseHandler);
-        } else {
+          installSnapshot(snapshot);
+        } else if (!shouldWait()) {
           // keep appending log entries or sending heartbeats
           try {
             appendLog();
-          } catch (RaftLogIOException e) {
+          } catch (IOException e) {
             LOG.error(this + " hit IOException while loading raft log", e);
             stopSender();
-          }
-        }
-      }
-
-      if (isAppenderRunning() && !shouldSendRequest()) {
-        // use lastSend time instead of lastResponse time
-        final long waitTime = getHeartbeatRemainingTime(
-            follower.getLastRpcTime());
-        if (waitTime > 0) {
-          synchronized (this) {
-            try {
-              LOG.debug("{} decides to wait {}ms before appending to {}",
-                  server.getId(), waitTime, follower.getPeer());
-              wait(waitTime);
-            } catch (InterruptedException ignored) {
-            }
+            return;
           }
         }
       }
     }
-    appendLogRequestObserver.onCompleted();
+
+    Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObserver::onCompleted);
   }
 
+  private long getWaitTimeMs() {
+    if (!shouldSendRequest()) {
+      return getHeartbeatRemainingTime(); // No requests, wait until heartbeat
+    } else if (shouldWait()) {
+      return halfMinTimeoutMs; // Should wait for a short time
+    }
+    return 0L;
+  }
+
+  private void mayWait() {
+    // use lastSend time instead of lastResponse time
+    final long waitTimeMs = getWaitTimeMs();
+    if (waitTimeMs <= 0L) {
+      return;
+    }
+
+    synchronized(this) {
+      try {
+        LOG.trace("{}: wait {}ms", this, waitTimeMs);
+        wait(waitTimeMs);
+      } catch(InterruptedException ie) {
+        LOG.warn("Wait interrupted", ie);
+      }
+    }
+  }
+
+  @Override
+  protected boolean shouldSendRequest() {
+    return appendLogRequestObserver == null || super.shouldSendRequest();
+  }
+
+  /** @return true iff not received first response or queue is full. */
   private boolean shouldWait() {
-    return pendingRequests.size() >= maxPendingRequestsNum ||
-        shouldWaitForFirstResponse();
+    final int size = pendingRequests.size();
+    if (size == 0) {
+      return false;
+    }
+    return !firstResponseReceived || size >= maxPendingRequestsNum;
   }
 
-  private void appendLog() throws RaftLogIOException {
-    if (appendLogRequestObserver == null) {
-      appendLogRequestObserver = client.appendEntries(appendResponseHandler);
-    }
-    AppendEntriesRequestProto pending = null;
+  private void appendLog() throws IOException {
+    final AppendEntriesRequestProto pending;
     final StreamObserver<AppendEntriesRequestProto> s;
     synchronized (this) {
-      // if the queue's size >= maxSize, wait
-      while (isAppenderRunning() && shouldWait()) {
-        try {
-          LOG.debug("{} wait to send the next AppendEntries to {}",
-              server.getId(), follower.getPeer());
-          this.wait();
-        } catch (InterruptedException ignored) {
-        }
+      // prepare and enqueue the append request. note changes on follower's
+      // nextIndex and ops on pendingRequests should always be associated
+      // together and protected by the lock
+      pending = createRequest(callId++);
+      if (pending == null) {
+        return;
       }
-
-      if (isAppenderRunning()) {
-        // prepare and enqueue the append request. note changes on follower's
-        // nextIndex and ops on pendingRequests should always be associated
-        // together and protected by the lock
-        pending = createRequest(callId++);
-        if (pending != null) {
-          pendingRequests.put(pending.getServerRequest().getCallId(), pending);
-          updateNextIndex(pending);
-        }
+      pendingRequests.put(pending.getServerRequest().getCallId(), pending);
+      updateNextIndex(pending);
+      if (appendLogRequestObserver == null) {
+        appendLogRequestObserver = getClient().appendEntries(new AppendLogResponseHandler());
       }
       s = appendLogRequestObserver;
     }
 
-    if (pending != null && isAppenderRunning()) {
+    if (isAppenderRunning()) {
       sendRequest(pending, s);
     }
   }
@@ -169,7 +180,8 @@ public class GRpcLogAppender extends LogAppender {
   private void timeoutAppendRequest(AppendEntriesRequestProto request) {
     AppendEntriesRequestProto pendingRequest = pendingRequests.remove(request.getServerRequest().getCallId());
     if (pendingRequest != null) {
-      LOG.info("Timeout executed for append entry request: " + pendingRequest);
+      final String err = this + ": appendEntries Timeout, request=" + ProtoUtils.toString(pendingRequest.getServerRequest());
+      LOG.warn(err);
     }
   }
 
@@ -178,14 +190,6 @@ public class GRpcLogAppender extends LogAppender {
     if (count > 0) {
       follower.updateNextIndex(request.getEntries(count - 1).getIndex() + 1);
     }
-  }
-
-  /**
-   * if this is the first append, wait for the response of the first append so
-   * that we can get the correct next index.
-   */
-  private boolean shouldWaitForFirstResponse() {
-    return pendingRequests.size() > 0 && !firstResponseReceived;
   }
 
   /**
@@ -241,26 +245,7 @@ public class GRpcLogAppender extends LogAppender {
       RaftGrpcUtil.warn(LOG, () -> server.getId() + ": Failed appendEntries to " + follower.getPeer().getId(), t);
 
       long callId = RaftGrpcUtil.getCallId(t);
-      synchronized (this) {
-        final Status cause = Status.fromThrowable(t);
-        if (cause != null && cause.getCode() == Status.Code.INTERNAL) {
-          // TODO check other Status. Add sleep to avoid tight loop
-          LOG.debug("{} restarts Append call to {} due to error {}",
-              server.getId(), follower.getPeer(), t);
-          // recreate the StreamObserver
-          appendLogRequestObserver = client.appendEntries(appendResponseHandler);
-          // reset firstResponseReceived to false
-          firstResponseReceived = false;
-        }
-
-        // clear the pending requests queue and reset the next index of follower
-        AppendEntriesRequestProto request = pendingRequests.get(callId);
-        if (request != null) {
-          final long nextIndex = request.hasPreviousLog() ?
-              request.getPreviousLog().getIndex() + 1 : raftLog.getStartIndex();
-          clearPendingRequests(nextIndex);
-        }
-      }
+      resetClient(pendingRequests.get(callId));
     }
 
     @Override
@@ -395,6 +380,7 @@ public class GRpcLogAppender extends LogAppender {
       }
       LOG.info("{} got error when installing snapshot to {}, exception: {}",
           server.getId(), follower.getPeer(), t);
+      resetClient(null);
       close();
     }
 
@@ -406,16 +392,17 @@ public class GRpcLogAppender extends LogAppender {
     }
   }
 
-  private void installSnapshot(SnapshotInfo snapshot,
-      InstallSnapshotResponseHandler responseHandler) {
+  private void installSnapshot(SnapshotInfo snapshot) {
     LOG.info("{}: follower {}'s next index is {}," +
             " log's start index is {}, need to install snapshot",
         server.getId(), follower.getPeer(), follower.getNextIndex(),
         raftLog.getStartIndex());
 
-    snapshotRequestObserver = client.installSnapshot(snapshotResponseHandler);
+    final InstallSnapshotResponseHandler responseHandler = new InstallSnapshotResponseHandler();
+    StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver = null;
     final String requestId = UUID.randomUUID().toString();
     try {
+      snapshotRequestObserver = getClient().installSnapshot(responseHandler);
       for (InstallSnapshotRequestProto request :
           new SnapshotRequestIter(snapshot, requestId)) {
         if (isAppenderRunning()) {
@@ -430,10 +417,10 @@ public class GRpcLogAppender extends LogAppender {
     } catch (Exception e) {
       LOG.warn("{} failed to install snapshot {}. Exception: {}", this,
           snapshot.getFiles(), e);
-      snapshotRequestObserver.onError(e);
+      if (snapshotRequestObserver != null) {
+        snapshotRequestObserver.onError(e);
+      }
       return;
-    } finally {
-      snapshotRequestObserver = null;
     }
 
     synchronized (this) {

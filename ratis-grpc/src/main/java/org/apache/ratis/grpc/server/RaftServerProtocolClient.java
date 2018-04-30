@@ -27,11 +27,13 @@ import org.apache.ratis.shaded.proto.grpc.RaftServerProtocolServiceGrpc.RaftServ
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.util.TimeDuration;
 
+import java.io.Closeable;
+
 /**
  * This is a RaftClient implementation that supports streaming data to the raft
  * ring. The stream implementation utilizes gRPC.
  */
-public class RaftServerProtocolClient {
+public class RaftServerProtocolClient implements Closeable {
   private final ManagedChannel channel;
   private final TimeDuration requestTimeoutDuration;
   private final RaftServerProtocolServiceBlockingStub blockingStub;
@@ -47,7 +49,8 @@ public class RaftServerProtocolClient {
     this.requestTimeoutDuration = requestTimeoutDuration;
   }
 
-  public void shutdown() {
+  @Override
+  public void close() {
     channel.shutdownNow();
   }
 

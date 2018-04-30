@@ -272,7 +272,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       // start the two new peers
       LOG.info("Start new peers");
       for (RaftPeer np : c1.newPeers) {
-        cluster.startServer(np.getId());
+        cluster.restartServer(np.getId(), false);
       }
       Assert.assertTrue(client.setConfiguration(c1.allPeersInNewConf).isSuccess());
       client.close();
@@ -380,7 +380,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster, true);
       LOG.info("start the two new peers: {}", Arrays.asList(c1.newPeers));
       for (RaftPeer np : c1.newPeers) {
-        cluster.startServer(np.getId());
+        cluster.restartServer(np.getId(), false);
       }
 
       Thread.sleep(3000);
@@ -585,15 +585,15 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
   public void testLeaderNotReadyException() throws Exception {
     LOG.info("Start testLeaderNotReadyException");
     final MiniRaftCluster cluster = getCluster(1).initServers();
-    final RaftPeerId leaderId = cluster.getPeers().iterator().next().getId();
     try {
       // delay 1s for each logSync call
-      cluster.getPeers().forEach(
+      cluster.getServers().forEach(
           peer -> leaderPlaceHolderDelay.setDelayMs(peer.getId().toString(), 2000));
       cluster.start();
 
       AtomicBoolean caughtNotReady = new AtomicBoolean(false);
       AtomicBoolean success = new AtomicBoolean(false);
+      final RaftPeerId leaderId = cluster.getPeers().iterator().next().getId();
       new Thread(() -> {
         final RaftClient client = cluster.createClient(leaderId);
         final RaftClientRpc sender = client.getClientRpc();

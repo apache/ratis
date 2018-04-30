@@ -64,17 +64,6 @@ public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
   }
 
   @Override
-  protected void startServer(RaftServer server, boolean startService) {
-    final String id = server.getId().toString();
-    if (startService) {
-      server.start();
-      BlockRequestHandlingInjection.getInstance().unblockReplier(id);
-    } else {
-      BlockRequestHandlingInjection.getInstance().blockReplier(id);
-    }
-  }
-
-  @Override
   protected void blockQueueAndSetDelay(String leaderId, int delayMs)
       throws InterruptedException {
     RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequestInjection,

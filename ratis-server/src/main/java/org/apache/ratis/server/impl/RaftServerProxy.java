@@ -62,12 +62,14 @@ public class RaftServerProxy implements RaftServer {
 
     this.serverRpc = factory.newRaftServerRpc(this);
     this.id = id != null? id: RaftPeerId.valueOf(getIdStringFrom(serverRpc));
+
     try {
       this.impl = CompletableFuture.completedFuture(initImpl(group));
     } catch (IOException ioe) {
       try {
         serverRpc.close();
       } catch (IOException closeIoe) {
+        LOG.warn(this.id + ": Failed to close server rpc.", closeIoe);
         ioe.addSuppressed(closeIoe);
       } finally {
         throw ioe;
@@ -80,7 +82,12 @@ public class RaftServerProxy implements RaftServer {
   }
 
   private static String getIdStringFrom(RaftServerRpc rpc) {
-    final InetSocketAddress address = rpc.getInetSocketAddress();
+    InetSocketAddress address = null;
+    try {
+      address = rpc.getInetSocketAddress();
+    } catch(Exception e) {
+      LOG.warn("Failed to get InetSocketAddress from " + rpc.getRpcType() + " rpc server", e);
+    }
     return address != null? address.getHostName() + "_" + address.getPort()
         : rpc.getRpcType() + "-" + UUID.randomUUID();
   }

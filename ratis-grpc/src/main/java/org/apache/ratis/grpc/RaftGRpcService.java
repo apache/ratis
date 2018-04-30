@@ -21,33 +21,26 @@ import org.apache.ratis.grpc.client.RaftClientProtocolService;
 import org.apache.ratis.grpc.server.AdminProtocolService;
 import org.apache.ratis.grpc.server.RaftServerProtocolClient;
 import org.apache.ratis.grpc.server.RaftServerProtocolService;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.impl.RaftServerRpcWithProxy;
 import org.apache.ratis.shaded.io.grpc.Server;
 import org.apache.ratis.shaded.io.grpc.ServerBuilder;
 import org.apache.ratis.shaded.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
-import org.apache.ratis.util.CodeInjectionForTesting;
-import org.apache.ratis.util.ExitUtils;
-import org.apache.ratis.util.SizeInBytes;
-import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 /** A grpc implementation of {@link RaftServerRpc}. */
-public class RaftGRpcService implements RaftServerRpc {
+public class RaftGRpcService extends RaftServerRpcWithProxy<RaftServerProtocolClient, PeerProxyMap<RaftServerProtocolClient>> {
   static final Logger LOG = LoggerFactory.getLogger(RaftGRpcService.class);
   public static final String GRPC_SEND_SERVER_REQUEST =
       RaftGRpcService.class.getSimpleName() + ".sendRequest";
@@ -71,50 +64,35 @@ public class RaftGRpcService implements RaftServerRpc {
   }
 
   private final Server server;
-  private final InetSocketAddress address;
-  private final Map<RaftPeerId, RaftServerProtocolClient> peers =
-      Collections.synchronizedMap(new HashMap<>());
-  private final Supplier<RaftPeerId> idSupplier;
-  private final int flowControlWindow;
-  private final TimeDuration requestTimeoutDuration;
+  private final Supplier<InetSocketAddress> addressSupplier;
 
   private RaftGRpcService(RaftServer server) {
-    this(server,
+    this(server, server::getId,
         GrpcConfigKeys.Server.port(server.getProperties()),
-        GrpcConfigKeys.messageSizeMax(server.getProperties()).getSizeInt(),
         GrpcConfigKeys.messageSizeMax(server.getProperties()),
         RaftServerConfigKeys.Log.Appender.bufferCapacity(server.getProperties()),
         GrpcConfigKeys.flowControlWindow(server.getProperties()),
         RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()));
   }
-  private RaftGRpcService(RaftServer raftServer, int port, int maxMessageSize,
+  private RaftGRpcService(RaftServer raftServer, Supplier<RaftPeerId> idSupplier, int port,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
-      SizeInBytes flowControlWindowSize, TimeDuration requestTimeoutDuration) {
+      SizeInBytes flowControlWindow, TimeDuration requestTimeoutDuration) {
+    super(idSupplier, id -> new PeerProxyMap<>(id.toString(),
+        p -> new RaftServerProtocolClient(p, flowControlWindow.getSizeInt(), requestTimeoutDuration)));
     if (appenderBufferSize.getSize() > grpcMessageSizeMax.getSize()) {
       throw new IllegalArgumentException("Illegal configuration: "
           + RaftServerConfigKeys.Log.Appender.BUFFER_CAPACITY_KEY + " = " + appenderBufferSize
           + " > " + GrpcConfigKeys.MESSAGE_SIZE_MAX_KEY + " = " + grpcMessageSizeMax);
     }
-    this.flowControlWindow = flowControlWindowSize.getSizeInt();
-    this.requestTimeoutDuration = requestTimeoutDuration;
 
-    ServerBuilder serverBuilder = ServerBuilder.forPort(port);
-    idSupplier = raftServer::getId;
-    server = ((NettyServerBuilder) serverBuilder).maxMessageSize(maxMessageSize)
-        .flowControlWindow(flowControlWindow)
+    server = ((NettyServerBuilder) ServerBuilder.forPort(port))
+        .maxMessageSize(grpcMessageSizeMax.getSizeInt())
+        .flowControlWindow(flowControlWindow.getSizeInt())
         .addService(new RaftServerProtocolService(idSupplier, raftServer))
         .addService(new RaftClientProtocolService(idSupplier, raftServer))
         .addService(new AdminProtocolService(raftServer))
         .build();
-
-    // start service to determine the port (in case port is configured as 0)
-    startService();
-    address = new InetSocketAddress(server.getPort());
-    LOG.info("Server started, listening on " + address.getPort());
-  }
-
-  RaftPeerId getId() {
-    return idSupplier.get();
+    addressSupplier = JavaUtils.memoize(() -> new InetSocketAddress(port != 0? port: server.getPort()));
   }
 
   @Override
@@ -123,34 +101,26 @@ public class RaftGRpcService implements RaftServerRpc {
   }
 
   @Override
-  public void start() {
-    // do nothing
-  }
-
-  private void startService() {
+  public void startImpl() {
     try {
       server.start();
     } catch (IOException e) {
       ExitUtils.terminate(1, "Failed to start Grpc server", e, LOG);
     }
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-      System.err.println("*** shutting down gRPC server since JVM is shutting down");
-      RaftGRpcService.this.close();
-      System.err.println("*** server shut down");
-    }));
+    LOG.info("{}: {} started, listening on {}", getId(), getClass().getSimpleName(), getInetSocketAddress());
   }
 
   @Override
-  public void close() {
+  public void closeImpl() {
     if (server != null) {
       server.shutdown();
     }
-    shutdownClients();
+    super.closeImpl();
   }
 
   @Override
   public InetSocketAddress getInetSocketAddress() {
-    return address;
+    return addressSupplier.get();
   }
 
   @Override
@@ -173,25 +143,7 @@ public class RaftGRpcService implements RaftServerRpc {
     CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, getId(),
         null, request);
 
-    RaftServerProtocolClient target = Objects.requireNonNull(
-        peers.get(RaftPeerId.valueOf(request.getServerRequest().getReplyId())));
-    return target.requestVote(request);
-  }
-
-  @Override
-  public void addPeers(Iterable<RaftPeer> newPeers) {
-    for (RaftPeer p : newPeers) {
-      if (!peers.containsKey(p.getId())) {
-        peers.put(p.getId(), new RaftServerProtocolClient(p, flowControlWindow, requestTimeoutDuration));
-      }
-    }
-  }
-
-  private void shutdownClients() {
-    peers.values().forEach(RaftServerProtocolClient::shutdown);
-  }
-
-  public RaftServerProtocolClient getRpcClient(RaftPeer peer) {
-    return peers.get(peer.getId());
+    final RaftPeerId target = RaftPeerId.valueOf(request.getServerRequest().getReplyId());
+    return getProxies().getProxy(target).requestVote(request);
   }
 }

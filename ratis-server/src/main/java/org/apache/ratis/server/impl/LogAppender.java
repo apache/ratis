@@ -28,11 +28,7 @@ import org.apache.ratis.server.storage.RaftLogIOException;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
-import org.apache.ratis.util.Daemon;
-import org.apache.ratis.util.IOUtils;
-import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.Timestamp;
+import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +56,7 @@ public class LogAppender extends Daemon {
   private final boolean batchSending;
   private final LogEntryBuffer buffer;
   private final int snapshotChunkMaxSize;
+  protected final long halfMinTimeoutMs;
 
   private volatile boolean sending = true;
 
@@ -73,6 +70,7 @@ public class LogAppender extends Daemon {
     this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferCapacity(properties).getSizeInt();
     this.batchSending = RaftServerConfigKeys.Log.Appender.batchEnabled(properties);
     this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties).getSizeInt();
+    this.halfMinTimeoutMs = server.getMinTimeoutMs() / 2;
 
     this.buffer = new LogEntryBuffer();
   }
@@ -157,8 +155,8 @@ public class LogAppender extends Daemon {
       // if previous is null, nextIndex must be equal to the log start
       // index (otherwise we will install snapshot).
       Preconditions.assertTrue(follower.getNextIndex() == raftLog.getStartIndex(),
-          "follower's next index %s, local log start index %s",
-          follower.getNextIndex(), raftLog.getStartIndex());
+          "%s: follower's next index %s, local log start index %s",
+          this, follower.getNextIndex(), raftLog.getStartIndex());
       SnapshotInfo snapshot = server.getState().getLatestSnapshot();
       previous = snapshot == null ? null : snapshot.getTermIndex();
     }
@@ -343,8 +341,7 @@ public class LogAppender extends Daemon {
     return builder.build();
   }
 
-  private InstallSnapshotReplyProto installSnapshot(SnapshotInfo snapshot)
-      throws InterruptedException, InterruptedIOException {
+  private InstallSnapshotReplyProto installSnapshot(SnapshotInfo snapshot) throws InterruptedIOException {
     String requestId = UUID.randomUUID().toString();
     InstallSnapshotReplyProto reply = null;
     try {
@@ -415,8 +412,7 @@ public class LogAppender extends Daemon {
       }
       if (isAppenderRunning() && !shouldAppendEntries(
           follower.getNextIndex() + buffer.getPendingEntryNum())) {
-        final long waitTime = getHeartbeatRemainingTime(
-            follower.getLastRpcTime());
+        final long waitTime = getHeartbeatRemainingTime();
         if (waitTime > 0) {
           synchronized (this) {
             wait(waitTime);
@@ -480,14 +476,14 @@ public class LogAppender extends Daemon {
   }
 
   private boolean shouldHeartbeat() {
-    return getHeartbeatRemainingTime(follower.getLastRpcTime()) <= 0;
+    return getHeartbeatRemainingTime() <= 0;
   }
 
   /**
    * @return the time in milliseconds that the leader should send a heartbeat.
    */
-  protected long getHeartbeatRemainingTime(Timestamp lastTime) {
-    return server.getMinTimeoutMs() / 2 - lastTime.elapsedTimeMs();
+  protected long getHeartbeatRemainingTime() {
+    return halfMinTimeoutMs - follower.getLastRpcTime().elapsedTimeMs();
   }
 
   protected void checkResponseTerm(long responseTerm) {

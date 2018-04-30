@@ -44,7 +44,6 @@ import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBod
  */
 public class ServerState implements Closeable {
   private final RaftPeerId selfId;
-  private final RaftPeer peer;
   private final RaftServerImpl server;
   /** Raft log */
   private final RaftLog log;
@@ -78,11 +77,10 @@ public class ServerState implements Closeable {
    */
   private TermIndex latestInstalledSnapshot;
 
-  ServerState(RaftPeer peer, RaftGroup group, RaftProperties prop,
+  ServerState(RaftPeerId id, RaftGroup group, RaftProperties prop,
               RaftServerImpl server, StateMachine stateMachine)
       throws IOException {
-    this.selfId = peer.getId();
-    this.peer = peer;
+    this.selfId = id;
     this.server = server;
     RaftConfiguration initialConf = RaftConfiguration.newBuilder()
         .setConf(group.getPeers()).build();
@@ -91,14 +89,14 @@ public class ServerState implements Closeable {
     final File dir = RaftServerConfigKeys.storageDir(prop);
     storage = new RaftStorage(new File(dir, group.getGroupId().toString()),
         RaftServerConstants.StartupOption.REGULAR);
-    snapshotManager = new SnapshotManager(storage, peer.getId());
+    snapshotManager = new SnapshotManager(storage, id);
 
     long lastApplied = initStatemachine(stateMachine, prop);
 
     leaderId = null;
     // we cannot apply log entries to the state machine in this step, since we
     // do not know whether the local log entries have been committed.
-    log = initLog(peer.getId(), prop, lastApplied, entry -> {
+    log = initLog(id, prop, lastApplied, entry -> {
       if (entry.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
         configurationManager.addConfiguration(entry.getIndex(),
             ServerProtoUtils.toRaftConfiguration(entry.getIndex(),
@@ -163,10 +161,6 @@ public class ServerState implements Closeable {
 
   public RaftPeerId getSelfId() {
     return this.selfId;
-  }
-
-  CommitInfoProto updateCommitInfo(CommitInfoCache cache) {
-    return cache.update(peer, log.getLastCommittedIndex());
   }
 
   public long getCurrentTerm() {
@@ -253,8 +247,10 @@ public class ServerState implements Closeable {
   /**
    * Check if the candidate's term is acceptable
    */
-  boolean recognizeCandidate(RaftPeerId candidateId,
-      long candidateTerm) {
+  boolean recognizeCandidate(RaftPeerId candidateId, long candidateTerm) {
+    if (!getRaftConf().containsInConf(candidateId)) {
+      return false;
+    }
     if (candidateTerm > currentTerm) {
       return true;
     } else if (candidateTerm == currentTerm) {

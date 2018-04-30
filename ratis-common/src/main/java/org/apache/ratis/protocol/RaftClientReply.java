@@ -24,6 +24,7 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
@@ -63,7 +64,7 @@ public class RaftClientReply extends RaftClientMessage {
           () -> "Unexpected exception class: " + this);
     }
 
-    this.commitInfos = commitInfos;
+    this.commitInfos = commitInfos != null? commitInfos: Collections.emptyList();
   }
 
   public RaftClientReply(RaftClientRequest request, RaftException exception, Collection<CommitInfoProto> commitInfos) {

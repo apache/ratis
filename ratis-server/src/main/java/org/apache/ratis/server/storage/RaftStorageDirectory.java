@@ -320,7 +320,7 @@ public class RaftStorageDirectory {
       LOG.error("It appears that another process "
           + "has already locked the storage directory: " + root, oe);
       file.close();
-      return null;
+      throw new IOException("Failed to lock storage " + this.root + ". The directory is already locked", oe);
     } catch(IOException e) {
       LOG.error("Failed to acquire lock on " + lockF
           + ". If this storage directory is mounted via NFS, "

@@ -73,6 +73,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final LifeCycle lifeCycle;
   private final ServerState state;
   private final RaftGroupId groupId;
+  private final Supplier<RaftPeer> peerSupplier = JavaUtils.memoize(() -> new RaftPeer(getId(), getServerRpc().getInetSocketAddress()));
   private volatile Role role;
 
   /** used when the peer is follower, to monitor election timeout */
@@ -100,8 +101,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.proxy = proxy;
 
-    final RaftPeer peer = new RaftPeer(id, proxy.getServerRpc().getInetSocketAddress());
-    this.state = new ServerState(peer, group, properties, this, proxy.getStateMachine());
+    this.state = new ServerState(id, group, properties, this, proxy.getStateMachine());
     this.retryCache = initRetryCache(properties);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
@@ -120,6 +120,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return getProxy().getFactory().newLogAppender(this, state, f);
   }
 
+  RaftPeer getPeer() {
+    return peerSupplier.get();
+  }
 
   int getMinTimeoutMs() {
     return minTimeoutMs;
@@ -346,7 +349,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   Collection<CommitInfoProto> getCommitInfos() {
     final List<CommitInfoProto> infos = new ArrayList<>();
     // add the commit info of this server
-    infos.add(state.updateCommitInfo(commitInfoCache));
+    infos.add(commitInfoCache.update(getPeer(), state.getLog().getLastCommittedIndex()));
 
     // add the commit infos of other servers
     if (isLeader()) {

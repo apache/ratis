@@ -274,14 +274,18 @@ public abstract class MiniRaftCluster {
     return addNewPeers(generateIds(number, servers.size()), startNewPeer);
   }
 
-  public PeerChanges addNewPeers(String[] ids,
-      boolean startNewPeer) throws IOException {
+  public PeerChanges addNewPeers(String[] ids, boolean startNewPeer) {
     LOG.info("Add new peers {}", Arrays.asList(ids));
 
     // create and add new RaftServers
     final Collection<RaftServerProxy> newServers = putNewServers(
         CollectionUtils.as(Arrays.asList(ids), RaftPeerId::valueOf), true);
-    newServers.forEach(s -> startServer(s, startNewPeer));
+
+    newServers.forEach(s -> startServer(s, true));
+    if (!startNewPeer) {
+      // start and then close, in order to bind the port
+      newServers.forEach(p -> p.close());
+    }
 
     final Collection<RaftPeer> newPeers = toRaftPeers(newServers);
     final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
