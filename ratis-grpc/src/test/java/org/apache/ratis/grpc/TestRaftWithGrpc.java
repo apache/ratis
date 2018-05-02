@@ -61,9 +61,8 @@ public class TestRaftWithGrpc extends RaftBasicTests {
   }
 
   @Test
-  public void testRequestTimeout()
-      throws IOException, InterruptedException, ExecutionException {
-    testRequestTimeout(false, getCluster(), LOG, getProperties());
+  public void testRequestTimeout() throws Exception {
+    testRequestTimeout(false, getCluster(), LOG);
   }
 
   @Test

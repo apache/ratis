@@ -27,6 +27,7 @@ import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
@@ -40,7 +41,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
@@ -165,9 +170,18 @@ public interface RaftTestUtil {
     }
   }
 
-  static void assertLogEntries(RaftLog log, boolean async, long expectedTerm,
-      SimpleMessage... expectedMessages) {
+  static void assertLogEntries(RaftServerImpl server, long expectedTerm, SimpleMessage... expectedMessages) {
+    LOG.info("checking raft log for " + server.getId());
+    final RaftLog log = server.getState().getLog();
+    try {
+      RaftTestUtil.assertLogEntries(log, expectedTerm, expectedMessages);
+    } catch (AssertionError e) {
+      LOG.error(server.getId() + ": Unexpected raft log", e);
+      throw e;
+    }
+  }
 
+  static void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage... expectedMessages) {
     final TermIndex[] termIndices = log.getEntries(1, Long.MAX_VALUE);
     final List<LogEntryProto> entries = new ArrayList<>(expectedMessages.length);
     for (TermIndex ti : termIndices) {
@@ -179,16 +193,25 @@ public interface RaftTestUtil {
       }
 
       if (e.getLogEntryBodyCase() == LogEntryProto.LogEntryBodyCase.SMLOGENTRY) {
+        LOG.info(ServerProtoUtils.toString(e) + ", " + e.getSmLogEntry().toString().trim().replace("\n", ", "));
         entries.add(e);
       } else if (e.getLogEntryBodyCase() == LogEntryProto.LogEntryBodyCase.NOOP) {
         LOG.info("Found " + LogEntryProto.LogEntryBodyCase.NOOP + " at " + ti
             + ", ignoring it.");
       } else {
-        throw new AssertionError(
-            "Unexpected LogEntryBodyCase " + e.getLogEntryBodyCase() + " at " + ti);
+        throw new AssertionError("Unexpected LogEntryBodyCase " + e.getLogEntryBodyCase() + " at " + ti
+            + ": " + ServerProtoUtils.toString(e));
       }
     }
 
+    try {
+      assertLogEntries(entries, expectedTerm, expectedMessages);
+    } catch(Throwable t) {
+      throw new AssertionError("entries: " + entries, t);
+    }
+  }
+
+  static void assertLogEntries(List<LogEntryProto> entries, long expectedTerm, SimpleMessage... expectedMessages) {
     long logIndex = 0;
     Assert.assertEquals(expectedMessages.length, entries.size());
     for (int i = 0; i < expectedMessages.length; i++) {
@@ -197,9 +220,7 @@ public interface RaftTestUtil {
       if (e.getTerm() > expectedTerm) {
         expectedTerm = e.getTerm();
       }
-      if (!async) {
-        Assert.assertTrue(e.getIndex() > logIndex);
-      }
+      Assert.assertTrue(e.getIndex() > logIndex);
       logIndex = e.getIndex();
       Assert.assertArrayEquals(expectedMessages[i].getContent().toByteArray(),
           e.getSmLogEntry().getData().toByteArray());

@@ -18,7 +18,7 @@
 package org.apache.ratis;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.RaftTestUtil.*;
+import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
@@ -28,12 +28,16 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
 import org.junit.Assert;
@@ -46,7 +50,6 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,12 +58,15 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.ratis.RaftTestUtil.*;
+import static org.apache.ratis.RaftTestUtil.logEntriesContains;
+import static org.apache.ratis.RaftTestUtil.sendMessageInNewThread;
+import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.junit.Assert.assertTrue;
 
 public abstract class RaftBasicTests extends BaseTest {
   {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftServerTestUtil.getStateMachineUpdaterLog(), Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
     RaftServerConfigKeys.RetryCache.setExpiryTime(properties, TimeDuration
         .valueOf(5, TimeUnit.SECONDS));
@@ -100,30 +106,29 @@ public abstract class RaftBasicTests extends BaseTest {
     runTestBasicAppendEntries(false, ReplicationLevel.ALL, 10, getCluster(), LOG);
   }
 
+  static void killAndRestartServer(RaftPeerId id, long killSleepMs, long restartSleepMs, MiniRaftCluster cluster, Logger LOG) {
+    try {
+      Thread.sleep(killSleepMs);
+      cluster.killServer(id);
+      Thread.sleep(restartSleepMs);
+      LOG.info("restart server: " + id);
+      cluster.restartServer(id, false);
+    } catch (Exception e) {
+      ExitUtils.terminate(-1, "Failed to kill/restart server: " + id, e, LOG);
+    }
+  }
+
   static void runTestBasicAppendEntries(
       boolean async, ReplicationLevel replication, int numMessages, MiniRaftCluster cluster, Logger LOG) throws Exception {
-    LOG.info("runTestBasicAppendEntries: async? " + async + ", numMessages=" + numMessages);
+    LOG.info("runTestBasicAppendEntries: async? {}, replication={}, numMessages={}",
+        async, replication, numMessages);
     for (RaftServer s : cluster.getServers()) {
       cluster.restartServer(s.getId(), false);
     }
     RaftServerImpl leader = waitForLeader(cluster);
     final long term = leader.getState().getCurrentTerm();
 
-    final RaftPeerId killed = cluster.getFollowers().get(0).getId();
-    cluster.killServer(killed);
-
-    if (replication == ReplicationLevel.ALL) {
-      new Thread(() -> {
-        try {
-          Thread.sleep(3000);
-          LOG.info("restart server: " + killed.toString());
-          cluster.restartServer(killed, false);
-        } catch (Exception e) {
-          LOG.info("cannot restart server: " + killed.toString());
-          e.printStackTrace();
-        }
-      }).start();
-    }
+    new Thread(() -> killAndRestartServer(cluster.getFollowers().get(0).getId(), 0, 1000, cluster, LOG)).start();
 
     LOG.info(cluster.printServers());
 
@@ -144,7 +149,8 @@ public abstract class RaftBasicTests extends BaseTest {
             }
           });
         } else {
-          client.send(message, replication);
+          final RaftClientReply reply = client.send(message, replication);
+          Preconditions.assertTrue(reply.isSuccess());
         }
       }
       if (async) {
@@ -157,8 +163,12 @@ public abstract class RaftBasicTests extends BaseTest {
     }
     LOG.info(cluster.printAllLogs());
 
-    cluster.getServerAliveStream().map(s -> s.getState().getLog())
-        .forEach(log -> RaftTestUtil.assertLogEntries(log, async, term, messages));
+    for(RaftServerProxy server : cluster.getServers()) {
+      final RaftServerImpl impl = server.getImpl();
+      if (impl.isAlive() || replication == ReplicationLevel.ALL) {
+        RaftTestUtil.assertLogEntries(impl, term, messages);
+      }
+    }
   }
 
 
@@ -199,7 +209,7 @@ public abstract class RaftBasicTests extends BaseTest {
     Assert.assertEquals(followerToSendLog.getId(), newLeaderId);
 
     cluster.getServerAliveStream().map(s -> s.getState().getLog())
-        .forEach(log -> RaftTestUtil.assertLogEntries(log, false, term, messages));
+        .forEach(log -> RaftTestUtil.assertLogEntries(log, term, messages));
     LOG.info("terminating testOldLeaderCommit test");
   }
 
@@ -401,8 +411,7 @@ public abstract class RaftBasicTests extends BaseTest {
     }
   }
 
-  public static void testRequestTimeout(boolean async, MiniRaftCluster cluster, Logger LOG,
-      RaftProperties properties) throws InterruptedException, IOException, ExecutionException {
+  public static void testRequestTimeout(boolean async, MiniRaftCluster cluster, Logger LOG) throws Exception {
     LOG.info("Running testRequestTimeout");
     waitForLeader(cluster);
     long time = System.currentTimeMillis();
@@ -427,7 +436,7 @@ public abstract class RaftBasicTests extends BaseTest {
       // when the retry cache entry is invalidated.
       // The duration for which the client waits should be more than the retryCacheExpiryDuration.
       TimeDuration duration = TimeDuration.valueOf(System.currentTimeMillis() - time, TimeUnit.MILLISECONDS);
-      TimeDuration retryCacheExpiryDuration = RaftServerConfigKeys.RetryCache.expiryTime(properties);
+      TimeDuration retryCacheExpiryDuration = RaftServerConfigKeys.RetryCache.expiryTime(cluster.getProperties());
       Assert.assertTrue(duration.compareTo(retryCacheExpiryDuration) >= 0);
     }
   }

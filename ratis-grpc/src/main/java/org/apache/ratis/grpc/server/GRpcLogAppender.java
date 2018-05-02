@@ -123,7 +123,7 @@ public class GRpcLogAppender extends LogAppender {
         LOG.trace("{}: wait {}ms", this, waitTimeMs);
         wait(waitTimeMs);
       } catch(InterruptedException ie) {
-        LOG.warn("Wait interrupted", ie);
+        LOG.warn(this + ": Wait interrupted by " + ie);
       }
     }
   }
@@ -242,7 +242,7 @@ public class GRpcLogAppender extends LogAppender {
         LOG.info("{} is stopped", GRpcLogAppender.this);
         return;
       }
-      RaftGrpcUtil.warn(LOG, () -> server.getId() + ": Failed appendEntries to " + follower.getPeer().getId(), t);
+      RaftGrpcUtil.warn(LOG, () -> server.getId() + ": Failed appendEntries to " + follower.getPeer(), t);
 
       long callId = RaftGrpcUtil.getCallId(t);
       resetClient(pendingRequests.get(callId));

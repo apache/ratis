@@ -57,22 +57,20 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  private RaftProperties properties;
-
   public static final int NUM_SERVERS = 3;
 
   @Before
   public void setup() {
-    properties = new RaftProperties();
-    properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
     TimeDuration retryCacheExpiryDuration = TimeDuration.valueOf(5, TimeUnit.SECONDS);
-    RaftServerConfigKeys.RetryCache.setExpiryTime(properties, retryCacheExpiryDuration);
+    RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), retryCacheExpiryDuration);
   }
 
   @Test
   public void testAsyncConfiguration() throws IOException {
     LOG.info("Running testAsyncConfiguration");
+    final RaftProperties properties = new RaftProperties();
     RaftClient.Builder clientBuilder = RaftClient.newBuilder()
         .setRaftGroup(RaftGroup.emptyGroup())
         .setProperties(properties);
@@ -91,24 +89,17 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       RaftClientTestUtil.assertScheduler(client, numThreads);
       RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
     }
-
-    // reset to default for other tests.
-    RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties,
-        RaftClientConfigKeys.Async.MAX_OUTSTANDING_REQUESTS_DEFAULT);
-    RaftClientConfigKeys.Async.setSchedulerThreads(properties,
-        RaftClientConfigKeys.Async.SCHEDULER_THREADS_DEFAULT);
   }
 
   @Test
-  public void testAsyncRequestSemaphore()
-      throws InterruptedException, IOException {
+  public void testAsyncRequestSemaphore() throws Exception {
     LOG.info("Running testAsyncRequestSemaphore");
-    CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+    final CLUSTER cluster = newCluster(NUM_SERVERS);
     Assert.assertNull(cluster.getLeader());
     cluster.start();
     waitForLeader(cluster);
 
-    int numMessages = RaftClientConfigKeys.Async.maxOutstandingRequests(properties);
+    int numMessages = RaftClientConfigKeys.Async.maxOutstandingRequests(getProperties());
     CompletableFuture[] futures = new CompletableFuture[numMessages + 1];
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numMessages);
     final RaftClient client = cluster.createClient();
@@ -153,33 +144,31 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     cluster.shutdown();
   }
 
+  void runTestBasicAppendEntriesAsync(ReplicationLevel replication) throws Exception {
+    final CLUSTER cluster = newCluster(NUM_SERVERS);
+    try {
+      cluster.start();
+      waitForLeader(cluster);
+      RaftBasicTests.runTestBasicAppendEntries(true, replication, 1000, cluster, LOG);
+    } finally {
+      cluster.shutdown();
+    }
+  }
+
   @Test
   public void testBasicAppendEntriesAsync() throws Exception {
-    LOG.info("Running testBasicAppendEntriesAsync");
-    RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties, 100);
-    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
-    cluster.start();
-    waitForLeader(cluster);
-    RaftBasicTests.runTestBasicAppendEntries(true, ReplicationLevel.MAJORITY, 1000, cluster, LOG);
-    cluster.shutdown();
+    runTestBasicAppendEntriesAsync(ReplicationLevel.MAJORITY);
   }
 
   @Test
   public void testBasicAppendEntriesAsyncWithAllReplication() throws Exception {
-    LOG.info("Running testBasicAppendEntriesAsync");
-    RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties, 100);
-    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
-    cluster.start();
-    waitForLeader(cluster);
-    RaftBasicTests.runTestBasicAppendEntries(true, ReplicationLevel.ALL, 1000, cluster, LOG);
-    cluster.shutdown();
+    runTestBasicAppendEntriesAsync(ReplicationLevel.ALL);
   }
 
   @Test
   public void testWithLoadAsync() throws Exception {
     LOG.info("Running testWithLoadAsync");
-    RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties, 100);
-    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+    final CLUSTER cluster = newCluster(NUM_SERVERS);
     cluster.start();
     waitForLeader(cluster);
     RaftBasicTests.testWithLoad(10, 500, true, cluster, LOG);
@@ -189,7 +178,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   @Test
   public void testStaleReadAsync() throws Exception {
     final int numMesssages = 10;
-    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+    final CLUSTER cluster = newCluster(NUM_SERVERS);
 
     try (RaftClient client = cluster.createClient()) {
       cluster.start();
@@ -263,11 +252,10 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   }
 
   @Test
-  public void testRequestTimeout()
-      throws IOException, InterruptedException, ExecutionException {
-    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+  public void testRequestTimeout() throws Exception {
+    final CLUSTER cluster = newCluster(NUM_SERVERS);
     cluster.start();
-    RaftBasicTests.testRequestTimeout(true, cluster, LOG, properties);
+    RaftBasicTests.testRequestTimeout(true, cluster, LOG);
     cluster.shutdown();
   }
 
@@ -275,9 +263,9 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   public void testAppendEntriesTimeout()
       throws IOException, InterruptedException, ExecutionException {
     LOG.info("Running testAppendEntriesTimeout");
-    TimeDuration retryCacheExpiryDuration = TimeDuration.valueOf(20, TimeUnit.SECONDS);
-    RaftServerConfigKeys.RetryCache.setExpiryTime(properties, retryCacheExpiryDuration);
-    final CLUSTER cluster = getFactory().newCluster(NUM_SERVERS, properties);
+    final TimeDuration oldExpiryTime = RaftServerConfigKeys.RetryCache.expiryTime(getProperties());
+    RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), TimeDuration.valueOf(20, TimeUnit.SECONDS));
+    final CLUSTER cluster = newCluster(NUM_SERVERS);
     cluster.start();
     waitForLeader(cluster);
     long time = System.currentTimeMillis();
@@ -309,5 +297,8 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       Assert.assertTrue(System.currentTimeMillis() - time > waitTime);
     }
     cluster.shutdown();
+
+    //reset for the other tests
+    RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), oldExpiryTime);
   }
 }

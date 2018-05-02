@@ -153,6 +153,10 @@ public abstract class MiniRaftCluster {
     ExitUtils.disableSystemExit();
   }
 
+  public RaftProperties getProperties() {
+    return properties;
+  }
+
   public MiniRaftCluster initServers() {
     if (servers.isEmpty()) {
       putNewServers(CollectionUtils.as(group.getPeers(), RaftPeer::getId), true);
