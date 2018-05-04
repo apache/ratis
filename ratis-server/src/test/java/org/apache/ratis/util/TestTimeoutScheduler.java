@@ -46,7 +46,7 @@ public class TestTimeoutScheduler {
 
   @Test(timeout = 1000)
   public void testSingleTask() throws Exception {
-    final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
     final TimeDuration grace = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     scheduler.setGracePeriod(grace);
     Assert.assertFalse(scheduler.hasScheduler());
@@ -81,7 +81,7 @@ public class TestTimeoutScheduler {
 
   @Test(timeout = 1000)
   public void testMultipleTasks() throws Exception {
-    final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
     final TimeDuration grace = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     scheduler.setGracePeriod(grace);
     Assert.assertFalse(scheduler.hasScheduler());
@@ -127,7 +127,7 @@ public class TestTimeoutScheduler {
 
   @Test(timeout = 1000)
   public void testExtendingGracePeriod() throws Exception {
-    final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
     final TimeDuration grace = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     scheduler.setGracePeriod(grace);
     Assert.assertFalse(scheduler.hasScheduler());
@@ -177,7 +177,7 @@ public class TestTimeoutScheduler {
 
   @Test(timeout = 1000)
   public void testRestartingScheduler() throws Exception {
-    final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
+    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
     final TimeDuration grace = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     scheduler.setGracePeriod(grace);
     Assert.assertFalse(scheduler.hasScheduler());

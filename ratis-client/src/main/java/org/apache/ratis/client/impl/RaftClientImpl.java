@@ -97,7 +97,7 @@ final class RaftClientImpl implements RaftClient {
   /** Map: id -> {@link SlidingWindow}, in order to support async calls to the RAFT service or individual servers. */
   private final ConcurrentMap<String, SlidingWindow.Client<PendingAsyncRequest, RaftClientReply>>
       slidingWindows = new ConcurrentHashMap<>();
-  private final ScheduledExecutorService scheduler;
+  private final TimeoutScheduler scheduler;
   private final Semaphore asyncRequestSemaphore;
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId,
@@ -111,7 +111,7 @@ final class RaftClientImpl implements RaftClient {
     this.retryInterval = RaftClientConfigKeys.Rpc.retryInterval(properties);
 
     asyncRequestSemaphore = new Semaphore(RaftClientConfigKeys.Async.maxOutstandingRequests(properties));
-    scheduler = Executors.newScheduledThreadPool(RaftClientConfigKeys.Async.schedulerThreads(properties));
+    scheduler = TimeoutScheduler.newInstance(RaftClientConfigKeys.Async.schedulerThreads(properties));
     clientRpc.addServers(peers);
   }
 
@@ -237,9 +237,10 @@ final class RaftClientImpl implements RaftClient {
     final CompletableFuture<RaftClientReply> f = pending.getReplyFuture();
     return sendRequestAsync(request).thenCompose(reply -> {
       if (reply == null) {
-        final TimeUnit unit = retryInterval.getUnit();
-        scheduler.schedule(() -> getSlidingWindow(request).retry(pending, this::sendRequestWithRetryAsync),
-            retryInterval.toLong(unit), unit);
+        LOG.debug("schedule a retry in {} for {}", retryInterval, request);
+        scheduler.onTimeout(retryInterval,
+            () -> getSlidingWindow(request).retry(pending, this::sendRequestWithRetryAsync),
+            LOG, () -> "Failed to retry " + request);
       } else {
         f.complete(reply);
       }
@@ -383,7 +384,7 @@ final class RaftClientImpl implements RaftClient {
   }
 
   void assertScheduler(int numThreads) {
-    Preconditions.assertTrue(((ScheduledThreadPoolExecutor) scheduler).getCorePoolSize() == numThreads);
+    Preconditions.assertTrue(scheduler.getNumThreads() == numThreads);
   }
 
   long getCallId() {

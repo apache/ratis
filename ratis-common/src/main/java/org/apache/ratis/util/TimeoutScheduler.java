@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -32,13 +33,9 @@ public final class TimeoutScheduler {
 
   private static final TimeDuration DEFAULT_GRACE_PERIOD = TimeDuration.valueOf(1, TimeUnit.MINUTES);
 
-  private static final Supplier<TimeoutScheduler> INSTANCE = JavaUtils.memoize(TimeoutScheduler::new);
-
-  public static TimeoutScheduler getInstance() {
-    return INSTANCE.get();
+  public static TimeoutScheduler newInstance(int numThreads) {
+    return new TimeoutScheduler(numThreads);
   }
-
-  private TimeoutScheduler() {}
 
   /** When there is no tasks, the time period to wait before shutting down the scheduler. */
   private final AtomicReference<TimeDuration> gracePeriod = new AtomicReference<>(DEFAULT_GRACE_PERIOD);
@@ -47,7 +44,18 @@ public final class TimeoutScheduler {
   private int numTasks = 0;
   /** The scheduleID for each task */
   private int scheduleID = 0;
-  private ScheduledExecutorService scheduler = null;
+
+  private final int numThreads;
+  private volatile ScheduledExecutorService scheduler = null;
+
+  private TimeoutScheduler(int numThreads) {
+    this.numThreads = numThreads;
+  }
+
+  public int getNumThreads() {
+    final ScheduledExecutorService s = scheduler;
+    return s instanceof ScheduledThreadPoolExecutor? ((ScheduledThreadPoolExecutor)s).getCorePoolSize(): numThreads;
+  }
 
   TimeDuration getGracePeriod() {
     return gracePeriod.get();
@@ -86,13 +94,13 @@ public final class TimeoutScheduler {
     if (scheduler == null) {
       Preconditions.assertTrue(numTasks == 0);
       LOG.debug("Initialize scheduler");
-      scheduler = Executors.newScheduledThreadPool(1);
+      scheduler = Executors.newScheduledThreadPool(numThreads);
     }
     numTasks++;
     final int sid = scheduleID++;
 
     LOG.debug("schedule a task: timeout {}, sid {}", timeout, sid);
-    scheduler.schedule(() -> toSchedule.accept(sid), timeout.getDuration(), timeout.getUnit());
+    schedule(scheduler, () -> toSchedule.accept(sid), () -> "task #" + sid, timeout);
   }
 
   private synchronized void onTaskCompleted() {
@@ -100,8 +108,13 @@ public final class TimeoutScheduler {
       final int sid = scheduleID;
       final TimeDuration grace = getGracePeriod();
       LOG.debug("Schedule a shutdown task: grace {}, sid {}", grace, sid);
-      scheduler.schedule(() -> tryShutdownScheduler(sid), grace.getDuration(), grace.getUnit());
+      schedule(scheduler, () -> tryShutdownScheduler(sid), () -> "shutdown task #" + sid, grace);
     }
+  }
+
+  static void schedule(ScheduledExecutorService service, Runnable task, Supplier<String> name, TimeDuration timeDuration) {
+    service.schedule(LogUtils.newRunnable(LOG, task, name),
+        timeDuration.getDuration(), timeDuration.getUnit());
   }
 
   private synchronized void tryShutdownScheduler(int sid) {
@@ -116,8 +129,7 @@ public final class TimeoutScheduler {
   }
 
   /** When timeout, run the task.  Log the error, if there is any. */
-  public static <THROWABLE extends Throwable> void onTimeout(
-      TimeDuration timeout, CheckedRunnable<THROWABLE> task, Logger log, Supplier<String> errorMessage) {
-    getInstance().onTimeout(timeout, task, t -> log.error(errorMessage.get(), t));
+  public void onTimeout(TimeDuration timeout, CheckedRunnable<?> task, Logger log, Supplier<String> errorMessage) {
+    onTimeout(timeout, task, t -> log.error(errorMessage.get(), t));
   }
 }

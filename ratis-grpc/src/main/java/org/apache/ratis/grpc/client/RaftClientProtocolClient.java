@@ -48,7 +48,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -59,7 +58,10 @@ public class RaftClientProtocolClient implements Closeable {
   private final Supplier<String> name;
   private final RaftPeer target;
   private final ManagedChannel channel;
+
   private final TimeDuration requestTimeoutDuration;
+  private final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
+
   private final RaftClientProtocolServiceBlockingStub blockingStub;
   private final RaftClientProtocolServiceStub asyncStub;
   private final AdminProtocolServiceBlockingStub adminBlockingStub;
@@ -188,7 +190,7 @@ public class RaftClientProtocolClient implements Closeable {
           () -> getName() + ":" + getClass().getSimpleName());
       try {
         requestStreamObserver.onNext(ClientProtoUtils.toRaftClientRequestProto(request));
-        TimeoutScheduler.onTimeout(requestTimeoutDuration, () -> timeoutCheck(request), LOG,
+        scheduler.onTimeout(requestTimeoutDuration, () -> timeoutCheck(request), LOG,
             () -> "Timeout check failed for client request: " + request);
       } catch(Throwable t) {
         handleReplyFuture(request.getCallId(), future -> future.completeExceptionally(t));

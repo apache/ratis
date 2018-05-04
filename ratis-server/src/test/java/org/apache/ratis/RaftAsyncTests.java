@@ -63,8 +63,6 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   public void setup() {
     getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
-    TimeDuration retryCacheExpiryDuration = TimeDuration.valueOf(5, TimeUnit.SECONDS);
-    RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), retryCacheExpiryDuration);
   }
 
   @Test
@@ -144,12 +142,12 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     cluster.shutdown();
   }
 
-  void runTestBasicAppendEntriesAsync(ReplicationLevel replication) throws Exception {
-    final CLUSTER cluster = newCluster(NUM_SERVERS);
+  void runTestBasicAppendEntriesAsync(ReplicationLevel replication, boolean killLeader) throws Exception {
+    final CLUSTER cluster = newCluster(killLeader? 5: 3);
     try {
       cluster.start();
       waitForLeader(cluster);
-      RaftBasicTests.runTestBasicAppendEntries(true, replication, 1000, cluster, LOG);
+      RaftBasicTests.runTestBasicAppendEntries(true, replication, killLeader, 1000, cluster, LOG);
     } finally {
       cluster.shutdown();
     }
@@ -157,12 +155,17 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testBasicAppendEntriesAsync() throws Exception {
-    runTestBasicAppendEntriesAsync(ReplicationLevel.MAJORITY);
+    runTestBasicAppendEntriesAsync(ReplicationLevel.MAJORITY, false);
+  }
+
+  @Test
+  public void testBasicAppendEntriesAsyncKillLeader() throws Exception {
+    runTestBasicAppendEntriesAsync(ReplicationLevel.MAJORITY, true);
   }
 
   @Test
   public void testBasicAppendEntriesAsyncWithAllReplication() throws Exception {
-    runTestBasicAppendEntriesAsync(ReplicationLevel.ALL);
+    runTestBasicAppendEntriesAsync(ReplicationLevel.ALL, false);
   }
 
   @Test
@@ -253,10 +256,15 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testRequestTimeout() throws Exception {
+    final TimeDuration oldExpiryTime = RaftServerConfigKeys.RetryCache.expiryTime(getProperties());
+    RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), TimeDuration.valueOf(5, TimeUnit.SECONDS));
     final CLUSTER cluster = newCluster(NUM_SERVERS);
     cluster.start();
     RaftBasicTests.testRequestTimeout(true, cluster, LOG);
     cluster.shutdown();
+
+    //reset for the other tests
+    RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), oldExpiryTime);
   }
 
   @Test

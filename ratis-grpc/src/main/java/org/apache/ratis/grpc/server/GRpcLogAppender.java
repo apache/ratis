@@ -48,7 +48,8 @@ public class GRpcLogAppender extends LogAppender {
   private long callId = 0;
   private volatile boolean firstResponseReceived = false;
 
-  private static TimeDuration requestTimeoutDuration;
+  private final TimeDuration requestTimeoutDuration;
+  private final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
 
   private volatile StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver;
 
@@ -172,7 +173,7 @@ public class GRpcLogAppender extends LogAppender {
         server.getId(), null, request);
 
     s.onNext(request);
-    TimeoutScheduler.onTimeout(requestTimeoutDuration, () -> timeoutAppendRequest(request), LOG,
+    scheduler.onTimeout(requestTimeoutDuration, () -> timeoutAppendRequest(request), LOG,
         () -> "Timeout check failed for append entry request: " + request);
     follower.updateLastRpcSendTime();
   }

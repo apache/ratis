@@ -98,12 +98,17 @@ public abstract class RaftBasicTests extends BaseTest {
 
   @Test
   public void testBasicAppendEntries() throws Exception {
-    runTestBasicAppendEntries(false, ReplicationLevel.MAJORITY, 10, getCluster(), LOG);
+    runTestBasicAppendEntries(false, ReplicationLevel.MAJORITY, false, 10, getCluster(), LOG);
+  }
+
+  @Test
+  public void testBasicAppendEntriesKillLeader() throws Exception {
+    runTestBasicAppendEntries(false, ReplicationLevel.MAJORITY, true, 10, getCluster(), LOG);
   }
 
   @Test
   public void testBasicAppendEntriesWithAllReplication() throws Exception {
-    runTestBasicAppendEntries(false, ReplicationLevel.ALL, 10, getCluster(), LOG);
+    runTestBasicAppendEntries(false, ReplicationLevel.ALL, false, 10, getCluster(), LOG);
   }
 
   static void killAndRestartServer(RaftPeerId id, long killSleepMs, long restartSleepMs, MiniRaftCluster cluster, Logger LOG) {
@@ -119,9 +124,10 @@ public abstract class RaftBasicTests extends BaseTest {
   }
 
   static void runTestBasicAppendEntries(
-      boolean async, ReplicationLevel replication, int numMessages, MiniRaftCluster cluster, Logger LOG) throws Exception {
-    LOG.info("runTestBasicAppendEntries: async? {}, replication={}, numMessages={}",
-        async, replication, numMessages);
+      boolean async, ReplicationLevel replication, boolean killLeader, int numMessages, MiniRaftCluster cluster, Logger LOG)
+      throws Exception {
+    LOG.info("runTestBasicAppendEntries: async? {}, replication={}, killLeader={}, numMessages={}",
+        async, replication, killLeader, numMessages);
     for (RaftServer s : cluster.getServers()) {
       cluster.restartServer(s.getId(), false);
     }
@@ -129,6 +135,10 @@ public abstract class RaftBasicTests extends BaseTest {
     final long term = leader.getState().getCurrentTerm();
 
     new Thread(() -> killAndRestartServer(cluster.getFollowers().get(0).getId(), 0, 1000, cluster, LOG)).start();
+    if (killLeader) {
+      LOG.info("killAndRestart leader " + leader.getId());
+      new Thread(() -> killAndRestartServer(leader.getId(), 2000, 4000, cluster, LOG)).start();
+    }
 
     LOG.info(cluster.printServers());
 
