@@ -17,7 +17,7 @@
   <parent>
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>0.1.1-alpha-SNAPSHOT</version>
+    <version>0.2.0</version>
   </parent>
 
   <artifactId>ratis-netty</artifactId>
