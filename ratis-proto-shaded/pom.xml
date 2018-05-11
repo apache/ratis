@@ -443,7 +443,7 @@
     <dependency>
       <groupId>org.jctools</groupId>
       <artifactId>jctools-core</artifactId>
-      <optional>true</optional>
+      <version>2.1.2</version>
     </dependency>
 
     <dependency>
@@ -625,9 +625,42 @@
                   <shadedArtifactAttached>true</shadedArtifactAttached>
                   <relocations>
                     <relocation>
-                      <pattern>com.google</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.com.google</shadedPattern>
+                      <pattern>com.google.api</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.api</shadedPattern>
                     </relocation>
+                    <relocation>
+                      <pattern>com.google.cloud.audit</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.cloud.audit</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>com.google.common</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.common</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>com.google.logging.type</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.logging.type</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>com.google.longrunning</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.longrunning</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>com.google.protobuf</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.protobuf</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>com.google.rpc</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.rpc</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>com.google.thirdparty.publicsuffix</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.thirdparty.publicsuffix</shadedPattern>
+                    </relocation>
+                    <relocation>
+                      <pattern>com.google.type</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.type</shadedPattern>
+                    </relocation>
+
                     <relocation>
                       <pattern>io.grpc</pattern>
                       <shadedPattern>org.apache.ratis.shaded.io.grpc</shadedPattern>
@@ -638,18 +671,9 @@
                     </relocation>
 
                     <relocation>
-                      <pattern>com.squareup</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.com.squareup</shadedPattern>
+                      <pattern>io.opencensus</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.io.opencensus</shadedPattern>
                     </relocation>
-                    <relocation>
-                      <pattern>org.jctools</pattern>
-                        <shadedPattern>org.apache.ratis.shaded.org.jctools</shadedPattern>
-                    </relocation>
-                    <!-- Cannot relocate io.opencensus due to AutoValue code generation -->
-                    <!--<relocation>-->
-                      <!--<pattern>io.opencensus</pattern>-->
-                      <!--<shadedPattern>org.apache.ratis.shaded.io.opencensus</shadedPattern>-->
-                    <!--</relocation>-->
                   </relocations>
 
                   <filters>
@@ -669,10 +693,17 @@
                       <exclude>com.github.jponge:lzma-java</exclude>
 
                       <exclude>com.google.code.findbugs:jsr305</exclude>
+                      <exclude>com.google.auto:auto-common</exclude>
+                      <exclude>com.google.auto.service:auto-service</exclude>
+                      <exclude>com.google.auto.value:auto-value-annotations</exclude>
+                      <exclude>com.google.errorprone:error_prone_annotations</exclude>
+                      <exclude>com.google.code.gson:gson</exclude>
+                      <exclude>com.google.j2objc:j2objc-annotations</exclude>
 
                       <exclude>com.fasterxml:aalto-xml</exclude>
                       <exclude>com.jcraft:jzlib</exclude>
                       <exclude>com.ning:compress-lzf</exclude>
+                      <exclude>com.squareup:javapoet</exclude>
                       <exclude>com.yammer.metrics:metrics-core</exclude>
                       <exclude>commons-logging:commons-logging</exclude>
 
@@ -710,6 +741,7 @@
                       <exclude>org.conscrypt:conscrypt-openjdk-uber</exclude>
                       <exclude>org.javassist:javassist</exclude>
                       <exclude>org.jboss.marshalling:jboss-marshalling</exclude>
+                      <exclude>org.jctools:jctools-core</exclude>
                       <exclude>org.rxtx:rxtx</exclude>
                       <exclude>org.slf4j:slf4j-api</exclude>
                     </excludes>

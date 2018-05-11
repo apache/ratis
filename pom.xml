@@ -137,7 +137,7 @@
     <maven-checkstyle-plugin.version>2.15</maven-checkstyle-plugin.version>
     <maven-clean-plugin.version>3.0.0</maven-clean-plugin.version>
     <maven-clover2-plugin.version>3.3.0</maven-clover2-plugin.version>
-    <maven-compiler-plugin.version>3.2</maven-compiler-plugin.version>
+    <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
     <maven-dependency-plugin.version>2.10</maven-dependency-plugin.version>
     <maven-deploy-plugin.version>2.8.1</maven-deploy-plugin.version>
     <maven-install-plugin.version>2.5.1</maven-install-plugin.version>
@@ -145,7 +145,7 @@
     <maven-javadoc-plugin.version>2.10.3</maven-javadoc-plugin.version>
     <maven-pdf-plugin.version>1.2</maven-pdf-plugin.version>
     <maven-resources-plugin.version>2.6</maven-resources-plugin.version>
-    <maven-shade-plugin.version>3.1.0</maven-shade-plugin.version>
+    <maven-shade-plugin.version>3.1.1</maven-shade-plugin.version>
     <maven-site-plugin.version>3.5</maven-site-plugin.version>
     <maven-source-plugin.version>2.3</maven-source-plugin.version>
     <maven-stylus-skin.version>1.5</maven-stylus-skin.version>
@@ -332,12 +332,6 @@
         <artifactId>mockito-all</artifactId>
         <version>1.8.5</version>
       </dependency>
-
-      <dependency>
-        <groupId>org.jctools</groupId>
-        <artifactId>jctools-core</artifactId>
-        <version>2.1.2</version>
-      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -454,10 +448,15 @@
           <configuration>
             <source>${javac.version}</source>
             <target>${javac.version}</target>
+            <fork>true</fork>
+            <meminitial>512m</meminitial>
+            <maxmem>2048m</maxmem>
             <showWarnings>true</showWarnings>
             <showDeprecation>false</showDeprecation>
             <useIncrementalCompilation>false</useIncrementalCompilation>
-            <compilerArgument>-Xlint:-options</compilerArgument>
+            <compilerArgs>
+              <arg>-Xlint:all,-options,-path</arg>
+            </compilerArgs>
           </configuration>
         </plugin>
         <!-- Make a jar and put the sources in the jar.
@@ -709,10 +708,12 @@
               <fork>true</fork>
               <source>${javac.version}</source>
               <target>${javac.version}</target>
-              <compilerArguments>
-                <Xlint />
-                <Xmaxwarns>9999</Xmaxwarns>
-              </compilerArguments>
+              <fork>true</fork>
+              <meminitial>512m</meminitial>
+              <maxmem>2048m</maxmem>
+              <compilerArgs>
+                <arg>-Xlint:all,-options,-path</arg>
+              </compilerArgs>
             </configuration>
           </plugin>
         </plugins>
