@@ -47,7 +47,6 @@ public class Runner {
   public static void main(String[] args) throws Exception {
     initializeCommands();
     Runner runner = new Runner();
-    Server server = new Server();
 
     JCommander.Builder builder = JCommander.newBuilder().addObject(runner);
     commands.forEach(command -> builder

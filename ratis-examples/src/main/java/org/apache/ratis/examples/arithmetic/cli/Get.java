@@ -17,16 +17,16 @@
  */
 package org.apache.ratis.examples.arithmetic.cli;
 
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.Parameters;
+import java.io.IOException;
+
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.examples.arithmetic.AssignmentMessage;
 import org.apache.ratis.examples.arithmetic.expression.DoubleValue;
 import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.examples.arithmetic.expression.Variable;
 import org.apache.ratis.protocol.RaftClientReply;
 
-import java.io.IOException;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 
 /**
  * Subcommand to get value from the state machine.
