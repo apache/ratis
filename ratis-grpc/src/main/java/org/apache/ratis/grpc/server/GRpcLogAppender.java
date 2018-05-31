@@ -81,7 +81,7 @@ public class GRpcLogAppender extends LogAppender {
   }
 
   @Override
-  public void run() {
+  protected void runAppenderImpl() throws IOException {
     for(; isAppenderRunning(); mayWait()) {
       if (shouldSendRequest()) {
         SnapshotInfo snapshot = shouldInstallSnapshot();
@@ -89,13 +89,7 @@ public class GRpcLogAppender extends LogAppender {
           installSnapshot(snapshot);
         } else if (!shouldWait()) {
           // keep appending log entries or sending heartbeats
-          try {
-            appendLog();
-          } catch (IOException e) {
-            LOG.error(this + " hit IOException while loading raft log", e);
-            stopSender();
-            return;
-          }
+          appendLog();
         }
       }
     }

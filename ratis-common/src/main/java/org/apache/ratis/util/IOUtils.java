@@ -25,7 +25,10 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.ExecutionException;
 
@@ -51,6 +54,11 @@ public interface IOUtils {
   static IOException toIOException(ExecutionException e) {
     final Throwable cause = e.getCause();
     return cause != null? asIOException(cause): new IOException(e);
+  }
+
+  static boolean shouldReconnect(Exception e) {
+    return ReflectionUtils.isInstance(e,
+        SocketException.class, SocketTimeoutException.class, ClosedChannelException.class, EOFException.class);
   }
 
   static void readFully(InputStream in, int buffSize) throws IOException {

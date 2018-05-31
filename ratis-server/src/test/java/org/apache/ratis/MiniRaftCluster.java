@@ -39,7 +39,10 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -527,11 +530,11 @@ public abstract class MiniRaftCluster {
   }
 
   public void setConfiguration(RaftPeer... peers) throws IOException {
-    final RaftServerImpl leader = getLeader();
-    final SetConfigurationRequest r = newSetConfigurationRequest(
-        ClientId.randomId(), leader.getId(), peers);
-    LOG.info("Start changing the configuration: {}", r);
-    leader.setConfiguration(r);
+    try(RaftClient client = createClient()) {
+      LOG.info("Start changing the configuration: {}", Arrays.asList(peers));
+      final RaftClientReply reply = client.setConfiguration(peers);
+      Preconditions.assertTrue(reply.isSuccess());
+    }
   }
 
   public void shutdown() {
@@ -540,10 +543,20 @@ public abstract class MiniRaftCluster {
     LOG.info("***     Stopping " + getClass().getSimpleName());
     LOG.info("*** ");
     LOG.info("************************************************************** ");
+    LOG.info(printServers());
+
+    final ExecutorService executor = Executors.newFixedThreadPool(servers.size());
+    try {
+      getServers().forEach(proxy -> executor.submit(proxy::close));
+      // just wait for a few seconds
+      executor.awaitTermination(5, TimeUnit.SECONDS);
+    } catch(InterruptedException e) {
+      LOG.warn("shutdown interrupted", e);
+    } finally {
+      executor.shutdownNow();
+    }
 
     timer.cancel();
-    getServerAliveStream().map(RaftServerImpl::getProxy).forEach(RaftServerProxy::close);
-
     ExitUtils.assertNotTerminated();
   }
 

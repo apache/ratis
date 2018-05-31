@@ -176,7 +176,8 @@ public abstract class RaftBasicTests extends BaseTest {
     for(RaftServerProxy server : cluster.getServers()) {
       final RaftServerImpl impl = server.getImpl();
       if (impl.isAlive() || replication == ReplicationLevel.ALL) {
-        RaftTestUtil.assertLogEntries(impl, term, messages);
+        JavaUtils.attempt(() -> RaftTestUtil.assertLogEntries(impl, term, messages),
+            5, 1000, impl.getId() + " assertLogEntries", LOG);
       }
     }
   }

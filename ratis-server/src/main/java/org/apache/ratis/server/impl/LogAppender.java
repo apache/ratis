@@ -41,11 +41,17 @@ import java.util.*;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
+import static org.apache.ratis.util.LifeCycle.State.CLOSED;
+import static org.apache.ratis.util.LifeCycle.State.CLOSING;
+import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
+import static org.apache.ratis.util.LifeCycle.State.NEW;
+import static org.apache.ratis.util.LifeCycle.State.RUNNING;
+import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
 /**
  * A daemon thread appending log entries to a follower peer.
  */
-public class LogAppender extends Daemon {
+public class LogAppender {
   public static final Logger LOG = LoggerFactory.getLogger(LogAppender.class);
 
   protected final RaftServerImpl server;
@@ -58,7 +64,8 @@ public class LogAppender extends Daemon {
   private final int snapshotChunkMaxSize;
   protected final long halfMinTimeoutMs;
 
-  private volatile boolean sending = true;
+  private final LifeCycle lifeCycle;
+  private final Daemon daemon = new Daemon(this::runAppender);
 
   public LogAppender(RaftServerImpl server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
@@ -73,6 +80,7 @@ public class LogAppender extends Daemon {
     this.halfMinTimeoutMs = server.getMinTimeoutMs() / 2;
 
     this.buffer = new LogEntryBuffer();
+    this.lifeCycle = new LifeCycle(this);
   }
 
   @Override
@@ -81,24 +89,37 @@ public class LogAppender extends Daemon {
         follower.getPeer().getId() + ")";
   }
 
-  @Override
-  public void run() {
+  public void startAppender() {
+    lifeCycle.transition(STARTING);
+    daemon.start();
+  }
+
+  private void runAppender() {
+    lifeCycle.transition(RUNNING);
     try {
-      checkAndSendAppendEntries();
+      runAppenderImpl();
     } catch (InterruptedException | InterruptedIOException e) {
       LOG.info(this + " was interrupted: " + e);
-    } catch (RaftLogIOException e) {
+    } catch (IOException e) {
       LOG.error(this + " hit IOException while loading raft log", e);
+      lifeCycle.transition(EXCEPTION);
+    } catch (Throwable e) {
+      LOG.error(this + " unexpected exception", e);
+      lifeCycle.transition(EXCEPTION);
+    } finally {
+      if (!lifeCycle.compareAndTransition(CLOSING, CLOSED)) {
+        lifeCycle.transition(EXCEPTION);
+      }
     }
   }
 
   protected boolean isAppenderRunning() {
-    return sending;
+    return !lifeCycle.getCurrentState().isOneOf(CLOSING, CLOSED, EXCEPTION);
   }
 
-  public LogAppender stopSender() {
-    this.sending = false;
-    return this;
+  public void stopAppender() {
+    lifeCycle.transition(CLOSING);
+    daemon.interrupt();
   }
 
   public FollowerInfo getFollower() {
@@ -219,7 +240,10 @@ public class LogAppender extends Daemon {
         throw e;
       } catch (IOException ioe) {
         // TODO should have more detailed retry policy here.
-        LOG.trace(this + ": failed to send appendEntries; retry " + retry++, ioe);
+        if (retry % 10 == 1) { // to reduce the number of messages
+          LOG.warn("{}: Failed to appendEntries (retry={}): {}", this, retry++, ioe);
+        }
+        handleException(ioe);
       }
       if (isAppenderRunning()) {
         leaderState.getSyncInterval().sleep();
@@ -358,8 +382,8 @@ public class LogAppender extends Daemon {
     } catch (InterruptedIOException iioe) {
       throw iioe;
     } catch (Exception ioe) {
-      LOG.warn(this + ": failed to install SnapshotInfo " + snapshot.getFiles(),
-          ioe);
+      LOG.warn("{}: Failed to installSnapshot {}: {}", this, snapshot, ioe);
+      handleException(ioe);
       return null;
     }
 
@@ -388,8 +412,7 @@ public class LogAppender extends Daemon {
   }
 
   /** Check and send appendEntries RPC */
-  private void checkAndSendAppendEntries()
-      throws InterruptedException, InterruptedIOException, RaftLogIOException {
+  protected void runAppenderImpl() throws InterruptedException, IOException {
     while (isAppenderRunning()) {
       if (shouldSendRequest()) {
         SnapshotInfo snapshot = shouldInstallSnapshot();
@@ -453,6 +476,11 @@ public class LogAppender extends Daemon {
           break;
       }
     }
+  }
+
+  private void handleException(Exception e) {
+    LOG.trace("TRACE", e);
+    server.getServerRpc().handleException(follower.getPeer().getId(), e, false);
   }
 
   protected void submitEventOnSuccessAppend() {

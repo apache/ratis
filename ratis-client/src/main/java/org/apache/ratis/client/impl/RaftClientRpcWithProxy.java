@@ -21,13 +21,8 @@ import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.PeerProxyMap;
-import org.apache.ratis.util.ReflectionUtils;
 
 import java.io.Closeable;
-import java.io.EOFException;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.nio.channels.ClosedChannelException;
 
 /** An abstract {@link RaftClientRpc} implementation using {@link PeerProxyMap}. */
 public abstract class RaftClientRpcWithProxy<PROXY extends Closeable>
@@ -48,12 +43,8 @@ public abstract class RaftClientRpcWithProxy<PROXY extends Closeable>
   }
 
   @Override
-  public void handleException(RaftPeerId serverId, Exception e, boolean shouldClose) {
-    if (shouldClose || ReflectionUtils.isInstance(e,
-        SocketException.class, SocketTimeoutException.class,
-        ClosedChannelException.class, EOFException.class)) {
-      proxies.resetProxy(serverId);
-    }
+  public void handleException(RaftPeerId serverId, Exception e, boolean reconnect) {
+    getProxies().handleException(serverId, e, reconnect);
   }
 
   @Override

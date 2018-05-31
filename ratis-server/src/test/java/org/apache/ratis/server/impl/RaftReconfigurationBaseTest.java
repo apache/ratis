@@ -340,19 +340,20 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
     // originally 3 peers
     final MiniRaftCluster cluster = getCluster(3);
     cluster.start();
+    final AtomicBoolean clientRunning = new AtomicBoolean(true);
+    Thread clientThread = null;
     try {
       RaftTestUtil.waitForLeader(cluster);
       final RaftPeerId leaderId = cluster.getLeader().getId();
       final RaftClient client = cluster.createClient(leaderId);
 
-      PeerChanges c1 = cluster.addNewPeers(2, false);
-      PeerChanges c2 = cluster.removePeers(2, false, asList(c1.newPeers));
+      PeerChanges c1 = cluster.addNewPeers(1, false);
+      PeerChanges c2 = cluster.removePeers(1, false, asList(c1.newPeers));
 
       LOG.info("Start changing the configuration: {}",
           asList(c2.allPeersInNewConf));
       final AtomicReference<Boolean> success = new AtomicReference<>();
-      final AtomicBoolean clientRunning = new AtomicBoolean(true);
-      Thread clientThread = new Thread(() -> {
+      clientThread = new Thread(() -> {
         try {
           boolean r = false;
           while (clientRunning.get() && !r) {
@@ -378,7 +379,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
 
       LOG.info("kill the current leader");
       final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster, true);
-      LOG.info("start the two new peers: {}", Arrays.asList(c1.newPeers));
+      LOG.info("start new peers: {}", Arrays.asList(c1.newPeers));
       for (RaftPeer np : c1.newPeers) {
         cluster.restartServer(np.getId(), false);
       }
@@ -388,9 +389,11 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       // will retry the same setConfiguration request
       waitAndCheckNewConf(cluster, c2.allPeersInNewConf, 2,
           Collections.singletonList(oldLeaderId));
-      clientRunning.set(false);
-      //Assert.assertTrue(success.get());
     } finally {
+      if (clientThread != null) {
+        clientRunning.set(false);
+        clientThread.interrupt();
+      }
       cluster.shutdown();
     }
   }

@@ -353,7 +353,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     // add the commit infos of other servers
     if (isLeader()) {
-      Optional.of(leaderState).ifPresent(
+      Optional.ofNullable(leaderState).ifPresent(
           leader -> leader.updateFollowerCommitInfos(commitInfoCache, infos));
     } else {
       getRaftConf().getPeers().stream()

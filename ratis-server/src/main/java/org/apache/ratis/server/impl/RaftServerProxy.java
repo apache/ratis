@@ -122,8 +122,12 @@ public class RaftServerProxy implements RaftServer {
   }
 
   public RaftServerImpl getImpl() throws IOException {
+    final CompletableFuture<RaftServerImpl> i = impl;
+    if (i == null) {
+      throw new ServerNotReadyException(getId() + " is not initialized.");
+    }
     try {
-      return impl.get();
+      return i.get();
     } catch (InterruptedException e) {
       throw IOUtils.toInterruptedIOException(getId() + ": getImpl interrupted.", e);
     } catch (ExecutionException e) {
@@ -133,12 +137,14 @@ public class RaftServerProxy implements RaftServer {
 
   @Override
   public void start() {
+    LOG.info("{}: start", getId());
     JavaUtils.getAndConsume(impl, RaftServerImpl::start);
     getServerRpc().start();
   }
 
   @Override
   public void close() {
+    LOG.info("{}: close", getId());
     JavaUtils.getAndConsume(impl, RaftServerImpl::shutdown);
     try {
       getServerRpc().close();

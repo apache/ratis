@@ -43,7 +43,6 @@ import org.slf4j.LoggerFactory;
  *  |       |    |          V     V       |
  *   -------      -------> EXCEPTION -----
  * </pre>
- * Note that there is no transition from PAUSING to CLOSING.
  */
 public class LifeCycle {
   public static final Logger LOG = LoggerFactory.getLogger(LifeCycle.class);

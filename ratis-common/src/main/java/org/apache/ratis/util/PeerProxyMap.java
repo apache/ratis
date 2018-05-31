@@ -121,6 +121,12 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     }
   }
 
+  public void handleException(RaftPeerId serverId, Exception e, boolean reconnect) {
+    if (reconnect || IOUtils.shouldReconnect(e)) {
+      resetProxy(serverId);
+    }
+  }
+
   public PROXY createProxyImpl(RaftPeer peer) throws IOException {
     throw new UnsupportedOperationException();
   }

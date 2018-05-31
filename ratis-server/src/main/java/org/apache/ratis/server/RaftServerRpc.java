@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server;
 
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
@@ -57,4 +58,7 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeabl
 
   /** add information of the given peers */
   void addPeers(Iterable<RaftPeer> peers);
+
+  /** Handle the given exception.  For example, try reconnecting. */
+  void handleException(RaftPeerId serverId, Exception e, boolean reconnect);
 }

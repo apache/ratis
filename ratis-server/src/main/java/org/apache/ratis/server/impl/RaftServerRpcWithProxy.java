@@ -59,6 +59,11 @@ public abstract class RaftServerRpcWithProxy<PROXY extends Closeable, PROXIES ex
   }
 
   @Override
+  public void handleException(RaftPeerId serverId, Exception e, boolean reconnect) {
+    getProxies().handleException(serverId, e, reconnect);
+  }
+
+  @Override
   public final void start() {
     getLifeCycle().startAndTransition(() -> startImpl());
   }

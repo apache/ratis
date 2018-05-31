@@ -166,21 +166,17 @@ public class LeaderState {
     raftLog.append(placeHolder);
 
     processor.start();
-    startSenders();
+    senders.forEach(LogAppender::startAppender);
   }
 
   boolean isReady() {
     return server.getState().getLastAppliedIndex() >= placeHolderIndex;
   }
 
-  private void startSenders() {
-    senders.forEach(Thread::start);
-  }
-
   void stop() {
     this.running = false;
     // do not interrupt event processor since it may be in the middle of logSync
-    senders.forEach(sender -> sender.stopSender().interrupt());
+    senders.forEach(LogAppender::stopAppender);
     try {
       pendingRequests.sendNotLeaderResponses();
     } catch (IOException e) {
@@ -284,14 +280,14 @@ public class LeaderState {
 
     senders.addAll(newMembers.stream().map(peer -> {
       LogAppender sender = server.newLogAppender(this, peer, t, nextIndex, false);
-      sender.start();
+      sender.startAppender();
       return sender;
     }).collect(Collectors.toList()));
   }
 
   void stopAndRemoveSenders(Predicate<LogAppender> predicate) {
     final List<LogAppender> toStop = senders.stream().filter(predicate).collect(Collectors.toList());
-    toStop.forEach(s -> s.stopSender().interrupt());
+    toStop.forEach(LogAppender::stopAppender);
     senders.removeAll(toStop);
   }
 

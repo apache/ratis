@@ -116,6 +116,11 @@ class SimulatedServerRpc implements RaftServerRpc {
     // do nothing
   }
 
+  @Override
+  public void handleException(RaftPeerId serverId, Exception e, boolean reconnect) {
+    // do nothing
+  }
+
   final RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply> serverHandlerImpl
       = new RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply>() {
     @Override

@@ -34,6 +34,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import static java.util.Arrays.asList;
 
@@ -142,6 +143,7 @@ public abstract class RetryCacheTests extends BaseTest {
     // same clientId and callId in the request
     r = cluster.newRaftClientRequest(client.getId(), newLeaderId,
         callId, seqNum, new SimpleMessage("message"));
+    rpc.addServers(Arrays.asList(change.newPeers));
     for (int i = 0; i < 10; i++) {
       try {
         reply = rpc.sendRequest(r);
@@ -150,7 +152,7 @@ public abstract class RetryCacheTests extends BaseTest {
         Assert.assertEquals(callId, reply.getCallId());
         Assert.assertTrue(reply.isSuccess());
       } catch (Exception e) {
-        LOG.info("hit exception while retrying the same request: " + e);
+        LOG.info("hit exception while retrying the same request: " + r, e);
       }
       Thread.sleep(100);
     }
