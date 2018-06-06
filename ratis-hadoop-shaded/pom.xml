@@ -42,6 +42,18 @@
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <compilerArgs>
+            <!-- disable all javac warnings for shaded sources -->
+            <arg>-Xlint:none</arg>
+            <arg>-XDignore.symbol.file</arg>
+          </compilerArgs>
+          <showWarnings>false</showWarnings>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <configuration>
           <excludes>org/apache/ratis/shaded/**/*</excludes>

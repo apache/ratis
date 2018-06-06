@@ -149,7 +149,7 @@
     <maven-site-plugin.version>3.5</maven-site-plugin.version>
     <maven-source-plugin.version>2.3</maven-source-plugin.version>
     <maven-stylus-skin.version>1.5</maven-stylus-skin.version>
-    <maven-surefire-plugin.version>2.19.1</maven-surefire-plugin.version>
+    <maven-surefire-plugin.version>2.21.0</maven-surefire-plugin.version>
 
     <protobuf-maven-plugin.version>0.5.1</protobuf-maven-plugin.version>
 
@@ -522,6 +522,12 @@
               <exclude>**/Test*$*.java</exclude>
               <exclude>${test.exclude.pattern}</exclude>
             </excludes>
+            <properties>
+              <property>
+                <name>listener</name>
+                <value>org.apache.ratis.JUnitRunListener</value>
+              </property>
+            </properties>
           </configuration>
         </plugin>
         <plugin>
@@ -693,31 +699,6 @@
         <bundle.snappy.in.bin>true</bundle.snappy.in.bin>
         <bundle.openssl.in.bin>true</bundle.openssl.in.bin>
       </properties>
-    </profile>
-    <profile>
-      <id>test-patch</id>
-      <activation>
-        <activeByDefault>false</activeByDefault>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-compiler-plugin</artifactId>
-            <configuration>
-              <fork>true</fork>
-              <source>${javac.version}</source>
-              <target>${javac.version}</target>
-              <fork>true</fork>
-              <meminitial>512m</meminitial>
-              <maxmem>2048m</maxmem>
-              <compilerArgs>
-                <arg>-Xlint:all,-options,-path</arg>
-              </compilerArgs>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
     </profile>
     <profile>
       <id>release</id>

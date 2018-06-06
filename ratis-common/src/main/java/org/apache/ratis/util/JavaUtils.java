@@ -26,6 +26,9 @@ import org.slf4j.LoggerFactory;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.Timer;
@@ -43,6 +46,12 @@ import java.util.function.Supplier;
  */
 public interface JavaUtils {
   Logger LOG = LoggerFactory.getLogger(JavaUtils.class);
+
+  DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss,SSS");
+
+  static String date() {
+    return DATE_FORMAT.format(new Date());
+  }
 
   /**
    * The same as {@link Class#cast(Object)} except that
