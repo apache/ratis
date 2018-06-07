@@ -18,19 +18,13 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.stream.Stream;
 
@@ -84,11 +78,6 @@ public class RaftServerTestUtil {
 
   public static boolean isRetryCacheEntryFailed(RetryCache.CacheEntry entry) {
     return entry.isFailed();
-  }
-
-  public static RaftServerProxy getRaftServerProxy(RaftPeerId id, StateMachine stateMachine,
-      RaftGroup group, RaftProperties properties, Parameters parameters) throws IOException {
-    return new RaftServerProxy(id, stateMachine, group, properties, parameters);
   }
 
   public static Stream<LogAppender> getLogAppenders(RaftServerImpl server) {

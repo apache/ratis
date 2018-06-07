@@ -30,14 +30,21 @@ import java.io.IOException;
 
 /** Server utilities for internal use. */
 public class ServerImplUtils {
+  /** For the case that all {@link RaftServerImpl} objects share the same {@link StateMachine}. */
   public static RaftServerProxy newRaftServer(
       RaftPeerId id, RaftGroup group, StateMachine stateMachine,
+      RaftProperties properties, Parameters parameters) throws IOException {
+    return newRaftServer(id, group, gid -> stateMachine, properties, parameters);
+  }
+
+  public static RaftServerProxy newRaftServer(
+      RaftPeerId id, RaftGroup group, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters) throws IOException {
     final RaftServerProxy proxy;
     try {
       // attempt multiple times to avoid temporary bind exception
       proxy = JavaUtils.attempt(
-          () -> new RaftServerProxy(id, stateMachine, group, properties, parameters),
+          () -> new RaftServerProxy(id, stateMachineRegistry, group, properties, parameters),
           5, 500L, "new RaftServerProxy", RaftServerProxy.LOG);
     } catch (InterruptedException e) {
       throw IOUtils.toInterruptedIOException(

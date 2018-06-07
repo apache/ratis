@@ -21,7 +21,8 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
+import org.apache.ratis.server.impl.ServerImplUtils;
+import org.apache.ratis.statemachine.StateMachine;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -40,8 +41,8 @@ public class TestRaftServerWithGrpc extends BaseTest {
     // Create a raft server proxy with server rpc bound to a different address
     // compared to leader. This helps in locking the raft storage directory to
     // be used by next raft server proxy instance.
-    RaftServerTestUtil.getRaftServerProxy(leaderId, cluster.getLeader().getStateMachine(), cluster.getGroup(),
-        new RaftProperties(), null);
+    final StateMachine stateMachine = cluster.getLeader().getStateMachine();
+    ServerImplUtils.newRaftServer(leaderId, cluster.getGroup(), stateMachine, properties, null);
     // Close the server rpc for leader so that new raft server can be bound to it.
     cluster.getLeader().getServerRpc().close();
 
@@ -50,9 +51,8 @@ public class TestRaftServerWithGrpc extends BaseTest {
     // the raft server proxy created earlier. Raft server proxy should close
     // the rpc server on failure.
     testFailureCase("start a new server with the same address",
-        () -> RaftServerTestUtil.getRaftServerProxy(leaderId, cluster.getLeader().getStateMachine(),
-            cluster.getGroup(), properties, null),
-        IOException.class, OverlappingFileLockException.class);
+        () -> ServerImplUtils.newRaftServer(leaderId, cluster.getGroup(), stateMachine, properties, null),
+        IOException.class, IOException.class, OverlappingFileLockException.class);
     // Try to start a raft server rpc at the leader address.
     cluster.getServer(leaderId).getFactory().newRaftServerRpc(cluster.getServer(leaderId));
   }

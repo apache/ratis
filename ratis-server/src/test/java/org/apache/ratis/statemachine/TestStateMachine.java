@@ -25,7 +25,6 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
@@ -95,7 +94,7 @@ public class TestStateMachine extends BaseTest {
   }
 
   static class SMTransactionContext extends SimpleStateMachine4Testing {
-    public static SMTransactionContext get(RaftServer s) {
+    public static SMTransactionContext get(RaftServerImpl s) {
       return (SMTransactionContext)s.getStateMachine();
     }
 
@@ -167,7 +166,7 @@ public class TestStateMachine extends BaseTest {
     Thread.sleep(cluster.getMaxTimeout() + 100);
 
     for (RaftServerProxy raftServer : cluster.getServers()) {
-      final SMTransactionContext sm = SMTransactionContext.get(raftServer);
+      final SMTransactionContext sm = SMTransactionContext.get(raftServer.getImpl());
       sm.rethrowIfException();
       assertEquals(numTrx, sm.numApplied.get());
     }
@@ -175,7 +174,7 @@ public class TestStateMachine extends BaseTest {
     // check leader
     RaftServerImpl raftServer = cluster.getLeader();
     // assert every transaction has obtained context in leader
-    final SMTransactionContext sm = SMTransactionContext.get(raftServer.getProxy());
+    final SMTransactionContext sm = SMTransactionContext.get(raftServer);
     List<Long> ll = sm.applied.stream().collect(Collectors.toList());
     Collections.sort(ll);
     assertEquals(ll.toString(), ll.size(), numTrx);

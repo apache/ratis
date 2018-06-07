@@ -67,6 +67,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   private final RaftServerProxy proxy;
+  private final StateMachine stateMachine;
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
 
@@ -90,18 +91,21 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   private final RaftServerJmxAdapter jmxAdapter;
 
-  RaftServerImpl(RaftPeerId id, RaftGroup group, RaftServerProxy proxy,
-      RaftProperties properties) throws IOException {
-    LOG.debug("new RaftServerImpl {}, {}", id , group);
+  RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
+    final RaftPeerId id = proxy.getId();
+    LOG.debug("{}: new RaftServerImpl for {}", id, group);
     this.groupId = group.getGroupId();
     this.lifeCycle = new LifeCycle(id);
+    this.stateMachine = stateMachine;
+
+    final RaftProperties properties = proxy.getProperties();
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toInt(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
     Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.proxy = proxy;
 
-    this.state = new ServerState(id, group, properties, this, proxy.getStateMachine());
+    this.state = new ServerState(id, group, properties, this, stateMachine);
     this.retryCache = initRetryCache(properties);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
@@ -142,7 +146,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   public StateMachine getStateMachine() {
-    return proxy.getStateMachine();
+    return stateMachine;
   }
 
   @VisibleForTesting

@@ -48,12 +48,6 @@ public interface RaftServer extends Closeable, RpcType.Get,
   /** Start this server. */
   void start();
 
-  /**
-   * Returns the StateMachine instance.
-   * @return the StateMachine instance.
-   */
-  StateMachine getStateMachine();
-
   /** @return a {@link Builder}. */
   static Builder newBuilder() {
     return new Builder();

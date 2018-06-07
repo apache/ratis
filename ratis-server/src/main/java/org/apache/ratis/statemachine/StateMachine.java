@@ -20,6 +20,7 @@ package org.apache.ratis.statemachine;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftConfiguration;
@@ -34,6 +35,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 /**
  * StateMachine is the entry point for the custom implementation of replicated state as defined in
@@ -42,6 +44,10 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface StateMachine extends Closeable {
   Logger LOG = LoggerFactory.getLogger(StateMachine.class);
+
+  /** A registry to support different state machines in multi-raft environment. */
+  interface Registry extends Function<RaftGroupId, StateMachine> {
+  }
 
   /**
    * Initializes the State Machine with the given properties and storage. The state machine is

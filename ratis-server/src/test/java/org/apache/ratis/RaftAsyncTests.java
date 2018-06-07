@@ -103,7 +103,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     final RaftClient client = cluster.createClient();
     //Set blockTransaction flag so that transaction blocks
     for (RaftServerProxy server : cluster.getServers()) {
-      ((SimpleStateMachine4Testing) server.getStateMachine()).setBlockTransaction(true);
+      ((SimpleStateMachine4Testing) server.getImpl().getStateMachine()).setBlockTransaction(true);
     }
 
     //Send numMessages which are blocked and do not release the client semaphore permits
@@ -133,7 +133,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
     //Unset the blockTransaction flag so that semaphore permits can be released
     for (RaftServerProxy server : cluster.getServers()) {
-      ((SimpleStateMachine4Testing) server.getStateMachine()).setBlockTransaction(false);
+      ((SimpleStateMachine4Testing) server.getImpl().getStateMachine()).setBlockTransaction(false);
     }
     for(int i=0; i<=numMessages; i++){
       futures[i].join();

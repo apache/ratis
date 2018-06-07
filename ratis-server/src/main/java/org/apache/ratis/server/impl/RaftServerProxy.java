@@ -42,8 +42,8 @@ public class RaftServerProxy implements RaftServer {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerProxy.class);
 
   private final RaftPeerId id;
-  private final StateMachine stateMachine;
   private final RaftProperties properties;
+  private final StateMachine.Registry stateMachineRegistry;
 
   private final RaftServerRpc serverRpc;
   private final ServerFactory factory;
@@ -51,11 +51,11 @@ public class RaftServerProxy implements RaftServer {
   private volatile CompletableFuture<RaftServerImpl> impl;
   private final AtomicReference<ReinitializeRequest> reinitializeRequest = new AtomicReference<>();
 
-  RaftServerProxy(RaftPeerId id, StateMachine stateMachine,
+  RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
       RaftGroup group, RaftProperties properties, Parameters parameters)
       throws IOException {
     this.properties = properties;
-    this.stateMachine = stateMachine;
+    this.stateMachineRegistry = stateMachineRegistry;
 
     final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
     this.factory = ServerFactory.cast(rpcType.newFactory(parameters));
@@ -78,7 +78,7 @@ public class RaftServerProxy implements RaftServer {
   }
 
   private RaftServerImpl initImpl(RaftGroup group) throws IOException {
-    return new RaftServerImpl(id, group, this, properties);
+    return new RaftServerImpl(group, stateMachineRegistry.apply(group.getGroupId()), this);
   }
 
   private static String getIdStringFrom(RaftServerRpc rpc) {
@@ -105,11 +105,6 @@ public class RaftServerProxy implements RaftServer {
   @Override
   public ServerFactory getFactory() {
     return factory;
-  }
-
-  @Override
-  public StateMachine getStateMachine() {
-    return stateMachine;
   }
 
   @Override
