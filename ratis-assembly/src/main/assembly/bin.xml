@@ -62,8 +62,8 @@
       <outputDirectory>.</outputDirectory>
       <includes>
         <include>DISCLAIMER.txt</include>
-        <include>LICENSE.txt</include>
-        <include>NOTICE.txt</include>
+        <include>LICENSE</include>
+        <include>NOTICE</include>
       </includes>
       <fileMode>0644</fileMode>
     </fileSet>

@@ -101,8 +101,8 @@
       <includes>
         <include>BUILDING.md</include>
         <include>DISCLAIMER.txt</include>
-        <include>LICENSE.txt</include>
-        <include>NOTICE.txt</include>
+        <include>LICENSE</include>
+        <include>NOTICE</include>
         <include>README.md</include>
         <include>pom.xml</include>
         <include>start-build-env.sh</include>
