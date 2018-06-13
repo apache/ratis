@@ -55,6 +55,12 @@ compiled files but keep the shaded classes with the following command:
 $ mvn clean -DskipCleanShade
 ```
 
+Then, the unit tests can be run by the following commands.
+
+```
+$ mvn -DskipShade test
+```
+
 ## What are shaded?
 
 | Original packages                   | Shaded packages                                              |
