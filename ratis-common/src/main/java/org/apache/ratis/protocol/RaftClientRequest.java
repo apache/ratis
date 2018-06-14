@@ -122,7 +122,8 @@ public class RaftClientRequest extends RaftClientMessage {
     public String toString() {
       switch (typeCase) {
         case WRITE:
-          return "RW";
+          final ReplicationLevel replication = write.getReplication();
+          return "RW" + (replication == ReplicationLevel.MAJORITY? "": "-" + replication);
         case READ:
           return "RO";
         case STALEREAD:

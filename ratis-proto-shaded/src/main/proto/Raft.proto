@@ -203,6 +203,12 @@ message NotLeaderExceptionProto {
   repeated RaftPeerProto peersInConf = 2;
 }
 
+message NotReplicatedExceptionProto {
+  uint64 callId = 1;
+  ReplicationLevel replication = 2;
+  uint64 logIndex = 3;
+}
+
 message StateMachineExceptionProto {
   string exceptionClassName = 1;
   string errorMsg = 2;
@@ -215,7 +221,8 @@ message RaftClientReplyProto {
 
   oneof ExceptionDetails {
     NotLeaderExceptionProto notLeaderException = 3;
-    StateMachineExceptionProto stateMachineException = 4;
+    NotReplicatedExceptionProto notReplicatedException = 4;
+    StateMachineExceptionProto stateMachineException = 5;
   }
 
   repeated CommitInfoProto commitInfos = 15;

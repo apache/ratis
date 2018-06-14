@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.ratis.RaftBasicTests.runTestDelayRequestIfLeaderStepDown;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends BaseTest
@@ -308,5 +309,12 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
     //reset for the other tests
     RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), oldExpiryTime);
+  }
+
+  @Test
+  public void testAsyncDelayRequestIfLeaderStepDown() throws Exception {
+    final CLUSTER cluster = newCluster(5);
+    cluster.start();
+    runTestDelayRequestIfLeaderStepDown(true, cluster, LOG);
   }
 }

@@ -17,10 +17,8 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.protocol.NotLeaderException;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.*;
+import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
 
@@ -84,6 +82,12 @@ public class PendingRequest implements Comparable<PendingRequest> {
 
   synchronized void completeDelayedReply() {
     setReply(delayed);
+  }
+
+  synchronized void failDelayedReply() {
+    final RaftClientRequest.Type type = request.getType();
+    final ReplicationLevel replication = type.getWrite().getReplication();
+    setReply(new RaftClientReply(delayed, new NotReplicatedException(request.getCallId(), replication, index)));
   }
 
   TransactionContext setNotLeaderException(NotLeaderException nle) {

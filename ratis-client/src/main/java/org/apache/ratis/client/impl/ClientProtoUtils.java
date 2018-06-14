@@ -26,6 +26,7 @@ import org.apache.ratis.util.ReflectionUtils;
 import java.util.Arrays;
 
 import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
+import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTREPLICATEDEXCEPTION;
 import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.STATEMACHINEEXCEPTION;
 
 public interface ClientProtoUtils {
@@ -163,6 +164,15 @@ public interface ClientProtoUtils {
             .setStacktrace(ProtoUtils.writeObject2ByteString(t.getStackTrace()));
         b.setStateMachineException(smeBuilder.build());
       }
+
+      final NotReplicatedException nre = reply.getNotReplicatedException();
+      if (nre != null) {
+        final NotReplicatedExceptionProto.Builder nreBuilder = NotReplicatedExceptionProto.newBuilder()
+            .setCallId(nre.getCallId())
+            .setReplication(nre.getRequiredReplication())
+            .setLogIndex(nre.getLogIndex());
+        b.setNotReplicatedException(nreBuilder);
+      }
     }
     return b.build();
   }
@@ -186,7 +196,7 @@ public interface ClientProtoUtils {
   static RaftClientReply toRaftClientReply(
       RaftClientReplyProto replyProto) {
     final RaftRpcReplyProto rp = replyProto.getRpcReply();
-    RaftException e = null;
+    final RaftException e;
     if (replyProto.getExceptionDetailsCase().equals(NOTLEADEREXCEPTION)) {
       NotLeaderExceptionProto nleProto = replyProto.getNotLeaderException();
       final RaftPeer suggestedLeader = nleProto.hasSuggestedLeader() ?
@@ -195,11 +205,16 @@ public interface ClientProtoUtils {
           nleProto.getPeersInConfList());
       e = new NotLeaderException(RaftPeerId.valueOf(rp.getReplyId()),
           suggestedLeader, peers);
+    } else if (replyProto.getExceptionDetailsCase() == NOTREPLICATEDEXCEPTION) {
+      final NotReplicatedExceptionProto nre = replyProto.getNotReplicatedException();
+      e = new NotReplicatedException(nre.getCallId(), nre.getReplication(), nre.getLogIndex());
     } else if (replyProto.getExceptionDetailsCase().equals(STATEMACHINEEXCEPTION)) {
       StateMachineExceptionProto smeProto = replyProto.getStateMachineException();
       e = wrapStateMachineException(RaftPeerId.valueOf(rp.getReplyId()),
           smeProto.getExceptionClassName(), smeProto.getErrorMsg(),
           smeProto.getStacktrace());
+    } else {
+      e = null;
     }
     ClientId clientId = ClientId.valueOf(rp.getRequestorId());
     final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());

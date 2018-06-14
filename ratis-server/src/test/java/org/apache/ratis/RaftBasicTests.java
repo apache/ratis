@@ -22,6 +22,7 @@ import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.NotReplicatedException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
@@ -50,6 +51,7 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -449,6 +451,51 @@ public abstract class RaftBasicTests extends BaseTest {
       TimeDuration duration = TimeDuration.valueOf(System.currentTimeMillis() - time, TimeUnit.MILLISECONDS);
       TimeDuration retryCacheExpiryDuration = RaftServerConfigKeys.RetryCache.expiryTime(cluster.getProperties());
       Assert.assertTrue(duration.compareTo(retryCacheExpiryDuration) >= 0);
+    }
+  }
+
+  @Test
+  public void testDelayRequestIfLeaderStepDown() throws Exception {
+    runTestDelayRequestIfLeaderStepDown(false, getCluster(), LOG);
+  }
+
+  static void runTestDelayRequestIfLeaderStepDown(boolean async, MiniRaftCluster cluster, Logger LOG) throws Exception {
+    boolean skipfirstserver = false;
+    for (RaftServer s : cluster.getServers()) {
+      if (!skipfirstserver) {
+        skipfirstserver = true;
+        cluster.killServer(s.getId());
+        continue;
+      }
+      cluster.restartServer(s.getId(), false);
+    }
+    final RaftServerImpl leader = waitForLeader(cluster);
+    LOG.info("leader: " + leader.getId() + ", " + cluster.printServers());
+
+    final SimpleMessage message = SimpleMessage.create(1)[0];
+    try (final RaftClient client = cluster.createClientWithLeader()) {
+      final RaftClientReply reply;
+      if (async) {
+        final CompletableFuture<RaftClientReply> f = client.sendAsync(message, ReplicationLevel.ALL);
+        Thread.sleep(1000);
+        RaftTestUtil.changeLeader(cluster, leader.getId());
+
+        reply = f.get();
+      } else {
+        new Thread(() -> {
+          try {
+            Thread.sleep(1000);
+            RaftTestUtil.changeLeader(cluster, leader.getId());
+          } catch (Exception e) {
+            LOG.warn("changeLeader", e);
+          }
+        }).start();
+
+        reply = client.send(message, ReplicationLevel.ALL);
+      }
+      throw reply.getNotReplicatedException();
+    } catch (NotReplicatedException e) {
+      LOG.info("Expected", e);
     }
   }
 }

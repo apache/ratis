@@ -116,7 +116,16 @@ class PendingRequests {
           polled = q.poll();
           Preconditions.assertTrue(polled == peeked);
         }
+        LOG.debug("{}: complete delay request {}", name, polled);
         polled.completeDelayedReply();
+      }
+    }
+
+    void failReplies() {
+      synchronized (q) {
+        for(; !q.isEmpty();) {
+          q.poll().failDelayedReply();
+        }
       }
     }
   }
@@ -215,6 +224,7 @@ class PendingRequests {
     if (pendingSetConf != null) {
       pendingSetConf.setNotLeaderException(nle);
     }
+    delayedReplies.failReplies();
   }
 
   void checkDelayedReplies(long allAckedIndex) {

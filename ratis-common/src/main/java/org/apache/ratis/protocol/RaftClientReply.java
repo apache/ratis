@@ -55,16 +55,15 @@ public class RaftClientReply extends RaftClientMessage {
     this.callId = callId;
     this.message = message;
     this.exception = exception;
+    this.commitInfos = commitInfos != null? commitInfos: Collections.emptyList();
 
     if (exception != null) {
       Preconditions.assertTrue(!success,
           () -> "Inconsistent parameters: success && exception != null: " + this);
-      Preconditions.assertTrue(
-          ReflectionUtils.isInstance(exception, NotLeaderException.class, StateMachineException.class),
+      Preconditions.assertTrue(ReflectionUtils.isInstance(exception,
+          NotLeaderException.class, NotReplicatedException.class, StateMachineException.class),
           () -> "Unexpected exception class: " + this);
     }
-
-    this.commitInfos = commitInfos != null? commitInfos: Collections.emptyList();
   }
 
   public RaftClientReply(RaftClientRequest request, RaftException exception, Collection<CommitInfoProto> commitInfos) {
@@ -79,6 +78,11 @@ public class RaftClientReply extends RaftClientMessage {
   public RaftClientReply(RaftClientRequest request, Message message, Collection<CommitInfoProto> commitInfos) {
     this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
         request.getCallId(), true, message, null, commitInfos);
+  }
+
+  public RaftClientReply(RaftClientReply reply, NotReplicatedException nre) {
+    this(reply.getClientId(), reply.getServerId(), reply.getRaftGroupId(),
+        reply.getCallId(), false, reply.getMessage(), nre, reply.getCommitInfos());
   }
 
   /**
@@ -118,6 +122,11 @@ public class RaftClientReply extends RaftClientMessage {
   /** If this reply has {@link NotLeaderException}, return it; otherwise return null. */
   public NotLeaderException getNotLeaderException() {
     return JavaUtils.cast(exception, NotLeaderException.class);
+  }
+
+  /** If this reply has {@link NotReplicatedException}, return it; otherwise return null. */
+  public NotReplicatedException getNotReplicatedException() {
+    return JavaUtils.cast(exception, NotReplicatedException.class);
   }
 
   /** If this reply has {@link StateMachineException}, return it; otherwise return null. */
