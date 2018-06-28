@@ -62,8 +62,16 @@
       <outputDirectory>.</outputDirectory>
       <includes>
         <include>DISCLAIMER.txt</include>
+      </includes>
+      <fileMode>0644</fileMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/src/main/resources</directory>
+      <outputDirectory>.</outputDirectory>
+      <includes>
         <include>LICENSE</include>
         <include>NOTICE</include>
+        <include>README.md</include>
       </includes>
       <fileMode>0644</fileMode>
     </fileSet>
