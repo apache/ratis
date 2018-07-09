@@ -1057,10 +1057,16 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // Let the StateMachine inject logic for committed transactions in sequential order.
       trx = stateMachine.applyTransactionSerial(trx);
 
-      // TODO: This step can be parallelized
-      CompletableFuture<Message> stateMachineFuture =
-          stateMachine.applyTransaction(trx);
-      return replyPendingRequest(next, stateMachineFuture);
+      try {
+        // TODO: This step can be parallelized
+        CompletableFuture<Message> stateMachineFuture =
+            stateMachine.applyTransaction(trx);
+        return replyPendingRequest(next, stateMachineFuture);
+      } catch (Throwable e) {
+        LOG.error("{}: applyTransaction failed for index:{} proto:{}", getId(),
+            next.getIndex(), ServerProtoUtils.toString(next), e.getMessage());
+        throw e;
+      }
     }
     return null;
   }

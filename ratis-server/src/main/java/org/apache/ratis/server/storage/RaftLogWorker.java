@@ -277,8 +277,15 @@ class RaftLogWorker implements Runnable {
       if (this.entry == entry || stateMachine == null) {
         this.stateMachineFuture = null;
       } else {
-        // this.entry != entry iff the entry has state machine data
-        this.stateMachineFuture = stateMachine.writeStateMachineData(entry);
+        try {
+          // this.entry != entry iff the entry has state machine data
+          this.stateMachineFuture = stateMachine.writeStateMachineData(entry);
+        } catch (Throwable e) {
+          LOG.error("{}: writeStateMachineData failed for index:{} proto:{}",
+              raftServer.getId() ,entry.getIndex(),
+              ServerProtoUtils.toString(entry), e.getMessage());
+          throw e;
+        }
       }
       this.combined = stateMachineFuture == null? super.getFuture()
           : super.getFuture().thenCombine(stateMachineFuture, (index, stateMachineResult) -> index);
