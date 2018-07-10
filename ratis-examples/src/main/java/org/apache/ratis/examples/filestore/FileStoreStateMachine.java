@@ -21,7 +21,8 @@ import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.InvalidProtocolBufferException;
@@ -52,9 +53,9 @@ public class FileStoreStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public void initialize(RaftPeerId id, RaftProperties properties, RaftStorage raftStorage)
+  public void initialize(RaftServer server, RaftGroupId groupId, RaftStorage raftStorage)
       throws IOException {
-    super.initialize(id, properties, raftStorage);
+    super.initialize(server, groupId, raftStorage);
     this.storage.init(raftStorage);
     FileUtils.createDirectories(files.getRoot());
   }

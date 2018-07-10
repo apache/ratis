@@ -17,10 +17,10 @@
  */
 package org.apache.ratis.examples.arithmetic;
 
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -60,18 +60,17 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   }
 
   @Override
-  public void initialize(RaftPeerId id, RaftProperties properties,
+  public void initialize(RaftServer server, RaftGroupId groupId,
       RaftStorage raftStorage) throws IOException {
-    super.initialize(id, properties, raftStorage);
+    super.initialize(server, groupId, raftStorage);
     this.storage.init(raftStorage);
     loadSnapshot(storage.getLatestSnapshot());
   }
 
   @Override
-  public void reinitialize(RaftPeerId id, RaftProperties properties,
-      RaftStorage storage) throws IOException {
+  public void reinitialize() throws IOException {
     close();
-    this.initialize(id, properties, storage);
+    loadSnapshot(storage.getLatestSnapshot());
   }
 
   @Override
@@ -161,10 +160,17 @@ public class ArithmeticStateMachine extends BaseStateMachine {
       updateLastAppliedTermIndex(entry.getTerm(), index);
     }
     final Expression r = Expression.Utils.double2Expression(result);
-    LOG.debug("{}-{}: {} = {}", getId(), index, assignment, r);
+    final CompletableFuture<Message> f = CompletableFuture.completedFuture(Expression.Utils.toMessage(r));
+
+    final RaftServer.Role role = trx.getServerRole();
+    if (role == RaftServer.Role.LEADER) {
+      LOG.info("{}:{}-{}: {} = {}", role, getId(), index, assignment, r);
+    } else {
+      LOG.debug("{}:{}-{}: {} = {}", role, getId(), index, assignment, r);
+    }
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}-{}: variables={}", getId(), index, variables);
     }
-    return CompletableFuture.completedFuture(Expression.Utils.toMessage(r));
+    return f;
   }
 }

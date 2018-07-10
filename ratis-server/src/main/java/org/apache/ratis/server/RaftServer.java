@@ -36,6 +36,11 @@ public interface RaftServer extends Closeable, RpcType.Get,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol,
     AdminProtocol, AdminAsynchronousProtocol {
+  /** The role of a raft server. */
+  enum Role {
+    LEADER, CANDIDATE, FOLLOWER
+  }
+
   /** @return the server ID. */
   RaftPeerId getId();
 

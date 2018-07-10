@@ -21,7 +21,6 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.storage.RaftLog;
-import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
@@ -108,7 +107,6 @@ class StateMachineUpdater implements Runnable {
 
   @Override
   public void run() {
-    final RaftStorage storage = server.getState().getStorage();
     while (isRunning()) {
       try {
         synchronized (this) {
@@ -126,7 +124,7 @@ class StateMachineUpdater implements Runnable {
         if (state == State.RELOAD) {
           Preconditions.assertTrue(stateMachine.getLifeCycleState() == LifeCycle.State.PAUSED);
 
-          stateMachine.reinitialize(server.getId(), properties, storage);
+          stateMachine.reinitialize();
 
           SnapshotInfo snapshot = stateMachine.getLatestSnapshot();
           Preconditions.assertTrue(snapshot != null && snapshot.getIndex() > lastAppliedIndex,

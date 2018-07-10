@@ -22,8 +22,9 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.StateMachineException;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -99,11 +100,11 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public synchronized void initialize(RaftPeerId id, RaftProperties properties,
+  public synchronized void initialize(RaftServer server, RaftGroupId groupId,
       RaftStorage raftStorage) throws IOException {
-    LOG.info("Initializing " + getClass().getSimpleName() + ":" + id);
+    LOG.info("Initializing " + this);
     lifeCycle.startAndTransition(() -> {
-      super.initialize(id, properties, raftStorage);
+      super.initialize(server, groupId, raftStorage);
       storage.init(raftStorage);
       loadSnapshot(storage.findLatestSnapshot());
 
@@ -122,10 +123,9 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public synchronized void reinitialize(RaftPeerId id, RaftProperties properties,
-      RaftStorage storage) throws IOException {
-    LOG.info("Reinitializing " + getClass().getSimpleName() + ":" + id);
-    initialize(id, properties, storage);
+  public synchronized void reinitialize() throws IOException {
+    LOG.info("Reinitializing " + this);
+    loadSnapshot(storage.findLatestSnapshot());
   }
 
   @Override

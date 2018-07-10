@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.RaftServer.Role;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -59,12 +60,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
-
-
-  /** Role of raft peer */
-  enum Role {
-    LEADER, CANDIDATE, FOLLOWER
-  }
 
   private final RaftServerProxy proxy;
   private final StateMachine stateMachine;
@@ -221,6 +216,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   public RaftPeerId getId() {
     return getState().getSelfId();
+  }
+
+  Role getRole() {
+    return role;
   }
 
   RaftConfiguration getRaftConf() {
@@ -441,7 +440,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   void assertGroup(Object requestorId, RaftGroupId requestorGroupId) throws GroupMismatchException {
     if (!groupId.equals(requestorGroupId)) {
       throw new GroupMismatchException(getId()
-          + ": The group (" + requestorGroupId + ") of requestor " + requestorId
+          + ": The group (" + requestorGroupId + ") of " + requestorId
           + " does not match the group (" + groupId + ") of the server " + getId());
     }
   }
@@ -1051,7 +1050,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // check whether there is a TransactionContext because we are the leader.
       TransactionContext trx = getTransactionContext(next.getIndex());
       if (trx == null) {
-        trx = new TransactionContextImpl(stateMachine, next);
+        trx = new TransactionContextImpl(getRole(), stateMachine, next);
       }
 
       // Let the StateMachine inject logic for committed transactions in sequential order.

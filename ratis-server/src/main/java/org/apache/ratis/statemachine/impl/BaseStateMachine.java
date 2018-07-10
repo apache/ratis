@@ -18,10 +18,11 @@
 
 package org.apache.ratis.statemachine.impl;
 
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -45,10 +46,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * Base implementation for StateMachines.
  */
 public class BaseStateMachine implements StateMachine {
-  private volatile RaftPeerId id;
-  protected RaftProperties properties;
-  protected RaftStorage storage;
-  protected RaftConfiguration raftConf;
+  private final CompletableFuture<RaftServer> server = new CompletableFuture<>();
+  private volatile RaftGroupId groupId;
+  private volatile RaftConfiguration raftConf;
   protected final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
 
   private final AtomicReference<TermIndex> lastAppliedTermIndex = new AtomicReference<>();
@@ -56,7 +56,7 @@ public class BaseStateMachine implements StateMachine {
   private final SortedMap<Long, CompletableFuture<Void>> transactionFutures = new TreeMap<>();
 
   public RaftPeerId getId() {
-    return id;
+    return server.isDone()? server.join().getId(): null;
   }
 
   @Override
@@ -65,12 +65,10 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public void initialize(RaftPeerId id, RaftProperties properties,
-      RaftStorage storage) throws IOException {
-    this.id = id;
-    lifeCycle.setName(getClass().getSimpleName() + ":" + id);
-    this.properties = properties;
-    this.storage = storage;
+  public void initialize(RaftServer server, RaftGroupId groupId, RaftStorage storage) throws IOException {
+    this.groupId = groupId;
+    this.server.complete(server);
+    lifeCycle.setName("" + this);
   }
 
   @Override
@@ -98,8 +96,7 @@ public class BaseStateMachine implements StateMachine {
   }
 
   @Override
-  public void reinitialize(RaftPeerId id, RaftProperties properties,
-      RaftStorage storage) throws IOException {
+  public void reinitialize() throws IOException {
   }
 
   @Override
@@ -127,7 +124,7 @@ public class BaseStateMachine implements StateMachine {
     final TermIndex newTI = TermIndex.newTermIndex(term, index);
     final TermIndex oldTI = lastAppliedTermIndex.getAndSet(newTI);
     if (!newTI.equals(oldTI)) {
-      LOG.debug("{}: update lastAppliedTermIndex from {} to {}", getId(), oldTI, newTI);
+      LOG.trace("{}: update lastAppliedTermIndex from {} to {}", getId(), oldTI, newTI);
       if (oldTI != null) {
         Preconditions.assertTrue(newTI.compareTo(oldTI) >= 0,
             () -> getId() + ": Failed updateLastAppliedTermIndex: newTI = "
@@ -207,5 +204,11 @@ public class BaseStateMachine implements StateMachine {
   @Override
   public void close() throws IOException {
     // do nothing
+  }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() + ":"
+        + (!server.isDone()? "uninitialized": getId() + ":" + groupId);
   }
 }

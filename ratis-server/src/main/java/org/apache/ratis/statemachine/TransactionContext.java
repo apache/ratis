@@ -18,6 +18,7 @@
 package org.apache.ratis.statemachine;
 
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.server.RaftServer.Role;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
@@ -44,6 +45,8 @@ import java.util.Collection;
  * the RAFT log from the leader.
  */
 public interface TransactionContext {
+  /** @return the role of the server when this context is created. */
+  Role getServerRole();
 
   /**
    * Returns the original request from the {@link RaftClientRequest}

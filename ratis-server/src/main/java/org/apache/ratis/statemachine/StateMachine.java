@@ -17,11 +17,10 @@
  */
 package org.apache.ratis.statemachine;
 
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -50,12 +49,11 @@ public interface StateMachine extends Closeable {
   }
 
   /**
-   * Initializes the State Machine with the given properties and storage. The state machine is
+   * Initializes the State Machine with the given server, group and storage. The state machine is
    * responsible reading the latest snapshot from the file system (if any) and initialize itself
    * with the latest term and index there including all the edits.
    */
-  void initialize(RaftPeerId id, RaftProperties properties, RaftStorage storage)
-      throws IOException;
+  void initialize(RaftServer server, RaftGroupId groupId, RaftStorage storage) throws IOException;
 
   /**
    * Returns the lifecycle state for this StateMachine.
@@ -70,12 +68,11 @@ public interface StateMachine extends Closeable {
   void pause();
 
   /**
-   * Re-initializes the State Machine in PAUSED state with the given properties and storage. The
+   * Re-initializes the State Machine in PAUSED state. The
    * state machine is responsible reading the latest snapshot from the file system (if any) and
    * initialize itself with the latest term and index there including all the edits.
    */
-  void reinitialize(RaftPeerId id, RaftProperties properties, RaftStorage storage)
-      throws IOException;
+  void reinitialize() throws IOException;
 
   /**
    * Dump the in-memory state into a snapshot file in the RaftStorage. The

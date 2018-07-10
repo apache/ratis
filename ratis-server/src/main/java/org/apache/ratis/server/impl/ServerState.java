@@ -22,7 +22,6 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.*;
-import org.apache.ratis.shaded.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -91,7 +90,7 @@ public class ServerState implements Closeable {
         RaftServerConstants.StartupOption.REGULAR);
     snapshotManager = new SnapshotManager(storage, id);
 
-    long lastApplied = initStatemachine(stateMachine, prop);
+    long lastApplied = initStatemachine(stateMachine, group.getGroupId());
 
     leaderId = null;
     // we cannot apply log entries to the state machine in this step, since we
@@ -112,9 +111,9 @@ public class ServerState implements Closeable {
          lastApplied, prop);
   }
 
-  private long initStatemachine(StateMachine sm, RaftProperties properties)
+  private long initStatemachine(StateMachine sm, RaftGroupId groupId)
       throws IOException {
-    sm.initialize(selfId, properties, storage);
+    sm.initialize(server.getProxy(), groupId, storage);
     storage.setStateMachineStorage(sm.getStateMachineStorage());
     SnapshotInfo snapshot = sm.getLatestSnapshot();
 
