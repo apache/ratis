@@ -7,10 +7,22 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <copyright>&amp;copy; 2017 Apache Software Foundation</copyright>
-    <lastBuildDate>Tue, 02 May 2017 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 15 Jul 2018 00:00:00 +0000</lastBuildDate>
     
 	<atom:link href="https://ratis.incubator.apache.org/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Release 0.2.0 is available</title>
+      <link>https://ratis.incubator.apache.org/post/0.2.0.html</link>
+      <pubDate>Sun, 15 Jul 2018 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.incubator.apache.org/post/0.2.0.html</guid>
+      <description>0.2.0 is the second Apache release and the first release which provides binary release with example Raft applications.
+It contains more than 130 bug fixes and features since the previous release.
+This version also heavily tested with Apache Hadoop Ozone where Apache Ratis is used to replicate raw Hadoop data.
+The release is available from the downloaded section or (as Ratis is a java library) from the Apache and Maven central maven repositories.</description>
+    </item>
     
     <item>
       <title>Release 0.1.0-alpha is available</title>
