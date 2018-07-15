@@ -125,19 +125,28 @@
                     <th>Version</th>
                     <th>Release date</th>
                     <th>Source download</th>
+                    <th>Binary download</th>
                     <th>Announcement</th>
                 </tr>
                 </thead>
                 {{range first 5 (where .Site.Pages ".Params.type" "release")}}
                 <tr>
-                    <td>{{.BaseFileName }}</td>
+		              <td>{{.BaseFileName }}</td>
                     <td>{{dateFormat "2006 Jan 2 " .Date}}</td>
                     <td>
                         <a href="https://www.apache.org/dyn/closer.cgi/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-src.tar.gz">source</a>
                         (<a href="https://dist.apache.org/repos/dist/release/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-src.tar.gz.mds">checksum</a>
                         <a href="https://dist.apache.org/repos/dist/release/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-src.tar.gz.asc">signature</a>)
                     </td>
-                  
+						  {{ if .Params.sourceonly  }}
+						     <td></td>
+						  {{else}}
+                    <td>
+                        <a href="https://www.apache.org/dyn/closer.cgi/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-bin.tar.gz">binary</a>
+                        (<a href="https://dist.apache.org/repos/dist/release/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-bin.tar.gz.mds">checksum</a>
+                        <a href="https://dist.apache.org/repos/dist/release/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-bin.tar.gz.asc">signature</a>)
+                    </td>
+						  {{end}}
                     <td>
                         <a href="post/{{.BaseFileName }}.html">Announcement</a>
                     </td>
@@ -145,7 +154,7 @@
                 {{end}}
             </table>
             </p>
-
+				<p>Ratis is also <a href="https://search.maven.org/#search%7Cga%7C1%7Cratis">available</a> from the Maven central repository.</p>
 
         </div>
     </div>
