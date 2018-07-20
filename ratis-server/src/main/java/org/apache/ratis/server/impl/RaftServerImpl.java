@@ -1031,7 +1031,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return null;
   }
 
-  public synchronized long[] getFollowerNextIndices() {
+  public long[] getFollowerNextIndices() {
     LeaderState s = this.leaderState;
     if (s == null || !isLeader()) {
       return null;
