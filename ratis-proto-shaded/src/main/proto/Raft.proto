@@ -175,6 +175,14 @@ enum ReplicationLevel {
   ALL = 1;
 }
 
+
+/** Role of raft peer */
+enum RaftPeerRole {
+  LEADER = 0;
+  CANDIDATE = 1;
+  FOLLOWER = 2;
+}
+
 message WriteRequestTypeProto {
   ReplicationLevel replication = 1;
 }
@@ -248,5 +256,8 @@ message ServerInformationRequestProto {
 message ServerInformationReplyProto {
   RaftRpcReplyProto rpcReply = 1;
   RaftGroupProto group = 2;
-  repeated CommitInfoProto commitInfos = 3;
+  RaftPeerRole role = 3;
+  uint64 roleElapsedTimeMs = 4;
+  bool isRaftStorageHealthy = 5;
+  repeated CommitInfoProto commitInfos = 6;
 }

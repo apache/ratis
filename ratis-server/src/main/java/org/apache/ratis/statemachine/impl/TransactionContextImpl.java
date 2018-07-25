@@ -20,7 +20,7 @@ package org.apache.ratis.statemachine.impl;
 import java.io.IOException;
 import java.util.Objects;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.server.RaftServer.Role;
+import org.apache.ratis.shaded.proto.RaftProtos;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
@@ -33,7 +33,7 @@ import org.apache.ratis.util.Preconditions;
  */
 public class TransactionContextImpl implements TransactionContext {
   /** The role of the server when this object is created. */
-  private final Role serverRole;
+  private final RaftProtos.RaftPeerRole serverRole;
   /** The {@link StateMachine} that originated the transaction. */
   private final StateMachine stateMachine;
 
@@ -64,7 +64,7 @@ public class TransactionContextImpl implements TransactionContext {
   /** Committed LogEntry. */
   private LogEntryProto logEntry;
 
-  private TransactionContextImpl(Role serverRole, StateMachine stateMachine) {
+  private TransactionContextImpl(RaftProtos.RaftPeerRole serverRole, StateMachine stateMachine) {
     this.serverRole = serverRole;
     this.stateMachine = stateMachine;
   }
@@ -85,7 +85,7 @@ public class TransactionContextImpl implements TransactionContext {
   public TransactionContextImpl(
       StateMachine stateMachine, RaftClientRequest clientRequest,
       SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
-    this(Role.LEADER, stateMachine);
+    this(RaftProtos.RaftPeerRole.LEADER, stateMachine);
     this.clientRequest = clientRequest;
     this.smLogEntryProto = smLogEntryProto;
     this.stateMachineContext = stateMachineContext;
@@ -96,14 +96,14 @@ public class TransactionContextImpl implements TransactionContext {
    * Used by followers for applying committed entries to the state machine.
    * @param logEntry the log entry to be applied
    */
-  public TransactionContextImpl(Role serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
+  public TransactionContextImpl(RaftProtos.RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
     this(serverRole, stateMachine);
     setLogEntry(logEntry);
     this.smLogEntryProto = logEntry.getSmLogEntry();
   }
 
   @Override
-  public Role getServerRole() {
+  public RaftProtos.RaftPeerRole getServerRole() {
     return serverRole;
   }
 

@@ -22,7 +22,6 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.server.RaftServer.Role;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -70,7 +69,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final ServerState state;
   private final RaftGroupId groupId;
   private final Supplier<RaftPeer> peerSupplier = JavaUtils.memoize(() -> new RaftPeer(getId(), getServerRpc().getInetSocketAddress()));
-  private volatile Role role;
+  private final RoleInfo role;
 
   /** used when the peer is follower, to monitor election timeout */
   private volatile FollowerState heartbeatMonitor;
@@ -92,6 +91,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     this.groupId = group.getGroupId();
     this.lifeCycle = new LifeCycle(id);
     this.stateMachine = stateMachine;
+    this.role = new RoleInfo();
 
     final RaftProperties properties = proxy.getProperties();
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toInt(TimeUnit.MILLISECONDS);
@@ -157,10 +157,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return proxy.getServerRpc();
   }
 
-  private void setRole(Role newRole, String op) {
+  private void setRole(RaftPeerRole newRole, String op) {
     LOG.info("{} changes role from {} to {} at term {} for {}",
         getId(), this.role, newRole, state.getCurrentTerm(), op);
-    this.role = newRole;
+    this.role.transitionRole(newRole);
   }
 
   void start() {
@@ -191,7 +191,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
    * The peer belongs to the current configuration, should start as a follower
    */
   private void startAsFollower() {
-    setRole(Role.FOLLOWER, "startAsFollower");
+    setRole(RaftPeerRole.FOLLOWER, "startAsFollower");
     startHeartbeatMonitor();
     lifeCycle.transition(RUNNING);
   }
@@ -202,7 +202,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
    * start election.
    */
   private void startInitializing() {
-    setRole(Role.FOLLOWER, "startInitializing");
+    setRole(RaftPeerRole.FOLLOWER, "startInitializing");
     // do not start heartbeatMonitoring
   }
 
@@ -218,8 +218,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return getState().getSelfId();
   }
 
-  Role getRole() {
-    return role;
+  RaftPeerRole getRole() {
+    return role.getCurrentRole();
   }
 
   RaftConfiguration getRaftConf() {
@@ -261,15 +261,15 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   public boolean isFollower() {
-    return role == Role.FOLLOWER;
+    return role.isFollower();
   }
 
   public boolean isCandidate() {
-    return role == Role.CANDIDATE;
+    return role.isCandidate();
   }
 
   public boolean isLeader() {
-    return role == Role.LEADER;
+    return role.isLeader();
   }
 
   /**
@@ -282,14 +282,14 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
    */
   synchronized boolean changeToFollower(long newTerm, boolean sync)
       throws IOException {
-    final Role old = role;
+    final RaftPeerRole old = role.getCurrentRole();
     final boolean metadataUpdated = state.updateCurrentTerm(newTerm);
 
-    if (old != Role.FOLLOWER) {
-      setRole(Role.FOLLOWER, "changeToFollower");
-      if (old == Role.LEADER) {
+    if (old != RaftPeerRole.FOLLOWER) {
+      setRole(RaftPeerRole.FOLLOWER, "changeToFollower");
+      if (old == RaftPeerRole.LEADER) {
         shutdownLeaderState(false);
-      } else if (old == Role.CANDIDATE) {
+      } else if (old == RaftPeerRole.CANDIDATE) {
         shutdownElectionDaemon();
       }
       startHeartbeatMonitor();
@@ -325,7 +325,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   synchronized void changeToLeader() {
     Preconditions.assertTrue(isCandidate());
     shutdownElectionDaemon();
-    setRole(Role.LEADER, "changeToLeader");
+    setRole(RaftPeerRole.LEADER, "changeToLeader");
     state.becomeLeader();
 
     // start sending AppendEntries RPC to followers
@@ -371,13 +371,15 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   ServerInformationReply getServerInformation(ServerInformationRequest request) {
     final RaftGroup group = new RaftGroup(groupId, getRaftConf().getPeers());
-    return new ServerInformationReply(request, getCommitInfos(), group);
+    return new ServerInformationReply(request, role.getCurrentRole(),
+        role.getRoleElapsedTimeMs(), state.getStorage().getStorageDir().hasMetaFile(),
+        getCommitInfos(), group);
   }
 
   synchronized void changeToCandidate() {
     Preconditions.assertTrue(isFollower());
     shutdownHeartbeatMonitor();
-    setRole(Role.CANDIDATE, "changeToCandidate");
+    setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
     // start election
     electionDaemon = new LeaderElection(this);
     electionDaemon.start();

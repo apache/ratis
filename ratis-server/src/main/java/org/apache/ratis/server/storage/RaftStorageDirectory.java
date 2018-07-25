@@ -261,7 +261,7 @@ public class RaftStorageDirectory {
     }
   }
 
-  boolean hasMetaFile() throws IOException {
+  public boolean hasMetaFile() {
     return getMetaFile().exists();
   }
 

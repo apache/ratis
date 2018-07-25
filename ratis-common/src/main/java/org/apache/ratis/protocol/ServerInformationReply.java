@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.shaded.proto.RaftProtos;
 import org.apache.ratis.shaded.proto.RaftProtos.CommitInfoProto;
 
 import java.util.Collection;
@@ -26,21 +27,45 @@ import java.util.Collection;
  */
 public class ServerInformationReply extends RaftClientReply {
   private final RaftGroup group;
+  private final RaftProtos.RaftPeerRole role;
+  private final long roleElapsedTime;
+  private final boolean isRaftStorageHealthy;
 
   public ServerInformationReply(
-      RaftClientRequest request, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
+      RaftClientRequest request, RaftProtos.RaftPeerRole role, long roleElapsedTime,
+      boolean isRaftStorageHealthy, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
     super(request, commitInfos);
+    this.role = role;
+    this.roleElapsedTime = roleElapsedTime;
+    this.isRaftStorageHealthy = isRaftStorageHealthy;
     this.group = group;
   }
 
   public ServerInformationReply(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
-      long callId, boolean success, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
+      long callId, boolean success, RaftProtos.RaftPeerRole role, long roleElapsedTime,
+      boolean isRaftStorageHealthy, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
     super(clientId, serverId, groupId, callId, success, null, null, commitInfos);
+    this.role = role;
+    this.roleElapsedTime = roleElapsedTime;
+    this.isRaftStorageHealthy = isRaftStorageHealthy;
     this.group = group;
   }
 
   public RaftGroup getGroup() {
     return group;
+  }
+
+
+  public RaftProtos.RaftPeerRole getRole() {
+    return role;
+  }
+
+  public long getRoleElapsedTime() {
+    return roleElapsedTime;
+  }
+
+  public boolean isRaftStorageHealthy() {
+    return isRaftStorageHealthy;
   }
 }

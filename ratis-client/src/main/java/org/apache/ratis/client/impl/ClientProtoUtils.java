@@ -230,8 +230,11 @@ public interface ClientProtoUtils {
     ClientId clientId = ClientId.valueOf(rp.getRequestorId());
     final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
     final RaftGroup raftGroup = ProtoUtils.toRaftGroup(replyProto.getGroup());
+    RaftPeerRole role = replyProto.getRole();
+    boolean isRaftStorageHealthy = replyProto.getIsRaftStorageHealthy();
+    long roleElapsedTime = replyProto.getRoleElapsedTimeMs();
     return new ServerInformationReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
-        groupId, rp.getCallId(), rp.getSuccess(),
+        groupId, rp.getCallId(), rp.getSuccess(), role, roleElapsedTime, isRaftStorageHealthy,
         replyProto.getCommitInfosList(), raftGroup);
   }
 

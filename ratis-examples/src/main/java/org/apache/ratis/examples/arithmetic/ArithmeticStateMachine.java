@@ -24,6 +24,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.shaded.proto.RaftProtos;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -162,8 +163,8 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     final Expression r = Expression.Utils.double2Expression(result);
     final CompletableFuture<Message> f = CompletableFuture.completedFuture(Expression.Utils.toMessage(r));
 
-    final RaftServer.Role role = trx.getServerRole();
-    if (role == RaftServer.Role.LEADER) {
+    final RaftProtos.RaftPeerRole role = trx.getServerRole();
+    if (role == RaftProtos.RaftPeerRole.LEADER) {
       LOG.info("{}:{}-{}: {} = {}", role, getId(), index, assignment, r);
     } else {
       LOG.debug("{}:{}-{}: {} = {}", role, getId(), index, assignment, r);
