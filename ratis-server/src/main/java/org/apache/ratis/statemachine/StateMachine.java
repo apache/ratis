@@ -154,6 +154,16 @@ public interface StateMachine extends Closeable {
   }
 
   /**
+   * Read asynchronously the state machine data to this state machine.
+   *
+   * @return a future for the read task if the state machine data should be read
+   *         otherwise, return null.
+   */
+  default CompletableFuture<LogEntryProto> readStateMachineData(LogEntryProto entry) {
+    return null;
+  }
+
+  /**
    * This is called before the transaction passed from the StateMachine is appended to the raft log.
    * This method will be called from log append and having the same strict serial order that the
    * transactions will have in the RAFT log. Since this is called serially in the critical path of

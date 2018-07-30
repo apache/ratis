@@ -194,6 +194,15 @@ public abstract class RaftLog implements Closeable {
   public abstract LogEntryProto get(long index) throws RaftLogIOException;
 
   /**
+   * Get the log entry of the given index along with the state machine data.
+   *
+   * @param index The given index.
+   * @return The log entry associated with the given index.
+   *         Null if there is no log entry with the index.
+   */
+  public abstract LogEntryProto getEntryWithData(long index) throws RaftLogIOException;
+
+  /**
    * Get the TermIndex information of the given index.
    *
    * @param index The given index.

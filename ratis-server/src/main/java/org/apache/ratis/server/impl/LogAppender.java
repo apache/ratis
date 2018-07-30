@@ -196,7 +196,7 @@ public class LogAppender {
     } else if (leaderNext > next) {
       boolean hasSpace = true;
       for(; hasSpace && leaderNext > next;) {
-        hasSpace = buffer.addEntry(raftLog.get(next++));
+        hasSpace = buffer.addEntry(raftLog.getEntryWithData(next++));
       }
       // buffer is full or batch sending is disabled, send out a request
       toSend = !hasSpace || !batchSending;

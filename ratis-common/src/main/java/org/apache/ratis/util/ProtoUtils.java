@@ -161,6 +161,14 @@ public interface ProtoUtils {
         .build();
   }
 
+  static boolean shouldReadStateMachineData(LogEntryProto entry) {
+    if (entry.getLogEntryBodyCase() != LogEntryBodyCase.SMLOGENTRY) {
+      return false;
+    }
+    final SMLogEntryProto smLog = entry.getSmLogEntry();
+    return smLog.getStateMachineDataAttached() && smLog.getStateMachineData().isEmpty();
+  }
+
   /**
    * If the given entry is {@link LogEntryBodyCase#SMLOGENTRY} and it has state machine data,
    * build a new entry without the state machine data.
@@ -177,8 +185,12 @@ public interface ProtoUtils {
       return entry;
     }
     // build a new LogEntryProto without state machine data
+    // and mark that it has been removed
     return LogEntryProto.newBuilder(entry)
-        .setSmLogEntry(SMLogEntryProto.newBuilder().setData(smLog.getData()))
+        .setSmLogEntry
+            (SMLogEntryProto.newBuilder()
+            .setData(smLog.getData())
+            .setStateMachineDataAttached(true))
         .build();
   }
 

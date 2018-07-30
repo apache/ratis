@@ -52,6 +52,11 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
+  public LogEntryProto getEntryWithData(long index) {
+    return get(index);
+  }
+
+  @Override
   public TermIndex getTermIndex(long index) {
     checkLogState();
     try(AutoCloseableLock readLock = readLock()) {

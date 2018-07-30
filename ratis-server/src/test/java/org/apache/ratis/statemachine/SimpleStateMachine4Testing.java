@@ -258,13 +258,29 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public CompletableFuture<?> writeStateMachineData(LogEntryProto entry) {
-    CompletableFuture f = new CompletableFuture();
+    CompletableFuture<?> f = new CompletableFuture();
     if (blockAppend) {
       try {
         blockingSemaphore.acquire();
         blockingSemaphore.release();
       } catch (InterruptedException e) {
         LOG.error("Could not block writeStateMachineData", e);
+        Thread.currentThread().interrupt();
+      }
+    }
+    f.complete(null);
+    return f;
+  }
+
+  @Override
+  public CompletableFuture<LogEntryProto> readStateMachineData(LogEntryProto entry) {
+    CompletableFuture<LogEntryProto> f = new CompletableFuture<>();
+    if (blockAppend) {
+      try {
+        blockingSemaphore.acquire();
+        blockingSemaphore.release();
+      } catch (InterruptedException e) {
+        LOG.error("Could not block readStateMachineData", e);
         Thread.currentThread().interrupt();
       }
     }

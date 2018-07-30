@@ -46,6 +46,7 @@ message SMLogEntryProto {
   bytes data = 1;
 
   bytes stateMachineData = 2; // State machine specific data which is not written to log.
+  bool stateMachineDataAttached = 3; // set this flag when state machine data is attached.
 }
 
 message LeaderNoOp {

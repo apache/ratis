@@ -29,7 +29,9 @@ import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ProtoUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -189,6 +191,33 @@ public class SegmentedRaftLog extends RaftLog {
     // RaftLog's lock.
     checkAndEvictCache();
     return segment.loadCache(recordAndEntry.getRecord());
+  }
+
+  @Override
+  public LogEntryProto getEntryWithData(long index) throws RaftLogIOException {
+    final LogEntryProto entry = get(index);
+    if (!ProtoUtils.shouldReadStateMachineData(entry)) {
+      return entry;
+    }
+
+    LogEntryProto logEntryProto;
+    try {
+      logEntryProto = server.getStateMachine().readStateMachineData(entry).join();
+    } catch (Throwable e) {
+      final String err = server.getId() + ": Failed readStateMachineData for " +
+          ServerProtoUtils.toLogEntryString(entry);
+      LOG.error(err, e);
+      throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
+    }
+    // by this time we have already read the state machine data,
+    // so the log entry data should be set now
+    if (!ProtoUtils.shouldReadStateMachineData(logEntryProto)) {
+      final String err = server.getId() + ": State machine data not set for " +
+          ServerProtoUtils.toLogEntryString(logEntryProto);
+      LOG.error(err);
+      throw new RaftLogIOException(err);
+    }
+    return logEntryProto;
   }
 
   private void checkAndEvictCache() {
