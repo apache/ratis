@@ -81,8 +81,8 @@ public class FollowerInfo {
   public String toString() {
     return peer.getId() + "(next=" + nextIndex + ", match=" + matchIndex + "," +
         " attendVote=" + attendVote +
-        ", lastRpcSendTime=" + lastRpcSendTime +
-        ", lastRpcResponseTime=" + lastRpcResponseTime + ")";
+        ", lastRpcSendTime=" + lastRpcSendTime.get().elapsedTimeMs() +
+        ", lastRpcResponseTime=" + lastRpcResponseTime.get().elapsedTimeMs() + ")";
   }
 
   void startAttendVote() {
