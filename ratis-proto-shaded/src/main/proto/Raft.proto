@@ -254,11 +254,40 @@ message ServerInformationRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
 }
 
+message ServerRpcDelayProto {
+  RaftPeerProto id = 1;
+  uint64 lastRpcElapsedTimeMs = 2;
+}
+
+message LeaderInfoProto {
+  repeated ServerRpcDelayProto followerInfo = 1;
+}
+
+message FollowerInfoProto {
+  ServerRpcDelayProto leaderInfo = 1;
+  bool inLogSync = 2;
+}
+
+message CandidateInfoProto {
+  // nothing to add for candidate
+}
+
+message RoleInfoProto {
+  RaftPeerProto self = 1;
+  RaftPeerRole role = 2;
+  uint64 roleElapsedTimeMs = 3;
+
+  oneof PeerInfo {
+    LeaderInfoProto leaderInfo = 4;
+    FollowerInfoProto followerInfo = 5;
+    CandidateInfoProto candidateInfo = 6;
+  }
+}
+
 message ServerInformationReplyProto {
   RaftRpcReplyProto rpcReply = 1;
   RaftGroupProto group = 2;
-  RaftPeerRole role = 3;
-  uint64 roleElapsedTimeMs = 4;
-  bool isRaftStorageHealthy = 5;
-  repeated CommitInfoProto commitInfos = 6;
+  RoleInfoProto role = 3;
+  bool isRaftStorageHealthy = 4;
+  repeated CommitInfoProto commitInfos = 5;
 }

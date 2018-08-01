@@ -44,6 +44,7 @@ import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.ratis.server.impl.ServerProtoUtils.toRaftConfiguration;
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
@@ -371,9 +372,55 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   ServerInformationReply getServerInformation(ServerInformationRequest request) {
     final RaftGroup group = new RaftGroup(groupId, getRaftConf().getPeers());
-    return new ServerInformationReply(request, role.getCurrentRole(),
-        role.getRoleElapsedTimeMs(), state.getStorage().getStorageDir().hasMetaFile(),
-        getCommitInfos(), group);
+    return new ServerInformationReply(request, getRoleInfoProto(),
+        state.getStorage().getStorageDir().hasMetaFile(), getCommitInfos(), group);
+  }
+
+  private RoleInfoProto getRoleInfoProto() {
+    RaftPeerRole currentRole = role.getCurrentRole();
+    RoleInfoProto.Builder roleInfo = RoleInfoProto.newBuilder()
+        .setSelf(ProtoUtils.toRaftPeerProto(getPeer()))
+        .setRole(currentRole)
+        .setRoleElapsedTimeMs(role.getRoleElapsedTimeMs());
+    switch (currentRole) {
+    case CANDIDATE:
+      roleInfo.setCandidateInfo(CandidateInfoProto.getDefaultInstance());
+      break;
+
+    case FOLLOWER:
+      FollowerInfoProto.Builder follower = FollowerInfoProto.newBuilder()
+          .setLeaderInfo(getServerRpcDelayProto(
+              getRaftConf().getPeer(state.getLeaderId()),
+              heartbeatMonitor.getLastRpcTime().elapsedTimeMs()))
+          .setInLogSync(heartbeatMonitor.isInLogSync());
+      roleInfo.setFollowerInfo(follower);
+      break;
+
+    case LEADER:
+      LeaderInfoProto.Builder leader = LeaderInfoProto.newBuilder();
+      Stream<LogAppender> stream = getLeaderState().getLogAppenders();
+      stream.forEach(appender ->
+          leader.addFollowerInfo(getServerRpcDelayProto(
+              appender.getFollower().getPeer(),
+              appender.getFollower().getLastRpcResponseTime().elapsedTimeMs())));
+      roleInfo.setLeaderInfo(leader);
+      break;
+
+    default:
+      throw new IllegalStateException("incorrect role of server " + currentRole);
+    }
+    return roleInfo.build();
+  }
+
+  private ServerRpcDelayProto getServerRpcDelayProto (RaftPeer peer, long delay) {
+    if (peer == null) {
+      // if no peer information return empty
+      return ServerRpcDelayProto.getDefaultInstance();
+    }
+    return ServerRpcDelayProto.newBuilder()
+        .setId(ProtoUtils.toRaftPeerProto(peer))
+        .setLastRpcElapsedTimeMs(delay)
+        .build();
   }
 
   synchronized void changeToCandidate() {

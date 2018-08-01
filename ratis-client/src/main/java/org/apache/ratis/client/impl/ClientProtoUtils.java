@@ -188,6 +188,8 @@ public interface ClientProtoUtils {
       if (reply.getRaftGroupId() != null) {
         b.setGroup(ProtoUtils.toRaftGroupProtoBuilder(reply.getGroup()));
       }
+      b.setIsRaftStorageHealthy(reply.isRaftStorageHealthy());
+      b.setRole(reply.getRoleInfoProto());
       ProtoUtils.addCommitInfos(reply.getCommitInfos(), i -> b.addCommitInfos(i));
     }
     return b.build();
@@ -230,11 +232,10 @@ public interface ClientProtoUtils {
     ClientId clientId = ClientId.valueOf(rp.getRequestorId());
     final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
     final RaftGroup raftGroup = ProtoUtils.toRaftGroup(replyProto.getGroup());
-    RaftPeerRole role = replyProto.getRole();
+    RoleInfoProto role = replyProto.getRole();
     boolean isRaftStorageHealthy = replyProto.getIsRaftStorageHealthy();
-    long roleElapsedTime = replyProto.getRoleElapsedTimeMs();
     return new ServerInformationReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
-        groupId, rp.getCallId(), rp.getSuccess(), role, roleElapsedTime, isRaftStorageHealthy,
+        groupId, rp.getCallId(), rp.getSuccess(), role, isRaftStorageHealthy,
         replyProto.getCommitInfosList(), raftGroup);
   }
 

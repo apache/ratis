@@ -49,6 +49,10 @@ class FollowerState extends Daemon {
     return lastRpcTime;
   }
 
+  public boolean isInLogSync() {
+    return inLogSync;
+  }
+
   boolean shouldWithholdVotes() {
     return lastRpcTime.elapsedTimeMs() < server.getMinTimeoutMs();
   }
