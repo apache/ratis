@@ -52,8 +52,8 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public LogEntryProto getEntryWithData(long index) {
-    return get(index);
+  public EntryWithData getEntryWithData(long index) {
+    return new EntryWithData(get(index), null);
   }
 
   @Override

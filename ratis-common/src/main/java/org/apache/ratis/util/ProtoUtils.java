@@ -190,8 +190,21 @@ public interface ProtoUtils {
         .setSmLogEntry
             (SMLogEntryProto.newBuilder()
             .setData(smLog.getData())
-            .setStateMachineDataAttached(true))
+            .setStateMachineDataAttached(true)
+            .setSerializedProtobufSize(entry.getSerializedSize()))
         .build();
+  }
+
+  static long getSerializedSize(LogEntryProto entry) {
+    if (entry.getLogEntryBodyCase() != LogEntryBodyCase.SMLOGENTRY) {
+      return entry.getSerializedSize();
+    }
+    final SMLogEntryProto smLog = entry.getSmLogEntry();
+    if (!smLog.getStateMachineDataAttached()) {
+      // if state machine data was never set, return the proto serialized size
+      return entry.getSerializedSize();
+    }
+    return smLog.getSerializedProtobufSize();
   }
 
   static IOException toIOException(ServiceException se) {

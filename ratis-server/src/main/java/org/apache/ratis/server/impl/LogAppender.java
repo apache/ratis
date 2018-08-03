@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LeaderState.StateUpdateEventType;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.storage.RaftLog.EntryWithData;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.server.storage.RaftLogIOException;
@@ -134,7 +135,7 @@ public class LogAppender {
    * A buffer for log entries with size limitation.
    */
   private class LogEntryBuffer {
-    private final List<LogEntryProto> buf = new ArrayList<>();
+    private final List<EntryWithData> buf = new ArrayList<>();
     private int totalSize = 0;
 
     /**
@@ -143,7 +144,7 @@ public class LogAppender {
      * @return true if the entry is added successfully;
      *         otherwise, the entry is not added, return false.
      */
-    boolean addEntry(LogEntryProto entry) {
+    boolean addEntry(EntryWithData entry) {
       final long entrySize = entry.getSerializedSize();
       if (totalSize + entrySize <= maxBufferSize) {
         buf.add(entry);
@@ -157,9 +158,14 @@ public class LogAppender {
       return buf.isEmpty();
     }
 
-    AppendEntriesRequestProto getAppendRequest(TermIndex previous, long callId) {
+    AppendEntriesRequestProto getAppendRequest(TermIndex previous, long callId) throws RaftLogIOException {
+      final List<LogEntryProto> protos = new ArrayList<>();
+      // Wait for all the log entry futures to complete and then create a list of LogEntryProtos.
+      for (EntryWithData bufEntry : buf) {
+        protos.add(bufEntry.getEntry());
+      }
       final AppendEntriesRequestProto request = leaderState.newAppendEntriesRequestProto(
-          getFollowerId(), previous, buf, !follower.isAttendingVote(), callId);
+          getFollowerId(), previous, protos, !follower.isAttendingVote(), callId);
       buf.clear();
       totalSize = 0;
       return request;

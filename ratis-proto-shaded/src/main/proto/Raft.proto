@@ -47,6 +47,7 @@ message SMLogEntryProto {
 
   bytes stateMachineData = 2; // State machine specific data which is not written to log.
   bool stateMachineDataAttached = 3; // set this flag when state machine data is attached.
+  uint64 serializedProtobufSize = 4; // size of the serialized LogEntryProto along with stateMachineData
 }
 
 message LeaderNoOp {

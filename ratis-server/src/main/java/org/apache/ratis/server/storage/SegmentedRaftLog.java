@@ -194,30 +194,20 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public LogEntryProto getEntryWithData(long index) throws RaftLogIOException {
+  public EntryWithData getEntryWithData(long index) throws RaftLogIOException {
     final LogEntryProto entry = get(index);
     if (!ProtoUtils.shouldReadStateMachineData(entry)) {
-      return entry;
+      return new EntryWithData(entry, null);
     }
 
-    LogEntryProto logEntryProto;
     try {
-      logEntryProto = server.getStateMachine().readStateMachineData(entry).join();
+      return new EntryWithData(entry, server.getStateMachine().readStateMachineData(entry));
     } catch (Throwable e) {
       final String err = server.getId() + ": Failed readStateMachineData for " +
           ServerProtoUtils.toLogEntryString(entry);
       LOG.error(err, e);
       throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
     }
-    // by this time we have already read the state machine data,
-    // so the log entry data should be set now
-    if (!ProtoUtils.shouldReadStateMachineData(logEntryProto)) {
-      final String err = server.getId() + ": State machine data not set for " +
-          ServerProtoUtils.toLogEntryString(logEntryProto);
-      LOG.error(err);
-      throw new RaftLogIOException(err);
-    }
-    return logEntryProto;
   }
 
   private void checkAndEvictCache() {

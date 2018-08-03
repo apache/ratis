@@ -20,6 +20,7 @@ package org.apache.ratis.server.storage;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.StateMachineException;
+import org.apache.ratis.server.impl.LogAppender;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
@@ -27,6 +28,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
@@ -200,7 +202,7 @@ public abstract class RaftLog implements Closeable {
    * @return The log entry associated with the given index.
    *         Null if there is no log entry with the index.
    */
-  public abstract LogEntryProto getEntryWithData(long index) throws RaftLogIOException;
+  public abstract EntryWithData getEntryWithData(long index) throws RaftLogIOException;
 
   /**
    * Get the TermIndex information of the given index.
@@ -325,5 +327,47 @@ public abstract class RaftLog implements Closeable {
 
   public RaftPeerId getSelfId() {
     return selfId;
+  }
+
+  /**
+   * Holds proto entry along with future which contains read state machine data
+   */
+  public class EntryWithData {
+    private LogEntryProto logEntry;
+    private CompletableFuture<LogEntryProto> future;
+
+    EntryWithData(LogEntryProto logEntry, CompletableFuture<LogEntryProto> future) {
+      this.logEntry = logEntry;
+      this.future = future;
+    }
+
+    public long getSerializedSize() {
+      return ProtoUtils.getSerializedSize(logEntry);
+    }
+
+    public LogEntryProto getEntry() throws RaftLogIOException {
+      LogEntryProto entryProto;
+      if (future == null) {
+        return logEntry;
+      }
+
+      try {
+        entryProto = future.join();
+      } catch (Throwable t) {
+        final String err = selfId + ": Failed readStateMachineData for " +
+            ServerProtoUtils.toLogEntryString(logEntry);
+        LogAppender.LOG.error(err, t);
+        throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(t));
+      }
+      // by this time we have already read the state machine data,
+      // so the log entry data should be set now
+      if (ProtoUtils.shouldReadStateMachineData(entryProto)) {
+        final String err = selfId + ": State machine data not set for " +
+            ServerProtoUtils.toLogEntryString(logEntry);
+        LogAppender.LOG.error(err);
+        throw new RaftLogIOException(err);
+      }
+      return entryProto;
+    }
   }
 }
