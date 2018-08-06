@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -95,6 +96,10 @@ public class RaftServerProxy implements RaftServer {
   @Override
   public RaftPeerId getId() {
     return id;
+  }
+
+  public Iterable<RaftGroupId> getGroupIds() throws IOException {
+    return Collections.singleton(getImpl().getGroupId());
   }
 
   @Override
