@@ -25,6 +25,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.shaded.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
@@ -207,4 +208,15 @@ public interface StateMachine extends Closeable {
    * Notify the state machine that the raft peer is no longer leader.
    */
   void notifyNotLeader(Collection<TransactionContext> pendingEntries) throws IOException;
+
+  /**
+   * Notify the Leader's state machine that one of the followers is slow
+   * this notification is based on "raft.server.rpc.slowness.timeout"
+   *
+   * @param raftConfiguration raft configuration
+   * @param roleInfoProto information about the current node role and rpc delay information
+   */
+  default void notifySlowness(RaftConfiguration raftConfiguration, RoleInfoProto roleInfoProto) {
+
+  }
 }

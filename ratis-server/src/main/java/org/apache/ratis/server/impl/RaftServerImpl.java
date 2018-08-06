@@ -65,6 +65,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final StateMachine stateMachine;
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
+  private final int rpcSlownessTimeoutMs;
 
   private final LifeCycle lifeCycle;
   private final ServerState state;
@@ -97,6 +98,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final RaftProperties properties = proxy.getProperties();
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toInt(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
+    rpcSlownessTimeoutMs = RaftServerConfigKeys.Rpc.slownessTimeout(properties).toInt(TimeUnit.MILLISECONDS);
     Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.proxy = proxy;
@@ -116,7 +118,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   LogAppender newLogAppender(
       LeaderState state, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
       boolean attendVote) {
-    final FollowerInfo f = new FollowerInfo(peer, lastRpcTime, nextIndex, attendVote);
+    final FollowerInfo f = new FollowerInfo(peer, lastRpcTime, nextIndex, attendVote, rpcSlownessTimeoutMs);
     return getProxy().getFactory().newLogAppender(this, state, f);
   }
 
@@ -376,7 +378,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         state.getStorage().getStorageDir().hasMetaFile(), getCommitInfos(), group);
   }
 
-  private RoleInfoProto getRoleInfoProto() {
+  public RoleInfoProto getRoleInfoProto() {
     RaftPeerRole currentRole = role.getCurrentRole();
     RoleInfoProto.Builder roleInfo = RoleInfoProto.newBuilder()
         .setSelf(ProtoUtils.toRaftPeerProto(getPeer()))
@@ -389,7 +391,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     case FOLLOWER:
       FollowerInfoProto.Builder follower = FollowerInfoProto.newBuilder()
-          .setLeaderInfo(getServerRpcDelayProto(
+          .setLeaderInfo(getServerRpcProto(
               getRaftConf().getPeer(state.getLeaderId()),
               heartbeatMonitor.getLastRpcTime().elapsedTimeMs()))
           .setInLogSync(heartbeatMonitor.isInLogSync());
@@ -400,7 +402,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       LeaderInfoProto.Builder leader = LeaderInfoProto.newBuilder();
       Stream<LogAppender> stream = getLeaderState().getLogAppenders();
       stream.forEach(appender ->
-          leader.addFollowerInfo(getServerRpcDelayProto(
+          leader.addFollowerInfo(getServerRpcProto(
               appender.getFollower().getPeer(),
               appender.getFollower().getLastRpcResponseTime().elapsedTimeMs())));
       roleInfo.setLeaderInfo(leader);
@@ -412,12 +414,12 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return roleInfo.build();
   }
 
-  private ServerRpcDelayProto getServerRpcDelayProto (RaftPeer peer, long delay) {
+  private ServerRpcProto getServerRpcProto(RaftPeer peer, long delay) {
     if (peer == null) {
       // if no peer information return empty
-      return ServerRpcDelayProto.getDefaultInstance();
+      return ServerRpcProto.getDefaultInstance();
     }
-    return ServerRpcDelayProto.newBuilder()
+    return ServerRpcProto.newBuilder()
         .setId(ProtoUtils.toRaftPeerProto(peer))
         .setLastRpcElapsedTimeMs(delay)
         .build();

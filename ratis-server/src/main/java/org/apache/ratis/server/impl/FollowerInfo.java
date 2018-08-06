@@ -32,15 +32,17 @@ public class FollowerInfo {
   private final AtomicLong matchIndex;
   private final AtomicLong commitIndex = new AtomicLong(RaftServerConstants.INVALID_LOG_INDEX);
   private volatile boolean attendVote;
+  private final int rpcSlownessTimeoutMs;
 
   FollowerInfo(RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
-      boolean attendVote) {
+      boolean attendVote, int rpcSlownessTimeoutMs) {
     this.peer = peer;
     this.lastRpcResponseTime = new AtomicReference<>(lastRpcTime);
     this.lastRpcSendTime = new AtomicReference<>(lastRpcTime);
     this.nextIndex = nextIndex;
     this.matchIndex = new AtomicLong(0);
     this.attendVote = attendVote;
+    this.rpcSlownessTimeoutMs = rpcSlownessTimeoutMs;
   }
 
   public void updateMatchIndex(final long matchIndex) {
@@ -113,5 +115,9 @@ public class FollowerInfo {
 
   public Timestamp getLastRpcTime() {
     return Timestamp.latest(lastRpcResponseTime.get(), lastRpcSendTime.get());
+  }
+
+  public boolean isSlow() {
+    return lastRpcResponseTime.get().elapsedTimeMs() > rpcSlownessTimeoutMs;
   }
 }

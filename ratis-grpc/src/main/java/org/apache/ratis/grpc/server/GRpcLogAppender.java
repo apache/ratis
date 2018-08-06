@@ -92,6 +92,7 @@ public class GRpcLogAppender extends LogAppender {
           appendLog();
         }
       }
+      checkSlowness();
     }
 
     Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObserver::onCompleted);

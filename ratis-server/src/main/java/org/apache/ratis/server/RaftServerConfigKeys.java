@@ -223,6 +223,16 @@ public interface RaftServerConfigKeys {
     static void setSleepTime(RaftProperties properties, TimeDuration sleepTime) {
       setTimeDuration(properties::setTimeDuration, SLEEP_TIME_KEY, sleepTime);
     }
+
+    String SLOWNESS_TIMEOUT_KEY = PREFIX + "slowness.timeout";
+    TimeDuration SLOWNESS_TIMEOUT_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
+    static TimeDuration slownessTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(SLOWNESS_TIMEOUT_DEFAULT.getUnit()),
+          SLOWNESS_TIMEOUT_KEY, SLOWNESS_TIMEOUT_DEFAULT);
+    }
+    static void setSlownessTimeout(RaftProperties properties, TimeDuration expiryTime) {
+      setTimeDuration(properties::setTimeDuration, SLOWNESS_TIMEOUT_KEY, expiryTime);
+    }
   }
 
   /** server retry cache related */

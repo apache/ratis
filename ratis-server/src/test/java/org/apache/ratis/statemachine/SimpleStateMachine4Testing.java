@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -33,6 +34,7 @@ import org.apache.ratis.server.storage.LogInputStream;
 import org.apache.ratis.server.storage.LogOutputStream;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.shaded.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
@@ -83,6 +85,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private volatile boolean blockAppend = false;
   private final Semaphore blockingSemaphore = new Semaphore(1);
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
+  private RoleInfoProto slownessInfo = null;
 
   SimpleStateMachine4Testing() {
     checkpointer = new Daemon(() -> {
@@ -97,6 +100,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           }
       }
     });
+  }
+
+  public RoleInfoProto getSlownessInfo() {
+    return slownessInfo;
   }
 
   @Override
@@ -316,5 +323,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     } else {
       blockingSemaphore.release();
     }
+  }
+
+  @Override
+  public void notifySlowness(RaftConfiguration raftConfiguration, RoleInfoProto roleInfoProto) {
+    slownessInfo = roleInfoProto;
   }
 }

@@ -255,17 +255,17 @@ message ServerInformationRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
 }
 
-message ServerRpcDelayProto {
+message ServerRpcProto {
   RaftPeerProto id = 1;
   uint64 lastRpcElapsedTimeMs = 2;
 }
 
 message LeaderInfoProto {
-  repeated ServerRpcDelayProto followerInfo = 1;
+  repeated ServerRpcProto followerInfo = 1;
 }
 
 message FollowerInfoProto {
-  ServerRpcDelayProto leaderInfo = 1;
+  ServerRpcProto leaderInfo = 1;
   bool inLogSync = 2;
 }
 

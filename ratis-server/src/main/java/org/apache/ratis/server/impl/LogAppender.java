@@ -448,6 +448,7 @@ public class LogAppender {
           }
         }
       }
+      checkSlowness();
     }
   }
 
@@ -494,6 +495,12 @@ public class LogAppender {
         LeaderState.UPDATE_COMMIT_EVENT :
         LeaderState.STAGING_PROGRESS_EVENT;
     leaderState.submitUpdateStateEvent(e);
+  }
+
+  protected void checkSlowness() {
+    if (follower.isSlow()) {
+      server.getStateMachine().notifySlowness(server.getRaftConf(), server.getRoleInfoProto());
+    }
   }
 
   public synchronized void notifyAppend() {
