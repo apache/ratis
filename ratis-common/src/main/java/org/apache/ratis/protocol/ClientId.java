@@ -25,7 +25,7 @@ import java.util.UUID;
  * Id of Raft client. Should be globally unique so that raft peers can use it
  * to correctly identify retry requests from the same client.
  */
-public class ClientId extends RaftId {
+public final class ClientId extends RaftId {
 
   public static ClientId randomId() {
     return new ClientId(UUID.randomUUID());
@@ -33,6 +33,10 @@ public class ClientId extends RaftId {
 
   public static ClientId valueOf(ByteString data) {
     return new ClientId(data);
+  }
+
+  public static ClientId valueOf(UUID uuid) {
+    return new ClientId(uuid);
   }
 
   private ClientId(ByteString data) {

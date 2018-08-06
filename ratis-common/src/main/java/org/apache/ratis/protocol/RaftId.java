@@ -95,4 +95,8 @@ public abstract class RaftId {
   public int hashCode() {
     return uuid.hashCode();
   }
+
+  public UUID getUuid() {
+    return uuid;
+  }
 }

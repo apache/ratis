@@ -21,7 +21,7 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 
 import java.util.UUID;
 
-public class RaftGroupId extends RaftId {
+public final class RaftGroupId extends RaftId {
   private static final RaftGroupId EMPTY_GROUP_ID = new RaftGroupId(new UUID(0L, 0L));
 
   public static RaftGroupId emptyGroupId() {
@@ -30,6 +30,10 @@ public class RaftGroupId extends RaftId {
 
   public static RaftGroupId randomId() {
     return new RaftGroupId(UUID.randomUUID());
+  }
+
+  public static RaftGroupId valueOf(UUID uuid) {
+    return new RaftGroupId(uuid);
   }
 
   public static RaftGroupId valueOf(ByteString data) {
