@@ -27,8 +27,6 @@
     <maven.javadoc.skip>true</maven.javadoc.skip>
     <!--The Default target dir-->
     <classes.dir>${project.build.directory}/classes</classes.dir>
-    <!--The Default location for sources-->
-    <shaded.sources.dir>src/main/java</shaded.sources.dir>
 
     <!--Version of grpc to be shaded -->
     <shaded.grpc.version>1.10.0</shaded.grpc.version>
@@ -82,90 +80,94 @@
           <skipAssembly>true</skipAssembly>
         </configuration>
       </plugin>
-      <plugin>
-        <groupId>org.apache.rat</groupId>
-        <artifactId>apache-rat-plugin</artifactId>
-        <configuration>
-          <excludes>
-            <exclude>${shaded.sources.dir}/</exclude>
-          </excludes>
-        </configuration>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
     </plugins>
+    <pluginManagement>
+      <plugins>
+        <!--This plugin's configuration is used to store Eclipse m2e settings only.
+          It has no influence on the Maven build itself. -->
+        <plugin>
+          <groupId>org.eclipse.m2e</groupId>
+          <artifactId>lifecycle-mapping</artifactId>
+          <version>1.0.0</version>
+          <configuration>
+            <lifecycleMappingMetadata>
+              <pluginExecutions>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <versionRange>[3.1.1,)</versionRange>
+                    <goals>
+                      <goal>shade</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore/>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <versionRange>[1.7,)</versionRange>
+                    <goals>
+                      <goal>run</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore/>
+                  </action>
+                </pluginExecution>
+              </pluginExecutions>
+            </lifecycleMappingMetadata>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
   </build>
-
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>io.netty</groupId>
-        <artifactId>netty-all</artifactId>
-        <version>${shaded.netty.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
 
   <dependencies>
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
       <version>${shaded.protobuf.version}</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>com.google.protobuf.nano</groupId>
       <artifactId>protobuf-javanano</artifactId>
       <version>${shaded.protobuf-javanano.version}</version>
-      <optional>true</optional>
     </dependency>
 
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-netty</artifactId>
       <version>${shaded.grpc.version}</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
       <version>${shaded.grpc.version}</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-stub</artifactId>
       <version>${shaded.grpc.version}</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-context</artifactId>
       <version>${shaded.grpc.version}</version>
-      <optional>true</optional>
     </dependency>
 
     <dependency>
       <groupId>com.google.auto</groupId>
       <artifactId>auto-common</artifactId>
       <version>0.10</version>
-      <scope>compile</scope>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>com.google.auto.service</groupId>
       <artifactId>auto-service</artifactId>
       <version>1.0-rc4</version>
-      <scope>compile</scope>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>com.google.auto.value</groupId>
@@ -176,7 +178,6 @@
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value</artifactId>
       <version>1.6</version>
-      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -188,19 +189,16 @@
       <groupId>com.google.code.findbugs</groupId>
       <artifactId>jsr305</artifactId>
       <version>3.0.2</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>com.google.errorprone</groupId>
       <artifactId>error_prone_annotations</artifactId>
       <version>2.2.0</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>com.google.j2objc</groupId>
       <artifactId>j2objc-annotations</artifactId>
       <version>1.3</version>
-      <optional>true</optional>
     </dependency>
 
     <dependency>
@@ -213,230 +211,74 @@
       <groupId>org.codehaus.mojo</groupId>
       <artifactId>animal-sniffer-annotations</artifactId>
       <version>1.16</version>
-      <optional>true</optional>
     </dependency>
 
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-all</artifactId>
       <version>${shaded.netty.version}</version>
-      <optional>true</optional>
     </dependency>
-
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-buffer</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-codec</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-codec-dns</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-codec-haproxy</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-codec-http</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-codec-http2</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-codec-memcache</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-codec-mqtt</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-codec-socks</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-codec-stomp</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-common</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-handler</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-handler-proxy</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-resolver</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-resolver-dns</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-transport</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-transport-rxtx</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-transport-sctp</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-transport-udt</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-example</artifactId>
-      <version>${shaded.netty.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
-    </dependency>
-
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-tcnative</artifactId>
       <version>${netty-tcnative.version}</version>
       <classifier>${os.detected.classifier}</classifier>
-      <scope>compile</scope>
-      <optional>true</optional>
     </dependency>
 
     <dependency>
       <groupId>org.jboss.marshalling</groupId>
       <artifactId>jboss-marshalling</artifactId>
-      <scope>compile</scope>
-      <optional>true</optional>
+      <version>1.4.11.Final</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>commons-logging</groupId>
       <artifactId>commons-logging</artifactId>
-      <optional>true</optional>
+      <version>1.2</version>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-api</artifactId>
-      <optional>true</optional>
+      <version>2.6.2</version>
     </dependency>
     <dependency>
       <groupId>log4j</groupId>
       <artifactId>log4j</artifactId>
-      <optional>true</optional>
+      <version>1.2.17</version>
     </dependency>
 
     <dependency>
       <groupId>com.jcraft</groupId>
       <artifactId>jzlib</artifactId>
       <version>1.1.3</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>com.ning</groupId>
       <artifactId>compress-lzf</artifactId>
       <version>1.0.3</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>net.jpountz.lz4</groupId>
       <artifactId>lz4</artifactId>
       <version>1.3.0</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>com.github.jponge</groupId>
       <artifactId>lzma-java</artifactId>
       <version>1.3</version>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcpkix-jdk15on</artifactId>
       <version>1.54</version>
-      <scope>compile</scope>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>2.8.2</version>
-      <scope>compile</scope>
-      <optional>true</optional>
     </dependency>
 
     <dependency>
@@ -462,84 +304,25 @@
       <groupId>com.fasterxml</groupId>
       <artifactId>aalto-xml</artifactId>
       <version>1.0.0</version>
-      <scope>compile</scope>
-      <optional>true</optional>
     </dependency>
 
     <dependency>
       <groupId>io.opencensus</groupId>
       <artifactId>opencensus-api</artifactId>
       <version>${io.opencensus.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>io.opencensus</groupId>
       <artifactId>opencensus-contrib-grpc-metrics</artifactId>
       <version>${io.opencensus.version}</version>
-      <scope>compile</scope>
-      <optional>true</optional>
     </dependency>
   </dependencies>
 
   <profiles>
-    <!-- Skip the tests in this module -->
-    <profile>
-      <id>skip-shaded-tests</id>
-      <activation>
-        <property>
-          <name>skip-shaded-tests</name>
-        </property>
-      </activation>
-      <properties>
-        <surefire.skipFirstPart>true</surefire.skipFirstPart>
-      </properties>
-    </profile>
-
-    <profile>
-      <id>clean-shade</id>
-      <activation>
-        <property>
-          <name>!skipCleanShade</name>
-        </property>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <artifactId>maven-clean-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>shaded-clean</id>
-                <goals>
-                  <goal>clean</goal>
-                </goals>
-                <phase>clean</phase>
-                <configuration>
-                  <filesets>
-                    <fileset>
-                      <directory>${shaded.sources.dir}</directory>
-                      <followSymlinks>false</followSymlinks>
-                    </fileset>
-                    <fileset>
-                      <directory>.</directory>
-                      <includes>
-                        <include>dependency-reduced-pom.xml</include>
-                      </includes>
-                      <followSymlinks>false</followSymlinks>
-                    </fileset>
-                  </filesets>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
     <profile>
       <id>compile-protobuf</id>
       <!--
-         Shade and drop the generated java files under src/main/java.
+         Shade and drop the generated java files under target/shaded-sources.
          Run this profile/step everytime you change proto
          files or update the protobuf version.
       -->
@@ -549,21 +332,9 @@
         </property>
       </activation>
       <properties>
-        <profile.id>compile-protobuf</profile.id>
-        <sources.dir>${project.build.directory}/protoc-generated-sources</sources.dir>
-        <classes.dir>${project.build.directory}/protoc-generated-classes</classes.dir>
-        <!--When the compile for this profile runs, make sure it makes jars that
-             can be related back to this shading profile. Give them a shading prefix.
-         -->
-        <jar.finalName>${profile.id}.${project.artifactId}-${project.version}</jar.finalName>
       </properties>
       <build>
-        <finalName>${jar.finalName}</finalName>
         <plugins>
-          <!--
-            We are not cleaning the generated files from src/main/java since we do not check-in the
-            generated files there.
-          -->
           <plugin>
             <groupId>org.xolstice.maven.plugins</groupId>
             <artifactId>protobuf-maven-plugin</artifactId>
@@ -571,7 +342,9 @@
               <protocArtifact>
                 com.google.protobuf:protoc:${shaded.protobuf.version}:exe:${os.detected.classifier}
               </protocArtifact>
-              <outputDirectory>src/main/java</outputDirectory>
+              <!-- Place these in a location that compiler-plugin is already looking -->
+              <outputDirectory>${project.build.directory}/generated-sources</outputDirectory>
+              <!-- With multiple executions, this must be `false` otherwise we wipe out the previous execution -->
               <clearOutputDirectory>false</clearOutputDirectory>
             </configuration>
             <executions>
@@ -580,7 +353,6 @@
                 <phase>generate-sources</phase>
                 <goals>
                   <goal>compile</goal>
-                  <goal>test-compile</goal>
                 </goals>
               </execution>
               <execution>
@@ -588,7 +360,6 @@
                 <phase>generate-sources</phase>
                 <goals>
                   <goal>compile-custom</goal>
-                  <goal>test-compile-custom</goal>
                 </goals>
                 <configuration>
                   <pluginId>grpc-java</pluginId>
@@ -600,24 +371,16 @@
             </executions>
           </plugin>
           <plugin>
-            <artifactId>maven-antrun-plugin</artifactId>
+            <artifactId>maven-jar-plugin</artifactId>
             <executions>
               <execution>
-                <phase>generate-sources</phase>
-                <configuration>
-                  <tasks>
-                    <replace token="com.google." value="org.apache.ratis.shaded.com.google."
-                             dir="src/main/java/org/apache/ratis/shaded/proto">
-                      <include name="**/*.java"/>
-                    </replace>
-                    <replace token="io.grpc." value="org.apache.ratis.shaded.io.grpc."
-                             dir="src/main/java/org/apache/ratis/shaded/proto">
-                      <include name="**/*.java"/>
-                    </replace>
-                  </tasks>
-                </configuration>
+                <!-- Replace the "default" jar-plugin execution -->
+                <!-- This is a super-dirty hack to work around Yetus
+                     PreCommit not using the package lifecycle phase -->
+                <id>default-jar</id>
+                <phase>process-classes</phase>
                 <goals>
-                  <goal>run</goal>
+                  <goal>jar</goal>
                 </goals>
               </execution>
             </executions>
@@ -627,14 +390,16 @@
             <artifactId>maven-shade-plugin</artifactId>
             <executions>
               <execution>
-                <phase>process-resources</phase>
+                <phase>process-classes</phase>
                 <goals>
                   <goal>shade</goal>
                 </goals>
                 <configuration>
                   <shadeSourcesContent>true</shadeSourcesContent>
                   <createSourcesJar>true</createSourcesJar>
-                  <shadedArtifactAttached>true</shadedArtifactAttached>
+                  <!-- Replace the original artifact which is no good on its own -->
+                  <shadedArtifactAttached>false</shadedArtifactAttached>
+                  <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
                   <relocations>
                     <relocation>
                       <pattern>com.google.api</pattern>
@@ -686,108 +451,31 @@
                       <pattern>io.opencensus</pattern>
                       <shadedPattern>org.apache.ratis.shaded.io.opencensus</shadedPattern>
                     </relocation>
+                    <relocation>
+                      <pattern>com.google.gson</pattern>
+                      <shadedPattern>org.apache.ratis.shaded.com.google.gson</shadedPattern>
+                    </relocation>
                   </relocations>
 
-                  <filters>
-                    <filter>
-                      <artifact>io.netty:netty-all</artifact>
-                      <includes>
-                        <include>io/netty/**</include>
-                      </includes>
-                    </filter>
-                  </filters>
-
                   <artifactSet>
-                    <excludes>
-                      <exclude>org.apache.ratis:ratis-proto-shaded</exclude>
-
-                      <exclude>com.barchart.udt:barchart-udt-bundle</exclude>
-                      <exclude>com.github.jponge:lzma-java</exclude>
-
-                      <exclude>com.google.code.findbugs:jsr305</exclude>
-                      <exclude>com.google.auto:auto-common</exclude>
-                      <exclude>com.google.auto.service:auto-service</exclude>
-                      <exclude>com.google.auto.value:auto-value-annotations</exclude>
-                      <exclude>com.google.errorprone:error_prone_annotations</exclude>
-                      <exclude>com.google.code.gson:gson</exclude>
-                      <exclude>com.google.j2objc:j2objc-annotations</exclude>
-
-                      <exclude>com.fasterxml:aalto-xml</exclude>
-                      <exclude>com.jcraft:jzlib</exclude>
-                      <exclude>com.ning:compress-lzf</exclude>
-                      <exclude>com.squareup:javapoet</exclude>
-                      <exclude>com.yammer.metrics:metrics-core</exclude>
-                      <exclude>commons-logging:commons-logging</exclude>
-
-                      <exclude>io.netty:netty-buffer</exclude>
-                      <exclude>io.netty:netty-codec-dns</exclude>
-                      <exclude>io.netty:netty-codec-haproxy</exclude>
-                      <exclude>io.netty:netty-codec-http2</exclude>
-                      <exclude>io.netty:netty-codec-http</exclude>
-                      <exclude>io.netty:netty-codec-memcache</exclude>
-                      <exclude>io.netty:netty-codec-mqtt</exclude>
-                      <exclude>io.netty:netty-codec-redis</exclude>
-                      <exclude>io.netty:netty-codec-socks</exclude>
-                      <exclude>io.netty:netty-codec-stomp</exclude>
-                      <exclude>io.netty:netty-codec</exclude>
-                      <exclude>io.netty:netty-common</exclude>
-                      <exclude>io.netty:netty-example</exclude>
-                      <exclude>io.netty:netty-handler-proxy</exclude>
-                      <exclude>io.netty:netty-handler</exclude>
-                      <exclude>io.netty:netty-resolver-dns</exclude>
-                      <exclude>io.netty:netty-resolver</exclude>
-                      <exclude>io.netty:netty-tcnative</exclude>
-                      <exclude>io.netty:netty-transport-rxtx</exclude>
-                      <exclude>io.netty:netty-transport-sctp</exclude>
-                      <exclude>io.netty:netty-transport-udt</exclude>
-                      <exclude>io.netty:netty-transport</exclude>
-
-                      <exclude>log4j:log4j</exclude>
-                      <exclude>net.jpountz.lz4:lz4</exclude>
-                      <exclude>org.apache.logging.log4j:log4j-api</exclude>
-                      <exclude>org.bouncycastle:bcpkix-jdk15on</exclude>
-                      <exclude>org.bouncycastle:bcprov-jdk15on</exclude>
-                      <exclude>org.checkerframework:checker-compat-qual</exclude>
-                      <exclude>org.codehaus.mojo:animal-sniffer-annotations</exclude>
-                      <exclude>org.codehaus.woodstox:stax2-api</exclude>
-                      <exclude>org.conscrypt:conscrypt-openjdk-uber</exclude>
-                      <exclude>org.javassist:javassist</exclude>
-                      <exclude>org.jboss.marshalling:jboss-marshalling</exclude>
-                      <exclude>org.jctools:jctools-core</exclude>
-                      <exclude>org.rxtx:rxtx</exclude>
-                      <exclude>org.slf4j:slf4j-api</exclude>
-                    </excludes>
+                    <includes>
+                      <include>com.google.api.grpc:proto-google-common-protos</include>
+                      <include>com.google.code.gson:gson</include>
+                      <include>com.google.guava:guava</include>
+                      <include>com.google.protobuf.nano:protobuf-javanano</include>
+                      <include>com.google.protobuf:protobuf-java-util</include>
+                      <include>com.google.protobuf:protobuf-java</include>
+                      <include>io.grpc:grpc-context</include>
+                      <include>io.grpc:grpc-core</include>
+                      <include>io.grpc:grpc-netty</include>
+                      <include>io.grpc:grpc-protobuf-lite</include>
+                      <include>io.grpc:grpc-protobuf</include>
+                      <include>io.grpc:grpc-stub</include>
+                      <include>io.netty:netty-all</include>
+                      <include>io.opencensus:opencensus-api</include>
+                      <include>io.opencensus:opencensus-contrib-grpc-metrics</include>
+                    </includes>
                   </artifactSet>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-
-          <!--Now unpack the shaded jar made above so the shaded classes
-             are available to subsequent modules-->
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-dependency-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>unpack</id>
-                <phase>process-resources</phase>
-                <goals>
-                  <goal>unpack</goal>
-                </goals>
-                <configuration>
-                  <artifactItems>
-                    <artifactItem>
-                      <groupId>${project.groupId}</groupId>
-                      <artifactId>${project.artifactId}</artifactId>
-                      <version>${project.version}</version>
-                      <classifier>shaded-sources</classifier>
-                      <type>jar</type>
-                      <overWrite>true</overWrite>
-                      <outputDirectory>${basedir}/${shaded.sources.dir}</outputDirectory>
-                      <includes>**/*.java</includes>
-                    </artifactItem>
-                  </artifactItems>
                 </configuration>
               </execution>
             </executions>

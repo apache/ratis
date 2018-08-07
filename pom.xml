@@ -41,14 +41,12 @@
   </licenses>
 
   <modules>
-    <module>ratis-proto-shaded</module>
     <module>ratis-common</module>
     <module>ratis-client</module>
     <module>ratis-server</module>
 
     <module>ratis-grpc</module>
     <module>ratis-netty</module>
-    <module>ratis-hadoop-shaded</module>
     <module>ratis-hadoop</module>
 
     <module>ratis-assembly</module>
@@ -323,6 +321,12 @@
       </dependency>
 
       <dependency>
+        <groupId>io.dropwizard.metrics</groupId>
+        <artifactId>metrics-core</artifactId>
+        <version>3.2.5</version>
+      </dependency>
+
+      <dependency>
         <groupId>junit</groupId>
         <artifactId>junit</artifactId>
         <version>4.11</version>
@@ -557,6 +561,13 @@
           <groupId>org.apache.rat</groupId>
           <artifactId>apache-rat-plugin</artifactId>
           <version>${apache-rat-plugin.version}</version>
+          <!-- target/ should get picked up from Apache parent pom.. -->
+          <configuration>
+            <!-- Lets us define more exclusions in child-modules without overriding these -->
+            <excludes combine.children="append">
+              <exclude>target/*</exclude>
+            </excludes>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -775,7 +786,8 @@
             <artifactId>apache-rat-plugin</artifactId>
             <executions>
               <execution>
-                <phase>package</phase>
+                <!-- Execution at the validate lifecycle is good -->
+                <id>check-licenses</id>
                 <goals>
                   <goal>check</goal>
                 </goals>
@@ -784,6 +796,18 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+    <profile>
+      <id>skipShade</id>
+      <activation>
+        <property>
+          <name>!skipShade</name>
+        </property>
+      </activation>
+      <modules>
+        <module>ratis-proto-shaded</module>
+        <module>ratis-hadoop-shaded</module>
+      </modules>
     </profile>
   </profiles>
 </project>

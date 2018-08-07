@@ -19,7 +19,7 @@ It is required to have Maven 3.3.9 or later.
 Apache Ratis is written in Java 8.
 Therefore, it as well requires Java 8 or later.
 
-Project could be built as a usual maven project:
+Project could be built as a usual Maven project:
 
 ```
 $ mvn clean package -DskipTests
@@ -34,34 +34,39 @@ We shade protos, protobuf and other libraries such as Netty, gRPC, Guava and Had
 so that applications using Ratis may use protobuf and other libraries with versions
 different from the versions used here.
 
-Ratis requires the shaded sources for compilation.
-The generated sources are stored in the following directories.
-```
-ratis-proto-shaded/src/main/java/
-ratis-hadoop-shaded/src/main/java/
-```
-They are not checked-in to git though.
+_Note: RATIS-288 changes how the shaded artifacts are generated, removing them from the
+source tree. Developers with local checkouts prior to this change will need to manually
+remove the directories `ratis-proto-shaded/src/main/java` and
+`ratis-hadoop-shaded/src/main/java`._
 
-By default protobuf compilation and shading are triggered at every build. To make more faster the
-additional builds, you can turn them off:
+By default, protobuf compilation and shaded jar creation are executed for every build.
+
+For developers who wish to skip protobuf generation and shaded jar creation because they
+are aware that they have not been modified, they can be disabled with the `skipShade` property.
 ```
 $ mvn package -DskipTests -DskipShade
 ```
 
-During the clean lifecycle all the shaded classes are also deleted. You can clean the
-compiled files but keep the shaded classes with the following command:
-
+When the `skipShade` property is given, Maven will inspect your local Maven repository for
+the most recent version of `ratis-proto-shaded` (or `ratis-hadoop-shaded`), reaching out to
+Maven central when you have no local copy. You may need to run a `mvn install` prior to
+attempting to use the `skipShade` property to ensure that you have a version of the artifact
+available for your use.
 ```
-$ mvn clean -DskipCleanShade
-```
-
-Then, the unit tests can be run by the following commands.
-
-```
-$ mvn -DskipShade test
+$ mvn install -DskipTests
 ```
 
-## What are shaded?
+For developers familiar with the `skipCleanShade` option, this is no longer necessary. Maven's
+local repository is acting as a cache instead of the current working copy of your repository.
+`mvn clean` can be used to safely clean all temporary build files, without impacting your
+use of the `skipShade` option.
+
+Unit tests can also be executed with the `skipShade` option:
+```
+$ mvn package -DskipShade
+```
+
+## What packages are shaded?
 
 | Original packages                   | Shaded packages                                              |
 | ------------------------------------|--------------------------------------------------------------|
@@ -72,4 +77,5 @@ $ mvn -DskipShade test
 | `io.netty`                          | `org.apache.ratis.shaded.io.netty`                           |
 | `org.apache.hadoop.ipc.protobuf`    | `org.apache.ratis.shaded.org.apache.hadoop.ipc.protobuf`     |
 
-The protos defined in this project are stored in the `org.apache.ratis.shaded.proto` package.
+The compiled protocol-buffer definitions in this `ratis-proto-shaded` are stored in the
+`org.apache.ratis.shaded.proto` Java package.

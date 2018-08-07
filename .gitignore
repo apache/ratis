@@ -9,11 +9,9 @@
 *.suo
 *.vcxproj.user
 .idea
-.svn
 .classpath
 .project
 .settings
 target
 build
 patchprocess
-dependency-reduced-pom.xml

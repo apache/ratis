@@ -21,7 +21,6 @@
   </parent>
 
   <artifactId>ratis-assembly</artifactId>
-  <groupId>org.apache.ratis</groupId>
   <name>Apache Ratis Project Assembly</name>
 
   <packaging>pom</packaging>
