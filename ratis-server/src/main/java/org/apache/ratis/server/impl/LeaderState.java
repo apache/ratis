@@ -573,10 +573,13 @@ public class LeaderState {
     return lists;
   }
 
-  void replyPendingRequest(long logIndex, RaftClientReply reply) {
-    if (!pendingRequests.replyPendingRequest(logIndex, reply)) {
+  /** @return true if the request is replied; otherwise, the reply is delayed, return false. */
+  boolean replyPendingRequest(long logIndex, RaftClientReply reply, RetryCache.CacheEntry cacheEntry) {
+    if (!pendingRequests.replyPendingRequest(logIndex, reply, cacheEntry)) {
       submitUpdateStateEvent(UPDATE_COMMIT_EVENT);
+      return false;
     }
+    return true;
   }
 
   TransactionContext getTransactionContext(long index) {

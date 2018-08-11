@@ -39,7 +39,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -502,7 +501,12 @@ public abstract class MiniRaftCluster {
   }
 
   public RaftClient createClient(RaftPeerId leaderId, RaftGroup group) {
+    return createClient(leaderId, group, null);
+  }
+
+  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group, ClientId clientId) {
     return RaftClient.newBuilder()
+        .setClientId(clientId)
         .setRaftGroup(group)
         .setLeaderId(leaderId)
         .setProperties(properties)
@@ -518,8 +522,13 @@ public abstract class MiniRaftCluster {
 
   public RaftClientRequest newRaftClientRequest(
       ClientId clientId, RaftPeerId leaderId, long callId, long seqNum, Message message) {
+    return newRaftClientRequest(clientId, leaderId, callId, seqNum, message, ReplicationLevel.MAJORITY);
+  }
+
+  public RaftClientRequest newRaftClientRequest(
+      ClientId clientId, RaftPeerId leaderId, long callId, long seqNum, Message message, ReplicationLevel replication) {
     return new RaftClientRequest(clientId, leaderId, getGroupId(),
-        callId, seqNum, message, RaftClientRequest.writeRequestType(ReplicationLevel.MAJORITY));
+        callId, seqNum, message, RaftClientRequest.writeRequestType(replication));
   }
 
   public SetConfigurationRequest newSetConfigurationRequest(

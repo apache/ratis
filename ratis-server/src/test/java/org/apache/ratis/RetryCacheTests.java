@@ -22,6 +22,7 @@ import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
@@ -80,18 +81,25 @@ public abstract class RetryCacheTests extends BaseTest {
     final long seqNum = 111;
     RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
         callId, seqNum, new SimpleMessage("message"));
-    RaftClientReply reply = rpc.sendRequest(r);
-    Assert.assertEquals(callId, reply.getCallId());
-    Assert.assertTrue(reply.isSuccess());
+    assertReply(rpc.sendRequest(r), client, callId);
 
     // retry with the same callId
     for (int i = 0; i < 5; i++) {
-      reply = rpc.sendRequest(r);
-      Assert.assertEquals(client.getId(), reply.getClientId());
-      Assert.assertEquals(callId, reply.getCallId());
-      Assert.assertTrue(reply.isSuccess());
+      assertReply(rpc.sendRequest(r), client, callId);
     }
 
+    assertServer(cluster, client.getId(), callId, oldLastApplied);
+    client.close();
+  }
+
+  public static RaftClient assertReply(RaftClientReply reply, RaftClient client, long callId) {
+    Assert.assertEquals(client.getId(), reply.getClientId());
+    Assert.assertEquals(callId, reply.getCallId());
+    Assert.assertTrue(reply.isSuccess());
+    return client;
+  }
+
+  public void assertServer(MiniRaftCluster cluster, ClientId clientId, long callId, long oldLastApplied) throws Exception {
     long leaderApplied = cluster.getLeader().getState().getLastAppliedIndex();
     // make sure retry cache has the entry
     for (RaftServerImpl server : cluster.iterateServerImpls()) {
@@ -100,13 +108,10 @@ public abstract class RetryCacheTests extends BaseTest {
         Thread.sleep(1000);
       }
       Assert.assertEquals(2, RaftServerTestUtil.getRetryCacheSize(server));
-      Assert.assertNotNull(
-          RaftServerTestUtil.getRetryEntry(server, client.getId(), callId));
+      Assert.assertNotNull(RaftServerTestUtil.getRetryEntry(server, clientId, callId));
       // make sure there is only one log entry committed
-      Assert.assertEquals(oldLastApplied + 1,
-          server.getState().getLastAppliedIndex());
+      Assert.assertEquals(oldLastApplied + 1, server.getState().getLastAppliedIndex());
     }
-    client.close();
   }
 
   /**
@@ -125,9 +130,7 @@ public abstract class RetryCacheTests extends BaseTest {
     final long seqNum = 111;
     RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
         callId, seqNum, new SimpleMessage("message"));
-    RaftClientReply reply = rpc.sendRequest(r);
-    Assert.assertEquals(callId, reply.getCallId());
-    Assert.assertTrue(reply.isSuccess());
+    assertReply(rpc.sendRequest(r), client, callId);
     long oldLastApplied = cluster.getLeader().getState().getLastAppliedIndex();
 
     // trigger the reconfiguration, make sure the original leader is kicked out
@@ -146,11 +149,8 @@ public abstract class RetryCacheTests extends BaseTest {
     rpc.addServers(Arrays.asList(change.newPeers));
     for (int i = 0; i < 10; i++) {
       try {
-        reply = rpc.sendRequest(r);
+        assertReply(rpc.sendRequest(r), client, callId);
         LOG.info("successfully sent out the retry request_" + i);
-        Assert.assertEquals(client.getId(), reply.getClientId());
-        Assert.assertEquals(callId, reply.getCallId());
-        Assert.assertTrue(reply.isSuccess());
       } catch (Exception e) {
         LOG.info("hit exception while retrying the same request: " + r, e);
       }

@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.server.impl.RetryCache.CacheEntry;
 import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
@@ -26,15 +27,35 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 public class PendingRequest implements Comparable<PendingRequest> {
+  private static class DelayedReply {
+    private final RaftClientReply reply;
+    private final CacheEntry cacheEntry;
+
+    DelayedReply(RaftClientReply reply, CacheEntry cacheEntry) {
+      this.reply = reply;
+      this.cacheEntry = cacheEntry;
+    }
+
+    RaftClientReply getReply() {
+      cacheEntry.updateResult(reply);
+      return reply;
+    }
+
+    RaftClientReply fail(NotReplicatedException e) {
+      final RaftClientReply failed = new RaftClientReply(reply, e);
+      cacheEntry.updateResult(failed);
+      return failed;
+    }
+  }
+
   private final long index;
   private final RaftClientRequest request;
   private final TransactionContext entry;
   private final CompletableFuture<RaftClientReply> future;
 
-  private volatile RaftClientReply delayed;
+  private volatile DelayedReply delayed;
 
-  PendingRequest(long index, RaftClientRequest request,
-                 TransactionContext entry) {
+  PendingRequest(long index, RaftClientRequest request, TransactionContext entry) {
     this.index = index;
     this.request = request;
     this.entry = entry;
@@ -74,20 +95,20 @@ public class PendingRequest implements Comparable<PendingRequest> {
     future.complete(r);
   }
 
-  synchronized void setDelayedReply(RaftClientReply r) {
+  synchronized void setDelayedReply(RaftClientReply r, CacheEntry c) {
     Objects.requireNonNull(r);
     Preconditions.assertTrue(delayed == null);
-    delayed = r;
+    delayed = new DelayedReply(r, c);
   }
 
   synchronized void completeDelayedReply() {
-    setReply(delayed);
+    setReply(delayed.getReply());
   }
 
   synchronized void failDelayedReply() {
-    final RaftClientRequest.Type type = request.getType();
-    final ReplicationLevel replication = type.getWrite().getReplication();
-    setReply(new RaftClientReply(delayed, new NotReplicatedException(request.getCallId(), replication, index)));
+    final ReplicationLevel replication = request.getType().getWrite().getReplication();
+    final NotReplicatedException e = new NotReplicatedException(request.getCallId(), replication, index);
+    setReply(delayed.fail(e));
   }
 
   TransactionContext setNotLeaderException(NotLeaderException nle) {

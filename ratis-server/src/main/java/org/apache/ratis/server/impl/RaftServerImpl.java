@@ -1064,13 +1064,18 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         final StateMachineException e = new StateMachineException(getId(), exception);
         r = new RaftClientReply(clientId, serverId, groupId, callId, false, null, e, getCommitInfos());
       }
-      // update retry cache
-      cacheEntry.updateResult(r);
+
       // update pending request
+      boolean updateCache = true;  // always update cache for follower
       synchronized (RaftServerImpl.this) {
         if (isLeader() && leaderState != null) { // is leader and is running
-          leaderState.replyPendingRequest(logEntry.getIndex(), r);
+          // For leader, update cache unless the reply is delayed.
+          // When a reply is delayed, the cache will be updated in DelayedReply.getReply().
+          updateCache = leaderState.replyPendingRequest(logEntry.getIndex(), r, cacheEntry);
         }
+      }
+      if (updateCache) {
+        cacheEntry.updateResult(r);
       }
     });
   }

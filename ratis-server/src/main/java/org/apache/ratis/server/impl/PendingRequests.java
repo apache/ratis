@@ -18,10 +18,10 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.server.impl.RetryCache.CacheEntry;
 import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,13 +84,13 @@ class PendingRequests {
       this.name = name + "-" + getClass().getSimpleName();
     }
 
-    boolean delay(PendingRequest request, RaftClientReply reply) {
+    boolean delay(PendingRequest request, RaftClientReply reply, CacheEntry cacheEntry) {
       if (request.getIndex() <= allAckedIndex.get()) {
         return false; // delay is not required.
       }
 
       LOG.debug("{}: delay request {}", name, request);
-      request.setDelayedReply(reply);
+      request.setDelayedReply(reply, cacheEntry);
       final boolean offered;
       synchronized (q) {
         offered = q.offer(request);
@@ -194,14 +194,15 @@ class PendingRequests {
     return pendingRequest != null ? pendingRequest.getEntry() : null;
   }
 
-  boolean replyPendingRequest(long index, RaftClientReply reply) {
+  /** @return true if the request is replied; otherwise, the reply is delayed, return false. */
+  boolean replyPendingRequest(long index, RaftClientReply reply, CacheEntry cacheEntry) {
     final PendingRequest pending = pendingRequests.remove(index);
     if (pending != null) {
       Preconditions.assertTrue(pending.getIndex() == index);
 
       final ReplicationLevel replication = pending.getRequest().getType().getWrite().getReplication();
       if (replication == ReplicationLevel.ALL) {
-        if (delayedReplies.delay(pending, reply)) {
+        if (delayedReplies.delay(pending, reply, cacheEntry)) {
           return false;
         }
       }
