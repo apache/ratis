@@ -229,6 +229,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return getState().getRaftConf();
   }
 
+  RaftGroup getGroup() {
+    return new RaftGroup(groupId, getRaftConf().getPeers());
+  }
+
   void shutdown() {
     lifeCycle.checkStateAndClose(() -> {
       try {
@@ -373,9 +377,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   ServerInformationReply getServerInformation(ServerInformationRequest request) {
-    final RaftGroup group = new RaftGroup(groupId, getRaftConf().getPeers());
     return new ServerInformationReply(request, getRoleInfoProto(),
-        state.getStorage().getStorageDir().hasMetaFile(), getCommitInfos(), group);
+        state.getStorage().getStorageDir().hasMetaFile(), getCommitInfos(), getGroup());
   }
 
   public RoleInfoProto getRoleInfoProto() {
@@ -386,7 +389,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         .setRoleElapsedTimeMs(role.getRoleElapsedTimeMs());
     switch (currentRole) {
     case CANDIDATE:
-      roleInfo.setCandidateInfo(CandidateInfoProto.getDefaultInstance());
+      CandidateInfoProto.Builder candidate = CandidateInfoProto.newBuilder()
+          .setLastLeaderElapsedTimeMs(state.getLastLeaderElapsedTimeMs());
+      roleInfo.setCandidateInfo(candidate);
       break;
 
     case FOLLOWER:
@@ -429,6 +434,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     Preconditions.assertTrue(isFollower());
     shutdownHeartbeatMonitor();
     setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
+    if (state.checkForExtendedNoLeader()) {
+      stateMachine.notifyExtendedNoLeader(getGroup(), getRoleInfoProto());
+    }
     // start election
     electionDaemon = new LeaderElection(this);
     electionDaemon.start();

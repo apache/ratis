@@ -20,7 +20,6 @@ package org.apache.ratis;
 import org.apache.log4j.Level;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
@@ -34,15 +33,12 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-
-import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Test Raft Server Slowness detection and notification to Leader's statemachine.
+ * Test Raft Server Leader election timeout detection and notification to state machine.
  */
-public class TestRaftServerSlownessDetection extends BaseTest {
+public class TestRaftServerLeaderElectionTimeout extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
@@ -56,8 +52,8 @@ public class TestRaftServerSlownessDetection extends BaseTest {
       .FACTORY.newCluster(NUM_SERVERS, getProperties());
 
   public RaftProperties getProperties() {
-    RaftServerConfigKeys.Rpc
-        .setSlownessTimeout(properties, TimeDuration.valueOf(1, TimeUnit.SECONDS));
+    RaftServerConfigKeys
+        .setLeaderElectionTimeout(properties, TimeDuration.valueOf(1, TimeUnit.SECONDS));
     properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
     return properties;
@@ -77,31 +73,26 @@ public class TestRaftServerSlownessDetection extends BaseTest {
   }
 
   @Test
-  public void testSlownessDetection() throws Exception {
+  public void testLeaderElectionDetection() throws Exception {
     RaftTestUtil.waitForLeader(cluster);
-    long slownessTimeout = RaftServerConfigKeys.Rpc
-        .slownessTimeout(cluster.getProperties()).toInt(TimeUnit.MILLISECONDS);
+    long leaderElectionTimeout = RaftServerConfigKeys.
+        leaderElectionTimeout(cluster.getProperties()).toInt(TimeUnit.MILLISECONDS);
+
+    RaftServerImpl healthyFollower = cluster.getFollowers().get(1);
     RaftServerImpl failedFollower = cluster.getFollowers().get(0);
-
-    // fail the node and wait for the callback to be triggered
+    // fail the leader and one of the followers to that quorum is not present
+    // for next leader election to succeed.
     cluster.killServer(failedFollower.getId());
-    Thread.sleep( slownessTimeout * 2);
+    cluster.killServer(cluster.getLeader().getId());
 
-    // Followers should not get any failed not notification
-    for (RaftServerImpl followerServer : cluster.getFollowers()) {
-      Assert.assertNull(SimpleStateMachine4Testing.get(followerServer).getSlownessInfo());
-    }
-    // the leader should get notification that the follower has failed now
+    // Wait to ensure that leader election is trigerred and also state machine callback is triggered
+    Thread.sleep( leaderElectionTimeout * 2);
+
     RaftProtos.RoleInfoProto roleInfoProto =
-        SimpleStateMachine4Testing.get(cluster.getLeader()).getSlownessInfo();
+        SimpleStateMachine4Testing.get(healthyFollower).getLeaderElectionTimeoutInfo();
     Assert.assertNotNull(roleInfoProto);
 
-    List<RaftProtos.ServerRpcProto> followers =
-        roleInfoProto.getLeaderInfo().getFollowerInfoList();
-    //Assert that the node shutdown is lagging behind
-    for (RaftProtos.ServerRpcProto serverProto : followers) {
-      Assert.assertTrue(!(RaftPeerId.valueOf(serverProto.getId().getId()) == failedFollower.getId()) ||
-          serverProto.getLastRpcElapsedTimeMs() > slownessTimeout);
-    }
+    Assert.assertEquals(roleInfoProto.getRole(), RaftProtos.RaftPeerRole.CANDIDATE);
+    Assert.assertTrue(roleInfoProto.getCandidateInfo().getLastLeaderElapsedTimeMs() > leaderElectionTimeout);
   }
 }

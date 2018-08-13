@@ -54,6 +54,21 @@ public interface RaftServerConfigKeys {
     setInt(properties::setInt, STAGING_CATCHUP_GAP_KEY, stagingCatchupGap);
   }
 
+  /**
+   * Timeout for leader election after which the statemachine of the server is notified
+   * about leader election pending for a long time.
+   */
+  String LEADER_ELECTION_TIMEOUT_KEY = PREFIX + ".leader.election.timeout";
+  TimeDuration LEADER_ELECTION_TIMEOUT_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
+  static TimeDuration leaderElectionTimeout(RaftProperties properties) {
+    return getTimeDuration(properties.getTimeDuration(LEADER_ELECTION_TIMEOUT_DEFAULT.getUnit()),
+        LEADER_ELECTION_TIMEOUT_KEY, LEADER_ELECTION_TIMEOUT_DEFAULT);
+  }
+  static void setLeaderElectionTimeout(RaftProperties properties, TimeDuration leaderElectionTimeout) {
+    setTimeDuration(properties::setTimeDuration, LEADER_ELECTION_TIMEOUT_KEY, leaderElectionTimeout);
+
+  }
+
   interface Log {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".log";
 

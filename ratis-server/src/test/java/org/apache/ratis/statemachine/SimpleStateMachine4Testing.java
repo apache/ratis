@@ -26,7 +26,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftConfiguration;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -86,6 +86,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private final Semaphore blockingSemaphore = new Semaphore(1);
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
   private RoleInfoProto slownessInfo = null;
+  private RoleInfoProto leaderElectionTimeoutInfo = null;
 
   SimpleStateMachine4Testing() {
     checkpointer = new Daemon(() -> {
@@ -104,6 +105,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   public RoleInfoProto getSlownessInfo() {
     return slownessInfo;
+  }
+
+  public RoleInfoProto getLeaderElectionTimeoutInfo() {
+    return leaderElectionTimeoutInfo;
   }
 
   @Override
@@ -326,7 +331,12 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public void notifySlowness(RaftConfiguration raftConfiguration, RoleInfoProto roleInfoProto) {
+  public void notifySlowness(RaftGroup group, RoleInfoProto roleInfoProto) {
     slownessInfo = roleInfoProto;
+  }
+
+  @Override
+  public void notifyExtendedNoLeader(RaftGroup group, RoleInfoProto roleInfoProto) {
+    leaderElectionTimeoutInfo = roleInfoProto;
   }
 }

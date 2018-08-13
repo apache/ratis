@@ -499,7 +499,7 @@ public class LogAppender {
 
   protected void checkSlowness() {
     if (follower.isSlow()) {
-      server.getStateMachine().notifySlowness(server.getRaftConf(), server.getRoleInfoProto());
+      server.getStateMachine().notifySlowness(server.getGroup(), server.getRoleInfoProto());
     }
   }
 

@@ -19,6 +19,7 @@ package org.apache.ratis.statemachine;
 
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -213,10 +214,21 @@ public interface StateMachine extends Closeable {
    * Notify the Leader's state machine that one of the followers is slow
    * this notification is based on "raft.server.rpc.slowness.timeout"
    *
-   * @param raftConfiguration raft configuration
+   * @param group raft group information
    * @param roleInfoProto information about the current node role and rpc delay information
    */
-  default void notifySlowness(RaftConfiguration raftConfiguration, RoleInfoProto roleInfoProto) {
+  default void notifySlowness(RaftGroup group, RoleInfoProto roleInfoProto) {
+
+  }
+
+  /**
+   * Notify the Leader's state machine that a leader has not been elected for a long time
+   * this notification is based on "raft.server.leader.election.timeout"
+   *
+   * @param group raft group information
+   * @param roleInfoProto information about the current node role and rpc delay information
+   */
+  default void notifyExtendedNoLeader(RaftGroup group, RoleInfoProto roleInfoProto) {
 
   }
 }

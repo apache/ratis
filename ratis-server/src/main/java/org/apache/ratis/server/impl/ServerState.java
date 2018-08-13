@@ -28,11 +28,14 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.Timestamp;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static org.apache.ratis.server.impl.RaftServerImpl.LOG;
@@ -53,6 +56,8 @@ public class ServerState implements Closeable {
   /** local storage for log and snapshot */
   private final RaftStorage storage;
   private final SnapshotManager snapshotManager;
+  private volatile Timestamp lastNoLeaderTime;
+  private final long leaderElectionTimeoutMs;
 
   /**
    * Latest term server has seen. initialized to 0 on first boot, increases
@@ -92,7 +97,12 @@ public class ServerState implements Closeable {
 
     long lastApplied = initStatemachine(stateMachine, group.getGroupId());
 
+    // On start the leader is null, start the clock now
     leaderId = null;
+    this.lastNoLeaderTime = new Timestamp();
+    this.leaderElectionTimeoutMs =
+        RaftServerConfigKeys.leaderElectionTimeout(prop).toInt(TimeUnit.MILLISECONDS);
+
     // we cannot apply log entries to the state machine in this step, since we
     // do not know whether the local log entries have been committed.
     log = initLog(id, prop, lastApplied, entry -> {
@@ -207,10 +217,29 @@ public class ServerState implements Closeable {
 
   void setLeader(RaftPeerId newLeaderId, String op) {
     if (!Objects.equals(leaderId, newLeaderId)) {
-      LOG.info("{}: change Leader from {} to {} at term {} for {}",
-          selfId, leaderId, newLeaderId, getCurrentTerm(), op);
+      String suffix;
+      if (newLeaderId == null) {
+        // reset the time stamp when a null leader is assigned
+        lastNoLeaderTime = new Timestamp();
+        suffix = "";
+      } else {
+        Timestamp previous = lastNoLeaderTime;
+        lastNoLeaderTime = null;
+        suffix = ", leader elected after " + previous.elapsedTimeMs() + "ms";
+      }
+      LOG.info("{}: change Leader from {} to {} at term {} for {}{}",
+          selfId, leaderId, newLeaderId, getCurrentTerm(), op, suffix);
       leaderId = newLeaderId;
     }
+  }
+
+  boolean checkForExtendedNoLeader() {
+    return getLastLeaderElapsedTimeMs() > leaderElectionTimeoutMs;
+  }
+
+  long getLastLeaderElapsedTimeMs() {
+    final Timestamp t = lastNoLeaderTime;
+    return t == null ? 0 : t.elapsedTimeMs();
   }
 
   void becomeLeader() {

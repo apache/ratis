@@ -270,7 +270,7 @@ message FollowerInfoProto {
 }
 
 message CandidateInfoProto {
-  // nothing to add for candidate
+  uint64 lastLeaderElapsedTimeMs = 1;
 }
 
 message RoleInfoProto {
