@@ -52,6 +52,7 @@
     <module>ratis-assembly</module>
     <module>ratis-examples</module>
     <module>ratis-replicated-map</module>
+    <module>ratis-logservice</module>
   </modules>
 
   <pluginRepositories>
@@ -300,6 +301,12 @@
         <version>${project.version}</version>
         <type>test-jar</type>
         <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.ratis</groupId>
+        <artifactId>ratis-logservice</artifactId>
+        <version>${project.version}</version>
       </dependency>
 
       <!-- External dependencies -->
