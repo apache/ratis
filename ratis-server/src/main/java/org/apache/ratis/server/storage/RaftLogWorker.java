@@ -41,6 +41,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 /**
@@ -225,7 +226,13 @@ class RaftLogWorker implements Runnable {
       LOG.debug("flush data to " + out + ", reset pending_sync_number to 0");
       final Timer.Context timerContext = logFlushTimer.get().time();
       try {
+        final CompletableFuture<Void> f = stateMachine != null ?
+            stateMachine.flushStateMachineData(lastWrittenIndex) :
+            CompletableFuture.completedFuture(null);
         out.flush();
+        f.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw IOUtils.asIOException(e);
       } finally {
         timerContext.stop();
       }

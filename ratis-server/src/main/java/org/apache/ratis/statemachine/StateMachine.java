@@ -231,4 +231,13 @@ public interface StateMachine extends Closeable {
   default void notifyExtendedNoLeader(RaftGroup group, RoleInfoProto roleInfoProto) {
 
   }
+
+  /**
+   * Flush the state machine data till the log index provided.
+   * @param index log Index
+   * @return a future for the flush task, null otherwise
+   */
+  default CompletableFuture<Void> flushStateMachineData(long index) {
+    return CompletableFuture.completedFuture(null);
+  }
 }
