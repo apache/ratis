@@ -43,6 +43,14 @@ public interface LogReader extends AutoCloseable {
   ByteBuffer readNext() throws IOException;
 
   /**
+   * Reads the next record from the LogStream at the current position into the provided {@link buffer} and
+   * advances the current position to the point after the record just read.
+   *
+   * @param buffer A buffer to read the record into
+   */
+  void readNext(ByteBuffer buffer) throws IOException;
+
+  /**
    * Reads the next {@code numRecords} records from the LogStream, starting at the current position. This method
    * may return fewer than requested records if the LogStream does not have sufficient records to return.
    *

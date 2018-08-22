@@ -44,6 +44,15 @@ public interface AsyncLogReader extends AutoCloseable {
   CompletableFuture<ByteBuffer> readNext() throws IOException;
 
   /**
+   * Reads the next record from the LogStream at the current position into the provided {@link buffer} and
+   * advances the current position to the point after the record just read.
+   *
+   * @param buffer A buffer to read the record into
+   * @return A future acknowledging when the operation is complete
+   */
+  CompletableFuture<Void> readNext(ByteBuffer buffer) throws IOException;
+
+  /**
    * Reads the next {@code numRecords} records from the LogStream, starting at the current position. This method
    * may return fewer than requested records if the LogStream does not have sufficient records to return.
    *
