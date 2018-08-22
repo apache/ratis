@@ -51,4 +51,9 @@ public interface AsyncLogReader extends AutoCloseable {
    * @return A future providing the records, no more than the requested {@code numRecords} amount.
    */
   CompletableFuture<List<ByteBuffer>> readBulk(int numRecords) throws IOException;
+
+  /**
+   * Overrides {@link close()} in {@link AutoCloseable} to throw an IOException.
+   */
+  void close() throws IOException;
 }

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.logservice.api;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -106,4 +107,9 @@ public interface LogStream {
    * @param listener The listener to remove
    */
   void removeRecordListener(RecordListener listener);
+
+  /**
+   * Returns all {@link RecordListeners} for this LogStream.
+   */
+  List<RecordListener> getRecordListeners();
 }

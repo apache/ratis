@@ -17,13 +17,14 @@
  */
 package org.apache.ratis.logservice.api;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Entry point for interacting with the Ratis LogService.
  */
-public interface LogService {
+public interface LogService extends AutoCloseable {
 
   /**
    * Creates a new {@link LogStream} identified by the given name. Throws
@@ -50,4 +51,9 @@ public interface LogService {
    * @param name The name of the LogStream
    */
   CompletableFuture<Void> deleteLog(LogName name);
+
+  /**
+   * Overrides {@link close()} in {@link AutoCloseable} to throw an IOException.
+   */
+  void close() throws IOException;
 }

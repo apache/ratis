@@ -19,6 +19,7 @@ package org.apache.ratis.logservice.api;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -35,10 +36,25 @@ public interface AsyncLogWriter extends AutoCloseable {
   CompletableFuture<Long> write(ByteBuffer data) throws IOException;
 
   /**
+   * Appends each entry of data as a new record in the LogStream. If this method returns
+   * successfully, all records can be considered persisted. Otherwise, none can be assumed
+   * to have been written.
+   *
+   * @param records Records to append
+   * @return The largest recordId assigned to the records written
+   */
+  CompletableFuture<Long> writeMany(List<ByteBuffer> records) throws IOException;
+
+  /**
    * Guarantees that all previous data appended by {@link #write(ByteBuffer)} are persisted
    * and durable in the LogStream.
    *
-   * @return TODO Unknown?
+   * @return The offset prior to which all writes are durable
    */
-  CompletableFuture<Long> commit() throws IOException;
+  CompletableFuture<Long> sync() throws IOException;
+
+  /**
+   * Overrides {@link close()} in {@link AutoCloseable} to throw an IOException.
+   */
+  void close() throws IOException;
 }

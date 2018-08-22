@@ -19,6 +19,7 @@ package org.apache.ratis.logservice.api;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * Synchronous client interface to write to a LogStream.
@@ -34,10 +35,25 @@ public interface LogWriter extends AutoCloseable {
   long write(ByteBuffer data) throws IOException;
 
   /**
+   * Appends each entry of data as a new record in the LogStream. If this method returns
+   * successfully, all records can be considered persisted. Otherwise, none can be assumed
+   * to have been written.
+   *
+   * @param records Records to append
+   * @return The largest recordId assigned to the records written
+   */
+  long writeMany(List<ByteBuffer> records) throws IOException;
+
+  /**
    * Guarantees that all previous data appended by {@link #write(ByteBuffer)} are persisted
    * and durable in the LogStream.
    *
-   * @return TODO Unknown?
+   * @return The offset prior to which all records are durable
    */
-  long commit() throws IOException;
+  long sync() throws IOException;
+
+  /**
+   * Overrides {@link close()} in {@link AutoCloseable} to throw an IOException.
+   */
+  void close() throws IOException;
 }
