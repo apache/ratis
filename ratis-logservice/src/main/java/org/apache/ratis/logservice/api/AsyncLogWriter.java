@@ -49,7 +49,7 @@ public interface AsyncLogWriter extends AutoCloseable {
    * Guarantees that all previous data appended by {@link #write(ByteBuffer)} are persisted
    * and durable in the LogStream.
    *
-   * @return The offset prior to which all writes are durable
+   * @return The recordId prior to which all writes are durable
    */
   CompletableFuture<Long> sync() throws IOException;
 

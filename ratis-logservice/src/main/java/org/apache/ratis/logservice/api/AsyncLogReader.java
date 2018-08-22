@@ -53,6 +53,11 @@ public interface AsyncLogReader extends AutoCloseable {
   CompletableFuture<List<ByteBuffer>> readBulk(int numRecords) throws IOException;
 
   /**
+   * Returns the current position of this Reader. The position is a {@code recordId}.
+   */
+  CompletableFuture<Long> getPosition();
+
+  /**
    * Overrides {@link close()} in {@link AutoCloseable} to throw an IOException.
    */
   void close() throws IOException;

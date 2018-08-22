@@ -27,12 +27,22 @@ import java.util.concurrent.CompletableFuture;
 public interface LogService extends AutoCloseable {
 
   /**
-   * Creates a new {@link LogStream} identified by the given name. Throws
-   * an exception if a {@link LogStream} with the given name already exists.
+   * Creates a new {@link LogStream} identified by the given name with default
+   * configuration. Throws an exception if a {@link LogStream} with the given
+   * name already exists.
    *
    * @param name Unique name for this LogStream.
    */
   CompletableFuture<LogStream> createLog(LogName name);
+
+  /**
+   * Creates a new {@link LogStream} identified by the given name. Throws
+   * an exception if a {@link LogStream} with the given name already exists.
+   *
+   * @param name Unique name for this LogStream.
+   * @param config Configuration object for this LogStream
+   */
+  CompletableFuture<LogStream> createLog(LogName name, LogStreamConfiguration config);
 
   /**
    * Fetches the {@link LogStream} identified by the given name.

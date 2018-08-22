@@ -72,8 +72,9 @@ public interface LogStream {
    * Removes the elements in this LogStream prior to the given recordId.
    *
    * @param recordId A non-negative recordId for this LogStream
+   * @param inclusive Should the given recordId be included in the truncation
    */
-  CompletableFuture<Void> truncateBefore(long recordId);
+  CompletableFuture<Void> truncateBefore(long recordId, boolean inclusive);
 
   /**
    * Returns the recordId which is the start of the LogStream. When there are records which were truncated
@@ -82,12 +83,18 @@ public interface LogStream {
   CompletableFuture<Long> getFirstRecordId();
 
   /**
+   * Returns the recordId of the last record in this LogStream. For an empty log, the recordId is {@code 0}.
+   */
+  CompletableFuture<Long> getLastRecordId();
+
+  /**
    * Copies all records from the beginning of the LogStream until the given {@code recordId}
    * to the configured archival storage.
    *
    * @param recordId A non-negative recordId for this LogStream
+   * @param inclusive Should the given recordId be included in the archival.
    */
-  CompletableFuture<Void> archiveBefore(long recordId);
+  CompletableFuture<Void> archiveBefore(long recordId, boolean inclusive);
 
   /**
    * Returns the recordId, prior to which, all records in the LogStream are archived.
@@ -112,4 +119,17 @@ public interface LogStream {
    * Returns all {@link RecordListeners} for this LogStream.
    */
   List<RecordListener> getRecordListeners();
+
+  /**
+   * Returns a copy of the Configuration for this LogStream.
+   */
+  LogStreamConfiguration getConfiguration();
+
+  /**
+   * Configures this LogStream with the new configuration object, overriding
+   * the previous configuration.
+   *
+   * @param config The new configuration object
+   */
+  void updateConfiguration(LogStreamConfiguration config);
 }

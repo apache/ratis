@@ -48,7 +48,7 @@ public interface LogWriter extends AutoCloseable {
    * Guarantees that all previous data appended by {@link #write(ByteBuffer)} are persisted
    * and durable in the LogStream.
    *
-   * @return The offset prior to which all records are durable
+   * @return The recordId prior to which all records are durable
    */
   long sync() throws IOException;
 
