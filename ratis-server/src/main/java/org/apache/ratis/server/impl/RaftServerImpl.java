@@ -530,6 +530,12 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         // Return the exception in a RaftClientReply.
         RaftClientReply exceptionReply = new RaftClientReply(request, e, getCommitInfos());
         cacheEntry.failWithReply(exceptionReply);
+        // leader will step down here
+        if (isLeader() && leaderState != null) {
+          leaderState.submitUpdateStateEvent(new LeaderState.StateUpdateEvent(
+              LeaderState.StateUpdateEventType.STEPDOWN,
+              leaderState.getCurrentTerm()));
+        }
         return CompletableFuture.completedFuture(exceptionReply);
       }
 
