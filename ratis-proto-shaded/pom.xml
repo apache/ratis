@@ -29,9 +29,9 @@
     <classes.dir>${project.build.directory}/classes</classes.dir>
 
     <!--Version of grpc to be shaded -->
-    <shaded.grpc.version>1.10.0</shaded.grpc.version>
+    <shaded.grpc.version>1.14.0</shaded.grpc.version>
     <!--Version of Netty to be shaded -->
-    <shaded.netty.version>4.1.17.Final</shaded.netty.version>
+    <shaded.netty.version>4.1.27.Final</shaded.netty.version>
     <netty-tcnative.version>2.0.8.Final</netty-tcnative.version>
   </properties>
 
