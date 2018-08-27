@@ -261,6 +261,10 @@ public interface RaftServerConfigKeys {
           ConfUtils.requireMin(0));
     }
 
+    static void setCapacity(RaftProperties properties, int capacity) {
+      setInt(properties::setInt, CAPACITY_KEY, capacity);
+    }
+
     String EXPIRY_TIME_KEY = PREFIX + ".expirytime";
     TimeDuration EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
     static TimeDuration expiryTime(RaftProperties properties) {
