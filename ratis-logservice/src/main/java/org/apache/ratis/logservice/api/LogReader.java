@@ -27,7 +27,7 @@ import java.util.List;
 public interface LogReader extends AutoCloseable {
 
   /**
-   * Seeks to the position before the record at the provided {@code offset} in the LogStream.
+   * Seeks to the position before the record at the provided {@code recordId} in the LogStream.
    *
    * @param offset A non-negative, offset in the LogStream
    * @return A future for when the operation is completed.
@@ -58,6 +58,17 @@ public interface LogReader extends AutoCloseable {
    * @return The records, no more than the requested {@code numRecords} amount.
    */
   List<ByteBuffer> readBulk(int numRecords) throws IOException;
+
+  /**
+   * Fills the provided {@code List<ByteBuffer>} with records from the LogStream, starting at the current position.
+   * This method will attempt to fill all of the {@code ByteBuffer}'s that were provided, as long as there are
+   * records in the {@code LogStream} to support this. This method will return the number of buffers that were
+   * filled.
+   *
+   * @param buffers A non-empty list of non-null ByteBuffers.
+   * @return The number of records returns, equivalent to the number of filled buffers.
+   */
+  int readBulk(List<ByteBuffer> buffers) throws IOException;
 
   /**
    * Returns the current position of this Reader. The position is a {@code recordId}.

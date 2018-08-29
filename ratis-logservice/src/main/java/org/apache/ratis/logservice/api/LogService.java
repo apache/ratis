@@ -19,12 +19,16 @@ package org.apache.ratis.logservice.api;
 
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
+
+import org.apache.ratis.logservice.api.LogStream.State;
 
 /**
  * Entry point for interacting with the Ratis LogService.
  */
 public interface LogService extends AutoCloseable {
+  /*
+   * How to create a LogStream
+   */
 
   /**
    * Creates a new {@link LogStream} identified by the given name with default
@@ -33,7 +37,7 @@ public interface LogService extends AutoCloseable {
    *
    * @param name Unique name for this LogStream.
    */
-  CompletableFuture<LogStream> createLog(LogName name);
+  LogStream createLog(LogName name);
 
   /**
    * Creates a new {@link LogStream} identified by the given name. Throws
@@ -42,25 +46,84 @@ public interface LogService extends AutoCloseable {
    * @param name Unique name for this LogStream.
    * @param config Configuration object for this LogStream
    */
-  CompletableFuture<LogStream> createLog(LogName name, LogStreamConfiguration config);
+  LogStream createLog(LogName name, LogStreamConfiguration config);
 
+  /*
+   * How to get LogStreams that already exist
+   */
   /**
    * Fetches the {@link LogStream} identified by the given name.
    *
    * @param name The name of the LogStream
    */
-  CompletableFuture<LogStream> getLog(LogName name);
+  LogStream getLog(LogName name);
 
   /**
    * Lists all {@link LogStream} instances known by this LogService.
    */
-  CompletableFuture<Iterator<LogStream>> listLogs();
+  Iterator<LogStream> listLogs();
+
+  /*
+   * How to close, archive, and delete LogStreams
+   */
+
+  /**
+   * Moves the {@link LogStream} identified by the {@code name} from {@link State.OPEN} to {@link State.CLOSED}.
+   * If the log is not {@link State#OPEN}, this method returns an error.
+   *
+   * @param name The name of the log to close
+   */
+  // TODO this name sucks, confusion WRT the Java Closeable interface.
+  void closeLog(LogName name);
+
+  /**
+   * Returns the current {@link State} of the log identified by {@code name}.
+   *
+   * @param name The name of a log
+   */
+  State getState(LogName name);
+
+  /**
+   * Archives the given log out of the state machine and into a configurable long-term storage. A log must be
+   * in {@link State#CLOSED} to archive it.
+   *
+   * @param name The name of the log to archive.
+   */
+  void archiveLog(LogName name);
 
   /**
    * Deletes the {@link LogStream}.
    * @param name The name of the LogStream
    */
-  CompletableFuture<Void> deleteLog(LogName name);
+  void deleteLog(LogName name);
+
+  /*
+   * Change the configuration of a LogStream or manipulate a LogStream's listeners
+   */
+
+  /**
+   * Updates a log with the new configuration object, overriding
+   * the previous configuration.
+   *
+   * @param config The new configuration object
+   */
+  void updateConfiguration(LogName name, LogStreamConfiguration config);
+
+  /**
+   * Registers a {@link RecordListener} with the log which will receive all records written.
+   *
+   * @param the log's name
+   * @param listener The listener to register
+   */
+  void addRecordListener(LogName name, RecordListener listener);
+
+  /**
+   * Removes a {@link RecordListener) for the log.
+   *
+   * @param the log's name
+   * @param listener The listener to remove
+   */
+  void removeRecordListener(LogName name, RecordListener listener);
 
   /**
    * Overrides {@link close()} in {@link AutoCloseable} to throw an IOException.

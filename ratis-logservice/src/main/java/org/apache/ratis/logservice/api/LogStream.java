@@ -17,18 +17,31 @@
  */
 package org.apache.ratis.logservice.api;
 
+import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * A distributed log with "infinite" length that supports reads and writes.
  */
-public interface LogStream {
+public interface LogStream extends AutoCloseable {
+
+  /**
+   * An enumeration that defines the current state of a LogStream
+   */
+  public enum State {
+    OPEN,
+    CLOSED;
+  }
 
   /**
    * Returns the unique name to identify this log.
    */
   LogName getName();
+
+  /**
+   * Returns the current state of this log.
+   */
+  State getState();
 
   /**
    * Returns the size of this LogStream in bytes.
@@ -41,79 +54,23 @@ public interface LogStream {
   long getSizeInRecords();
 
   /**
-   * Creates a reader to read this LogStream asynchronously.
-   *
-   * @return An asynchronous reader
-   */
-  AsyncLogReader createAsyncReader();
-
-  /**
-   * Creates a writer to write to this LogStream asynchronously.
-   *
-   * @return An asynchronous writer
-   */
-  AsyncLogWriter createAsyncWriter();
-
-  /**
-   * Creates a reader to read this LogStream synchronously.
+   * Creates a reader to read this LogStream.
    *
    * @return A synchronous reader
    */
   LogReader createReader();
 
   /**
-   * Creates a write to write to this LogStream synchronously.
+   * Creates a write to write to this LogStream.
    *
    * @return A synchronous writer
    */
   LogWriter createWriter();
 
   /**
-   * Removes the elements in this LogStream prior to the given recordId.
-   *
-   * @param recordId A non-negative recordId for this LogStream
-   * @param inclusive Should the given recordId be included in the truncation
-   */
-  CompletableFuture<Void> truncateBefore(long recordId, boolean inclusive);
-
-  /**
-   * Returns the recordId which is the start of the LogStream. When there are records which were truncated
-   * from the LogStream, this will return a value larger than {@code 0}.
-   */
-  CompletableFuture<Long> getFirstRecordId();
-
-  /**
    * Returns the recordId of the last record in this LogStream. For an empty log, the recordId is {@code 0}.
    */
-  CompletableFuture<Long> getLastRecordId();
-
-  /**
-   * Copies all records from the beginning of the LogStream until the given {@code recordId}
-   * to the configured archival storage.
-   *
-   * @param recordId A non-negative recordId for this LogStream
-   * @param inclusive Should the given recordId be included in the archival.
-   */
-  CompletableFuture<Void> archiveBefore(long recordId, boolean inclusive);
-
-  /**
-   * Returns the recordId, prior to which, all records in the LogStream are archived.
-   */
-  CompletableFuture<Long> getArchivalPoint();
-
-  /**
-   * Registers a {@link RecordListener} with this LogStream which will receive all records written.
-   *
-   * @param listener The listener to register
-   */
-  void addRecordListener(RecordListener listener);
-
-  /**
-   * Removes a {@link RecordListener) from this LogStream.
-   *
-   * @param listener The listener to remove
-   */
-  void removeRecordListener(RecordListener listener);
+  long getLastRecordId();
 
   /**
    * Returns all {@link RecordListeners} for this LogStream.
@@ -125,11 +82,5 @@ public interface LogStream {
    */
   LogStreamConfiguration getConfiguration();
 
-  /**
-   * Configures this LogStream with the new configuration object, overriding
-   * the previous configuration.
-   *
-   * @param config The new configuration object
-   */
-  void updateConfiguration(LogStreamConfiguration config);
+  @Override void close() throws IOException;
 }
