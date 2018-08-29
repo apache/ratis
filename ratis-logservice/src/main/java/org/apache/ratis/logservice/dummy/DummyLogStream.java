@@ -1,31 +1,24 @@
 package org.apache.ratis.logservice.dummy;
 
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Set;
 
-import org.apache.ratis.logservice.api.AsyncLogReader;
-import org.apache.ratis.logservice.api.AsyncLogWriter;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogReader;
 import org.apache.ratis.logservice.api.LogStream;
+import org.apache.ratis.logservice.api.LogStreamConfiguration;
 import org.apache.ratis.logservice.api.LogWriter;
 import org.apache.ratis.logservice.api.RecordListener;
 
 public class DummyLogStream implements LogStream {
   private final LogName name;
-  private final AtomicLong start;
-  private final AtomicLong archivePoint;
-  private final List<RecordListener> recordListeners;
+  private final DummyLogService service;
 
-  public DummyLogStream(LogName name) {
+  public DummyLogStream(DummyLogService service, LogName name) {
+    this.service = Objects.requireNonNull(service);
     this.name = Objects.requireNonNull(name);
-    this.start = new AtomicLong(0);
-    this.archivePoint = new AtomicLong(0);
-    this.recordListeners = Collections.synchronizedList(new ArrayList<>());
   }
 
   @Override
@@ -44,16 +37,6 @@ public class DummyLogStream implements LogStream {
   }
 
   @Override
-  public AsyncLogReader createAsyncReader() {
-    return new DummyAsyncLogReader();
-  }
-
-  @Override
-  public AsyncLogWriter createAsyncWriter() {
-    return new DummyAsyncLogWriter();
-  }
-
-  @Override
   public LogReader createReader() {
     return new DummyLogReader();
   }
@@ -64,41 +47,28 @@ public class DummyLogStream implements LogStream {
   }
 
   @Override
-  public CompletableFuture<Void> truncateBefore(long recordId) {
-    return CompletableFuture.completedFuture(null);
+  public Set<RecordListener> getRecordListeners() {
+    Set<RecordListener> listeners = service.recordListeners.get(name);
+    if (listeners == null) {
+      return Collections.emptySet();
+    }
+    return Collections.unmodifiableSet(listeners);
   }
 
   @Override
-  public CompletableFuture<Long> getFirstRecordId() {
-    return CompletableFuture.completedFuture(start.get());
+  public State getState() {
+    return State.OPEN;
   }
 
   @Override
-  public CompletableFuture<Void> archiveBefore(long recordId) {
-    return CompletableFuture.supplyAsync(() -> {
-      archivePoint.getAndUpdate((before) -> before > recordId ? before : recordId);
-      return null;
-    });
+  public long getLastRecordId() {
+    return 0;
   }
 
   @Override
-  public CompletableFuture<Long> getArchivalPoint() {
-    return CompletableFuture.completedFuture(archivePoint.get());
+  public LogStreamConfiguration getConfiguration() {
+    return null;
   }
 
-  @Override
-  public void addRecordListener(RecordListener listener) {
-    recordListeners.add(listener);
-  }
-
-  @Override
-  public List<RecordListener> getRecordListeners() {
-    return new ArrayList<>(recordListeners);
-  }
-
-  @Override
-  public void removeRecordListener(RecordListener listener) {
-    recordListeners.remove(listener);
-  }
-
+  @Override public void close() throws IOException {}
 }

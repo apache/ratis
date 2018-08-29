@@ -18,7 +18,7 @@
 package org.apache.ratis.logservice.api;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Set;
 
 /**
  * A distributed log with "infinite" length that supports reads and writes.
@@ -75,7 +75,7 @@ public interface LogStream extends AutoCloseable {
   /**
    * Returns all {@link RecordListeners} for this LogStream.
    */
-  List<RecordListener> getRecordListeners();
+  Set<RecordListener> getRecordListeners();
 
   /**
    * Returns a copy of the Configuration for this LogStream.
