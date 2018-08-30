@@ -46,6 +46,9 @@ public interface LogReader extends AutoCloseable {
    * Reads the next record from the LogStream at the current position into the provided {@link buffer} and
    * advances the current position to the point after the record just read.
    *
+   * The provided buffer must be capable of holding one complete record from the Log. If the provided buffer is
+   * too small, an exception will be thrown.
+   *
    * @param buffer A buffer to read the record into
    */
   void readNext(ByteBuffer buffer) throws IOException;
@@ -64,6 +67,9 @@ public interface LogReader extends AutoCloseable {
    * This method will attempt to fill all of the {@code ByteBuffer}'s that were provided, as long as there are
    * records in the {@code LogStream} to support this. This method will return the number of buffers that were
    * filled.
+   *
+   * Each provided buffer must be capable of holding one complete record from the Log. If the provided buffer is
+   * too small, an exception will be thrown.
    *
    * @param buffers A non-empty list of non-null ByteBuffers.
    * @return The number of records returns, equivalent to the number of filled buffers.

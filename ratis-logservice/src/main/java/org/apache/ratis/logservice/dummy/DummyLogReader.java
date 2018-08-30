@@ -15,7 +15,7 @@ public class DummyLogReader implements LogReader {
 
   @Override
   public void seek(long recordId) throws IOException {
-    // 
+    // Noop.
     return;
   }
 

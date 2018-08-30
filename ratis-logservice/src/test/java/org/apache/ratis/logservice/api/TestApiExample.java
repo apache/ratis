@@ -18,7 +18,7 @@ import org.junit.Test;
 public class TestApiExample {
 
   byte[] intToBytes(int i) {
-    return Integer.toString(i).getBytes(StandardCharsets.UTF_8); 
+    return Integer.toString(i).getBytes(StandardCharsets.UTF_8);
   }
 
   @Test

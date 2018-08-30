@@ -23,7 +23,7 @@ import java.util.Set;
 /**
  * A distributed log with "infinite" length that supports reads and writes.
  */
-public interface LogStream extends AutoCloseable {
+public interface LogStream {
 
   /**
    * An enumeration that defines the current state of a LogStream
@@ -46,12 +46,7 @@ public interface LogStream extends AutoCloseable {
   /**
    * Returns the size of this LogStream in bytes.
    */
-  long getSizeInBytes();
-
-  /**
-   * Returns the number of records in this LogStream.
-   */
-  long getSizeInRecords();
+  long getSize();
 
   /**
    * Creates a reader to read this LogStream.
@@ -81,6 +76,4 @@ public interface LogStream extends AutoCloseable {
    * Returns a copy of the Configuration for this LogStream.
    */
   LogStreamConfiguration getConfiguration();
-
-  @Override void close() throws IOException;
 }
