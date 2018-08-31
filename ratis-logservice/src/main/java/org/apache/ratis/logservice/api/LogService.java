@@ -110,7 +110,11 @@ public interface LogService extends AutoCloseable {
   void updateConfiguration(LogName name, LogStreamConfiguration config);
 
   /**
-   * Registers a {@link RecordListener} with the log which will receive all records written.
+   * Registers a {@link RecordListener} with the log which will receive all records written using
+   * the unique name provided by {@link RecorderListener#getName()}.
+   *
+   * Impl spec: The name returned by a {@link RecordListener} instance uniquely identifies it against other
+   * instances.
    *
    * @param the log's name
    * @param listener The listener to register
@@ -120,13 +124,16 @@ public interface LogService extends AutoCloseable {
   /**
    * Removes a {@link RecordListener) for the log.
    *
+   * Impl spec: The name returned by a {@link RecordListener} instance uniquely identifies it against
+   * other instances.
+   *
    * @param the log's name
    * @param listener The listener to remove
    */
   void removeRecordListener(LogName name, RecordListener listener);
 
   /**
-   * Overrides {@link close()} in {@link AutoCloseable} to throw an IOException.
+   * Overrides {@link #close()} in {@link AutoCloseable} to throw an IOException.
    */
   void close() throws IOException;
 }

@@ -82,7 +82,7 @@ public interface LogReader extends AutoCloseable {
   long getPosition();
 
   /**
-   * Overrides {@link close()} in {@link AutoCloseable} to throw an IOException.
+   * Overrides {@link #close()} in {@link AutoCloseable} to throw an IOException.
    */
   void close() throws IOException;
 }
