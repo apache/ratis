@@ -25,6 +25,7 @@ import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.PeerProxyMap;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -64,18 +65,18 @@ public abstract class RaftServerRpcWithProxy<PROXY extends Closeable, PROXIES ex
   }
 
   @Override
-  public final void start() {
-    getLifeCycle().startAndTransition(() -> startImpl());
+  public final void start() throws IOException {
+    getLifeCycle().startAndTransition(this::startImpl, IOException.class);
   }
 
-  public abstract void startImpl();
+  public abstract void startImpl() throws IOException;
 
   @Override
-  public final void close() {
+  public final void close() throws IOException{
     getLifeCycle().checkStateAndClose(() -> closeImpl());
   }
 
-  public void closeImpl() {
+  public void closeImpl() throws IOException {
     getProxies().close();
   }
 }

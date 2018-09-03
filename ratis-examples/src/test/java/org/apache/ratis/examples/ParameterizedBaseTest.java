@@ -51,7 +51,7 @@ public abstract class ParameterizedBaseTest extends BaseTest {
   private static final AtomicReference<MiniRaftCluster> currentCluster = new AtomicReference<>();
 
   /** Set {@link #currentCluster} to the given cluster and start it if {@link #currentCluster} is changed. */
-  public static void setAndStart(MiniRaftCluster cluster) throws InterruptedException {
+  public static void setAndStart(MiniRaftCluster cluster) throws InterruptedException, IOException {
     final MiniRaftCluster previous = currentCluster.getAndSet(cluster);
     if (previous != cluster) {
       if (previous != null) {

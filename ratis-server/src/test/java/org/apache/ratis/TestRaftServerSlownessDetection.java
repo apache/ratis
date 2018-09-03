@@ -64,7 +64,7 @@ public class TestRaftServerSlownessDetection extends BaseTest {
   }
 
   @Before
-  public void setup() {
+  public void setup() throws IOException {
     Assert.assertNull(cluster.getLeader());
     cluster.start();
   }

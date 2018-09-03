@@ -33,6 +33,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -60,7 +61,7 @@ public class TestRaftServerLeaderElectionTimeout extends BaseTest {
   }
 
   @Before
-  public void setup() {
+  public void setup() throws IOException {
     Assert.assertNull(cluster.getLeader());
     cluster.start();
   }

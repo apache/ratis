@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Objects;
 
@@ -51,7 +52,7 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeabl
   }
 
   /** Start the RPC service. */
-  void start();
+  void start() throws IOException;
 
   /** @return the address where this RPC server is listening to. */
   InetSocketAddress getInetSocketAddress();

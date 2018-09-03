@@ -72,4 +72,12 @@ public interface Preconditions {
       throw new IllegalStateException(String.valueOf(message.get()));
     }
   }
+
+  static void assertNull(Object object, String name) {
+    if (object != null) {
+      throw new IllegalStateException(
+          name + " is expected to be null but "
+              + name + " = " + object + " != null, class = " + object.getClass());
+    }
+  }
 }

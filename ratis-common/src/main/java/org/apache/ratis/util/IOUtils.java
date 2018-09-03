@@ -20,6 +20,8 @@
 
 package org.apache.ratis.util;
 
+import org.slf4j.Logger;
+
 import java.io.Closeable;
 import java.io.EOFException;
 import java.io.IOException;
@@ -30,9 +32,9 @@ import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-
-import org.slf4j.Logger;
 
 /**
  * IO related utility methods.
@@ -54,6 +56,18 @@ public interface IOUtils {
   static IOException toIOException(ExecutionException e) {
     final Throwable cause = e.getCause();
     return cause != null? asIOException(cause): new IOException(e);
+  }
+
+  static <T> T getFromFuture(CompletableFuture<T> future, Object name) throws IOException {
+    try {
+      return future.get();
+    } catch (InterruptedException e) {
+      throw toInterruptedIOException(name + " interrupted.", e);
+    } catch (ExecutionException e) {
+      throw toIOException(e);
+    } catch (CompletionException e) {
+      throw asIOException(JavaUtils.unwrapCompletionException(e));
+    }
   }
 
   static boolean shouldReconnect(Exception e) {

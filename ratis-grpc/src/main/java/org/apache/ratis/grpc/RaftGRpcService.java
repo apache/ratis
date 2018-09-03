@@ -111,11 +111,17 @@ public class RaftGRpcService extends RaftServerRpcWithProxy<RaftServerProtocolCl
   }
 
   @Override
-  public void closeImpl() {
-    if (server != null) {
-      server.shutdown();
-    }
+  public void closeImpl() throws IOException {
+    final String name = getId() + ": shutdown server with port " + server.getPort();
+    LOG.info("{} now", name);
+    final Server s = server.shutdownNow();
     super.closeImpl();
+    try {
+      s.awaitTermination();
+    } catch(InterruptedException e) {
+      throw IOUtils.toInterruptedIOException(name + " failed", e);
+    }
+    LOG.info("{} successfully", name);
   }
 
   @Override

@@ -166,8 +166,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     this.role.transitionRole(newRole);
   }
 
-  void start() {
-    lifeCycle.transition(STARTING);
+  boolean start() {
+    if (!lifeCycle.compareAndTransition(NEW, STARTING)) {
+      return false;
+    }
+    LOG.info("{}: start {}", getId(), groupId);
     state.start();
     RaftConfiguration conf = getRaftConf();
     if (conf != null && conf.contains(getId())) {
@@ -179,6 +182,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
 
     registerMBean(getId(), getGroupId(), jmxAdapter, jmxAdapter);
+    return true;
   }
 
   static boolean registerMBean(
@@ -235,6 +239,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   void shutdown() {
     lifeCycle.checkStateAndClose(() -> {
+      LOG.info("{}: shutdown {}", getId(), groupId);
       try {
         jmxAdapter.unregister();
       } catch (Exception ignored) {
@@ -490,8 +495,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         peers.toArray(new RaftPeer[peers.size()]));
   }
 
-  private void assertLifeCycleState(LifeCycle.State... expected) throws ServerNotReadyException {
-    lifeCycle.assertCurrentState((n, c) -> new ServerNotReadyException("Server " + n
+  private LifeCycle.State assertLifeCycleState(LifeCycle.State... expected) throws ServerNotReadyException {
+    return lifeCycle.assertCurrentState((n, c) -> new ServerNotReadyException("Server " + n
         + " is not " + Arrays.toString(expected) + ": current state is " + c),
         expected);
   }
@@ -866,7 +871,12 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             + ", commits" + ProtoUtils.toString(commitInfos)
             + ", entries: " + ServerProtoUtils.toString(entries));
 
-    assertLifeCycleState(STARTING, RUNNING);
+    final LifeCycle.State currentState = assertLifeCycleState(STARTING, RUNNING);
+    if (currentState == STARTING) {
+      if (role.getCurrentRole() == null) {
+        throw new ServerNotReadyException("The role of Server " + getId() + " is not yet initialized.");
+      }
+    }
     assertGroup(leaderId, leaderGroupId);
 
     try {

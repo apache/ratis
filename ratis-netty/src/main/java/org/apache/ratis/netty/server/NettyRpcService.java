@@ -134,7 +134,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
   }
 
   @Override
-  public void closeImpl() {
+  public void closeImpl() throws IOException {
     bossGroup.shutdownGracefully();
     workerGroup.shutdownGracefully();
     final ChannelFuture f = getChannel().close();

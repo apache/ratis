@@ -93,14 +93,14 @@ public class TestRestartRaftPeer extends BaseTest {
     long lastAppliedIndex = 0;
     for (int i = 0; i < 10 && !catchup; i++) {
       Thread.sleep(500);
-      lastAppliedIndex = cluster.getServer(followerId).getImpl().getState().getLastAppliedIndex();
+      lastAppliedIndex = cluster.getRaftServerImpl(followerId).getState().getLastAppliedIndex();
       catchup = lastAppliedIndex >= 20;
     }
     Assert.assertTrue("lastAppliedIndex=" + lastAppliedIndex, catchup);
 
     // make sure the restarted peer's log segments is correct
     cluster.restartServer(followerId, false);
-    Assert.assertTrue(cluster.getServer(followerId).getImpl().getState().getLog()
+    Assert.assertTrue(cluster.getRaftServerImpl(followerId).getState().getLog()
         .getLastEntryTermIndex().getIndex() >= 20);
   }
 }

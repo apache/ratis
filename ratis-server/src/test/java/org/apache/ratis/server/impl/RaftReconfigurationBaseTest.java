@@ -321,8 +321,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       final RaftLog leaderLog = cluster.getLeader().getState().getLog();
       for (RaftPeer newPeer : c1.newPeers) {
         Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
-            cluster.getServer(newPeer.getId())
-                .getImpl().getState().getLog()
+            cluster.getRaftServerImpl(newPeer.getId()).getState().getLog()
                 .getEntries(0, Long.MAX_VALUE));
       }
     } finally {

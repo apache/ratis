@@ -77,7 +77,7 @@ public abstract class RaftLog implements Closeable {
 
   public void checkLogState() {
     Preconditions.assertTrue(isOpen,
-        "The RaftLog has not been opened or has been closed");
+        () -> getSelfId() + ": The RaftLog has not been opened or has been closed");
   }
 
   /**

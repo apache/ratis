@@ -158,12 +158,13 @@ public class LifeCycle {
   }
 
   /** Assert if the current state equals to one of the expected states. */
-  public <T extends Throwable> void assertCurrentState(
+  public <T extends Throwable> State assertCurrentState(
       BiFunction<String, State, T> newThrowable, State... expected) throws T {
     final State c = getCurrentState();
     if (!c.isOneOf(expected)) {
       throw newThrowable.apply(name, c);
     }
+    return c;
   }
 
   @Override

@@ -27,7 +27,6 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
@@ -68,29 +67,17 @@ public class TestStateMachine extends BaseTest {
 
   @Before
   public void setup() throws IOException {
-  }
+    properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, SMTransactionContext.class, StateMachine.class);
 
-  private void startCluster() {
-    cluster = MiniRaftClusterWithSimulatedRpc.FACTORY.newCluster(
-        NUM_SERVERS, properties);
-    Assert.assertNull(getCluster().getLeader());
-    getCluster().start();
+    cluster = MiniRaftClusterWithSimulatedRpc.FACTORY.newCluster(NUM_SERVERS, properties);
+    cluster.start();
   }
 
   @After
   public void tearDown() {
-    final MiniRaftCluster cluster = getCluster();
     if (cluster != null) {
       cluster.shutdown();
     }
-  }
-
-  public MiniRaftClusterWithSimulatedRpc getCluster() {
-    return cluster;
-  }
-
-  public RaftProperties getProperties() {
-    return properties;
   }
 
   static class SMTransactionContext extends SimpleStateMachine4Testing {
@@ -149,11 +136,6 @@ public class TestStateMachine extends BaseTest {
   @Test
   public void testTransactionContextIsPassedBack() throws Throwable {
     // tests that the TrxContext set by the StateMachine in Leader is passed back to the SM
-    properties.setClass(
-        MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        SMTransactionContext.class, StateMachine.class);
-    startCluster();
-
     int numTrx = 100;
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numTrx);
     try(final RaftClient client = cluster.createClient()) {
@@ -165,8 +147,8 @@ public class TestStateMachine extends BaseTest {
     // TODO: there eshould be a better way to ensure all data is replicated and applied
     Thread.sleep(cluster.getMaxTimeout() + 100);
 
-    for (RaftServerProxy raftServer : cluster.getServers()) {
-      final SMTransactionContext sm = SMTransactionContext.get(raftServer.getImpl());
+    for (RaftServerImpl raftServer : cluster.iterateServerImpls()) {
+      final SMTransactionContext sm = SMTransactionContext.get(raftServer);
       sm.rethrowIfException();
       assertEquals(numTrx, sm.numApplied.get());
     }

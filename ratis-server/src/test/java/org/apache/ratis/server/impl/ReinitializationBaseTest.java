@@ -48,6 +48,7 @@ public abstract class ReinitializationBaseTest extends BaseTest {
   static final Logger LOG = LoggerFactory.getLogger(ReinitializationBaseTest.class);
 
   {
+    LogUtils.setLogLevel(RaftServerProxy.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
@@ -66,7 +67,7 @@ public abstract class ReinitializationBaseTest extends BaseTest {
     LOG.info("Start testReinitialize" + cluster.printServers());
 
     // Start server with an empty conf
-    final RaftGroupId groupId = RaftGroupId.randomId();
+    final RaftGroupId groupId = cluster.getGroupId();
     final RaftGroup group = new RaftGroup(groupId);
 
     final List<RaftPeerId> ids = Arrays.stream(MiniRaftCluster.generateIds(3, 0))
@@ -75,10 +76,10 @@ public abstract class ReinitializationBaseTest extends BaseTest {
     LOG.info("putNewServer: " + cluster.printServers());
 
     cluster.start();
-    LOG.info("start: " + cluster.printServers());
 
     // Make sure that there are no leaders.
     TimeUnit.SECONDS.sleep(1);
+    LOG.info("start: " + cluster.printServers());
     Assert.assertNull(cluster.getLeader());
 
     // Reinitialize servers
@@ -128,18 +129,20 @@ public abstract class ReinitializationBaseTest extends BaseTest {
     LOG.info("\n\nrunTestReinitializeMultiGroups with " + type + ": " + cluster.printServers());
 
     // Start server with an empty conf
-    final RaftGroup emptyGroup = new RaftGroup(RaftGroupId.randomId());
+    final RaftGroup emptyGroup = new RaftGroup(cluster.getGroupId());
 
     final List<RaftPeerId> ids = Arrays.stream(MiniRaftCluster.generateIds(idIndex[idIndex.length - 1], 0))
         .map(RaftPeerId::valueOf).collect(Collectors.toList());
+    LOG.info("ids: " + ids);
     ids.forEach(id -> cluster.putNewServer(id, emptyGroup, true));
     LOG.info("putNewServer: " + cluster.printServers());
 
+    TimeUnit.SECONDS.sleep(1);
     cluster.start();
-    LOG.info("start: " + cluster.printServers());
 
     // Make sure that there are no leaders.
     TimeUnit.SECONDS.sleep(1);
+    LOG.info("start: " + cluster.printServers());
     Assert.assertNull(cluster.getLeader());
 
     // Reinitialize servers to three groups

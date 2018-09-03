@@ -39,6 +39,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -67,12 +68,20 @@ public interface JavaUtils {
    * wrap the checked exception by {@link RuntimeException}.
    */
   static <T> T callAsUnchecked(Callable<T> callable) {
+    return callAsUnchecked(callable::call, RuntimeException::new);
+  }
+
+  static <OUTPUT, THROWABLE extends Throwable> OUTPUT callAsUnchecked(
+      CheckedSupplier<OUTPUT, THROWABLE> checkedSupplier,
+      Function<THROWABLE, ? extends RuntimeException> converter) {
     try {
-      return callable.call();
-    } catch (RuntimeException e) {
+      return checkedSupplier.get();
+    } catch(RuntimeException | Error e) {
       throw e;
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+    } catch(Throwable t) {
+      @SuppressWarnings("unchecked")
+      final THROWABLE casted = (THROWABLE)t;
+      throw converter.apply(casted);
     }
   }
 

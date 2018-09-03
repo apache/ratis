@@ -43,6 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.List;
 
 public abstract class RaftSnapshotBaseTest extends BaseTest {
@@ -82,7 +83,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   public abstract MiniRaftCluster.Factory<?> getFactory();
 
   @Before
-  public void setup() {
+  public void setup() throws IOException {
     final RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);

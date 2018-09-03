@@ -101,7 +101,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     }
 
     final RaftServerImpl leader = waitForLeader(cluster);
-    final TimeDuration sleepTime = TimeDuration.valueOf(5, TimeUnit.SECONDS);
+    final TimeDuration sleepTime = TimeDuration.valueOf(3, TimeUnit.SECONDS);
     LOG.info("sleep " + sleepTime);
     sleepTime.sleep();
 
@@ -109,8 +109,9 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     final RaftServerProxy lastServer = i.next();
     lastServer.start();
     final RaftPeerId lastServerLeaderId = JavaUtils.attempt(
-        () -> getLeader(lastServer.getImpl().getState()),
+        () -> getLeader(lastServer.getImpls().iterator().next().getState()),
         10, 1000, "getLeaderId", LOG);
+    LOG.info(cluster.printServers());
     Assert.assertEquals(leader.getId(), lastServerLeaderId);
   }
 

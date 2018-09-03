@@ -52,12 +52,7 @@ import java.util.function.Predicate;
 
 
 public interface RaftTestUtil {
-
   Logger LOG = LoggerFactory.getLogger(RaftTestUtil.class);
-
-  static RaftServerImpl getImplAsUnchecked(RaftServerProxy proxy) {
-    return JavaUtils.callAsUnchecked(proxy::getImpl);
-  }
 
   static RaftServerImpl waitForLeader(MiniRaftCluster cluster)
       throws InterruptedException {
@@ -156,11 +151,9 @@ public interface RaftTestUtil {
     }
   }
 
-  static void assertLogEntries(Collection<RaftServerProxy> servers,
-      SimpleMessage... expectedMessages) {
-    final int size = servers.size();
-    final long count = MiniRaftCluster.getServerStream(servers)
-        .filter(RaftServerImpl::isAlive)
+  static void assertLogEntries(MiniRaftCluster cluster, SimpleMessage... expectedMessages) {
+    final int size = cluster.getServers().size();
+    final long count = cluster.getServerAliveStream()
         .map(s -> s.getState().getLog())
         .filter(log -> logEntriesContains(log, expectedMessages))
         .count();

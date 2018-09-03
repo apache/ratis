@@ -59,4 +59,9 @@ public class RoleInfo {
   public boolean isLeader() {
     return role == RaftPeerRole.LEADER;
   }
+
+  @Override
+  public String toString() {
+    return "" + role;
+  }
 }

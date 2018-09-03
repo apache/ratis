@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
@@ -25,6 +24,8 @@ import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -125,7 +126,7 @@ class SimulatedServerRpc implements RaftServerRpc {
       = new RequestHandler.HandlerInterface<RaftServerRequest, RaftServerReply>() {
     @Override
     public boolean isAlive() {
-      return RaftTestUtil.getImplAsUnchecked(server).isAlive();
+      return !server.getLifeCycleState().isOneOf(LifeCycle.State.CLOSING, LifeCycle.State.CLOSED);
     }
 
     @Override
@@ -147,7 +148,7 @@ class SimulatedServerRpc implements RaftServerRpc {
       = new RequestHandler.HandlerInterface<RaftClientRequest, RaftClientReply>() {
     @Override
     public boolean isAlive() {
-      return RaftTestUtil.getImplAsUnchecked(server).isAlive();
+      return !server.getLifeCycleState().isOneOf(LifeCycle.State.CLOSING, LifeCycle.State.CLOSED);
     }
 
     @Override
@@ -168,7 +169,8 @@ class SimulatedServerRpc implements RaftServerRpc {
 
       future.whenCompleteAsync((reply, exception) -> {
         try {
-          final IOException e = IOUtils.asIOException(exception);
+          final IOException e = exception == null? null
+              : IOUtils.asIOException(JavaUtils.unwrapCompletionException(exception));
           clientHandler.getRpc().sendReply(request, reply, e);
         } catch (IOException e) {
           LOG.warn("Failed to send reply {} for request {} due to exception {}",

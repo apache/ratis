@@ -303,7 +303,7 @@ public class GRpcLogAppender extends LogAppender {
     AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
     if (request == null) {
       // If reply comes after timeout, the reply is ignored.
-      LOG.warn("Ignoring reply: " + reply);
+      LOG.warn("{}: Ignoring {}", server.getId(), reply);
       return;
     }
     Preconditions.assertTrue(request.hasPreviousLog());

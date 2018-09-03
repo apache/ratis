@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.util.JavaUtils;
 import org.junit.Assert;
@@ -26,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.stream.Stream;
 
 public class RaftServerTestUtil {
@@ -86,5 +88,13 @@ public class RaftServerTestUtil {
 
   public static Logger getStateMachineUpdaterLog() {
     return StateMachineUpdater.LOG;
+  }
+
+  public static List<RaftServerImpl> getRaftServerImpls(RaftServerProxy proxy) {
+    return JavaUtils.callAsUnchecked(proxy::getImpls);
+  }
+
+  public static RaftServerImpl getRaftServerImpl(RaftServerProxy proxy, RaftGroupId groupId) {
+    return JavaUtils.callAsUnchecked(() -> proxy.getImpl(groupId));
   }
 }

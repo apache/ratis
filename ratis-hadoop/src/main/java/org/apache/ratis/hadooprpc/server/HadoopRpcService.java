@@ -149,7 +149,7 @@ public class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftServerPro
   }
 
   @Override
-  public void closeImpl() {
+  public void closeImpl() throws IOException {
     ipcServer.stop();
     super.closeImpl();
   }

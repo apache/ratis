@@ -26,6 +26,7 @@ import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.LifeCycle;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -50,7 +51,9 @@ public interface RaftServer extends Closeable, RpcType.Get,
   ServerFactory getFactory();
 
   /** Start this server. */
-  void start();
+  void start() throws IOException;
+
+  LifeCycle.State getLifeCycleState();
 
   /** @return a {@link Builder}. */
   static Builder newBuilder() {

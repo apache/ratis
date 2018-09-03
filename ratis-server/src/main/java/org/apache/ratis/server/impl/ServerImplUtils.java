@@ -34,27 +34,26 @@ public class ServerImplUtils {
   public static RaftServerProxy newRaftServer(
       RaftPeerId id, RaftGroup group, StateMachine stateMachine,
       RaftProperties properties, Parameters parameters) throws IOException {
-    return newRaftServer(id, group, gid -> stateMachine, properties, parameters);
+    RaftServerProxy.LOG.debug("newRaftServer: {}, {}", id, group);
+    final RaftServerProxy proxy = newRaftServer(id, gid -> stateMachine, properties, parameters);
+    if (group != null) {
+      proxy.addGroup(group);
+    }
+    return proxy;
   }
 
-  public static RaftServerProxy newRaftServer(
-      RaftPeerId id, RaftGroup group, StateMachine.Registry stateMachineRegistry,
-      RaftProperties properties, Parameters parameters) throws IOException {
+  private static RaftServerProxy newRaftServer(
+      RaftPeerId id, StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters)
+      throws IOException {
     final RaftServerProxy proxy;
     try {
       // attempt multiple times to avoid temporary bind exception
       proxy = JavaUtils.attempt(
-          () -> new RaftServerProxy(id, stateMachineRegistry, group, properties, parameters),
+          () -> new RaftServerProxy(id, stateMachineRegistry, properties, parameters),
           5, 500L, "new RaftServerProxy", RaftServerProxy.LOG);
     } catch (InterruptedException e) {
       throw IOUtils.toInterruptedIOException(
-          "Interrupted when creating RaftServer " + id + ", " + group, e);
-    } catch (IOException e) {
-      throw new IOException("Failed to create RaftServer " + id + ", " + group, e);
-    }
-    // add peers into rpc service
-    if (!group.getPeers().isEmpty()) {
-      proxy.getServerRpc().addPeers(group.getPeers());
+          "Interrupted when creating RaftServer " + id, e);
     }
     return proxy;
   }

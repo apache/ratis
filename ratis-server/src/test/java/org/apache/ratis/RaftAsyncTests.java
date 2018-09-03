@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.shaded.proto.RaftProtos.CommitInfoProto;
@@ -90,6 +91,13 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     }
   }
 
+  static void setBlockTransaction(boolean block, MiniRaftCluster cluster) throws InterruptedException {
+    for (RaftServerProxy server : cluster.getServers()) {
+      final RaftServerImpl impl = RaftServerTestUtil.getRaftServerImpl(server, cluster.getGroupId());
+      ((SimpleStateMachine4Testing)impl.getStateMachine()).setBlockTransaction(block);
+    }
+  }
+
   @Test
   public void testAsyncRequestSemaphore() throws Exception {
     LOG.info("Running testAsyncRequestSemaphore");
@@ -103,9 +111,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numMessages);
     final RaftClient client = cluster.createClient();
     //Set blockTransaction flag so that transaction blocks
-    for (RaftServerProxy server : cluster.getServers()) {
-      ((SimpleStateMachine4Testing) server.getImpl().getStateMachine()).setBlockTransaction(true);
-    }
+    setBlockTransaction(true, cluster);
 
     //Send numMessages which are blocked and do not release the client semaphore permits
     AtomicInteger blockedRequestsCount = new AtomicInteger();
@@ -133,9 +139,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     RaftClientTestUtil.assertAsyncRequestSemaphore(client, 0, 1);
 
     //Unset the blockTransaction flag so that semaphore permits can be released
-    for (RaftServerProxy server : cluster.getServers()) {
-      ((SimpleStateMachine4Testing) server.getImpl().getStateMachine()).setBlockTransaction(false);
-    }
+    setBlockTransaction(false, cluster);
     for(int i=0; i<=numMessages; i++){
       futures[i].join();
     }
@@ -148,7 +152,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     try {
       cluster.start();
       waitForLeader(cluster);
-      RaftBasicTests.runTestBasicAppendEntries(true, replication, killLeader, 1000, cluster, LOG);
+      RaftBasicTests.runTestBasicAppendEntries(true, replication, killLeader, 100, cluster, LOG);
     } finally {
       cluster.shutdown();
     }

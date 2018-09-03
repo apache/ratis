@@ -51,8 +51,8 @@ public class TestRaftServerWithGrpc extends BaseTest {
     // the raft server proxy created earlier. Raft server proxy should close
     // the rpc server on failure.
     testFailureCase("start a new server with the same address",
-        () -> ServerImplUtils.newRaftServer(leaderId, cluster.getGroup(), stateMachine, properties, null),
-        IOException.class, IOException.class, OverlappingFileLockException.class);
+        () -> ServerImplUtils.newRaftServer(leaderId, cluster.getGroup(), stateMachine, properties, null).start(),
+        IOException.class, OverlappingFileLockException.class);
     // Try to start a raft server rpc at the leader address.
     cluster.getServer(leaderId).getFactory().newRaftServerRpc(cluster.getServer(leaderId));
   }
