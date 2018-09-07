@@ -1053,9 +1053,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         groupId, term, lastEntry);
   }
 
-  public synchronized void submitLocalSyncEvent() {
+  public void submitLocalSyncEvent() {
     if (isLeader() && leaderState != null) {
-      leaderState.submitUpdateStateEvent(LeaderState.UPDATE_COMMIT_EVENT);
+      synchronized (leaderState) {
+        leaderState.submitUpdateStateEvent(LeaderState.UPDATE_COMMIT_EVENT);
+      }
     }
   }
 
