@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 syntax = "proto3";
-option java_package = "org.apache.ratis.shaded.proto.hadoop";
+option java_package = "org.apache.ratis.proto.hadoop";
 option java_outer_classname = "HadoopProtos";
 option java_generic_services = true;
 option java_generate_equals_and_hash = true;

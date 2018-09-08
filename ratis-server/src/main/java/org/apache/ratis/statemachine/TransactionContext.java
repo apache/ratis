@@ -18,10 +18,10 @@
 package org.apache.ratis.statemachine;
 
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.shaded.proto.RaftProtos;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
-import org.apache.ratis.shaded.proto.RaftProtos.SMLogEntryProto;
+import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
+import org.apache.ratis.proto.RaftProtos.SMLogEntryProto;
 
 import java.io.IOException;
 import java.util.Collection;

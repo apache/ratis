@@ -25,7 +25,7 @@ import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
-import org.apache.ratis.shaded.proto.RaftProtos.*;
+import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.CheckedFunction;
 import org.apache.ratis.util.IOUtils;

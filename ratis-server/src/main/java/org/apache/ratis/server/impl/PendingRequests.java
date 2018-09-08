@@ -19,8 +19,8 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.impl.RetryCache.CacheEntry;
-import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;

@@ -19,10 +19,10 @@ package org.apache.ratis.server.storage;
 
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
-import org.apache.ratis.shaded.com.google.common.cache.CacheLoader;
-import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.thirdparty.com.google.common.cache.CacheLoader;
+import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;

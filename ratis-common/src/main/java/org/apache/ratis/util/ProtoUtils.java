@@ -18,10 +18,10 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.protocol.*;
-import org.apache.ratis.shaded.com.google.protobuf.ByteString;
-import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
-import org.apache.ratis.shaded.proto.RaftProtos.*;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
+import org.apache.ratis.proto.RaftProtos.*;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;

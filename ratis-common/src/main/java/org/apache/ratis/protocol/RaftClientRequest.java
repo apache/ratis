@@ -17,12 +17,12 @@
  */
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.shaded.proto.RaftProtos.*;
+import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.Preconditions;
 
 import java.util.Objects;
 
-import static org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto.TypeCase.*;
+import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.*;
 
 /**
  * Request from client to server

@@ -25,14 +25,12 @@
 
   <dependencies>
     <dependency>
-      <artifactId>ratis-proto-shaded</artifactId>
+      <artifactId>ratis-proto</artifactId>
       <groupId>org.apache.ratis</groupId>
-      <scope>provided</scope>
     </dependency>
     <dependency>
       <artifactId>ratis-hadoop-shaded</artifactId>
       <groupId>org.apache.ratis</groupId>
-      <scope>provided</scope>
     </dependency>
 
     <dependency>

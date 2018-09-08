@@ -18,8 +18,8 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.server.impl.RaftServerConstants;
-import org.apache.ratis.shaded.com.google.protobuf.CodedOutputStream;
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PureJavaCrc32C;

@@ -18,7 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.shaded.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 

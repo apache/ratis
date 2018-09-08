@@ -27,7 +27,7 @@ import org.apache.ratis.protocol.GroupManagementRequest;
 import org.apache.ratis.protocol.ServerInformationRequest;
 import org.apache.ratis.protocol.ServerInformationReply;
 import org.apache.ratis.protocol.SetConfigurationRequest;
-import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
+import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
 import org.apache.ratis.util.CheckedFunction;
 import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;

@@ -18,7 +18,7 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.BaseTest;
-import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.junit.Assert;
 import org.junit.Test;
 

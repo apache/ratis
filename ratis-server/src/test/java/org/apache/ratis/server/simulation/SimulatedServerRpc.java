@@ -21,7 +21,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerProxy;
-import org.apache.ratis.shaded.proto.RaftProtos.*;
+import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;

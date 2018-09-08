@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 syntax = "proto3";
-option java_package = "org.apache.ratis.shaded.proto.netty";
+option java_package = "org.apache.ratis.proto.netty";
 option java_outer_classname = "NettyProtos";
 option java_generate_equals_and_hash = true;
 package ratis.netty;

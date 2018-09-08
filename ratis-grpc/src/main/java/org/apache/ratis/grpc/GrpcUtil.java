@@ -19,10 +19,10 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.ServerNotReadyException;
-import org.apache.ratis.shaded.io.grpc.Metadata;
-import org.apache.ratis.shaded.io.grpc.Status;
-import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
-import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
+import org.apache.ratis.thirdparty.io.grpc.Metadata;
+import org.apache.ratis.thirdparty.io.grpc.Status;
+import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
+import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 

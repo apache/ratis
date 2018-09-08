@@ -22,8 +22,8 @@ import static org.junit.Assert.assertEquals;
 import org.apache.ratis.logservice.api.LogMessage.Type;
 import org.junit.Test;
 
-import org.apache.ratis.shaded.com.google.protobuf.ByteString;
-import org.apache.ratis.shaded.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 
 public class TestLogMessage {
 

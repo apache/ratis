@@ -135,7 +135,11 @@
   <dependencies>
     <!-- Intra-project dependencies -->
     <dependency>
-      <artifactId>ratis-proto-shaded</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-thirdparty</artifactId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-proto</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
 

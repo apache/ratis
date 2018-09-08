@@ -41,12 +41,14 @@
   </licenses>
 
   <modules>
+    <module>ratis-proto</module>
     <module>ratis-common</module>
     <module>ratis-client</module>
     <module>ratis-server</module>
 
     <module>ratis-grpc</module>
     <module>ratis-netty</module>
+    <module>ratis-hadoop-shaded</module>
     <module>ratis-hadoop</module>
 
     <module>ratis-assembly</module>
@@ -172,11 +174,13 @@
     <java.min.version>${javac.version}</java.min.version>
     <maven.min.version>3.3.9</maven.min.version>
 
-    <!--Version of protobuf to be shaded -->
-    <shaded.protobuf.version>3.5.0</shaded.protobuf.version>
-    <shaded.protobuf-javanano.version>3.1.0</shaded.protobuf-javanano.version>
+    <!-- Contains all shaded thirdparty dependencies -->
+    <ratis.thirdparty.version>0.1.0-SNAPSHOT</ratis.thirdparty.version>
 
-    <io.opencensus.version>0.12.2</io.opencensus.version>
+    <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
+    <shaded.protobuf.version>3.5.0</shaded.protobuf.version>
+    <shaded.grpc.version>1.14.0</shaded.grpc.version>
+
 
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
@@ -272,7 +276,7 @@
       </dependency>
 
       <dependency>
-        <artifactId>ratis-proto-shaded</artifactId>
+        <artifactId>ratis-proto</artifactId>
         <groupId>org.apache.ratis</groupId>
         <version>${project.version}</version>
       </dependency>
@@ -307,6 +311,12 @@
         <groupId>org.apache.ratis</groupId>
         <artifactId>ratis-logservice</artifactId>
         <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.ratis</groupId>
+        <artifactId>ratis-thirdparty</artifactId>
+        <version>${ratis.thirdparty.version}</version>
       </dependency>
 
       <!-- External dependencies -->
@@ -803,18 +813,6 @@
           </plugin>
         </plugins>
       </build>
-    </profile>
-    <profile>
-      <id>skipShade</id>
-      <activation>
-        <property>
-          <name>!skipShade</name>
-        </property>
-      </activation>
-      <modules>
-        <module>ratis-proto-shaded</module>
-        <module>ratis-hadoop-shaded</module>
-      </modules>
     </profile>
   </profiles>
 </project>

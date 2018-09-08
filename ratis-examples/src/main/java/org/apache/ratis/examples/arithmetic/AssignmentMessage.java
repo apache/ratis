@@ -25,7 +25,7 @@ import java.util.Map;
 import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.examples.arithmetic.expression.Variable;
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
 public class AssignmentMessage implements Message, Evaluable {
   public static final Charset UTF8 = Charset.forName("UTF-8");

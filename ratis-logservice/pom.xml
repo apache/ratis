@@ -26,7 +26,7 @@
   <dependencies>
     <!-- Ratis dependencies -->
     <dependency>
-      <artifactId>ratis-proto-shaded</artifactId>
+      <artifactId>ratis-proto</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
     <dependency>

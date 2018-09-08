@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.examples.filestore;
 
-import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.*;
 
 import java.io.IOException;

@@ -24,7 +24,7 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 
-import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;

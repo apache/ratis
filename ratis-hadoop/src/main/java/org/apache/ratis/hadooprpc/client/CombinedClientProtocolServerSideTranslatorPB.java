@@ -23,14 +23,14 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.shaded.com.google.protobuf.RpcController;
-import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.GroupManagementRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationReplyProto;
+import org.apache.ratis.thirdparty.com.google.protobuf.RpcController;
+import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
+import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
+import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
+import org.apache.ratis.proto.RaftProtos.ServerInformationRequestProto;
+import org.apache.ratis.proto.RaftProtos.ServerInformationReplyProto;
 
 @InterfaceAudience.Private
 public class CombinedClientProtocolServerSideTranslatorPB

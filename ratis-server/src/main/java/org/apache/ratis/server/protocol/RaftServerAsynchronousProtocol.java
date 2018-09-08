@@ -18,8 +18,8 @@
 
 package org.apache.ratis.server.protocol;
 
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;

@@ -25,9 +25,12 @@
 
   <dependencies>
     <dependency>
-      <artifactId>ratis-proto-shaded</artifactId>
       <groupId>org.apache.ratis</groupId>
-      <scope>provided</scope>
+      <artifactId>ratis-thirdparty</artifactId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-proto</artifactId>
+      <groupId>org.apache.ratis</groupId>
     </dependency>
 
     <dependency>

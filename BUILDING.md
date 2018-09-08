@@ -28,54 +28,29 @@ $ mvn clean package -DskipTests
 Note: subsequent builds could be faster with skiping shading/protobuf compile steps.
 See the next section for more info.
 
-# Shading
+# Thirdparty
 
-We shade protos, protobuf and other libraries such as Netty, gRPC, Guava and Hadoop
-so that applications using Ratis may use protobuf and other libraries with versions
-different from the versions used here.
+We centralize all bundled thirdparty dependencies in the ratis-thirdparty module. This
+module is not attached to the core Ratis build as it only needs to change when one
+of these dependencies are changed. All dependencies included in ratis-thirdparty
+must be relocated to a different package to ensure no downstream classpath pollution.
 
-_Note: RATIS-288 changes how the shaded artifacts are generated, removing them from the
-source tree. Developers with local checkouts prior to this change will need to manually
-remove the directories `ratis-proto-shaded/src/main/java` and
-`ratis-hadoop-shaded/src/main/java`._
+Ratis developers should rely on these relocated thirdparty classes.
 
-By default, protobuf compilation and shaded jar creation are executed for every build.
-
-For developers who wish to skip protobuf generation and shaded jar creation because they
-are aware that they have not been modified, they can be disabled with the `skipShade` property.
-```
-$ mvn package -DskipTests -DskipShade
-```
-
-When the `skipShade` property is given, Maven will inspect your local Maven repository for
-the most recent version of `ratis-proto-shaded` (or `ratis-hadoop-shaded`), reaching out to
-Maven central when you have no local copy. You may need to run a `mvn install` prior to
-attempting to use the `skipShade` property to ensure that you have a version of the artifact
-available for your use.
-```
-$ mvn install -DskipTests
-```
-
-For developers familiar with the `skipCleanShade` option, this is no longer necessary. Maven's
-local repository is acting as a cache instead of the current working copy of your repository.
-`mvn clean` can be used to safely clean all temporary build files, without impacting your
-use of the `skipShade` option.
-
-Unit tests can also be executed with the `skipShade` option:
-```
-$ mvn package -DskipShade
-```
+As a result of this thirdparty module, there is no need for `skipShade` options in the
+build which previously existed because the shaded artifacts that are generated each
+build are limited only to the code in Ratis itself.
 
 ## What packages are shaded?
 
-| Original packages                   | Shaded packages                                              |
-| ------------------------------------|--------------------------------------------------------------|
-| `com.google.common`                 | `org.apache.ratis.shaded.com.google.common`                  |
-| `com.google.protobuf`               | `org.apache.ratis.shaded.com.google.protobuf`                |
-| `com.google.thirdparty.publicsuffix`| `org.apache.ratis.shaded.com.google.thirdparty.publicsuffix` |
-| `io.grpc`                           | `org.apache.ratis.shaded.io.grpc`                            |
-| `io.netty`                          | `org.apache.ratis.shaded.io.netty`                           |
-| `org.apache.hadoop.ipc.protobuf`    | `org.apache.ratis.shaded.org.apache.hadoop.ipc.protobuf`     |
+| Original packages                   | Shaded packages                                                  |
+| ------------------------------------|------------------------------------------------------------------|
+| `com.google.common`                 | `org.apache.ratis.thirdparty.com.google.common`                  |
+| `com.google.protobuf`               | `org.apache.ratis.thirdparty.com.google.protobuf`                |
+| `com.google.thirdparty.publicsuffix`| `org.apache.ratis.thirdparty.com.google.thirdparty.publicsuffix` |
+| `io.grpc`                           | `org.apache.ratis.thirdparty.io.grpc`                            |
+| `io.netty`                          | `org.apache.ratis.thirdparty.io.netty`                           |
+| `org.apache.hadoop.ipc.protobuf`    | `org.apache.ratis.shaded.org.apache.hadoop.ipc.protobuf`         |
 
-The compiled protocol-buffer definitions in this `ratis-proto-shaded` are stored in the
-`org.apache.ratis.shaded.proto` Java package.
+All compiled protocol-buffer definitions in `ratis-shaded` are stored in the
+`org.apache.ratis.proto` Java package.

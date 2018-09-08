@@ -22,7 +22,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.ipc.ProtocolInfo;
 import org.apache.hadoop.security.KerberosInfo;
 import org.apache.ratis.hadooprpc.HadoopConstants;
-import org.apache.ratis.shaded.proto.hadoop.HadoopProtos.CombinedClientProtocolService;
+import org.apache.ratis.proto.hadoop.HadoopProtos.CombinedClientProtocolService;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable

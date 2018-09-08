@@ -28,9 +28,9 @@ import java.util.stream.Collectors;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.shaded.com.google.protobuf.ByteString;
-import org.apache.ratis.shaded.proto.RaftProtos.*;
-import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.*;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.proto.RaftProtos.*;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.*;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 

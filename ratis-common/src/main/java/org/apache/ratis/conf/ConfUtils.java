@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.conf;
 
-import org.apache.ratis.shaded.com.google.common.base.Objects;
+import org.apache.ratis.thirdparty.com.google.common.base.Objects;
 import org.apache.ratis.util.CheckedBiConsumer;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.SizeInBytes;

@@ -39,6 +39,72 @@
           <skipAssembly>true</skipAssembly>
         </configuration>
       </plugin>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions>
+          <execution>
+            <!-- Replace the "default" jar-plugin execution -->
+            <!-- This is a super-dirty hack to work around Yetus
+                 PreCommit not using the package lifecycle phase -->
+            <id>default-jar</id>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>process-classes</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadeSourcesContent>true</shadeSourcesContent>
+              <createSourcesJar>true</createSourcesJar>
+              <!-- Replace the original artifact which is no good on its own -->
+              <shadedArtifactAttached>false</shadedArtifactAttached>
+              <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
+              <!-- Using shade-plugin to relocate hadoop's protobuf dependency and find it in ratis-thirdparty.
+                   So dirty. -->
+              <relocations>
+                <relocation>
+                  <pattern>com.google.protobuf</pattern>
+                  <shadedPattern>org.apache.ratis.thirdparty.com.google.protobuf</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.hadoop.ipc.protobuf</pattern>
+                  <shadedPattern>org.apache.ratis.shaded.org.apache.hadoop.ipc.protobuf</shadedPattern>
+                </relocation>
+              </relocations>
+
+              <filters>
+                <filter>
+                  <artifact>org.apache.hadoop:hadoop-common</artifact>
+                  <includes>
+                    <include>org/apache/hadoop/ipc/protobuf/**</include>
+                  </includes>
+                </filter>
+              </filters>
+
+              <artifactSet>
+                <includes>
+                  <!--  Must list explicitly, otherwise we pull in all of hadoop-common's
+                        transitive dependencies. -->
+                  <include>org.apache.hadoop:hadoop-common</include>
+                  <include>com.google.j2objc:j2objc-annotations</include>
+                  <include>com.google.errorprone:error_prone_annotations</include>
+                  <include>org.codehaus.mojo:animal-sniffer-annotations</include>
+                </includes>
+              </artifactSet>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
     <pluginManagement>
       <plugins>
@@ -72,6 +138,10 @@
   </build>
 
   <dependencies>
+    <dependency>
+      <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-thirdparty</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
@@ -107,74 +177,6 @@
           <name>!skipShade</name>
         </property>
       </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <artifactId>maven-jar-plugin</artifactId>
-            <executions>
-              <execution>
-                <!-- Replace the "default" jar-plugin execution -->
-                <!-- This is a super-dirty hack to work around Yetus
-                     PreCommit not using the package lifecycle phase -->
-                <id>default-jar</id>
-                <phase>process-classes</phase>
-                <goals>
-                  <goal>jar</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-shade-plugin</artifactId>
-            <executions>
-              <execution>
-                <phase>process-classes</phase>
-                <goals>
-                  <goal>shade</goal>
-                </goals>
-                <configuration>
-                  <shadeSourcesContent>true</shadeSourcesContent>
-                  <createSourcesJar>true</createSourcesJar>
-                  <!-- Replace the original artifact which is no good on its own -->
-                  <shadedArtifactAttached>false</shadedArtifactAttached>
-                  <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
-                  <relocations>
-                    <relocation>
-                      <pattern>com.google.protobuf</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.com.google.protobuf</shadedPattern>
-                    </relocation>
-                    <relocation>
-                      <pattern>org.apache.hadoop.ipc.protobuf</pattern>
-                      <shadedPattern>org.apache.ratis.shaded.org.apache.hadoop.ipc.protobuf</shadedPattern>
-                    </relocation>
-                  </relocations>
-
-                  <filters>
-                    <filter>
-                      <artifact>org.apache.hadoop:hadoop-common</artifact>
-                      <includes>
-                        <include>org/apache/hadoop/ipc/protobuf/**</include>
-                      </includes>
-                    </filter>
-                  </filters>
-
-                  <artifactSet>
-                    <includes>
-                      <!--  Must list explicitly, otherwise we pull in all of hadoop-common's
-                            transitive dependencies. -->
-                      <include>org.apache.hadoop:hadoop-common</include>
-                      <include>com.google.j2objc:j2objc-annotations</include>
-                      <include>com.google.errorprone:error_prone_annotations</include>
-                      <include>org.codehaus.mojo:animal-sniffer-annotations</include>
-                    </includes>
-                  </artifactSet>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
     </profile>
   </profiles>
 </project>

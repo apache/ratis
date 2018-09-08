@@ -18,7 +18,7 @@
 
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.shaded.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.util.Timestamp;
 
 import java.util.concurrent.atomic.AtomicReference;

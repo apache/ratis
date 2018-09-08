@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.shaded.com.google.common.collect.Interner;
-import org.apache.ratis.shaded.com.google.common.collect.Interners;
-import org.apache.ratis.shaded.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.common.collect.Interner;
+import org.apache.ratis.thirdparty.com.google.common.collect.Interners;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;

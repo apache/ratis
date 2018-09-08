@@ -19,7 +19,7 @@ package org.apache.ratis.server.storage;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.shaded.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.LogUtils;
 

@@ -20,10 +20,10 @@ package org.apache.ratis.logservice.api;
 import java.nio.charset.Charset;
 
 import org.apache.ratis.protocol.Message;
-import org.apache.ratis.shaded.proto.logservice.LogServiceProtos;
+import org.apache.ratis.proto.logservice.LogServiceProtos;
 
-import org.apache.ratis.shaded.com.google.protobuf.ByteString;
-import org.apache.ratis.shaded.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 
 public class LogMessage implements Message {
   public static final Charset UTF8 = Charset.forName("UTF-8");
