@@ -39,6 +39,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,7 +48,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class RaftServerProxy implements RaftServer {
@@ -148,7 +148,6 @@ public class RaftServerProxy implements RaftServer {
   private final ServerFactory factory;
 
   private final ImplMap impls = new ImplMap();
-  private final AtomicReference<ReinitializeRequest> reinitializeRequest = new AtomicReference<>();
 
   RaftServerProxy(RaftPeerId id, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters) {
@@ -296,24 +295,37 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public RaftClientReply reinitialize(ReinitializeRequest request) throws IOException {
-    return RaftServerImpl.waitForReply(getId(), request, reinitializeAsync(request),
+  public RaftClientReply groupManagement(GroupManagementRequest request) throws IOException {
+    return RaftServerImpl.waitForReply(getId(), request, groupManagementAsync(request),
         e -> new RaftClientReply(request, e, null));
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> reinitializeAsync(
-      ReinitializeRequest request) throws IOException {
-    LOG.info("{}: reinitialize* {}", getId(), request);
-    if (!reinitializeRequest.compareAndSet(null, request)) {
-      throw new IOException("Another reinitialize is already in progress.");
+  public CompletableFuture<RaftClientReply> groupManagementAsync(GroupManagementRequest request) {
+    final RaftGroupId groupId = request.getRaftGroupId();
+    if (groupId == null) {
+      return JavaUtils.completeExceptionally(new GroupMismatchException(
+          getId() + ": Request group id == null"));
     }
-    final RaftGroupId oldGroupId = request.getRaftGroupId();
-    return getImplFuture(oldGroupId)
-        .thenAcceptAsync(RaftServerImpl::shutdown)
-        .thenAccept(_1 -> impls.remove(oldGroupId))
-        .thenCompose(_1 -> impls.addNew(request.getGroup()))
-        .thenApply(newImpl -> {
+    final GroupManagementRequest.Add add = request.getAdd();
+    if (add != null) {
+      return groupdAddAsync(request, add.getGroup());
+    }
+    final GroupManagementRequest.Remove remove = request.getRemove();
+    if (remove != null) {
+      return groupRemoveAsync(request, remove.getGroupId());
+    }
+    return JavaUtils.completeExceptionally(new UnsupportedOperationException(
+        getId() + ": Request not supported " + request));
+  }
+
+  private CompletableFuture<RaftClientReply> groupdAddAsync(GroupManagementRequest request, RaftGroup newGroup) {
+    if (!request.getRaftGroupId().equals(newGroup.getGroupId())) {
+      return JavaUtils.completeExceptionally(new GroupMismatchException(
+          getId() + ": Request group id (" + request.getRaftGroupId() + ") does not match the new group " + newGroup));
+    }
+    return impls.addNew(newGroup)
+        .thenApplyAsync(newImpl -> {
           LOG.debug("{}: newImpl = {}", getId(), newImpl);
           final boolean started = newImpl.start();
           Preconditions.assertTrue(started, () -> getId()+ ": failed to start a new impl: " + newImpl);
@@ -321,12 +333,27 @@ public class RaftServerProxy implements RaftServer {
         })
         .whenComplete((_1, throwable) -> {
           if (throwable != null) {
-            impls.remove(request.getGroup().getGroupId());
-            LOG.warn(getId() + ": Failed reinitialize* " + request, throwable);
+            impls.remove(newGroup.getGroupId());
+            LOG.warn(getId() + ": Failed groupAdd* " + request, throwable);
           }
-
-          reinitializeRequest.set(null);
         });
+  }
+
+  private CompletableFuture<RaftClientReply> groupRemoveAsync(RaftClientRequest request, RaftGroupId groupId) {
+    if (!request.getRaftGroupId().equals(groupId)) {
+      return JavaUtils.completeExceptionally(new GroupMismatchException(
+          getId() + ": Request group id (" + request.getRaftGroupId() + ") does not match the given group id " + groupId));
+    }
+    final CompletableFuture<RaftServerImpl> f = impls.remove(groupId);
+    if (f == null) {
+      return JavaUtils.completeExceptionally(new GroupMismatchException(
+          getId() + ": Group " + groupId + " not found."));
+    }
+    return f.thenApply(impl -> {
+      final Collection<CommitInfoProto> commitInfos = impl.getCommitInfos();
+      impl.shutdown();
+      return new RaftClientReply(request, commitInfos);
+    });
   }
 
   @Override

@@ -45,8 +45,8 @@ service RaftServerProtocolService {
 }
 
 service AdminProtocolService {
-  // A client-to-server RPC to reinitialize the server
-  rpc reinitialize(ratis.common.ReinitializeRequestProto)
+  // A client-to-server RPC to add a new group
+  rpc groupManagement(ratis.common.GroupManagementRequestProto)
       returns(ratis.common.RaftClientReplyProto) {}
 
   rpc serverInformation(ratis.common.ServerInformationRequestProto)

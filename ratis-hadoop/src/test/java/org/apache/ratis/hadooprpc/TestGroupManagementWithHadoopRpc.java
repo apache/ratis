@@ -15,14 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.simulation;
+package org.apache.ratis.hadooprpc;
 
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.server.impl.ReinitializationBaseTest;
+import org.apache.ratis.server.impl.GroupManagementBaseTest;
 
-public class TestReinitializationWithSimulatedRpc extends ReinitializationBaseTest {
+public class TestGroupManagementWithHadoopRpc extends GroupManagementBaseTest {
   @Override
   public MiniRaftCluster.Factory<? extends MiniRaftCluster> getClusterFactory() {
-    return MiniRaftClusterWithSimulatedRpc.FACTORY;
+    return MiniRaftClusterWithHadoopRpc.FACTORY;
   }
 }

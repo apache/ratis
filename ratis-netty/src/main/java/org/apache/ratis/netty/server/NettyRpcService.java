@@ -193,11 +193,11 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
               .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
               .build();
         }
-        case REINITIALIZEREQUEST: {
-          final ReinitializeRequestProto request = proto.getReinitializeRequest();
+        case GROUPMANAGEMENTREQUEST: {
+          final GroupManagementRequestProto request = proto.getGroupManagementRequest();
           rpcRequest = request.getRpcRequest();
-          final RaftClientReply reply = server.reinitialize(
-              ClientProtoUtils.toReinitializeRequest(request));
+          final RaftClientReply reply = server.groupManagement(
+              ClientProtoUtils.toGroupManagementRequest(request));
           return RaftNettyServerReplyProto.newBuilder()
               .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
               .build();

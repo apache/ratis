@@ -38,8 +38,8 @@ public class HadoopClientRpc extends RaftClientRpcWithProxy<CombinedClientProtoc
     final CombinedClientProtocolClientSideTranslatorPB proxy =
         getProxies().getProxy(serverId);
     try {
-      if (request instanceof ReinitializeRequest) {
-        return proxy.reinitialize((ReinitializeRequest) request);
+      if (request instanceof GroupManagementRequest) {
+        return proxy.groupManagement((GroupManagementRequest) request);
       } else if (request instanceof SetConfigurationRequest) {
         return proxy.setConfiguration((SetConfigurationRequest) request);
       } else if (request instanceof ServerInformationRequest) {

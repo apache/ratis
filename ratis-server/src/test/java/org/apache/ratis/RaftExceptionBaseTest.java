@@ -191,8 +191,8 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
           () -> client.setConfiguration(RaftPeer.emptyArray()),
           GroupMismatchException.class);
 
-      testFailureCase("reinitialize(..) with client group being different from the server group",
-          () -> client.reinitialize(anotherGroup, clusterGroup.getPeers().iterator().next().getId()),
+      testFailureCase("groupRemove(..) with another group id",
+          () -> client.groupRemove(anotherGroup.getGroupId(), clusterGroup.getPeers().iterator().next().getId()),
           GroupMismatchException.class);
     }
   }

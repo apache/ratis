@@ -28,7 +28,7 @@ import org.apache.ratis.shaded.com.google.protobuf.ServiceException;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationReplyProto;
 
@@ -69,13 +69,12 @@ public class CombinedClientProtocolServerSideTranslatorPB
   }
 
   @Override
-  public RaftClientReplyProto reinitialize(
-      RpcController controller, ReinitializeRequestProto proto)
+  public RaftClientReplyProto groupManagement(RpcController controller, GroupManagementRequestProto proto)
       throws ServiceException {
-    final ReinitializeRequest request;
+    final GroupManagementRequest request;
     try {
-      request = ClientProtoUtils.toReinitializeRequest(proto);
-      final RaftClientReply reply = impl.reinitialize(request);
+      request = ClientProtoUtils.toGroupManagementRequest(proto);
+      final RaftClientReply reply = impl.groupManagement(request);
       return ClientProtoUtils.toRaftClientReplyProto(reply);
     } catch(IOException ioe) {
       throw new ServiceException(ioe);

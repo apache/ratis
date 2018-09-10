@@ -23,7 +23,7 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.hadooprpc.Proxy;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.ReinitializeRequest;
+import org.apache.ratis.protocol.GroupManagementRequest;
 import org.apache.ratis.protocol.ServerInformationRequest;
 import org.apache.ratis.protocol.ServerInformationReply;
 import org.apache.ratis.protocol.SetConfigurationRequest;
@@ -67,11 +67,11 @@ public class CombinedClientProtocolClientSideTranslatorPB
   }
 
   @Override
-  public RaftClientReply reinitialize(ReinitializeRequest request) throws IOException {
+  public RaftClientReply groupManagement(GroupManagementRequest request) throws IOException {
     return handleRequest(request,
-        ClientProtoUtils::toReinitializeRequestProto,
+        ClientProtoUtils::toGroupManagementRequestProto,
         ClientProtoUtils::toRaftClientReply,
-        p -> getProtocol().reinitialize(null, p));
+        p -> getProtocol().groupManagement(null, p));
   }
 
   @Override

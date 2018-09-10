@@ -206,15 +206,22 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientReply reinitialize(RaftGroup newGroup, RaftPeerId server)
-      throws IOException {
+  public RaftClientReply groupAdd(RaftGroup newGroup, RaftPeerId server) throws IOException {
     Objects.requireNonNull(newGroup, "newGroup == null");
     Objects.requireNonNull(server, "server == null");
 
     final long callId = nextCallId();
     addServers(newGroup.getPeers().stream());
-    return sendRequest(new ReinitializeRequest(
-        clientId, server, groupId, callId, newGroup));
+    return sendRequest(GroupManagementRequest.newAdd(clientId, server, callId, newGroup));
+  }
+
+  @Override
+  public RaftClientReply groupRemove(RaftGroupId groupId, RaftPeerId server) throws IOException {
+    Objects.requireNonNull(groupId, "groupId == null");
+    Objects.requireNonNull(server, "server == null");
+
+    final long callId = nextCallId();
+    return sendRequest(GroupManagementRequest.newRemove(clientId, server, callId, groupId));
   }
 
   @Override

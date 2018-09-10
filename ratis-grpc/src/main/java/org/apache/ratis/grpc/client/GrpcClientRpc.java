@@ -22,11 +22,18 @@ import org.apache.ratis.client.impl.RaftClientRpcWithProxy;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.RaftGrpcUtil;
-import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.GroupManagementRequest;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.ServerInformationRequest;
+import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
-import org.apache.ratis.shaded.proto.RaftProtos;
+import org.apache.ratis.shaded.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -38,8 +45,6 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-
-import static org.apache.ratis.client.impl.ClientProtoUtils.*;
 
 public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClient> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientRpc.class);
@@ -71,19 +76,17 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
       throws IOException {
     final RaftPeerId serverId = request.getServerId();
     final RaftClientProtocolClient proxy = getProxies().getProxy(serverId);
-    if (request instanceof ReinitializeRequest) {
-      RaftProtos.ReinitializeRequestProto proto =
-          toReinitializeRequestProto((ReinitializeRequest) request);
-      return toRaftClientReply(proxy.reinitialize(proto));
+    if (request instanceof GroupManagementRequest) {
+      final GroupManagementRequestProto proto = ClientProtoUtils.toGroupManagementRequestProto((GroupManagementRequest)request);
+      return ClientProtoUtils.toRaftClientReply(proxy.groupAdd(proto));
     } else if (request instanceof SetConfigurationRequest) {
-      SetConfigurationRequestProto setConf =
-          toSetConfigurationRequestProto((SetConfigurationRequest) request);
-      return toRaftClientReply(proxy.setConfiguration(setConf));
+      final SetConfigurationRequestProto setConf = ClientProtoUtils.toSetConfigurationRequestProto(
+          (SetConfigurationRequest) request);
+      return ClientProtoUtils.toRaftClientReply(proxy.setConfiguration(setConf));
     } else if (request instanceof ServerInformationRequest){
-      RaftProtos.ServerInformationRequestProto proto =
-          toServerInformationRequestProto((ServerInformationRequest) request);
-      return ClientProtoUtils.toServerInformationReply(
-          proxy.serverInformation(proto));
+      final ServerInformationRequestProto proto = ClientProtoUtils.toServerInformationRequestProto(
+          (ServerInformationRequest) request);
+      return ClientProtoUtils.toServerInformationReply(proxy.serverInformation(proto));
     } else {
       final CompletableFuture<RaftClientReply> f = sendRequest(request, proxy);
       // TODO: timeout support

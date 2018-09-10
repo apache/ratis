@@ -97,11 +97,10 @@ public class RaftClientProtocolClient implements Closeable {
     channel.shutdownNow();
   }
 
-  RaftClientReplyProto reinitialize(
-      ReinitializeRequestProto request) throws IOException {
+  RaftClientReplyProto groupAdd(GroupManagementRequestProto request) throws IOException {
     return blockingCall(() -> adminBlockingStub
         .withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
-        .reinitialize(request));
+        .groupManagement(request));
   }
 
   ServerInformationReplyProto serverInformation(

@@ -18,9 +18,9 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.server.impl.ReinitializationBaseTest;
+import org.apache.ratis.server.impl.GroupManagementBaseTest;
 
-public class TestReinitializationWithGrpc extends ReinitializationBaseTest {
+public class TestGroupManagementWithGrpc extends GroupManagementBaseTest {
   @Override
   public MiniRaftCluster.Factory<? extends MiniRaftCluster> getClusterFactory() {
     return MiniRaftClusterWithGRpc.FACTORY;

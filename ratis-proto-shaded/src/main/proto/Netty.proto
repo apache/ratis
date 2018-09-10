@@ -35,7 +35,7 @@ message RaftNettyServerRequestProto {
     ratis.common.InstallSnapshotRequestProto installSnapshotRequest = 3;
     ratis.common.RaftClientRequestProto raftClientRequest = 4;
     ratis.common.SetConfigurationRequestProto setConfigurationRequest = 5;
-    ratis.common.ReinitializeRequestProto reinitializeRequest = 6;
+    ratis.common.GroupManagementRequestProto groupManagementRequest = 6;
     ratis.common.ServerInformationRequestProto serverInformationRequest = 7;
   }
 }

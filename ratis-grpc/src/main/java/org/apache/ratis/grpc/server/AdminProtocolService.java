@@ -20,11 +20,11 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.RaftGrpcUtil;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
-import org.apache.ratis.protocol.ReinitializeRequest;
+import org.apache.ratis.protocol.GroupManagementRequest;
 import org.apache.ratis.protocol.ServerInformationRequest;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
-import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationRequestProto;
 import org.apache.ratis.shaded.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolServiceImplBase;
@@ -37,10 +37,9 @@ public class AdminProtocolService extends AdminProtocolServiceImplBase {
   }
 
   @Override
-  public void reinitialize(ReinitializeRequestProto proto,
-                           StreamObserver<RaftClientReplyProto> responseObserver) {
-    final ReinitializeRequest request = ClientProtoUtils.toReinitializeRequest(proto);
-    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.reinitializeAsync(request),
+  public void groupManagement(GroupManagementRequestProto proto, StreamObserver<RaftClientReplyProto> responseObserver) {
+    final GroupManagementRequest request = ClientProtoUtils.toGroupManagementRequest(proto);
+    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.groupManagementAsync(request),
         ClientProtoUtils::toRaftClientReplyProto);
   }
 

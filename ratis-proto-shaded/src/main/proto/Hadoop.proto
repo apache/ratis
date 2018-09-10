@@ -31,7 +31,7 @@ service CombinedClientProtocolService {
   rpc setConfiguration(ratis.common.SetConfigurationRequestProto)
       returns(ratis.common.RaftClientReplyProto);
 
-  rpc reinitialize(ratis.common.ReinitializeRequestProto)
+  rpc groupManagement(ratis.common.GroupManagementRequestProto)
       returns(ratis.common.RaftClientReplyProto);
 
   rpc serverInformation(ratis.common.ServerInformationRequestProto)

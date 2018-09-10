@@ -44,8 +44,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public abstract class ReinitializationBaseTest extends BaseTest {
-  static final Logger LOG = LoggerFactory.getLogger(ReinitializationBaseTest.class);
+public abstract class GroupManagementBaseTest extends BaseTest {
+  static final Logger LOG = LoggerFactory.getLogger(GroupManagementBaseTest.class);
 
   {
     LogUtils.setLogLevel(RaftServerProxy.LOG, Level.DEBUG);
@@ -62,9 +62,9 @@ public abstract class ReinitializationBaseTest extends BaseTest {
   }
 
   @Test
-  public void testReinitialize() throws Exception {
+  public void testMultiGroup() throws Exception {
     final MiniRaftCluster cluster = getCluster(0);
-    LOG.info("Start testReinitialize" + cluster.printServers());
+    LOG.info("Start testMultiGroup" + cluster.printServers());
 
     // Start server with an empty conf
     final RaftGroupId groupId = cluster.getGroupId();
@@ -82,42 +82,43 @@ public abstract class ReinitializationBaseTest extends BaseTest {
     LOG.info("start: " + cluster.printServers());
     Assert.assertNull(cluster.getLeader());
 
-    // Reinitialize servers
-    final RaftGroup newGroup = new RaftGroup(groupId, cluster.getPeers());
+    // Add groups
+    final RaftGroup newGroup = new RaftGroup(RaftGroupId.randomId(), cluster.getPeers());
+    LOG.info("add new group: " + newGroup);
     final RaftClient client = cluster.createClient(newGroup);
     for(RaftPeer p : newGroup.getPeers()) {
-      client.reinitialize(newGroup, p.getId());
+      client.groupAdd(newGroup, p.getId());
     }
     Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, true));
     cluster.shutdown();
   }
 
   @Test
-  public void testReinitialize5Nodes() throws Exception {
+  public void testMultiGroup5Nodes() throws Exception {
     final int[] idIndex = {3, 4, 5};
-    runTestReinitializeMultiGroups(idIndex, 0);
+    runMultiGroupTest(idIndex, 0);
   }
 
   @Test
-  public void testReinitialize7Nodes() throws Exception {
+  public void testMultiGroup7Nodes() throws Exception {
     final int[] idIndex = {1, 6, 7};
-    runTestReinitializeMultiGroups(idIndex, 1);
+    runMultiGroupTest(idIndex, 1);
   }
 
   @Test
-  public void testReinitialize9Nodes() throws Exception {
+  public void testMultiGroup9Nodes() throws Exception {
     final int[] idIndex = {5, 8, 9};
-    runTestReinitializeMultiGroups(idIndex, 2);
+    runMultiGroupTest(idIndex, 2);
   }
 
-  private void runTestReinitializeMultiGroups(int[] idIndex, int chosen) throws Exception {
+  private void runMultiGroupTest(int[] idIndex, int chosen) throws Exception {
     printThreadCount(null, "init");
-    runTestReinitializeMultiGroups(getCluster(0), idIndex, chosen, NOOP);
+    runMultiGroupTest(getCluster(0), idIndex, chosen, NOOP);
   }
 
   static final CheckedBiConsumer<MiniRaftCluster, RaftGroup, RuntimeException> NOOP = (c, g) -> {};
 
-  public static <T extends Throwable> void runTestReinitializeMultiGroups(
+  public static <T extends Throwable> void runMultiGroupTest(
       MiniRaftCluster cluster, int[] idIndex, int chosen,
       CheckedBiConsumer<MiniRaftCluster, RaftGroup, T> checker)
       throws IOException, InterruptedException, T {
@@ -126,7 +127,7 @@ public abstract class ReinitializationBaseTest extends BaseTest {
     }
     final String type = cluster.getClass().getSimpleName()
         + Arrays.toString(idIndex) + "chosen=" + chosen;
-    LOG.info("\n\nrunTestReinitializeMultiGroups with " + type + ": " + cluster.printServers());
+    LOG.info("\n\nrunMultiGroupTest with " + type + ": " + cluster.printServers());
 
     // Start server with an empty conf
     final RaftGroup emptyGroup = new RaftGroup(cluster.getGroupId());
@@ -158,7 +159,7 @@ public abstract class ReinitializationBaseTest extends BaseTest {
       LOG.info(i + ") starting " + groups[i]);
       for(RaftPeer p : peers) {
         try(final RaftClient client = cluster.createClient(p.getId(), emptyGroup)) {
-          client.reinitialize(groups[i], p.getId());
+          client.groupAdd(groups[i], p.getId());
         }
       }
       Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, true, gid));
@@ -167,17 +168,16 @@ public abstract class ReinitializationBaseTest extends BaseTest {
     printThreadCount(type, "start groups");
     LOG.info("start groups: " + cluster.printServers());
 
-    // randomly close two of the groups (i.e. reinitialize to empty peers)
+    // randomly remove two of the groups
     LOG.info("chosen = " + chosen + ", " + groups[chosen]);
 
     for (int i = 0; i < groups.length; i++) {
       if (i != chosen) {
         final RaftGroup g = groups[i];
-        final RaftGroup newGroup = new RaftGroup(g.getGroupId());
         LOG.info(i + ") close " + cluster.printServers(g.getGroupId()));
         for(RaftPeer p : g.getPeers()) {
           try (final RaftClient client = cluster.createClient(p.getId(), g)) {
-            client.reinitialize(newGroup, p.getId());
+            client.groupRemove(g.getGroupId(), p.getId());
           }
         }
       }
@@ -189,10 +189,10 @@ public abstract class ReinitializationBaseTest extends BaseTest {
     final RaftGroup newGroup = new RaftGroup(groups[chosen].getGroupId());
     for(int i = 0; i < groups.length; i++) {
       if (i != chosen) {
-        LOG.info(i + ") reinitialize: " + cluster.printServers(groups[i].getGroupId()));
+        LOG.info(i + ") groupAdd: " + cluster.printServers(groups[i].getGroupId()));
         for (RaftPeer p : groups[i].getPeers()) {
           try (final RaftClient client = cluster.createClient(p.getId(), groups[i])) {
-            client.reinitialize(newGroup, p.getId());
+            client.groupAdd(newGroup, p.getId());
           }
         }
       }

@@ -293,15 +293,20 @@ public interface ClientProtoUtils {
         .build();
   }
 
-  static ReinitializeRequest toReinitializeRequest(
-      ReinitializeRequestProto p) {
+  static GroupManagementRequest toGroupManagementRequest(GroupManagementRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    return new ReinitializeRequest(
-        ClientId.valueOf(m.getRequestorId()),
-        RaftPeerId.valueOf(m.getReplyId()),
-        ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
-        m.getCallId(),
-        ProtoUtils.toRaftGroup(p.getGroup()));
+    final ClientId clientId = ClientId.valueOf(m.getRequestorId());
+    final RaftPeerId serverId = RaftPeerId.valueOf(m.getReplyId());
+    switch(p.getOpCase()) {
+      case GROUPADD:
+        return GroupManagementRequest.newAdd(clientId, serverId, m.getCallId(),
+            ProtoUtils.toRaftGroup(p.getGroupAdd().getGroup()));
+      case GROUPREMOVE:
+        return GroupManagementRequest.newRemove(clientId, serverId, m.getCallId(),
+            ProtoUtils.toRaftGroupId(p.getGroupRemove().getGroupId()));
+      default:
+        throw new IllegalArgumentException("Unexpected op " + p.getOpCase() + " in " + p);
+    }
   }
 
   static ServerInformationRequest toServerInformationRequest(
@@ -314,12 +319,20 @@ public interface ClientProtoUtils {
         m.getCallId());
   }
 
-  static ReinitializeRequestProto toReinitializeRequestProto(
-      ReinitializeRequest request) {
-    return ReinitializeRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .setGroup(ProtoUtils.toRaftGroupProtoBuilder(request.getGroup()))
-        .build();
+  static GroupManagementRequestProto toGroupManagementRequestProto(GroupManagementRequest request) {
+    final GroupManagementRequestProto.Builder b = GroupManagementRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+    final GroupManagementRequest.Add add = request.getAdd();
+    if (add != null) {
+      b.setGroupAdd(GroupAddRequestProto.newBuilder().setGroup(
+          ProtoUtils.toRaftGroupProtoBuilder(add.getGroup())).build());
+    }
+    final GroupManagementRequest.Remove remove = request.getRemove();
+    if (remove != null) {
+      b.setGroupRemove(GroupRemoveRequestProto.newBuilder().setGroupId(
+          ProtoUtils.toRaftGroupIdProtoBuilder(remove.getGroupId())).build());
+    }
+    return b.build();
   }
 
   static ServerInformationRequestProto toServerInformationRequestProto(

@@ -89,8 +89,11 @@ public interface RaftClient extends Closeable {
   /** Send set configuration request to the raft service. */
   RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException;
 
-  /** Send reinitialize request to the given server (not the raft service). */
-  RaftClientReply reinitialize(RaftGroup newGroup, RaftPeerId server) throws IOException;
+  /** Send groupAdd request to the given server (not the raft service). */
+  RaftClientReply groupAdd(RaftGroup newGroup, RaftPeerId server) throws IOException;
+
+  /** Send groupRemove request to the given server (not the raft service). */
+  RaftClientReply groupRemove(RaftGroupId groupId, RaftPeerId server) throws IOException;
 
   /** Send serverInformation request to the given server.*/
   RaftClientReply serverInformation(RaftPeerId server) throws IOException;

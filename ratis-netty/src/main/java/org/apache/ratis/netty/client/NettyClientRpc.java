@@ -24,7 +24,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.proto.RaftProtos;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftRpcRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.ReinitializeRequestProto;
+import org.apache.ratis.shaded.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.shaded.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.shaded.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 
@@ -42,10 +42,10 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
 
     final RaftNettyServerRequestProto.Builder b = RaftNettyServerRequestProto.newBuilder();
     final RaftRpcRequestProto rpcRequest;
-    if (request instanceof ReinitializeRequest) {
-      final ReinitializeRequestProto proto = ClientProtoUtils.toReinitializeRequestProto(
-          (ReinitializeRequest)request);
-      b.setReinitializeRequest(proto);
+    if (request instanceof GroupManagementRequest) {
+      final GroupManagementRequestProto proto = ClientProtoUtils.toGroupManagementRequestProto(
+          (GroupManagementRequest)request);
+      b.setGroupManagementRequest(proto);
       rpcRequest = proto.getRpcRequest();
     } else if (request instanceof SetConfigurationRequest) {
       final SetConfigurationRequestProto proto = ClientProtoUtils.toSetConfigurationRequestProto(

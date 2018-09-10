@@ -155,9 +155,9 @@ class SimulatedServerRpc implements RaftServerRpc {
     public RaftClientReply handleRequest(RaftClientRequest request)
         throws IOException {
       final CompletableFuture<RaftClientReply> future;
-      if (request instanceof ReinitializeRequest) {
+      if (request instanceof GroupManagementRequest) {
         future = CompletableFuture.completedFuture(
-            server.reinitialize((ReinitializeRequest) request));
+            server.groupManagement((GroupManagementRequest) request));
       } else if (request instanceof ServerInformationRequest) {
         future = CompletableFuture.completedFuture(
             server.getInfo((ServerInformationRequest) request));

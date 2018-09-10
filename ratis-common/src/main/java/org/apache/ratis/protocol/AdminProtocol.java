@@ -21,7 +21,7 @@ import java.io.IOException;
 
 /** For server administration. */
 public interface AdminProtocol {
-  RaftClientReply reinitialize(ReinitializeRequest request) throws IOException;
-
   ServerInformationReply getInfo(ServerInformationRequest request) throws IOException;
+
+  RaftClientReply groupManagement(GroupManagementRequest request) throws IOException;
 }

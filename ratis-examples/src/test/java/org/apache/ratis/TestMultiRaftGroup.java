@@ -25,7 +25,7 @@ import org.apache.ratis.examples.arithmetic.ArithmeticStateMachine;
 import org.apache.ratis.examples.arithmetic.TestArithmetic;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.ReinitializationBaseTest;
+import org.apache.ratis.server.impl.GroupManagementBaseTest;
 import org.apache.ratis.util.CheckedBiConsumer;
 import org.apache.ratis.util.LogUtils;
 import org.junit.Test;
@@ -70,7 +70,7 @@ public class TestMultiRaftGroup extends BaseTest {
       }
     };
 
-    ReinitializationBaseTest.runTestReinitializeMultiGroups(
+    GroupManagementBaseTest.runMultiGroupTest(
         cluster, idIndex, chosen, checker);
   }
 }

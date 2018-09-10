@@ -244,10 +244,22 @@ message SetConfigurationRequestProto {
   repeated RaftPeerProto peers = 2;
 }
 
-// reinitialize request
-message ReinitializeRequestProto {
+// A request to add a new group
+message GroupAddRequestProto {
+  RaftGroupProto group = 1; // the group to be added.
+}
+
+message GroupRemoveRequestProto {
+  RaftGroupIdProto groupId = 1; // the group to be removed.
+}
+
+message GroupManagementRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
-  RaftGroupProto group = 2; // the target group.
+
+  oneof Op {
+    GroupAddRequestProto groupAdd = 2;
+    GroupRemoveRequestProto groupRemove = 3;
+  }
 }
 
 // server info request

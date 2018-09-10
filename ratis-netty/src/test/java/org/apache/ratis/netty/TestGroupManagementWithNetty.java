@@ -15,23 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.netty;
 
-public class ReinitializeRequest extends RaftClientRequest {
-  private final RaftGroup group;
+import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.server.impl.GroupManagementBaseTest;
 
-  public ReinitializeRequest(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId, long callId, RaftGroup group) {
-    super(clientId, serverId, groupId, callId);
-    this.group = group;
-  }
-
-  public RaftGroup getGroup() {
-    return group;
-  }
-
+public class TestGroupManagementWithNetty extends GroupManagementBaseTest {
   @Override
-  public String toString() {
-    return super.toString() + ", " + getGroup();
+  public MiniRaftCluster.Factory<? extends MiniRaftCluster> getClusterFactory() {
+    return MiniRaftClusterWithNetty.FACTORY;
   }
 }

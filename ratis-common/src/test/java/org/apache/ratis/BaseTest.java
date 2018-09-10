@@ -98,11 +98,15 @@ public abstract class BaseTest {
       String description, CheckedRunnable<?> testCode,
       Class<? extends Throwable> exceptedThrowableClass, Logger log,
       Class<? extends Throwable>... exceptedCauseClasses) {
+    boolean caught = false;
     try {
       testCode.run();
-      Assert.fail("The test \"" + description + "\" does not throw anything.");
     } catch (Throwable t) {
+      caught = true;
       assertThrowable(description, t, exceptedThrowableClass, log, exceptedCauseClasses);
+    }
+    if (!caught) {
+      Assert.fail("The test \"" + description + "\" does not throw anything.");
     }
   }
 

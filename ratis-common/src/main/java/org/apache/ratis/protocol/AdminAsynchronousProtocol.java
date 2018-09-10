@@ -22,9 +22,8 @@ import java.util.concurrent.CompletableFuture;
 
 /** Asynchronous version of {@link AdminProtocol}. */
 public interface AdminAsynchronousProtocol {
-  CompletableFuture<RaftClientReply> reinitializeAsync(
-      ReinitializeRequest request) throws IOException;
-
   CompletableFuture<ServerInformationReply> getInfoAsync(
       ServerInformationRequest request) throws IOException;
+
+  CompletableFuture<RaftClientReply> groupManagementAsync(GroupManagementRequest request);
 }
