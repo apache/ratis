@@ -88,7 +88,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private RoleInfoProto slownessInfo = null;
   private RoleInfoProto leaderElectionTimeoutInfo = null;
 
-  SimpleStateMachine4Testing() {
+  public SimpleStateMachine4Testing() {
     checkpointer = new Daemon(() -> {
       while (running) {
           if (list.get(list.size() - 1).getIndex() - endIndexLastCkpt >=

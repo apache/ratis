@@ -15,33 +15,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.statemachine;
+package org.apache.ratis.server.impl;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.RaftTestUtil.SimpleMessage;
+import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.examples.ParameterizedBaseTest;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.server.impl.RetryCache;
 import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runners.Parameterized;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.Assert.fail;
 
-public class TestRaftStateMachineException extends ParameterizedBaseTest {
-  static {
+public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftCluster>
+    extends BaseTest implements MiniRaftCluster.Factory.Get<CLUSTER> {
+  {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
@@ -49,7 +49,9 @@ public class TestRaftStateMachineException extends ParameterizedBaseTest {
 
   protected static boolean failPreAppend = false;
 
-  protected static class StateMachineWithException extends SimpleStateMachine4Testing {
+  protected static class StateMachineWithException extends
+      SimpleStateMachine4Testing {
+
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
       CompletableFuture<Message> future = new CompletableFuture<>();
@@ -68,34 +70,37 @@ public class TestRaftStateMachineException extends ParameterizedBaseTest {
     }
   }
 
-  @Parameterized.Parameters
-  public static Collection<Object[]> data() throws IOException {
-    return getMiniRaftClusters(StateMachineWithException.class, 3);
-  }
-
-  @Parameterized.Parameter
-  public MiniRaftCluster cluster;
-
   @Test
   public void testHandleStateMachineException() throws Exception {
-    setAndStart(cluster);
+    final RaftProperties prop = getProperties();
+    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        StateMachineWithException.class, StateMachine.class);
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
 
-    final RaftPeerId leaderId = cluster.getLeader().getId();
+    RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
     try(final RaftClient client = cluster.createClient(leaderId)) {
-      client.send(new SimpleMessage("m"));
+      client.send(new RaftTestUtil.SimpleMessage("m"));
       fail("Exception expected");
     } catch (StateMachineException e) {
       e.printStackTrace();
       Assert.assertTrue(e.getCause().getMessage().contains("Fake Exception"));
     }
+    cluster.shutdown();
   }
 
   @Test
   public void testRetryOnStateMachineException() throws Exception {
-    setAndStart(cluster);
+    final RaftProperties prop = getProperties();
+    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        StateMachineWithException.class, StateMachine.class);
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
 
-    final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage(true).getId();
+    RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+
+    cluster.getLeaderAndSendFirstMessage(true);
     long oldLastApplied = cluster.getLeader().getState().getLastAppliedIndex();
 
     final RaftClient client = cluster.createClient(leaderId);
@@ -103,7 +108,7 @@ public class TestRaftStateMachineException extends ParameterizedBaseTest {
     final long callId = 999;
     final long seqNum = 111;
     RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, seqNum, new SimpleMessage("message"));
+        callId, seqNum, new RaftTestUtil.SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertFalse(reply.isSuccess());
     Assert.assertNotNull(reply.getStateMachineException());
@@ -131,13 +136,20 @@ public class TestRaftStateMachineException extends ParameterizedBaseTest {
     }
 
     client.close();
+    cluster.shutdown();
   }
 
   @Test
   public void testRetryOnExceptionDuringReplication() throws Exception {
-    setAndStart(cluster);
-    final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage(true).getId();
-
+    final RaftProperties prop = getProperties();
+    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        StateMachineWithException.class, StateMachine.class);
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
+    RaftTestUtil.waitForLeader(cluster);
+    RaftServerImpl leader = cluster.getLeader();
+    RaftPeerId leaderId = leader.getId();
+    cluster.getLeaderAndSendFirstMessage(true);
     // turn on the preAppend failure switch
     failPreAppend = true;
     final RaftClient client = cluster.createClient(leaderId);
@@ -145,25 +157,31 @@ public class TestRaftStateMachineException extends ParameterizedBaseTest {
     final long callId = 999;
     final long seqNum = 111;
     RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, seqNum, new SimpleMessage("message"));
+        callId, seqNum, new RaftTestUtil.SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Objects.requireNonNull(reply.getStateMachineException());
 
     RetryCache.CacheEntry oldEntry = RaftServerTestUtil.getRetryEntry(
-        cluster.getLeader(), client.getId(), callId);
+        leader, client.getId(), callId);
     Assert.assertNotNull(oldEntry);
     Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(oldEntry));
 
+    // At this point of time the old leader would have stepped down. wait for
+    // leader election to complete
+    RaftTestUtil.waitForLeader(cluster);
+    leader = cluster.getLeader();
+    leaderId = leader.getId();
     // retry
+    r = cluster.newRaftClientRequest(client.getId(), leaderId,
+        callId, seqNum, new RaftTestUtil.SimpleMessage("message"));
     reply = rpc.sendRequest(r);
     Objects.requireNonNull(reply.getStateMachineException());
 
     RetryCache.CacheEntry currentEntry = RaftServerTestUtil.getRetryEntry(
-        cluster.getLeader(), client.getId(), callId);
+        leader, client.getId(), callId);
     Assert.assertNotNull(currentEntry);
     Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(currentEntry));
     Assert.assertNotEquals(oldEntry, currentEntry);
-
     failPreAppend = false;
     client.close();
   }
