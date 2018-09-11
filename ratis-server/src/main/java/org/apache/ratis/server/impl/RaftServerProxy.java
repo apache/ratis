@@ -154,7 +154,7 @@ public class RaftServerProxy implements RaftServer {
     this.properties = properties;
     this.stateMachineRegistry = stateMachineRegistry;
 
-    final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
+    final RpcType rpcType = RaftConfigKeys.Rpc.type(properties, LOG::info);
     this.factory = ServerFactory.cast(rpcType.newFactory(parameters));
 
     this.serverRpc = factory.newRaftServerRpc(this);

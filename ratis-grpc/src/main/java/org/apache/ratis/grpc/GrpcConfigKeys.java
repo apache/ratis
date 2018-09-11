@@ -21,6 +21,10 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.function.Consumer;
 
 import static org.apache.ratis.conf.ConfUtils.*;
 
@@ -28,13 +32,18 @@ public interface GrpcConfigKeys {
   String PREFIX = "raft.grpc";
 
   interface Server {
+    Logger LOG = LoggerFactory.getLogger(Server.class);
+    static Consumer<String> getDefaultLog() {
+      return LOG::info;
+    }
+
     String PREFIX = GrpcConfigKeys.PREFIX + ".server";
 
     String PORT_KEY = PREFIX + ".port";
     int PORT_DEFAULT = 0;
     static int port(RaftProperties properties) {
       return getInt(properties::getInt,
-          PORT_KEY, PORT_DEFAULT, requireMin(0), requireMax(65536));
+          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
     }
     static void setPort(RaftProperties properties, int port) {
       setInt(properties::setInt, PORT_KEY, port);
@@ -44,7 +53,7 @@ public interface GrpcConfigKeys {
     int LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT = 128;
     static int leaderOutstandingAppendsMax(RaftProperties properties) {
       return getInt(properties::getInt,
-          LEADER_OUTSTANDING_APPENDS_MAX_KEY, LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT, requireMin(0));
+          LEADER_OUTSTANDING_APPENDS_MAX_KEY, LEADER_OUTSTANDING_APPENDS_MAX_DEFAULT, getDefaultLog(), requireMin(0));
     }
     static void setLeaderOutstandingAppendsMax(RaftProperties properties, int maxAppend) {
       setInt(properties::setInt, LEADER_OUTSTANDING_APPENDS_MAX_KEY, maxAppend);
@@ -52,13 +61,18 @@ public interface GrpcConfigKeys {
   }
 
   interface OutputStream {
+    Logger LOG = LoggerFactory.getLogger(OutputStream.class);
+    static Consumer<String> getDefaultLog() {
+      return LOG::debug;
+    }
+
     String PREFIX = GrpcConfigKeys.PREFIX + ".outputstream";
 
     String BUFFER_SIZE_KEY = PREFIX + ".buffer.size";
     SizeInBytes BUFFER_SIZE_DEFAULT = SizeInBytes.valueOf("64KB");
     static SizeInBytes bufferSize(RaftProperties properties) {
       return getSizeInBytes(properties::getSizeInBytes,
-          BUFFER_SIZE_KEY, BUFFER_SIZE_DEFAULT);
+          BUFFER_SIZE_KEY, BUFFER_SIZE_DEFAULT, getDefaultLog());
     }
     static void setBufferSize(RaftProperties properties, SizeInBytes bufferSize) {
       setSizeInBytes(properties::set, BUFFER_SIZE_KEY, bufferSize);
@@ -68,7 +82,7 @@ public interface GrpcConfigKeys {
     int RETRY_TIMES_DEFAULT = 5;
     static int retryTimes(RaftProperties properties) {
       return getInt(properties::getInt,
-          RETRY_TIMES_KEY, RETRY_TIMES_DEFAULT, requireMin(1));
+          RETRY_TIMES_KEY, RETRY_TIMES_DEFAULT, getDefaultLog(), requireMin(1));
     }
     static void setRetryTimes(RaftProperties properties, int retryTimes) {
       setInt(properties::setInt, RETRY_TIMES_KEY, retryTimes);
@@ -78,7 +92,7 @@ public interface GrpcConfigKeys {
     TimeDuration RETRY_INTERVAL_DEFAULT = RaftClientConfigKeys.Rpc.RETRY_INTERVAL_DEFAULT;
     static TimeDuration retryInterval(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(RETRY_INTERVAL_DEFAULT.getUnit()),
-          RETRY_INTERVAL_KEY, RETRY_INTERVAL_DEFAULT);
+          RETRY_INTERVAL_KEY, RETRY_INTERVAL_DEFAULT, getDefaultLog());
     }
     static void setRetryInterval(RaftProperties properties, TimeDuration retryInterval) {
       setTimeDuration(properties::setTimeDuration, RETRY_INTERVAL_KEY, retryInterval);
@@ -88,7 +102,7 @@ public interface GrpcConfigKeys {
     int OUTSTANDING_APPENDS_MAX_DEFAULT = 128;
     static int outstandingAppendsMax(RaftProperties properties) {
       return getInt(properties::getInt,
-          OUTSTANDING_APPENDS_MAX_KEY, OUTSTANDING_APPENDS_MAX_DEFAULT, requireMin(0));
+          OUTSTANDING_APPENDS_MAX_KEY, OUTSTANDING_APPENDS_MAX_DEFAULT, getDefaultLog(), requireMin(0));
     }
     static void setOutstandingAppendsMax(RaftProperties properties, int maxOutstandingAppends) {
       setInt(properties::setInt, OUTSTANDING_APPENDS_MAX_KEY, maxOutstandingAppends);
@@ -97,9 +111,9 @@ public interface GrpcConfigKeys {
 
   String MESSAGE_SIZE_MAX_KEY = PREFIX + ".message.size.max";
   SizeInBytes MESSAGE_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("64MB");
-  static SizeInBytes messageSizeMax(RaftProperties properties) {
+  static SizeInBytes messageSizeMax(RaftProperties properties, Consumer<String> logger) {
     return getSizeInBytes(properties::getSizeInBytes,
-        MESSAGE_SIZE_MAX_KEY, MESSAGE_SIZE_MAX_DEFAULT);
+        MESSAGE_SIZE_MAX_KEY, MESSAGE_SIZE_MAX_DEFAULT, logger);
   }
   static void setMessageSizeMax(RaftProperties properties, SizeInBytes maxMessageSize) {
     setSizeInBytes(properties::set, MESSAGE_SIZE_MAX_KEY, maxMessageSize);
@@ -107,9 +121,9 @@ public interface GrpcConfigKeys {
 
   String FLOW_CONTROL_WINDOW_KEY = PREFIX + ".flow.control.window";
   SizeInBytes FLOW_CONTROL_WINDOW_DEFAULT = SizeInBytes.valueOf("1MB");
-  static SizeInBytes flowControlWindow(RaftProperties properties) {
+  static SizeInBytes flowControlWindow(RaftProperties properties, Consumer<String> logger) {
     return getSizeInBytes(properties::getSizeInBytes,
-        FLOW_CONTROL_WINDOW_KEY, FLOW_CONTROL_WINDOW_DEFAULT);
+        FLOW_CONTROL_WINDOW_KEY, FLOW_CONTROL_WINDOW_DEFAULT, logger);
   }
   static void setFlowControlWindow(RaftProperties properties, SizeInBytes flowControlWindowSize) {
     setSizeInBytes(properties::set, FLOW_CONTROL_WINDOW_KEY, flowControlWindowSize);

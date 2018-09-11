@@ -69,9 +69,9 @@ public class RaftGRpcService extends RaftServerRpcWithProxy<RaftServerProtocolCl
   private RaftGRpcService(RaftServer server) {
     this(server, server::getId,
         GrpcConfigKeys.Server.port(server.getProperties()),
-        GrpcConfigKeys.messageSizeMax(server.getProperties()),
+        GrpcConfigKeys.messageSizeMax(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Log.Appender.bufferCapacity(server.getProperties()),
-        GrpcConfigKeys.flowControlWindow(server.getProperties()),
+        GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()));
   }
   private RaftGRpcService(RaftServer raftServer, Supplier<RaftPeerId> idSupplier, int port,

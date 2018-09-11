@@ -18,6 +18,10 @@
 package org.apache.ratis.netty;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.function.Consumer;
 
 import static org.apache.ratis.conf.ConfUtils.*;
 
@@ -25,6 +29,11 @@ public interface NettyConfigKeys {
   String PREFIX = "raft.netty";
 
   interface Server {
+    Logger LOG = LoggerFactory.getLogger(Server.class);
+    static Consumer<String> getDefaultLog() {
+      return LOG::info;
+    }
+
     String PREFIX = NettyConfigKeys.PREFIX + ".server";
 
     String PORT_KEY = PREFIX + ".port";
@@ -32,7 +41,7 @@ public interface NettyConfigKeys {
 
     static int port(RaftProperties properties) {
       return getInt(properties::getInt,
-          PORT_KEY, PORT_DEFAULT, requireMin(0), requireMax(65536));
+          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
     }
 
     static void setPort(RaftProperties properties, int port) {

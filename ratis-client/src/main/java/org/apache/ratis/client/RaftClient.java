@@ -124,7 +124,7 @@ public interface RaftClient extends Closeable {
       }
       if (properties != null) {
         if (clientRpc == null) {
-          final RpcType rpcType = RaftConfigKeys.Rpc.type(properties);
+          final RpcType rpcType = RaftConfigKeys.Rpc.type(properties, LOG::debug);
           final ClientFactory factory = ClientFactory.cast(rpcType.newFactory(parameters));
           clientRpc = factory.newRaftClientRpc(clientId, properties);
         }

@@ -37,8 +37,11 @@ import java.util.function.Consumer;
 public interface ConfUtils {
   Logger LOG = LoggerFactory.getLogger(ConfUtils.class);
 
-  static <T> void logGet(String key, T value, T defaultValue) {
-    LOG.info("{} = {} ({})", key, value, Objects.equal(value, defaultValue)? "default": "custom");
+  static <T> void logGet(String key, T value, T defaultValue, Consumer<String> logger) {
+    if (logger != null) {
+      logger.accept(String.format("%s = %s (%s)", key, value,
+          Objects.equal(value, defaultValue)? "default": "custom"));
+    }
   }
 
   static void logSet(String key, Object value) {
@@ -104,37 +107,37 @@ public interface ConfUtils {
   @SafeVarargs
   static boolean getBoolean(
       BiFunction<String, Boolean, Boolean> booleanGetter,
-      String key, boolean defaultValue, BiConsumer<String, Boolean>... assertions) {
-    return get(booleanGetter, key, defaultValue, assertions);
+      String key, boolean defaultValue, Consumer<String> logger, BiConsumer<String, Boolean>... assertions) {
+    return get(booleanGetter, key, defaultValue, logger, assertions);
   }
 
   @SafeVarargs
   static int getInt(
       BiFunction<String, Integer, Integer> integerGetter,
-      String key, int defaultValue, BiConsumer<String, Integer>... assertions) {
-    return get(integerGetter, key, defaultValue, assertions);
+      String key, int defaultValue, Consumer<String> logger, BiConsumer<String, Integer>... assertions) {
+    return get(integerGetter, key, defaultValue, logger, assertions);
   }
 
   @SafeVarargs
   static long getLong(
       BiFunction<String, Long, Long> longGetter,
-      String key, long defaultValue, BiConsumer<String, Long>... assertions) {
-    return get(longGetter, key, defaultValue, assertions);
+      String key, long defaultValue, Consumer<String> logger, BiConsumer<String, Long>... assertions) {
+    return get(longGetter, key, defaultValue, logger, assertions);
   }
 
   @SafeVarargs
   static File getFile(
       BiFunction<String, File, File> fileGetter,
-      String key, File defaultValue, BiConsumer<String, File>... assertions) {
-    return get(fileGetter, key, defaultValue, assertions);
+      String key, File defaultValue, Consumer<String> logger, BiConsumer<String, File>... assertions) {
+    return get(fileGetter, key, defaultValue, logger, assertions);
   }
 
 
   @SafeVarargs
   static SizeInBytes getSizeInBytes(
       BiFunction<String, SizeInBytes, SizeInBytes> getter,
-      String key, SizeInBytes defaultValue, BiConsumer<String, SizeInBytes>... assertions) {
-    final SizeInBytes value = get(getter, key, defaultValue, assertions);
+      String key, SizeInBytes defaultValue, Consumer<String> logger, BiConsumer<String, SizeInBytes>... assertions) {
+    final SizeInBytes value = get(getter, key, defaultValue, logger, assertions);
     requireMin(0L).accept(key, value.getSize());
     return value;
   }
@@ -142,25 +145,25 @@ public interface ConfUtils {
   @SafeVarargs
   static TimeDuration getTimeDuration(
       BiFunction<String, TimeDuration, TimeDuration> getter,
-      String key, TimeDuration defaultValue, BiConsumer<String, TimeDuration>... assertions) {
-    final TimeDuration value = get(getter, key, defaultValue, assertions);
+      String key, TimeDuration defaultValue, Consumer<String> logger, BiConsumer<String, TimeDuration>... assertions) {
+    final TimeDuration value = get(getter, key, defaultValue, logger, assertions);
     requireNonNegativeTimeDuration().accept(key, value);
     return value;
   }
 
   @SafeVarargs
   static <T> T get(BiFunction<String, T, T> getter,
-      String key, T defaultValue, BiConsumer<String, T>... assertions) {
+      String key, T defaultValue, Consumer<String> logger, BiConsumer<String, T>... assertions) {
     final T value = getter.apply(key, defaultValue);
-    logGet(key, value, defaultValue);
+    logGet(key, value, defaultValue, logger);
     Arrays.asList(assertions).forEach(a -> a.accept(key, value));
     return value;
   }
 
   static InetSocketAddress getInetSocketAddress(
       BiFunction<String, String, String> stringGetter,
-      String key, String defaultValue) {
-    return NetUtils.createSocketAddr(get(stringGetter, key, defaultValue));
+      String key, String defaultValue, Consumer<String> logger) {
+    return NetUtils.createSocketAddr(get(stringGetter, key, defaultValue, logger));
   }
 
   @SafeVarargs

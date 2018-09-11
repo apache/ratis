@@ -55,7 +55,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
   public GrpcClientRpc(ClientId clientId, RaftProperties properties) {
     super(new PeerProxyMap<>(clientId.toString(), p -> new RaftClientProtocolClient(clientId, p, properties)));
     this.clientId = clientId;
-    maxMessageSize = GrpcConfigKeys.messageSizeMax(properties).getSizeInt();
+    this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug).getSizeInt();
   }
 
   @Override

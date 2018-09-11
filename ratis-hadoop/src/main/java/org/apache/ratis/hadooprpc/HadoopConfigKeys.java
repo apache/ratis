@@ -19,8 +19,11 @@ package org.apache.ratis.hadooprpc;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.conf.Parameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
+import java.util.function.Consumer;
 
 import static org.apache.ratis.conf.ConfUtils.*;
 
@@ -41,6 +44,11 @@ public interface HadoopConfigKeys {
 
   /** IPC server configurations */
   interface Ipc {
+    Logger LOG = LoggerFactory.getLogger(Ipc.class);
+    static Consumer<String> getDefaultLog() {
+      return LOG::info;
+    }
+
     String PREFIX = HadoopConfigKeys.PREFIX + ".ipc";
 
     String ADDRESS_KEY = PREFIX + ".address";
@@ -51,8 +59,7 @@ public interface HadoopConfigKeys {
     int HANDLERS_DEFAULT = 10;
 
     static int handlers(Configuration conf) {
-      return getInt(conf::getInt,
-          HANDLERS_KEY, HANDLERS_DEFAULT, requireMin(1));
+      return getInt(conf::getInt, HANDLERS_KEY, HANDLERS_DEFAULT, getDefaultLog(), requireMin(1));
     }
 
     static void setHandlers(Configuration conf, int handers) {
@@ -60,8 +67,7 @@ public interface HadoopConfigKeys {
     }
 
     static InetSocketAddress address(Configuration conf) {
-      return getInetSocketAddress(conf::getTrimmed,
-          ADDRESS_KEY, ADDRESS_DEFAULT);
+      return getInetSocketAddress(conf::getTrimmed, ADDRESS_KEY, ADDRESS_DEFAULT, getDefaultLog());
     }
 
     static void setAddress(Configuration conf, String address) {

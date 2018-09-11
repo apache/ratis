@@ -25,6 +25,8 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.rpc.SupportedRpcType;
 
+import java.util.function.Consumer;
+
 public interface RaftConfigKeys {
   String PREFIX = "raft";
 
@@ -34,8 +36,8 @@ public interface RaftConfigKeys {
     String TYPE_KEY = PREFIX + ".type";
     String TYPE_DEFAULT = SupportedRpcType.GRPC.name();
 
-    static RpcType type(RaftProperties properties) {
-      final String t = get(properties::get, TYPE_KEY, TYPE_DEFAULT);
+    static RpcType type(RaftProperties properties, Consumer<String> logger) {
+      final String t = get(properties::get, TYPE_KEY, TYPE_DEFAULT, logger);
       return RpcType.valueOf(t);
     }
 

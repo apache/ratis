@@ -88,7 +88,7 @@ public class AppendStreamer implements Closeable {
       RaftPeerId leaderId, ClientId clientId) {
     this.clientId = clientId;
     maxPendingNum = GrpcConfigKeys.OutputStream.outstandingAppendsMax(prop);
-    maxMessageSize = GrpcConfigKeys.messageSizeMax(prop);
+    maxMessageSize = GrpcConfigKeys.messageSizeMax(prop, LOG::debug);
     dataQueue = new ConcurrentLinkedDeque<>();
     ackQueue = new ConcurrentLinkedDeque<>();
     exceptionAndRetry = new ExceptionAndRetry(prop);

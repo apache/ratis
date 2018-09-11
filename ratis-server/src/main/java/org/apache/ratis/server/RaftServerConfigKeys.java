@@ -21,19 +21,27 @@ import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static org.apache.ratis.conf.ConfUtils.*;
 
 public interface RaftServerConfigKeys {
+  Logger LOG = LoggerFactory.getLogger(RaftServerConfigKeys.class);
+  static Consumer<String> getDefaultLog() {
+    return LOG::info;
+  }
+
   String PREFIX = "raft.server";
 
   String STORAGE_DIR_KEY = PREFIX + ".storage.dir";
   File STORAGE_DIR_DEFAULT = new File("/tmp/raft-server/");
   static File storageDir(RaftProperties properties) {
-    return getFile(properties::getFile, STORAGE_DIR_KEY, STORAGE_DIR_DEFAULT);
+    return getFile(properties::getFile, STORAGE_DIR_KEY, STORAGE_DIR_DEFAULT, getDefaultLog());
   }
   static void setStorageDir(RaftProperties properties, File storageDir) {
     setFile(properties::setFile, STORAGE_DIR_KEY, storageDir);
@@ -48,7 +56,7 @@ public interface RaftServerConfigKeys {
   int STAGING_CATCHUP_GAP_DEFAULT = 1000; // increase this number when write throughput is high
   static int stagingCatchupGap(RaftProperties properties) {
     return getInt(properties::getInt,
-        STAGING_CATCHUP_GAP_KEY, STAGING_CATCHUP_GAP_DEFAULT, requireMin(0));
+        STAGING_CATCHUP_GAP_KEY, STAGING_CATCHUP_GAP_DEFAULT, getDefaultLog(), requireMin(0));
   }
   static void setStagingCatchupGap(RaftProperties properties, int stagingCatchupGap) {
     setInt(properties::setInt, STAGING_CATCHUP_GAP_KEY, stagingCatchupGap);
@@ -62,7 +70,7 @@ public interface RaftServerConfigKeys {
   TimeDuration LEADER_ELECTION_TIMEOUT_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
   static TimeDuration leaderElectionTimeout(RaftProperties properties) {
     return getTimeDuration(properties.getTimeDuration(LEADER_ELECTION_TIMEOUT_DEFAULT.getUnit()),
-        LEADER_ELECTION_TIMEOUT_KEY, LEADER_ELECTION_TIMEOUT_DEFAULT);
+        LEADER_ELECTION_TIMEOUT_KEY, LEADER_ELECTION_TIMEOUT_DEFAULT, getDefaultLog());
   }
   static void setLeaderElectionTimeout(RaftProperties properties, TimeDuration leaderElectionTimeout) {
     setTimeDuration(properties::setTimeDuration, LEADER_ELECTION_TIMEOUT_KEY, leaderElectionTimeout);
@@ -75,7 +83,7 @@ public interface RaftServerConfigKeys {
     String USE_MEMORY_KEY = PREFIX + ".use.memory";
     boolean USE_MEMORY_DEFAULT = false;
     static boolean useMemory(RaftProperties properties) {
-      return getBoolean(properties::getBoolean, USE_MEMORY_KEY, USE_MEMORY_DEFAULT);
+      return getBoolean(properties::getBoolean, USE_MEMORY_KEY, USE_MEMORY_DEFAULT, getDefaultLog());
     }
     static void setUseMemory(RaftProperties properties, boolean useMemory) {
       setBoolean(properties::setBoolean, USE_MEMORY_KEY, useMemory);
@@ -85,7 +93,7 @@ public interface RaftServerConfigKeys {
     SizeInBytes SEGMENT_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("8MB");
     static SizeInBytes segmentSizeMax(RaftProperties properties) {
       return getSizeInBytes(properties::getSizeInBytes,
-          SEGMENT_SIZE_MAX_KEY, SEGMENT_SIZE_MAX_DEFAULT);
+          SEGMENT_SIZE_MAX_KEY, SEGMENT_SIZE_MAX_DEFAULT, getDefaultLog());
     }
     static void setSegmentSizeMax(RaftProperties properties, SizeInBytes segmentSizeMax) {
       setSizeInBytes(properties::set, SEGMENT_SIZE_MAX_KEY, segmentSizeMax);
@@ -98,7 +106,7 @@ public interface RaftServerConfigKeys {
     int SEGMENT_CACHE_MAX_NUM_DEFAULT = 6;
     static int maxCachedSegmentNum(RaftProperties properties) {
       return getInt(properties::getInt, SEGMENT_CACHE_MAX_NUM_KEY,
-          SEGMENT_CACHE_MAX_NUM_DEFAULT, requireMin(0));
+          SEGMENT_CACHE_MAX_NUM_DEFAULT, getDefaultLog(), requireMin(0));
     }
     static void setMaxCachedSegmentNum(RaftProperties properties, int maxCachedSegmentNum) {
       setInt(properties::setInt, SEGMENT_CACHE_MAX_NUM_KEY, maxCachedSegmentNum);
@@ -108,7 +116,7 @@ public interface RaftServerConfigKeys {
     SizeInBytes PREALLOCATED_SIZE_DEFAULT = SizeInBytes.valueOf("4MB");
     static SizeInBytes preallocatedSize(RaftProperties properties) {
       return getSizeInBytes(properties::getSizeInBytes,
-          PREALLOCATED_SIZE_KEY, PREALLOCATED_SIZE_DEFAULT);
+          PREALLOCATED_SIZE_KEY, PREALLOCATED_SIZE_DEFAULT, getDefaultLog());
     }
     static void setPreallocatedSize(RaftProperties properties, SizeInBytes preallocatedSize) {
       setSizeInBytes(properties::set, PREALLOCATED_SIZE_KEY, preallocatedSize);
@@ -118,7 +126,7 @@ public interface RaftServerConfigKeys {
     SizeInBytes WRITE_BUFFER_SIZE_DEFAULT =SizeInBytes.valueOf("64KB");
     static SizeInBytes writeBufferSize(RaftProperties properties) {
       return getSizeInBytes(properties::getSizeInBytes,
-          WRITE_BUFFER_SIZE_KEY, WRITE_BUFFER_SIZE_DEFAULT);
+          WRITE_BUFFER_SIZE_KEY, WRITE_BUFFER_SIZE_DEFAULT, getDefaultLog());
     }
     static void setWriteBufferSize(RaftProperties properties, SizeInBytes writeBufferSize) {
       setSizeInBytes(properties::set, WRITE_BUFFER_SIZE_KEY, writeBufferSize);
@@ -128,7 +136,7 @@ public interface RaftServerConfigKeys {
     int FORCE_SYNC_NUM_DEFAULT = 128;
     static int forceSyncNum(RaftProperties properties) {
       return getInt(properties::getInt,
-          FORCE_SYNC_NUM_KEY, FORCE_SYNC_NUM_DEFAULT, requireMin(0));
+          FORCE_SYNC_NUM_KEY, FORCE_SYNC_NUM_DEFAULT, getDefaultLog(), requireMin(0));
     }
     static void setForceSyncNum(RaftProperties properties, int forceSyncNum) {
       setInt(properties::setInt, FORCE_SYNC_NUM_KEY, forceSyncNum);
@@ -141,7 +149,7 @@ public interface RaftServerConfigKeys {
       SizeInBytes BUFFER_CAPACITY_DEFAULT =SizeInBytes.valueOf("4MB");
       static SizeInBytes bufferCapacity(RaftProperties properties) {
         return getSizeInBytes(properties::getSizeInBytes,
-            BUFFER_CAPACITY_KEY, BUFFER_CAPACITY_DEFAULT);
+            BUFFER_CAPACITY_KEY, BUFFER_CAPACITY_DEFAULT, getDefaultLog());
       }
       static void setBufferCapacity(RaftProperties properties, SizeInBytes bufferCapacity) {
         setSizeInBytes(properties::set, BUFFER_CAPACITY_KEY, bufferCapacity);
@@ -150,7 +158,7 @@ public interface RaftServerConfigKeys {
       String BATCH_ENABLED_KEY = PREFIX + ".batch.enabled";
       boolean BATCH_ENABLED_DEFAULT = false;
       static boolean batchEnabled(RaftProperties properties) {
-        return getBoolean(properties::getBoolean, BATCH_ENABLED_KEY, BATCH_ENABLED_DEFAULT);
+        return getBoolean(properties::getBoolean, BATCH_ENABLED_KEY, BATCH_ENABLED_DEFAULT, getDefaultLog());
       }
       static void setBatchEnabled(RaftProperties properties, boolean batchEnabled) {
         setBoolean(properties::setBoolean, BATCH_ENABLED_KEY, batchEnabled);
@@ -160,7 +168,7 @@ public interface RaftServerConfigKeys {
       SizeInBytes SNAPSHOT_CHUNK_SIZE_MAX_DEFAULT =SizeInBytes.valueOf("16MB");
       static SizeInBytes snapshotChunkSizeMax(RaftProperties properties) {
         return getSizeInBytes(properties::getSizeInBytes,
-            SNAPSHOT_CHUNK_SIZE_MAX_KEY, SNAPSHOT_CHUNK_SIZE_MAX_DEFAULT);
+            SNAPSHOT_CHUNK_SIZE_MAX_KEY, SNAPSHOT_CHUNK_SIZE_MAX_DEFAULT, getDefaultLog());
       }
       static void setSnapshotChunkSizeMax(RaftProperties properties, SizeInBytes maxChunkSize) {
         setSizeInBytes(properties::set, SNAPSHOT_CHUNK_SIZE_MAX_KEY, maxChunkSize);
@@ -177,7 +185,7 @@ public interface RaftServerConfigKeys {
     boolean AUTO_TRIGGER_ENABLED_DEFAULT = false;
     static boolean autoTriggerEnabled(RaftProperties properties) {
       return getBoolean(properties::getBoolean,
-          AUTO_TRIGGER_ENABLED_KEY, AUTO_TRIGGER_ENABLED_DEFAULT);
+          AUTO_TRIGGER_ENABLED_KEY, AUTO_TRIGGER_ENABLED_DEFAULT, getDefaultLog());
     }
     static void setAutoTriggerEnabled(RaftProperties properties, boolean autoTriggerThreshold) {
       setBoolean(properties::setBoolean, AUTO_TRIGGER_ENABLED_KEY, autoTriggerThreshold);
@@ -188,7 +196,7 @@ public interface RaftServerConfigKeys {
     long AUTO_TRIGGER_THRESHOLD_DEFAULT = 400000L;
     static long autoTriggerThreshold(RaftProperties properties) {
       return getLong(properties::getLong,
-          AUTO_TRIGGER_THRESHOLD_KEY, AUTO_TRIGGER_THRESHOLD_DEFAULT, requireMin(0L));
+          AUTO_TRIGGER_THRESHOLD_KEY, AUTO_TRIGGER_THRESHOLD_DEFAULT, getDefaultLog(), requireMin(0L));
     }
     static void setAutoTriggerThreshold(RaftProperties properties, long autoTriggerThreshold) {
       setLong(properties::setLong, AUTO_TRIGGER_THRESHOLD_KEY, autoTriggerThreshold);
@@ -203,7 +211,7 @@ public interface RaftServerConfigKeys {
     TimeDuration TIMEOUT_MIN_DEFAULT = TimeDuration.valueOf(150, TimeUnit.MILLISECONDS);
     static TimeDuration timeoutMin(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(TIMEOUT_MIN_DEFAULT.getUnit()),
-          TIMEOUT_MIN_KEY, TIMEOUT_MIN_DEFAULT);
+          TIMEOUT_MIN_KEY, TIMEOUT_MIN_DEFAULT, getDefaultLog());
     }
     static void setTimeoutMin(RaftProperties properties, TimeDuration minDuration) {
       setTimeDuration(properties::setTimeDuration, TIMEOUT_MIN_KEY, minDuration);
@@ -213,7 +221,7 @@ public interface RaftServerConfigKeys {
     TimeDuration TIMEOUT_MAX_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
     static TimeDuration timeoutMax(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(TIMEOUT_MAX_DEFAULT.getUnit()),
-          TIMEOUT_MAX_KEY, TIMEOUT_MAX_DEFAULT);
+          TIMEOUT_MAX_KEY, TIMEOUT_MAX_DEFAULT, getDefaultLog());
     }
     static void setTimeoutMax(RaftProperties properties, TimeDuration maxDuration) {
       setTimeDuration(properties::setTimeDuration, TIMEOUT_MAX_KEY, maxDuration);
@@ -223,7 +231,7 @@ public interface RaftServerConfigKeys {
     TimeDuration REQUEST_TIMEOUT_DEFAULT = TimeDuration.valueOf(3000, TimeUnit.MILLISECONDS);
     static TimeDuration requestTimeout(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(REQUEST_TIMEOUT_DEFAULT.getUnit()),
-          REQUEST_TIMEOUT_KEY, REQUEST_TIMEOUT_DEFAULT);
+          REQUEST_TIMEOUT_KEY, REQUEST_TIMEOUT_DEFAULT, getDefaultLog());
     }
     static void setRequestTimeout(RaftProperties properties, TimeDuration timeoutDuration) {
       setTimeDuration(properties::setTimeDuration, REQUEST_TIMEOUT_KEY, timeoutDuration);
@@ -233,7 +241,7 @@ public interface RaftServerConfigKeys {
     TimeDuration SLEEP_TIME_DEFAULT = TimeDuration.valueOf(25, TimeUnit.MILLISECONDS);
     static TimeDuration sleepTime(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(SLEEP_TIME_DEFAULT.getUnit()),
-          SLEEP_TIME_KEY, SLEEP_TIME_DEFAULT);
+          SLEEP_TIME_KEY, SLEEP_TIME_DEFAULT, getDefaultLog());
     }
     static void setSleepTime(RaftProperties properties, TimeDuration sleepTime) {
       setTimeDuration(properties::setTimeDuration, SLEEP_TIME_KEY, sleepTime);
@@ -243,7 +251,7 @@ public interface RaftServerConfigKeys {
     TimeDuration SLOWNESS_TIMEOUT_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
     static TimeDuration slownessTimeout(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(SLOWNESS_TIMEOUT_DEFAULT.getUnit()),
-          SLOWNESS_TIMEOUT_KEY, SLOWNESS_TIMEOUT_DEFAULT);
+          SLOWNESS_TIMEOUT_KEY, SLOWNESS_TIMEOUT_DEFAULT, getDefaultLog());
     }
     static void setSlownessTimeout(RaftProperties properties, TimeDuration expiryTime) {
       setTimeDuration(properties::setTimeDuration, SLOWNESS_TIMEOUT_KEY, expiryTime);
@@ -257,7 +265,7 @@ public interface RaftServerConfigKeys {
     String CAPACITY_KEY = PREFIX + ".capacity";
     int CAPACITY_DEFAULT = 4096;
     static int capacity(RaftProperties properties) {
-      return ConfUtils.getInt(properties::getInt, CAPACITY_KEY, CAPACITY_DEFAULT,
+      return ConfUtils.getInt(properties::getInt, CAPACITY_KEY, CAPACITY_DEFAULT, getDefaultLog(),
           ConfUtils.requireMin(0));
     }
 
@@ -269,7 +277,7 @@ public interface RaftServerConfigKeys {
     TimeDuration EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
     static TimeDuration expiryTime(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(EXPIRY_TIME_DEFAULT.getUnit()),
-          EXPIRY_TIME_KEY, EXPIRY_TIME_DEFAULT);
+          EXPIRY_TIME_KEY, EXPIRY_TIME_DEFAULT, getDefaultLog());
     }
     static void setExpiryTime(RaftProperties properties, TimeDuration expiryTime) {
       setTimeDuration(properties::setTimeDuration, EXPIRY_TIME_KEY, expiryTime);

@@ -49,7 +49,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
       }
       final int simulateLatencyMs = ConfUtils.getInt(prop::getInt,
           SimulatedRequestReply.SIMULATE_LATENCY_KEY,
-          SimulatedRequestReply.SIMULATE_LATENCY_DEFAULT, requireMin(0));
+          SimulatedRequestReply.SIMULATE_LATENCY_DEFAULT, LOG::info, requireMin(0));
       final SimulatedRequestReply<RaftServerRequest, RaftServerReply> serverRequestReply
           = new SimulatedRequestReply<>(simulateLatencyMs);
       final SimulatedClientRpc client2serverRequestReply
