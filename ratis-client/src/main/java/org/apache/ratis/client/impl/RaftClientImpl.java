@@ -20,6 +20,8 @@ package org.apache.ratis.client.impl;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
@@ -91,6 +93,7 @@ final class RaftClientImpl implements RaftClient {
   private final Collection<RaftPeer> peers;
   private final RaftGroupId groupId;
   private final TimeDuration retryInterval;
+  private final RetryPolicy retryPolicy;
 
   private volatile RaftPeerId leaderId;
 
@@ -101,7 +104,7 @@ final class RaftClientImpl implements RaftClient {
   private final Semaphore asyncRequestSemaphore;
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId,
-      RaftClientRpc clientRpc, RaftProperties properties) {
+      RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
     this.clientId = clientId;
     this.clientRpc = clientRpc;
     this.peers = new ConcurrentLinkedQueue<>(group.getPeers());
@@ -109,6 +112,8 @@ final class RaftClientImpl implements RaftClient {
     this.leaderId = leaderId != null? leaderId
         : !peers.isEmpty()? peers.iterator().next().getId(): null;
     this.retryInterval = RaftClientConfigKeys.Rpc.retryInterval(properties);
+    Preconditions.assertTrue(retryPolicy != null, "retry policy can't be null");
+    this.retryPolicy = retryPolicy;
 
     asyncRequestSemaphore = new Semaphore(RaftClientConfigKeys.Async.maxOutstandingRequests(properties));
     scheduler = TimeoutScheduler.newInstance(RaftClientConfigKeys.Async.schedulerThreads(properties));
@@ -258,20 +263,19 @@ final class RaftClientImpl implements RaftClient {
   private RaftClientReply sendRequestWithRetry(
       Supplier<RaftClientRequest> supplier)
       throws InterruptedIOException, StateMachineException, GroupMismatchException {
-    for(;;) {
+    for(int retryCount = 0;; retryCount++) {
       final RaftClientRequest request = supplier.get();
       final RaftClientReply reply = sendRequest(request);
       if (reply != null) {
         return reply;
       }
-
-      // sleep and then retry
+      if (!retryPolicy.shouldRetry(retryCount)) {
+        return null;
+      }
       try {
-        retryInterval.sleep();
-      } catch (InterruptedException ie) {
-        Thread.currentThread().interrupt();
-        throw IOUtils.toInterruptedIOException(
-            "Interrupted when sending " + request, ie);
+        retryPolicy.getSleepTime().sleep();
+      } catch (InterruptedException e) {
+        throw new InterruptedIOException("retry policy=" + retryPolicy);
       }
     }
   }

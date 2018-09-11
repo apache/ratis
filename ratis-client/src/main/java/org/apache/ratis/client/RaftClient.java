@@ -22,6 +22,8 @@ import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.shaded.proto.RaftProtos.ReplicationLevel;
 import org.slf4j.Logger;
@@ -111,6 +113,7 @@ public interface RaftClient extends Closeable {
     private RaftPeerId leaderId;
     private RaftProperties properties;
     private Parameters parameters;
+    private RetryPolicy retryPolicy;
 
     private Builder() {}
 
@@ -126,11 +129,13 @@ public interface RaftClient extends Closeable {
           clientRpc = factory.newRaftClientRpc(clientId, properties);
         }
       }
+      retryPolicy =
+          retryPolicy == null ? RetryPolicies.RETRY_FOREVER : retryPolicy;
       return ClientImplUtils.newRaftClient(clientId,
           Objects.requireNonNull(group, "The 'group' field is not initialized."),
           leaderId,
           Objects.requireNonNull(clientRpc, "The 'clientRpc' field is not initialized."),
-          properties);
+          properties, retryPolicy);
     }
 
     /** Set {@link RaftClient} ID. */
@@ -166,6 +171,12 @@ public interface RaftClient extends Closeable {
     /** Set {@link Parameters}. */
     public Builder setParameters(Parameters parameters) {
       this.parameters = parameters;
+      return this;
+    }
+
+    /** Set {@link RetryPolicy}. */
+    public Builder setRetryPolicy(RetryPolicy retryPolicy) {
+      this.retryPolicy = retryPolicy;
       return this;
     }
   }

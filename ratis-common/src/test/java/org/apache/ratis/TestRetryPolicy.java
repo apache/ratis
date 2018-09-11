@@ -15,24 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.impl;
+package org.apache.ratis;
 
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.junit.Assert;
+import org.junit.Test;
 
-/** Client utilities for internal use. */
-public class ClientImplUtils {
-  public static RaftClient newRaftClient(ClientId clientId, RaftGroup group,
-      RaftPeerId leaderId, RaftClientRpc clientRpc, RaftProperties properties,
-      RetryPolicy retryPolicy) {
-    return new RaftClientImpl(clientId, group, leaderId, clientRpc, properties,
-        retryPolicy);
+import java.util.concurrent.TimeUnit;
+
+
+
+public class TestRetryPolicy {
+
+  @Test
+  public void testRetryMultipleTimesWithFixedSleep() {
+    RetryPolicy retryPolicy = RetryPolicies
+        .retryUpToMaximumCountWithFixedSleep(2,
+            TimeDuration.valueOf(1000L, TimeUnit.MILLISECONDS));
+     boolean shouldRetry = retryPolicy.shouldRetry(1);
+    Assert.assertTrue(shouldRetry);
+    Assert.assertTrue(1000 == retryPolicy.getSleepTime().getDuration());
+    Assert.assertFalse(retryPolicy.shouldRetry(2));
   }
 }

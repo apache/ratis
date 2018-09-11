@@ -15,24 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.impl;
+package org.apache.ratis.retry;
 
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.RaftGroup;
-import org.apache.ratis.retry.RetryPolicies;
-import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.TimeDuration;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.RaftPeerId;
 
-/** Client utilities for internal use. */
-public class ClientImplUtils {
-  public static RaftClient newRaftClient(ClientId clientId, RaftGroup group,
-      RaftPeerId leaderId, RaftClientRpc clientRpc, RaftProperties properties,
-      RetryPolicy retryPolicy) {
-    return new RaftClientImpl(clientId, group, leaderId, clientRpc, properties,
-        retryPolicy);
-  }
+/**
+ * Policy abstract for retrying.
+ */
+public interface RetryPolicy {
+
+  /**
+   * Determines whether it is supposed to retry the connection if the operation
+   * fails for some reason.
+   *
+   * @param retryCount The number of times retried so far
+   * @return true if it has to make another attempt, otherwise, false
+   */
+  boolean shouldRetry(int retryCount);
+
+  /**
+   * Returns the time duration for sleep in between the retries.
+   */
+  TimeDuration getSleepTime();
 }
