@@ -42,7 +42,10 @@ import java.util.function.Consumer;
  */
 class LogSegment implements Comparable<Long> {
   static long getEntrySize(LogEntryProto entry) {
-    final int serialized = entry.getSerializedSize();
+    final int serialized =
+        entry.getSerializedSize()
+            - (entry.getSmLogEntry().getStateMachineDataAttached() ? CodedOutputStream
+                .computeBytesSizeNoTag(entry.getSmLogEntry().getStateMachineData()) : 0);
     return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4;
   }
 
