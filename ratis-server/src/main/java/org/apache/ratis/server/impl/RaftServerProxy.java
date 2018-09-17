@@ -23,6 +23,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.StateMachine;
@@ -36,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -77,17 +79,13 @@ public class RaftServerProxy implements RaftServer {
       final CompletableFuture<RaftServerImpl> newImpl = newRaftServerImpl(group);
       final CompletableFuture<RaftServerImpl> previous = map.put(groupId, newImpl);
       Preconditions.assertNull(previous, "previous");
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: addNew {} returns {}", getId(), group, toString(groupId, newImpl));
-      }
+      LOG.info("{}: addNew {} returns {}", getId(), group, toString(groupId, newImpl));
       return newImpl;
     }
 
     synchronized CompletableFuture<RaftServerImpl> remove(RaftGroupId groupId) {
       final CompletableFuture<RaftServerImpl> future = map.remove(groupId);
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: remove {}", getId(), toString(groupId, future));
-      }
+      LOG.info("{}: remove {}", getId(), toString(groupId, future));
       return future;
     }
 
@@ -98,7 +96,8 @@ public class RaftServerProxy implements RaftServer {
         return;
       }
       isClosed = true;
-      map.values().parallelStream().map(CompletableFuture::join).forEach(RaftServerImpl::shutdown);
+      map.values().parallelStream().map(CompletableFuture::join)
+          .forEach(impl -> impl.shutdown(false));
     }
 
     synchronized List<CompletableFuture<RaftServerImpl>> getAll() {
@@ -162,6 +161,29 @@ public class RaftServerProxy implements RaftServer {
     this.lifeCycle = new LifeCycle(this.id);
   }
 
+  /** Check the storage dir and add groups*/
+  void initGroups(RaftGroup group) {
+    final File dir = RaftServerConfigKeys.storageDir(properties);
+    if (dir.isDirectory()) {
+      for(File sub : dir.listFiles()) {
+        if (sub.isDirectory()) {
+          LOG.info("{}: found a subdirectory {}", getId(), sub);
+          try {
+            final RaftGroupId groupId = RaftGroupId.valueOf(UUID.fromString(sub.getName()));
+            if (group == null || !groupId.equals(group.getGroupId())) {
+              addGroup(new RaftGroup(groupId));
+            }
+          } catch(Throwable t) {
+            LOG.warn(getId() + ": Failed to initialize the group directory " + sub.getAbsolutePath() + ".  Ignoring it", t);
+          }
+        }
+      }
+    }
+    if (group != null) {
+      addGroup(group);
+    }
+  }
+
   private CompletableFuture<RaftServerImpl> newRaftServerImpl(RaftGroup group) {
     return CompletableFuture.supplyAsync(() -> {
       try {
@@ -217,7 +239,7 @@ public class RaftServerProxy implements RaftServer {
     return impls.containsGroup(groupId);
   }
 
-  CompletableFuture<RaftServerImpl> addGroup(RaftGroup group) {
+  public CompletableFuture<RaftServerImpl> addGroup(RaftGroup group) {
     return impls.addNew(group);
   }
 
@@ -309,17 +331,17 @@ public class RaftServerProxy implements RaftServer {
     }
     final GroupManagementRequest.Add add = request.getAdd();
     if (add != null) {
-      return groupdAddAsync(request, add.getGroup());
+      return groupAddAsync(request, add.getGroup());
     }
     final GroupManagementRequest.Remove remove = request.getRemove();
     if (remove != null) {
-      return groupRemoveAsync(request, remove.getGroupId());
+      return groupRemoveAsync(request, remove.getGroupId(), remove.isDeleteDirectory());
     }
     return JavaUtils.completeExceptionally(new UnsupportedOperationException(
         getId() + ": Request not supported " + request));
   }
 
-  private CompletableFuture<RaftClientReply> groupdAddAsync(GroupManagementRequest request, RaftGroup newGroup) {
+  private CompletableFuture<RaftClientReply> groupAddAsync(GroupManagementRequest request, RaftGroup newGroup) {
     if (!request.getRaftGroupId().equals(newGroup.getGroupId())) {
       return JavaUtils.completeExceptionally(new GroupMismatchException(
           getId() + ": Request group id (" + request.getRaftGroupId() + ") does not match the new group " + newGroup));
@@ -339,7 +361,8 @@ public class RaftServerProxy implements RaftServer {
         });
   }
 
-  private CompletableFuture<RaftClientReply> groupRemoveAsync(RaftClientRequest request, RaftGroupId groupId) {
+  private CompletableFuture<RaftClientReply> groupRemoveAsync(
+      RaftClientRequest request, RaftGroupId groupId, boolean deleteDirectory) {
     if (!request.getRaftGroupId().equals(groupId)) {
       return JavaUtils.completeExceptionally(new GroupMismatchException(
           getId() + ": Request group id (" + request.getRaftGroupId() + ") does not match the given group id " + groupId));
@@ -351,7 +374,7 @@ public class RaftServerProxy implements RaftServer {
     }
     return f.thenApply(impl -> {
       final Collection<CommitInfoProto> commitInfos = impl.getCommitInfos();
-      impl.shutdown();
+      impl.shutdown(deleteDirectory);
       return new RaftClientReply(request, commitInfos);
     });
   }

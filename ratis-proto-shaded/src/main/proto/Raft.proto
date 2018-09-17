@@ -251,6 +251,7 @@ message GroupAddRequestProto {
 
 message GroupRemoveRequestProto {
   RaftGroupIdProto groupId = 1; // the group to be removed.
+  bool deleteDirectory = 2; // delete the directory for that group?
 }
 
 message GroupManagementRequestProto {

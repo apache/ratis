@@ -48,7 +48,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static java.util.Arrays.asList;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
 import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
-import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.NOOP;
 
 public abstract class RaftReconfigurationBaseTest extends BaseTest {
   static {
@@ -168,8 +167,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
     final MiniRaftCluster cluster = getCluster(3);
     cluster.start();
     try {
-      RaftTestUtil.waitForLeader(cluster);
-      final RaftPeerId leaderId = cluster.getLeader().getId();
+      final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
       final RaftClient client = cluster.createClient(leaderId);
 
       // submit some msgs before reconf
@@ -212,16 +210,19 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       Assert.assertTrue(reconf1.get());
       Assert.assertTrue(reconf2.get());
       waitAndCheckNewConf(cluster, finalPeers.get(), 2, null);
+      final RaftPeerId leader2 = RaftTestUtil.waitForLeader(cluster).getId();
 
       // check configuration manager's internal state
       // each reconf will generate two configurations: (old, new) and (new)
-      cluster.getServerAliveStream()
-          .forEach(server -> {
+      cluster.getServerAliveStream().forEach(server -> {
         ConfigurationManager confManager =
             (ConfigurationManager) Whitebox.getInternalState(server.getState(),
                 "configurationManager");
         // each reconf will generate two configurations: (old, new) and (new)
-        Assert.assertEquals(5, confManager.numOfConf());
+        // each leader change generates one configuration.
+        // expectedConf = 1 (init) + 2*2 (two conf changes) + #leader
+        final int expechedConf = leader2.equals(leaderId)? 6: 7;
+        Assert.assertEquals(expechedConf, confManager.numOfConf());
       });
     } finally {
       cluster.shutdown();
@@ -546,7 +547,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       // find CONFIGURATIONENTRY, there may be NOOP before and after it.
       final long confIndex = JavaUtils.attempt(() -> {
         final long last = log.getLastEntryTermIndex().getIndex();
-        for (long i = 1; i <= last; i++) {
+        for (long i = last; i >= 1; i--) {
           if (log.get(i).getLogEntryBodyCase() == CONFIGURATIONENTRY) {
             return i;
           }
@@ -571,7 +572,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       // the old leader should have truncated the setConf from the log
       JavaUtils.attempt(() -> log.getLastCommittedIndex() >= confIndex,
           10, 500L, "COMMIT", LOG);
-      Assert.assertEquals(NOOP, log.get(confIndex).getLogEntryBodyCase());
+      Assert.assertEquals(CONFIGURATIONENTRY, log.get(confIndex).getLogEntryBodyCase());
       log2 = null;
     } finally {
       RaftStorageTestUtils.printLog(log2, s -> LOG.info(s));

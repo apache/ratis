@@ -64,7 +64,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
   class Builder {
     private RaftPeerId serverId;
     private StateMachine stateMachine;
-    private RaftGroup group = RaftGroup.emptyGroup();
+    private RaftGroup group = null;
     private RaftProperties properties;
     private Parameters parameters;
 

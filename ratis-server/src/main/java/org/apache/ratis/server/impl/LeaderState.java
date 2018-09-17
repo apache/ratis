@@ -24,7 +24,6 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.shaded.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
-import org.apache.ratis.shaded.proto.RaftProtos.LeaderNoOp;
 import org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.*;
@@ -152,21 +151,22 @@ public class LeaderState {
     voterLists = divideFollowers(conf);
   }
 
-  void start() {
-    // In the beginning of the new term, replicate an empty entry in order
+  LogEntryProto start() {
+    // In the beginning of the new term, replicate a conf entry in order
     // to finally commit entries in the previous term.
-    // Also this message can help identify the last committed index when
-    // the leader peer is just started.
+    // Also this message can help identify the last committed index and the conf.
     final LogEntryProto placeHolder = LogEntryProto.newBuilder()
         .setTerm(server.getState().getCurrentTerm())
         .setIndex(raftLog.getNextIndex())
-        .setNoOp(LeaderNoOp.newBuilder()).build();
+        .setConfigurationEntry(ServerProtoUtils.toRaftConfigurationProto(server.getRaftConf()))
+        .build();
     CodeInjectionForTesting.execute(APPEND_PLACEHOLDER,
         server.getId().toString(), null);
     raftLog.append(placeHolder);
 
     processor.start();
     senders.forEach(LogAppender::startAppender);
+    return placeHolder;
   }
 
   boolean isReady() {
@@ -507,7 +507,7 @@ public class LeaderState {
           }
           // the pending request handler will send NotLeaderException for
           // pending client requests when it stops
-          server.shutdown();
+          server.shutdown(false);
         }
       }
     }

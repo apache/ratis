@@ -30,27 +30,18 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
-public class TestRaftWithGrpc extends RaftBasicTests {
-  private final MiniRaftClusterWithGRpc cluster;
+public class TestRaftWithGrpc
+    extends RaftBasicTests<MiniRaftClusterWithGRpc>
+    implements MiniRaftClusterWithGRpc.FactoryGet {
 
-  public TestRaftWithGrpc() throws IOException {
-    properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+  {
+    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
-    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(
-        NUM_SERVERS, properties);
-    Assert.assertNull(cluster.getLeader());
-  }
-
-  @Override
-  public MiniRaftClusterWithGRpc getCluster() {
-    return cluster;
   }
 
   @Override
@@ -62,14 +53,17 @@ public class TestRaftWithGrpc extends RaftBasicTests {
 
   @Test
   public void testRequestTimeout() throws Exception {
-    testRequestTimeout(false, getCluster(), LOG);
+    try(MiniRaftClusterWithGRpc cluster = newCluster(NUM_SERVERS)) {
+      cluster.start();
+      testRequestTimeout(false, cluster, LOG);
+    }
   }
 
   @Test
-  public void testUpdateViaHeartbeat()
-      throws IOException, InterruptedException, ExecutionException {
+  public void testUpdateViaHeartbeat() throws Exception {
     LOG.info("Running testUpdateViaHeartbeat");
-    final MiniRaftClusterWithGRpc cluster = getCluster();
+    final MiniRaftClusterWithGRpc cluster = newCluster(NUM_SERVERS);
+    cluster.start();
     waitForLeader(cluster);
     long waitTime = 5000;
     try (final RaftClient client = cluster.createClient()) {

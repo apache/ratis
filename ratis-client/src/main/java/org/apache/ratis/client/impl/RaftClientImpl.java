@@ -221,12 +221,12 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientReply groupRemove(RaftGroupId groupId, RaftPeerId server) throws IOException {
+  public RaftClientReply groupRemove(RaftGroupId groupId, boolean deleteDirectory, RaftPeerId server) throws IOException {
     Objects.requireNonNull(groupId, "groupId == null");
     Objects.requireNonNull(server, "server == null");
 
     final long callId = nextCallId();
-    return sendRequest(GroupManagementRequest.newRemove(clientId, server, callId, groupId));
+    return sendRequest(GroupManagementRequest.newRemove(clientId, server, callId, groupId, deleteDirectory));
   }
 
   @Override

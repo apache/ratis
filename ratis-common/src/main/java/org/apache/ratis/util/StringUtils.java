@@ -25,6 +25,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -127,5 +128,17 @@ public class StringUtils {
         return supplier.get();
       }
     };
+  }
+
+  public static <K, V> String map2String(Map<K, V> map) {
+    if (map == null) {
+      return null;
+    } else if (map.isEmpty()) {
+      return "<EMPTY_MAP>";
+    } else {
+      final StringBuilder b = new StringBuilder("{");
+      map.entrySet().stream().forEach(e -> b.append("\n  ").append(e.getKey()).append(" -> ").append(e.getValue()));
+      return b.append("\n}").toString();
+    }
   }
 }

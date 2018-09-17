@@ -23,10 +23,12 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.util.CheckedBiConsumer;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -35,6 +37,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -62,17 +65,14 @@ public abstract class GroupManagementBaseTest extends BaseTest {
   }
 
   @Test
-  public void testMultiGroup() throws Exception {
+  public void testSingleGroupRestart() throws Exception {
     final MiniRaftCluster cluster = getCluster(0);
     LOG.info("Start testMultiGroup" + cluster.printServers());
 
-    // Start server with an empty conf
-    final RaftGroupId groupId = cluster.getGroupId();
-    final RaftGroup group = new RaftGroup(groupId);
-
+    // Start server with null group
     final List<RaftPeerId> ids = Arrays.stream(MiniRaftCluster.generateIds(3, 0))
         .map(RaftPeerId::valueOf).collect(Collectors.toList());
-    ids.forEach(id -> cluster.putNewServer(id, group, true));
+    ids.forEach(id -> cluster.putNewServer(id, null, true));
     LOG.info("putNewServer: " + cluster.printServers());
 
     cluster.start();
@@ -90,6 +90,17 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       client.groupAdd(newGroup, p.getId());
     }
     Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, true));
+    TimeUnit.SECONDS.sleep(1);
+
+    // restart the servers with null group
+    LOG.info("restart servers");
+    for(RaftPeer p : newGroup.getPeers()) {
+      cluster.restartServer(p.getId(), null, false);
+    }
+
+    // the servers should retrieve the conf from the log.
+    Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, true));
+
     cluster.shutdown();
   }
 
@@ -176,9 +187,16 @@ public abstract class GroupManagementBaseTest extends BaseTest {
         final RaftGroup g = groups[i];
         LOG.info(i + ") close " + cluster.printServers(g.getGroupId()));
         for(RaftPeer p : g.getPeers()) {
+          final File root = cluster.getServer(p.getId()).getImpl(g.getGroupId()).getState().getStorage().getStorageDir().getRoot();
+          Assert.assertTrue(root.exists());
+          Assert.assertTrue(root.isDirectory());
+
+          final RaftClientReply r;
           try (final RaftClient client = cluster.createClient(p.getId(), g)) {
-            client.groupRemove(g.getGroupId(), p.getId());
+            r = client.groupRemove(g.getGroupId(), true, p.getId());
           }
+          Assert.assertTrue(r.isSuccess());
+          Assert.assertFalse(root.exists());
         }
       }
     }

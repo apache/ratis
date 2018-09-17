@@ -27,6 +27,7 @@ import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.shaded.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.statemachine.SnapshotInfo;
@@ -46,7 +47,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.ratis.server.impl.ServerProtoUtils.toRaftConfiguration;
 import static org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
 import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 import static org.apache.ratis.shaded.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.SMLOGENTRY;
@@ -237,7 +237,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return new RaftGroup(groupId, getRaftConf().getPeers());
   }
 
-  void shutdown() {
+  void shutdown(boolean deleteDirectory) {
     lifeCycle.checkStateAndClose(() -> {
       LOG.info("{}: shutdown {}", getId(), groupId);
       try {
@@ -264,6 +264,14 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         state.close();
       } catch (Exception ignored) {
         LOG.warn("Failed to close state for " + getId(), ignored);
+      }
+      if (deleteDirectory) {
+        final RaftStorageDirectory dir = state.getStorage().getStorageDir();
+        try {
+          FileUtils.deleteFully(dir.getRoot());
+        } catch(Exception ignored) {
+          LOG.warn(getId() + ": Failed to remove RaftStorageDirectory " + dir, ignored);
+        }
       }
     });
   }
@@ -342,7 +350,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     // start sending AppendEntries RPC to followers
     leaderState = new LeaderState(this, getProxy().getProperties());
-    leaderState.start();
+    final LogEntryProto e = leaderState.start();
+    getState().setRaftConf(e.getIndex(), ServerProtoUtils.toRaftConfiguration(e));
   }
 
   private void startHeartbeatMonitor() {
@@ -1124,8 +1133,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     if (next.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
       // the reply should have already been set. only need to record
       // the new conf in the state machine.
-      stateMachine.setRaftConfiguration(toRaftConfiguration(next.getIndex(),
-          next.getConfigurationEntry()));
+      stateMachine.setRaftConfiguration(ServerProtoUtils.toRaftConfiguration(next));
     } else if (next.getLogEntryBodyCase() == SMLOGENTRY) {
       // check whether there is a TransactionContext because we are the leader.
       TransactionContext trx = getTransactionContext(next.getIndex());

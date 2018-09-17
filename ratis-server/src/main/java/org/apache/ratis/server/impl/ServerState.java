@@ -89,9 +89,11 @@ public class ServerState implements Closeable {
     RaftConfiguration initialConf = RaftConfiguration.newBuilder()
         .setConf(group.getPeers()).build();
     configurationManager = new ConfigurationManager(initialConf);
+    LOG.info("{}: {}", id, configurationManager);
 
     final File dir = RaftServerConfigKeys.storageDir(prop);
-    storage = new RaftStorage(new File(dir, group.getGroupId().toString()),
+    // use full uuid string to create a subdirectory
+    storage = new RaftStorage(new File(dir, group.getGroupId().getUuid().toString()),
         RaftServerConstants.StartupOption.REGULAR);
     snapshotManager = new SnapshotManager(storage, id);
 
@@ -107,9 +109,7 @@ public class ServerState implements Closeable {
     // do not know whether the local log entries have been committed.
     log = initLog(id, prop, lastApplied, entry -> {
       if (entry.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
-        configurationManager.addConfiguration(entry.getIndex(),
-            ServerProtoUtils.toRaftConfiguration(entry.getIndex(),
-                entry.getConfigurationEntry()));
+        setRaftConf(entry.getIndex(), ServerProtoUtils.toRaftConfiguration(entry));
       }
     });
 
@@ -134,8 +134,7 @@ public class ServerState implements Closeable {
     // get the raft configuration from the snapshot
     RaftConfiguration raftConf = sm.getRaftConfiguration();
     if (raftConf != null) {
-      configurationManager.addConfiguration(raftConf.getLogEntryIndex(),
-          raftConf);
+      setRaftConf(raftConf.getLogEntryIndex(), raftConf);
     }
     return snapshot.getIndex();
   }
@@ -314,10 +313,11 @@ public class ServerState implements Closeable {
         getRaftConf().getLogEntryIndex();
   }
 
-  public void setRaftConf(long logIndex, RaftConfiguration conf) {
+  void setRaftConf(long logIndex, RaftConfiguration conf) {
     configurationManager.addConfiguration(logIndex, conf);
-    LOG.info("{}: successfully update the configuration {}",
-        getSelfId(), conf);
+    server.getServerRpc().addPeers(conf.getPeers());
+    LOG.info("{}: set configuration {} at {}", getSelfId(), conf, logIndex);
+    LOG.debug("{}: {}", getSelfId(), configurationManager);
   }
 
   void updateConfiguration(LogEntryProto[] entries) {
@@ -325,10 +325,7 @@ public class ServerState implements Closeable {
       configurationManager.removeConfigurations(entries[0].getIndex());
       for (LogEntryProto entry : entries) {
         if (ProtoUtils.isConfigurationLogEntry(entry)) {
-          final RaftConfiguration conf = ServerProtoUtils.toRaftConfiguration(
-              entry.getIndex(), entry.getConfigurationEntry());
-          configurationManager.addConfiguration(entry.getIndex(), conf);
-          server.getServerRpc().addPeers(conf.getPeers());
+          setRaftConf(entry.getIndex(), ServerProtoUtils.toRaftConfiguration(entry));
         }
       }
     }

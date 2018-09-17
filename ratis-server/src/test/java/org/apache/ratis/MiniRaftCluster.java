@@ -36,6 +36,7 @@ import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -43,6 +44,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -52,7 +54,7 @@ import java.util.stream.StreamSupport;
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
-public abstract class MiniRaftCluster {
+public abstract class MiniRaftCluster implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
 
   public static final String CLASS_NAME = MiniRaftCluster.class.getSimpleName();
@@ -96,10 +98,9 @@ public abstract class MiniRaftCluster {
       }
     }
 
-    public static int getPort(RaftPeerId id, RaftGroup group) {
-      final List<RaftPeer> peers = group.getPeers().stream()
-          .filter(raftPeer -> raftPeer.getId().equals(id)).collect(Collectors.toList());
-      final String address = peers.isEmpty() ? null : peers.get(0).getAddress();
+    protected int getPort(RaftPeerId id, RaftGroup g) {
+      final RaftPeer p = g != null? g.getPeer(id): peers.get(id);
+      final String address = p == null? null : p.getAddress();
       final InetSocketAddress inetAddress = address != null?
           NetUtils.createSocketAddr(address): NetUtils.createLocalServerAddress();
       return inetAddress.getPort();
@@ -126,9 +127,12 @@ public abstract class MiniRaftCluster {
     return new RaftGroup(RaftGroupId.randomId(), peers);
   }
 
+  private final Supplier<File> rootTestDir = JavaUtils.memoize(
+      () -> new File(BaseTest.getRootTestDir(),
+          getClass().getSimpleName() + Integer.toHexString(ThreadLocalRandom.current().nextInt())));
+
   private File getStorageDir(RaftPeerId id) {
-    return new File(BaseTest.getRootTestDir()
-        + "/" + getClass().getSimpleName() + "/" + id);
+    return new File(rootTestDir.get(), id.toString());
   }
 
   public static String[] generateIds(int numServers, int base) {
@@ -143,12 +147,13 @@ public abstract class MiniRaftCluster {
   protected final RaftProperties properties;
   protected final Parameters parameters;
   protected final Map<RaftPeerId, RaftServerProxy> servers = new ConcurrentHashMap<>();
+  protected final Map<RaftPeerId, RaftPeer> peers = new ConcurrentHashMap<>();
 
   private final Timer timer;
 
   protected MiniRaftCluster(String[] ids, RaftProperties properties, Parameters parameters) {
     this.group = initRaftGroup(Arrays.asList(ids));
-    LOG.info("new MiniRaftCluster {}", group);
+    LOG.info("new {} with {}", getClass().getSimpleName(), group);
     this.properties = new RaftProperties(properties);
     this.parameters = parameters;
 
@@ -169,20 +174,17 @@ public abstract class MiniRaftCluster {
     return this;
   }
 
-  private RaftServerProxy putNewServer(RaftPeerId id, boolean format) {
-    return putNewServer(id, group, format);
-  }
-
   public RaftServerProxy putNewServer(RaftPeerId id, RaftGroup group, boolean format) {
     final RaftServerProxy s = newRaftServer(id, group, format);
     Preconditions.assertTrue(servers.put(id, s) == null);
+    peers.put(id, toRaftPeer(s));
     return s;
   }
 
   private Collection<RaftServerProxy> putNewServers(
       Iterable<RaftPeerId> peers, boolean format) {
     return StreamSupport.stream(peers.spliterator(), false)
-        .map(id -> putNewServer(id, format))
+        .map(id -> putNewServer(id, group, format))
         .collect(Collectors.toList());
   }
 
@@ -201,10 +203,14 @@ public abstract class MiniRaftCluster {
    * start a stopped server again.
    */
   public void restartServer(RaftPeerId newId, boolean format) throws IOException {
+    restartServer(newId, group, format);
+  }
+
+  public void restartServer(RaftPeerId newId, RaftGroup group, boolean format) throws IOException {
     killServer(newId);
     servers.remove(newId);
 
-    putNewServer(newId, format).start();
+    putNewServer(newId, group, format).start();
   }
 
   public void restart(boolean format) throws IOException {
@@ -545,6 +551,11 @@ public abstract class MiniRaftCluster {
       final RaftClientReply reply = client.setConfiguration(peers);
       Preconditions.assertTrue(reply.isSuccess());
     }
+  }
+
+  @Override
+  public void close() {
+    shutdown();
   }
 
   public void shutdown() {

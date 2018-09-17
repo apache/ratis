@@ -17,30 +17,9 @@
  */
 package org.apache.ratis.server.simulation;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.RaftBasicTests;
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.LogUtils;
 
-import java.io.IOException;
-
-public class TestRaftWithSimulatedRpc extends RaftBasicTests {
-  static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-  }
-
-  private final MiniRaftClusterWithSimulatedRpc cluster;
-
-  public TestRaftWithSimulatedRpc() throws IOException {
-    cluster = MiniRaftClusterWithSimulatedRpc.FACTORY.newCluster(
-        NUM_SERVERS, getProperties());
-  }
-
-  @Override
-  public MiniRaftClusterWithSimulatedRpc getCluster() {
-    return cluster;
-  }
-
+public class TestRaftWithSimulatedRpc
+    extends RaftBasicTests<MiniRaftClusterWithSimulatedRpc>
+    implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
 }

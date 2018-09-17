@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.StringUtils;
 
 import java.util.*;
 
@@ -42,8 +43,7 @@ public class ConfigurationManager {
     this.currentConf = initialConf;
   }
 
-  public synchronized void addConfiguration(long logIndex,
-      RaftConfiguration conf) {
+  synchronized void addConfiguration(long logIndex, RaftConfiguration conf) {
     Preconditions.assertTrue(configurations.isEmpty() ||
         configurations.lastEntry().getKey() < logIndex);
     configurations.put(logIndex, conf);
@@ -74,6 +74,11 @@ public class ConfigurationManager {
 
   synchronized int numOfConf() {
     return 1 + configurations.size();
+  }
+
+  @Override
+  public synchronized String toString() {
+    return getClass().getSimpleName() + ", init=" + initialConf + ", confs=" + StringUtils.map2String(configurations);
   }
 
   // TODO: remove Configuration entries after they are committed

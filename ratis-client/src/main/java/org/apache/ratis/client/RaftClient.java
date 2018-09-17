@@ -95,7 +95,7 @@ public interface RaftClient extends Closeable {
   RaftClientReply groupAdd(RaftGroup newGroup, RaftPeerId server) throws IOException;
 
   /** Send groupRemove request to the given server (not the raft service). */
-  RaftClientReply groupRemove(RaftGroupId groupId, RaftPeerId server) throws IOException;
+  RaftClientReply groupRemove(RaftGroupId groupId, boolean deleteDirectory, RaftPeerId server) throws IOException;
 
   /** Send serverInformation request to the given server.*/
   RaftClientReply serverInformation(RaftPeerId server) throws IOException;

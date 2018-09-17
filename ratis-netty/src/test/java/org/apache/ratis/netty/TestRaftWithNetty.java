@@ -21,20 +21,9 @@ import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.junit.Test;
 
-import java.io.IOException;
-
-public class TestRaftWithNetty extends RaftBasicTests {
-  private final MiniRaftClusterWithNetty cluster;
-
-  public TestRaftWithNetty() throws IOException {
-    cluster = MiniRaftClusterWithNetty.FACTORY.newCluster(
-        NUM_SERVERS, getProperties());
-  }
-
-  @Override
-  public MiniRaftClusterWithNetty getCluster() {
-    return cluster;
-  }
+public class TestRaftWithNetty
+    extends RaftBasicTests<MiniRaftClusterWithNetty>
+    implements MiniRaftClusterWithNetty.FactoryGet {
 
   @Override
   @Test

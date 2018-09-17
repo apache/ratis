@@ -108,12 +108,11 @@ public class RaftStorageDirectory {
    * writing the version file to disk.
    */
   void clearDirectory() throws IOException {
-    File curDir = this.getCurrentDir();
-    clearDirectory(curDir);
+    clearDirectory(getCurrentDir());
     clearDirectory(getStateMachineDir());
   }
 
-  void clearDirectory(File dir) throws IOException {
+  private static void clearDirectory(File dir) throws IOException {
     if (dir.exists()) {
       LOG.info(dir + " already exists.  Deleting it ...");
       FileUtils.deleteFully(dir);

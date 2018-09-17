@@ -36,9 +36,7 @@ public class ServerImplUtils {
       RaftProperties properties, Parameters parameters) throws IOException {
     RaftServerProxy.LOG.debug("newRaftServer: {}, {}", id, group);
     final RaftServerProxy proxy = newRaftServer(id, gid -> stateMachine, properties, parameters);
-    if (group != null) {
-      proxy.addGroup(group);
-    }
+    proxy.initGroups(group);
     return proxy;
   }
 

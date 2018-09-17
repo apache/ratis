@@ -20,39 +20,43 @@ package org.apache.ratis.hadooprpc;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.log4j.Level;
+import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftBasicTests;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.util.LogUtils;
 import org.junit.Test;
 
-import java.io.IOException;
-
-public class TestRaftWithHadoopRpc extends RaftBasicTests {
+public class TestRaftWithHadoopRpc
+    extends RaftBasicTests<MiniRaftClusterWithHadoopRpc> {
   static {
     LogUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
   }
 
-  private final MiniRaftClusterWithHadoopRpc cluster;
-
-  public TestRaftWithHadoopRpc() throws IOException {
-    final Configuration conf = new Configuration();
-    HadoopConfigKeys.Ipc.setHandlers(conf, 20);
-    conf.setInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, 0);
-    conf.setInt(CommonConfigurationKeys.IPC_SERVER_HANDLER_QUEUE_SIZE_KEY, 1000);
-    conf.setInt(CommonConfigurationKeys.IPC_CLIENT_RPC_TIMEOUT_KEY, 1000);
-    cluster = MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(
-        NUM_SERVERS, getProperties(), conf);
+  static final Configuration CONF = new Configuration();
+  static {
+    HadoopConfigKeys.Ipc.setHandlers(CONF, 20);
+    CONF.setInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, 0);
+    CONF.setInt(CommonConfigurationKeys.IPC_SERVER_HANDLER_QUEUE_SIZE_KEY, 1000);
+    CONF.setInt(CommonConfigurationKeys.IPC_CLIENT_RPC_TIMEOUT_KEY, 1000);
   }
-
-  @Override
-  public MiniRaftClusterWithHadoopRpc getCluster() {
-    return cluster;
-  }
+  static final MiniRaftCluster.Factory<MiniRaftClusterWithHadoopRpc> FACTORY
+      = new MiniRaftClusterWithHadoopRpc.Factory() {
+    @Override
+    public MiniRaftClusterWithHadoopRpc newCluster(String[] ids, RaftProperties prop) {
+      return newCluster(ids, prop, CONF);
+    }
+  };
 
   @Override
   @Test
   public void testWithLoad() throws Exception {
     super.testWithLoad();
     BlockRequestHandlingInjection.getInstance().unblockAll();
+  }
+
+  @Override
+  public MiniRaftCluster.Factory<MiniRaftClusterWithHadoopRpc> getFactory() {
+    return FACTORY;
   }
 }

@@ -215,7 +215,7 @@ public class RaftConfiguration {
 
   @Override
   public String toString() {
-    return conf + ", old=" + oldConf;
+    return logEntryIndex + ": " + conf + ", old=" + oldConf;
   }
 
   boolean hasNoChange(RaftPeer[] newMembers) {

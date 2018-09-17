@@ -274,12 +274,12 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
       RaftRpcRequestProto request, RaftNettyServerRequestProto proto)
       throws IOException {
     final RaftPeerId id = RaftPeerId.valueOf(request.getReplyId());
-    final NettyRpcProxy p = getProxies().getProxy(id);
     try {
+      final NettyRpcProxy p = getProxies().getProxy(id);
       return p.send(request, proto);
-    } catch (ClosedChannelException cce) {
-      getProxies().resetProxy(id);
-      throw cce;
+    } catch (Exception e) {
+      getProxies().handleException(id, e, false);
+      throw e;
     }
   }
 }

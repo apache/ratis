@@ -21,7 +21,6 @@ import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.NotReplicatedException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -40,9 +39,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 
@@ -51,7 +48,6 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -65,52 +61,42 @@ import static org.apache.ratis.RaftTestUtil.sendMessageInNewThread;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.junit.Assert.assertTrue;
 
-public abstract class RaftBasicTests extends BaseTest {
+public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
+    extends BaseTest
+    implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftServerTestUtil.getStateMachineUpdaterLog(), Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-    RaftServerConfigKeys.RetryCache.setExpiryTime(properties, TimeDuration
+
+    RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), TimeDuration
         .valueOf(5, TimeUnit.SECONDS));
   }
 
   public static final int NUM_SERVERS = 5;
 
-  protected static final RaftProperties properties = new RaftProperties();
-
-  public abstract MiniRaftCluster getCluster();
-
-  public RaftProperties getProperties() {
-    return properties;
-  }
-
-  @Before
-  public void setup() throws IOException {
-    Assert.assertNull(getCluster().getLeader());
-    getCluster().start();
-  }
-
-  @After
-  public void tearDown() {
-    final MiniRaftCluster cluster = getCluster();
-    if (cluster != null) {
-      cluster.shutdown();
+  @Test
+  public void testBasicAppendEntries() throws Exception {
+    try(CLUSTER cluster = newCluster(NUM_SERVERS)) {
+      cluster.start();
+      runTestBasicAppendEntries(false, ReplicationLevel.MAJORITY, false, 10, cluster, LOG);
     }
   }
 
   @Test
-  public void testBasicAppendEntries() throws Exception {
-    runTestBasicAppendEntries(false, ReplicationLevel.MAJORITY, false, 10, getCluster(), LOG);
-  }
-
-  @Test
   public void testBasicAppendEntriesKillLeader() throws Exception {
-    runTestBasicAppendEntries(false, ReplicationLevel.MAJORITY, true, 10, getCluster(), LOG);
+    try(CLUSTER cluster = newCluster(NUM_SERVERS)) {
+      cluster.start();
+      runTestBasicAppendEntries(false, ReplicationLevel.MAJORITY, true, 10, cluster, LOG);
+    }
   }
 
   @Test
   public void testBasicAppendEntriesWithAllReplication() throws Exception {
-    runTestBasicAppendEntries(false, ReplicationLevel.ALL, false, 10, getCluster(), LOG);
+    try(CLUSTER cluster = newCluster(NUM_SERVERS)) {
+      cluster.start();
+      runTestBasicAppendEntries(false, ReplicationLevel.ALL, false, 10, cluster, LOG);
+    }
   }
 
   static void killAndRestartServer(RaftPeerId id, long killSleepMs, long restartSleepMs, MiniRaftCluster cluster, Logger LOG) {
@@ -188,7 +174,8 @@ public abstract class RaftBasicTests extends BaseTest {
   @Test
   public void testOldLeaderCommit() throws Exception {
     LOG.info("Running testOldLeaderCommit");
-    final MiniRaftCluster cluster = getCluster();
+    final CLUSTER cluster = newCluster(NUM_SERVERS);
+    cluster.start();
     final RaftServerImpl leader = waitForLeader(cluster);
     final RaftPeerId leaderId = leader.getId();
     final long term = leader.getState().getCurrentTerm();
@@ -224,12 +211,14 @@ public abstract class RaftBasicTests extends BaseTest {
     cluster.getServerAliveStream().map(s -> s.getState().getLog())
         .forEach(log -> RaftTestUtil.assertLogEntries(log, term, messages));
     LOG.info("terminating testOldLeaderCommit test");
+    cluster.shutdown();
   }
 
   @Test
   public void testOldLeaderNotCommit() throws Exception {
     LOG.info("Running testOldLeaderNotCommit");
-    final MiniRaftCluster cluster = getCluster();
+    final CLUSTER cluster = newCluster(NUM_SERVERS);
+    cluster.start();
     final RaftPeerId leaderId = waitForLeader(cluster).getId();
 
     List<RaftServerImpl> followers = cluster.getFollowers();
@@ -259,6 +248,7 @@ public abstract class RaftBasicTests extends BaseTest {
     cluster.getServerAliveStream()
             .map(s -> s.getState().getLog())
             .forEach(log -> RaftTestUtil.checkLogEntries(log, messages, predicate));
+    cluster.shutdown();
   }
 
   static class Client4TestWithLoad extends Thread {
@@ -340,7 +330,10 @@ public abstract class RaftBasicTests extends BaseTest {
 
   @Test
   public void testWithLoad() throws Exception {
-    testWithLoad(10, 500, false, getCluster(), LOG);
+    try(CLUSTER cluster = newCluster(NUM_SERVERS)) {
+      cluster.start();
+      testWithLoad(10, 500, false, cluster, LOG);
+    }
   }
 
   public static void testWithLoad(final int numClients, final int numMessages,
@@ -456,7 +449,10 @@ public abstract class RaftBasicTests extends BaseTest {
 
   @Test
   public void testDelayRequestIfLeaderStepDown() throws Exception {
-    runTestDelayRequestIfLeaderStepDown(false, getCluster(), LOG);
+    try(CLUSTER cluster = newCluster(NUM_SERVERS)) {
+      cluster.start();
+      runTestDelayRequestIfLeaderStepDown(false, cluster, LOG);
+    }
   }
 
   static void runTestDelayRequestIfLeaderStepDown(boolean async, MiniRaftCluster cluster, Logger LOG) throws Exception {

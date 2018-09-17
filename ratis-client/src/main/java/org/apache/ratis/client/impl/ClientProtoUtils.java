@@ -302,8 +302,9 @@ public interface ClientProtoUtils {
         return GroupManagementRequest.newAdd(clientId, serverId, m.getCallId(),
             ProtoUtils.toRaftGroup(p.getGroupAdd().getGroup()));
       case GROUPREMOVE:
+        final GroupRemoveRequestProto remove = p.getGroupRemove();
         return GroupManagementRequest.newRemove(clientId, serverId, m.getCallId(),
-            ProtoUtils.toRaftGroupId(p.getGroupRemove().getGroupId()));
+            ProtoUtils.toRaftGroupId(remove.getGroupId()), remove.getDeleteDirectory());
       default:
         throw new IllegalArgumentException("Unexpected op " + p.getOpCase() + " in " + p);
     }
@@ -329,8 +330,10 @@ public interface ClientProtoUtils {
     }
     final GroupManagementRequest.Remove remove = request.getRemove();
     if (remove != null) {
-      b.setGroupRemove(GroupRemoveRequestProto.newBuilder().setGroupId(
-          ProtoUtils.toRaftGroupIdProtoBuilder(remove.getGroupId())).build());
+      b.setGroupRemove(GroupRemoveRequestProto.newBuilder()
+          .setGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(remove.getGroupId()))
+          .setDeleteDirectory(remove.isDeleteDirectory())
+          .build());
     }
     return b.build();
   }

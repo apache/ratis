@@ -31,6 +31,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto.*;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
 /** Server proto utilities for internal use. */
@@ -91,11 +92,12 @@ public class ServerProtoUtils {
         .build();
   }
 
-  public static RaftConfiguration toRaftConfiguration(
-      long index, RaftConfigurationProto proto) {
+  public static RaftConfiguration toRaftConfiguration(LogEntryProto entry) {
+    Preconditions.assertTrue(ProtoUtils.isConfigurationLogEntry(entry));
+    final RaftConfigurationProto proto = entry.getConfigurationEntry();
     final RaftConfiguration.Builder b = RaftConfiguration.newBuilder()
         .setConf(ProtoUtils.toRaftPeerArray(proto.getPeersList()))
-        .setLogEntryIndex(index);
+        .setLogEntryIndex(entry.getIndex());
     if (proto.getOldPeersCount() > 0) {
       b.setOldConf(ProtoUtils.toRaftPeerArray(proto.getOldPeersList()));
     }
