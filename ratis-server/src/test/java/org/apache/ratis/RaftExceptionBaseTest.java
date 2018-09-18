@@ -174,7 +174,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     final RaftGroup clusterGroup = cluster.getGroup();
     Assert.assertEquals(NUM_PEERS, clusterGroup.getPeers().size());
 
-    final RaftGroup anotherGroup = new RaftGroup(RaftGroupId.randomId(), clusterGroup.getPeers());
+    final RaftGroup anotherGroup = RaftGroup.valueOf(RaftGroupId.randomId(), clusterGroup.getPeers());
     Assert.assertNotEquals(clusterGroup.getGroupId(), anotherGroup.getGroupId());
 
     // Create client using another group

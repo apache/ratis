@@ -17,40 +17,52 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.util.Preconditions;
+
 import java.util.*;
 
 /**
- * Description of a raft group. It has a globally unique ID and a group of raft
- * peers.
+ * Description of a raft group, which has a unique {@link RaftGroupId} and a collection of {@link RaftPeer}.
+ *
+ * This is a value-based class.
  */
-public class RaftGroup {
-  private static RaftGroup EMPTY_GROUP = new RaftGroup(RaftGroupId.emptyGroupId());
+public final class RaftGroup {
+  private static RaftGroup EMPTY_GROUP = new RaftGroup();
 
   public static RaftGroup emptyGroup() {
     return EMPTY_GROUP;
   }
 
-  /** UTF-8 string as id */
+  /** @return a group with the given id and peers. */
+  public static RaftGroup valueOf(RaftGroupId groupId, RaftPeer... peers) {
+    return new RaftGroup(groupId, peers == null || peers.length == 0? Collections.emptyList(): Arrays.asList(peers));
+  }
+
+  /** @return a group with the given id and peers. */
+  public static RaftGroup valueOf(RaftGroupId groupId, Collection<RaftPeer> peers) {
+    return new RaftGroup(groupId, peers);
+  }
+
+  /** The group id */
   private final RaftGroupId groupId;
   /** The group of raft peers */
   private final Map<RaftPeerId, RaftPeer> peers;
 
-  public RaftGroup(RaftGroupId groupId) {
-    this(groupId, Collections.emptyList());
+  private RaftGroup() {
+    this.groupId = RaftGroupId.emptyGroupId();
+    this.peers = Collections.emptyMap();
   }
 
-  public RaftGroup(RaftGroupId groupId, RaftPeer... peers) {
-    this(groupId, Arrays.asList(peers));
-  }
-
-  public RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers) {
+  private RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers) {
     this.groupId = Objects.requireNonNull(groupId, "groupId == null");
+    Preconditions.assertTrue(!groupId.equals(EMPTY_GROUP.getGroupId()),
+        () -> "Group Id " + groupId + " is reserved for the empty group.");
 
     if (peers == null || peers.isEmpty()) {
       this.peers = Collections.emptyMap();
     } else {
       final Map<RaftPeerId, RaftPeer> map = new HashMap<>();
-      peers.stream().forEach(p -> map.put(p.getId(), p));
+      peers.forEach(p -> map.put(p.getId(), p));
       this.peers = Collections.unmodifiableMap(map);
     }
   }
@@ -66,6 +78,22 @@ public class RaftGroup {
   /** @return the peer with the given id if it is in this group; otherwise, return null. */
   public RaftPeer getPeer(RaftPeerId id) {
     return peers.get(Objects.requireNonNull(id, "id == null"));
+  }
+
+  @Override
+  public int hashCode() {
+    return groupId.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    } else if (!(obj instanceof RaftGroup)) {
+      return false;
+    }
+    final RaftGroup that = (RaftGroup)obj;
+    return this.groupId.equals(that.groupId) && this.peers.equals(that.peers);
   }
 
   @Override

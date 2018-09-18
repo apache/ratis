@@ -26,8 +26,9 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+/** Unique identifier implemented using {@link UUID}. */
 public abstract class RaftId {
-  public static final int BYTE_LENGTH = 16;
+  private static final int BYTE_LENGTH = 16;
 
   private static void checkLength(int length, String name) {
     Preconditions.assertTrue(length == BYTE_LENGTH,

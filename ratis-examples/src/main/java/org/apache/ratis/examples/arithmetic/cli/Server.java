@@ -62,7 +62,7 @@ public class Server extends SubCommandBase {
     RaftServerConfigKeys.setStorageDir(properties, storageDir);
     StateMachine stateMachine = new ArithmeticStateMachine();
 
-    RaftGroup raftGroup = new RaftGroup(RaftGroupId.valueOf(ByteString.copyFromUtf8(raftGroupId)), peers);
+    final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(raftGroupId)), peers);
     RaftServer raftServer = RaftServer.newBuilder()
         .setServerId(RaftPeerId.valueOf(id))
         .setStateMachine(stateMachine).setProperties(properties)

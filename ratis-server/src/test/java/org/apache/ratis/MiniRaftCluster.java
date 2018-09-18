@@ -124,7 +124,7 @@ public abstract class MiniRaftCluster implements Closeable {
         .map(RaftPeerId::valueOf)
         .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
         .toArray(RaftPeer[]::new);
-    return new RaftGroup(RaftGroupId.randomId(), peers);
+    return RaftGroup.valueOf(RaftGroupId.randomId(), peers);
   }
 
   private final Supplier<File> rootTestDir = JavaUtils.memoize(
@@ -306,7 +306,7 @@ public abstract class MiniRaftCluster implements Closeable {
     final RaftPeer[] np = newPeers.toArray(new RaftPeer[newPeers.size()]);
     newPeers.addAll(group.getPeers());
     RaftPeer[] p = newPeers.toArray(new RaftPeer[newPeers.size()]);
-    group = new RaftGroup(group.getGroupId(), p);
+    group = RaftGroup.valueOf(group.getGroupId(), p);
     return new PeerChanges(p, np, new RaftPeer[0]);
   }
 
@@ -340,7 +340,7 @@ public abstract class MiniRaftCluster implements Closeable {
       }
     }
     RaftPeer[] p = peers.toArray(new RaftPeer[peers.size()]);
-    group = new RaftGroup(group.getGroupId(), p);
+    group = RaftGroup.valueOf(group.getGroupId(), p);
     return new PeerChanges(p, new RaftPeer[0],
         removedPeers.toArray(new RaftPeer[removedPeers.size()]));
   }

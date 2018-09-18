@@ -234,7 +234,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   RaftGroup getGroup() {
-    return new RaftGroup(groupId, getRaftConf().getPeers());
+    return RaftGroup.valueOf(groupId, getRaftConf().getPeers());
   }
 
   void shutdown(boolean deleteDirectory) {

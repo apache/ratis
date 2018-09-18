@@ -116,8 +116,7 @@ public interface ProtoUtils {
   }
 
   static RaftGroup toRaftGroup(RaftGroupProto proto) {
-    return new RaftGroup(toRaftGroupId(proto.getGroupId()),
-        toRaftPeerArray(proto.getPeersList()));
+    return RaftGroup.valueOf(toRaftGroupId(proto.getGroupId()), toRaftPeerArray(proto.getPeersList()));
   }
 
   static RaftGroupProto.Builder toRaftGroupProtoBuilder(RaftGroup group) {

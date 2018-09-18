@@ -171,7 +171,7 @@ public class RaftServerProxy implements RaftServer {
           try {
             final RaftGroupId groupId = RaftGroupId.valueOf(UUID.fromString(sub.getName()));
             if (group == null || !groupId.equals(group.getGroupId())) {
-              addGroup(new RaftGroup(groupId));
+              addGroup(RaftGroup.valueOf(groupId));
             }
           } catch(Throwable t) {
             LOG.warn(getId() + ": Failed to initialize the group directory " + sub.getAbsolutePath() + ".  Ignoring it", t);

@@ -83,7 +83,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     Assert.assertNull(cluster.getLeader());
 
     // Add groups
-    final RaftGroup newGroup = new RaftGroup(RaftGroupId.randomId(), cluster.getPeers());
+    final RaftGroup newGroup = RaftGroup.valueOf(RaftGroupId.randomId(), cluster.getPeers());
     LOG.info("add new group: " + newGroup);
     final RaftClient client = cluster.createClient(newGroup);
     for(RaftPeer p : newGroup.getPeers()) {
@@ -141,7 +141,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     LOG.info("\n\nrunMultiGroupTest with " + type + ": " + cluster.printServers());
 
     // Start server with an empty conf
-    final RaftGroup emptyGroup = new RaftGroup(cluster.getGroupId());
+    final RaftGroup emptyGroup = RaftGroup.valueOf(cluster.getGroupId());
 
     final List<RaftPeerId> ids = Arrays.stream(MiniRaftCluster.generateIds(idIndex[idIndex.length - 1], 0))
         .map(RaftPeerId::valueOf).collect(Collectors.toList());
@@ -165,7 +165,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       final RaftGroupId gid = RaftGroupId.randomId();
       final int previous = i == 0 ? 0 : idIndex[i - 1];
       final RaftPeer[] peers = allPeers.subList(previous, idIndex[i]).toArray(RaftPeer.emptyArray());
-      groups[i] = new RaftGroup(gid, peers);
+      groups[i] = RaftGroup.valueOf(gid, peers);
 
       LOG.info(i + ") starting " + groups[i]);
       for(RaftPeer p : peers) {
@@ -204,7 +204,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     LOG.info("close groups: " + cluster.printServers());
 
     // update chosen group to use all the peers
-    final RaftGroup newGroup = new RaftGroup(groups[chosen].getGroupId());
+    final RaftGroup newGroup = RaftGroup.valueOf(groups[chosen].getGroupId());
     for(int i = 0; i < groups.length; i++) {
       if (i != chosen) {
         LOG.info(i + ") groupAdd: " + cluster.printServers(groups[i].getGroupId()));

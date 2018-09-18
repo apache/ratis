@@ -21,6 +21,11 @@ import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 
 import java.util.UUID;
 
+/**
+ * The id of a raft group.
+ *
+ * This is a value-based class.
+ */
 public final class RaftGroupId extends RaftId {
   private static final RaftGroupId EMPTY_GROUP_ID = new RaftGroupId(new UUID(0L, 0L));
 
