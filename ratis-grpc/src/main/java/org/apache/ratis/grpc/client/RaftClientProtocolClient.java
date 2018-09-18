@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.TimeoutScheduler;
 import org.apache.ratis.shaded.io.grpc.ManagedChannel;
 import org.apache.ratis.shaded.io.grpc.StatusRuntimeException;
+import org.apache.ratis.shaded.io.grpc.netty.NegotiationType;
 import org.apache.ratis.shaded.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
@@ -75,8 +76,9 @@ public class RaftClientProtocolClient implements Closeable {
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
     final SizeInBytes maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
     channel = NettyChannelBuilder.forTarget(target.getAddress())
-        .usePlaintext(true).flowControlWindow(flowControlWindow.getSizeInt())
-        .maxMessageSize(maxMessageSize.getSizeInt())
+        .negotiationType(NegotiationType.PLAINTEXT)
+        .flowControlWindow(flowControlWindow.getSizeInt())
+        .maxInboundMessageSize(maxMessageSize.getSizeInt())
         .build();
     blockingStub = RaftClientProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftClientProtocolServiceGrpc.newStub(channel);
@@ -103,8 +105,7 @@ public class RaftClientProtocolClient implements Closeable {
         .groupManagement(request));
   }
 
-  ServerInformationReplyProto serverInformation(
-      ServerInformationRequestProto request) throws IOException {
+  ServerInformationReplyProto serverInformation(ServerInformationRequestProto request) {
     return adminBlockingStub
         .withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
         .serverInformation(request);

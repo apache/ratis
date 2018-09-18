@@ -25,6 +25,7 @@ import org.apache.ratis.server.impl.FollowerInfo;
 import org.apache.ratis.server.impl.LeaderState;
 import org.apache.ratis.server.impl.LogAppender;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.AppendEntriesRequestProto;
@@ -32,6 +33,8 @@ import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
@@ -42,6 +45,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * A new log appender implementation using grpc bi-directional stream API.
  */
 public class GRpcLogAppender extends LogAppender {
+  public static final Logger LOG = LoggerFactory.getLogger(GRpcLogAppender.class);
+
   private final RaftGRpcService rpcService;
   private final Map<Long, AppendEntriesRequestProto> pendingRequests;
   private final int maxPendingRequestsNum;
@@ -176,8 +181,7 @@ public class GRpcLogAppender extends LogAppender {
   private void timeoutAppendRequest(AppendEntriesRequestProto request) {
     AppendEntriesRequestProto pendingRequest = pendingRequests.remove(request.getServerRequest().getCallId());
     if (pendingRequest != null) {
-      final String err = this + ": appendEntries Timeout, request=" + ProtoUtils.toString(pendingRequest.getServerRequest());
-      LOG.warn(err);
+      LOG.warn( "{}: appendEntries Timeout, request={}", this, ProtoUtils.toString(pendingRequest.getServerRequest()));
     }
   }
 
@@ -260,16 +264,12 @@ public class GRpcLogAppender extends LogAppender {
     AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
     if (request == null) {
       // If reply comes after timeout, the reply is ignored.
-      LOG.warn("Ignoring reply: " + reply);
+      LOG.warn("{}: Request not found, ignoring reply: {}", this, ServerProtoUtils.toString(reply));
       return;
     }
     updateCommitIndex(request.getLeaderCommit());
 
     final long replyNextIndex = reply.getNextIndex();
-    Objects.requireNonNull(request,
-        () -> "Got reply with next index " + replyNextIndex
-            + " but the pending queue is empty");
-
     final long lastIndex = replyNextIndex - 1;
     final boolean updateMatchIndex;
 

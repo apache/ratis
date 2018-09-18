@@ -28,7 +28,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerRpcWithProxy;
 import org.apache.ratis.shaded.io.grpc.Server;
-import org.apache.ratis.shaded.io.grpc.ServerBuilder;
 import org.apache.ratis.shaded.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.shaded.proto.RaftProtos.*;
 import org.apache.ratis.util.*;
@@ -85,8 +84,8 @@ public class RaftGRpcService extends RaftServerRpcWithProxy<RaftServerProtocolCl
           + " > " + GrpcConfigKeys.MESSAGE_SIZE_MAX_KEY + " = " + grpcMessageSizeMax);
     }
 
-    server = ((NettyServerBuilder) ServerBuilder.forPort(port))
-        .maxMessageSize(grpcMessageSizeMax.getSizeInt())
+    server = NettyServerBuilder.forPort(port)
+        .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
         .flowControlWindow(flowControlWindow.getSizeInt())
         .addService(new RaftServerProtocolService(idSupplier, raftServer))
         .addService(new RaftClientProtocolService(idSupplier, raftServer))
