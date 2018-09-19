@@ -19,6 +19,8 @@ package org.apache.ratis.retry;
 
 import org.apache.ratis.util.TimeDuration;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Policy abstract for retrying.
  */
@@ -36,5 +38,7 @@ public interface RetryPolicy {
   /**
    * Returns the time duration for sleep in between the retries.
    */
-  TimeDuration getSleepTime();
+  default TimeDuration getSleepTime() {
+    return TimeDuration.valueOf(0, TimeUnit.MILLISECONDS);
+  }
 }

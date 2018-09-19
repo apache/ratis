@@ -113,7 +113,7 @@ public interface RaftClient extends Closeable {
     private RaftPeerId leaderId;
     private RaftProperties properties;
     private Parameters parameters;
-    private RetryPolicy retryPolicy;
+    private RetryPolicy retryPolicy = RetryPolicies.retryForeverNoSleep();
 
     private Builder() {}
 
@@ -129,8 +129,6 @@ public interface RaftClient extends Closeable {
           clientRpc = factory.newRaftClientRpc(clientId, properties);
         }
       }
-      retryPolicy =
-          retryPolicy == null ? RetryPolicies.RETRY_FOREVER : retryPolicy;
       return ClientImplUtils.newRaftClient(clientId,
           Objects.requireNonNull(group, "The 'group' field is not initialized."),
           leaderId,
