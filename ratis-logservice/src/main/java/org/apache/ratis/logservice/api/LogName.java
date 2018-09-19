@@ -62,6 +62,14 @@ public class LogName {
   }
 
   /**
+   * Length of a log's name
+   * @return length
+   */
+  public int getLength() {
+    return name.length();
+  }
+
+  /**
    * Creates a {@link LogName} given the provided string.
    */
   public static LogName of(String name) {
