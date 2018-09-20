@@ -22,15 +22,15 @@ import org.apache.ratis.server.impl.LeaderElectionTests;
 import org.junit.Test;
 
 public class TestLeaderElectionWithGrpc
-    extends LeaderElectionTests<MiniRaftClusterWithGRpc>
-    implements MiniRaftClusterWithGRpc.FactoryGet {
+    extends LeaderElectionTests<MiniRaftClusterWithGrpc>
+    implements MiniRaftClusterWithGrpc.FactoryGet {
 
   @Override
   @Test
   public void testEnforceLeader() throws Exception {
     super.testEnforceLeader();
 
-    MiniRaftClusterWithGRpc.sendServerRequestInjection.clear();
+    MiniRaftClusterWithGrpc.sendServerRequestInjection.clear();
     BlockRequestHandlingInjection.getInstance().unblockAll();
   }
 }

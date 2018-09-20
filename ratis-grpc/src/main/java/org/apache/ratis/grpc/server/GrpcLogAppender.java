@@ -18,8 +18,7 @@
 package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.grpc.RaftGRpcService;
-import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.FollowerInfo;
 import org.apache.ratis.server.impl.LeaderState;
@@ -44,10 +43,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * A new log appender implementation using grpc bi-directional stream API.
  */
-public class GRpcLogAppender extends LogAppender {
-  public static final Logger LOG = LoggerFactory.getLogger(GRpcLogAppender.class);
+public class GrpcLogAppender extends LogAppender {
+  public static final Logger LOG = LoggerFactory.getLogger(GrpcLogAppender.class);
 
-  private final RaftGRpcService rpcService;
+  private final GrpcService rpcService;
   private final Map<Long, AppendEntriesRequestProto> pendingRequests;
   private final int maxPendingRequestsNum;
   private long callId = 0;
@@ -58,11 +57,11 @@ public class GRpcLogAppender extends LogAppender {
 
   private volatile StreamObserver<AppendEntriesRequestProto> appendLogRequestObserver;
 
-  public GRpcLogAppender(RaftServerImpl server, LeaderState leaderState,
+  public GrpcLogAppender(RaftServerImpl server, LeaderState leaderState,
                          FollowerInfo f) {
     super(server, leaderState, f);
 
-    this.rpcService = (RaftGRpcService) server.getServerRpc();
+    this.rpcService = (GrpcService) server.getServerRpc();
 
     maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(
         server.getProxy().getProperties());
@@ -70,7 +69,7 @@ public class GRpcLogAppender extends LogAppender {
     pendingRequests = new ConcurrentHashMap<>();
   }
 
-  private RaftServerProtocolClient getClient() throws IOException {
+  private GrpcServerProtocolClient getClient() throws IOException {
     return rpcService.getProxies().getProxy(follower.getPeer().getId());
   }
 
@@ -169,7 +168,7 @@ public class GRpcLogAppender extends LogAppender {
 
   private void sendRequest(AppendEntriesRequestProto request,
       StreamObserver<AppendEntriesRequestProto> s) {
-    CodeInjectionForTesting.execute(RaftGRpcService.GRPC_SEND_SERVER_REQUEST,
+    CodeInjectionForTesting.execute(GrpcService.GRPC_SEND_SERVER_REQUEST,
         server.getId(), null, request);
 
     s.onNext(request);
@@ -239,12 +238,12 @@ public class GRpcLogAppender extends LogAppender {
     @Override
     public void onError(Throwable t) {
       if (!isAppenderRunning()) {
-        LOG.info("{} is stopped", GRpcLogAppender.this);
+        LOG.info("{} is stopped", GrpcLogAppender.this);
         return;
       }
-      RaftGrpcUtil.warn(LOG, () -> server.getId() + ": Failed appendEntries to " + follower.getPeer(), t);
+      GrpcUtil.warn(LOG, () -> server.getId() + ": Failed appendEntries to " + follower.getPeer(), t);
 
-      long callId = RaftGrpcUtil.getCallId(t);
+      long callId = GrpcUtil.getCallId(t);
       resetClient(pendingRequests.get(callId));
     }
 
@@ -336,7 +335,7 @@ public class GRpcLogAppender extends LogAppender {
 
     void close() {
       done.set(true);
-      GRpcLogAppender.this.notifyAppend();
+      GrpcLogAppender.this.notifyAppend();
     }
 
     synchronized boolean hasAllResponse() {
@@ -371,7 +370,7 @@ public class GRpcLogAppender extends LogAppender {
     @Override
     public void onError(Throwable t) {
       if (!isAppenderRunning()) {
-        LOG.info("{} is stopped", GRpcLogAppender.this);
+        LOG.info("{} is stopped", GrpcLogAppender.this);
         return;
       }
       LOG.info("{} got error when installing snapshot to {}, exception: {}",

@@ -21,7 +21,8 @@ import org.apache.ratis.client.ClientFactory;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.GrpcClientRpc;
-import org.apache.ratis.grpc.server.GRpcLogAppender;
+import org.apache.ratis.grpc.server.GrpcLogAppender;
+import org.apache.ratis.grpc.server.GrpcService;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
@@ -38,12 +39,12 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   @Override
   public LogAppender newLogAppender(RaftServerImpl server, LeaderState state,
                                     FollowerInfo f) {
-    return new GRpcLogAppender(server, state, f);
+    return new GrpcLogAppender(server, state, f);
   }
 
   @Override
-  public RaftGRpcService newRaftServerRpc(RaftServer server) {
-    return RaftGRpcService.newBuilder()
+  public GrpcService newRaftServerRpc(RaftServer server) {
+    return GrpcService.newBuilder()
         .setServer(server)
         .build();
   }

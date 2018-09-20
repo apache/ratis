@@ -31,7 +31,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-public interface RaftGrpcUtil {
+public interface GrpcUtil {
   Metadata.Key<String> EXCEPTION_TYPE_KEY =
       Metadata.Key.of("exception-type", Metadata.ASCII_STRING_MARSHALLER);
   Metadata.Key<String> CALL_ID =
@@ -100,7 +100,7 @@ public interface RaftGrpcUtil {
   static IOException unwrapIOException(Throwable t) {
     final IOException e;
     if (t instanceof StatusRuntimeException) {
-      e = RaftGrpcUtil.unwrapException((StatusRuntimeException) t);
+      e = GrpcUtil.unwrapException((StatusRuntimeException) t);
     } else {
       e = IOUtils.asIOException(t);
     }
@@ -114,14 +114,14 @@ public interface RaftGrpcUtil {
     try {
       supplier.get().whenCompleteAsync((reply, exception) -> {
         if (exception != null) {
-          responseObserver.onError(RaftGrpcUtil.wrapException(exception));
+          responseObserver.onError(GrpcUtil.wrapException(exception));
         } else {
           responseObserver.onNext(toProto.apply(reply));
           responseObserver.onCompleted();
         }
       });
     } catch (Exception e) {
-      responseObserver.onError(RaftGrpcUtil.wrapException(e));
+      responseObserver.onError(GrpcUtil.wrapException(e));
     }
   }
 

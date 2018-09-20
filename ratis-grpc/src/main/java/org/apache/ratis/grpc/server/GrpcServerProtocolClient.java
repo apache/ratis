@@ -33,13 +33,13 @@ import java.io.Closeable;
  * This is a RaftClient implementation that supports streaming data to the raft
  * ring. The stream implementation utilizes gRPC.
  */
-public class RaftServerProtocolClient implements Closeable {
+public class GrpcServerProtocolClient implements Closeable {
   private final ManagedChannel channel;
   private final TimeDuration requestTimeoutDuration;
   private final RaftServerProtocolServiceBlockingStub blockingStub;
   private final RaftServerProtocolServiceStub asyncStub;
 
-  public RaftServerProtocolClient(RaftPeer target, int flowControlWindow,
+  public GrpcServerProtocolClient(RaftPeer target, int flowControlWindow,
       TimeDuration requestTimeoutDuration) {
     channel = NettyChannelBuilder.forTarget(target.getAddress())
         .usePlaintext(true).flowControlWindow(flowControlWindow)

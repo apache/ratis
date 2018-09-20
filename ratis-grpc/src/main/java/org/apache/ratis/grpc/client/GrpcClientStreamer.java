@@ -20,7 +20,7 @@ package org.apache.ratis.grpc.client;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.com.google.protobuf.ByteString;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
@@ -38,8 +38,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class AppendStreamer implements Closeable {
-  public static final Logger LOG = LoggerFactory.getLogger(AppendStreamer.class);
+public class GrpcClientStreamer implements Closeable {
+  public static final Logger LOG = LoggerFactory.getLogger(GrpcClientStreamer.class);
 
   enum RunningState {RUNNING, LOOK_FOR_LEADER, CLOSED, ERROR}
 
@@ -73,10 +73,10 @@ public class AppendStreamer implements Closeable {
   private final int maxPendingNum;
   private final SizeInBytes maxMessageSize;
 
-  private final PeerProxyMap<RaftClientProtocolProxy> proxyMap;
+  private final PeerProxyMap<GrpcClientProtocolProxy> proxyMap;
   private final Map<RaftPeerId, RaftPeer> peers;
   private RaftPeerId leaderId;
-  private volatile RaftClientProtocolProxy leaderProxy;
+  private volatile GrpcClientProtocolProxy leaderProxy;
   private final ClientId clientId;
 
   private volatile RunningState running = RunningState.RUNNING;
@@ -84,7 +84,7 @@ public class AppendStreamer implements Closeable {
   private final Sender senderThread;
   private final RaftGroupId groupId;
 
-  AppendStreamer(RaftProperties prop, RaftGroup group,
+  GrpcClientStreamer(RaftProperties prop, RaftGroup group,
       RaftPeerId leaderId, ClientId clientId) {
     this.clientId = clientId;
     maxPendingNum = GrpcConfigKeys.OutputStream.outstandingAppendsMax(prop);
@@ -97,7 +97,7 @@ public class AppendStreamer implements Closeable {
     this.peers = group.getPeers().stream().collect(
         Collectors.toMap(RaftPeer::getId, Function.identity()));
     proxyMap = new PeerProxyMap<>(clientId.toString(),
-        raftPeer -> new RaftClientProtocolProxy(clientId, raftPeer, ResponseHandler::new,
+        raftPeer -> new GrpcClientProtocolProxy(clientId, raftPeer, ResponseHandler::new,
             prop));
     proxyMap.addPeers(group.getPeers());
     refreshLeaderProxy(leaderId, null);
@@ -141,7 +141,7 @@ public class AppendStreamer implements Closeable {
 
   private void checkState() throws IOException {
     if (!isRunning()) {
-      throwException("The AppendStreamer has been closed");
+      throwException("The GrpcClientStreamer has been closed");
     }
   }
 
@@ -212,10 +212,10 @@ public class AppendStreamer implements Closeable {
     public void run() {
       while (isRunning()) {
 
-        synchronized (AppendStreamer.this) {
+        synchronized (GrpcClientStreamer.this) {
           while (isRunning() && shouldWait()) {
             try {
-              AppendStreamer.this.wait();
+              GrpcClientStreamer.this.wait();
             } catch (InterruptedException ignored) {
             }
           }
@@ -242,7 +242,7 @@ public class AppendStreamer implements Closeable {
 
   /** the response handler for stream RPC */
   private class ResponseHandler implements
-      RaftClientProtocolProxy.CloseableStreamObserver {
+      GrpcClientProtocolProxy.CloseableStreamObserver {
     private final RaftPeerId targetId;
     // once handled the first NotLeaderException or Error, the handler should
     // be inactive and should not make any further action.
@@ -254,7 +254,7 @@ public class AppendStreamer implements Closeable {
 
     @Override
     public String toString() {
-      return AppendStreamer.this + "-ResponseHandler-" + targetId;
+      return GrpcClientStreamer.this + "-ResponseHandler-" + targetId;
     }
 
     @Override
@@ -262,7 +262,7 @@ public class AppendStreamer implements Closeable {
       if (!active) {
         return;
       }
-      synchronized (AppendStreamer.this) {
+      synchronized (GrpcClientStreamer.this) {
         RaftClientRequestProto pending = Objects.requireNonNull(ackQueue.peek());
         if (reply.getRpcReply().getSuccess()) {
           Preconditions.assertTrue(pending.getRpcRequest().getCallId() == reply.getRpcReply().getCallId(),
@@ -285,7 +285,7 @@ public class AppendStreamer implements Closeable {
             handleNotLeader(nle, targetId);
           }
         }
-        AppendStreamer.this.notifyAll();
+        GrpcClientStreamer.this.notifyAll();
       }
     }
 
@@ -293,9 +293,9 @@ public class AppendStreamer implements Closeable {
     public void onError(Throwable t) {
       LOG.warn(this + " onError", t);
       if (active) {
-        synchronized (AppendStreamer.this) {
+        synchronized (GrpcClientStreamer.this) {
           handleError(t, this);
-          AppendStreamer.this.notifyAll();
+          GrpcClientStreamer.this.notifyAll();
         }
       }
     }
@@ -322,7 +322,7 @@ public class AppendStreamer implements Closeable {
 
   private void handleNotLeader(NotLeaderException nle,
       RaftPeerId oldLeader) {
-    Preconditions.assertTrue(Thread.holdsLock(AppendStreamer.this));
+    Preconditions.assertTrue(Thread.holdsLock(GrpcClientStreamer.this));
     // handle NotLeaderException: refresh leader and RaftConfiguration
     refreshPeers(nle.getPeers());
 
@@ -330,8 +330,8 @@ public class AppendStreamer implements Closeable {
   }
 
   private void handleError(Throwable t, ResponseHandler handler) {
-    Preconditions.assertTrue(Thread.holdsLock(AppendStreamer.this));
-    final IOException e = RaftGrpcUtil.unwrapIOException(t);
+    Preconditions.assertTrue(Thread.holdsLock(GrpcClientStreamer.this));
+    final IOException e = GrpcUtil.unwrapIOException(t);
 
     exceptionAndRetry.addException(handler.targetId, e);
     LOG.debug("{} got error: {}. Total retry times {}, max retry times {}.",

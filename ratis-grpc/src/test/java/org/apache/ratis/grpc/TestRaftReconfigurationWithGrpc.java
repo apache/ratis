@@ -18,19 +18,19 @@
 package org.apache.ratis.grpc;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.grpc.server.RaftServerProtocolService;
+import org.apache.ratis.grpc.server.GrpcServerProtocolService;
 import org.apache.ratis.server.impl.RaftReconfigurationBaseTest;
 import org.apache.ratis.util.LogUtils;
 
 import java.io.IOException;
 
-public class TestRaftReconfigurationWithGRpc extends RaftReconfigurationBaseTest {
+public class TestRaftReconfigurationWithGrpc extends RaftReconfigurationBaseTest {
   static {
-    LogUtils.setLogLevel(RaftServerProtocolService.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(GrpcServerProtocolService.LOG, Level.DEBUG);
   }
 
   @Override
-  public MiniRaftClusterWithGRpc getCluster(int peerNum) throws IOException {
-    return MiniRaftClusterWithGRpc.FACTORY.newCluster(peerNum, prop);
+  public MiniRaftClusterWithGrpc getCluster(int peerNum) {
+    return MiniRaftClusterWithGrpc.FACTORY.newCluster(peerNum, prop);
   }
 }

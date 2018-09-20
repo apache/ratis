@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.grpc.server;
 
-import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
@@ -32,13 +32,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftServerProtocolService.class);
+public class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
+  public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
 
   private final Supplier<RaftPeerId> idSupplier;
   private final RaftServer server;
 
-  public RaftServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server) {
+  public GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server) {
     this.idSupplier = idSupplier;
     this.server = server;
   }
@@ -55,8 +55,8 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       responseObserver.onNext(reply);
       responseObserver.onCompleted();
     } catch (Throwable e) {
-      RaftGrpcUtil.warn(LOG, () -> getId() + ": Failed requestVote " + ProtoUtils.toString(request.getServerRequest()), e);
-      responseObserver.onError(RaftGrpcUtil.wrapException(e));
+      GrpcUtil.warn(LOG, () -> getId() + ": Failed requestVote " + ProtoUtils.toString(request.getServerRequest()), e);
+      responseObserver.onError(GrpcUtil.wrapException(e));
     }
   }
 
@@ -82,8 +82,8 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
             return null;
           });
         } catch (Throwable e) {
-          RaftGrpcUtil.warn(LOG, () -> getId() + ": Failed appendEntries " + ProtoUtils.toString(request.getServerRequest()), e);
-          responseObserver.onError(RaftGrpcUtil.wrapException(e, request.getServerRequest().getCallId()));
+          GrpcUtil.warn(LOG, () -> getId() + ": Failed appendEntries " + ProtoUtils.toString(request.getServerRequest()), e);
+          responseObserver.onError(GrpcUtil.wrapException(e, request.getServerRequest().getCallId()));
           current.completeExceptionally(e);
         }
       }
@@ -91,7 +91,7 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
       @Override
       public void onError(Throwable t) {
         // for now we just log a msg
-        RaftGrpcUtil.warn(LOG, () -> getId() + ": appendEntries onError", t);
+        GrpcUtil.warn(LOG, () -> getId() + ": appendEntries onError", t);
       }
 
       @Override
@@ -114,14 +114,14 @@ public class RaftServerProtocolService extends RaftServerProtocolServiceImplBase
           final InstallSnapshotReplyProto reply = server.installSnapshot(request);
           responseObserver.onNext(reply);
         } catch (Throwable e) {
-          RaftGrpcUtil.warn(LOG, () -> getId() + ": Failed installSnapshot " + ProtoUtils.toString(request.getServerRequest()), e);
-          responseObserver.onError(RaftGrpcUtil.wrapException(e));
+          GrpcUtil.warn(LOG, () -> getId() + ": Failed installSnapshot " + ProtoUtils.toString(request.getServerRequest()), e);
+          responseObserver.onError(GrpcUtil.wrapException(e));
         }
       }
 
       @Override
       public void onError(Throwable t) {
-        RaftGrpcUtil.warn(LOG, () -> getId() + ": installSnapshot onError", t);
+        GrpcUtil.warn(LOG, () -> getId() + ": installSnapshot onError", t);
       }
 
       @Override

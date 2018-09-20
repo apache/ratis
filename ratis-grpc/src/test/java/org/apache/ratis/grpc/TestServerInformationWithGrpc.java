@@ -20,6 +20,6 @@ package org.apache.ratis.grpc;
 import org.apache.ratis.server.impl.ServerInformationBaseTest;
 
 public class TestServerInformationWithGrpc
-    extends ServerInformationBaseTest<MiniRaftClusterWithGRpc>
-    implements MiniRaftClusterWithGRpc.FactoryGet {
+    extends ServerInformationBaseTest<MiniRaftClusterWithGrpc>
+    implements MiniRaftClusterWithGrpc.FactoryGet {
 }

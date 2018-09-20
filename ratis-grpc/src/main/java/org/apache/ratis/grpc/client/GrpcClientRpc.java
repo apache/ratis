@@ -21,7 +21,7 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.RaftClientRpcWithProxy;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.GroupManagementRequest;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -46,14 +46,14 @@ import java.io.InterruptedIOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClient> {
+public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClient> {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientRpc.class);
 
   private final ClientId clientId;
   private final int maxMessageSize;
 
   public GrpcClientRpc(ClientId clientId, RaftProperties properties) {
-    super(new PeerProxyMap<>(clientId.toString(), p -> new RaftClientProtocolClient(clientId, p, properties)));
+    super(new PeerProxyMap<>(clientId.toString(), p -> new GrpcClientProtocolClient(clientId, p, properties)));
     this.clientId = clientId;
     this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug).getSizeInt();
   }
@@ -63,7 +63,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
       RaftClientRequest request) {
     final RaftPeerId serverId = request.getServerId();
     try {
-      final RaftClientProtocolClient proxy = getProxies().getProxy(serverId);
+      final GrpcClientProtocolClient proxy = getProxies().getProxy(serverId);
       // Reuse the same grpc stream for all async calls.
       return proxy.getAppendStreamObservers().onNext(request);
     } catch (IOException e) {
@@ -75,7 +75,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
   public RaftClientReply sendRequest(RaftClientRequest request)
       throws IOException {
     final RaftPeerId serverId = request.getServerId();
-    final RaftClientProtocolClient proxy = getProxies().getProxy(serverId);
+    final GrpcClientProtocolClient proxy = getProxies().getProxy(serverId);
     if (request instanceof GroupManagementRequest) {
       final GroupManagementRequestProto proto = ClientProtoUtils.toGroupManagementRequestProto((GroupManagementRequest)request);
       return ClientProtoUtils.toRaftClientReply(proxy.groupAdd(proto));
@@ -102,7 +102,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
   }
 
   private CompletableFuture<RaftClientReply> sendRequest(
-      RaftClientRequest request, RaftClientProtocolClient proxy) throws IOException {
+      RaftClientRequest request, GrpcClientProtocolClient proxy) throws IOException {
     final RaftClientRequestProto requestProto =
         toRaftClientRequestProto(request);
     final CompletableFuture<RaftClientReplyProto> replyFuture =
@@ -117,7 +117,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<RaftClientProtocolClie
 
           @Override
           public void onError(Throwable t) {
-            replyFuture.completeExceptionally(RaftGrpcUtil.unwrapIOException(t));
+            replyFuture.completeExceptionally(GrpcUtil.unwrapIOException(t));
           }
 
           @Override

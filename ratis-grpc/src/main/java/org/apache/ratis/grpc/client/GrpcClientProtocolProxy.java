@@ -28,15 +28,15 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.function.Function;
 
-public class RaftClientProtocolProxy implements Closeable {
-  private final RaftClientProtocolClient proxy;
+public class GrpcClientProtocolProxy implements Closeable {
+  private final GrpcClientProtocolClient proxy;
   private final Function<RaftPeer, CloseableStreamObserver> responseHandlerCreation;
   private RpcSession currentSession;
 
-  public RaftClientProtocolProxy(ClientId clientId, RaftPeer target,
+  public GrpcClientProtocolProxy(ClientId clientId, RaftPeer target,
       Function<RaftPeer, CloseableStreamObserver> responseHandlerCreation,
       RaftProperties properties) {
-    proxy = new RaftClientProtocolClient(clientId, target, properties);
+    proxy = new GrpcClientProtocolClient(clientId, target, properties);
     this.responseHandlerCreation = responseHandlerCreation;
   }
 

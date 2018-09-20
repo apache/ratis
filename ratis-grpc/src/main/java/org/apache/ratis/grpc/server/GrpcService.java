@@ -15,12 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc;
+package org.apache.ratis.grpc.server;
 
-import org.apache.ratis.grpc.client.RaftClientProtocolService;
-import org.apache.ratis.grpc.server.AdminProtocolService;
-import org.apache.ratis.grpc.server.RaftServerProtocolClient;
-import org.apache.ratis.grpc.server.RaftServerProtocolService;
+import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.client.GrpcClientProtocolService;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
@@ -39,12 +37,12 @@ import java.net.InetSocketAddress;
 import java.util.function.Supplier;
 
 /** A grpc implementation of {@link RaftServerRpc}. */
-public class RaftGRpcService extends RaftServerRpcWithProxy<RaftServerProtocolClient, PeerProxyMap<RaftServerProtocolClient>> {
-  static final Logger LOG = LoggerFactory.getLogger(RaftGRpcService.class);
+public class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient, PeerProxyMap<GrpcServerProtocolClient>> {
+  static final Logger LOG = LoggerFactory.getLogger(GrpcService.class);
   public static final String GRPC_SEND_SERVER_REQUEST =
-      RaftGRpcService.class.getSimpleName() + ".sendRequest";
+      GrpcService.class.getSimpleName() + ".sendRequest";
 
-  public static class Builder extends RaftServerRpc.Builder<Builder,RaftGRpcService> {
+  public static class Builder extends RaftServerRpc.Builder<Builder, GrpcService> {
     private Builder() {}
 
     @Override
@@ -53,8 +51,8 @@ public class RaftGRpcService extends RaftServerRpcWithProxy<RaftServerProtocolCl
     }
 
     @Override
-    public RaftGRpcService build() {
-      return new RaftGRpcService(getServer());
+    public GrpcService build() {
+      return new GrpcService(getServer());
     }
   }
 
@@ -65,7 +63,7 @@ public class RaftGRpcService extends RaftServerRpcWithProxy<RaftServerProtocolCl
   private final Server server;
   private final Supplier<InetSocketAddress> addressSupplier;
 
-  private RaftGRpcService(RaftServer server) {
+  private GrpcService(RaftServer server) {
     this(server, server::getId,
         GrpcConfigKeys.Server.port(server.getProperties()),
         GrpcConfigKeys.messageSizeMax(server.getProperties(), LOG::info),
@@ -73,11 +71,11 @@ public class RaftGRpcService extends RaftServerRpcWithProxy<RaftServerProtocolCl
         GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()));
   }
-  private RaftGRpcService(RaftServer raftServer, Supplier<RaftPeerId> idSupplier, int port,
+  private GrpcService(RaftServer raftServer, Supplier<RaftPeerId> idSupplier, int port,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
       SizeInBytes flowControlWindow, TimeDuration requestTimeoutDuration) {
     super(idSupplier, id -> new PeerProxyMap<>(id.toString(),
-        p -> new RaftServerProtocolClient(p, flowControlWindow.getSizeInt(), requestTimeoutDuration)));
+        p -> new GrpcServerProtocolClient(p, flowControlWindow.getSizeInt(), requestTimeoutDuration)));
     if (appenderBufferSize.getSize() > grpcMessageSizeMax.getSize()) {
       throw new IllegalArgumentException("Illegal configuration: "
           + RaftServerConfigKeys.Log.Appender.BUFFER_CAPACITY_KEY + " = " + appenderBufferSize
@@ -87,9 +85,9 @@ public class RaftGRpcService extends RaftServerRpcWithProxy<RaftServerProtocolCl
     server = NettyServerBuilder.forPort(port)
         .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
         .flowControlWindow(flowControlWindow.getSizeInt())
-        .addService(new RaftServerProtocolService(idSupplier, raftServer))
-        .addService(new RaftClientProtocolService(idSupplier, raftServer))
-        .addService(new AdminProtocolService(raftServer))
+        .addService(new GrpcServerProtocolService(idSupplier, raftServer))
+        .addService(new GrpcClientProtocolService(idSupplier, raftServer))
+        .addService(new GrpcAdminProtocolService(raftServer))
         .build();
     addressSupplier = JavaUtils.memoize(() -> new InetSocketAddress(port != 0? port: server.getPort()));
   }

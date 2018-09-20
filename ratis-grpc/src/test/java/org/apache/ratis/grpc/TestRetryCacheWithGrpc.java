@@ -44,16 +44,16 @@ public class TestRetryCacheWithGrpc extends RetryCacheTests {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
   }
 
-  private final MiniRaftClusterWithGRpc cluster;
+  private final MiniRaftClusterWithGrpc cluster;
 
   public TestRetryCacheWithGrpc() throws IOException {
-    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(
+    cluster = MiniRaftClusterWithGrpc.FACTORY.newCluster(
         NUM_SERVERS, properties);
     Assert.assertNull(cluster.getLeader());
   }
 
   @Override
-  public MiniRaftClusterWithGRpc getCluster() {
+  public MiniRaftClusterWithGrpc getCluster() {
     return cluster;
   }
 

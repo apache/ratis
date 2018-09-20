@@ -19,6 +19,6 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.RaftAsyncTests;
 
-public class TestRaftAsyncWithGrpc extends RaftAsyncTests<MiniRaftClusterWithGRpc>
-    implements MiniRaftClusterWithGRpc.FactoryGet {
+public class TestRaftAsyncWithGrpc extends RaftAsyncTests<MiniRaftClusterWithGrpc>
+    implements MiniRaftClusterWithGrpc.FactoryGet {
 }

@@ -21,7 +21,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.TimeoutScheduler;
 import org.apache.ratis.shaded.io.grpc.ManagedChannel;
@@ -53,8 +53,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-public class RaftClientProtocolClient implements Closeable {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftClientProtocolClient.class);
+public class GrpcClientProtocolClient implements Closeable {
+  public static final Logger LOG = LoggerFactory.getLogger(GrpcClientProtocolClient.class);
 
   private final Supplier<String> name;
   private final RaftPeer target;
@@ -69,7 +69,7 @@ public class RaftClientProtocolClient implements Closeable {
 
   private final AtomicReference<AsyncStreamObservers> appendStreamObservers = new AtomicReference<>();
 
-  public RaftClientProtocolClient(ClientId id, RaftPeer target, RaftProperties properties) {
+  public GrpcClientProtocolClient(ClientId id, RaftPeer target, RaftProperties properties) {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
 
@@ -124,7 +124,7 @@ public class RaftClientProtocolClient implements Closeable {
     try {
       return supplier.get();
     } catch (StatusRuntimeException e) {
-      throw RaftGrpcUtil.unwrapException(e);
+      throw GrpcUtil.unwrapException(e);
     }
   }
 
@@ -169,7 +169,7 @@ public class RaftClientProtocolClient implements Closeable {
 
       @Override
       public void onError(Throwable t) {
-        final IOException ioe = RaftGrpcUtil.unwrapIOException(t);
+        final IOException ioe = GrpcUtil.unwrapIOException(t);
         completeReplyExceptionally(ioe, "onError");
       }
 

@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.examples.filestore;
 
-import org.apache.ratis.grpc.MiniRaftClusterWithGRpc;
+import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
 
 public class TestFileStoreWithGrpc
-    extends FileStoreBaseTest<MiniRaftClusterWithGRpc>
-    implements MiniRaftClusterWithGRpc.FactoryGet {
+    extends FileStoreBaseTest<MiniRaftClusterWithGrpc>
+    implements MiniRaftClusterWithGrpc.FactoryGet {
 }

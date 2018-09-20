@@ -23,6 +23,6 @@ import org.apache.ratis.server.impl.GroupManagementBaseTest;
 public class TestGroupManagementWithGrpc extends GroupManagementBaseTest {
   @Override
   public MiniRaftCluster.Factory<? extends MiniRaftCluster> getClusterFactory() {
-    return MiniRaftClusterWithGRpc.FACTORY;
+    return MiniRaftClusterWithGrpc.FACTORY;
   }
 }

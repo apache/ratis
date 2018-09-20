@@ -21,8 +21,8 @@ import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.client.AppendStreamer;
-import org.apache.ratis.grpc.client.RaftOutputStream;
+import org.apache.ratis.grpc.client.GrpcClientStreamer;
+import org.apache.ratis.grpc.client.GrpcOutputStream;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -51,14 +51,14 @@ import static org.junit.Assert.fail;
 @Ignore
 public class TestRaftStream extends BaseTest {
   static {
-    LogUtils.setLogLevel(AppendStreamer.LOG, Level.ALL);
+    LogUtils.setLogLevel(GrpcClientStreamer.LOG, Level.ALL);
   }
 
   private static final RaftProperties prop = new RaftProperties();
   private static final int NUM_SERVERS = 3;
   private static final byte[] BYTES = new byte[4];
 
-  private MiniRaftClusterWithGRpc cluster;
+  private MiniRaftClusterWithGrpc cluster;
 
   @After
   public void tearDown() {
@@ -85,12 +85,12 @@ public class TestRaftStream extends BaseTest {
 
     // default 64K is too large for a test
     GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(4));
-    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
+    cluster = MiniRaftClusterWithGrpc.FACTORY.newCluster(NUM_SERVERS, prop);
 
     cluster.start();
     RaftServerImpl leader = waitForLeader(cluster);
 
-    try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.randomId(),
+    try (GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
         cluster.getGroup(), leader.getId())) {
       for (int i = 0; i < numRequests; i++) { // generate requests
         out.write(toBytes(i));
@@ -124,11 +124,11 @@ public class TestRaftStream extends BaseTest {
     LOG.info("Running testWriteAndFlush");
 
     GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(ByteValue.BUFFERSIZE));
-    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
+    cluster = MiniRaftClusterWithGrpc.FACTORY.newCluster(NUM_SERVERS, prop);
     cluster.start();
 
     RaftServerImpl leader = waitForLeader(cluster);
-    RaftOutputStream out = new RaftOutputStream(prop, ClientId.randomId(),
+    GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
         cluster.getGroup(), leader.getId());
 
     int[] lengths = new int[]{1, 500, 1023, 1024, 1025, 2048, 3000, 3072};
@@ -203,11 +203,11 @@ public class TestRaftStream extends BaseTest {
     LOG.info("Running testWriteWithOffset");
     GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(ByteValue.BUFFERSIZE));
 
-    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
+    cluster = MiniRaftClusterWithGrpc.FACTORY.newCluster(NUM_SERVERS, prop);
     cluster.start();
     RaftServerImpl leader = waitForLeader(cluster);
 
-    RaftOutputStream out = new RaftOutputStream(prop, ClientId.randomId(),
+    GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
         cluster.getGroup(), leader.getId());
 
     byte[] b1 = new byte[ByteValue.BUFFERSIZE / 2];
@@ -261,7 +261,7 @@ public class TestRaftStream extends BaseTest {
     LOG.info("Running testChangeLeader");
 
     GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(4));
-    cluster = MiniRaftClusterWithGRpc.FACTORY.newCluster(NUM_SERVERS, prop);
+    cluster = MiniRaftClusterWithGrpc.FACTORY.newCluster(NUM_SERVERS, prop);
     cluster.start();
     final RaftServerImpl leader = waitForLeader(cluster);
 
@@ -273,7 +273,7 @@ public class TestRaftStream extends BaseTest {
     new Thread(() -> {
       LOG.info("Writer thread starts");
       int count = 0;
-      try (RaftOutputStream out = new RaftOutputStream(prop, ClientId.randomId(),
+      try (GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
           cluster.getGroup(), leader.getId())) {
         while (running.get()) {
           out.write(toBytes(count++));

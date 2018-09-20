@@ -18,7 +18,7 @@
 package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
 import org.apache.ratis.protocol.GroupManagementRequest;
 import org.apache.ratis.protocol.ServerInformationRequest;
@@ -29,17 +29,17 @@ import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationReplyProto;
 import org.apache.ratis.shaded.proto.RaftProtos.ServerInformationRequestProto;
 import org.apache.ratis.shaded.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolServiceImplBase;
 
-public class AdminProtocolService extends AdminProtocolServiceImplBase {
+public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
   private final AdminAsynchronousProtocol protocol;
 
-  public AdminProtocolService(AdminAsynchronousProtocol protocol) {
+  public GrpcAdminProtocolService(AdminAsynchronousProtocol protocol) {
     this.protocol = protocol;
   }
 
   @Override
   public void groupManagement(GroupManagementRequestProto proto, StreamObserver<RaftClientReplyProto> responseObserver) {
     final GroupManagementRequest request = ClientProtoUtils.toGroupManagementRequest(proto);
-    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.groupManagementAsync(request),
+    GrpcUtil.asyncCall(responseObserver, () -> protocol.groupManagementAsync(request),
         ClientProtoUtils::toRaftClientReplyProto);
   }
 
@@ -47,7 +47,7 @@ public class AdminProtocolService extends AdminProtocolServiceImplBase {
   public void serverInformation(ServerInformationRequestProto proto,
       StreamObserver<ServerInformationReplyProto> responseObserver) {
     final ServerInformationRequest request = ClientProtoUtils.toServerInformationRequest(proto);
-    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.getInfoAsync(request),
+    GrpcUtil.asyncCall(responseObserver, () -> protocol.getInfoAsync(request),
         ClientProtoUtils::toServerInformationReplyProto);
   }
 }

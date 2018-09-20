@@ -21,37 +21,37 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.grpc.server.GrpcService;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
-import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.*;
 import org.apache.ratis.statemachine.StateMachine;
 
 import java.io.IOException;
 
-public class MiniRaftClusterWithGRpc extends MiniRaftCluster.RpcBase {
-  public static final Factory<MiniRaftClusterWithGRpc> FACTORY
-      = new Factory<MiniRaftClusterWithGRpc>() {
+public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
+  public static final Factory<MiniRaftClusterWithGrpc> FACTORY
+      = new Factory<MiniRaftClusterWithGrpc>() {
     @Override
-    public MiniRaftClusterWithGRpc newCluster(
+    public MiniRaftClusterWithGrpc newCluster(
         String[] ids, RaftProperties prop) {
       RaftConfigKeys.Rpc.setType(prop, SupportedRpcType.GRPC);
-      return new MiniRaftClusterWithGRpc(ids, prop);
+      return new MiniRaftClusterWithGrpc(ids, prop);
     }
   };
 
-  public interface FactoryGet extends Factory.Get<MiniRaftClusterWithGRpc> {
+  public interface FactoryGet extends Factory.Get<MiniRaftClusterWithGrpc> {
     @Override
-    default Factory<MiniRaftClusterWithGRpc> getFactory() {
+    default Factory<MiniRaftClusterWithGrpc> getFactory() {
       return FACTORY;
     }
   }
 
   public static final DelayLocalExecutionInjection sendServerRequestInjection =
-      new DelayLocalExecutionInjection(RaftGRpcService.GRPC_SEND_SERVER_REQUEST);
+      new DelayLocalExecutionInjection(GrpcService.GRPC_SEND_SERVER_REQUEST);
 
-  private MiniRaftClusterWithGRpc(String[] ids, RaftProperties properties) {
+  private MiniRaftClusterWithGrpc(String[] ids, RaftProperties properties) {
     super(ids, properties, null);
   }
 

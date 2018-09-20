@@ -36,8 +36,8 @@ import java.util.concurrent.CompletableFuture;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 public class TestRaftWithGrpc
-    extends RaftBasicTests<MiniRaftClusterWithGRpc>
-    implements MiniRaftClusterWithGRpc.FactoryGet {
+    extends RaftBasicTests<MiniRaftClusterWithGrpc>
+    implements MiniRaftClusterWithGrpc.FactoryGet {
 
   {
     getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
@@ -53,7 +53,7 @@ public class TestRaftWithGrpc
 
   @Test
   public void testRequestTimeout() throws Exception {
-    try(MiniRaftClusterWithGRpc cluster = newCluster(NUM_SERVERS)) {
+    try(MiniRaftClusterWithGrpc cluster = newCluster(NUM_SERVERS)) {
       cluster.start();
       testRequestTimeout(false, cluster, LOG);
     }
@@ -62,7 +62,7 @@ public class TestRaftWithGrpc
   @Test
   public void testUpdateViaHeartbeat() throws Exception {
     LOG.info("Running testUpdateViaHeartbeat");
-    final MiniRaftClusterWithGRpc cluster = newCluster(NUM_SERVERS);
+    final MiniRaftClusterWithGrpc cluster = newCluster(NUM_SERVERS);
     cluster.start();
     waitForLeader(cluster);
     long waitTime = 5000;

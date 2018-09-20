@@ -21,7 +21,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.MiniRaftClusterWithGRpc;
+import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
 import org.apache.ratis.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.ratis.netty.MiniRaftClusterWithNetty;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
@@ -101,8 +101,8 @@ public abstract class ParameterizedBaseTest extends BaseTest {
     if (isAll || classes.contains(MiniRaftClusterWithSimulatedRpc.class)) {
       add(clusters, MiniRaftClusterWithSimulatedRpc.FACTORY, ids.next(), prop);
     }
-    if (isAll || classes.contains(MiniRaftClusterWithGRpc.class)) {
-      add(clusters, MiniRaftClusterWithGRpc.FACTORY, ids.next(), prop);
+    if (isAll || classes.contains(MiniRaftClusterWithGrpc.class)) {
+      add(clusters, MiniRaftClusterWithGrpc.FACTORY, ids.next(), prop);
     }
     if (isAll || classes.contains(MiniRaftClusterWithNetty.class)) {
       add(clusters, MiniRaftClusterWithNetty.FACTORY, ids.next(), prop);

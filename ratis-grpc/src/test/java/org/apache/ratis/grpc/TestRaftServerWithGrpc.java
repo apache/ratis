@@ -33,8 +33,8 @@ public class TestRaftServerWithGrpc extends BaseTest {
   @Test
   public void testServerRestartOnException() throws Exception {
     RaftProperties properties = new RaftProperties();
-    final MiniRaftClusterWithGRpc cluster
-        = MiniRaftClusterWithGRpc.FACTORY.newCluster(1, properties);
+    final MiniRaftClusterWithGrpc cluster
+        = MiniRaftClusterWithGrpc.FACTORY.newCluster(1, properties);
     cluster.start();
     RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
     GrpcConfigKeys.Server.setPort(properties, cluster.getLeader().getServerRpc().getInetSocketAddress().getPort());

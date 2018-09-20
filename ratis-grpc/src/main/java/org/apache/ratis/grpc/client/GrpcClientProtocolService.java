@@ -18,7 +18,7 @@
 package org.apache.ratis.grpc.client;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.grpc.RaftGrpcUtil;
+import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.shaded.io.grpc.stub.StreamObserver;
 import org.apache.ratis.shaded.proto.RaftProtos.RaftClientReplyProto;
@@ -37,8 +37,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
-public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftClientProtocolService.class);
+public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
+  public static final Logger LOG = LoggerFactory.getLogger(GrpcClientProtocolService.class);
 
   private static class PendingAppend implements SlidingWindow.Request<RaftClientReply> {
     private final RaftClientRequest request;
@@ -81,7 +81,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
   private final Supplier<RaftPeerId> idSupplier;
   private final RaftClientAsynchronousProtocol protocol;
 
-  public RaftClientProtocolService(Supplier<RaftPeerId> idSupplier, RaftClientAsynchronousProtocol protocol) {
+  public GrpcClientProtocolService(Supplier<RaftPeerId> idSupplier, RaftClientAsynchronousProtocol protocol) {
     this.idSupplier = idSupplier;
     this.protocol = protocol;
   }
@@ -94,7 +94,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
   public void setConfiguration(SetConfigurationRequestProto proto,
       StreamObserver<RaftClientReplyProto> responseObserver) {
     final SetConfigurationRequest request = ClientProtoUtils.toSetConfigurationRequest(proto);
-    RaftGrpcUtil.asyncCall(responseObserver, () -> protocol.setConfigurationAsync(request),
+    GrpcUtil.asyncCall(responseObserver, () -> protocol.setConfigurationAsync(request),
         ClientProtoUtils::toRaftClientReplyProto);
   }
 
@@ -162,7 +162,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
     @Override
     public void onError(Throwable t) {
       // for now we just log a msg
-      RaftGrpcUtil.warn(LOG, () -> name + ": onError", t);
+      GrpcUtil.warn(LOG, () -> name + ": onError", t);
       slidingWindow.close();
     }
 
@@ -187,7 +187,7 @@ public class RaftClientProtocolService extends RaftClientProtocolServiceImplBase
         if (LOG.isDebugEnabled()) {
           LOG.debug(name + ": Failed " + message.get(), t);
         }
-        responseObserver.onError(RaftGrpcUtil.wrapException(t));
+        responseObserver.onError(GrpcUtil.wrapException(t));
         slidingWindow.close();
       }
     }

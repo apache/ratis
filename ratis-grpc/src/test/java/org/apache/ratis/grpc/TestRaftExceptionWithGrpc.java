@@ -20,6 +20,6 @@ package org.apache.ratis.grpc;
 import org.apache.ratis.RaftExceptionBaseTest;
 
 public class TestRaftExceptionWithGrpc
-    extends RaftExceptionBaseTest<MiniRaftClusterWithGRpc>
-    implements MiniRaftClusterWithGRpc.FactoryGet {
+    extends RaftExceptionBaseTest<MiniRaftClusterWithGrpc>
+    implements MiniRaftClusterWithGrpc.FactoryGet {
 }

@@ -21,32 +21,30 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroup;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class RaftOutputStream extends OutputStream {
+public class GrpcOutputStream extends OutputStream {
   /** internal buffer */
   private final byte buf[];
   private int count;
   private final AtomicLong seqNum = new AtomicLong();
   private final ClientId clientId;
-  private final AppendStreamer streamer;
+  private final GrpcClientStreamer streamer;
 
   private boolean closed = false;
 
-  public RaftOutputStream(RaftProperties prop, ClientId clientId,
+  public GrpcOutputStream(RaftProperties prop, ClientId clientId,
       RaftGroup group, RaftPeerId leaderId) {
     final int bufferSize = GrpcConfigKeys.OutputStream.bufferSize(prop).getSizeInt();
     buf = new byte[bufferSize];
     count = 0;
     this.clientId = clientId;
-    streamer = new AppendStreamer(prop, group, leaderId, clientId);
+    streamer = new GrpcClientStreamer(prop, group, leaderId, clientId);
   }
 
   @Override
@@ -103,7 +101,7 @@ public class RaftOutputStream extends OutputStream {
 
   @Override
   public String toString() {
-    return "RaftOutputStream-" + clientId;
+    return "GrpcOutputStream-" + clientId;
   }
 
   private void checkClosed() throws IOException {

@@ -18,14 +18,11 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.statemachine.RaftSnapshotBaseTest;
-
-import java.io.IOException;
 
 public class TestRaftSnapshotWithGrpc extends RaftSnapshotBaseTest {
   @Override
   public MiniRaftCluster.Factory<?> getFactory() {
-    return MiniRaftClusterWithGRpc.FACTORY;
+    return MiniRaftClusterWithGrpc.FACTORY;
   }
 }
