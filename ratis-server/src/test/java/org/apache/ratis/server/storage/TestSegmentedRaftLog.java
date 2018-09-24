@@ -127,12 +127,12 @@ public class TestSegmentedRaftLog extends BaseTest {
     return entryList.toArray(new LogEntryProto[entryList.size()]);
   }
 
-  static List<SegmentRange> prepareRanges(int number, int segmentSize,
+  static List<SegmentRange> prepareRanges(int startTerm, int endTerm, int segmentSize,
       long startIndex) {
-    List<SegmentRange> list = new ArrayList<>(number);
-    for (int i = 0; i < number; i++) {
+    List<SegmentRange> list = new ArrayList<>(endTerm - startTerm);
+    for (int i = startTerm; i < endTerm; i++) {
       list.add(new SegmentRange(startIndex, startIndex + segmentSize - 1, i,
-          i == number - 1));
+          i == endTerm - 1));
       startIndex += segmentSize;
     }
     return list;
@@ -146,7 +146,7 @@ public class TestSegmentedRaftLog extends BaseTest {
   @Test
   public void testLoadLogSegments() throws Exception {
     // first generate log files
-    List<SegmentRange> ranges = prepareRanges(5, 100, 0);
+    List<SegmentRange> ranges = prepareRanges(0, 5, 100, 0);
     LogEntryProto[] entries = prepareLog(ranges);
 
     // create RaftLog object and load log file
@@ -194,7 +194,7 @@ public class TestSegmentedRaftLog extends BaseTest {
    */
   @Test
   public void testAppendEntry() throws Exception {
-    List<SegmentRange> ranges = prepareRanges(5, 200, 0);
+    List<SegmentRange> ranges = prepareRanges(0, 5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
     try (SegmentedRaftLog raftLog =
@@ -210,6 +210,31 @@ public class TestSegmentedRaftLog extends BaseTest {
       // check if the raft log is correct
       checkEntries(raftLog, entries, 0, entries.size());
     }
+
+    try (SegmentedRaftLog raftLog =
+        new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
+      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      TermIndex lastTermIndex  = raftLog.getLastEntryTermIndex();
+      IllegalStateException ex = null;
+      try {
+        // append entry fails if append entry term is lower than log's last entry term
+        raftLog.appendEntry(LogEntryProto.newBuilder(entries.get(0))
+            .setTerm(lastTermIndex.getTerm() - 1)
+            .setIndex(lastTermIndex.getIndex() + 1).build());
+      } catch (IllegalStateException e) {
+        ex = e;
+      }
+      Assert.assertTrue(ex.getMessage().contains("term less than RaftLog's last term"));
+      try {
+        // append entry fails if difference between append entry index and log's last entry index is greater than 1
+        raftLog.appendEntry(LogEntryProto.newBuilder(entries.get(0))
+            .setTerm(lastTermIndex.getTerm())
+            .setIndex(lastTermIndex.getIndex() + 2).build());
+      } catch (IllegalStateException e) {
+        ex = e;
+      }
+      Assert.assertTrue(ex.getMessage().contains("and RaftLog's last index " + lastTermIndex.getIndex() + " greater than 1"));
+    }
   }
 
   /**
@@ -220,7 +245,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     RaftServerConfigKeys.Log.setPreallocatedSize(properties, SizeInBytes.valueOf("16KB"));
     RaftServerConfigKeys.Log.setSegmentSizeMax(properties, SizeInBytes.valueOf("128KB"));
 
-    List<SegmentRange> ranges = prepareRanges(1, 1024, 0);
+    List<SegmentRange> ranges = prepareRanges(0, 1, 1024, 0);
     final byte[] content = new byte[1024];
     List<LogEntryProto> entries = prepareLogEntries(ranges,
         () -> new String(content));
@@ -244,7 +269,7 @@ public class TestSegmentedRaftLog extends BaseTest {
   @Test
   public void testTruncate() throws Exception {
     // prepare the log for truncation
-    List<SegmentRange> ranges = prepareRanges(5, 200, 0);
+    List<SegmentRange> ranges = prepareRanges(0, 5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
     try (SegmentedRaftLog raftLog =
@@ -326,7 +351,7 @@ public class TestSegmentedRaftLog extends BaseTest {
   @Test
   public void testAppendEntriesWithInconsistency() throws Exception {
     // prepare the log for truncation
-    List<SegmentRange> ranges = prepareRanges(5, 200, 0);
+    List<SegmentRange> ranges = prepareRanges(0, 5, 200, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
     RaftServerImpl server = mock(RaftServerImpl.class);

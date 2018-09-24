@@ -110,6 +110,7 @@ public class MemoryRaftLog extends RaftLog {
   CompletableFuture<Long> appendEntry(LogEntryProto entry) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
+      validateLogEntry(entry);
       entries.add(entry);
     }
     return CompletableFuture.completedFuture(entry.getIndex());

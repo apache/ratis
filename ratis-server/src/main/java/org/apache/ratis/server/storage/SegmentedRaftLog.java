@@ -272,6 +272,7 @@ public class SegmentedRaftLog extends RaftLog {
           ServerProtoUtils.toLogEntryString(entry));
     }
     try(AutoCloseableLock writeLock = writeLock()) {
+      validateLogEntry(entry);
       final LogSegment currentOpenSegment = cache.getOpenSegment();
       if (currentOpenSegment == null) {
         cache.addOpenSegment(entry.getIndex());

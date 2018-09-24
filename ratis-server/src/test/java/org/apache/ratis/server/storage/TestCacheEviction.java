@@ -167,7 +167,7 @@ public class TestCacheEviction extends BaseTest {
 
     SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, server, storage, -1, prop);
     raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
-    List<SegmentRange> slist = TestSegmentedRaftLog.prepareRanges(maxCachedNum, 7, 0);
+    List<SegmentRange> slist = TestSegmentedRaftLog.prepareRanges(0, maxCachedNum, 7, 0);
     LogEntryProto[] entries = generateEntries(slist);
     raftLog.append(entries).forEach(CompletableFuture::join);
 
@@ -177,7 +177,7 @@ public class TestCacheEviction extends BaseTest {
 
     Mockito.when(server.getFollowerNextIndices()).thenReturn(new long[]{21, 40, 40});
     Mockito.when(state.getLastAppliedIndex()).thenReturn(35L);
-    slist = TestSegmentedRaftLog.prepareRanges(2, 7, 7 * maxCachedNum);
+    slist = TestSegmentedRaftLog.prepareRanges(maxCachedNum, maxCachedNum + 2, 7, 7 * maxCachedNum);
     entries = generateEntries(slist);
     raftLog.append(entries).forEach(CompletableFuture::join);
 
