@@ -27,6 +27,7 @@ import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -347,9 +348,9 @@ public abstract class RaftLog implements Closeable {
    */
   public class EntryWithData {
     private LogEntryProto logEntry;
-    private CompletableFuture<LogEntryProto> future;
+    private CompletableFuture<ByteString> future;
 
-    EntryWithData(LogEntryProto logEntry, CompletableFuture<LogEntryProto> future) {
+    EntryWithData(LogEntryProto logEntry, CompletableFuture<ByteString> future) {
       this.logEntry = logEntry;
       this.future = future;
     }
@@ -365,7 +366,7 @@ public abstract class RaftLog implements Closeable {
       }
 
       try {
-        entryProto = future.join();
+        entryProto = future.thenApply(data -> ProtoUtils.addStateMachineData(data, logEntry)).join();
       } catch (Throwable t) {
         final String err = selfId + ": Failed readStateMachineData for " +
             ServerProtoUtils.toLogEntryString(logEntry);

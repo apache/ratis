@@ -285,8 +285,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public CompletableFuture<LogEntryProto> readStateMachineData(LogEntryProto entry) {
-    CompletableFuture<LogEntryProto> f = new CompletableFuture<>();
+  public CompletableFuture<ByteString> readStateMachineData(LogEntryProto entry) {
+    CompletableFuture<ByteString> f = new CompletableFuture<>();
     if (blockAppend) {
       try {
         blockingSemaphore.acquire();

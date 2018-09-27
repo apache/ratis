@@ -194,6 +194,19 @@ public interface ProtoUtils {
         .build();
   }
 
+  /**
+   * Return a new log entry based on the input log entry with stateMachineData added.
+   * @param stateMachineData - state machine data to be added
+   * @param entry - log entry to which stateMachineData needs to be added
+   * @return LogEntryProto with stateMachineData added
+   */
+  static LogEntryProto addStateMachineData(ByteString stateMachineData, LogEntryProto entry) {
+    final SMLogEntryProto smLogEntryProto = SMLogEntryProto.newBuilder(entry.getSmLogEntry())
+        .setStateMachineData(stateMachineData)
+        .build();
+    return LogEntryProto.newBuilder(entry).setSmLogEntry(smLogEntryProto).build();
+  }
+
   static long getSerializedSize(LogEntryProto entry) {
     if (entry.getLogEntryBodyCase() != LogEntryBodyCase.SMLOGENTRY) {
       return entry.getSerializedSize();

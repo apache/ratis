@@ -28,6 +28,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -161,7 +162,7 @@ public interface StateMachine extends Closeable {
    * @return a future for the read task if the state machine data should be read
    *         otherwise, return null.
    */
-  default CompletableFuture<LogEntryProto> readStateMachineData(LogEntryProto entry) {
+  default CompletableFuture<ByteString> readStateMachineData(LogEntryProto entry) {
     return null;
   }
 
