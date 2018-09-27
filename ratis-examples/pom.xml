@@ -82,7 +82,7 @@
       <type>test-jar</type>
     </dependency>
     <dependency>
-      <artifactId>ratis-hadoop-shaded</artifactId>
+      <artifactId>ratis-thirdparty-hadoop</artifactId>
       <groupId>org.apache.ratis</groupId>
       <scope>test</scope>
     </dependency>

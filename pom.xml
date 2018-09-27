@@ -48,7 +48,6 @@
 
     <module>ratis-grpc</module>
     <module>ratis-netty</module>
-    <module>ratis-hadoop-shaded</module>
     <module>ratis-hadoop</module>
 
     <module>ratis-assembly</module>
@@ -256,11 +255,6 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
-      <dependency>
-        <artifactId>ratis-hadoop-shaded</artifactId>
-        <groupId>org.apache.ratis</groupId>
-        <version>${project.version}</version>
-      </dependency>
 
       <dependency>
         <artifactId>ratis-netty</artifactId>
@@ -316,6 +310,12 @@
       <dependency>
         <groupId>org.apache.ratis</groupId>
         <artifactId>ratis-thirdparty</artifactId>
+        <version>${ratis.thirdparty.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.ratis</groupId>
+        <artifactId>ratis-thirdparty-hadoop</artifactId>
         <version>${ratis.thirdparty.version}</version>
       </dependency>
 

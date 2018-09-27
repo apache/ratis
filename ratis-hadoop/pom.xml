@@ -29,7 +29,7 @@
       <groupId>org.apache.ratis</groupId>
     </dependency>
     <dependency>
-      <artifactId>ratis-hadoop-shaded</artifactId>
+      <artifactId>ratis-thirdparty-hadoop</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
 
