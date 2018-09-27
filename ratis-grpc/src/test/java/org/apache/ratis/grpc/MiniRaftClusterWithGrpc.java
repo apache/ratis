@@ -57,10 +57,10 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
 
   @Override
   protected RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine stateMachine, RaftGroup group,
+      RaftPeerId id, StateMachine.Registry stateMachineRegistry, RaftGroup group,
       RaftProperties properties) throws IOException {
     GrpcConfigKeys.Server.setPort(properties, getPort(id, group));
-    return ServerImplUtils.newRaftServer(id, group, stateMachine, properties, null);
+    return ServerImplUtils.newRaftServer(id, group, stateMachineRegistry, properties, null);
   }
 
   @Override

@@ -59,7 +59,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public static final String CLASS_NAME = MiniRaftCluster.class.getSimpleName();
   public static final String STATEMACHINE_CLASS_KEY = CLASS_NAME + ".statemachine.class";
-  public static final Class<? extends StateMachine> STATEMACHINE_CLASS_DEFAULT = BaseStateMachine.class;
+  private static final StateMachine.Registry STATEMACHINE_REGISTRY_DEFAULT = gid -> new BaseStateMachine();
 
   public static abstract class Factory<CLUSTER extends MiniRaftCluster> {
     public interface Get<CLUSTER extends MiniRaftCluster> {
@@ -149,6 +149,8 @@ public abstract class MiniRaftCluster implements Closeable {
   protected final Map<RaftPeerId, RaftServerProxy> servers = new ConcurrentHashMap<>();
   protected final Map<RaftPeerId, RaftPeer> peers = new ConcurrentHashMap<>();
 
+  private volatile StateMachine.Registry stateMachineRegistry = null;
+
   private final Timer timer;
 
   protected MiniRaftCluster(String[] ids, RaftProperties properties, Parameters parameters) {
@@ -236,33 +238,41 @@ public abstract class MiniRaftCluster implements Closeable {
       }
       final RaftProperties prop = new RaftProperties(properties);
       RaftServerConfigKeys.setStorageDir(prop, dir);
-      final StateMachine stateMachine = getStateMachine4Test(properties);
-      return newRaftServer(id, stateMachine, group, prop);
+      return newRaftServer(id, getStateMachineRegistry(properties), group, prop);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
   protected abstract RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine stateMachine, RaftGroup group,
+      RaftPeerId id, StateMachine.Registry stateMachineRegistry , RaftGroup group,
       RaftProperties properties) throws IOException;
 
-  static StateMachine getStateMachine4Test(RaftProperties properties) {
+  public void setStateMachineRegistry(StateMachine.Registry stateMachineRegistry) {
+    this.stateMachineRegistry = stateMachineRegistry;
+  }
+
+  StateMachine.Registry getStateMachineRegistry(RaftProperties properties) {
+    if (stateMachineRegistry != null) {
+      return stateMachineRegistry;
+    }
+
     final Class<? extends StateMachine> smClass = properties.getClass(
-        STATEMACHINE_CLASS_KEY,
-        STATEMACHINE_CLASS_DEFAULT,
-        StateMachine.class);
+        STATEMACHINE_CLASS_KEY, null, StateMachine.class);
+    if (smClass == null) {
+      return STATEMACHINE_REGISTRY_DEFAULT;
+    }
 
     final RuntimeException exception;
     try {
-      return ReflectionUtils.newInstance(smClass);
+      return gid -> ReflectionUtils.newInstance(smClass);
     } catch(RuntimeException e) {
       exception = e;
     }
 
     try {
       final Class<?>[] argClasses = {RaftProperties.class};
-      return ReflectionUtils.newInstance(smClass, argClasses, properties);
+      return gid -> ReflectionUtils.newInstance(smClass, argClasses, properties);
     } catch(RuntimeException e) {
       exception.addSuppressed(e);
     }

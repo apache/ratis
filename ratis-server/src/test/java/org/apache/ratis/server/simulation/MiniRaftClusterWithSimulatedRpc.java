@@ -88,12 +88,11 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
 
   @Override
   protected RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine stateMachine, RaftGroup group,
+      RaftPeerId id, StateMachine.Registry stateMachineRegistry , RaftGroup group,
       RaftProperties properties) throws IOException {
     serverRequestReply.addPeer(id);
     client2serverRequestReply.addPeer(id);
-    return ServerImplUtils.newRaftServer(id, group, stateMachine, properties,
-        parameters);
+    return ServerImplUtils.newRaftServer(id, group, stateMachineRegistry, properties, parameters);
   }
 
   @Override

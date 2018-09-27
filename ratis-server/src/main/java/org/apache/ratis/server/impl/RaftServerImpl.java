@@ -89,7 +89,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
-    LOG.debug("{}: new RaftServerImpl for {}", id, group);
+    LOG.info("{}: new RaftServerImpl for {} with {}", id, group, stateMachine);
     this.groupId = group.getGroupId();
     this.lifeCycle = new LifeCycle(id);
     this.stateMachine = stateMachine;

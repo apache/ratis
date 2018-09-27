@@ -25,8 +25,14 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
@@ -36,7 +42,9 @@ import org.junit.*;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -48,37 +56,13 @@ import static org.junit.Assert.*;
 /**
  * Test StateMachine related functionality
  */
-public class TestStateMachine extends BaseTest {
+public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  public static final int NUM_SERVERS = 5;
-
-  private final RaftProperties properties = new RaftProperties();
-  {
-    // TODO: fix and run with in-memory log. It fails with NPE
-    // TODO: if change setUseMemory to true
-    RaftServerConfigKeys.Log.setUseMemory(properties, false);
-  }
-
-  private MiniRaftClusterWithSimulatedRpc cluster;
-
-  @Before
-  public void setup() throws IOException {
-    properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, SMTransactionContext.class, StateMachine.class);
-
-    cluster = MiniRaftClusterWithSimulatedRpc.FACTORY.newCluster(NUM_SERVERS, properties);
-    cluster.start();
-  }
-
-  @After
-  public void tearDown() {
-    if (cluster != null) {
-      cluster.shutdown();
-    }
-  }
+  public static final int NUM_SERVERS = 3;
 
   static class SMTransactionContext extends SimpleStateMachine4Testing {
     public static SMTransactionContext get(RaftServerImpl s) {
@@ -135,6 +119,20 @@ public class TestStateMachine extends BaseTest {
 
   @Test
   public void testTransactionContextIsPassedBack() throws Throwable {
+    final RaftProperties properties = new RaftProperties();
+    properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, SMTransactionContext.class, StateMachine.class);
+
+    // TODO: fix and run with in-memory log. It fails with NPE
+    // TODO: if change setUseMemory to true
+    RaftServerConfigKeys.Log.setUseMemory(properties, false);
+
+    try(MiniRaftClusterWithSimulatedRpc cluster = getFactory().newCluster(NUM_SERVERS, properties)) {
+      cluster.start();
+      runTestTransactionContextIsPassedBack(cluster);
+    }
+  }
+
+  static void runTestTransactionContextIsPassedBack(MiniRaftCluster cluster) throws Throwable {
     // tests that the TrxContext set by the StateMachine in Leader is passed back to the SM
     int numTrx = 100;
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numTrx);
@@ -162,6 +160,36 @@ public class TestStateMachine extends BaseTest {
     assertEquals(ll.toString(), ll.size(), numTrx);
     for (int i=0; i < numTrx; i++) {
       assertEquals(ll.toString(), Long.valueOf(i+1), ll.get(i));
+    }
+  }
+
+  @Test
+  public void testStateMachineRegistry() throws Throwable {
+    final Map<RaftGroupId, StateMachine> registry = new ConcurrentHashMap<>();
+    registry.put(RaftGroupId.randomId(), new SimpleStateMachine4Testing());
+    registry.put(RaftGroupId.randomId(), new SMTransactionContext());
+
+    try(MiniRaftClusterWithSimulatedRpc cluster = newCluster(0)) {
+      cluster.setStateMachineRegistry(registry::get);
+
+      final RaftPeerId id = RaftPeerId.valueOf("s0");
+      cluster.putNewServer(id, null, true);
+      cluster.start();
+
+      for(RaftGroupId gid : registry.keySet()) {
+        final RaftGroup newGroup = RaftGroup.valueOf(gid, cluster.getPeers());
+        LOG.info("add new group: " + newGroup);
+        final RaftClient client = cluster.createClient(newGroup);
+        for(RaftPeer p : newGroup.getPeers()) {
+          client.groupAdd(newGroup, p.getId());
+        }
+      }
+
+      final RaftServerProxy proxy = cluster.getServer(id);
+      for(Map.Entry<RaftGroupId, StateMachine> e: registry.entrySet()) {
+        final RaftServerImpl impl = RaftServerTestUtil.getRaftServerImpl(proxy, e.getKey());
+        Assert.assertSame(e.getValue(), impl.getStateMachine());
+      }
     }
   }
 }

@@ -63,7 +63,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
   /** To build {@link RaftServer} objects. */
   class Builder {
     private RaftPeerId serverId;
-    private StateMachine stateMachine;
+    private StateMachine.Registry stateMachineRegistry ;
     private RaftGroup group = null;
     private RaftProperties properties;
     private Parameters parameters;
@@ -73,7 +73,7 @@ public interface RaftServer extends Closeable, RpcType.Get,
       return ServerImplUtils.newRaftServer(
           serverId,
           group,
-          Objects.requireNonNull(stateMachine, "The 'stateMachine' is not initialized."),
+          Objects.requireNonNull(stateMachineRegistry , "Neither 'stateMachine' nor 'setStateMachineRegistry' is initialized."),
           Objects.requireNonNull(properties, "The 'properties' field is not initialized."),
           parameters);
     }
@@ -86,7 +86,12 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
     /** Set the {@link StateMachine} of the server. */
     public Builder setStateMachine(StateMachine stateMachine) {
-      this.stateMachine = stateMachine;
+      return setStateMachineRegistry(gid -> stateMachine);
+    }
+
+    /** Set the {@link StateMachine.Registry} of the server. */
+    public Builder setStateMachineRegistry(StateMachine.Registry stateMachineRegistry ) {
+      this.stateMachineRegistry = stateMachineRegistry ;
       return this;
     }
 

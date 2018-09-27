@@ -80,13 +80,13 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
 
   @Override
   protected RaftServerProxy newRaftServer(
-      RaftPeerId id, StateMachine stateMachine, RaftGroup group,
+      RaftPeerId id, StateMachine.Registry stateMachineRegistry , RaftGroup group,
       RaftProperties properties) throws IOException {
     final Configuration hconf = new Configuration(hadoopConf);
     final String address = "0.0.0.0:" + getPort(id, group);
     HadoopConfigKeys.Ipc.setAddress(hconf, address);
 
-    return ServerImplUtils.newRaftServer(id, group, stateMachine, properties,
+    return ServerImplUtils.newRaftServer(id, group, stateMachineRegistry, properties,
         HadoopFactory.newRaftParameters(hconf));
   }
 

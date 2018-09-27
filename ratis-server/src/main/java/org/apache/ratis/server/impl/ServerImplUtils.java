@@ -32,10 +32,10 @@ import java.io.IOException;
 public class ServerImplUtils {
   /** For the case that all {@link RaftServerImpl} objects share the same {@link StateMachine}. */
   public static RaftServerProxy newRaftServer(
-      RaftPeerId id, RaftGroup group, StateMachine stateMachine,
+      RaftPeerId id, RaftGroup group, StateMachine.Registry stateMachineRegistry,
       RaftProperties properties, Parameters parameters) throws IOException {
     RaftServerProxy.LOG.debug("newRaftServer: {}, {}", id, group);
-    final RaftServerProxy proxy = newRaftServer(id, gid -> stateMachine, properties, parameters);
+    final RaftServerProxy proxy = newRaftServer(id, stateMachineRegistry, properties, parameters);
     proxy.initGroups(group);
     return proxy;
   }
