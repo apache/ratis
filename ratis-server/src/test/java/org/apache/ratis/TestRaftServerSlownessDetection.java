@@ -18,7 +18,6 @@
 package org.apache.ratis;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -45,7 +44,6 @@ import java.util.concurrent.TimeUnit;
 public class TestRaftServerSlownessDetection extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 3;
@@ -100,8 +98,9 @@ public class TestRaftServerSlownessDetection extends BaseTest {
         roleInfoProto.getLeaderInfo().getFollowerInfoList();
     //Assert that the node shutdown is lagging behind
     for (RaftProtos.ServerRpcProto serverProto : followers) {
-      Assert.assertTrue(!(RaftPeerId.valueOf(serverProto.getId().getId()) == failedFollower.getId()) ||
-          serverProto.getLastRpcElapsedTimeMs() > slownessTimeout);
+      if (RaftPeerId.valueOf(serverProto.getId().getId()).equals(failedFollower.getId())) {
+        Assert.assertTrue(serverProto.getLastRpcElapsedTimeMs() > slownessTimeout);
+      }
     }
   }
 }

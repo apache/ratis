@@ -174,9 +174,11 @@ class PendingRequests {
     // commits the new configuration while it has not received the retry
     // request from the client
     if (pendingSetConf != null) {
+      final RaftClientRequest request = pendingSetConf.getRequest();
+      LOG.debug("{}: sends success for {}", server.getId(), request);
       // for setConfiguration we do not need to wait for statemachine. send back
       // reply after it's committed.
-      pendingSetConf.setReply(new RaftClientReply(pendingSetConf.getRequest(), server.getCommitInfos()));
+      pendingSetConf.setReply(new RaftClientReply(request, server.getCommitInfos()));
       pendingSetConf = null;
     }
   }
@@ -216,8 +218,7 @@ class PendingRequests {
    * requests since they have not got applied to the state machine yet.
    */
   void sendNotLeaderResponses() throws IOException {
-    LOG.info("{} sends responses before shutting down PendingRequestsHandler",
-        server.getId());
+    LOG.info("{}: sendNotLeaderResponses", server.getId());
 
     // notify the state machine about stepping down
     final NotLeaderException nle = server.generateNotLeaderException();

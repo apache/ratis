@@ -494,7 +494,6 @@ public class LeaderState {
       if (conf.isTransitional()) {
         replicateNewConf();
       } else { // the (new) log entry has been committed
-        LOG.debug("{} sends success to setConfiguration request", server.getId());
         pendingRequests.replySetConfiguration();
         // if the leader is not included in the current configuration, step down
         if (!conf.containsInConf(server.getId())) {

@@ -68,28 +68,22 @@ public class TestRaftWithGrpc
     long waitTime = 5000;
     try (final RaftClient client = cluster.createClient()) {
       // block append requests
-      cluster.getServerAliveStream().forEach(raftServer -> {
-        try {
-          if (!raftServer.isLeader()) {
-            ((SimpleStateMachine4Testing) raftServer.getStateMachine()).setBlockAppend(true);
-          }
-        } catch (InterruptedException e) {
-          LOG.error("Interrupted while blocking append", e);
-        }
-      });
+      cluster.getServerAliveStream()
+          .filter(impl -> !impl.isLeader())
+          .map(SimpleStateMachine4Testing::get)
+          .forEach(SimpleStateMachine4Testing::blockWriteStateMachineData);
+
       CompletableFuture<RaftClientReply>
           replyFuture = client.sendAsync(new RaftTestUtil.SimpleMessage("abc"));
       Thread.sleep(waitTime);
       // replyFuture should not be completed until append request is unblocked.
       Assert.assertTrue(!replyFuture.isDone());
       // unblock append request.
-      cluster.getServerAliveStream().forEach(raftServer -> {
-        try {
-          ((SimpleStateMachine4Testing) raftServer.getStateMachine()).setBlockAppend(false);
-        } catch (InterruptedException e) {
-          LOG.error("Interrupted while unblocking append", e);
-        }
-      });
+      cluster.getServerAliveStream()
+          .filter(impl -> !impl.isLeader())
+          .map(SimpleStateMachine4Testing::get)
+          .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
+
       long index = cluster.getLeader().getState().getLog().getNextIndex();
       TermIndex[] leaderEntries = cluster.getLeader().getState().getLog().getEntries(0, Integer.MAX_VALUE);
       // The entries have been appended in the followers

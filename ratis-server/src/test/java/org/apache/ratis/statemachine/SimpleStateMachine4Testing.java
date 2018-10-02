@@ -49,7 +49,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.ExecutionException;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -81,12 +81,40 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
 
   private volatile boolean running = true;
-  private volatile boolean blockTransaction = false;
-  private volatile boolean blockAppend = false;
-  private final Semaphore blockingSemaphore = new Semaphore(1);
+
+
+  static class Blocking {
+    enum Type {
+      START_TRANSACTION, READ_STATE_MACHINE_DATA, WRITE_STATE_MACHINE_DATA
+    }
+
+    private final EnumMap<Type, CompletableFuture<Void>> maps = new EnumMap<>(Type.class);
+
+    void block(Type type) {
+      final CompletableFuture<Void> future = new CompletableFuture<>();
+      final CompletableFuture<Void> previous = maps.putIfAbsent(type, future);
+      Preconditions.assertNull(previous, "previous");
+    }
+
+    void unblock(Type type) {
+      final CompletableFuture<Void> future = maps.remove(type);
+      Objects.requireNonNull(future, "future == null");
+      future.complete(null);
+    }
+
+    void await(Type type) {
+      try {
+        maps.getOrDefault(type, CompletableFuture.completedFuture(null)).get();
+      } catch(InterruptedException | ExecutionException e) {
+        throw new IllegalStateException("Failed to await " + type, e);
+      }
+    }
+  }
+
+  private final Blocking blocking = new Blocking();
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
-  private RoleInfoProto slownessInfo = null;
-  private RoleInfoProto leaderElectionTimeoutInfo = null;
+  private volatile RoleInfoProto slownessInfo = null;
+  private volatile RoleInfoProto leaderElectionTimeoutInfo = null;
 
   public SimpleStateMachine4Testing() {
     checkpointer = new Daemon(() -> {
@@ -251,18 +279,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public TransactionContext startTransaction(RaftClientRequest request)
-      throws IOException {
-    if (blockTransaction) {
-      try {
-        //blocks until blockTransaction is set to false
-        blockingSemaphore.acquire();
-        blockingSemaphore.release();
-      } catch (InterruptedException e) {
-        LOG.error("Could not block applyTransaction", e);
-        Thread.currentThread().interrupt();
-      }
-    }
+  public TransactionContext startTransaction(RaftClientRequest request) throws IOException {
+    blocking.await(Blocking.Type.START_TRANSACTION);
     return new TransactionContextImpl(this, request, SMLogEntryProto.newBuilder()
         .setData(request.getMessage().getContent())
         .setStateMachineData(ByteString.copyFromUtf8("StateMachine Data")).build());
@@ -270,34 +288,14 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public CompletableFuture<?> writeStateMachineData(LogEntryProto entry) {
-    CompletableFuture<?> f = new CompletableFuture();
-    if (blockAppend) {
-      try {
-        blockingSemaphore.acquire();
-        blockingSemaphore.release();
-      } catch (InterruptedException e) {
-        LOG.error("Could not block writeStateMachineData", e);
-        Thread.currentThread().interrupt();
-      }
-    }
-    f.complete(null);
-    return f;
+    blocking.await(Blocking.Type.WRITE_STATE_MACHINE_DATA);
+    return CompletableFuture.completedFuture(null);
   }
 
   @Override
   public CompletableFuture<ByteString> readStateMachineData(LogEntryProto entry) {
-    CompletableFuture<ByteString> f = new CompletableFuture<>();
-    if (blockAppend) {
-      try {
-        blockingSemaphore.acquire();
-        blockingSemaphore.release();
-      } catch (InterruptedException e) {
-        LOG.error("Could not block readStateMachineData", e);
-        Thread.currentThread().interrupt();
-      }
-    }
-    f.complete(null);
-    return f;
+    blocking.await(Blocking.Type.READ_STATE_MACHINE_DATA);
+    return CompletableFuture.completedFuture(null);
   }
 
   @Override
@@ -312,31 +310,29 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return list.toArray(new LogEntryProto[list.size()]);
   }
 
-  public void setBlockTransaction(boolean blockTransactionVal) throws InterruptedException {
-    this.blockTransaction = blockTransactionVal;
-    if (blockTransactionVal) {
-      blockingSemaphore.acquire();
-    } else {
-      blockingSemaphore.release();
-    }
+  public void blockStartTransaction() {
+    blocking.block(Blocking.Type.START_TRANSACTION);
+  }
+  public void unblockStartTransaction() {
+    blocking.unblock(Blocking.Type.START_TRANSACTION);
   }
 
-  public void setBlockAppend(boolean blockAppendVal) throws InterruptedException {
-    this.blockAppend = blockAppendVal;
-    if (blockAppendVal) {
-      blockingSemaphore.acquire();
-    } else {
-      blockingSemaphore.release();
-    }
+  public void blockWriteStateMachineData() {
+    blocking.block(Blocking.Type.WRITE_STATE_MACHINE_DATA);
+  }
+  public void unblockWriteStateMachineData() {
+    blocking.unblock(Blocking.Type.WRITE_STATE_MACHINE_DATA);
   }
 
   @Override
   public void notifySlowness(RaftGroup group, RoleInfoProto roleInfoProto) {
+    LOG.info("{}: notifySlowness {}, {}", this, group, roleInfoProto);
     slownessInfo = roleInfoProto;
   }
 
   @Override
   public void notifyExtendedNoLeader(RaftGroup group, RoleInfoProto roleInfoProto) {
+    LOG.info("{}: notifyExtendedNoLeader {}, {}", this, group, roleInfoProto);
     leaderElectionTimeoutInfo = roleInfoProto;
   }
 }

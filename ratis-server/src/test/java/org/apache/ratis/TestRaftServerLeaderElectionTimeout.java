@@ -86,7 +86,7 @@ public class TestRaftServerLeaderElectionTimeout extends BaseTest {
     cluster.killServer(failedFollower.getId());
     cluster.killServer(cluster.getLeader().getId());
 
-    // Wait to ensure that leader election is trigerred and also state machine callback is triggered
+    // Wait to ensure that leader election is triggered and also state machine callback is triggered
     Thread.sleep( leaderElectionTimeout * 2);
 
     RaftProtos.RoleInfoProto roleInfoProto =

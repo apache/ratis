@@ -25,8 +25,6 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -91,13 +89,6 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     }
   }
 
-  static void setBlockTransaction(boolean block, MiniRaftCluster cluster) throws InterruptedException {
-    for (RaftServerProxy server : cluster.getServers()) {
-      final RaftServerImpl impl = RaftServerTestUtil.getRaftServerImpl(server, cluster.getGroupId());
-      ((SimpleStateMachine4Testing)impl.getStateMachine()).setBlockTransaction(block);
-    }
-  }
-
   @Test
   public void testAsyncRequestSemaphore() throws Exception {
     LOG.info("Running testAsyncRequestSemaphore");
@@ -111,7 +102,10 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numMessages);
     final RaftClient client = cluster.createClient();
     //Set blockTransaction flag so that transaction blocks
-    setBlockTransaction(true, cluster);
+    cluster.getServers().stream()
+        .map(cluster::getRaftServerImpl)
+        .map(SimpleStateMachine4Testing::get)
+        .forEach(SimpleStateMachine4Testing::blockStartTransaction);
 
     //Send numMessages which are blocked and do not release the client semaphore permits
     AtomicInteger blockedRequestsCount = new AtomicInteger();
@@ -139,7 +133,11 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     RaftClientTestUtil.assertAsyncRequestSemaphore(client, 0, 1);
 
     //Unset the blockTransaction flag so that semaphore permits can be released
-    setBlockTransaction(false, cluster);
+    cluster.getServers().stream()
+        .map(cluster::getRaftServerImpl)
+        .map(SimpleStateMachine4Testing::get)
+        .forEach(SimpleStateMachine4Testing::unblockStartTransaction);
+
     for(int i=0; i<=numMessages; i++){
       futures[i].join();
     }
@@ -285,27 +283,21 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     long waitTime = 5000;
     try (final RaftClient client = cluster.createClient()) {
       // block append requests
-      cluster.getServerAliveStream().forEach(raftServer -> {
-        try {
-          if (!raftServer.isLeader()) {
-            ((SimpleStateMachine4Testing) raftServer.getStateMachine()).setBlockAppend(true);
-          }
-        } catch (InterruptedException e) {
-          LOG.error("Interrupted while blocking append", e);
-        }
-      });
+      cluster.getServerAliveStream()
+          .filter(impl -> !impl.isLeader())
+          .map(SimpleStateMachine4Testing::get)
+          .forEach(SimpleStateMachine4Testing::blockWriteStateMachineData);
+
       CompletableFuture<RaftClientReply> replyFuture = client.sendAsync(new RaftTestUtil.SimpleMessage("abc"));
       Thread.sleep(waitTime);
       // replyFuture should not be completed until append request is unblocked.
       Assert.assertTrue(!replyFuture.isDone());
       // unblock append request.
-      cluster.getServerAliveStream().forEach(raftServer -> {
-        try {
-          ((SimpleStateMachine4Testing) raftServer.getStateMachine()).setBlockAppend(false);
-        } catch (InterruptedException e) {
-          LOG.error("Interrupted while unblocking append", e);
-        }
-      });
+      cluster.getServerAliveStream()
+          .filter(impl -> !impl.isLeader())
+          .map(SimpleStateMachine4Testing::get)
+          .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
+
       replyFuture.get();
       Assert.assertTrue(System.currentTimeMillis() - time > waitTime);
     }
