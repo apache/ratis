@@ -61,7 +61,7 @@ class RaftLogWorker implements Runnable {
 
   private final RaftStorage storage;
   private volatile LogOutputStream out;
-  private final RaftServerImpl raftServer;
+  private final Runnable submitUpdateCommitEvent;
   private final StateMachine stateMachine;
   private final Supplier<Timer> logFlushTimer;
 
@@ -86,7 +86,7 @@ class RaftLogWorker implements Runnable {
     this.name = selfId + "-" + getClass().getSimpleName();
     LOG.info("new {} for {}", name, storage);
 
-    this.raftServer = raftServer;
+    this.submitUpdateCommitEvent = raftServer != null? raftServer::submitUpdateCommitEvent: () -> {};
     this.stateMachine = raftServer != null? raftServer.getStateMachine(): null;
 
     this.storage = storage;
@@ -100,11 +100,8 @@ class RaftLogWorker implements Runnable {
     this.workerThread = new Thread(this, name);
 
     // Server Id can be null in unit tests
-    Supplier<String> serverId = () -> raftServer == null || raftServer.getId() == null
-        ? "null" : raftServer.getId().toString();
     this.logFlushTimer = JavaUtils.memoize(() -> RatisMetricsRegistry.getRegistry()
-        .timer(MetricRegistry.name(RaftLogWorker.class, serverId.get(),
-            "flush-time")));
+        .timer(MetricRegistry.name(RaftLogWorker.class, selfId.toString(), "flush-time")));
   }
 
   void start(long latestIndex, File openSegmentFile) throws IOException {
@@ -243,9 +240,7 @@ class RaftLogWorker implements Runnable {
   private void updateFlushedIndex() {
     flushedIndex = lastWrittenIndex;
     pendingFlushNum = 0;
-    if (raftServer != null) {
-      raftServer.submitLocalSyncEvent();
-    }
+    submitUpdateCommitEvent.run();
   }
 
   /**
@@ -288,9 +283,8 @@ class RaftLogWorker implements Runnable {
           // this.entry != entry iff the entry has state machine data
           this.stateMachineFuture = stateMachine.writeStateMachineData(entry);
         } catch (Throwable e) {
-          LOG.error("{}: writeStateMachineData failed for index:{} proto:{}",
-              raftServer.getId() ,entry.getIndex(),
-              ServerProtoUtils.toString(entry), e.getMessage());
+          LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
+              + ", entry=" + ServerProtoUtils.toLogEntryString(entry), e);
           throw e;
         }
       }

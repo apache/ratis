@@ -20,7 +20,6 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.LeaderState.StateUpdateEventType;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog.EntryWithData;
 import org.apache.ratis.server.storage.FileInfo;
@@ -45,7 +44,6 @@ import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX
 import static org.apache.ratis.util.LifeCycle.State.CLOSED;
 import static org.apache.ratis.util.LifeCycle.State.CLOSING;
 import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
-import static org.apache.ratis.util.LifeCycle.State.NEW;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
@@ -491,10 +489,11 @@ public class LogAppender {
   }
 
   protected void submitEventOnSuccessAppend() {
-    LeaderState.StateUpdateEvent e = follower.isAttendingVote() ?
-        LeaderState.UPDATE_COMMIT_EVENT :
-        LeaderState.STAGING_PROGRESS_EVENT;
-    leaderState.submitUpdateStateEvent(e);
+    if (follower.isAttendingVote()) {
+      leaderState.submitUpdateCommitEvent();
+    } else {
+      leaderState.submitCheckStagingEvent();
+    }
   }
 
   protected void checkSlowness() {
@@ -531,9 +530,7 @@ public class LogAppender {
     synchronized (server) {
       if (isAppenderRunning() && follower.isAttendingVote()
           && responseTerm > leaderState.getCurrentTerm()) {
-        leaderState.submitUpdateStateEvent(
-            new LeaderState.StateUpdateEvent(StateUpdateEventType.STEPDOWN,
-                responseTerm));
+        leaderState.submitStepDownEvent(responseTerm);
       }
     }
   }

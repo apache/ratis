@@ -40,8 +40,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.ratis.server.impl.LeaderState.StateUpdateEventType.*;
-
 /**
  * States for leader only. It contains three different types of processors:
  * 1. RPC senders: each thread is appending log to a follower
@@ -54,21 +52,76 @@ public class LeaderState {
   private static final Logger LOG = RaftServerImpl.LOG;
   public static final String APPEND_PLACEHOLDER = LeaderState.class.getSimpleName() + ".placeholder";
 
-  enum StateUpdateEventType {
-    STEPDOWN, UPDATECOMMIT, STAGINGPROGRESS
-  }
-
-  enum BootStrapProgress {
+  private enum BootStrapProgress {
     NOPROGRESS, PROGRESSING, CAUGHTUP
   }
 
   static class StateUpdateEvent {
-    final StateUpdateEventType type;
-    final long newTerm;
+    private enum Type {
+      STEP_DOWN, UPDATE_COMMIT, CHECK_STAGING
+    }
 
-    StateUpdateEvent(StateUpdateEventType type, long newTerm) {
+    final Type type;
+    final long newTerm;
+    final Runnable handler;
+
+    StateUpdateEvent(Type type, long newTerm, Runnable handler) {
       this.type = type;
       this.newTerm = newTerm;
+      this.handler = handler;
+    }
+
+    void execute() {
+      handler.run();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == this) {
+        return true;
+      } else if (!(obj instanceof StateUpdateEvent)) {
+        return false;
+      }
+      final StateUpdateEvent that = (StateUpdateEvent)obj;
+      return this.type == that.type && this.newTerm == that.newTerm;
+    }
+
+    @Override
+    public String toString() {
+      return type + (newTerm >= 0? ":" + newTerm: "");
+    }
+  }
+
+  private class EventQueue {
+    private final BlockingQueue<StateUpdateEvent> queue = new ArrayBlockingQueue<>(4096);
+
+    void submit(StateUpdateEvent event) {
+      try {
+        queue.put(event);
+      } catch (InterruptedException e) {
+        LOG.info("{}: Interrupted when submitting {} ", server.getId(), event);
+      }
+    }
+
+    StateUpdateEvent poll() {
+      final StateUpdateEvent e;
+      try {
+        e = queue.poll(server.getMaxTimeoutMs(), TimeUnit.MILLISECONDS);
+      } catch(InterruptedException ie) {
+        String s = server.getId() + ": " + getClass().getSimpleName() + " thread is interrupted";
+        if (!running) {
+          LOG.info(s + " gracefully");
+          return null;
+        } else {
+          throw new IllegalStateException(s + " UNEXPECTEDLY", ie);
+        }
+      }
+
+      if (e != null) {
+        // remove duplicated events from the head.
+        for(; e.equals(queue.peek()); queue.poll());
+      }
+      return e;
     }
   }
 
@@ -101,10 +154,10 @@ public class LeaderState {
     }
   }
 
-  static final StateUpdateEvent UPDATE_COMMIT_EVENT =
-      new StateUpdateEvent(StateUpdateEventType.UPDATECOMMIT, -1);
-  static final StateUpdateEvent STAGING_PROGRESS_EVENT =
-      new StateUpdateEvent(StateUpdateEventType.STAGINGPROGRESS, -1);
+  private final StateUpdateEvent UPDATE_COMMIT_EVENT =
+      new StateUpdateEvent(StateUpdateEvent.Type.UPDATE_COMMIT, -1, this::updateCommit);
+  private final StateUpdateEvent CHECK_STAGING_EVENT =
+      new StateUpdateEvent(StateUpdateEvent.Type.CHECK_STAGING, -1, this::checkStaging);
 
   private final RaftServerImpl server;
   private final RaftLog raftLog;
@@ -117,7 +170,7 @@ public class LeaderState {
    * The list is protected by the RaftServer's lock.
    */
   private final SenderList senders;
-  private final BlockingQueue<StateUpdateEvent> eventQ;
+  private final EventQueue eventQueue = new EventQueue();
   private final EventProcessor processor;
   private final PendingRequests pendingRequests;
   private volatile boolean running = true;
@@ -135,7 +188,6 @@ public class LeaderState {
     final ServerState state = server.getState();
     this.raftLog = state.getLog();
     this.currentTerm = state.getCurrentTerm();
-    eventQ = new ArrayBlockingQueue<>(4096);
     processor = new EventProcessor();
     pendingRequests = new PendingRequests(server);
 
@@ -190,10 +242,6 @@ public class LeaderState {
 
   boolean inStagingState() {
     return stagingState != null;
-  }
-
-  ConfigurationStagingState getStagingState() {
-    return stagingState;
   }
 
   long getCurrentTerm() {
@@ -299,11 +347,25 @@ public class LeaderState {
     stopAndRemoveSenders(s -> !conf.containsInConf(s.getFollower().getPeer().getId()));
   }
 
-  void submitUpdateStateEvent(StateUpdateEvent event) {
+  void submitStepDownEvent() {
+    submitStepDownEvent(getCurrentTerm());
+  }
+
+  void submitStepDownEvent(long term) {
+    eventQueue.submit(new StateUpdateEvent(StateUpdateEvent.Type.STEP_DOWN, term, () -> stepDown(term)));
+  }
+
+  private void stepDown(long term) {
     try {
-      eventQ.put(event);
-    } catch (InterruptedException e) {
-      LOG.info("Interrupted when adding event {} into the queue", event);
+      server.changeToFollowerAndPersistMetadata(term);
+    } catch(IOException e) {
+      final String s = server.getId() + ": Failed to persist metadata for term " + term;
+      LOG.warn(s, e);
+      // the failure should happen while changing the state to follower
+      // thus the in-memory state should have been updated
+      if (running) {
+        throw new IllegalStateException(s + " and running == true", e);
+      }
     }
   }
 
@@ -331,46 +393,16 @@ public class LeaderState {
       prepare();
 
       while (running) {
-        try {
-          StateUpdateEvent event = eventQ.poll(server.getMaxTimeoutMs(),
-              TimeUnit.MILLISECONDS);
-          synchronized (server) {
-            if (running) {
-              handleEvent(event);
+        final StateUpdateEvent event = eventQueue.poll();
+        synchronized(server) {
+          if (running) {
+            if (event != null) {
+              event.execute();
+            } else if (inStagingState()) {
+              checkStaging();
             }
           }
-          // the updated configuration does not need to be sync'ed here
-        } catch (InterruptedException e) {
-          final String s = server.getId() + " " + getClass().getSimpleName()
-              + " thread is interrupted ";
-          if (!running) {
-            LOG.info(s + " gracefully; server=" + server);
-          } else {
-            LOG.warn(s + " UNEXPECTEDLY; server=" + server, e);
-            throw new RuntimeException(e);
-          }
-        } catch (IOException e) {
-          LOG.warn("Failed to persist new votedFor/term.", e);
-          // the failure should happen while changing the state to follower
-          // thus the in-memory state should have been updated
-          Preconditions.assertTrue(!running);
         }
-      }
-    }
-  }
-
-  private void handleEvent(StateUpdateEvent e) throws IOException {
-    if (e == null) {
-      if (inStagingState()) {
-        checkNewPeers();
-      }
-    } else {
-      if (e.type == STEPDOWN) {
-        server.changeToFollower(e.newTerm, true);
-      } else if (e.type == UPDATECOMMIT) {
-        updateLastCommitted();
-      } else if (e.type == STAGINGPROGRESS) {
-        checkNewPeers();
       }
     }
   }
@@ -410,11 +442,14 @@ public class LeaderState {
         .collect(Collectors.toCollection(ArrayList::new));
   }
 
-  private void checkNewPeers() {
+  void submitCheckStagingEvent() {
+    eventQueue.submit(CHECK_STAGING_EVENT);
+  }
+
+  private void checkStaging() {
     if (!inStagingState()) {
-      // it is possible that the bootstrapping is done and we still have
-      // remaining STAGINGPROGRESS event to handle.
-      updateLastCommitted();
+      // it is possible that the bootstrapping is done. Then, fallback to UPDATE_COMMIT
+      UPDATE_COMMIT_EVENT.execute();
     } else {
       final long committedIndex = server.getState().getLog()
           .getLastCommittedIndex();
@@ -431,10 +466,14 @@ public class LeaderState {
   }
 
   boolean isBootStrappingPeer(RaftPeerId peerId) {
-    return inStagingState() && getStagingState().contains(peerId);
+    return Optional.ofNullable(stagingState).map(s -> s.contains(peerId)).orElse(false);
   }
 
-  private void updateLastCommitted() {
+  void submitUpdateCommitEvent() {
+    eventQueue.submit(UPDATE_COMMIT_EVENT);
+  }
+
+  private void updateCommit() {
     final RaftPeerId selfId = server.getId();
     final RaftConfiguration conf = server.getRaftConf();
 
@@ -575,7 +614,7 @@ public class LeaderState {
   /** @return true if the request is replied; otherwise, the reply is delayed, return false. */
   boolean replyPendingRequest(long logIndex, RaftClientReply reply, RetryCache.CacheEntry cacheEntry) {
     if (!pendingRequests.replyPendingRequest(logIndex, reply, cacheEntry)) {
-      submitUpdateStateEvent(UPDATE_COMMIT_EVENT);
+      submitUpdateCommitEvent();
       return false;
     }
     return true;

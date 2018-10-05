@@ -295,13 +295,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   /**
    * Change the server state to Follower if necessary
    * @param newTerm The new term.
-   * @param sync We will call {@link ServerState#persistMetadata()} if this is
-   *             set to true and term/votedFor get updated.
    * @return if the term/votedFor should be updated to the new term
    * @throws IOException if term/votedFor persistence failed.
    */
-  synchronized boolean changeToFollower(long newTerm, boolean sync)
-      throws IOException {
+  private synchronized boolean changeToFollower(long newTerm) {
     final RaftPeerRole old = role.getCurrentRole();
     final boolean metadataUpdated = state.updateCurrentTerm(newTerm);
 
@@ -314,11 +311,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
       startHeartbeatMonitor();
     }
+    return metadataUpdated;
+  }
 
-    if (metadataUpdated && sync) {
+  synchronized void changeToFollowerAndPersistMetadata(long newTerm) throws IOException {
+    if (changeToFollower(newTerm)) {
       state.persistMetadata();
     }
-    return metadataUpdated;
   }
 
   private synchronized void shutdownLeaderState(boolean allowNull) {
@@ -546,9 +545,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         cacheEntry.failWithReply(exceptionReply);
         // leader will step down here
         if (isLeader() && leaderState != null) {
-          leaderState.submitUpdateStateEvent(new LeaderState.StateUpdateEvent(
-              LeaderState.StateUpdateEventType.STEPDOWN,
-              leaderState.getCurrentTerm()));
+          leaderState.submitStepDownEvent();
         }
         return CompletableFuture.completedFuture(exceptionReply);
       }
@@ -777,7 +774,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             getId(), role, candidateId, candidateTerm, state.getLeaderId(), state.getCurrentTerm(),
             isFollower()? heartbeatMonitor.getLastRpcTime().elapsedTimeMs() + "ms": null);
       } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
-        boolean termUpdated = changeToFollower(candidateTerm, false);
+        final boolean termUpdated = changeToFollower(candidateTerm);
         // see Section 5.4.1 Election restriction
         if (state.isLogUpToDate(candidateLastEntry)) {
           heartbeatMonitor.updateLastRpcTime(false);
@@ -910,7 +907,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         }
         return CompletableFuture.completedFuture(reply);
       }
-      changeToFollower(leaderTerm, true);
+      changeToFollowerAndPersistMetadata(leaderTerm);
       state.setLeader(leaderId, "appendEntries");
 
       if (!initializing && lifeCycle.compareAndTransition(STARTING, RUNNING)) {
@@ -1010,7 +1007,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             " Reply: {}", getId(), reply);
         return reply;
       }
-      changeToFollower(leaderTerm, true);
+      changeToFollowerAndPersistMetadata(leaderTerm);
       state.setLeader(leaderId, "installSnapshot");
 
       if (lifeCycle.getCurrentState() == RUNNING) {
@@ -1062,10 +1059,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         groupId, term, lastEntry);
   }
 
-  public synchronized void submitLocalSyncEvent() {
-    if (isLeader() && leaderState != null) {
-      leaderState.submitUpdateStateEvent(LeaderState.UPDATE_COMMIT_EVENT);
-    }
+  public void submitUpdateCommitEvent() {
+    Optional.ofNullable(leaderState).ifPresent(LeaderState::submitUpdateCommitEvent);
   }
 
   /**
