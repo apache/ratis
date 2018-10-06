@@ -30,9 +30,12 @@ See the next section for more info.
 
 # Thirdparty
 
-We centralize all bundled thirdparty dependencies in the ratis-thirdparty module. This
-module is not attached to the core Ratis build as it only needs to change when one
-of these dependencies are changed. All dependencies included in ratis-thirdparty
+All bundled thirdparty dependencies are centralized in the *ratis-thirdparty* module
+and the *ratis-thirdparty-hadoop* module.
+These modules are located in a separated repository (https://github.com/apache/incubator-ratis-thirdparty)
+but not attached to the core Apache Ratis repository (https://git-wip-us.apache.org/repos/asf?p=incubator-ratis.git)
+as they only need to change when one of these dependencies are changed.
+All dependencies included in ratis-thirdparty/ratis-thirdparty-hadoop
 must be relocated to a different package to ensure no downstream classpath pollution.
 
 Ratis developers should rely on these relocated thirdparty classes.
@@ -50,7 +53,7 @@ build are limited only to the code in Ratis itself.
 | `com.google.thirdparty.publicsuffix`| `org.apache.ratis.thirdparty.com.google.thirdparty.publicsuffix` |
 | `io.grpc`                           | `org.apache.ratis.thirdparty.io.grpc`                            |
 | `io.netty`                          | `org.apache.ratis.thirdparty.io.netty`                           |
-| `org.apache.hadoop.ipc.protobuf`    | `org.apache.ratis.shaded.org.apache.hadoop.ipc.protobuf`         |
+| `org.apache.hadoop.ipc.protobuf`    | `org.apache.ratis.thirdparty.org.apache.hadoop.ipc.protobuf`     |
 
-All compiled protocol-buffer definitions in `ratis-shaded` are stored in the
+All compiled protocol-buffer definitions in `ratis-proto` are stored in the
 `org.apache.ratis.proto` Java package.
