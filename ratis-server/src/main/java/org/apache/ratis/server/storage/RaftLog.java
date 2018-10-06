@@ -94,8 +94,9 @@ public abstract class RaftLog implements Closeable {
         // paper for details.
         final TermIndex entry = getTermIndex(majorityIndex);
         if (entry != null && entry.getTerm() == currentTerm) {
-          LOG.debug("{}: Updating lastCommitted to {}", selfId, majorityIndex);
-          lastCommitted.set(majorityIndex);
+          final long commitIndex = Math.min(majorityIndex, getLatestFlushedIndex());
+          LOG.debug("{}: Updating lastCommitted to {}", selfId, commitIndex);
+          lastCommitted.set(commitIndex);
           return true;
         }
       }

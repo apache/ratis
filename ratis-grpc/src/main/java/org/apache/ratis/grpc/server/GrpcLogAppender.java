@@ -266,7 +266,7 @@ public class GrpcLogAppender extends LogAppender {
       LOG.warn("{}: Request not found, ignoring reply: {}", this, ServerProtoUtils.toString(reply));
       return;
     }
-    updateCommitIndex(request.getLeaderCommit());
+    updateCommitIndex(reply.getFollowerCommit());
 
     final long replyNextIndex = reply.getNextIndex();
     final long lastIndex = replyNextIndex - 1;

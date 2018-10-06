@@ -238,7 +238,7 @@ public class LogAppender {
         final AppendEntriesReplyProto r = server.getServerRpc().appendEntries(request);
         follower.updateLastRpcResponseTime();
 
-        updateCommitIndex(request.getLeaderCommit());
+        updateCommitIndex(r.getFollowerCommit());
         return r;
       } catch (InterruptedIOException | RaftLogIOException e) {
         throw e;

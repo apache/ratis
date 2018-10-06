@@ -895,12 +895,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     final long currentTerm;
     long nextIndex = state.getLog().getNextIndex();
+    long followerCommit = state.getLog().getLastCommittedIndex();
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-            leaderId, getId(), groupId, currentTerm, nextIndex, NOT_LEADER, callId);
+            leaderId, getId(), groupId, currentTerm, followerCommit, nextIndex, NOT_LEADER, callId);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
               getId(), leaderId, leaderTerm, state, ProtoUtils.toString(reply));
@@ -924,9 +925,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // last index included in snapshot. This is because indices <= snapshot's
       // last index should have been committed.
       if (previous != null && !containPrevious(previous)) {
-        final AppendEntriesReplyProto reply =
-            ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(), groupId,
-                currentTerm, Math.min(nextIndex, previous.getIndex()), INCONSISTENCY, callId);
+        final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
+            leaderId, getId(), groupId, currentTerm, followerCommit, Math.min(nextIndex, previous.getIndex()),
+            INCONSISTENCY, callId);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: inconsistency entries. Leader previous:{}, Reply:{}",
               getId(), previous, ServerProtoUtils.toString(reply));
@@ -937,33 +938,28 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       futures = state.getLog().append(entries);
 
       state.updateConfiguration(entries);
-      state.updateStatemachine(leaderCommit, currentTerm);
 
-      commitInfos.stream().forEach(c -> commitInfoCache.update(c));
+      commitInfos.forEach(commitInfoCache::update);
     }
     if (entries.length > 0) {
       CodeInjectionForTesting.execute(RaftLog.LOG_SYNC, getId(), null);
-      nextIndex = entries[entries.length - 1].getIndex() + 1;
     }
-    final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-        leaderId, getId(), groupId, currentTerm, nextIndex, SUCCESS, callId);
-    logAppendEntries(isHeartbeat,
-        () -> getId() + ": succeeded to handle AppendEntries. Reply: "
-            + ServerProtoUtils.toString(reply));
-    return JavaUtils.allOf(futures)
-        .thenApply(v -> {
-          // reset election timer to avoid punishing the leader for our own
-          // long disk writes
-          synchronized (this) {
-            if (lifeCycle.getCurrentState() == RUNNING && isFollower()
-                && getState().getCurrentTerm() == currentTerm) {
-              // reset election timer to avoid punishing the leader for our own
-              // long disk writes
-              heartbeatMonitor.updateLastRpcTime(false);
-            }
-          }
-          return reply;
-        });
+    return JavaUtils.allOf(futures).thenApply(v -> {
+      final AppendEntriesReplyProto reply;
+      synchronized(this) {
+        if (lifeCycle.getCurrentState() == RUNNING && isFollower()
+            && getState().getCurrentTerm() == currentTerm) {
+          // reset election timer to avoid punishing the leader for our own long disk writes
+          heartbeatMonitor.updateLastRpcTime(false);
+        }
+        state.updateStatemachine(leaderCommit, currentTerm);
+        reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(), groupId, currentTerm,
+            state.getLog().getLastCommittedIndex(), state.getLog().getNextIndex(), SUCCESS, callId);
+      }
+      logAppendEntries(isHeartbeat, () ->
+          getId() + ": succeeded to handle AppendEntries. Reply: " + ServerProtoUtils.toString(reply));
+      return reply;
+    });
   }
 
   private boolean containPrevious(TermIndex previous) {

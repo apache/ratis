@@ -76,7 +76,8 @@ public class ServerProtoUtils {
 
   public static String toString(AppendEntriesReplyProto reply) {
     return toString(reply.getServerReply()) + "," + reply.getResult()
-        + ",nextIndex:" + reply.getNextIndex() + ",term:" + reply.getTerm();
+        + ",nextIndex:" + reply.getNextIndex() + ",term:" + reply.getTerm()
+        + ",followerCommit" + reply.getFollowerCommit();
   }
 
   private static String toString(RaftRpcReplyProto reply) {
@@ -175,7 +176,7 @@ public class ServerProtoUtils {
 
   public static AppendEntriesReplyProto toAppendEntriesReplyProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, long term,
-      long nextIndex, AppendResult result, long callId) {
+      long followerCommit, long nextIndex, AppendResult result, long callId) {
     RaftRpcReplyProto.Builder rpcReply = toRaftRpcReplyProtoBuilder(
         requestorId, replyId, groupId, result == AppendResult.SUCCESS)
         .setCallId(callId);
@@ -183,6 +184,7 @@ public class ServerProtoUtils {
         .setServerReply(rpcReply)
         .setTerm(term)
         .setNextIndex(nextIndex)
+        .setFollowerCommit(followerCommit)
         .setResult(result).build();
   }
 
