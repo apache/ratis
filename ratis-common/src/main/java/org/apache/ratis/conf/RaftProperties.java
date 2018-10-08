@@ -48,6 +48,7 @@ import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 
 /** 
  * Provides access to configuration parameters. The current implementation is a
@@ -637,6 +638,26 @@ public class RaftProperties {
     return valueString == null? defaultValue: new File(valueString);
   }
 
+  /**
+   * Get the value of the <code>name</code> property as a list
+   * of <code>File</code>.
+   * The value of the property specifies a list of comma separated path names.
+   * If no such property is specified, then <code>defaultValue</code> is
+   * returned.
+   *
+   * @param name the property name.
+   * @param defaultValue default value.
+   * @return property value as a List of File, or <code>defaultValue</code>.
+   */
+  public List<File> getFiles(String name, List<File> defaultValue) {
+    String valueString = getRaw(name);
+    if (null == valueString) {
+      return defaultValue;
+    }
+    String[] paths = getTrimmedStrings(name);
+    return Arrays.stream(paths).map(File::new).collect(Collectors.toList());
+  }
+
   public void setFile(String name, File value) {
     try {
       set(name, value.getCanonicalPath());
@@ -644,6 +665,12 @@ public class RaftProperties {
       throw new IllegalArgumentException(
           "Failed to get canonical path from file " + value + " for " + name, e);
     }
+  }
+
+  public void setFiles(String name, List<File> value) {
+    String paths = value.stream().map(File::getAbsolutePath)
+        .collect(Collectors.joining(","));
+    set(name, paths);
   }
 
   /** @return property value; if it is not set, return the default value. */

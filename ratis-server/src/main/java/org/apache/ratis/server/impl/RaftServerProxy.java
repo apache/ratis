@@ -41,16 +41,19 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class RaftServerProxy implements RaftServer {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerProxy.class);
@@ -163,25 +166,27 @@ public class RaftServerProxy implements RaftServer {
 
   /** Check the storage dir and add groups*/
   void initGroups(RaftGroup group) {
-    final File dir = RaftServerConfigKeys.storageDir(properties);
-    if (dir.isDirectory()) {
-      for(File sub : dir.listFiles()) {
-        if (sub.isDirectory()) {
-          LOG.info("{}: found a subdirectory {}", getId(), sub);
-          try {
-            final RaftGroupId groupId = RaftGroupId.valueOf(UUID.fromString(sub.getName()));
-            if (group == null || !groupId.equals(group.getGroupId())) {
-              addGroup(RaftGroup.valueOf(groupId));
-            }
-          } catch(Throwable t) {
-            LOG.warn(getId() + ": Failed to initialize the group directory " + sub.getAbsolutePath() + ".  Ignoring it", t);
-          }
-        }
-      }
-    }
-    if (group != null) {
-      addGroup(group);
-    }
+
+    final Optional<RaftGroup> raftGroup = Optional.ofNullable(group);
+    final Optional<RaftGroupId> raftGroupId = raftGroup.map(RaftGroup::getGroupId);
+
+    RaftServerConfigKeys.storageDirs(properties).parallelStream()
+        .forEach((dir) -> Optional.ofNullable(dir.listFiles())
+            .map(Arrays::stream).orElse(Stream.empty())
+            .filter(File::isDirectory)
+            .forEach(sub -> {
+              try {
+                LOG.info("{}: found a subdirectory {}", getId(), sub);
+                final RaftGroupId groupId = RaftGroupId.valueOf(UUID.fromString(sub.getName()));
+                if (!raftGroupId.filter(groupId::equals).isPresent()) {
+                  addGroup(RaftGroup.valueOf(groupId));
+                }
+              } catch (Throwable t) {
+                LOG.warn(getId() + ": Failed to initialize the group directory "
+                    + sub.getAbsolutePath() + ".  Ignoring it", t);
+              }
+            }));
+    raftGroup.ifPresent(this::addGroup);
   }
 
   private CompletableFuture<RaftServerImpl> newRaftServerImpl(RaftGroup group) {

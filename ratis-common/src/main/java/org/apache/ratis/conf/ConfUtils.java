@@ -30,6 +30,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -132,6 +133,13 @@ public interface ConfUtils {
     return get(fileGetter, key, defaultValue, logger, assertions);
   }
 
+  @SafeVarargs
+  static List<File> getFiles(
+      BiFunction<String, List<File>, List<File>> fileGetter,
+      String key, List<File> defaultValue, Consumer<String> logger, BiConsumer<String, List<File>>... assertions) {
+    return get(fileGetter, key, defaultValue, logger, assertions);
+  }
+
 
   @SafeVarargs
   static SizeInBytes getSizeInBytes(
@@ -191,6 +199,13 @@ public interface ConfUtils {
   static void setFile(
       BiConsumer<String, File> fileSetter, String key, File value,
       BiConsumer<String, File>... assertions) {
+    set(fileSetter, key, value, assertions);
+  }
+
+  @SafeVarargs
+  static void setFiles(
+      BiConsumer<String, List<File>> fileSetter, String key, List<File> value,
+      BiConsumer<String, List<File>>... assertions) {
     set(fileSetter, key, value, assertions);
   }
 

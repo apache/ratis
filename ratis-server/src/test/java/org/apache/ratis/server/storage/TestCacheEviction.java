@@ -40,6 +40,7 @@ import org.mockito.Mockito;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -156,7 +157,7 @@ public class TestCacheEviction extends BaseTest {
     final int maxCachedNum = RaftServerConfigKeys.Log.maxCachedSegmentNum(prop);
 
     File storageDir = getTestDir();
-    RaftServerConfigKeys.setStorageDir(prop, storageDir);
+    RaftServerConfigKeys.setStorageDirs(prop,  Collections.singletonList(storageDir));
     RaftStorage storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
 
     RaftServerImpl server = Mockito.mock(RaftServerImpl.class);

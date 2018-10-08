@@ -25,6 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -39,12 +41,12 @@ public interface RaftServerConfigKeys {
   String PREFIX = "raft.server";
 
   String STORAGE_DIR_KEY = PREFIX + ".storage.dir";
-  File STORAGE_DIR_DEFAULT = new File("/tmp/raft-server/");
-  static File storageDir(RaftProperties properties) {
-    return getFile(properties::getFile, STORAGE_DIR_KEY, STORAGE_DIR_DEFAULT, getDefaultLog());
+  List<File> STORAGE_DIR_DEFAULT = Collections.singletonList(new File("/tmp/raft-server/"));
+  static List<File> storageDirs(RaftProperties properties) {
+    return getFiles(properties::getFiles, STORAGE_DIR_KEY, STORAGE_DIR_DEFAULT, getDefaultLog());
   }
-  static void setStorageDir(RaftProperties properties, File storageDir) {
-    setFile(properties::setFile, STORAGE_DIR_KEY, storageDir);
+  static void setStorageDirs(RaftProperties properties, List<File> storageDir) {
+    setFiles(properties::setFiles, STORAGE_DIR_KEY, storageDir);
   }
 
   /**

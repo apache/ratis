@@ -29,7 +29,6 @@ import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.ProtoUtils;
-import org.apache.ratis.util.SizeInBytes;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -41,6 +40,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -59,7 +59,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   public void setup() throws Exception {
     storageDir = getTestDir();
     RaftProperties properties = new RaftProperties();
-    RaftServerConfigKeys.setStorageDir(properties, storageDir);
+    RaftServerConfigKeys.setStorageDirs(properties,  Collections.singletonList(storageDir));
     this.segmentMaxSize =
         RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize =

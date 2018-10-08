@@ -41,6 +41,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
@@ -62,7 +63,7 @@ public class TestRaftLogSegment extends BaseTest {
   public void setup() throws Exception {
     RaftProperties properties = new RaftProperties();
     storageDir = getTestDir();
-    RaftServerConfigKeys.setStorageDir(properties, storageDir);
+    RaftServerConfigKeys.setStorageDirs(properties,  Collections.singletonList(storageDir));
     this.segmentMaxSize =
         RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize =

@@ -33,7 +33,14 @@ import org.apache.ratis.util.Timestamp;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -90,10 +97,10 @@ public class ServerState implements Closeable {
     configurationManager = new ConfigurationManager(initialConf);
     LOG.info("{}: {}", id, configurationManager);
 
-    final File dir = RaftServerConfigKeys.storageDir(prop);
     // use full uuid string to create a subdirectory
-    storage = new RaftStorage(new File(dir, group.getGroupId().getUuid().toString()),
-        RaftServerConstants.StartupOption.REGULAR);
+    final File dir = chooseStorageDir(RaftServerConfigKeys.storageDirs(prop),
+        group.getGroupId().getUuid().toString());
+    storage = new RaftStorage(dir, RaftServerConstants.StartupOption.REGULAR);
     snapshotManager = new SnapshotManager(storage, id);
 
     long lastApplied = initStatemachine(stateMachine, group.getGroupId());
@@ -118,6 +125,31 @@ public class ServerState implements Closeable {
 
     stateMachineUpdater = new StateMachineUpdater(stateMachine, server, log,
          lastApplied, prop);
+  }
+
+
+  static File chooseStorageDir(List<File> volumes, String targetSubDir) throws IOException {
+    final Map<File, Integer> numberOfStorageDirPerVolume = new HashMap<>();
+    final File[] empty = {};
+    final List<File> resultList = new ArrayList<>();
+    volumes.stream().flatMap(volume -> {
+      final File[] dirs = Optional.ofNullable(volume.listFiles()).orElse(empty);
+      numberOfStorageDirPerVolume.put(volume, dirs.length);
+      return Arrays.stream(dirs);
+    }).filter(dir -> targetSubDir.equals(dir.getName()))
+        .forEach(resultList::add);
+
+    if (resultList.size() > 1) {
+      throw new IOException("More than one directories found for " + targetSubDir + ": " + resultList);
+    }
+    if (resultList.size() == 1) {
+      return resultList.get(0);
+    }
+    return numberOfStorageDirPerVolume.entrySet().stream()
+        .min(Comparator.comparing(Map.Entry::getValue))
+        .map(Map.Entry::getKey)
+        .map(v -> new File(v, targetSubDir))
+        .orElseThrow(() -> new IOException("No storage directory found."));
   }
 
   private long initStatemachine(StateMachine sm, RaftGroupId groupId)

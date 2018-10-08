@@ -33,6 +33,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.NetUtils;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.Objects;
 
 /**
@@ -59,7 +60,7 @@ public class Server extends SubCommandBase {
     final int port = NetUtils.createSocketAddr(getPeer(peerId).getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
-    RaftServerConfigKeys.setStorageDir(properties, storageDir);
+    RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(storageDir));
     StateMachine stateMachine = new ArithmeticStateMachine();
 
     final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(raftGroupId)), peers);
