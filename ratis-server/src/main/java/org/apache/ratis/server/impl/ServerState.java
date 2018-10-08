@@ -35,7 +35,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static org.apache.ratis.server.impl.RaftServerImpl.LOG;
@@ -63,23 +62,23 @@ public class ServerState implements Closeable {
    * Latest term server has seen. initialized to 0 on first boot, increases
    * monotonically.
    */
-  private long currentTerm;
+  private volatile long currentTerm;
   /**
    * The server ID of the leader for this term. Null means either there is
    * no leader for this term yet or this server does not know who it is yet.
    */
-  private RaftPeerId leaderId;
+  private volatile RaftPeerId leaderId;
   /**
    * Candidate that this peer granted vote for in current term (or null if none)
    */
-  private RaftPeerId votedFor;
+  private volatile RaftPeerId votedFor;
 
   /**
    * Latest installed snapshot for this server. This maybe different than StateMachine's latest
    * snapshot. Once we successfully install a snapshot, the SM may not pick it up immediately.
    * Further, this will not get updated when SM does snapshots itself.
    */
-  private TermIndex latestInstalledSnapshot;
+  private volatile TermIndex latestInstalledSnapshot;
 
   ServerState(RaftPeerId id, RaftGroup group, RaftProperties prop,
               RaftServerImpl server, StateMachine stateMachine)

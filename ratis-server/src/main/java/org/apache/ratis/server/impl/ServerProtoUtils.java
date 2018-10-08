@@ -211,4 +211,14 @@ public class ServerProtoUtils {
     return b.build();
   }
 
+  static ServerRpcProto toServerRpcProto(RaftPeer peer, long delay) {
+    if (peer == null) {
+      // if no peer information return empty
+      return ServerRpcProto.getDefaultInstance();
+    }
+    return ServerRpcProto.newBuilder()
+        .setId(ProtoUtils.toRaftPeerProto(peer))
+        .setLastRpcElapsedTimeMs(delay)
+        .build();
+  }
 }

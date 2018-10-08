@@ -83,7 +83,7 @@ public class RaftServerTestUtil {
   }
 
   public static Stream<LogAppender> getLogAppenders(RaftServerImpl server) {
-    return server.getLeaderState().getLogAppenders();
+    return server.getRole().getLeaderState().map(LeaderState::getLogAppenders).orElse(null);
   }
 
   public static Logger getStateMachineUpdaterLog() {

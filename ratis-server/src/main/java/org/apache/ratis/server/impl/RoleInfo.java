@@ -18,20 +18,38 @@
 
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.Timestamp;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Maintain the Role of a Raft Peer.
  */
 public class RoleInfo {
+  public static final Logger LOG = LoggerFactory.getLogger(RoleInfo.class);
 
+  private final RaftPeerId id;
   private volatile RaftPeerRole role;
+  /** Used when the peer is leader */
+  private final AtomicReference<LeaderState> leaderState = new AtomicReference<>();
+  /** Used when the peer is follower, to monitor election timeout */
+  private final AtomicReference<FollowerState> followerState = new AtomicReference<>();
+  /** Used when the peer is candidate, to request votes from other peers */
+  private final AtomicReference<LeaderElection> leaderElection = new AtomicReference<>();
+
   private final AtomicReference<Timestamp> transitionTime;
 
-  RoleInfo() {
+  RoleInfo(RaftPeerId id) {
+    this.id = id;
     this.transitionTime = new AtomicReference<>(new Timestamp());
   }
 
@@ -58,6 +76,68 @@ public class RoleInfo {
 
   public boolean isLeader() {
     return role == RaftPeerRole.LEADER;
+  }
+
+  Optional<LeaderState> getLeaderState() {
+    return Optional.ofNullable(leaderState.get());
+  }
+
+  LeaderState getLeaderStateNonNull() {
+    return Objects.requireNonNull(leaderState.get(), "leaderState is null");
+  }
+
+  LogEntryProto startLeaderState(RaftServerImpl server, RaftProperties properties) {
+    return updateAndGet(leaderState, new LeaderState(server, properties)).start();
+  }
+
+  void shutdownLeaderState(boolean allowNull) {
+    final LeaderState leader = leaderState.getAndSet(null);
+    if (leader == null) {
+      if (!allowNull) {
+        throw new NullPointerException("leaderState == null");
+      }
+    } else {
+      LOG.info("{}: shutdown {}", id, leader.getClass().getSimpleName());
+      leader.stop();
+    }
+    // TODO: make sure that StateMachineUpdater has applied all transactions that have context
+  }
+
+  Optional<FollowerState> getFollowerState() {
+    return Optional.ofNullable(followerState.get());
+  }
+
+  void startFollowerState(RaftServerImpl server) {
+    updateAndGet(followerState, new FollowerState(server)).start();
+  }
+
+  void shutdownFollowerState() {
+    final FollowerState follower = followerState.getAndSet(null);
+    if (follower != null) {
+      LOG.info("{}: shutdown {}", id, follower.getClass().getSimpleName());
+      follower.stopRunning();
+      follower.interrupt();
+    }
+  }
+
+  void startLeaderElection(RaftServerImpl server) {
+    updateAndGet(leaderElection, new LeaderElection(server)).start();
+  }
+
+  void shutdownLeaderElection() {
+    final LeaderElection election = leaderElection.getAndSet(null);
+    if (election != null) {
+      LOG.info("{}: shutdown {}", id, election.getClass().getSimpleName());
+      election.stopRunning();
+      // no need to interrupt the election thread
+    }
+  }
+
+  private <T> T updateAndGet(AtomicReference<T> ref, T current) {
+    final T updated = ref.updateAndGet(previous -> previous != null? previous: current);
+    Preconditions.assertTrue(updated == current, "previous != null");
+    LOG.info("{}: start {}", id, current.getClass().getSimpleName());
+    return updated;
   }
 
   @Override
