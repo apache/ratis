@@ -21,6 +21,10 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.Objects;
 
+import org.apache.ratis.proto.logservice.LogServiceProtos.LogNameProto;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
+
 /**
  * Identifier to uniquely identify a {@link LogStream}.
  */
@@ -42,7 +46,7 @@ public class LogName {
    * of identifying one LogStream/LogName from another. Users need only know how to construct a {@link LogName}
    * and then use that in their application.
    */
-  String getName() {
+  public String getName() {
     return name;
   }
 
@@ -75,5 +79,11 @@ public class LogName {
   public static LogName of(String name) {
     // TODO Limit allowed characters in the name?
     return new LogName(name);
+  }
+
+  public static LogName parseFrom(ByteString logName)
+      throws InvalidProtocolBufferException {
+    LogNameProto logNameProto = LogNameProto.parseFrom(logName);
+    return new LogName(logNameProto.getName());
   }
 }

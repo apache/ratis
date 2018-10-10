@@ -33,3 +33,83 @@ message LogMessage {
 	uint64 length = 3;
 	bytes  data = 4;
 }
+message LogServiceRequestProto {
+  oneof Request {
+    LogMessage logMessage = 1;
+    CreateLogRequestProto createLog = 2;
+    ListLogsRequestProto listLogs = 3;
+    GetLogRequestProto getLog = 4;
+    CloseLogRequestProto closeLog = 5;
+    GetStateRequestProto getState = 6;
+    ArchiveLogRequestProto archiveLog = 7;
+    DeleteLogRequestProto deleteLog = 8;
+  }
+}
+
+message LogNameProto {
+  string name = 1;
+}
+
+message CreateLogRequestProto {
+  LogNameProto logName = 1;
+}
+
+message ListLogsRequestProto {
+  repeated LogStreamProto logSreams = 1;
+}
+
+message GetLogRequestProto {
+  LogNameProto logName = 1;
+}
+
+message CloseLogRequestProto {
+  LogNameProto logName = 1;
+}
+
+message GetStateRequestProto {
+  LogNameProto logName = 1;
+}
+
+message ArchiveLogRequestProto {
+  LogNameProto logName = 1;
+}
+
+message DeleteLogRequestProto {
+  LogNameProto logName = 1;
+}
+
+message LogStreamProto {
+  LogNameProto logName = 1;
+  uint64 size = 2;
+  LogStreamState state = 3;
+}
+
+enum LogStreamState {
+  OPEN = 0;
+  CLOSED = 1;
+}
+
+message CreateLogReplyProto {
+  LogStreamProto logStream = 1;
+}
+
+message GetLogReplyProto {
+  LogStreamProto logStream = 1;
+}
+
+message ListLogsReplyProto {
+  repeated LogStreamProto logStrems = 1;
+}
+
+message CloseLogReplyProto {
+}
+
+message GetStateReplyProto {
+  LogStreamState state = 1;
+}
+
+message ArchiveLogReplyProto {
+}
+
+message DeleteLogReplyProto {
+}

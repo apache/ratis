@@ -17,28 +17,8 @@
  */
 package org.apache.ratis.logservice;
 
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.logservice.api.LogService;
-import org.apache.ratis.logservice.impl.LogServiceImpl;
+import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
 
-public class LogServiceFactory {
-  private static final LogServiceFactory INSTANCE = new LogServiceFactory();
-
-  private LogServiceFactory() {}
-
-  /**
-   * Creates an implementation of {@link LogService} using the given {@link RaftClient}.
-   *
-   * @param raftClient The client to a Raft quorum.
-   */
-  public LogService createLogService(RaftClient raftClient) {
-    return new LogServiceImpl(raftClient);
-  }
-
-  /**
-   * Returns an instance of the factory to create {@link LogService} instances.
-   */
-  public static LogServiceFactory getInstance() {
-    return INSTANCE;
-  }
+public class TestLogServiceWithGrpc extends LogServiceBaseTest<MiniRaftClusterWithGrpc>
+    implements MiniRaftClusterWithGrpc.FactoryGet {
 }

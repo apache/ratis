@@ -37,7 +37,7 @@ public interface LogService extends AutoCloseable {
    *
    * @param name Unique name for this LogStream.
    */
-  LogStream createLog(LogName name);
+  LogStream createLog(LogName name) throws IOException;
 
   /**
    * Creates a new {@link LogStream} identified by the given name. Throws
@@ -46,7 +46,7 @@ public interface LogService extends AutoCloseable {
    * @param name Unique name for this LogStream.
    * @param config Configuration object for this LogStream
    */
-  LogStream createLog(LogName name, LogStreamConfiguration config);
+  LogStream createLog(LogName name, LogStreamConfiguration config) throws IOException;
 
   /*
    * How to get LogStreams that already exist
@@ -56,12 +56,12 @@ public interface LogService extends AutoCloseable {
    *
    * @param name The name of the LogStream
    */
-  LogStream getLog(LogName name);
+  LogStream getLog(LogName name) throws IOException;
 
   /**
    * Lists all {@link LogStream} instances known by this LogService.
    */
-  Iterator<LogStream> listLogs();
+  Iterator<LogStream> listLogs() throws IOException;
 
   /*
    * How to close, archive, and delete LogStreams
@@ -74,14 +74,14 @@ public interface LogService extends AutoCloseable {
    * @param name The name of the log to close
    */
   // TODO this name sucks, confusion WRT the Java Closeable interface.
-  void closeLog(LogName name);
+  void closeLog(LogName name) throws IOException;
 
   /**
    * Returns the current {@link State} of the log identified by {@code name}.
    *
    * @param name The name of a log
    */
-  State getState(LogName name);
+  State getState(LogName name) throws IOException;
 
   /**
    * Archives the given log out of the state machine and into a configurable long-term storage. A log must be
@@ -89,13 +89,13 @@ public interface LogService extends AutoCloseable {
    *
    * @param name The name of the log to archive.
    */
-  void archiveLog(LogName name);
+  void archiveLog(LogName name) throws IOException;
 
   /**
    * Deletes the {@link LogStream}.
    * @param name The name of the LogStream
    */
-  void deleteLog(LogName name);
+  void deleteLog(LogName name) throws IOException;
 
   /*
    * Change the configuration of a LogStream or manipulate a LogStream's listeners
