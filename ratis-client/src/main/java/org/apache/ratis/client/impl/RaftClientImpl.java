@@ -40,6 +40,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.STALEREAD;
+import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.WATCH;
 
 /** A client who sends requests to a raft service. */
 final class RaftClientImpl implements RaftClient {
@@ -149,14 +150,21 @@ final class RaftClientImpl implements RaftClient {
     return sendAsync(RaftClientRequest.staleReadRequestType(minIndex), message, server);
   }
 
+  @Override
+  public CompletableFuture<RaftClientReply> sendWatchAsync(long index, ReplicationLevel replication) {
+    return sendAsync(RaftClientRequest.watchRequestType(index, replication), null, null);
+  }
+
   private CompletableFuture<RaftClientReply> sendAsync(
       RaftClientRequest.Type type, Message message, RaftPeerId server) {
-    Objects.requireNonNull(message, "message == null");
+    if (!type.is(WATCH)) {
+      Objects.requireNonNull(message, "message == null");
+    }
     try {
       asyncRequestSemaphore.acquire();
     } catch (InterruptedException e) {
       throw new CompletionException(IOUtils.toInterruptedIOException(
-          "Interrupted when sending " + message, e));
+          "Interrupted when sending " + type + ", message=" + message, e));
     }
     final long callId = nextCallId();
     final LongFunction<PendingAsyncRequest> constructor = seqNum -> new PendingAsyncRequest(seqNum,
@@ -189,9 +197,16 @@ final class RaftClientImpl implements RaftClient {
     return send(RaftClientRequest.staleReadRequestType(minIndex), message, server);
   }
 
+  @Override
+  public RaftClientReply sendWatch(long index, ReplicationLevel replication) throws IOException {
+    return send(RaftClientRequest.watchRequestType(index, replication), null, null);
+  }
+
   private RaftClientReply send(RaftClientRequest.Type type, Message message, RaftPeerId server)
       throws IOException {
-    Objects.requireNonNull(message, "message == null");
+    if (!type.is(WATCH)) {
+      Objects.requireNonNull(message, "message == null");
+    }
 
     final long callId = nextCallId();
     return sendRequestWithRetry(() -> newRaftClientRequest(
@@ -292,7 +307,11 @@ final class RaftClientImpl implements RaftClient {
       }
       return reply;
     }).exceptionally(e -> {
-      LOG.debug("{}: Failed {} with {}", clientId, request, e);
+      if (LOG.isTraceEnabled()) {
+        LOG.trace(clientId + ": Failed " + request, e);
+      } else {
+        LOG.debug("{}: Failed {} with {}", clientId, request, e);
+      }
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof GroupMismatchException) {
         throw new CompletionException(e);

@@ -85,7 +85,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   static class Blocking {
     enum Type {
-      START_TRANSACTION, READ_STATE_MACHINE_DATA, WRITE_STATE_MACHINE_DATA
+      START_TRANSACTION, READ_STATE_MACHINE_DATA, WRITE_STATE_MACHINE_DATA, FLUSH_STATE_MACHINE_DATA
     }
 
     private final EnumMap<Type, CompletableFuture<Void>> maps = new EnumMap<>(Type.class);
@@ -299,6 +299,12 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
+  public CompletableFuture<Void> flushStateMachineData(long index) {
+    blocking.await(Blocking.Type.FLUSH_STATE_MACHINE_DATA);
+    return CompletableFuture.completedFuture(null);
+  }
+
+  @Override
   public void close() {
     lifeCycle.checkStateAndClose(() -> {
       running = false;
@@ -322,6 +328,13 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
   public void unblockWriteStateMachineData() {
     blocking.unblock(Blocking.Type.WRITE_STATE_MACHINE_DATA);
+  }
+
+  public void blockFlushStateMachineData() {
+    blocking.block(Blocking.Type.FLUSH_STATE_MACHINE_DATA);
+  }
+  public void unblockFlushStateMachineData() {
+    blocking.unblock(Blocking.Type.FLUSH_STATE_MACHINE_DATA);
   }
 
   @Override

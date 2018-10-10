@@ -520,6 +520,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       return processQueryFuture(stateMachine.query(request.getMessage()), request);
     }
 
+    if (request.is(RaftClientRequestProto.TypeCase.WATCH)) {
+      return watchAsync(request);
+    }
+
     // query the retry cache
     RetryCache.CacheQueryResult previousResult = retryCache.queryCache(
         request.getClientId(), request.getCallId());
@@ -541,6 +545,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       return CompletableFuture.completedFuture(exceptionReply);
     }
     return appendTransaction(request, context, cacheEntry);
+  }
+
+  private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
+    return role.getLeaderState()
+        .map(ls -> ls.addWatchReqeust(request).thenApply(v -> new RaftClientReply(request, getCommitInfos())))
+        .orElseGet(() -> CompletableFuture.completedFuture(
+            new RaftClientReply(request, generateNotLeaderException(), getCommitInfos())));
   }
 
   private CompletableFuture<RaftClientReply> staleReadAsync(RaftClientRequest request) {
@@ -999,6 +1010,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         groupId, term, lastEntry);
   }
 
+  void commitIndexChanged() {
+    role.getLeaderState().ifPresent(LeaderState::commitIndexChanged);
+  }
+
   public void submitUpdateCommitEvent() {
     role.getLeaderState().ifPresent(LeaderState::submitUpdateCommitEvent);
   }
@@ -1022,15 +1037,16 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       retryCache.refreshEntry(new RetryCache.CacheEntry(cacheEntry.getKey()));
     }
 
+    final long logIndex = logEntry.getIndex();
     return stateMachineFuture.whenComplete((reply, exception) -> {
       final RaftClientReply r;
       if (exception == null) {
-        r = new RaftClientReply(clientId, serverId, groupId, callId, true, reply, null, getCommitInfos());
+        r = new RaftClientReply(clientId, serverId, groupId, callId, true, reply, null, logIndex, getCommitInfos());
       } else {
         // the exception is coming from the state machine. wrap it into the
         // reply as a StateMachineException
         final StateMachineException e = new StateMachineException(getId(), exception);
-        r = new RaftClientReply(clientId, serverId, groupId, callId, false, null, e, getCommitInfos());
+        r = new RaftClientReply(clientId, serverId, groupId, callId, false, null, e, logIndex, getCommitInfos());
       }
 
       // update pending request
@@ -1040,7 +1056,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         if (isLeader() && leaderState != null) { // is leader and is running
           // For leader, update cache unless the reply is delayed.
           // When a reply is delayed, the cache will be updated in DelayedReply.getReply().
-          updateCache = leaderState.replyPendingRequest(logEntry.getIndex(), r, cacheEntry);
+          updateCache = leaderState.replyPendingRequest(logIndex, r, cacheEntry);
         }
       }
       if (updateCache) {
@@ -1091,7 +1107,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final RetryCache.CacheEntry cacheEntry = getRetryCache().get(clientId, logEntry.getCallId());
       if (cacheEntry != null) {
         final RaftClientReply reply = new RaftClientReply(clientId, getId(), getGroupId(),
-            logEntry.getCallId(), false, null, generateNotLeaderException(), getCommitInfos());
+            logEntry.getCallId(), false, null, generateNotLeaderException(),
+            logEntry.getIndex(), getCommitInfos());
         cacheEntry.failWithReply(reply);
       }
     }

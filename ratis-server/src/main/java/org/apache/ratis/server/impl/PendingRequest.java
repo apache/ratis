@@ -17,12 +17,14 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.impl.RetryCache.CacheEntry;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
 
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -111,8 +113,8 @@ public class PendingRequest implements Comparable<PendingRequest> {
     setReply(delayed.fail(e));
   }
 
-  TransactionContext setNotLeaderException(NotLeaderException nle) {
-    setReply(new RaftClientReply(getRequest(), nle, null));
+  TransactionContext setNotLeaderException(NotLeaderException nle, Collection<CommitInfoProto> commitInfos) {
+    setReply(new RaftClientReply(getRequest(), nle, commitInfos));
     return getEntry();
   }
 

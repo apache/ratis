@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -33,6 +34,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -173,6 +175,7 @@ public class LeaderState {
   private final EventQueue eventQueue = new EventQueue();
   private final EventProcessor processor;
   private final PendingRequests pendingRequests;
+  private final WatchRequests watchRequests;
   private volatile boolean running = true;
 
   private final int stagingCatchupGap;
@@ -189,7 +192,8 @@ public class LeaderState {
     this.raftLog = state.getLog();
     this.currentTerm = state.getCurrentTerm();
     processor = new EventProcessor();
-    pendingRequests = new PendingRequests(server);
+    this.pendingRequests = new PendingRequests(server.getId());
+    this.watchRequests = new WatchRequests(server);
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
@@ -229,8 +233,12 @@ public class LeaderState {
     this.running = false;
     // do not interrupt event processor since it may be in the middle of logSync
     senders.forEach(LogAppender::stopAppender);
+    final NotLeaderException nle = server.generateNotLeaderException();
+    final Collection<CommitInfoProto> commitInfos = server.getCommitInfos();
     try {
-      pendingRequests.sendNotLeaderResponses();
+      final Collection<TransactionContext> transactions = pendingRequests.sendNotLeaderResponses(nle, commitInfos);
+      server.getStateMachine().notifyNotLeader(transactions);
+      watchRequests.failWatches(nle);
     } catch (IOException e) {
       LOG.warn(server.getId() + ": Caught exception in sendNotLeaderResponses", e);
     }
@@ -284,6 +292,24 @@ public class LeaderState {
       TransactionContext entry) {
     LOG.debug("{}: addPendingRequest at index={}, request={}", server.getId(), index, request);
     return pendingRequests.addPendingRequest(index, request, entry);
+  }
+
+  CompletableFuture<Void> addWatchReqeust(RaftClientRequest request) {
+    LOG.debug("{}: addWatchRequest {}", server.getId(), request);
+    return watchRequests.add(request.getType().getWatch());
+  }
+
+  void commitIndexChanged() {
+    final long leader = raftLog.getLastCommittedIndex();
+    final long min = senders.stream()
+        .map(LogAppender::getFollower)
+        .map(FollowerInfo::getCommitIndex)
+        .min(Long::compare)
+        .orElse(leader); // it happens only if senders.isEmpty()
+    Preconditions.assertTrue(leader >= min); // leader commit index should always be ahead followers
+
+    watchRequests.update(ReplicationLevel.MAJORITY, leader);
+    watchRequests.update(ReplicationLevel.ALL_COMMITTED, min);
   }
 
   private void applyOldNewConf() {
@@ -510,10 +536,13 @@ public class LeaderState {
       // the log gets purged after the statemachine does a snapshot
       final TermIndex[] entriesToCommit = raftLog.getEntries(
           oldLastCommitted + 1, majority + 1);
-      server.getState().updateStatemachine(majority, currentTerm);
+      if (server.getState().updateStatemachine(majority, currentTerm)) {
+        commitIndexChanged();
+      }
       checkAndUpdateConfiguration(entriesToCommit);
     }
 
+    watchRequests.update(ReplicationLevel.ALL, min);
     pendingRequests.checkDelayedReplies(min);
   }
 
@@ -533,7 +562,7 @@ public class LeaderState {
       if (conf.isTransitional()) {
         replicateNewConf();
       } else { // the (new) log entry has been committed
-        pendingRequests.replySetConfiguration();
+        pendingRequests.replySetConfiguration(server::getCommitInfos);
         // if the leader is not included in the current configuration, step down
         if (!conf.containsInConf(server.getId())) {
           LOG.info("{} is not included in the new configuration {}. Step down.",

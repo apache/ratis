@@ -76,6 +76,8 @@ public interface ClientProtoUtils {
         return RaftClientRequest.Type.valueOf(p.getRead());
       case STALEREAD:
         return RaftClientRequest.Type.valueOf(p.getStaleRead());
+      case WATCH:
+        return RaftClientRequest.Type.valueOf(p.getWatch());
       default:
         throw new IllegalArgumentException("Unexpected request type: " + p.getTypeCase()
             + " in request proto " + p);
@@ -98,8 +100,10 @@ public interface ClientProtoUtils {
   static RaftClientRequestProto toRaftClientRequestProto(
       RaftClientRequest request) {
     final RaftClientRequestProto.Builder b = RaftClientRequestProto.newBuilder()
-        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .setMessage(toClientMessageEntryProtoBuilder(request.getMessage()));
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request));
+    if (request.getMessage() != null) {
+      b.setMessage(toClientMessageEntryProtoBuilder(request.getMessage()));
+    }
 
     final RaftClientRequest.Type type = request.getType();
     switch (type.getTypeCase()) {
@@ -111,6 +115,9 @@ public interface ClientProtoUtils {
         break;
       case STALEREAD:
         b.setStaleRead(type.getStaleRead());
+        break;
+      case WATCH:
+        b.setWatch(type.getWatch());
         break;
       default:
         throw new IllegalArgumentException("Unexpected request type: " + request.getType()
@@ -131,13 +138,13 @@ public interface ClientProtoUtils {
         .build();
   }
 
-  static RaftClientReplyProto toRaftClientReplyProto(
-      RaftClientReply reply) {
+  static RaftClientReplyProto toRaftClientReplyProto(RaftClientReply reply) {
     final RaftClientReplyProto.Builder b = RaftClientReplyProto.newBuilder();
     if (reply != null) {
       b.setRpcReply(toRaftRpcReplyProtoBuilder(reply.getClientId().toByteString(),
           reply.getServerId().toByteString(), reply.getRaftGroupId(),
           reply.getCallId(), reply.isSuccess()));
+      b.setLogIndex(reply.getLogIndex());
       if (reply.getMessage() != null) {
         b.setMessage(toClientMessageEntryProtoBuilder(reply.getMessage()));
       }
@@ -223,7 +230,7 @@ public interface ClientProtoUtils {
     return new RaftClientReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
         groupId, rp.getCallId(), rp.getSuccess(),
         toMessage(replyProto.getMessage()), e,
-        replyProto.getCommitInfosList());
+        replyProto.getLogIndex(), replyProto.getCommitInfosList());
   }
 
   static ServerInformationReply toServerInformationReply(

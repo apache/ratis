@@ -45,6 +45,9 @@ public interface RaftClientConfigKeys {
       return getTimeDuration(properties.getTimeDuration(RETRY_INTERVAL_DEFAULT.getUnit()),
           RETRY_INTERVAL_KEY, RETRY_INTERVAL_DEFAULT, getDefaultLog());
     }
+    static void setRetryInterval(RaftProperties properties, TimeDuration timeoutDuration) {
+      setTimeDuration(properties::setTimeDuration, RETRY_INTERVAL_KEY, timeoutDuration);
+    }
 
     String REQUEST_TIMEOUT_KEY = PREFIX + ".request.timeout";
     TimeDuration REQUEST_TIMEOUT_DEFAULT = TimeDuration.valueOf(3000, TimeUnit.MILLISECONDS);

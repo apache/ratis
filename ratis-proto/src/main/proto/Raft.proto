@@ -174,8 +174,14 @@ message ClientMessageEntryProto {
 }
 
 enum ReplicationLevel {
+  /** Committed at the leader and replicated to the majority of peers. */
   MAJORITY = 0;
+  /** Committed at the leader and replicated to all peers.
+       Note that ReplicationLevel.ALL implies ReplicationLevel.MAJORITY. */
   ALL = 1;
+  /** Committed at all peers.
+      Note that ReplicationLevel.ALL_COMMITTED implies ReplicationLevel.ALL. */
+  ALL_COMMITTED = 2;
 }
 
 
@@ -197,6 +203,11 @@ message StaleReadRequestTypeProto {
   uint64 minIndex = 1;
 }
 
+message WatchRequestTypeProto {
+  uint64 index = 1;
+  ReplicationLevel replication = 2;
+}
+
 // normal client request
 message RaftClientRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
@@ -206,6 +217,7 @@ message RaftClientRequestProto {
     WriteRequestTypeProto write = 3;
     ReadRequestTypeProto read = 4;
     StaleReadRequestTypeProto staleRead = 5;
+    WatchRequestTypeProto watch = 6;
   }
 }
 
@@ -236,6 +248,7 @@ message RaftClientReplyProto {
     StateMachineExceptionProto stateMachineException = 5;
   }
 
+  uint64 logIndex = 14; // When the request is a write request and the reply is success, the log index of the transaction
   repeated CommitInfoProto commitInfos = 15;
 }
 

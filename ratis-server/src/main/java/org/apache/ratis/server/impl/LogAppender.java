@@ -244,7 +244,7 @@ public class LogAppender {
         throw e;
       } catch (IOException ioe) {
         // TODO should have more detailed retry policy here.
-        if (retry % 10 == 1) { // to reduce the number of messages
+        if (retry++ % 10 == 0) { // to reduce the number of messages
           LOG.warn("{}: Failed to appendEntries (retry={}): {}", this, retry++, ioe);
         }
         handleException(ioe);
@@ -257,7 +257,9 @@ public class LogAppender {
   }
 
   protected void updateCommitIndex(long commitIndex) {
-    follower.updateCommitIndex(commitIndex);
+    if (follower.updateCommitIndex(commitIndex)) {
+      server.commitIndexChanged();
+    }
   }
 
   protected class SnapshotRequestIter

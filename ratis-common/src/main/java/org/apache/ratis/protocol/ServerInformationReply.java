@@ -43,7 +43,7 @@ public class ServerInformationReply extends RaftClientReply {
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, boolean success, RoleInfoProto roleInfoProto,
       boolean isRaftStorageHealthy, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
-    super(clientId, serverId, groupId, callId, success, null, null, commitInfos);
+    super(clientId, serverId, groupId, callId, success, null, null, 0L, commitInfos);
     this.roleInfoProto = roleInfoProto;
     this.isRaftStorageHealthy = isRaftStorageHealthy;
     this.group = group;

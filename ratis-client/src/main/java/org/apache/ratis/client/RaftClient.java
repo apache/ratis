@@ -66,6 +66,9 @@ public interface RaftClient extends Closeable {
   /** Async call to send the given stale-read message to the given server (not the raft service). */
   CompletableFuture<RaftClientReply> sendStaleReadAsync(Message message, long minIndex, RaftPeerId server);
 
+  /** Async call to watch the given index to satisfy the given replication level. */
+  CompletableFuture<RaftClientReply> sendWatchAsync(long index, ReplicationLevel replication);
+
   /**
    * Send the given message to the raft service.
    * The message may change the state of the service.
@@ -87,6 +90,9 @@ public interface RaftClient extends Closeable {
 
   /** Send the given stale-read message to the given server (not the raft service). */
   RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server) throws IOException;
+
+  /** Watch the given index to satisfy the given replication level. */
+  RaftClientReply sendWatch(long index, ReplicationLevel replication) throws IOException;
 
   /** Send set configuration request to the raft service. */
   RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException;

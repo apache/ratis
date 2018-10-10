@@ -43,18 +43,20 @@ public class RaftClientReply extends RaftClientMessage {
   private final RaftException exception;
   private final Message message;
 
+  private final long logIndex;
   /** The commit information when the reply is created. */
   private final Collection<CommitInfoProto> commitInfos;
 
   public RaftClientReply(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, boolean success, Message message, RaftException exception,
-      Collection<CommitInfoProto> commitInfos) {
+      long logIndex, Collection<CommitInfoProto> commitInfos) {
     super(clientId, serverId, groupId);
     this.success = success;
     this.callId = callId;
     this.message = message;
     this.exception = exception;
+    this.logIndex = logIndex;
     this.commitInfos = commitInfos != null? commitInfos: Collections.emptyList();
 
     if (exception != null) {
@@ -68,7 +70,7 @@ public class RaftClientReply extends RaftClientMessage {
 
   public RaftClientReply(RaftClientRequest request, RaftException exception, Collection<CommitInfoProto> commitInfos) {
     this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
-        request.getCallId(), false, null, exception, commitInfos);
+        request.getCallId(), false, null, exception, 0L, commitInfos);
   }
 
   public RaftClientReply(RaftClientRequest request, Collection<CommitInfoProto> commitInfos) {
@@ -77,12 +79,12 @@ public class RaftClientReply extends RaftClientMessage {
 
   public RaftClientReply(RaftClientRequest request, Message message, Collection<CommitInfoProto> commitInfos) {
     this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
-        request.getCallId(), true, message, null, commitInfos);
+        request.getCallId(), true, message, null, 0L, commitInfos);
   }
 
   public RaftClientReply(RaftClientReply reply, NotReplicatedException nre) {
     this(reply.getClientId(), reply.getServerId(), reply.getRaftGroupId(),
-        reply.getCallId(), false, reply.getMessage(), nre, reply.getCommitInfos());
+        reply.getCallId(), false, reply.getMessage(), nre, reply.getLogIndex(), reply.getCommitInfos());
   }
 
   /**
@@ -104,11 +106,15 @@ public class RaftClientReply extends RaftClientMessage {
     return callId;
   }
 
+  public long getLogIndex() {
+    return logIndex;
+  }
+
   @Override
   public String toString() {
     return super.toString() + ", cid=" + getCallId() + ", "
         + (isSuccess()? "SUCCESS":  "FAILED " + exception)
-        + ", commits" + ProtoUtils.toString(commitInfos);
+        + ", logIndex=" + getLogIndex() + ", commits" + ProtoUtils.toString(commitInfos);
   }
 
   public boolean isSuccess() {

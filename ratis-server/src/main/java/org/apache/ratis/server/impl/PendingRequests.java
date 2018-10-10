@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.impl.RetryCache.CacheEntry;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
@@ -26,12 +27,12 @@ import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 class PendingRequests {
@@ -63,11 +64,11 @@ class PendingRequests {
       return r;
     }
 
-    Collection<TransactionContext> setNotLeaderException(NotLeaderException nle) {
+    Collection<TransactionContext> setNotLeaderException(NotLeaderException nle, Collection<CommitInfoProto> commitInfos) {
       LOG.debug("{}: PendingRequests.setNotLeaderException", name);
       try {
         return map.values().stream()
-            .map(p -> p.setNotLeaderException(nle))
+            .map(p -> p.setNotLeaderException(nle, commitInfos))
             .collect(Collectors.toList());
       } finally {
         map.clear();
@@ -131,16 +132,16 @@ class PendingRequests {
   }
 
   private PendingRequest pendingSetConf;
-  private final RaftServerImpl server;
+  private final String name;
   private final RequestMap pendingRequests;
   private PendingRequest last = null;
 
   private final DelayedReplies delayedReplies;
 
-  PendingRequests(RaftServerImpl server) {
-    this.server = server;
-    this.pendingRequests = new RequestMap(server.getId());
-    this.delayedReplies = new DelayedReplies(server.getId());
+  PendingRequests(RaftPeerId id) {
+    this.name = id + "-" + getClass().getSimpleName();
+    this.pendingRequests = new RequestMap(id);
+    this.delayedReplies = new DelayedReplies(id);
   }
 
   PendingRequest addPendingRequest(long index, RaftClientRequest request,
@@ -169,16 +170,16 @@ class PendingRequests {
     return pendingSetConf;
   }
 
-  void replySetConfiguration() {
+  void replySetConfiguration(Supplier<Collection<CommitInfoProto>> getCommitInfos) {
     // we allow the pendingRequest to be null in case that the new leader
     // commits the new configuration while it has not received the retry
     // request from the client
     if (pendingSetConf != null) {
       final RaftClientRequest request = pendingSetConf.getRequest();
-      LOG.debug("{}: sends success for {}", server.getId(), request);
+      LOG.debug("{}: sends success for {}", name, request);
       // for setConfiguration we do not need to wait for statemachine. send back
       // reply after it's committed.
-      pendingSetConf.setReply(new RaftClientReply(request, server.getCommitInfos()));
+      pendingSetConf.setReply(new RaftClientReply(request, getCommitInfos.get()));
       pendingSetConf = null;
     }
   }
@@ -217,16 +218,15 @@ class PendingRequests {
    * The leader state is stopped. Send NotLeaderException to all the pending
    * requests since they have not got applied to the state machine yet.
    */
-  void sendNotLeaderResponses() throws IOException {
-    LOG.info("{}: sendNotLeaderResponses", server.getId());
+  Collection<TransactionContext> sendNotLeaderResponses(NotLeaderException nle, Collection<CommitInfoProto> commitInfos) {
+    LOG.info("{}: sendNotLeaderResponses", name);
 
-    // notify the state machine about stepping down
-    final NotLeaderException nle = server.generateNotLeaderException();
-    server.getStateMachine().notifyNotLeader(pendingRequests.setNotLeaderException(nle));
+    final Collection<TransactionContext> transactions = pendingRequests.setNotLeaderException(nle, commitInfos);
     if (pendingSetConf != null) {
-      pendingSetConf.setNotLeaderException(nle);
+      pendingSetConf.setNotLeaderException(nle, commitInfos);
     }
     delayedReplies.failReplies();
+    return transactions;
   }
 
   void checkDelayedReplies(long allAckedIndex) {

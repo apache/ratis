@@ -53,7 +53,11 @@ public class RaftClientRequest extends RaftClientMessage {
         : new Type(StaleReadRequestTypeProto.newBuilder().setMinIndex(minIndex).build());
   }
 
-  /** The type of a request (oneof write, read, staleRead; see the message RaftClientRequestProto). */
+  public static Type watchRequestType(long index, ReplicationLevel replication) {
+    return new Type(WatchRequestTypeProto.newBuilder().setIndex(index).setReplication(replication).build());
+  }
+
+  /** The type of a request (oneof write, read, staleRead, watch; see the message RaftClientRequestProto). */
   public static class Type {
     public static Type valueOf(WriteRequestTypeProto write) {
       return writeRequestType(write.getReplication());
@@ -68,35 +72,41 @@ public class RaftClientRequest extends RaftClientMessage {
           : new Type(staleRead);
     }
 
+    public static Type valueOf(WatchRequestTypeProto watch) {
+      return watchRequestType(watch.getIndex(), watch.getReplication());
+    }
+
     /**
      * The type case of the proto.
      * Only the corresponding proto (must be non-null) is used.
      * The other protos are ignored.
      */
     private final RaftClientRequestProto.TypeCase typeCase;
-    private final WriteRequestTypeProto write;
-    private final ReadRequestTypeProto read;
-    private final StaleReadRequestTypeProto staleRead;
+    private final Object proto;
+
+    private Type(RaftClientRequestProto.TypeCase typeCase, Object proto) {
+      this.typeCase = Objects.requireNonNull(typeCase, "typeCase == null");
+      this.proto = Objects.requireNonNull(proto, "proto == null");
+    }
 
     private Type(WriteRequestTypeProto write) {
-      this.typeCase = WRITE;
-      this.write = Objects.requireNonNull(write);
-      this.read = null;
-      this.staleRead = null;
+      this(WRITE, write);
     }
 
     private Type(ReadRequestTypeProto read) {
-      this.typeCase = READ;
-      this.write = null;
-      this.read = Objects.requireNonNull(read);
-      this.staleRead = null;
+      this(READ, read);
     }
 
     private Type(StaleReadRequestTypeProto staleRead) {
-      this.typeCase = STALEREAD;
-      this.write = null;
-      this.read = null;
-      this.staleRead = Objects.requireNonNull(staleRead);
+      this(STALEREAD, staleRead);
+    }
+
+    private Type(WatchRequestTypeProto watch) {
+      this(WATCH, watch);
+    }
+
+    public boolean is(RaftClientRequestProto.TypeCase typeCase) {
+      return getTypeCase().equals(typeCase);
     }
 
     public RaftClientRequestProto.TypeCase getTypeCase() {
@@ -104,30 +114,44 @@ public class RaftClientRequest extends RaftClientMessage {
     }
 
     public WriteRequestTypeProto getWrite() {
-      Preconditions.assertTrue(typeCase == WRITE);
-      return write;
+      Preconditions.assertTrue(is(WRITE));
+      return (WriteRequestTypeProto)proto;
     }
 
     public ReadRequestTypeProto getRead() {
-      Preconditions.assertTrue(typeCase == READ);
-      return read;
+      Preconditions.assertTrue(is(READ));
+      return (ReadRequestTypeProto)proto;
     }
 
     public StaleReadRequestTypeProto getStaleRead() {
-      Preconditions.assertTrue(typeCase == STALEREAD);
-      return staleRead;
+      Preconditions.assertTrue(is(STALEREAD));
+      return (StaleReadRequestTypeProto)proto;
+    }
+
+    public WatchRequestTypeProto getWatch() {
+      Preconditions.assertTrue(is(WATCH));
+      return (WatchRequestTypeProto)proto;
+    }
+
+    static String toString(ReplicationLevel replication) {
+      return replication == ReplicationLevel.MAJORITY? "": "-" + replication;
+    }
+
+    public static String toString(WatchRequestTypeProto w) {
+      return "Watch" + toString(w.getReplication()) + "(" + w.getIndex() + ")";
     }
 
     @Override
     public String toString() {
       switch (typeCase) {
         case WRITE:
-          final ReplicationLevel replication = write.getReplication();
-          return "RW" + (replication == ReplicationLevel.MAJORITY? "": "-" + replication);
+          return "RW" + toString(getWrite().getReplication());
         case READ:
           return "RO";
         case STALEREAD:
-          return "StaleRead(" + staleRead.getMinIndex() + ")";
+          return "StaleRead(" + getStaleRead().getMinIndex() + ")";
+        case WATCH:
+          return toString(getWatch());
         default:
           throw new IllegalStateException("Unexpected request type: " + typeCase);
       }
@@ -177,7 +201,7 @@ public class RaftClientRequest extends RaftClientMessage {
   }
 
   public boolean is(RaftClientRequestProto.TypeCase typeCase) {
-    return getType().getTypeCase() == typeCase;
+    return getType().is(typeCase);
   }
 
   @Override

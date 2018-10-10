@@ -77,7 +77,7 @@ public class ServerProtoUtils {
   public static String toString(AppendEntriesReplyProto reply) {
     return toString(reply.getServerReply()) + "," + reply.getResult()
         + ",nextIndex:" + reply.getNextIndex() + ",term:" + reply.getTerm()
-        + ",followerCommit" + reply.getFollowerCommit();
+        + ",followerCommit:" + reply.getFollowerCommit();
   }
 
   private static String toString(RaftRpcReplyProto reply) {
