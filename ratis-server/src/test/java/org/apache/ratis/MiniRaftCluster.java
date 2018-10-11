@@ -576,7 +576,7 @@ public abstract class MiniRaftCluster implements Closeable {
     LOG.info("************************************************************** ");
     LOG.info(printServers());
 
-    final ExecutorService executor = Executors.newFixedThreadPool(servers.size());
+    final ExecutorService executor = Executors.newFixedThreadPool(servers.size(), Daemon::new);
     try {
       getServers().forEach(proxy -> executor.submit(proxy::close));
       // just wait for a few seconds

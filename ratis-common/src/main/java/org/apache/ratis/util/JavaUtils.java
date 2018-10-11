@@ -186,7 +186,7 @@ public interface JavaUtils {
   }
 
   static Timer runRepeatedly(Runnable runnable, long delay, long period, TimeUnit unit) {
-    final Timer timer = new Timer();
+    final Timer timer = new Timer(true);
     timer.schedule(new TimerTask() {
       @Override
       public void run() {

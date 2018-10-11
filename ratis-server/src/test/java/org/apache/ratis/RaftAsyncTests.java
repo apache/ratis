@@ -116,13 +116,12 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     }
     Assert.assertTrue(blockedRequestsCount.get() == 0);
 
-    ExecutorService threadPool = Executors.newFixedThreadPool(1);
     futures[numMessages] = CompletableFuture.supplyAsync(() -> {
       blockedRequestsCount.incrementAndGet();
       client.sendAsync(new RaftTestUtil.SimpleMessage("n1"));
       blockedRequestsCount.decrementAndGet();
       return null;
-    }, threadPool);
+    });
 
     //Allow the last msg to be sent
     while (blockedRequestsCount.get() != 1) {

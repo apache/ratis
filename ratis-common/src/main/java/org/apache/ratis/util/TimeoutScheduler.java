@@ -94,7 +94,7 @@ public final class TimeoutScheduler {
     if (scheduler == null) {
       Preconditions.assertTrue(numTasks == 0);
       LOG.debug("Initialize scheduler");
-      scheduler = Executors.newScheduledThreadPool(numThreads);
+      scheduler = Executors.newScheduledThreadPool(numThreads, Daemon::new);
     }
     numTasks++;
     final int sid = scheduleID++;
