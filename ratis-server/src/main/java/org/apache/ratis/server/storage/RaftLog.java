@@ -89,14 +89,17 @@ public abstract class RaftLog implements Closeable {
    */
   public boolean updateLastCommitted(long majorityIndex, long currentTerm) {
     try(AutoCloseableLock writeLock = writeLock()) {
-      if (lastCommitted.get() < majorityIndex) {
+      final long oldCommittedIndex = lastCommitted.get();
+      if (oldCommittedIndex < majorityIndex) {
         // Only update last committed index for current term. See §5.4.2 in
         // paper for details.
         final TermIndex entry = getTermIndex(majorityIndex);
         if (entry != null && entry.getTerm() == currentTerm) {
           final long commitIndex = Math.min(majorityIndex, getLatestFlushedIndex());
-          LOG.debug("{}: Updating lastCommitted to {}", selfId, commitIndex);
-          lastCommitted.set(commitIndex);
+          if (commitIndex > oldCommittedIndex) {
+            LOG.debug("{}: updateLastCommitted {} -> {}", selfId, oldCommittedIndex, commitIndex);
+            lastCommitted.set(commitIndex);
+          }
           return true;
         }
       }

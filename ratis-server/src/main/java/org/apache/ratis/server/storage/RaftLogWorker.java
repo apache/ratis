@@ -238,6 +238,7 @@ class RaftLogWorker implements Runnable {
   }
 
   private void updateFlushedIndex() {
+    LOG.debug("{}: updateFlushedIndex {} -> {}", name, lastWrittenIndex, flushedIndex);
     flushedIndex = lastWrittenIndex;
     pendingFlushNum = 0;
     submitUpdateCommitEvent.run();

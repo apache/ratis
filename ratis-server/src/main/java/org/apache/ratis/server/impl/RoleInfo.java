@@ -34,7 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Maintain the Role of a Raft Peer.
  */
-public class RoleInfo {
+class RoleInfo {
   public static final Logger LOG = LoggerFactory.getLogger(RoleInfo.class);
 
   private final RaftPeerId id;
@@ -53,28 +53,28 @@ public class RoleInfo {
     this.transitionTime = new AtomicReference<>(new Timestamp());
   }
 
-  public void transitionRole(RaftPeerRole newRole) {
+  void transitionRole(RaftPeerRole newRole) {
     this.role = newRole;
     this.transitionTime.set(new Timestamp());
   }
 
-  public long getRoleElapsedTimeMs() {
+  long getRoleElapsedTimeMs() {
     return transitionTime.get().elapsedTimeMs();
   }
 
-  public RaftPeerRole getCurrentRole() {
+  RaftPeerRole getCurrentRole() {
     return role;
   }
 
-  public boolean isFollower() {
+  boolean isFollower() {
     return role == RaftPeerRole.FOLLOWER;
   }
 
-  public boolean isCandidate() {
+  boolean isCandidate() {
     return role == RaftPeerRole.CANDIDATE;
   }
 
-  public boolean isLeader() {
+  boolean isLeader() {
     return role == RaftPeerRole.LEADER;
   }
 

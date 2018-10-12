@@ -18,6 +18,7 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -25,8 +26,6 @@ import org.apache.ratis.util.ReflectionUtils;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.stream.Collector;
-import java.util.stream.Collectors;
 
 /**
  * Reply from server to client
@@ -43,6 +42,11 @@ public class RaftClientReply extends RaftClientMessage {
   private final RaftException exception;
   private final Message message;
 
+  /**
+   * This field is the log index of the transaction
+   * if (1) the request is {@link RaftClientRequestProto.TypeCase#WRITE} and (2) the reply is success.
+   * Otherwise, this field is not used.
+   */
   private final long logIndex;
   /** The commit information when the reply is created. */
   private final Collection<CommitInfoProto> commitInfos;

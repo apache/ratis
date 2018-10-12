@@ -139,6 +139,10 @@ public class LeaderState {
       this.senders = new CopyOnWriteArrayList<>(senders);
     }
 
+    int size() {
+      return senders.size();
+    }
+
     Stream<LogAppender> stream() {
       return senders.stream();
     }
@@ -300,16 +304,15 @@ public class LeaderState {
   }
 
   void commitIndexChanged() {
-    final long leader = raftLog.getLastCommittedIndex();
-    final long min = senders.stream()
+    final LongMinMax minMax = senders.stream()
         .map(LogAppender::getFollower)
-        .map(FollowerInfo::getCommitIndex)
-        .min(Long::compare)
-        .orElse(leader); // it happens only if senders.isEmpty()
-    Preconditions.assertTrue(leader >= min); // leader commit index should always be ahead followers
-
-    watchRequests.update(ReplicationLevel.MAJORITY, leader);
-    watchRequests.update(ReplicationLevel.ALL_COMMITTED, min);
+        .mapToLong(FollowerInfo::getCommitIndex)
+        .collect(LongMinMax::new, LongMinMax::accumulate, LongMinMax::combine);
+    minMax.accumulate(raftLog.getLastCommittedIndex());
+    // Normally, leader commit index is always ahead followers.
+    // However, after a leader change, the new leader commit index may be behind some followers in the beginning.
+    watchRequests.update(ReplicationLevel.MAJORITY, minMax.getMax());
+    watchRequests.update(ReplicationLevel.ALL_COMMITTED, minMax.getMin());
   }
 
   private void applyOldNewConf() {
@@ -509,7 +512,7 @@ public class LeaderState {
       return;
     }
 
-    final long[] indicesInNewConf = computeCommittedIndices(followers, includeSelf);
+    final long[] indicesInNewConf = getSortedLogIndices(followers, includeSelf);
     final long majorityInNewConf = getMajority(indicesInNewConf);
     final long majority;
     final long min;
@@ -524,7 +527,7 @@ public class LeaderState {
         return;
       }
 
-      final long[] indicesInOldConf = computeCommittedIndices(oldFollowers, includeSelfInOldConf);
+      final long[] indicesInOldConf = getSortedLogIndices(oldFollowers, includeSelfInOldConf);
       final long majorityInOldConf = getMajority(indicesInOldConf);
       majority = Math.min(majorityInNewConf, majorityInOldConf);
       min = Math.min(indicesInNewConf[0], indicesInOldConf[0]);
@@ -537,6 +540,7 @@ public class LeaderState {
       final TermIndex[] entriesToCommit = raftLog.getEntries(
           oldLastCommitted + 1, majority + 1);
       if (server.getState().updateStatemachine(majority, currentTerm)) {
+        watchRequests.update(ReplicationLevel.MAJORITY, majority);
         commitIndexChanged();
       }
       checkAndUpdateConfiguration(entriesToCommit);
@@ -604,7 +608,7 @@ public class LeaderState {
     return indices[(indices.length - 1) / 2];
   }
 
-  private long[] computeCommittedIndices(List<FollowerInfo> followers, boolean includeSelf) {
+  private long[] getSortedLogIndices(List<FollowerInfo> followers, boolean includeSelf) {
     final int length = includeSelf ? followers.size() + 1 : followers.size();
     if (length == 0) {
       throw new IllegalArgumentException("followers.size() == "
