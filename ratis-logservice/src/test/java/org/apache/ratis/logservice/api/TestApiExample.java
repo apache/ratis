@@ -19,12 +19,10 @@ package org.apache.ratis.logservice.api;
 
 import static org.junit.Assert.assertEquals;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 import org.apache.ratis.logservice.dummy.DummyLogService;
 import org.junit.Test;
@@ -39,7 +37,7 @@ public class TestApiExample {
   }
 
   @Test
-  public void test() throws IOException, InterruptedException, ExecutionException {
+  public void test() throws Exception {
     try (LogService svc = new DummyLogService()) {
       LogStream log1 = svc.createLog(LogName.of("log1"));
       // Write some data

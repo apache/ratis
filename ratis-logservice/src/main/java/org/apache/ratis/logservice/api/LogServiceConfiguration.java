@@ -17,13 +17,24 @@
  */
 package org.apache.ratis.logservice.api;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * An encapsulation of configuration for a LogStream.
+ * An encapsulation of configuration for a LogService.
  */
-public interface LogStreamConfiguration {
+public class LogServiceConfiguration {
+
+  private ConcurrentHashMap<String, String> configMap =
+      new ConcurrentHashMap<String, String>();
+
+  /**
+   * Ctor
+   */
+  public LogServiceConfiguration() {
+  }
 
   /**
    * Fetches the value for the given key from the configuration. If there is no entry for
@@ -31,7 +42,9 @@ public interface LogStreamConfiguration {
    *
    * @param key The configuration key
    */
-  String get(String key);
+  public String get(String key) {
+    return configMap.get(key);
+  }
 
   /**
    * Sets the given key and value into this configuration. The configuration key may
@@ -40,7 +53,9 @@ public interface LogStreamConfiguration {
    * @param key Configuration key, must be non-null
    * @param value Configuration value
    */
-  void set(String key, String value);
+  public void set(String key, String value) {
+    configMap.put(key,  value);
+  }
 
   /**
    * Removes any entry with the given key from the configuration. If there is no entry
@@ -48,17 +63,26 @@ public interface LogStreamConfiguration {
    * non-null.
    *
    * @param key The configuration key, must be non-null
+   * @return value
    */
-  void remove(String key);
+  public String remove(String key) {
+    return configMap.remove(key);
+  }
 
   /**
    * Sets the collection of key-value pairs into the configuration. This is functionally
    * equivalent to calling {@link #set(String, String)} numerous time.
    */
-  void setMany(Iterable<Entry<String,String>> entries);
+  public void setMany(Iterable<Entry<String,String>> entries) {
+    for (Entry<String, String> entry: entries ) {
+      configMap.put(entry.getKey(), entry.getValue());
+    }
+  }
 
   /**
    * Returns an immutable view over the configuration as a {@code Map}.
    */
-  Map<String,String> asMap();
+  public Map<String,String> asMap() {
+    return Collections.unmodifiableMap(configMap);
+  }
 }

@@ -19,9 +19,13 @@ package org.apache.ratis.logservice;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.logservice.api.LogService;
+import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.impl.LogServiceImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LogServiceFactory {
+  public static final Logger LOG = LoggerFactory.getLogger(LogServiceFactory.class);
   private static final LogServiceFactory INSTANCE = new LogServiceFactory();
 
   private LogServiceFactory() {}
@@ -31,8 +35,8 @@ public class LogServiceFactory {
    *
    * @param raftClient The client to a Raft quorum.
    */
-  public LogService createLogService(RaftClient raftClient) {
-    return new LogServiceImpl(raftClient);
+  public LogService createLogService(RaftClient raftClient, LogServiceConfiguration config) {
+    return new LogServiceImpl(raftClient, config);
   }
 
   /**

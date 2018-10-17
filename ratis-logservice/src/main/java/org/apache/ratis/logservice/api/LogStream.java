@@ -17,13 +17,13 @@
  */
 package org.apache.ratis.logservice.api;
 
-import java.io.IOException;
+import java.util.Collection;
 import java.util.Set;
 
 /**
  * A distributed log with "infinite" length that supports reads and writes.
  */
-public interface LogStream {
+public interface LogStream extends AutoCloseable{
 
   /**
    * An enumeration that defines the current state of a LogStream
@@ -70,10 +70,30 @@ public interface LogStream {
   /**
    * Returns all {@link RecordListeners} for this LogStream.
    */
-  Set<RecordListener> getRecordListeners();
+  Collection<RecordListener> getRecordListeners();
 
   /**
    * Returns a copy of the Configuration for this LogStream.
    */
-  LogStreamConfiguration getConfiguration();
+  LogServiceConfiguration getConfiguration();
+
+  /**
+   * Add new log record listener
+   * @param listener listener
+   */
+  void addRecordListener(RecordListener listener);
+
+
+  /**
+   * Remove record listener
+   * @param listener listener
+   * @return true, if successful, false - otherwise
+   */
+  boolean removeRecordListener (RecordListener listener);
+
+  /**
+   * Get log service
+   * @return log service instance
+   */
+  LogService getLogService();
 }

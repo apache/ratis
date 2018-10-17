@@ -28,6 +28,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogService;
+import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogStateMachine;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
@@ -47,6 +48,7 @@ public abstract class LogServiceBaseTest<CLUSTER extends MiniRaftCluster>
     final RaftProperties p = getProperties();
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         LogStateMachine.class, StateMachine.class);
+    LOG.info("Set LogStateMachine OK");
   }
 
   static final int NUM_PEERS = 3;
@@ -64,7 +66,8 @@ public abstract class LogServiceBaseTest<CLUSTER extends MiniRaftCluster>
     RaftClient raftClient =
         RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
             .build();
-    LogService logService = LogServiceFactory.getInstance().createLogService(raftClient);
+    LogService logService = LogServiceFactory.getInstance().createLogService(raftClient,
+      new LogServiceConfiguration());
     LogName logName = LogName.of("log1");
     LogStream logStream = logService.createLog(logName);
     assertEquals("log1", logStream.getName().getName());
@@ -81,7 +84,7 @@ public abstract class LogServiceBaseTest<CLUSTER extends MiniRaftCluster>
     State state = logService.getState(logName);
     assertEquals(State.OPEN, state);
   }
-  
+
   @After
   public void tearDown() {
     cluster.shutdown();

@@ -24,11 +24,12 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogService;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
-import org.apache.ratis.logservice.api.LogStreamConfiguration;
+import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.RecordListener;
 
 public class DummyLogService implements LogService {
@@ -40,7 +41,7 @@ public class DummyLogService implements LogService {
   }
 
   @Override
-  public LogStream createLog(LogName name, LogStreamConfiguration config) {
+  public LogStream createLog(LogName name, LogServiceConfiguration config) {
     return new DummyLogStream(this, name);
   }
 
@@ -65,7 +66,7 @@ public class DummyLogService implements LogService {
 
   @Override public void deleteLog(LogName name) {}
 
-  @Override public void updateConfiguration(LogName name, LogStreamConfiguration config) {}
+  @Override public void updateConfiguration(LogName name, LogServiceConfiguration config) {}
 
   @Override public void addRecordListener(LogName name, RecordListener listener) {
     recordListeners.compute(name, (key, currentValue) -> {
@@ -77,16 +78,29 @@ public class DummyLogService implements LogService {
     });
   }
 
-  @Override public void removeRecordListener(LogName name, RecordListener listener) {
-    recordListeners.compute(name, (key, currentValue) -> {
+  @Override public boolean removeRecordListener(LogName name, RecordListener listener) {
+    Set<RecordListener> result = recordListeners.compute(name, (key, currentValue) -> {
       if (currentValue == null) {
         return null;
       }
       currentValue.remove(listener);
       return currentValue;
     });
+    return result.size() > 0;
   }
 
   @Override public void close() throws IOException {}
+
+  @Override
+  public RaftClient getRaftClient() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public LogServiceConfiguration getConfiguration() {
+    // TODO Auto-generated method stub
+    return null;
+  }
 
 }

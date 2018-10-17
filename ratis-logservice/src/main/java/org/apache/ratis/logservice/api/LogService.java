@@ -20,6 +20,7 @@ package org.apache.ratis.logservice.api;
 import java.io.IOException;
 import java.util.Iterator;
 
+import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.logservice.api.LogStream.State;
 
 /**
@@ -46,7 +47,7 @@ public interface LogService extends AutoCloseable {
    * @param name Unique name for this LogStream.
    * @param config Configuration object for this LogStream
    */
-  LogStream createLog(LogName name, LogStreamConfiguration config) throws IOException;
+  LogStream createLog(LogName name, LogServiceConfiguration config) throws IOException;
 
   /*
    * How to get LogStreams that already exist
@@ -107,7 +108,7 @@ public interface LogService extends AutoCloseable {
    *
    * @param config The new configuration object
    */
-  void updateConfiguration(LogName name, LogStreamConfiguration config);
+  void updateConfiguration(LogName name, LogServiceConfiguration config);
 
   /**
    * Registers a {@link RecordListener} with the log which will receive all records written using
@@ -129,11 +130,27 @@ public interface LogService extends AutoCloseable {
    *
    * @param the log's name
    * @param listener The listener to remove
+   * @return
    */
-  void removeRecordListener(LogName name, RecordListener listener);
+  boolean removeRecordListener(LogName name, RecordListener listener);
 
   /**
    * Overrides {@link #close()} in {@link AutoCloseable} to throw an IOException.
    */
+  @Override
   void close() throws IOException;
+
+  /**
+   * Gets Raft client object
+   * @return raft client object
+   */
+  RaftClient getRaftClient();
+
+  /**
+   * Gets configuration
+   * @return configuration
+   */
+  LogServiceConfiguration getConfiguration();
+
+
 }

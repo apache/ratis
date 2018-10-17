@@ -23,8 +23,9 @@ import java.util.Set;
 
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogReader;
+import org.apache.ratis.logservice.api.LogService;
 import org.apache.ratis.logservice.api.LogStream;
-import org.apache.ratis.logservice.api.LogStreamConfiguration;
+import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogWriter;
 import org.apache.ratis.logservice.api.RecordListener;
 
@@ -77,7 +78,31 @@ public class DummyLogStream implements LogStream {
   }
 
   @Override
-  public LogStreamConfiguration getConfiguration() {
+  public LogServiceConfiguration getConfiguration() {
+    return null;
+  }
+
+  @Override
+  public void close() throws Exception {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public void addRecordListener(RecordListener listener) {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public boolean removeRecordListener(RecordListener listener) {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  @Override
+  public LogService getLogService() {
+    // TODO Auto-generated method stub
     return null;
   }
 }

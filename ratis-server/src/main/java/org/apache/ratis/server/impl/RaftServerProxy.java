@@ -256,7 +256,7 @@ public class RaftServerProxy implements RaftServer {
     return getImpl(ProtoUtils.toRaftGroupId(proto.getRaftGroupId()));
   }
 
-  RaftServerImpl getImpl(RaftGroupId groupId) throws IOException {
+  public RaftServerImpl getImpl(RaftGroupId groupId) throws IOException {
     Objects.requireNonNull(groupId, "groupId == null");
     return IOUtils.getFromFuture(getImplFuture(groupId), getId());
   }

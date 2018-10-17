@@ -21,30 +21,93 @@ option java_outer_classname = "LogServiceProtos";
 option java_generate_equals_and_hash = true;
 package ratis.logservice;
 
-enum MessageType {
-	READ_REQUEST = 0;
-	READ_REPLY = 1;
-	WRITE = 2;
+
+// Generic message for Log Service exception
+message LogServiceException {
+  string exceptionClassName = 1;
+  string errorMsg = 2;
+  bytes stacktrace = 3;
 }
 
-message LogMessage {
-	MessageType type = 1;
-	string log_name = 2;
-	uint64 length = 3;
-	bytes  data = 4;
+// Write request (append log entry(ies))
+message AppendLogEntryRequestProto {
+	LogNameProto logName = 1;
+	repeated bytes data = 2;
 }
+
+// Write reply
+message AppendLogEntryReplyProto {
+	repeated uint64 recordId = 1;
+	// optional
+	LogServiceException exception = 2;
+}
+
+
+// Sync log (make all previous writes durable)
+message SyncLogRequestProto {
+	LogNameProto logName = 1;
+}
+
+// Sync reply
+message SyncLogReplyProto {
+	// optional
+	LogServiceException exception = 1;
+}
+
+// Read request
+message ReadLogRequestProto {
+	LogNameProto logName = 1;
+	uint32 numRecords = 2;
+	// start record id
+	uint64 startRecordId = 3;
+}
+
+// Read reply
+message ReadLogReplyProto {
+	repeated bytes logRecord = 1;
+	// optional
+	LogServiceException exception = 2;
+}
+
+// Get log length request
+message GetLogLengthRequestProto {
+	LogNameProto logName = 1;
+}
+
+// Get log length reply
+message GetLogLengthReplyProto {
+	uint64 length = 1;
+	//optional 
+	LogServiceException exception = 2;
+}
+
+message GetLogStartIndexRequestProto {
+	LogNameProto logName  = 1;
+}
+
+message GetLogStartIndexReplyProto {
+	uint64 startIndex = 1;
+	//optional
+	LogServiceException exception = 2;
+}
+
 message LogServiceRequestProto {
   oneof Request {
-    LogMessage logMessage = 1;
-    CreateLogRequestProto createLog = 2;
-    ListLogsRequestProto listLogs = 3;
-    GetLogRequestProto getLog = 4;
-    CloseLogRequestProto closeLog = 5;
-    GetStateRequestProto getState = 6;
-    ArchiveLogRequestProto archiveLog = 7;
-    DeleteLogRequestProto deleteLog = 8;
+    CreateLogRequestProto createLog = 1;
+    ListLogsRequestProto listLogs = 2;
+    GetLogRequestProto getLog = 3;
+    CloseLogRequestProto closeLog = 4;
+    GetStateRequestProto getState = 5;
+    ArchiveLogRequestProto archiveLog = 6;
+    DeleteLogRequestProto deleteLog = 7;
+    ReadLogRequestProto readNextQuery = 8;
+    GetLogLengthRequestProto lengthQuery = 9;
+	GetLogStartIndexRequestProto startIndexQuery = 10; 
+	AppendLogEntryRequestProto appendRequest = 11;
+	SyncLogRequestProto          syncRequest = 12;
   }
 }
+
 
 message LogNameProto {
   string name = 1;

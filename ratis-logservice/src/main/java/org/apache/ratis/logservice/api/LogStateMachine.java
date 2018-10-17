@@ -17,37 +17,14 @@
  */
 package org.apache.ratis.logservice.api;
 
-import org.apache.ratis.logservice.api.LogStream.State;
-import org.apache.ratis.logservice.impl.BaseLogStream;
-import org.apache.ratis.logservice.util.LogServiceProtoUtil;
-import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.RaftServerConstants;
-import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.ArchiveLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.ArchiveLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.CloseLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.CloseLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.CreateLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.DeleteLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.DeleteLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetStateRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.LogServiceRequestProto;
-import org.apache.ratis.statemachine.StateMachineStorage;
-import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.statemachine.impl.BaseStateMachine;
-import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
-import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
-import org.apache.ratis.util.AutoCloseableLock;
-import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
-
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -57,12 +34,59 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.ratis.logservice.impl.LogStreamImpl;
+import org.apache.ratis.logservice.util.LogServiceProtoUtil;
+import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.AppendLogEntryRequestProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.ArchiveLogReplyProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.ArchiveLogRequestProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.CloseLogReplyProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.CloseLogRequestProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.CreateLogRequestProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.DeleteLogReplyProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.DeleteLogRequestProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogLengthRequestProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogReplyProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogRequestProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.GetStateRequestProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.LogServiceRequestProto;
+import org.apache.ratis.proto.logservice.LogServiceProtos.ReadLogRequestProto;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.server.impl.ServerState;
+import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.server.storage.RaftLogIOException;
+import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.statemachine.StateMachineStorage;
+import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
+import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
+import org.apache.ratis.util.AutoCloseableLock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class LogStateMachine extends BaseStateMachine {
+  public static final Logger LOG = LoggerFactory.getLogger(LogStateMachine.class);
+  /*
+   *  State
+   */
   private final Map<LogName, Long> state = new ConcurrentHashMap<>();
 
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
+
+  private RaftLog log;
+
+  private RaftGroupId groupId;
+
+  private RaftServerProxy proxy ;
 
   private AutoCloseableLock readLock() {
     return AutoCloseableLock.acquire(lock.readLock());
@@ -72,6 +96,9 @@ public class LogStateMachine extends BaseStateMachine {
     return AutoCloseableLock.acquire(lock.writeLock());
   }
 
+  /**
+   * Reset state machine
+   */
   void reset() {
     state.clear();
     setLastAppliedTermIndex(null);
@@ -82,7 +109,16 @@ public class LogStateMachine extends BaseStateMachine {
       RaftStorage raftStorage) throws IOException {
     super.initialize(server, groupId, raftStorage);
     this.storage.init(raftStorage);
+    this.proxy = (RaftServerProxy) server;
+    this.groupId = groupId;
     loadSnapshot(storage.getLatestSnapshot());
+  }
+
+  private void checkInitialization() throws IOException {
+    if (this.log == null) {
+      ServerState state = proxy.getImpl(groupId).getState();
+      this.log = state.getLog();
+    }
   }
 
   @Override
@@ -152,26 +188,147 @@ public class LogStateMachine extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Message> query(Message request) {
-    LogMessage msg = null;
+
     try {
-      msg = LogMessage.parseFrom(request.getContent());
-      LogName logName = msg.getLogName();
-      Long len = null;
-      try(final AutoCloseableLock readLock = readLock()) {
-        len = state.get(logName);
-        if (len == null) {
-          len = new Long(-1);
-        }
+
+      checkInitialization();
+      LogServiceRequestProto logServiceRequestProto =
+          LogServiceRequestProto.parseFrom(request.getContent());
+
+      switch (logServiceRequestProto.getRequestCase()) {
+
+        case READNEXTQUERY:
+          return processReadRequest(logServiceRequestProto);
+        case LENGTHQUERY:
+          return processGetLengthRequest(logServiceRequestProto);
+        case STARTINDEXQUERY:
+          return processGetStartIndexRequest(logServiceRequestProto);
+        case LISTLOGS:
+          return processListLogsRequest();
+        case GETLOG:
+          return processGetLogRequest(logServiceRequestProto);
+        case GETSTATE:
+          return processGetStateRequest(logServiceRequestProto);
+        default:
+          // TODO
+          throw new RuntimeException(
+            "Wrong message type for query: " + logServiceRequestProto.getRequestCase());
       }
-      LOG.debug("QUERY: {}, RESULT: {}", msg, len);
-      return CompletableFuture.completedFuture(new LogMessage (logName, len));
-    } catch (InvalidProtocolBufferException e) {
-      //TODO exception handling
+
+    } catch (IOException e) {
+      // TODO exception handling
       throw new RuntimeException(e);
     }
 
   }
 
+  /**
+   * Process get start index request
+   * @param msg message
+   * @return reply message
+   */
+  private CompletableFuture<Message>
+      processGetStartIndexRequest(LogServiceRequestProto proto)
+  {
+    long startIndex =log.getStartIndex();
+    return CompletableFuture.completedFuture(Message
+      .valueOf(LogServiceProtoUtil.toGetLogStartIndexReplyProto(startIndex, null).toByteString()));
+  }
+
+  /**
+   * Process get length request
+   * @param msg message
+   * @return reply message
+   */
+  private CompletableFuture<Message> processGetLengthRequest(LogServiceRequestProto proto) {
+    Long len = null;
+    GetLogLengthRequestProto msgProto = proto.getLengthQuery();
+    LogName logName = LogName.of(msgProto.getLogName().getName());
+    try(final AutoCloseableLock readLock = readLock()) {
+      len = state.get(logName);
+      if (len == null) {
+        len = new Long(-1);
+      }
+    }
+    LOG.debug("QUERY: {}, RESULT: {}", msgProto, len);
+    return CompletableFuture.completedFuture(Message
+      .valueOf(LogServiceProtoUtil.toGetLogLengthReplyProto(len, null).toByteString()));
+  }
+
+  /**
+   * Process read log entries request
+   * @param msg message
+   * @return reply message
+   */
+  private CompletableFuture<Message> processReadRequest(LogServiceRequestProto proto) {
+
+    ReadLogRequestProto msgProto = proto.getReadNextQuery();
+    long startRecordId = msgProto.getStartRecordId();
+    int num = msgProto.getNumRecords();
+    Throwable t = null;
+    List<byte[]> list = new ArrayList<byte[]>();
+    for (long index = startRecordId; index < startRecordId + num; index++) {
+      try {
+        list.add(log.getEntryWithData(index).getEntry().getStateMachineLogEntry().getLogData().toByteArray());
+      } catch(RaftLogIOException e) {
+        t = e;
+        list = null;
+        break;
+      }
+    }
+    return CompletableFuture.completedFuture(Message
+      .valueOf(LogServiceProtoUtil.toReadLogReplyProto(list, t).toByteString()));
+  }
+
+  /**
+   * Process sync request
+   * @param trx transaction
+   * @param logMessage message
+   * @return reply message
+   */
+  private CompletableFuture<Message> processSyncRequest(TransactionContext trx,
+      LogServiceRequestProto logMessage) {
+
+    // TODO
+    return CompletableFuture.completedFuture(Message
+      .valueOf(LogServiceProtoUtil.toSyncLogReplyProto(null).toByteString()));
+
+  }
+
+  private CompletableFuture<Message> processAppendRequest(TransactionContext trx,
+      LogServiceRequestProto logProto) {
+
+    final LogEntryProto entry = trx.getLogEntry();
+    AppendLogEntryRequestProto proto = logProto.getAppendRequest();
+    final long index = entry.getIndex();
+    Long val = null;
+    LogName name = null;
+    long total = 0;
+    try (final AutoCloseableLock writeLock = writeLock()) {
+      name = LogServiceProtoUtil.toLogName(proto.getLogName());
+      List<byte[]> entries = LogServiceProtoUtil.toListByteArray(proto.getDataList());
+      for (byte[] bb : entries) {
+        total += bb.length;
+      }
+      val = state.get(name);
+      if (val == null) {
+        val = new Long(0);
+      }
+      state.put(name, val + total);
+      // TODO do we need this for other write request (close, sync)
+      updateLastAppliedTermIndex(entry.getTerm(), index);
+    }
+    final CompletableFuture<Message> f =
+        // TODO record ids?
+        CompletableFuture.completedFuture(Message
+          .valueOf(LogServiceProtoUtil.toAppendLogReplyProto(null, null).toByteString()));
+    final RaftProtos.RaftPeerRole role = trx.getServerRole();
+    LOG.debug("{}:{}-{}: {} new length {}", role, getId(), index, proto, val);
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("{}-{}: variables={}", getId(), index, state);
+    }
+    return f;
+  }
 
   @Override
   public void close() {
@@ -181,54 +338,29 @@ public class LogStateMachine extends BaseStateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     try {
+      checkInitialization();
       final LogEntryProto entry = trx.getLogEntry();
       LogServiceRequestProto logServiceRequestProto =
           LogServiceRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
-      CompletableFuture<Message> f = null;
       switch (logServiceRequestProto.getRequestCase()) {
-       case LOGMESSAGE:
-        org.apache.ratis.proto.logservice.LogServiceProtos.LogMessage logMessage2 = logServiceRequestProto.getLogMessage();
-        final LogMessage logMessage = LogMessage.parseFrom((entry.getStateMachineLogEntry().getLogData()));
 
-        final long index = entry.getIndex();
-        Long val = null;
-        LogName name = null;
-        try (final AutoCloseableLock writeLock = writeLock()) {
-          name = logMessage.getLogName();
-          long dataLength = logMessage.getData().length;
-          val = state.get(name);
-          if (val == null) {
-            val = new Long(0);
-          }
-          state.put(name, val + dataLength);
-          updateLastAppliedTermIndex(entry.getTerm(), index);
-        }
-        f =
-            CompletableFuture.completedFuture(new LogMessage(name, val));
-        final RaftProtos.RaftPeerRole role = trx.getServerRole();
-        LOG.debug("{}:{}-{}: {} new length {}", role, getId(), index, logMessage, val);
-        if (LOG.isTraceEnabled()) {
-          LOG.trace("{}-{}: variables={}", getId(), index, state);
-        }
-        return f;
-      case CREATELOG:
-        return processCreateLogRequest(logServiceRequestProto);
-      case LISTLOGS:
-        return processListLogsRequest();
-      case GETLOG:
-        return processGetLogRequest(logServiceRequestProto);
-      case GETSTATE:
-        return processGetStateRequest(logServiceRequestProto);
-      case ARCHIVELOG:
-        return processArchiveLog(logServiceRequestProto);
-      case CLOSELOG:
-        return processCloseLog(logServiceRequestProto);
-      case DELETELOG:
-        return processDeleteLog(logServiceRequestProto);
-      default:
-        return null;
+        case CREATELOG:
+          return processCreateLogRequest(logServiceRequestProto);
+        case ARCHIVELOG:
+          return processArchiveLog(logServiceRequestProto);
+        case CLOSELOG:
+          return processCloseLog(logServiceRequestProto);
+        case DELETELOG:
+          return processDeleteLog(logServiceRequestProto);
+        case APPENDREQUEST:
+          return processAppendRequest(trx, logServiceRequestProto);
+        case SYNCREQUEST:
+          return processSyncRequest(trx, logServiceRequestProto);
+        default:
+          //TODO
+          return null;
       }
-    } catch (InvalidProtocolBufferException e) {
+    } catch (IOException e) {
       // TODO exception handling
       throw new RuntimeException(e);
     }
@@ -285,18 +417,23 @@ public class LogStateMachine extends BaseStateMachine {
       }
       state.put(name, val);
     }
+    //TODO This can't be part of a state machine (REMOVE)
     return CompletableFuture.completedFuture(Message.valueOf(LogServiceProtoUtil
-        .toCreateLogReplyProto(new BaseLogStream(name, State.OPEN, val)).toByteString()));
+        .toCreateLogReplyProto(
+          new LogStreamImpl(name, null, new LogServiceConfiguration())).toByteString()));
   }
 
+  //TODO REMOVE this code
   private CompletableFuture<Message> processListLogsRequest() {
     List<LogStream> logStreams = new ArrayList<LogStream>(state.size());
     for (Entry<LogName, Long> e : state.entrySet()) {
-      logStreams.add(new BaseLogStream(e.getKey(), State.OPEN, e.getValue()));
+      logStreams.add(new LogStreamImpl(e.getKey(), null, new LogServiceConfiguration()));
     }
     return CompletableFuture.completedFuture(Message.valueOf(LogServiceProtoUtil
         .toListLogLogsReplyProto(logStreams).toByteString()));
   }
+
+  //TODO REMOVE this code
 
   private CompletableFuture<Message> processGetLogRequest(
       LogServiceRequestProto logServiceRequestProto) {
@@ -304,7 +441,7 @@ public class LogStateMachine extends BaseStateMachine {
     LogName logName = LogServiceProtoUtil.toLogName(getLog.getLogName());
     if (state.containsKey(logName)) {
       return CompletableFuture.completedFuture(Message.valueOf(LogServiceProtoUtil
-          .toGetLogReplyProto(new BaseLogStream(logName, State.OPEN, state.get(logName)))
+          .toGetLogReplyProto(new LogStreamImpl(logName, null, new LogServiceConfiguration()))
           .toByteString()));
     } else {
       return CompletableFuture.completedFuture(Message.valueOf(GetLogReplyProto.newBuilder()
