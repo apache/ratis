@@ -263,20 +263,22 @@ public abstract class MiniRaftCluster implements Closeable {
       return STATEMACHINE_REGISTRY_DEFAULT;
     }
 
-    final RuntimeException exception;
-    try {
-      return gid -> ReflectionUtils.newInstance(smClass);
-    } catch(RuntimeException e) {
-      exception = e;
-    }
+    return gid -> {
+      final RuntimeException exception;
+      try {
+        return ReflectionUtils.newInstance(smClass);
+      } catch(RuntimeException e) {
+        exception = e;
+      }
 
-    try {
-      final Class<?>[] argClasses = {RaftProperties.class};
-      return gid -> ReflectionUtils.newInstance(smClass, argClasses, properties);
-    } catch(RuntimeException e) {
-      exception.addSuppressed(e);
-    }
-    throw exception;
+      try {
+        final Class<?>[] argClasses = {RaftProperties.class};
+        return ReflectionUtils.newInstance(smClass, argClasses, properties);
+      } catch(RuntimeException e) {
+        exception.addSuppressed(e);
+      }
+      throw exception;
+    };
   }
 
   public static List<RaftPeer> toRaftPeers(

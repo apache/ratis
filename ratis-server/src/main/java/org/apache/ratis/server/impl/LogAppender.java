@@ -107,7 +107,7 @@ public class LogAppender {
       lifeCycle.transition(EXCEPTION);
     } finally {
       if (!lifeCycle.compareAndTransition(CLOSING, CLOSED)) {
-        lifeCycle.transition(EXCEPTION);
+        lifeCycle.transitionIfNotEqual(EXCEPTION);
       }
     }
   }

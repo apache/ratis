@@ -868,8 +868,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final List<CompletableFuture<Long>> futures;
 
     final long currentTerm;
-    long nextIndex = state.getLog().getNextIndex();
-    long followerCommit = state.getLog().getLastCommittedIndex();
+    final long nextIndex = state.getLog().getNextIndex();
+    final long followerCommit = state.getLog().getLastCommittedIndex();
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
@@ -913,7 +913,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
       commitInfos.forEach(commitInfoCache::update);
     }
-    if (entries.length > 0) {
+    if (!isHeartbeat) {
       CodeInjectionForTesting.execute(RaftLog.LOG_SYNC, getId(), null);
     }
     return JavaUtils.allOf(futures).thenApply(v -> {
@@ -925,8 +925,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
           updateLastRpcTime(false);
         }
         state.updateStatemachine(leaderCommit, currentTerm);
+        final long n = isHeartbeat? state.getLog().getNextIndex(): entries[entries.length - 1].getIndex() + 1;
         reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(), groupId, currentTerm,
-            state.getLog().getLastCommittedIndex(), state.getLog().getNextIndex(), SUCCESS, callId);
+            state.getLog().getLastCommittedIndex(), n, SUCCESS, callId);
       }
       logAppendEntries(isHeartbeat, () ->
           getId() + ": succeeded to handle AppendEntries. Reply: " + ServerProtoUtils.toString(reply));

@@ -131,6 +131,14 @@ public class LifeCycle {
     State.validate(name, from, to);
   }
 
+  /** Transition from the current state to the given state if the current state is not equal to the given state. */
+  public void transitionIfNotEqual(final State to) {
+    final State from = current.getAndSet(to);
+    if (from != to) {
+      State.validate(name, from, to);
+    }
+  }
+
   /**
    * If the current state is equal to the specified from state,
    * then transition to the give to state; otherwise, make no change.
