@@ -40,18 +40,14 @@ message RaftConfigurationProto {
   repeated RaftPeerProto oldPeers = 2; // the peers in the old conf
 }
 
-message SMLogEntryProto {
+message StateMachineLogEntryProto {
   // TODO: This is not super efficient if the SM itself uses PB to serialize its own data for a
-  // log entry. Data will be copied twice. We should directly support having any Message from SM
-  bytes data = 1;
+  /** RaftLog entry data */
+  bytes logData = 1;
 
   bytes stateMachineData = 2; // State machine specific data which is not written to log.
   bool stateMachineDataAttached = 3; // set this flag when state machine data is attached.
   uint64 serializedProtobufSize = 4; // size of the serialized LogEntryProto along with stateMachineData
-}
-
-message LeaderNoOp {
-  // empty
 }
 
 message LogEntryProto {
@@ -59,9 +55,8 @@ message LogEntryProto {
   uint64 index = 2;
 
   oneof LogEntryBody {
-    SMLogEntryProto smLogEntry = 3;
+    StateMachineLogEntryProto stateMachineLogEntry = 3;
     RaftConfigurationProto configurationEntry = 4;
-    LeaderNoOp noOp = 5;
   }
 
   // clientId and callId are used to rebuild the retry cache. They're not

@@ -348,7 +348,7 @@ public class ServerState implements Closeable {
     configurationManager.addConfiguration(logIndex, conf);
     server.getServerRpc().addPeers(conf.getPeers());
     LOG.info("{}: set configuration {} at {}", getSelfId(), conf, logIndex);
-    LOG.debug("{}: {}", getSelfId(), configurationManager);
+    LOG.trace("{}: {}", getSelfId(), configurationManager);
   }
 
   void updateConfiguration(LogEntryProto[] entries) {

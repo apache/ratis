@@ -17,23 +17,25 @@
  */
 package org.apache.ratis.statemachine.impl;
 
-import java.io.IOException;
-import java.util.Objects;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
-import org.apache.ratis.proto.RaftProtos.SMLogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
+
+import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Implementation of {@link TransactionContext}
  */
 public class TransactionContextImpl implements TransactionContext {
   /** The role of the server when this object is created. */
-  private final RaftProtos.RaftPeerRole serverRole;
+  private final RaftPeerRole serverRole;
   /** The {@link StateMachine} that originated the transaction. */
   private final StateMachine stateMachine;
 
@@ -44,7 +46,7 @@ public class TransactionContextImpl implements TransactionContext {
   private Exception exception;
 
   /** Data from the {@link StateMachine} */
-  private SMLogEntryProto smLogEntryProto;
+  private StateMachineLogEntryProto smLogEntryProto;
 
   /**
    * Context specific to the state machine.
@@ -64,7 +66,7 @@ public class TransactionContextImpl implements TransactionContext {
   /** Committed LogEntry. */
   private LogEntryProto logEntry;
 
-  private TransactionContextImpl(RaftProtos.RaftPeerRole serverRole, StateMachine stateMachine) {
+  private TransactionContextImpl(RaftPeerRole serverRole, StateMachine stateMachine) {
     this.serverRole = serverRole;
     this.stateMachine = stateMachine;
   }
@@ -72,7 +74,7 @@ public class TransactionContextImpl implements TransactionContext {
   /** The same as this(stateMachine, clientRequest, smLogEntryProto, null). */
   public TransactionContextImpl(
       StateMachine stateMachine, RaftClientRequest clientRequest,
-      SMLogEntryProto smLogEntryProto) {
+      StateMachineLogEntryProto smLogEntryProto) {
     this(stateMachine, clientRequest, smLogEntryProto, null);
   }
 
@@ -84,10 +86,11 @@ public class TransactionContextImpl implements TransactionContext {
    */
   public TransactionContextImpl(
       StateMachine stateMachine, RaftClientRequest clientRequest,
-      SMLogEntryProto smLogEntryProto, Object stateMachineContext) {
-    this(RaftProtos.RaftPeerRole.LEADER, stateMachine);
+      StateMachineLogEntryProto smLogEntryProto, Object stateMachineContext) {
+    this(RaftPeerRole.LEADER, stateMachine);
     this.clientRequest = clientRequest;
-    this.smLogEntryProto = smLogEntryProto;
+    this.smLogEntryProto = smLogEntryProto != null? smLogEntryProto
+        : ServerProtoUtils.toStateMachineLogEntryProto(clientRequest.getMessage().getContent(), null);
     this.stateMachineContext = stateMachineContext;
   }
 
@@ -96,14 +99,14 @@ public class TransactionContextImpl implements TransactionContext {
    * Used by followers for applying committed entries to the state machine.
    * @param logEntry the log entry to be applied
    */
-  public TransactionContextImpl(RaftProtos.RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
+  public TransactionContextImpl(RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
     this(serverRole, stateMachine);
     setLogEntry(logEntry);
-    this.smLogEntryProto = logEntry.getSmLogEntry();
+    this.smLogEntryProto = logEntry.getStateMachineLogEntry();
   }
 
   @Override
-  public RaftProtos.RaftPeerRole getServerRole() {
+  public RaftPeerRole getServerRole() {
     return serverRole;
   }
 
@@ -113,7 +116,7 @@ public class TransactionContextImpl implements TransactionContext {
   }
 
   @Override
-  public SMLogEntryProto getSMLogEntry() {
+  public StateMachineLogEntryProto getStateMachineLogEntry() {
     return smLogEntryProto;
   }
 
@@ -136,16 +139,16 @@ public class TransactionContextImpl implements TransactionContext {
   @Override
   public TransactionContext setLogEntry(LogEntryProto logEntry) {
     Objects.requireNonNull(logEntry, "logEntry == null");
-    Preconditions.assertTrue(logEntry.getLogEntryBodyCase() == LogEntryBodyCase.SMLOGENTRY,
+    Preconditions.assertTrue(logEntry.getLogEntryBodyCase() == LogEntryBodyCase.STATEMACHINELOGENTRY,
         () -> "LogEntryBodyCase = " + logEntry.getLogEntryBodyCase()
-            + " != " + LogEntryBodyCase.SMLOGENTRY + ", logEntry=" + logEntry);
+            + " != " + LogEntryBodyCase.STATEMACHINELOGENTRY + ", logEntry=" + logEntry);
     Preconditions.assertTrue(this.logEntry == null, "this.logEntry != null");
     this.logEntry = logEntry;
     return this;
   }
 
   @Override
-  public TransactionContext setSmLogEntryProto(SMLogEntryProto smLogEntryProto) {
+  public TransactionContext setStateMachineLogEntryProto(StateMachineLogEntryProto smLogEntryProto) {
     this.smLogEntryProto = smLogEntryProto;
     return this;
   }

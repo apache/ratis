@@ -30,7 +30,6 @@ import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.Preconditions;
 import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import java.io.IOException;

@@ -19,21 +19,27 @@ package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.ExamplesProtos.DeleteReplyProto;
+import org.apache.ratis.proto.ExamplesProtos.DeleteRequestProto;
+import org.apache.ratis.proto.ExamplesProtos.FileStoreRequestProto;
+import org.apache.ratis.proto.ExamplesProtos.ReadRequestProto;
+import org.apache.ratis.proto.ExamplesProtos.WriteRequestHeaderProto;
+import org.apache.ratis.proto.ExamplesProtos.WriteRequestProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.ratis.proto.ExamplesProtos.*;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.FileUtils;
 
 import java.io.File;
@@ -89,17 +95,14 @@ public class FileStoreStateMachine extends BaseStateMachine {
   public TransactionContext startTransaction(RaftClientRequest request) throws IOException {
     final ByteString content = request.getMessage().getContent();
     final FileStoreRequestProto proto = FileStoreRequestProto.parseFrom(content);
-    final SMLogEntryProto log;
+    final StateMachineLogEntryProto log;
     if (proto.getRequestCase() == FileStoreRequestProto.RequestCase.WRITE) {
       final WriteRequestProto write = proto.getWrite();
       final FileStoreRequestProto newProto = FileStoreRequestProto.newBuilder()
           .setWriteHeader(write.getHeader()).build();
-      log = SMLogEntryProto.newBuilder()
-          .setData(newProto.toByteString())
-          .setStateMachineData(write.getData())
-          .build();
+      log = ServerProtoUtils.toStateMachineLogEntryProto(newProto.toByteString(), write.getData());
     } else {
-      log = SMLogEntryProto.newBuilder().setData(content).build();
+      log = ServerProtoUtils.toStateMachineLogEntryProto(content, null);
     }
 
     return new TransactionContextImpl(this, request, log);
@@ -107,8 +110,8 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Integer> writeStateMachineData(LogEntryProto entry) {
-    final SMLogEntryProto smLog = entry.getSmLogEntry();
-    final ByteString data = smLog.getData();
+    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
+    final ByteString data = smLog.getLogData();
     final FileStoreRequestProto proto;
     try {
       proto = FileStoreRequestProto.parseFrom(data);
@@ -134,13 +137,13 @@ public class FileStoreStateMachine extends BaseStateMachine {
     final long index = entry.getIndex();
     updateLastAppliedTermIndex(entry.getTerm(), index);
 
-    final SMLogEntryProto smLog = entry.getSmLogEntry();
+    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
     final FileStoreRequestProto request;
     try {
-      request = FileStoreRequestProto.parseFrom(smLog.getData());
+      request = FileStoreRequestProto.parseFrom(smLog.getLogData());
     } catch (InvalidProtocolBufferException e) {
       return FileStoreCommon.completeExceptionally(index,
-          "Failed to parse SmLogEntry", e);
+          "Failed to parse logData in" + smLog, e);
     }
 
     switch(request.getRequestCase()) {

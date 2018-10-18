@@ -111,7 +111,7 @@ public class TestRaftStream extends BaseTest {
     TermIndex[] entries = raftLog.getEntries(1, expectedCommittedIndex + 1);
     for (TermIndex entry : entries) {
       RaftProtos.LogEntryProto log  = raftLog.get(entry.getIndex());
-      byte[] logData = log.getSmLogEntry().getData().toByteArray();
+      byte[] logData = log.getStateMachineLogEntry().getLogData().toByteArray();
       byte[] expected = s.get();
       LOG.info("log " + entry + " " + log.getLogEntryBodyCase() + " " + StringUtils.bytes2HexString(logData));
       Assert.assertEquals(expected.length, logData.length);
@@ -245,7 +245,7 @@ public class TestRaftStream extends BaseTest {
     byte[] actual = new byte[ByteValue.BUFFERSIZE * 8];
     totalSize = 0;
     for (TermIndex e : entries) {
-      byte[] eValue = log.get(e.getIndex()).getSmLogEntry().getData().toByteArray();
+      byte[] eValue = log.get(e.getIndex()).getStateMachineLogEntry().getLogData().toByteArray();
       Assert.assertEquals(ByteValue.BUFFERSIZE, eValue.length);
       System.arraycopy(eValue, 0, actual, totalSize, eValue.length);
       totalSize += eValue.length;

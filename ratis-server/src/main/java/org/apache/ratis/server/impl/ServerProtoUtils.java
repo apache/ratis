@@ -17,25 +17,28 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
+import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.proto.RaftProtos.*;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.apache.ratis.client.impl.ClientProtoUtils;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.proto.RaftProtos.*;
-import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.*;
-import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ProtoUtils;
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
+import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
 /** Server proto utilities for internal use. */
-public class ServerProtoUtils {
+public interface ServerProtoUtils {
   public static TermIndex toTermIndex(TermIndexProto p) {
     return p == null? null: TermIndex.newTermIndex(p.getTerm(), p.getIndex());
   }
@@ -80,7 +83,7 @@ public class ServerProtoUtils {
         + ",followerCommit:" + reply.getFollowerCommit();
   }
 
-  private static String toString(RaftRpcReplyProto reply) {
+  static String toString(RaftRpcReplyProto reply) {
     return reply.getRequestorId().toStringUtf8() + "->"
         + reply.getReplyId().toStringUtf8() + "," + reply.getSuccess();
   }
@@ -112,6 +115,16 @@ public class ServerProtoUtils {
         .setIndex(index)
         .setConfigurationEntry(toRaftConfigurationProto(conf))
         .build();
+  }
+
+  static StateMachineLogEntryProto toStateMachineLogEntryProto(
+      ByteString logData, ByteString stateMachineData) {
+    final StateMachineLogEntryProto.Builder b = StateMachineLogEntryProto.newBuilder()
+        .setLogData(logData);
+    if (stateMachineData != null) {
+      b.setStateMachineData(stateMachineData);
+    }
+    return b.build();
   }
 
   static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(

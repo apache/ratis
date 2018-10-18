@@ -17,11 +17,11 @@
  */
 package org.apache.ratis.statemachine;
 
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
-import org.apache.ratis.proto.RaftProtos.SMLogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.protocol.RaftClientRequest;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -46,7 +46,7 @@ import java.util.Collection;
  */
 public interface TransactionContext {
   /** @return the role of the server when this context is created. */
-  RaftProtos.RaftPeerRole getServerRole();
+  RaftPeerRole getServerRole();
 
   /**
    * Returns the original request from the {@link RaftClientRequest}
@@ -58,7 +58,7 @@ public interface TransactionContext {
    * Returns the data from the {@link StateMachine}
    * @return the data from the {@link StateMachine}
    */
-  SMLogEntryProto getSMLogEntry();
+  StateMachineLogEntryProto getStateMachineLogEntry();
 
   /**
    * Returns the exception from the {@link StateMachine} or the log
@@ -82,7 +82,7 @@ public interface TransactionContext {
 
   /**
    * Set the {@link LogEntryProto} the current {@link TransactionContext} specific to. The log
-   * entry's body case must be {@link LogEntryBodyCase#SMLOGENTRY}. The current
+   * entry's body case must be {@link LogEntryBodyCase#STATEMACHINELOGENTRY}. The current
    * {@link TransactionContext} log entry must be null, otherwise, a exception will be thrown
    * @param logEntry target {@link LogEntryProto}
    * @return the current {@link TransactionContext} itself
@@ -94,7 +94,7 @@ public interface TransactionContext {
    * @param smLogEntryProto data from {@link StateMachine}
    * @return the current {@link TransactionContext} itself
    */
-  TransactionContext setSmLogEntryProto(SMLogEntryProto smLogEntryProto);
+  TransactionContext setStateMachineLogEntryProto(StateMachineLogEntryProto smLogEntryProto);
 
   /**
    * Returns the committed log entry

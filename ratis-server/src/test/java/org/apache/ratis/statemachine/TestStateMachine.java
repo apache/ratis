@@ -34,7 +34,6 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.ratis.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.util.LogUtils;
 import org.junit.*;
@@ -80,16 +79,14 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
       // only leader will get this call
       isLeader.set(true);
       // send the next transaction id as the "context" from SM
-      return new TransactionContextImpl(this, request, SMLogEntryProto.newBuilder()
-          .setData(request.getMessage().getContent())
-          .build(), transactions.incrementAndGet());
+      return new TransactionContextImpl(this, request, null, transactions.incrementAndGet());
     }
 
     @Override
     public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
       try {
         assertNotNull(trx.getLogEntry());
-        assertNotNull(trx.getSMLogEntry());
+        assertNotNull(trx.getStateMachineLogEntry());
         Object context = trx.getStateMachineContext();
         if (isLeader.get()) {
           assertNotNull(trx.getClientRequest());

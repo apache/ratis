@@ -183,12 +183,12 @@ public class LogStateMachine extends BaseStateMachine {
     try {
       final LogEntryProto entry = trx.getLogEntry();
       LogServiceRequestProto logServiceRequestProto =
-          LogServiceRequestProto.parseFrom(entry.getSmLogEntry().getData());
+          LogServiceRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
       CompletableFuture<Message> f = null;
       switch (logServiceRequestProto.getRequestCase()) {
        case LOGMESSAGE:
         org.apache.ratis.proto.logservice.LogServiceProtos.LogMessage logMessage2 = logServiceRequestProto.getLogMessage();
-        final LogMessage logMessage = LogMessage.parseFrom((entry.getSmLogEntry().getData()));
+        final LogMessage logMessage = LogMessage.parseFrom((entry.getStateMachineLogEntry().getLogData()));
 
         final long index = entry.getIndex();
         Long val = null;

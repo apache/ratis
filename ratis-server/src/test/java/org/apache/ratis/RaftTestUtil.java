@@ -18,6 +18,8 @@
 package org.apache.ratis;
 
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -26,13 +28,10 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -121,7 +120,7 @@ public interface RaftTestUtil {
         && idxExpected < expectedMessages.length) {
       try {
         if (Arrays.equals(expectedMessages[idxExpected].getContent().toByteArray(),
-            log.get(termIndices[idxEntries].getIndex()).getSmLogEntry().getData().toByteArray())) {
+            log.get(termIndices[idxEntries].getIndex()).getStateMachineLogEntry().getLogData().toByteArray())) {
           ++idxExpected;
         }
       } catch (IOException e) {
@@ -141,7 +140,7 @@ public interface RaftTestUtil {
         try {
           e = log.get(termIndices[i].getIndex());
           if (Arrays.equals(expectedMessages[j].getContent().toByteArray(),
-                  e.getSmLogEntry().getData().toByteArray())) {
+              e.getStateMachineLogEntry().getLogData().toByteArray())) {
             Assert.assertTrue(predicate.test(e));
           }
         } catch (IOException exception) {
@@ -185,8 +184,8 @@ public interface RaftTestUtil {
         throw new AssertionError("Failed to get log at " + ti, exception);
       }
 
-      if (e.getLogEntryBodyCase() == LogEntryProto.LogEntryBodyCase.SMLOGENTRY) {
-        LOG.info(ServerProtoUtils.toString(e) + ", " + e.getSmLogEntry().toString().trim().replace("\n", ", "));
+      if (e.hasStateMachineLogEntry()) {
+        LOG.info(ServerProtoUtils.toString(e) + ", " + e.getStateMachineLogEntry().toString().trim().replace("\n", ", "));
         entries.add(e);
       } else if (e.getLogEntryBodyCase() == LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY) {
         LOG.info("Found " + LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY + " at " + ti
@@ -216,7 +215,7 @@ public interface RaftTestUtil {
       Assert.assertTrue(e.getIndex() > logIndex);
       logIndex = e.getIndex();
       Assert.assertArrayEquals(expectedMessages[i].getContent().toByteArray(),
-          e.getSmLogEntry().getData().toByteArray());
+          e.getStateMachineLogEntry().getLogData().toByteArray());
     }
   }
 
@@ -271,12 +270,11 @@ public interface RaftTestUtil {
 
   class SimpleOperation {
     private final String op;
-    private final SMLogEntryProto smLogEntryProto;
+    private final StateMachineLogEntryProto smLogEntryProto;
 
     public SimpleOperation(String op) {
       this.op = Objects.requireNonNull(op);
-      this.smLogEntryProto = SMLogEntryProto.newBuilder()
-          .setData(ProtoUtils.toByteString(op)).build();
+      this.smLogEntryProto = ServerProtoUtils.toStateMachineLogEntryProto(ProtoUtils.toByteString(op), null);
     }
 
     @Override
@@ -296,7 +294,7 @@ public interface RaftTestUtil {
       return op.hashCode();
     }
 
-    public SMLogEntryProto getLogEntryContent() {
+    public StateMachineLogEntryProto getLogEntryContent() {
       return smLogEntryProto;
     }
   }

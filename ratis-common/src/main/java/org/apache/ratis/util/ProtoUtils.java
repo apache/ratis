@@ -152,43 +152,42 @@ public interface ProtoUtils {
   }
 
   static LogEntryProto toLogEntryProto(
-      SMLogEntryProto operation, long term, long index,
+      StateMachineLogEntryProto operation, long term, long index,
       ClientId clientId, long callId) {
     return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
-        .setSmLogEntry(operation)
+        .setStateMachineLogEntry(operation)
         .setClientId(clientId.toByteString()).setCallId(callId)
         .build();
   }
 
   static boolean shouldReadStateMachineData(LogEntryProto entry) {
-    if (entry.getLogEntryBodyCase() != LogEntryBodyCase.SMLOGENTRY) {
+    if (!entry.hasStateMachineLogEntry()) {
       return false;
     }
-    final SMLogEntryProto smLog = entry.getSmLogEntry();
+    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
     return smLog.getStateMachineDataAttached() && smLog.getStateMachineData().isEmpty();
   }
 
   /**
-   * If the given entry is {@link LogEntryBodyCase#SMLOGENTRY} and it has state machine data,
+   * If the given entry is {@link LogEntryBodyCase#STATEMACHINELOGENTRY} and it has state machine data,
    * build a new entry without the state machine data.
    *
    * @return a new entry without the state machine data if the given has state machine data;
    *         otherwise, return the given entry.
    */
   static LogEntryProto removeStateMachineData(LogEntryProto entry) {
-    if (entry.getLogEntryBodyCase() != LogEntryBodyCase.SMLOGENTRY) {
+    if (!entry.hasStateMachineLogEntry()) {
       return entry;
     }
-    final SMLogEntryProto smLog = entry.getSmLogEntry();
+    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
     if (smLog.getStateMachineData().isEmpty()) {
       return entry;
     }
     // build a new LogEntryProto without state machine data
     // and mark that it has been removed
     return LogEntryProto.newBuilder(entry)
-        .setSmLogEntry
-            (SMLogEntryProto.newBuilder()
-            .setData(smLog.getData())
+        .setStateMachineLogEntry(StateMachineLogEntryProto.newBuilder()
+            .setLogData(smLog.getLogData())
             .setStateMachineDataAttached(true)
             .setSerializedProtobufSize(entry.getSerializedSize()))
         .build();
@@ -201,17 +200,17 @@ public interface ProtoUtils {
    * @return LogEntryProto with stateMachineData added
    */
   static LogEntryProto addStateMachineData(ByteString stateMachineData, LogEntryProto entry) {
-    final SMLogEntryProto smLogEntryProto = SMLogEntryProto.newBuilder(entry.getSmLogEntry())
+    final StateMachineLogEntryProto smLogEntryProto = StateMachineLogEntryProto.newBuilder(entry.getStateMachineLogEntry())
         .setStateMachineData(stateMachineData)
         .build();
-    return LogEntryProto.newBuilder(entry).setSmLogEntry(smLogEntryProto).build();
+    return LogEntryProto.newBuilder(entry).setStateMachineLogEntry(smLogEntryProto).build();
   }
 
   static long getSerializedSize(LogEntryProto entry) {
-    if (entry.getLogEntryBodyCase() != LogEntryBodyCase.SMLOGENTRY) {
+    if (!entry.hasStateMachineLogEntry()) {
       return entry.getSerializedSize();
     }
-    final SMLogEntryProto smLog = entry.getSmLogEntry();
+    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
     if (!smLog.getStateMachineDataAttached()) {
       // if state machine data was never set, return the proto serialized size
       return entry.getSerializedSize();

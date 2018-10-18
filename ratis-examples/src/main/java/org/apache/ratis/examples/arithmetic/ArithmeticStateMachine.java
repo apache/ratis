@@ -18,14 +18,14 @@
 package org.apache.ratis.examples.arithmetic;
 
 import org.apache.ratis.examples.arithmetic.expression.Expression;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
@@ -33,7 +33,14 @@ import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.util.AutoCloseableLock;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -152,7 +159,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     final LogEntryProto entry = trx.getLogEntry();
-    final AssignmentMessage assignment = new AssignmentMessage(entry.getSmLogEntry().getData());
+    final AssignmentMessage assignment = new AssignmentMessage(entry.getStateMachineLogEntry().getLogData());
 
     final long index = entry.getIndex();
     final Double result;
@@ -163,8 +170,8 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     final Expression r = Expression.Utils.double2Expression(result);
     final CompletableFuture<Message> f = CompletableFuture.completedFuture(Expression.Utils.toMessage(r));
 
-    final RaftProtos.RaftPeerRole role = trx.getServerRole();
-    if (role == RaftProtos.RaftPeerRole.LEADER) {
+    final RaftPeerRole role = trx.getServerRole();
+    if (role == RaftPeerRole.LEADER) {
       LOG.info("{}:{}-{}: {} = {}", role, getId(), index, assignment, r);
     } else {
       LOG.debug("{}:{}-{}: {} = {}", role, getId(), index, assignment, r);

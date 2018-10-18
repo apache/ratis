@@ -30,7 +30,7 @@ public class RetryCacheTestUtil {
   }
 
   public static void createEntry(RetryCache cache, RaftProtos.LogEntryProto logEntry){
-    if(logEntry.getLogEntryBodyCase() == RaftProtos.LogEntryProto.LogEntryBodyCase.SMLOGENTRY){
+    if(logEntry.hasStateMachineLogEntry()) {
       ClientId clientId = ClientId.valueOf(logEntry.getClientId());
       long callId = logEntry.getCallId();
       cache.getOrCreateEntry(clientId, callId);
@@ -39,7 +39,7 @@ public class RetryCacheTestUtil {
 
   public static void assertFailure(RetryCache cache,
       RaftProtos.LogEntryProto logEntry, boolean isFailed) {
-    if(logEntry.getLogEntryBodyCase() == RaftProtos.LogEntryProto.LogEntryBodyCase.SMLOGENTRY){
+    if(logEntry.hasStateMachineLogEntry()) {
       ClientId clientId = ClientId.valueOf(logEntry.getClientId());
       long callId = logEntry.getCallId();
       Assert.assertEquals(isFailed, cache.get(clientId, callId).isFailed());

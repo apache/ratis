@@ -17,19 +17,25 @@
  */
 package org.apache.ratis.server.storage;
 
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheLoader;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -42,10 +48,7 @@ import java.util.function.Consumer;
  */
 class LogSegment implements Comparable<Long> {
   static long getEntrySize(LogEntryProto entry) {
-    final int serialized =
-        entry.getSerializedSize()
-            - (entry.getSmLogEntry().getStateMachineDataAttached() ? CodedOutputStream
-                .computeBytesSizeNoTag(entry.getSmLogEntry().getStateMachineData()) : 0);
+    final int serialized = ProtoUtils.removeStateMachineData(entry).getSerializedSize();
     return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4;
   }
 

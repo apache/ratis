@@ -29,6 +29,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.LogInputStream;
 import org.apache.ratis.server.storage.LogOutputStream;
@@ -36,7 +37,6 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
@@ -278,12 +278,13 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     }
   }
 
+  static final ByteString STATE_MACHINE_DATA = ByteString.copyFromUtf8("StateMachine Data");
+
   @Override
   public TransactionContext startTransaction(RaftClientRequest request) throws IOException {
     blocking.await(Blocking.Type.START_TRANSACTION);
-    return new TransactionContextImpl(this, request, SMLogEntryProto.newBuilder()
-        .setData(request.getMessage().getContent())
-        .setStateMachineData(ByteString.copyFromUtf8("StateMachine Data")).build());
+    return new TransactionContextImpl(this, request,
+        ServerProtoUtils.toStateMachineLogEntryProto(request.getMessage().getContent(), STATE_MACHINE_DATA));
   }
 
   @Override
@@ -295,7 +296,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   @Override
   public CompletableFuture<ByteString> readStateMachineData(LogEntryProto entry) {
     blocking.await(Blocking.Type.READ_STATE_MACHINE_DATA);
-    return CompletableFuture.completedFuture(null);
+    return CompletableFuture.completedFuture(STATE_MACHINE_DATA);
   }
 
   @Override

@@ -25,7 +25,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.SMLogEntryProto;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SizeInBytes;
@@ -179,7 +179,7 @@ public class TestRaftLogSegment extends BaseTest {
   public void testAppendWithGap() throws Exception {
     LogSegment segment = LogSegment.newOpenSegment(null, 1000);
     SimpleOperation op = new SimpleOperation("m");
-    final SMLogEntryProto m = op.getLogEntryContent();
+    final StateMachineLogEntryProto m = op.getLogEntryContent();
     try {
       LogEntryProto entry = ProtoUtils.toLogEntryProto(m, 0, 1001, clientId, callId);
       segment.appendToOpenSegment(entry);
@@ -284,7 +284,7 @@ public class TestRaftLogSegment extends BaseTest {
         INVALID_LOG_INDEX, true)) {
       LogEntryProto entry = in.nextEntry();
       Assert.assertArrayEquals(content,
-          entry.getSmLogEntry().getData().toByteArray());
+          entry.getStateMachineLogEntry().getLogData().toByteArray());
       Assert.assertNull(in.nextEntry());
     }
   }

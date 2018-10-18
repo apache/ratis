@@ -74,7 +74,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       Assert.assertEquals(i+1, entries[i].getIndex());
       Assert.assertArrayEquals(
           new SimpleMessage("m" + i).getContent().toByteArray(),
-          entries[i].getSmLogEntry().getData().toByteArray());
+          entries[i].getStateMachineLogEntry().getLogData().toByteArray());
     }
   }
 

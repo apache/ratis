@@ -27,7 +27,6 @@ import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.proto.RaftProtos.SMLogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachineStorage;
@@ -108,7 +107,7 @@ public class BaseStateMachine implements StateMachine {
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     // return the same message contained in the entry
     return CompletableFuture.completedFuture(
-        Message.valueOf(trx.getLogEntry().getSmLogEntry().getData()));
+        Message.valueOf(trx.getLogEntry().getStateMachineLogEntry().getLogData()));
   }
 
   @Override
@@ -185,10 +184,7 @@ public class BaseStateMachine implements StateMachine {
   @Override
   public TransactionContext startTransaction(RaftClientRequest request)
       throws IOException {
-    return new TransactionContextImpl(this, request,
-        SMLogEntryProto.newBuilder()
-            .setData(request.getMessage().getContent())
-            .build());
+    return new TransactionContextImpl(this, request, null);
   }
 
   @Override

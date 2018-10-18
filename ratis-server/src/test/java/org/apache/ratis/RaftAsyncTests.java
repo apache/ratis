@@ -235,7 +235,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
             .thenCombine(staleReadFuture.thenApply(r -> getMessageContent(r)), (expected, computed) -> {
               try {
                 LOG.info("query " + query + " returns "
-                    + LogEntryProto.parseFrom(expected).getSmLogEntry().getData().toStringUtf8());
+                    + LogEntryProto.parseFrom(expected).getStateMachineLogEntry().getLogData().toStringUtf8());
               } catch (InvalidProtocolBufferException e) {
                 throw new CompletionException(e);
               }
