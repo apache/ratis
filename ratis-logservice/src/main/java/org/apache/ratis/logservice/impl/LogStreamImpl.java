@@ -29,7 +29,7 @@ import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogWriter;
 import org.apache.ratis.logservice.api.RecordListener;
-import org.apache.ratis.proto.logservice.LogServiceProtos.LogStreamProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,7 +62,7 @@ public class LogStreamImpl implements LogStream {
    */
   long length;
 
-  public LogStreamImpl(LogStreamProto proto, LogService service) {
+  public LogStreamImpl(LogServiceProtos.LogStreamProto proto, LogService service) {
     this.service = service;
     this.name = LogName.of(proto.getLogName().getName());
     this.config = service.getConfiguration();

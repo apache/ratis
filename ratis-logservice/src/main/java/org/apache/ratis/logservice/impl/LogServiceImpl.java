@@ -28,16 +28,8 @@ import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.api.RecordListener;
+import org.apache.ratis.logservice.proto.LogServiceProtos.*;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
-import org.apache.ratis.proto.logservice.LogServiceProtos.ArchiveLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.CloseLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.CreateLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.DeleteLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetStateReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.ListLogsReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.LogStreamProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.LogStreamState;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 
@@ -53,32 +45,33 @@ public class LogServiceImpl implements LogService {
 
   @Override
   public LogStream createLog(LogName name) throws IOException {
-    RaftClientReply reply =
-        raftClient.send(Message.valueOf(LogServiceProtoUtil.toCreateLogRequestProto(name)
-            .toByteString()));
-    CreateLogReplyProto parseFrom = CreateLogReplyProto.parseFrom(reply.getMessage().getContent());
-    return LogServiceProtoUtil.toLogStream(parseFrom.getLogStream(), this);
+//    RaftClientReply reply =
+//        raftClient.send(Message.valueOf(LogServiceProtoUtil.toCreateLogRequestProto(name)
+//            .toByteString()));
+//    CreateLogReplyProto parseFrom = CreateLogReplyProto.parseFrom(reply.getMessage().getContent());
+//    return LogServiceProtoUtil.toLogStream(parseFrom.getLogStream(), this);
+    return new LogStreamImpl(name, this);
   }
-
-
 
   @Override
   public LogStream getLog(LogName name) throws IOException {
-    RaftClientReply reply =
-        raftClient.sendReadOnly(Message.valueOf(LogServiceProtoUtil.toGetLogRequestProto(name)
-            .toByteString()));
-    GetLogReplyProto parseFrom = GetLogReplyProto.parseFrom(reply.getMessage().getContent());
-    return LogServiceProtoUtil.toLogStream(parseFrom.getLogStream(), this);
+//    RaftClientReply reply =
+//        raftClient.sendReadOnly(Message.valueOf(LogServiceProtoUtil.toGetLogRequestProto(name)
+//            .toByteString()));
+//    GetLogReplyProto parseFrom = GetLogReplyProto.parseFrom(reply.getMessage().getContent());
+//    return LogServiceProtoUtil.toLogStream(parseFrom.getLogStream(), this);
+    return null;
   }
 
   @Override
   public Iterator<LogStream> listLogs() throws IOException {
-    RaftClientReply reply =
-        raftClient
-            .sendReadOnly(Message.valueOf(LogServiceProtoUtil.toListLogRequestProto().toByteString()));
-    ListLogsReplyProto parseFrom = ListLogsReplyProto.parseFrom(reply.getMessage().getContent());
-    List<LogStreamProto> logStremsList = parseFrom.getLogStremsList();
-    return LogServiceProtoUtil.toListLogStreams(logStremsList, this).iterator();
+//    RaftClientReply reply =
+//        raftClient
+//            .sendReadOnly(Message.valueOf(LogServiceProtoUtil.toListLogRequestProto().toByteString()));
+//    ListLogsReplyProto parseFrom = ListLogsReplyProto.parseFrom(reply.getMessage().getContent());
+//    List<LogStreamProto> logStremsList = parseFrom.getLogStremsList();
+//    return LogServiceProtoUtil.toListLogStreams(logStremsList, this).iterator();
+    return null;
   }
 
   @Override
@@ -100,19 +93,19 @@ public class LogServiceImpl implements LogService {
 
   @Override
   public void archiveLog(LogName name) throws IOException {
-    RaftClientReply reply =
-        raftClient.send(Message.valueOf(LogServiceProtoUtil.toArchiveLogRequestProto(name)
-            .toByteString()));
-    ArchiveLogReplyProto parseFrom =
-        ArchiveLogReplyProto.parseFrom(reply.getMessage().getContent());
+//    RaftClientReply reply =
+//        raftClient.send(Message.valueOf(LogServiceProtoUtil.toArchiveLogRequestProto(name)
+//            .toByteString()));
+//    ArchiveLogReplyProto parseFrom =
+//        ArchiveLogReplyProto.parseFrom(reply.getMessage().getContent());
   }
 
   @Override
   public void deleteLog(LogName name) throws IOException {
-    RaftClientReply reply =
-        raftClient.send(Message.valueOf(LogServiceProtoUtil.toDeleteLogRequestProto(name)
-            .toByteString()));
-    DeleteLogReplyProto parseFrom = DeleteLogReplyProto.parseFrom(reply.getMessage().getContent());
+//    RaftClientReply reply =
+//        raftClient.send(Message.valueOf(LogServiceProtoUtil.toDeleteLogRequestProto(name)
+//            .toByteString()));
+//    DeleteLogReplyProto parseFrom = DeleteLogReplyProto.parseFrom(reply.getMessage().getContent());
   }
 
 
@@ -137,11 +130,12 @@ public class LogServiceImpl implements LogService {
   @Override
   public LogStream createLog(LogName name, LogServiceConfiguration config) throws IOException {
     //TODO configuration
-    RaftClientReply reply =
-        raftClient.send(Message.valueOf(LogServiceProtoUtil.toCreateLogRequestProto(name)
-            .toByteString()));
-    CreateLogReplyProto parseFrom = CreateLogReplyProto.parseFrom(reply.getMessage().getContent());
-    return LogServiceProtoUtil.toLogStream(parseFrom.getLogStream(), this);
+//    RaftClientReply reply =
+//        raftClient.send(Message.valueOf(LogServiceProtoUtil.toCreateLogRequestProto(name)
+//            .toByteString()));
+//    CreateLogReplyProto parseFrom = CreateLogReplyProto.parseFrom(reply.getMessage().getContent());
+//    return LogServiceProtoUtil.toLogStream(parseFrom.getLogStream(), this);
+    return null;
   }
 
   @Override

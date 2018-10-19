@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.Objects;
 
-import org.apache.ratis.proto.logservice.LogServiceProtos.LogNameProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 
@@ -83,7 +83,7 @@ public class LogName {
 
   public static LogName parseFrom(ByteString logName)
       throws InvalidProtocolBufferException {
-    LogNameProto logNameProto = LogNameProto.parseFrom(logName);
+    LogServiceProtos.LogNameProto logNameProto = LogServiceProtos.LogNameProto.parseFrom(logName);
     return new LogName(logNameProto.getName());
   }
 }

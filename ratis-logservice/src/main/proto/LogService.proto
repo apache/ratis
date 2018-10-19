@@ -16,11 +16,41 @@
  * limitations under the License.
  */
 syntax = "proto3";
-option java_package = "org.apache.ratis.proto.logservice";
+option java_package = "org.apache.ratis.logservice.proto";
 option java_outer_classname = "LogServiceProtos";
 option java_generate_equals_and_hash = true;
 package ratis.logservice;
 
+
+message LogNameProto {
+  string name = 1;
+}
+
+message LogStreamProto {
+  LogNameProto logName = 1;
+  uint64 size = 2;
+  LogStreamState state = 3;
+}
+
+enum LogStreamState {
+  OPEN = 0;
+  CLOSED = 1;
+}
+
+message CloseLogRequestProto {
+  LogNameProto logName = 1;
+}
+
+message GetStateRequestProto {
+  LogNameProto logName = 1;
+}
+
+message CloseLogReplyProto {
+}
+
+message GetStateReplyProto {
+  LogStreamState state = 1;
+}
 
 // Generic message for Log Service exception
 message LogServiceException {
@@ -77,7 +107,7 @@ message GetLogLengthRequestProto {
 // Get log length reply
 message GetLogLengthReplyProto {
 	uint64 length = 1;
-	//optional 
+	//optional
 	LogServiceException exception = 2;
 }
 
@@ -93,86 +123,13 @@ message GetLogStartIndexReplyProto {
 
 message LogServiceRequestProto {
   oneof Request {
-    CreateLogRequestProto createLog = 1;
-    ListLogsRequestProto listLogs = 2;
-    GetLogRequestProto getLog = 3;
-    CloseLogRequestProto closeLog = 4;
-    GetStateRequestProto getState = 5;
-    ArchiveLogRequestProto archiveLog = 6;
-    DeleteLogRequestProto deleteLog = 7;
-    ReadLogRequestProto readNextQuery = 8;
-    GetLogLengthRequestProto lengthQuery = 9;
-	GetLogStartIndexRequestProto startIndexQuery = 10; 
-	AppendLogEntryRequestProto appendRequest = 11;
-	SyncLogRequestProto          syncRequest = 12;
+    CloseLogRequestProto closeLog = 1;
+    GetStateRequestProto getState = 2;
+    ReadLogRequestProto readNextQuery = 3;
+    GetLogLengthRequestProto lengthQuery = 4;
+	GetLogStartIndexRequestProto startIndexQuery = 5;
+	AppendLogEntryRequestProto appendRequest = 6;
+	SyncLogRequestProto          syncRequest = 7;
   }
 }
 
-
-message LogNameProto {
-  string name = 1;
-}
-
-message CreateLogRequestProto {
-  LogNameProto logName = 1;
-}
-
-message ListLogsRequestProto {
-  repeated LogStreamProto logSreams = 1;
-}
-
-message GetLogRequestProto {
-  LogNameProto logName = 1;
-}
-
-message CloseLogRequestProto {
-  LogNameProto logName = 1;
-}
-
-message GetStateRequestProto {
-  LogNameProto logName = 1;
-}
-
-message ArchiveLogRequestProto {
-  LogNameProto logName = 1;
-}
-
-message DeleteLogRequestProto {
-  LogNameProto logName = 1;
-}
-
-message LogStreamProto {
-  LogNameProto logName = 1;
-  uint64 size = 2;
-  LogStreamState state = 3;
-}
-
-enum LogStreamState {
-  OPEN = 0;
-  CLOSED = 1;
-}
-
-message CreateLogReplyProto {
-  LogStreamProto logStream = 1;
-}
-
-message GetLogReplyProto {
-  LogStreamProto logStream = 1;
-}
-
-message ListLogsReplyProto {
-  repeated LogStreamProto logStrems = 1;
-}
-
-message CloseLogReplyProto {
-}
-
-message GetStateReplyProto {
-  LogStreamState state = 1;
-}
-
-message ArchiveLogReplyProto {
-}
-
-message DeleteLogReplyProto {
-}

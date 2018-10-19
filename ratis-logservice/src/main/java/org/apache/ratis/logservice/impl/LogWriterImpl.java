@@ -21,15 +21,14 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogWriter;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
-import org.apache.ratis.proto.logservice.LogServiceProtos.AppendLogEntryReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.LogServiceException;
-import org.apache.ratis.proto.logservice.LogServiceProtos.SyncLogReplyProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.*;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.slf4j.Logger;
@@ -62,9 +61,16 @@ public class LogWriterImpl implements LogWriter {
     List<ByteBuffer> list = new ArrayList<ByteBuffer>();
     list.add(data);
     RaftClientReply reply =
-        raftClient.send(Message.valueOf(LogServiceProtoUtil
-            .toAppendBBEntryLogRequestProto(parent.getName(), list)
-            .toByteString()));
+            null;
+    try {
+      reply = raftClient.sendAsync(Message.valueOf(LogServiceProtoUtil
+          .toAppendBBEntryLogRequestProto(parent.getName(), list)
+          .toByteString())).get();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    } catch (ExecutionException e) {
+      e.printStackTrace();
+    }
     AppendLogEntryReplyProto proto = AppendLogEntryReplyProto.parseFrom(reply.getMessage().getContent());
     if (proto.hasException()) {
       LogServiceException e = proto.getException();

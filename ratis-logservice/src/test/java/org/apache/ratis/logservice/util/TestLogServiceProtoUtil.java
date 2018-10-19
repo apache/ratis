@@ -25,30 +25,7 @@ import java.util.List;
 
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogStream;
-import org.apache.ratis.proto.logservice.LogServiceProtos.AppendLogEntryReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.AppendLogEntryRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.ArchiveLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.ArchiveLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.CloseLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.CloseLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.CreateLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.CreateLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.DeleteLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.DeleteLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogLengthReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogLengthRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogStartIndexReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetLogStartIndexRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetStateReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.GetStateRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.ListLogsRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.LogServiceRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.ReadLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.ReadLogRequestProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.SyncLogReplyProto;
-import org.apache.ratis.proto.logservice.LogServiceProtos.SyncLogRequestProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.*;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -167,38 +144,12 @@ public class TestLogServiceProtoUtil {
   }
 
 
-  //LIST LOGS
-  @Test
-  public void testListLogsRequest() {
-    LogServiceRequestProto proto = LogServiceProtoUtil.toListLogRequestProto();
-    ListLogsRequestProto request = proto.getListLogs();
-    //TODO finish
-  }
-
   @Test
   public void testListLogsReply() {
 
     //TODO finish test
   }
 
-  //GET LOG
-
-  @Test
-  public void testGetLogRequest() {
-    LogName name = LogName.of("test");
-    LogServiceRequestProto proto = LogServiceProtoUtil.toGetLogRequestProto(name);
-    GetLogRequestProto request = proto.getGetLog();
-    assertEquals(name.getName(), request.getLogName().getName());
-  }
-
-  @Test
-  @Ignore
-  public void testGetLogReply() {
-    LogStream logStream = null;
-    GetLogReplyProto proto = LogServiceProtoUtil.toGetLogReplyProto(logStream);
-    //TODO finish
-
-  }
 
   //GET STATE
   @Test
@@ -218,58 +169,8 @@ public class TestLogServiceProtoUtil {
     //TODO finish
 
   }
-  //CREATE LOG
-  @Test
-  public void testCreateLogRequest() {
-    LogName name = LogName.of("test");
-    LogServiceRequestProto proto = LogServiceProtoUtil.toCreateLogRequestProto(name);
-    CreateLogRequestProto request = proto.getCreateLog();
-    assertEquals(name.getName(), request.getLogName().getName());
-    //TODO finish
-  }
 
-  @Test
-  @Ignore
-  public void testCreateLogReply() {
-    LogStream logStream = null;
-    CreateLogReplyProto proto = LogServiceProtoUtil.toCreateLogReplyProto(logStream);
-    //TODO finish
 
-  }
-  //ARCHIVE LOG
-  @Test
-  public void testArchiveLogRequest() {
-    LogName name = LogName.of("test");
-    LogServiceRequestProto proto = LogServiceProtoUtil.toArchiveLogRequestProto(name);
-    ArchiveLogRequestProto request = proto.getArchiveLog();
-    assertEquals(name.getName(), request.getLogName().getName());
-    //TODO finish
-  }
-
-  @Test
-  @Ignore
-  public void testArchiveLogReply() {
-    ArchiveLogReplyProto proto = LogServiceProtoUtil.toArchiveLogReplyProto();
-    //TODO finish
-
-  }
-  //DELETE LOG
-  @Test
-  public void testDeleteLogRequest() {
-    LogName name = LogName.of("test");
-    LogServiceRequestProto proto = LogServiceProtoUtil.toDeleteLogRequestProto(name);
-    DeleteLogRequestProto request = proto.getDeleteLog();
-    assertEquals(name.getName(), request.getLogName().getName());
-    //TODO finish
-  }
-
-  @Test
-  @Ignore
-  public void testDeleteLogReply() {
-    DeleteLogReplyProto proto = LogServiceProtoUtil.toDeleteLogReplyProto();
-    //TODO finish
-
-  }
   //CLOSE LOG
   @Test
   public void testCloseLogRequest() {
@@ -278,13 +179,5 @@ public class TestLogServiceProtoUtil {
     CloseLogRequestProto request = proto.getCloseLog();
     assertEquals(name.getName(), request.getLogName().getName());
     //TODO finish
-  }
-
-  @Test
-  @Ignore
-  public void testCloseLogReply() {
-    CloseLogReplyProto proto = LogServiceProtoUtil.toCloseLogReplyProto();
-    //TODO finish
-
   }
 }
