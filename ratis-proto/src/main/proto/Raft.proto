@@ -174,9 +174,15 @@ enum ReplicationLevel {
   /** Committed at the leader and replicated to all peers.
        Note that ReplicationLevel.ALL implies ReplicationLevel.MAJORITY. */
   ALL = 1;
+
+  /** Committed at majority peers.
+      Note that ReplicationLevel.MAJORITY_COMMITTED implies ReplicationLevel.MAJORITY. */
+  MAJORITY_COMMITTED = 2;
+
   /** Committed at all peers.
-      Note that ReplicationLevel.ALL_COMMITTED implies ReplicationLevel.ALL. */
-  ALL_COMMITTED = 2;
+      Note that ReplicationLevel.ALL_COMMITTED implies ReplicationLevel.ALL
+      and ReplicationLevel.MAJORITY_COMMITTED */
+  ALL_COMMITTED = 3;
 }
 
 

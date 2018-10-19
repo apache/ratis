@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 /**
@@ -304,15 +305,18 @@ public class LeaderState {
   }
 
   void commitIndexChanged() {
-    final LongMinMax minMax = senders.stream()
+    final long[] commitIndices = LongStream.concat(LongStream.of(
+        raftLog.getLastCommittedIndex()), senders.stream()
         .map(LogAppender::getFollower)
-        .mapToLong(FollowerInfo::getCommitIndex)
-        .collect(LongMinMax::new, LongMinMax::accumulate, LongMinMax::combine);
-    minMax.accumulate(raftLog.getLastCommittedIndex());
+        .mapToLong(FollowerInfo::getCommitIndex))
+        .sorted().toArray();
+
     // Normally, leader commit index is always ahead followers.
-    // However, after a leader change, the new leader commit index may be behind some followers in the beginning.
-    watchRequests.update(ReplicationLevel.MAJORITY, minMax.getMax());
-    watchRequests.update(ReplicationLevel.ALL_COMMITTED, minMax.getMin());
+    // However, after a leader change, the new leader commit index may
+    // be behind some followers in the beginning.
+    watchRequests.update(ReplicationLevel.MAJORITY, commitIndices[commitIndices.length-1]);
+    watchRequests.update(ReplicationLevel.ALL_COMMITTED, commitIndices[0]);
+    watchRequests.update(ReplicationLevel.MAJORITY_COMMITTED, getMajority(commitIndices));
   }
 
   private void applyOldNewConf() {
