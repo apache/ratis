@@ -31,7 +31,6 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -153,7 +152,7 @@ public abstract class RaftLog implements Closeable {
       }
 
       // build the log entry after calling the StateMachine
-      final LogEntryProto e = ProtoUtils.toLogEntryProto(
+      final LogEntryProto e = ServerProtoUtils.toLogEntryProto(
           operation.getStateMachineLogEntry(), term, nextIndex, clientId, callId);
 
       int entrySize = e.getSerializedSize();
@@ -360,7 +359,7 @@ public abstract class RaftLog implements Closeable {
     }
 
     public long getSerializedSize() {
-      return ProtoUtils.getSerializedSize(logEntry);
+      return ServerProtoUtils.getSerializedSize(logEntry);
     }
 
     public LogEntryProto getEntry() throws RaftLogIOException {
@@ -370,7 +369,7 @@ public abstract class RaftLog implements Closeable {
       }
 
       try {
-        entryProto = future.thenApply(data -> ProtoUtils.addStateMachineData(data, logEntry)).join();
+        entryProto = future.thenApply(data -> ServerProtoUtils.addStateMachineData(data, logEntry)).join();
       } catch (Throwable t) {
         final String err = selfId + ": Failed readStateMachineData for " +
             ServerProtoUtils.toLogEntryString(logEntry);
@@ -379,7 +378,7 @@ public abstract class RaftLog implements Closeable {
       }
       // by this time we have already read the state machine data,
       // so the log entry data should be set now
-      if (ProtoUtils.shouldReadStateMachineData(entryProto)) {
+      if (ServerProtoUtils.shouldReadStateMachineData(entryProto)) {
         final String err = selfId + ": State machine data not set for " +
             ServerProtoUtils.toLogEntryString(logEntry);
         LogAppender.LOG.error(err);

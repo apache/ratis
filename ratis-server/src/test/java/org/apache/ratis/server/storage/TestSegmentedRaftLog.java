@@ -28,11 +28,11 @@ import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.impl.RetryCache;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.LogUtils;
-import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.After;
 import org.junit.Assert;
@@ -117,7 +117,7 @@ public class TestSegmentedRaftLog extends BaseTest {
           segmentMaxSize, preallocatedSize, bufferSize)) {
         for (int i = 0; i < size; i++) {
           SimpleOperation m = new SimpleOperation("m" + (i + range.start));
-          entries[i] = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
+          entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
               range.term, i + range.start, clientId, callId);
           out.write(entries[i]);
         }
@@ -182,7 +182,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         SimpleOperation m = stringSupplier == null ?
             new SimpleOperation("m" + index) :
             new SimpleOperation(stringSupplier.get());
-        eList.add(ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
+        eList.add(ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
             range.term, index, clientId, index));
       }
     }

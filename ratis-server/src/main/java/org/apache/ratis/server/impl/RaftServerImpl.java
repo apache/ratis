@@ -327,7 +327,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     // start sending AppendEntries RPC to followers
     final LogEntryProto e = role.startLeaderState(this, getProxy().getProperties());
-    getState().setRaftConf(e.getIndex(), ServerProtoUtils.toRaftConfiguration(e));
+    getState().setRaftConf(e);
   }
 
   Collection<CommitInfoProto> getCommitInfos() {

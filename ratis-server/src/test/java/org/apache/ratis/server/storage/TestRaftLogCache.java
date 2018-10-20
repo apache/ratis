@@ -23,10 +23,10 @@ import java.util.Iterator;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.util.ProtoUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,7 +47,7 @@ public class TestRaftLogCache {
     LogSegment s = LogSegment.newOpenSegment(null, start);
     for (long i = start; i <= end; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
-      LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
+      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
           0, i, clientId, callId);
       s.appendToOpenSegment(entry);
     }
@@ -137,7 +137,7 @@ public class TestRaftLogCache {
 
     final SimpleOperation m = new SimpleOperation("m");
     try {
-      LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
+      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
           0, 0, clientId, callId);
       cache.appendEntry(entry);
       Assert.fail("the open segment is null");
@@ -147,7 +147,7 @@ public class TestRaftLogCache {
     LogSegment openSegment = prepareLogSegment(100, 100, true);
     cache.addSegment(openSegment);
     for (long index = 101; index < 200; index++) {
-      LogEntryProto entry = ProtoUtils.toLogEntryProto(m.getLogEntryContent(),
+      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
           0, index, clientId, callId);
       cache.appendEntry(entry);
     }

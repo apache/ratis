@@ -276,7 +276,7 @@ class RaftLogWorker implements Runnable {
     private final CompletableFuture<Long> combined;
 
     WriteLog(LogEntryProto entry) {
-      this.entry = ProtoUtils.removeStateMachineData(entry);
+      this.entry = ServerProtoUtils.removeStateMachineData(entry);
       if (this.entry == entry || stateMachine == null) {
         this.stateMachineFuture = null;
       } else {

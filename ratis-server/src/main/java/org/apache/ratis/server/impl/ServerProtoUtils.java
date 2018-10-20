@@ -96,8 +96,8 @@ public interface ServerProtoUtils {
         .build();
   }
 
-  public static RaftConfiguration toRaftConfiguration(LogEntryProto entry) {
-    Preconditions.assertTrue(ProtoUtils.isConfigurationLogEntry(entry));
+  static RaftConfiguration toRaftConfiguration(LogEntryProto entry) {
+    Preconditions.assertTrue(entry.hasConfigurationEntry());
     final RaftConfigurationProto proto = entry.getConfigurationEntry();
     final RaftConfiguration.Builder b = RaftConfiguration.newBuilder()
         .setConf(ProtoUtils.toRaftPeerArray(proto.getPeersList()))
@@ -108,12 +108,22 @@ public interface ServerProtoUtils {
     return b.build();
   }
 
-  public static LogEntryProto toLogEntryProto(
-      RaftConfiguration conf, long term, long index) {
+  static LogEntryProto toLogEntryProto(RaftConfiguration conf, long term, long index) {
     return LogEntryProto.newBuilder()
         .setTerm(term)
         .setIndex(index)
         .setConfigurationEntry(toRaftConfigurationProto(conf))
+        .build();
+  }
+
+  static LogEntryProto toLogEntryProto(StateMachineLogEntryProto smLogEntry, long term, long index,
+      ClientId clientId, long callId) {
+    return LogEntryProto.newBuilder()
+        .setTerm(term)
+        .setIndex(index)
+        .setStateMachineLogEntry(smLogEntry)
+        .setClientId(clientId.toByteString())
+        .setCallId(callId)
         .build();
   }
 
@@ -125,6 +135,64 @@ public interface ServerProtoUtils {
       b.setStateMachineData(stateMachineData);
     }
     return b.build();
+  }
+
+  static boolean shouldReadStateMachineData(LogEntryProto entry) {
+    if (!entry.hasStateMachineLogEntry()) {
+      return false;
+    }
+    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
+    return smLog.getStateMachineDataAttached() && smLog.getStateMachineData().isEmpty();
+  }
+
+  /**
+   * If the given entry has state machine log entry and it has state machine data,
+   * build a new entry without the state machine data.
+   *
+   * @return a new entry without the state machine data if the given has state machine data;
+   *         otherwise, return the given entry.
+   */
+  static LogEntryProto removeStateMachineData(LogEntryProto entry) {
+    if (!entry.hasStateMachineLogEntry()) {
+      return entry;
+    }
+    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
+    if (smLog.getStateMachineData().isEmpty()) {
+      return entry;
+    }
+    // build a new LogEntryProto without state machine data
+    // and mark that it has been removed
+    return LogEntryProto.newBuilder(entry)
+        .setStateMachineLogEntry(StateMachineLogEntryProto.newBuilder()
+            .setLogData(smLog.getLogData())
+            .setStateMachineDataAttached(true)
+            .setSerializedProtobufSize(entry.getSerializedSize()))
+        .build();
+  }
+
+  /**
+   * Return a new log entry based on the input log entry with stateMachineData added.
+   * @param stateMachineData - state machine data to be added
+   * @param entry - log entry to which stateMachineData needs to be added
+   * @return LogEntryProto with stateMachineData added
+   */
+  static LogEntryProto addStateMachineData(ByteString stateMachineData, LogEntryProto entry) {
+    final StateMachineLogEntryProto smLogEntryProto = StateMachineLogEntryProto.newBuilder(entry.getStateMachineLogEntry())
+        .setStateMachineData(stateMachineData)
+        .build();
+    return LogEntryProto.newBuilder(entry).setStateMachineLogEntry(smLogEntryProto).build();
+  }
+
+  static long getSerializedSize(LogEntryProto entry) {
+    if (!entry.hasStateMachineLogEntry()) {
+      return entry.getSerializedSize();
+    }
+    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
+    if (!smLog.getStateMachineDataAttached()) {
+      // if state machine data was never set, return the proto serialized size
+      return entry.getSerializedSize();
+    }
+    return smLog.getSerializedProtobufSize();
   }
 
   static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(

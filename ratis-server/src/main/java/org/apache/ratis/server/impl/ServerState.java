@@ -27,7 +27,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.Timestamp;
 
 import java.io.Closeable;
@@ -45,7 +44,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.apache.ratis.server.impl.RaftServerImpl.LOG;
-import static org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
 /**
  * Common states of a raft peer. Protected by RaftServer's lock.
@@ -113,11 +111,7 @@ public class ServerState implements Closeable {
 
     // we cannot apply log entries to the state machine in this step, since we
     // do not know whether the local log entries have been committed.
-    log = initLog(id, prop, lastApplied, entry -> {
-      if (entry.getLogEntryBodyCase() == CONFIGURATIONENTRY) {
-        setRaftConf(entry.getIndex(), ServerProtoUtils.toRaftConfiguration(entry));
-      }
-    });
+    log = initLog(id, prop, lastApplied, this::setRaftConf);
 
     RaftLog.Metadata metadata = log.loadMetadata();
     currentTerm = metadata.getTerm();
@@ -344,6 +338,12 @@ public class ServerState implements Closeable {
         getRaftConf().getLogEntryIndex();
   }
 
+  void setRaftConf(LogEntryProto entry) {
+    if (entry.hasConfigurationEntry()) {
+      setRaftConf(entry.getIndex(), ServerProtoUtils.toRaftConfiguration(entry));
+    }
+  }
+
   void setRaftConf(long logIndex, RaftConfiguration conf) {
     configurationManager.addConfiguration(logIndex, conf);
     server.getServerRpc().addPeers(conf.getPeers());
@@ -354,11 +354,7 @@ public class ServerState implements Closeable {
   void updateConfiguration(LogEntryProto[] entries) {
     if (entries != null && entries.length > 0) {
       configurationManager.removeConfigurations(entries[0].getIndex());
-      for (LogEntryProto entry : entries) {
-        if (ProtoUtils.isConfigurationLogEntry(entry)) {
-          setRaftConf(entry.getIndex(), ServerProtoUtils.toRaftConfiguration(entry));
-        }
-      }
+      Arrays.stream(entries).forEach(this::setRaftConf);
     }
   }
 

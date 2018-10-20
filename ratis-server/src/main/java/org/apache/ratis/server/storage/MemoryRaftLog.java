@@ -25,7 +25,6 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ProtoUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -207,6 +206,6 @@ public class MemoryRaftLog extends RaftLog {
 
   @Override
   public boolean isConfigEntry(TermIndex ti) {
-    return ProtoUtils.isConfigurationLogEntry(get(ti.getIndex()));
+    return get(ti.getIndex()).hasConfigurationEntry();
   }
 }

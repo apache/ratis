@@ -47,7 +47,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
-import static org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
 
 public abstract class RaftReconfigurationBaseTest extends BaseTest {
   static {
@@ -544,15 +543,15 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       });
       clientThread.start();
 
-      // find CONFIGURATIONENTRY, there may be NOOP before and after it.
+      // find ConfigurationEntry
       final long confIndex = JavaUtils.attempt(() -> {
         final long last = log.getLastEntryTermIndex().getIndex();
         for (long i = last; i >= 1; i--) {
-          if (log.get(i).getLogEntryBodyCase() == CONFIGURATIONENTRY) {
+          if (log.get(i).hasConfigurationEntry()) {
             return i;
           }
         }
-        throw new Exception("CONFIGURATIONENTRY not found: last=" + last);
+        throw new Exception("ConfigurationEntry not found: last=" + last);
       }, 10, 500, "confIndex", LOG);
 
       // wait till the old leader persist the new conf
@@ -572,7 +571,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       // the old leader should have truncated the setConf from the log
       JavaUtils.attempt(() -> log.getLastCommittedIndex() >= confIndex,
           10, 500L, "COMMIT", LOG);
-      Assert.assertEquals(CONFIGURATIONENTRY, log.get(confIndex).getLogEntryBodyCase());
+      Assert.assertTrue(log.get(confIndex).hasConfigurationEntry());
       log2 = null;
     } finally {
       RaftStorageTestUtils.printLog(log2, s -> LOG.info(s));

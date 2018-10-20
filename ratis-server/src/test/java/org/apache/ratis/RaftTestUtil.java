@@ -187,9 +187,8 @@ public interface RaftTestUtil {
       if (e.hasStateMachineLogEntry()) {
         LOG.info(ServerProtoUtils.toString(e) + ", " + e.getStateMachineLogEntry().toString().trim().replace("\n", ", "));
         entries.add(e);
-      } else if (e.getLogEntryBodyCase() == LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY) {
-        LOG.info("Found " + LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY + " at " + ti
-            + ", ignoring it.");
+      } else if (e.hasConfigurationEntry()) {
+        LOG.info("Found ConfigurationEntry at {}, ignoring it.", ti);
       } else {
         throw new AssertionError("Unexpected LogEntryBodyCase " + e.getLogEntryBodyCase() + " at " + ti
             + ": " + ServerProtoUtils.toString(e));

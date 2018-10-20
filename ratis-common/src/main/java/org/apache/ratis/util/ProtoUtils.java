@@ -17,11 +17,20 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.protocol.*;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.RaftGroupIdProto;
+import org.apache.ratis.proto.RaftProtos.RaftGroupProto;
+import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
+import org.apache.ratis.proto.RaftProtos.RaftRpcReplyProto;
+import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
+import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
-import org.apache.ratis.proto.RaftProtos.*;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -144,78 +153,6 @@ public interface ProtoUtils {
 
   static String toString(Collection<CommitInfoProto> protos) {
     return protos.stream().map(ProtoUtils::toString).collect(Collectors.toList()).toString();
-  }
-
-  static boolean isConfigurationLogEntry(LogEntryProto entry) {
-    return entry.getLogEntryBodyCase() ==
-        LogEntryProto.LogEntryBodyCase.CONFIGURATIONENTRY;
-  }
-
-  static LogEntryProto toLogEntryProto(
-      StateMachineLogEntryProto operation, long term, long index,
-      ClientId clientId, long callId) {
-    return LogEntryProto.newBuilder().setTerm(term).setIndex(index)
-        .setStateMachineLogEntry(operation)
-        .setClientId(clientId.toByteString()).setCallId(callId)
-        .build();
-  }
-
-  static boolean shouldReadStateMachineData(LogEntryProto entry) {
-    if (!entry.hasStateMachineLogEntry()) {
-      return false;
-    }
-    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-    return smLog.getStateMachineDataAttached() && smLog.getStateMachineData().isEmpty();
-  }
-
-  /**
-   * If the given entry is {@link LogEntryBodyCase#STATEMACHINELOGENTRY} and it has state machine data,
-   * build a new entry without the state machine data.
-   *
-   * @return a new entry without the state machine data if the given has state machine data;
-   *         otherwise, return the given entry.
-   */
-  static LogEntryProto removeStateMachineData(LogEntryProto entry) {
-    if (!entry.hasStateMachineLogEntry()) {
-      return entry;
-    }
-    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-    if (smLog.getStateMachineData().isEmpty()) {
-      return entry;
-    }
-    // build a new LogEntryProto without state machine data
-    // and mark that it has been removed
-    return LogEntryProto.newBuilder(entry)
-        .setStateMachineLogEntry(StateMachineLogEntryProto.newBuilder()
-            .setLogData(smLog.getLogData())
-            .setStateMachineDataAttached(true)
-            .setSerializedProtobufSize(entry.getSerializedSize()))
-        .build();
-  }
-
-  /**
-   * Return a new log entry based on the input log entry with stateMachineData added.
-   * @param stateMachineData - state machine data to be added
-   * @param entry - log entry to which stateMachineData needs to be added
-   * @return LogEntryProto with stateMachineData added
-   */
-  static LogEntryProto addStateMachineData(ByteString stateMachineData, LogEntryProto entry) {
-    final StateMachineLogEntryProto smLogEntryProto = StateMachineLogEntryProto.newBuilder(entry.getStateMachineLogEntry())
-        .setStateMachineData(stateMachineData)
-        .build();
-    return LogEntryProto.newBuilder(entry).setStateMachineLogEntry(smLogEntryProto).build();
-  }
-
-  static long getSerializedSize(LogEntryProto entry) {
-    if (!entry.hasStateMachineLogEntry()) {
-      return entry.getSerializedSize();
-    }
-    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-    if (!smLog.getStateMachineDataAttached()) {
-      // if state machine data was never set, return the proto serialized size
-      return entry.getSerializedSize();
-    }
-    return smLog.getSerializedProtobufSize();
   }
 
   static IOException toIOException(ServiceException se) {

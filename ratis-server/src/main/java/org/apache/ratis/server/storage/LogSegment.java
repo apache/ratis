@@ -18,7 +18,6 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
@@ -26,7 +25,6 @@ import org.apache.ratis.thirdparty.com.google.common.cache.CacheLoader;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ProtoUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -48,7 +46,7 @@ import java.util.function.Consumer;
  */
 class LogSegment implements Comparable<Long> {
   static long getEntrySize(LogEntryProto entry) {
-    final int serialized = ProtoUtils.removeStateMachineData(entry).getSerializedSize();
+    final int serialized = ServerProtoUtils.removeStateMachineData(entry).getSerializedSize();
     return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4;
   }
 
@@ -270,7 +268,7 @@ class LogSegment implements Comparable<Long> {
       if (keepEntryInCache) {
         entryCache.put(record.getTermIndex(), entry);
       }
-      if (ProtoUtils.isConfigurationLogEntry(entry)) {
+      if (entry.hasConfigurationEntry()) {
         configEntries.add(record.getTermIndex());
       }
       totalSize += getEntrySize(entry);

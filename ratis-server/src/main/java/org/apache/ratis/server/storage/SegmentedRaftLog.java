@@ -31,7 +31,6 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ProtoUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -195,7 +194,7 @@ public class SegmentedRaftLog extends RaftLog {
   @Override
   public EntryWithData getEntryWithData(long index) throws RaftLogIOException {
     final LogEntryProto entry = get(index);
-    if (!ProtoUtils.shouldReadStateMachineData(entry)) {
+    if (!ServerProtoUtils.shouldReadStateMachineData(entry)) {
       return new EntryWithData(entry, null);
     }
 
