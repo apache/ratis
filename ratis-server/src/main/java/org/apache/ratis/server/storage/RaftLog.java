@@ -18,7 +18,6 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.impl.LogAppender;
@@ -137,8 +136,7 @@ public abstract class RaftLog implements Closeable {
    * Used by the leader.
    * @return the index of the new log entry.
    */
-  public long append(long term, TransactionContext operation,
-      ClientId clientId, long callId) throws StateMachineException {
+  public long append(long term, TransactionContext operation) throws StateMachineException {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
@@ -152,8 +150,7 @@ public abstract class RaftLog implements Closeable {
       }
 
       // build the log entry after calling the StateMachine
-      final LogEntryProto e = ServerProtoUtils.toLogEntryProto(
-          operation.getStateMachineLogEntry(), term, nextIndex, clientId, callId);
+      final LogEntryProto e = ServerProtoUtils.toLogEntryProto(operation.getStateMachineLogEntry(), term, nextIndex);
 
       int entrySize = e.getSerializedSize();
       if (entrySize > maxBufferSize) {
@@ -261,7 +258,7 @@ public abstract class RaftLog implements Closeable {
    * If an existing entry conflicts with a new one (same index but different
    * terms), delete the existing entry and all entries that follow it (§5.3).
    *
-   * This method, {@link #append(long, TransactionContext, ClientId, long)},
+   * This method, {@link #append(long, TransactionContext)},
    * {@link #append(long, RaftConfiguration)}, and {@link #truncate(long)},
    * do not guarantee the changes are persisted.
    * Need to wait for the returned futures to persist the changes.
@@ -358,7 +355,7 @@ public abstract class RaftLog implements Closeable {
       this.future = future;
     }
 
-    public long getSerializedSize() {
+    public int getSerializedSize() {
       return ServerProtoUtils.getSerializedSize(logEntry);
     }
 

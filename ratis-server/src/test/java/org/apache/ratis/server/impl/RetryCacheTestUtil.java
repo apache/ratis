@@ -17,8 +17,9 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 
@@ -29,19 +30,20 @@ public class RetryCacheTestUtil {
     return new RetryCache(5000, TimeDuration.valueOf(60, TimeUnit.SECONDS));
   }
 
-  public static void createEntry(RetryCache cache, RaftProtos.LogEntryProto logEntry){
+  public static void createEntry(RetryCache cache, LogEntryProto logEntry){
     if(logEntry.hasStateMachineLogEntry()) {
-      ClientId clientId = ClientId.valueOf(logEntry.getClientId());
-      long callId = logEntry.getCallId();
+      final StateMachineLogEntryProto smLogEntry = logEntry.getStateMachineLogEntry();
+      final ClientId clientId = ClientId.valueOf(smLogEntry.getClientId());
+      final long callId = smLogEntry.getCallId();
       cache.getOrCreateEntry(clientId, callId);
     }
   }
 
-  public static void assertFailure(RetryCache cache,
-      RaftProtos.LogEntryProto logEntry, boolean isFailed) {
+  public static void assertFailure(RetryCache cache, LogEntryProto logEntry, boolean isFailed) {
     if(logEntry.hasStateMachineLogEntry()) {
-      ClientId clientId = ClientId.valueOf(logEntry.getClientId());
-      long callId = logEntry.getCallId();
+      final StateMachineLogEntryProto smLogEntry = logEntry.getStateMachineLogEntry();
+      final ClientId clientId = ClientId.valueOf(smLogEntry.getClientId());
+      final long callId = smLogEntry.getCallId();
       Assert.assertEquals(isFailed, cache.get(clientId, callId).isFailed());
     }
   }

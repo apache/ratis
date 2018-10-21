@@ -284,7 +284,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public TransactionContext startTransaction(RaftClientRequest request) throws IOException {
     blocking.await(Blocking.Type.START_TRANSACTION);
     return new TransactionContextImpl(this, request,
-        ServerProtoUtils.toStateMachineLogEntryProto(request.getMessage().getContent(), STATE_MACHINE_DATA));
+        ServerProtoUtils.toStateMachineLogEntryProto(request, null, STATE_MACHINE_DATA));
   }
 
   @Override

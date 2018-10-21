@@ -216,11 +216,8 @@ public class LeaderState {
     // In the beginning of the new term, replicate a conf entry in order
     // to finally commit entries in the previous term.
     // Also this message can help identify the last committed index and the conf.
-    final LogEntryProto placeHolder = LogEntryProto.newBuilder()
-        .setTerm(server.getState().getCurrentTerm())
-        .setIndex(raftLog.getNextIndex())
-        .setConfigurationEntry(ServerProtoUtils.toRaftConfigurationProto(server.getRaftConf()))
-        .build();
+    final LogEntryProto placeHolder = ServerProtoUtils.toLogEntryProto(
+        server.getRaftConf(), server.getState().getCurrentTerm(), raftLog.getNextIndex());
     CodeInjectionForTesting.execute(APPEND_PLACEHOLDER,
         server.getId().toString(), null);
     raftLog.append(placeHolder);

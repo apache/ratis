@@ -21,6 +21,7 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -32,6 +33,7 @@ import org.apache.ratis.util.ProtoUtils;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
@@ -59,14 +61,19 @@ public interface ServerProtoUtils {
     return TermIndex.toString(entry.getTerm(), entry.getIndex());
   }
 
-  public static String toLogEntryString(LogEntryProto entry) {
+  static String toLogEntryString(LogEntryProto entry) {
     if (entry == null) {
       return null;
     }
-    final ByteString clientId = entry.getClientId();
-    return toTermIndexString(entry) + entry.getLogEntryBodyCase()
-        + ", " + (clientId.isEmpty()? "<empty clientId>": ClientId.valueOf(clientId))
-        + ", cid=" + entry.getCallId();
+    final String s;
+    if (entry.hasStateMachineLogEntry()) {
+      final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
+      final ByteString clientId = smLog.getClientId();
+      s = ", " + (clientId.isEmpty()? "<empty clientId>": ClientId.valueOf(clientId)) + ", cid=" + smLog.getCallId();
+    } else {
+      s = "";
+    }
+    return toTermIndexString(entry) + ", " + entry.getLogEntryBodyCase() + s;
   }
 
   public static String toString(LogEntryProto... entries) {
@@ -88,12 +95,10 @@ public interface ServerProtoUtils {
         + reply.getReplyId().toStringUtf8() + "," + reply.getSuccess();
   }
 
-  public static RaftConfigurationProto toRaftConfigurationProto(
-      RaftConfiguration conf) {
+  static RaftConfigurationProto.Builder toRaftConfigurationProto(RaftConfiguration conf) {
     return RaftConfigurationProto.newBuilder()
         .addAllPeers(ProtoUtils.toRaftPeerProtos(conf.getPeersInConf()))
-        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPeersInOldConf()))
-        .build();
+        .addAllOldPeers(ProtoUtils.toRaftPeerProtos(conf.getPeersInOldConf()));
   }
 
   static RaftConfiguration toRaftConfiguration(LogEntryProto entry) {
@@ -116,33 +121,57 @@ public interface ServerProtoUtils {
         .build();
   }
 
-  static LogEntryProto toLogEntryProto(StateMachineLogEntryProto smLogEntry, long term, long index,
-      ClientId clientId, long callId) {
+  static LogEntryProto toLogEntryProto(StateMachineLogEntryProto smLog, long term, long index) {
     return LogEntryProto.newBuilder()
         .setTerm(term)
         .setIndex(index)
-        .setStateMachineLogEntry(smLogEntry)
-        .setClientId(clientId.toByteString())
-        .setCallId(callId)
+        .setStateMachineLogEntry(smLog)
         .build();
   }
 
+  static StateMachineEntryProto.Builder toStateMachineEntryProtoBuilder(ByteString stateMachineData) {
+    return StateMachineEntryProto.newBuilder().setStateMachineData(stateMachineData);
+  }
+
+  static StateMachineEntryProto.Builder toStateMachineEntryProtoBuilder(int logEntryProtoSerializedSize) {
+    return StateMachineEntryProto.newBuilder().setLogEntryProtoSerializedSize(logEntryProtoSerializedSize);
+  }
+
   static StateMachineLogEntryProto toStateMachineLogEntryProto(
-      ByteString logData, ByteString stateMachineData) {
+      RaftClientRequest request, ByteString logData, ByteString stateMachineData) {
+    if (logData == null) {
+      logData = request.getMessage().getContent();
+    }
+    return toStateMachineLogEntryProto(request.getClientId(), request.getCallId(), logData, stateMachineData);
+  }
+
+  static StateMachineLogEntryProto toStateMachineLogEntryProto(
+      ClientId clientId, long callId, ByteString logData, ByteString stateMachineData) {
     final StateMachineLogEntryProto.Builder b = StateMachineLogEntryProto.newBuilder()
+        .setClientId(clientId.toByteString())
+        .setCallId(callId)
         .setLogData(logData);
     if (stateMachineData != null) {
-      b.setStateMachineData(stateMachineData);
+      b.setStateMachineEntry(toStateMachineEntryProtoBuilder(stateMachineData));
     }
     return b.build();
   }
 
+  static Optional<StateMachineEntryProto> getStateMachineEntry(LogEntryProto entry) {
+    return Optional.of(entry)
+        .filter(LogEntryProto::hasStateMachineLogEntry)
+        .map(LogEntryProto::getStateMachineLogEntry)
+        .filter(StateMachineLogEntryProto::hasStateMachineEntry)
+        .map(StateMachineLogEntryProto::getStateMachineEntry);
+  }
+
+  static Optional<ByteString> getStateMachineData(LogEntryProto entry) {
+    return getStateMachineEntry(entry)
+        .map(StateMachineEntryProto::getStateMachineData);
+  }
+
   static boolean shouldReadStateMachineData(LogEntryProto entry) {
-    if (!entry.hasStateMachineLogEntry()) {
-      return false;
-    }
-    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-    return smLog.getStateMachineDataAttached() && smLog.getStateMachineData().isEmpty();
+    return getStateMachineData(entry).map(ByteString::isEmpty).orElse(false);
   }
 
   /**
@@ -153,21 +182,16 @@ public interface ServerProtoUtils {
    *         otherwise, return the given entry.
    */
   static LogEntryProto removeStateMachineData(LogEntryProto entry) {
-    if (!entry.hasStateMachineLogEntry()) {
-      return entry;
-    }
-    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-    if (smLog.getStateMachineData().isEmpty()) {
-      return entry;
-    }
-    // build a new LogEntryProto without state machine data
-    // and mark that it has been removed
-    return LogEntryProto.newBuilder(entry)
-        .setStateMachineLogEntry(StateMachineLogEntryProto.newBuilder()
-            .setLogData(smLog.getLogData())
-            .setStateMachineDataAttached(true)
-            .setSerializedProtobufSize(entry.getSerializedSize()))
-        .build();
+    return getStateMachineData(entry)
+        .filter(stateMachineData -> !stateMachineData.isEmpty())
+        .map(_dummy -> rebuildLogEntryProto(entry, toStateMachineEntryProtoBuilder(entry.getSerializedSize())))
+        .orElse(entry);
+  }
+
+  static LogEntryProto rebuildLogEntryProto(LogEntryProto entry, StateMachineEntryProto.Builder smEntry) {
+    return LogEntryProto.newBuilder(entry).setStateMachineLogEntry(
+        StateMachineLogEntryProto.newBuilder(entry.getStateMachineLogEntry()).setStateMachineEntry(smEntry)
+    ).build();
   }
 
   /**
@@ -177,22 +201,16 @@ public interface ServerProtoUtils {
    * @return LogEntryProto with stateMachineData added
    */
   static LogEntryProto addStateMachineData(ByteString stateMachineData, LogEntryProto entry) {
-    final StateMachineLogEntryProto smLogEntryProto = StateMachineLogEntryProto.newBuilder(entry.getStateMachineLogEntry())
-        .setStateMachineData(stateMachineData)
-        .build();
-    return LogEntryProto.newBuilder(entry).setStateMachineLogEntry(smLogEntryProto).build();
+    Preconditions.assertTrue(shouldReadStateMachineData(entry),
+        () -> "Failed to addStateMachineData to " + entry + " since shouldReadStateMachineData is false.");
+    return rebuildLogEntryProto(entry, toStateMachineEntryProtoBuilder(stateMachineData));
   }
 
-  static long getSerializedSize(LogEntryProto entry) {
-    if (!entry.hasStateMachineLogEntry()) {
-      return entry.getSerializedSize();
-    }
-    final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-    if (!smLog.getStateMachineDataAttached()) {
-      // if state machine data was never set, return the proto serialized size
-      return entry.getSerializedSize();
-    }
-    return smLog.getSerializedProtobufSize();
+  static int getSerializedSize(LogEntryProto entry) {
+    return getStateMachineEntry(entry)
+        .filter(smEnty -> smEnty.getStateMachineData().isEmpty())
+        .map(StateMachineEntryProto::getLogEntryProtoSerializedSize)
+        .orElseGet(entry::getSerializedSize);
   }
 
   static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(

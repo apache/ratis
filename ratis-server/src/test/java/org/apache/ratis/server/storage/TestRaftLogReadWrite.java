@@ -21,7 +21,6 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ChecksumException;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
@@ -47,9 +46,6 @@ import java.util.List;
  * Test basic functionality of LogReader, LogInputStream, and LogOutputStream.
  */
 public class TestRaftLogReadWrite extends BaseTest {
-  private static final ClientId clientId = ClientId.randomId();
-  private static final long callId = 0;
-
   private File storageDir;
   private long segmentMaxSize;
   private long preallocatedSize;
@@ -93,8 +89,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     long size = 0;
     for (int i = 0; i < entries.length; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
-      entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i,
-          clientId, callId);
+      entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
       final int s = entries[i].getSerializedSize();
       size += CodedOutputStream.computeUInt32SizeNoTag(s) + s + 4;
       out.write(entries[i]);
@@ -137,8 +132,7 @@ public class TestRaftLogReadWrite extends BaseTest {
                  preallocatedSize, bufferSize)) {
       for (int i = 0; i < 100; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
-        entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i,
-            clientId, callId);
+        entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
         out.write(entries[i]);
       }
     }
@@ -148,8 +142,7 @@ public class TestRaftLogReadWrite extends BaseTest {
                  preallocatedSize, bufferSize)) {
       for (int i = 100; i < 200; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
-        entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i,
-            clientId, callId);
+        entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
         out.write(entries[i]);
       }
     }
@@ -205,8 +198,7 @@ public class TestRaftLogReadWrite extends BaseTest {
         16 * 1024 * 1024, 4 * 1024 * 1024, bufferSize);
     for (int i = 0; i < 10; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
-      entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i,
-          clientId, callId);
+      entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
       out.write(entries[i]);
     }
     out.flush();
@@ -254,8 +246,7 @@ public class TestRaftLogReadWrite extends BaseTest {
                  preallocatedSize, bufferSize)) {
       for (int i = 0; i < 100; i++) {
         LogEntryProto entry = ServerProtoUtils.toLogEntryProto(
-            new SimpleOperation("m" + i).getLogEntryContent(), 0, i,
-            clientId, callId);
+            new SimpleOperation("m" + i).getLogEntryContent(), 0, i);
         out.write(entry);
       }
     } finally {

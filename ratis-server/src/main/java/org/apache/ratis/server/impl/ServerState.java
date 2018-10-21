@@ -274,9 +274,8 @@ public class ServerState implements Closeable {
     return log;
   }
 
-  long applyLog(TransactionContext operation, ClientId clientId, long callId)
-      throws StateMachineException {
-    return log.append(currentTerm, operation, clientId, callId);
+  long applyLog(TransactionContext operation) throws StateMachineException {
+    return log.append(currentTerm, operation);
   }
 
   /**

@@ -20,6 +20,7 @@ package org.apache.ratis;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -45,6 +46,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
@@ -268,12 +270,20 @@ public interface RaftTestUtil {
   }
 
   class SimpleOperation {
+    private static final ClientId clientId = ClientId.randomId();
+    private static final AtomicLong callId = new AtomicLong();
+
     private final String op;
     private final StateMachineLogEntryProto smLogEntryProto;
 
     public SimpleOperation(String op) {
+      this(clientId, callId.incrementAndGet(), op);
+    }
+
+    private SimpleOperation(ClientId clientId, long callId, String op) {
       this.op = Objects.requireNonNull(op);
-      this.smLogEntryProto = ServerProtoUtils.toStateMachineLogEntryProto(ProtoUtils.toByteString(op), null);
+      this.smLogEntryProto = ServerProtoUtils.toStateMachineLogEntryProto(
+          clientId, callId, ProtoUtils.toByteString(op), null);
     }
 
     @Override

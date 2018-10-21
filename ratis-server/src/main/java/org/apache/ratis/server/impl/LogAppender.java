@@ -143,7 +143,7 @@ public class LogAppender {
      *         otherwise, the entry is not added, return false.
      */
     boolean addEntry(EntryWithData entry) {
-      final long entrySize = entry.getSerializedSize();
+      final int entrySize = entry.getSerializedSize();
       if (totalSize + entrySize <= maxBufferSize) {
         buf.add(entry);
         totalSize += entrySize;

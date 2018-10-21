@@ -90,7 +90,7 @@ public class TransactionContextImpl implements TransactionContext {
     this(RaftPeerRole.LEADER, stateMachine);
     this.clientRequest = clientRequest;
     this.smLogEntryProto = smLogEntryProto != null? smLogEntryProto
-        : ServerProtoUtils.toStateMachineLogEntryProto(clientRequest.getMessage().getContent(), null);
+        : ServerProtoUtils.toStateMachineLogEntryProto(clientRequest, null, null);
     this.stateMachineContext = stateMachineContext;
   }
 

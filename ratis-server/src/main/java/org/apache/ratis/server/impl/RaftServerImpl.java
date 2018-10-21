@@ -489,8 +489,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final LeaderState leaderState = role.getLeaderStateNonNull();
       final long entryIndex;
       try {
-        entryIndex = state.applyLog(context, request.getClientId(),
-            request.getCallId());
+        entryIndex = state.applyLog(context);
       } catch (StateMachineException e) {
         // the StateMachineException is thrown by the SM in the preAppend stage.
         // Return the exception in a RaftClientReply.
@@ -1041,12 +1040,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
    */
   private CompletableFuture<Message> replyPendingRequest(
       LogEntryProto logEntry, CompletableFuture<Message> stateMachineFuture) {
+    Preconditions.assertTrue(logEntry.hasStateMachineLogEntry());
+    final StateMachineLogEntryProto smLog = logEntry.getStateMachineLogEntry();
     // update the retry cache
-    final ClientId clientId = ClientId.valueOf(logEntry.getClientId());
-    final long callId = logEntry.getCallId();
+    final ClientId clientId = ClientId.valueOf(smLog.getClientId());
+    final long callId = smLog.getCallId();
     final RaftPeerId serverId = getId();
-    final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(
-        clientId, logEntry.getCallId());
+    final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(clientId, callId);
     if (cacheEntry.isFailed()) {
       retryCache.refreshEntry(new RetryCache.CacheEntry(cacheEntry.getKey()));
     }
@@ -1117,11 +1117,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   public void failClientRequest(LogEntryProto logEntry) {
     if (logEntry.hasStateMachineLogEntry()) {
-      final ClientId clientId = ClientId.valueOf(logEntry.getClientId());
-      final RetryCache.CacheEntry cacheEntry = getRetryCache().get(clientId, logEntry.getCallId());
+      final StateMachineLogEntryProto smLog = logEntry.getStateMachineLogEntry();
+      final ClientId clientId = ClientId.valueOf(smLog.getClientId());
+      final long callId = smLog.getCallId();
+      final RetryCache.CacheEntry cacheEntry = getRetryCache().get(clientId, callId);
       if (cacheEntry != null) {
         final RaftClientReply reply = new RaftClientReply(clientId, getId(), getGroupId(),
-            logEntry.getCallId(), false, null, generateNotLeaderException(),
+            callId, false, null, generateNotLeaderException(),
             logEntry.getIndex(), getCommitInfos());
         cacheEntry.failWithReply(reply);
       }

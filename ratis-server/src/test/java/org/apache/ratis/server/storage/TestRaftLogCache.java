@@ -22,7 +22,6 @@ import java.util.Iterator;
 
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
@@ -32,8 +31,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class TestRaftLogCache {
-  private static final ClientId clientId = ClientId.randomId();
-  private static final long callId = 0;
   private static final RaftProperties prop = new RaftProperties();
 
   private RaftLogCache cache;
@@ -47,8 +44,7 @@ public class TestRaftLogCache {
     LogSegment s = LogSegment.newOpenSegment(null, start);
     for (long i = start; i <= end; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
-      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-          0, i, clientId, callId);
+      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
       s.appendToOpenSegment(entry);
     }
     if (!isOpen) {
@@ -137,8 +133,7 @@ public class TestRaftLogCache {
 
     final SimpleOperation m = new SimpleOperation("m");
     try {
-      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-          0, 0, clientId, callId);
+      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, 0);
       cache.appendEntry(entry);
       Assert.fail("the open segment is null");
     } catch (IllegalStateException ignored) {
@@ -147,8 +142,7 @@ public class TestRaftLogCache {
     LogSegment openSegment = prepareLogSegment(100, 100, true);
     cache.addSegment(openSegment);
     for (long index = 101; index < 200; index++) {
-      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-          0, index, clientId, callId);
+      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, index);
       cache.appendEntry(entry);
     }
 

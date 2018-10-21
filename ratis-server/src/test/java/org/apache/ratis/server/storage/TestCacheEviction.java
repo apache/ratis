@@ -21,7 +21,6 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -46,8 +45,6 @@ import java.util.concurrent.CompletableFuture;
 
 public class TestCacheEviction extends BaseTest {
   private static final CacheInvalidationPolicy policy = new CacheInvalidationPolicyDefault();
-  private static final ClientId clientId = ClientId.randomId();
-  private static final long callId = 0;
 
   private List<LogSegment> prepareSegments(int numSegments, boolean[] cached, long start, long size) {
     Assert.assertEquals(numSegments, cached.length);
@@ -193,8 +190,7 @@ public class TestCacheEviction extends BaseTest {
     for (SegmentRange range : slist) {
       for (long index = range.start; index <= range.end; index++) {
         SimpleOperation m = new SimpleOperation(new String(new byte[1024]));
-        eList.add(ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-            range.term, index, clientId, callId));
+        eList.add(ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, index));
       }
     }
     return eList.toArray(new LogEntryProto[eList.size()]);

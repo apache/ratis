@@ -20,7 +20,6 @@ package org.apache.ratis.server.storage;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.impl.ServerProtoUtils;
@@ -51,9 +50,6 @@ import static org.apache.ratis.server.storage.LogSegment.getEntrySize;
  * Test basic functionality of {@link LogSegment}
  */
 public class TestRaftLogSegment extends BaseTest {
-  private static final ClientId clientId = ClientId.randomId();
-  private static final long callId = 0;
-
   private File storageDir;
   private long segmentMaxSize;
   private long preallocatedSize;
@@ -90,8 +86,7 @@ public class TestRaftLogSegment extends BaseTest {
         segmentMaxSize, preallocatedSize, bufferSize)) {
       for (int i = 0; i < size; i++) {
         SimpleOperation op = new SimpleOperation("m" + i);
-        entries[i] = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(),
-            term, i + start, clientId, callId);
+        entries[i] = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i + start);
         out.write(entries[i]);
       }
     }
@@ -164,8 +159,7 @@ public class TestRaftLogSegment extends BaseTest {
     List<LogEntryProto> list = new ArrayList<>();
     while (size < max) {
       SimpleOperation op = new SimpleOperation("m" + i);
-      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(),
-          term, i++ + start, clientId, callId);
+      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i++ + start);
       size += getEntrySize(entry);
       list.add(entry);
     }
@@ -181,18 +175,18 @@ public class TestRaftLogSegment extends BaseTest {
     SimpleOperation op = new SimpleOperation("m");
     final StateMachineLogEntryProto m = op.getLogEntryContent();
     try {
-      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m, 0, 1001, clientId, callId);
+      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m, 0, 1001);
       segment.appendToOpenSegment(entry);
       Assert.fail("should fail since the entry's index needs to be 1000");
     } catch (IllegalStateException e) {
       // the exception is expected.
     }
 
-    LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m, 0, 1000, clientId, callId);
+    LogEntryProto entry = ServerProtoUtils.toLogEntryProto(m, 0, 1000);
     segment.appendToOpenSegment(entry);
 
     try {
-      entry = ServerProtoUtils.toLogEntryProto(m, 0, 1002, clientId, callId);
+      entry = ServerProtoUtils.toLogEntryProto(m, 0, 1002);
       segment.appendToOpenSegment(entry);
       Assert.fail("should fail since the entry's index needs to be 1001");
     } catch (IllegalStateException e) {
@@ -201,7 +195,7 @@ public class TestRaftLogSegment extends BaseTest {
 
     LogEntryProto[] entries = new LogEntryProto[2];
     for (int i = 0; i < 2; i++) {
-      entries[i] = ServerProtoUtils.toLogEntryProto(m, 0, 1001 + i * 2, clientId, callId);
+      entries[i] = ServerProtoUtils.toLogEntryProto(m, 0, 1001 + i * 2);
     }
     try {
       segment.appendToOpenSegment(entries);
@@ -218,7 +212,7 @@ public class TestRaftLogSegment extends BaseTest {
     LogSegment segment = LogSegment.newOpenSegment(null, start);
     for (int i = 0; i < 100; i++) {
       LogEntryProto entry = ServerProtoUtils.toLogEntryProto(
-          new SimpleOperation("m" + i).getLogEntryContent(), term, i + start, clientId, callId);
+          new SimpleOperation("m" + i).getLogEntryContent(), term, i + start);
       segment.appendToOpenSegment(entry);
     }
 
@@ -273,8 +267,7 @@ public class TestRaftLogSegment extends BaseTest {
     try (LogOutputStream out = new LogOutputStream(file, false,
         1024, 1024, bufferSize)) {
       SimpleOperation op = new SimpleOperation(new String(content));
-      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(),
-          0, 0, clientId, callId);
+      LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
       size = LogSegment.getEntrySize(entry);
       out.write(entry);
     }
@@ -301,8 +294,7 @@ public class TestRaftLogSegment extends BaseTest {
     final byte[] content = new byte[1024];
     Arrays.fill(content, (byte) 1);
     SimpleOperation op = new SimpleOperation(new String(content));
-    LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(),
-        0, 0, clientId, callId);
+    LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
     final long entrySize = LogSegment.getEntrySize(entry);
 
     long totalSize = SegmentedRaftLog.HEADER_BYTES.length;

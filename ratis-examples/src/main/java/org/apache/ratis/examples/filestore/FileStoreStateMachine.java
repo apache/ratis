@@ -100,9 +100,9 @@ public class FileStoreStateMachine extends BaseStateMachine {
       final WriteRequestProto write = proto.getWrite();
       final FileStoreRequestProto newProto = FileStoreRequestProto.newBuilder()
           .setWriteHeader(write.getHeader()).build();
-      log = ServerProtoUtils.toStateMachineLogEntryProto(newProto.toByteString(), write.getData());
+      log = ServerProtoUtils.toStateMachineLogEntryProto(request, newProto.toByteString(), write.getData());
     } else {
-      log = ServerProtoUtils.toStateMachineLogEntryProto(content, null);
+      log = ServerProtoUtils.toStateMachineLogEntryProto(request, content, null);
     }
 
     return new TransactionContextImpl(this, request, log);
@@ -125,7 +125,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
 
     final WriteRequestHeaderProto h = proto.getWriteHeader();
     final CompletableFuture<Integer> f = files.write(entry.getIndex(),
-        h.getPath().toStringUtf8(), h.getClose(), h.getOffset(), smLog.getStateMachineData());
+        h.getPath().toStringUtf8(), h.getClose(), h.getOffset(), smLog.getStateMachineEntry().getStateMachineData());
     // sync only if closing the file
     return h.getClose()? f: null;
   }
@@ -150,7 +150,7 @@ public class FileStoreStateMachine extends BaseStateMachine {
       case DELETE:
         return delete(index, request.getDelete());
       case WRITEHEADER:
-        return writeCommit(index, request.getWriteHeader(), smLog.getStateMachineData().size());
+        return writeCommit(index, request.getWriteHeader(), smLog.getStateMachineEntry().getStateMachineData().size());
       case WRITE:
         // WRITE should not happen here since
         // startTransaction converts WRITE requests to WRITEHEADER requests.

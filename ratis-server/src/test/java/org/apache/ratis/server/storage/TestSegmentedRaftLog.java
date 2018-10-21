@@ -21,7 +21,6 @@ import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -59,8 +58,6 @@ public class TestSegmentedRaftLog extends BaseTest {
   }
 
   private static final RaftPeerId peerId = RaftPeerId.valueOf("s0");
-  private static final ClientId clientId = ClientId.randomId();
-  private static final long callId = 0;
 
   static class SegmentRange {
     final long start;
@@ -117,8 +114,7 @@ public class TestSegmentedRaftLog extends BaseTest {
           segmentMaxSize, preallocatedSize, bufferSize)) {
         for (int i = 0; i < size; i++) {
           SimpleOperation m = new SimpleOperation("m" + (i + range.start));
-          entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-              range.term, i + range.start, clientId, callId);
+          entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, i + range.start);
           out.write(entries[i]);
         }
       }
@@ -182,8 +178,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         SimpleOperation m = stringSupplier == null ?
             new SimpleOperation("m" + index) :
             new SimpleOperation(stringSupplier.get());
-        eList.add(ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(),
-            range.term, index, clientId, index));
+        eList.add(ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, index));
       }
     }
     return eList;

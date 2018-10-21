@@ -40,14 +40,32 @@ message RaftConfigurationProto {
   repeated RaftPeerProto oldPeers = 2; // the peers in the old conf
 }
 
+message StateMachineEntryProto {
+   /**
+    * StateMachine specific data which is not written to log.
+    * Unlike logEntryData, stateMachineData is managed and stored by the StateMachine but not the RaftLog.
+    */
+  bytes stateMachineData = 1;
+   /**
+    * When stateMachineData is missing, it is the size of the serialized LogEntryProto along with stateMachineData.
+    * When stateMachineData is not missing, it must be set to zero.
+    */
+  uint32 logEntryProtoSerializedSize = 2;
+}
+
 message StateMachineLogEntryProto {
   // TODO: This is not super efficient if the SM itself uses PB to serialize its own data for a
   /** RaftLog entry data */
   bytes logData = 1;
+  /**
+   * StateMachine entry.
+   * StateMachine implementation may use this field to separate StateMachine specific data from the RaftLog data.
+   */
+  StateMachineEntryProto stateMachineEntry = 2;
 
-  bytes stateMachineData = 2; // State machine specific data which is not written to log.
-  bool stateMachineDataAttached = 3; // set this flag when state machine data is attached.
-  uint64 serializedProtobufSize = 4; // size of the serialized LogEntryProto along with stateMachineData
+  // clientId and callId are used to rebuild the retry cache.
+  bytes clientId = 14;
+  uint64 callId = 15;
 }
 
 message LogEntryProto {
@@ -58,11 +76,6 @@ message LogEntryProto {
     StateMachineLogEntryProto stateMachineLogEntry = 3;
     RaftConfigurationProto configurationEntry = 4;
   }
-
-  // clientId and callId are used to rebuild the retry cache. They're not
-  // necessary for configuration change since re-conf is idempotent.
-  bytes clientId = 6;
-  uint64 callId = 7;
 }
 
 message TermIndexProto {
