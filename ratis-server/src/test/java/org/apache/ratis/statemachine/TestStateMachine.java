@@ -116,12 +116,18 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
 
   @Test
   public void testTransactionContextIsPassedBack() throws Throwable {
+    runTestTransactionContextIsPassedBack(false);
+  }
+
+  @Test
+  public void testTransactionContextIsPassedBackUseMemory() throws Throwable {
+    runTestTransactionContextIsPassedBack(true);
+  }
+
+  void runTestTransactionContextIsPassedBack(boolean useMemory) throws Throwable {
     final RaftProperties properties = new RaftProperties();
     properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, SMTransactionContext.class, StateMachine.class);
-
-    // TODO: fix and run with in-memory log. It fails with NPE
-    // TODO: if change setUseMemory to true
-    RaftServerConfigKeys.Log.setUseMemory(properties, false);
+    RaftServerConfigKeys.Log.setUseMemory(properties, useMemory);
 
     try(MiniRaftClusterWithSimulatedRpc cluster = getFactory().newCluster(NUM_SERVERS, properties)) {
       cluster.start();
