@@ -44,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
  */
 class StateMachineUpdater implements Runnable {
   static final Logger LOG = LoggerFactory.getLogger(StateMachineUpdater.class);
+  private volatile long stopIndex = -1;
 
   enum State {
     RUNNING, STOP, RELOAD
@@ -82,13 +83,32 @@ class StateMachineUpdater implements Runnable {
     updater.start();
   }
 
-  void stop() {
+  private void stop() {
     state = State.STOP;
-    updater.interrupt();
     try {
       stateMachine.close();
     } catch (IOException ignored) {
+      LOG.warn(server.getId() + ": Failed to close "
+          + stateMachine.getClass().getSimpleName()
+          + " " + stateMachine, ignored);
     }
+  }
+
+  /**
+   * Stop the updater thread after all the committed transactions
+   * have been applied to the state machine.
+   *
+   * @throws InterruptedException
+   */
+  public void stopAndJoin()
+      throws InterruptedException {
+    if (stopIndex == -1) {
+      synchronized (this) {
+        this.stopIndex = raftLog.getLastCommittedIndex();
+        notifyUpdater();
+      }
+    }
+    updater.join();
   }
 
   void reloadStateMachine() {
@@ -113,13 +133,14 @@ class StateMachineUpdater implements Runnable {
           // when the peers just start, the committedIndex is initialized as 0
           // and will be updated only after the leader contacts other peers.
           // Thus initially lastAppliedIndex can be greater than lastCommitted.
-          while (lastAppliedIndex >= raftLog.getLastCommittedIndex()) {
+          while (lastAppliedIndex >= raftLog.getLastCommittedIndex()
+              && !shouldStop()) {
             wait();
           }
         }
 
         final long committedIndex = raftLog.getLastCommittedIndex();
-        Preconditions.assertTrue(lastAppliedIndex < committedIndex);
+        Preconditions.assertTrue(lastAppliedIndex <= committedIndex);
 
         if (state == State.RELOAD) {
           Preconditions.assertTrue(stateMachine.getLifeCycleState() == LifeCycle.State.PAUSED);
@@ -158,13 +179,17 @@ class StateMachineUpdater implements Runnable {
         }
 
         // check if need to trigger a snapshot
-        if (shouldTakeSnapshot(lastAppliedIndex)) {
+        if (shouldTakeSnapshot()) {
           if (futures.isInitialized()) {
             JavaUtils.allOf(futures.get()).get();
           }
           stateMachine.takeSnapshot();
           // TODO purge logs, including log cache. but should keep log for leader's RPCSenders
           lastSnapshotIndex = lastAppliedIndex;
+        }
+
+        if (shouldStop()) {
+          stop();
         }
       } catch (InterruptedException e) {
         if (!isRunning()) {
@@ -184,9 +209,17 @@ class StateMachineUpdater implements Runnable {
     return state != State.STOP;
   }
 
-  private boolean shouldTakeSnapshot(long currentAppliedIndex) {
-    return autoSnapshotEnabled && (state != State.RELOAD) &&
-        (currentAppliedIndex - lastSnapshotIndex >= autoSnapshotThreshold);
+  private boolean shouldStop() {
+    return stopIndex > -1 && getLastAppliedIndex() >= stopIndex;
+  }
+
+  private boolean shouldTakeSnapshot() {
+    return autoSnapshotEnabled &&
+        ( ((state != State.RELOAD)
+            && (getLastAppliedIndex() - lastSnapshotIndex
+              >= autoSnapshotThreshold))
+          || shouldStop()
+        );
   }
 
   long getLastAppliedIndex() {

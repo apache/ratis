@@ -372,7 +372,12 @@ public class ServerState implements Closeable {
 
   @Override
   public void close() throws IOException {
-    stateMachineUpdater.stop();
+    try {
+      stateMachineUpdater.stopAndJoin();
+    } catch (InterruptedException e) {
+      LOG.warn(getSelfId() +
+          ": Interrupted when joining stateMachineUpdater", e);
+    }
     LOG.info("{} closes. The last applied log index is {}",
         getSelfId(), getLastAppliedIndex());
 
