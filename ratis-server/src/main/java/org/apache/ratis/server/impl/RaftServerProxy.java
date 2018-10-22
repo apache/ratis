@@ -222,6 +222,11 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
+  public Iterable<RaftGroup> getGroups() throws IOException {
+    return getImpls().stream().map(RaftServerImpl::getGroup).collect(Collectors.toList());
+  }
+
+  @Override
   public RpcType getRpcType() {
     return getFactory().getRpcType();
   }
@@ -385,18 +390,30 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public ServerInformationReply getInfo(ServerInformationRequest request)
+  public GroupListReply getGroupList(GroupListRequest request)
       throws IOException {
-    return RaftServerImpl.waitForReply(getId(), request, getInfoAsync(request),
+    return RaftServerImpl.waitForReply(getId(), request, getGroupListAsync(request),
         r -> null);
   }
 
   @Override
-  public CompletableFuture<ServerInformationReply> getInfoAsync(
-      ServerInformationRequest request) {
+  public CompletableFuture<GroupListReply> getGroupListAsync(
+      GroupListRequest request) {
     return getImplFuture(request.getRaftGroupId()).thenApplyAsync(
-        server -> server.getServerInformation(request));
+        server -> server.getGroupList(request));
   }
+
+  @Override
+  public GroupInfoReply getGroupInfo(GroupInfoRequest request) throws IOException {
+    return RaftServerImpl.waitForReply(getId(), request, getGroupInfoAsync(request), r -> null);
+  }
+
+  @Override
+  public CompletableFuture<GroupInfoReply> getGroupInfoAsync(GroupInfoRequest request) throws IOException {
+    return getImplFuture(request.getRaftGroupId()).thenApplyAsync(
+        server -> server.getGroupInfo(request));
+  }
+
 
   /**
    * Handle a raft configuration change request from client.

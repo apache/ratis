@@ -18,12 +18,26 @@
 package org.apache.ratis.protocol;
 
 /**
- * Client sends this request to a server to request for the information about
- * the server itself.
+ * The response of server information request. Sent from server to client.
  */
-public class ServerInformationRequest extends RaftClientRequest {
-  public ServerInformationRequest(ClientId clientId, RaftPeerId serverId,
-                                  RaftGroupId groupId, long callId) {
-    super(clientId, serverId, groupId, callId, 0L, null, RaftClientRequest.readRequestType());
+public class GroupListReply extends RaftClientReply {
+
+    private final Iterable<RaftGroupId> groupIds;
+
+  public GroupListReply(
+      RaftClientRequest request,  Iterable<RaftGroupId> groupIds) {
+    super(request, null);
+    this.groupIds = groupIds;
+  }
+
+  public GroupListReply(
+      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
+      long callId, boolean success, Iterable<RaftGroupId> groupIds) {
+    super(clientId, serverId, groupId, callId, success, null, null, 0L, null);
+    this.groupIds = groupIds;
+  }
+
+    public Iterable<RaftGroupId> getGroupIds() {
+    return groupIds;
   }
 }

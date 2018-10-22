@@ -105,11 +105,18 @@ public class GrpcClientProtocolClient implements Closeable {
         .groupManagement(request));
   }
 
-  ServerInformationReplyProto serverInformation(ServerInformationRequestProto request) {
+  GroupListReplyProto groupList(GroupListRequestProto request) {
     return adminBlockingStub
         .withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
-        .serverInformation(request);
+        .groupList(request);
   }
+
+  GroupInfoReplyProto groupInfo(GroupInfoRequestProto request) {
+    return adminBlockingStub
+        .withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+        .groupInfo(request);
+  }
+
 
   RaftClientReplyProto setConfiguration(
       SetConfigurationRequestProto request) throws IOException {

@@ -22,18 +22,13 @@ import org.apache.ratis.client.impl.RaftClientRpcWithProxy;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcUtil;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.GroupManagementRequest;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.ServerInformationRequest;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
+import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
+import org.apache.ratis.proto.RaftProtos.GroupListRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
-import org.apache.ratis.proto.RaftProtos.ServerInformationRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -83,10 +78,14 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
       final SetConfigurationRequestProto setConf = ClientProtoUtils.toSetConfigurationRequestProto(
           (SetConfigurationRequest) request);
       return ClientProtoUtils.toRaftClientReply(proxy.setConfiguration(setConf));
-    } else if (request instanceof ServerInformationRequest){
-      final ServerInformationRequestProto proto = ClientProtoUtils.toServerInformationRequestProto(
-          (ServerInformationRequest) request);
-      return ClientProtoUtils.toServerInformationReply(proxy.serverInformation(proto));
+    } else if (request instanceof GroupListRequest){
+      final GroupListRequestProto proto = ClientProtoUtils.toGroupListRequestProto(
+          (GroupListRequest) request);
+      return ClientProtoUtils.toGroupListReply(proxy.groupList(proto));
+    } else if (request instanceof GroupInfoRequest){
+      final GroupInfoRequestProto proto = ClientProtoUtils.toGroupInfoRequestProto(
+          (GroupInfoRequest) request);
+      return ClientProtoUtils.toGroupInfoReply(proxy.groupInfo(proto));
     } else {
       final CompletableFuture<RaftClientReply> f = sendRequest(request, proxy);
       // TODO: timeout support

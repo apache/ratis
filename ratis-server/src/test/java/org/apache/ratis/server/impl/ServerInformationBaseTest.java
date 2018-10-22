@@ -30,6 +30,8 @@ import org.junit.Test;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static org.apache.ratis.util.Preconditions.assertTrue;
 
@@ -56,14 +58,37 @@ public abstract class ServerInformationBaseTest<CLUSTER extends MiniRaftCluster>
     RaftGroup group = cluster.getGroup();
 
     List<RaftPeer> peers = cluster.getPeers();
-    // check that all the peers return exactly this group when group information
-    // is requested.
-    for (RaftPeer peer : peers) {
+
+    //Multi-raft with the second group
+    RaftGroup group2 = RaftGroup.valueOf(RaftGroupId.randomId(), peers);
+    for(RaftPeer peer : peers) {
       try(final RaftClient client = cluster.createClient(peer.getId())) {
-        RaftClientReply reply = client.serverInformation(peer.getId());
-        assertTrue(reply instanceof ServerInformationReply);
-        ServerInformationReply info = (ServerInformationReply)reply;
-        assertTrue(sameGroup(group, info.getGroup()));
+        client.groupAdd(group2, peer.getId());
+      }
+    }
+    // check that all the peers return the list where both groups are included. And able to return GroupInfo
+    // for each of them.
+    for (RaftPeer peer : peers) {
+      try (final RaftClient client = cluster.createClient(peer.getId())) {
+        RaftClientReply reply = client.getGroups(peer.getId());
+        assertTrue(reply instanceof GroupListReply);
+        GroupListReply info = (GroupListReply) reply;
+        List<RaftGroupId> groupList = (StreamSupport
+            .stream(info.getGroupIds().spliterator(), false)
+            .filter(id -> group.getGroupId().equals(id)).collect(Collectors.toList()));
+        assert (groupList.size() == 1);
+        reply = client.getGroupInfo(groupList.get(0), peer.getId());
+        assertTrue(reply instanceof GroupInfoReply);
+        GroupInfoReply gi = (GroupInfoReply) reply;
+        assert (sameGroup(group, gi.getGroup()));
+        groupList = (StreamSupport
+            .stream(info.getGroupIds().spliterator(), false)
+            .filter(id -> group2.getGroupId().equals(id)).collect(Collectors.toList()));
+        assert (groupList.size() == 1);
+        reply = client.getGroupInfo(groupList.get(0), peer.getId());
+        assertTrue(reply instanceof GroupInfoReply);
+        gi = (GroupInfoReply) reply;
+        assert (sameGroup(group2, gi.getGroup()));
       }
     }
 
@@ -89,16 +114,18 @@ public abstract class ServerInformationBaseTest<CLUSTER extends MiniRaftCluster>
       }
     }
 
-    // check serverInformation
+    // check getGroups
     for(RaftPeer peer : peers) {
       if (peer.getId().equals(killedFollower)) {
         continue;
       }
       try(final RaftClient client = cluster.createClient(peer.getId())) {
-        RaftClientReply reply = client.serverInformation(peer.getId());
-        assertTrue(reply instanceof ServerInformationReply);
-        ServerInformationReply info = (ServerInformationReply)reply;
-        assertTrue(sameGroup(group, info.getGroup()));
+        RaftClientReply reply = client.getGroups(peer.getId());
+        assertTrue(reply instanceof GroupListReply);
+        GroupListReply info = (GroupListReply)reply;
+        assertTrue(StreamSupport
+            .stream(info.getGroupIds().spliterator(), false)
+            .filter(id -> group.getGroupId().equals(id)).collect(Collectors.toList()).size() == 1);
         for(CommitInfoProto i : info.getCommitInfos()) {
           if (RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
             Assert.assertTrue(i.getCommitIndex() <= maxCommit);
@@ -114,7 +141,7 @@ public abstract class ServerInformationBaseTest<CLUSTER extends MiniRaftCluster>
 
   RaftClientReply sendMessages(int n, MiniRaftCluster cluster) throws Exception {
     LOG.info("sendMessages: " + n);
-    final RaftPeerId leader = RaftTestUtil.waitForLeader(cluster).getId();
+    final RaftPeerId leader = RaftTestUtil.waitForLeader(cluster, true, cluster.getGroupId()).getId();
     RaftClientReply reply = null;
     try(final RaftClient client = cluster.createClient(leader)) {
       for(int i = 0; i < n; i++) {

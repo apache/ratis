@@ -158,9 +158,12 @@ class SimulatedServerRpc implements RaftServerRpc {
       if (request instanceof GroupManagementRequest) {
         future = CompletableFuture.completedFuture(
             server.groupManagement((GroupManagementRequest) request));
-      } else if (request instanceof ServerInformationRequest) {
+      } else if (request instanceof GroupListRequest) {
         future = CompletableFuture.completedFuture(
-            server.getInfo((ServerInformationRequest) request));
+            server.getGroupList((GroupListRequest) request));
+      } else if (request instanceof GroupInfoRequest) {
+        future = CompletableFuture.completedFuture(
+            server.getGroupInfo((GroupInfoRequest) request));
       } else if (request instanceof SetConfigurationRequest) {
         future = server.setConfigurationAsync((SetConfigurationRequest) request);
       } else {

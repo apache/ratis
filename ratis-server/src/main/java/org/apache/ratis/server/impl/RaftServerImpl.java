@@ -40,12 +40,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.management.ObjectName;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.OptionalLong;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -54,6 +49,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
@@ -350,8 +347,17 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return infos;
   }
 
-  ServerInformationReply getServerInformation(ServerInformationRequest request) {
-    return new ServerInformationReply(request, getRoleInfoProto(),
+  GroupListReply getGroupList(GroupListRequest request) {
+    Iterable<RaftGroupId> groupIds = null;
+    try {
+      groupIds = proxy.getGroupIds();
+    } catch (IOException e) {
+    }
+    return new GroupListReply(request, groupIds);
+  }
+
+  GroupInfoReply getGroupInfo(GroupInfoRequest request) {
+    return new GroupInfoReply(request, getRoleInfoProto(),
         state.getStorage().getStorageDir().hasMetaFile(), getCommitInfos(), getGroup());
   }
 

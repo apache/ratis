@@ -52,19 +52,27 @@ public class NettyClientRpc extends RaftClientRpcWithProxy<NettyRpcProxy> {
           (SetConfigurationRequest)request);
       b.setSetConfigurationRequest(proto);
       rpcRequest = proto.getRpcRequest();
-    } else if (request instanceof ServerInformationRequest) {
-      final RaftProtos.ServerInformationRequestProto proto = ClientProtoUtils.toServerInformationRequestProto(
-          (ServerInformationRequest)request);
-      b.setServerInformationRequest(proto);
+    } else if (request instanceof GroupListRequest) {
+      final RaftProtos.GroupListRequestProto proto = ClientProtoUtils.toGroupListRequestProto(
+          (GroupListRequest)request);
+      b.setGroupListRequest(proto);
+      rpcRequest = proto.getRpcRequest();
+    } else if (request instanceof GroupInfoRequest) {
+      final RaftProtos.GroupInfoRequestProto proto = ClientProtoUtils.toGroupInfoRequestProto(
+          (GroupInfoRequest)request);
+      b.setGroupInfoRequest(proto);
       rpcRequest = proto.getRpcRequest();
     } else {
       final RaftClientRequestProto proto = ClientProtoUtils.toRaftClientRequestProto(request);
       b.setRaftClientRequest(proto);
       rpcRequest = proto.getRpcRequest();
     }
-    if (request instanceof ServerInformationRequest) {
-      return ClientProtoUtils.toServerInformationReply(
-          proxy.send(rpcRequest, b.build()).getServerInfoReply());
+    if (request instanceof GroupListRequest) {
+      return ClientProtoUtils.toGroupListReply(
+          proxy.send(rpcRequest, b.build()).getGroupListReply());
+    } else if (request instanceof GroupInfoRequest) {
+      return ClientProtoUtils.toGroupInfoReply(
+          proxy.send(rpcRequest, b.build()).getGroupInfoReply());
     } else {
       return ClientProtoUtils.toRaftClientReply(
           proxy.send(rpcRequest, b.build()).getRaftClientReply());

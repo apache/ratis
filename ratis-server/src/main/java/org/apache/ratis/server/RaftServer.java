@@ -44,6 +44,9 @@ public interface RaftServer extends Closeable, RpcType.Get,
   /** @return the group IDs the server is part of. */
   Iterable<RaftGroupId> getGroupIds() throws IOException;
 
+  /** @return the groups the server is part of. */
+  Iterable<RaftGroup> getGroups() throws IOException;
+
   /** @return the server properties. */
   RaftProperties getProperties();
 

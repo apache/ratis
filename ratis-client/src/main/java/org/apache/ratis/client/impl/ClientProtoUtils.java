@@ -24,6 +24,7 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTREPLICATEDEXCEPTION;
@@ -184,20 +185,34 @@ public interface ClientProtoUtils {
     return b.build();
   }
 
-  static ServerInformationReplyProto toServerInformationReplyProto(
-      ServerInformationReply reply) {
-    final ServerInformationReplyProto.Builder b =
-        ServerInformationReplyProto.newBuilder();
+  static GroupListReplyProto toGroupListReplyProto(
+      GroupListReply reply) {
+    final GroupListReplyProto.Builder b =
+        GroupListReplyProto.newBuilder();
+    if (reply != null) {
+      b.setRpcReply(toRaftRpcReplyProtoBuilder(reply.getClientId().toByteString(),
+          reply.getServerId().toByteString(), reply.getRaftGroupId(),
+          reply.getCallId(), reply.isSuccess()));
+      if (reply.getGroupIds() != null) {
+        reply.getGroupIds().forEach(groupId -> b.addGroupId(ProtoUtils.toRaftGroupIdProtoBuilder(groupId)));
+      }
+    }
+    return b.build();
+  }
+
+  static GroupInfoReplyProto toGroupInfoReplyProto(GroupInfoReply reply) {
+    final GroupInfoReplyProto.Builder b =
+        GroupInfoReplyProto.newBuilder();
     if (reply != null) {
       b.setRpcReply(toRaftRpcReplyProtoBuilder(reply.getClientId().toByteString(),
           reply.getServerId().toByteString(), reply.getRaftGroupId(),
           reply.getCallId(), reply.isSuccess()));
       if (reply.getRaftGroupId() != null) {
         b.setGroup(ProtoUtils.toRaftGroupProtoBuilder(reply.getGroup()));
+        b.setIsRaftStorageHealthy(reply.isRaftStorageHealthy());
+        b.setRole(reply.getRoleInfoProto());
+        ProtoUtils.addCommitInfos(reply.getCommitInfos(), i -> b.addCommitInfos(i));
       }
-      b.setIsRaftStorageHealthy(reply.isRaftStorageHealthy());
-      b.setRole(reply.getRoleInfoProto());
-      ProtoUtils.addCommitInfos(reply.getCommitInfos(), i -> b.addCommitInfos(i));
     }
     return b.build();
   }
@@ -233,15 +248,26 @@ public interface ClientProtoUtils {
         replyProto.getLogIndex(), replyProto.getCommitInfosList());
   }
 
-  static ServerInformationReply toServerInformationReply(
-      ServerInformationReplyProto replyProto) {
+  static GroupListReply toGroupListReply(
+      GroupListReplyProto replyProto) {
+    final RaftRpcReplyProto rp = replyProto.getRpcReply();
+    ClientId clientId = ClientId.valueOf(rp.getRequestorId());
+    final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
+    final Iterable<RaftGroupId> groupInfos = replyProto.getGroupIdList().stream()
+        .map(id -> ProtoUtils.toRaftGroupId(id)).collect(Collectors.toList());
+    return new GroupListReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
+        groupId, rp.getCallId(), rp.getSuccess(), groupInfos);
+  }
+
+  static GroupInfoReply toGroupInfoReply(
+      GroupInfoReplyProto replyProto) {
     final RaftRpcReplyProto rp = replyProto.getRpcReply();
     ClientId clientId = ClientId.valueOf(rp.getRequestorId());
     final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
     final RaftGroup raftGroup = ProtoUtils.toRaftGroup(replyProto.getGroup());
     RoleInfoProto role = replyProto.getRole();
     boolean isRaftStorageHealthy = replyProto.getIsRaftStorageHealthy();
-    return new ServerInformationReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
+    return new GroupInfoReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
         groupId, rp.getCallId(), rp.getSuccess(), role, isRaftStorageHealthy,
         replyProto.getCommitInfosList(), raftGroup);
   }
@@ -317,15 +343,26 @@ public interface ClientProtoUtils {
     }
   }
 
-  static ServerInformationRequest toServerInformationRequest(
-      ServerInformationRequestProto p) {
+  static GroupInfoRequest toGroupInfoRequest(
+      GroupInfoRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    return new ServerInformationRequest(
+    return new GroupInfoRequest(
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
         ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
         m.getCallId());
   }
+
+  static GroupListRequest toGroupListRequest(
+      GroupListRequestProto p) {
+    final RaftRpcRequestProto m = p.getRpcRequest();
+    return new GroupListRequest(
+        ClientId.valueOf(m.getRequestorId()),
+        RaftPeerId.valueOf(m.getReplyId()),
+        ProtoUtils.toRaftGroupId(m.getRaftGroupId()),
+        m.getCallId());
+  }
+
 
   static GroupManagementRequestProto toGroupManagementRequestProto(GroupManagementRequest request) {
     final GroupManagementRequestProto.Builder b = GroupManagementRequestProto.newBuilder()
@@ -345,9 +382,16 @@ public interface ClientProtoUtils {
     return b.build();
   }
 
-  static ServerInformationRequestProto toServerInformationRequestProto(
-      ServerInformationRequest request) {
-    return ServerInformationRequestProto.newBuilder()
+  static GroupInfoRequestProto toGroupInfoRequestProto(
+      GroupInfoRequest request) {
+    return GroupInfoRequestProto.newBuilder()
+        .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
+        .build();
+  }
+
+  static GroupListRequestProto toGroupListRequestProto(
+      GroupListRequest request) {
+    return GroupListRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
         .build();
   }
@@ -363,4 +407,5 @@ public interface ClientProtoUtils {
     return ClientId.valueOf(rpc.getRequestorId()) + "<-" + rpc.getReplyId().toStringUtf8()
         + "#" + rpc.getCallId();
   }
+
 }

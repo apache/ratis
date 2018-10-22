@@ -17,32 +17,33 @@
  */
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
+import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 
 import java.util.Collection;
 
 /**
  * The response of server information request. Sent from server to client.
  */
-public class ServerInformationReply extends RaftClientReply {
+public class GroupInfoReply extends RaftClientReply {
+
   private final RaftGroup group;
   private final RoleInfoProto roleInfoProto;
   private final boolean isRaftStorageHealthy;
 
-  public ServerInformationReply(
-      RaftClientRequest request, RoleInfoProto roleInfoProto,
-      boolean isRaftStorageHealthy, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
+  public GroupInfoReply(
+          RaftClientRequest request, RoleInfoProto roleInfoProto,
+          boolean isRaftStorageHealthy, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
     super(request, commitInfos);
     this.roleInfoProto = roleInfoProto;
     this.isRaftStorageHealthy = isRaftStorageHealthy;
     this.group = group;
   }
 
-  public ServerInformationReply(
-      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
-      long callId, boolean success, RoleInfoProto roleInfoProto,
-      boolean isRaftStorageHealthy, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
+  public GroupInfoReply(
+          ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
+          long callId, boolean success, RoleInfoProto roleInfoProto,
+          boolean isRaftStorageHealthy, Collection<CommitInfoProto> commitInfos, RaftGroup group) {
     super(clientId, serverId, groupId, callId, success, null, null, 0L, commitInfos);
     this.roleInfoProto = roleInfoProto;
     this.isRaftStorageHealthy = isRaftStorageHealthy;

@@ -291,9 +291,14 @@ message GroupManagementRequestProto {
   }
 }
 
-// server info request
-message ServerInformationRequestProto {
+// server info requests
+message GroupListRequestProto {
   RaftRpcRequestProto rpcRequest = 1;
+}
+
+message GroupInfoRequestProto {
+  RaftRpcRequestProto rpcRequest = 1;
+  RaftGroupIdProto groupId = 2;
 }
 
 message ServerRpcProto {
@@ -326,7 +331,12 @@ message RoleInfoProto {
   }
 }
 
-message ServerInformationReplyProto {
+message GroupListReplyProto {
+  RaftRpcReplyProto rpcReply = 1;
+  repeated RaftGroupIdProto groupId = 2;
+}
+
+message GroupInfoReplyProto {
   RaftRpcReplyProto rpcReply = 1;
   RaftGroupProto group = 2;
   RoleInfoProto role = 3;

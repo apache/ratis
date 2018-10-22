@@ -19,14 +19,14 @@ package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.AdminAsynchronousProtocol;
+import org.apache.ratis.protocol.GroupInfoRequest;
+import org.apache.ratis.protocol.GroupListRequest;
 import org.apache.ratis.protocol.GroupManagementRequest;
-import org.apache.ratis.protocol.ServerInformationRequest;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
-import org.apache.ratis.proto.RaftProtos.ServerInformationReplyProto;
-import org.apache.ratis.proto.RaftProtos.ServerInformationRequestProto;
 import org.apache.ratis.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolServiceImplBase;
 
 public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
@@ -44,10 +44,17 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
   }
 
   @Override
-  public void serverInformation(ServerInformationRequestProto proto,
-      StreamObserver<ServerInformationReplyProto> responseObserver) {
-    final ServerInformationRequest request = ClientProtoUtils.toServerInformationRequest(proto);
-    GrpcUtil.asyncCall(responseObserver, () -> protocol.getInfoAsync(request),
-        ClientProtoUtils::toServerInformationReplyProto);
+  public void groupList(GroupListRequestProto proto,
+        StreamObserver<GroupListReplyProto> responseObserver) {
+    final GroupListRequest request = ClientProtoUtils.toGroupListRequest(proto);
+    GrpcUtil.asyncCall(responseObserver, () -> protocol.getGroupListAsync(request),
+        ClientProtoUtils::toGroupListReplyProto);
+  }
+
+  @Override
+  public void groupInfo(GroupInfoRequestProto proto, StreamObserver<GroupInfoReplyProto> responseObserver) {
+    final GroupInfoRequest request = ClientProtoUtils.toGroupInfoRequest(proto);
+    GrpcUtil.asyncCall(responseObserver, () -> protocol.getGroupInfoAsync(request),
+        ClientProtoUtils::toGroupInfoReplyProto);
   }
 }

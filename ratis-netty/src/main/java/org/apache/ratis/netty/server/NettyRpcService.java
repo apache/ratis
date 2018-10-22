@@ -20,9 +20,10 @@ package org.apache.ratis.netty.server;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyRpcProxy;
+import org.apache.ratis.protocol.GroupInfoReply;
+import org.apache.ratis.protocol.GroupListReply;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.protocol.ServerInformationReply;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
@@ -202,13 +203,22 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
               .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
               .build();
         }
-        case SERVERINFORMATIONREQUEST: {
-          final ServerInformationRequestProto request = proto.getServerInformationRequest();
+        case GROUPLISTREQUEST: {
+          final GroupListRequestProto request = proto.getGroupListRequest();
           rpcRequest = request.getRpcRequest();
-          final ServerInformationReply reply = server.getInfo(
-              ClientProtoUtils.toServerInformationRequest(request));
+          final GroupListReply reply = server.getGroupList(
+              ClientProtoUtils.toGroupListRequest(request));
           return RaftNettyServerReplyProto.newBuilder()
-              .setServerInfoReply(ClientProtoUtils.toServerInformationReplyProto(reply))
+              .setGroupListReply(ClientProtoUtils.toGroupListReplyProto(reply))
+              .build();
+        }
+        case GROUPINFOREQUEST: {
+          final GroupInfoRequestProto request = proto.getGroupInfoRequest();
+          rpcRequest = request.getRpcRequest();
+          final GroupInfoReply reply = server.getGroupInfo(
+              ClientProtoUtils.toGroupInfoRequest(request));
+          return RaftNettyServerReplyProto.newBuilder()
+              .setGroupInfoReply(ClientProtoUtils.toGroupInfoReplyProto(reply))
               .build();
         }
         case RAFTNETTYSERVERREQUEST_NOT_SET:

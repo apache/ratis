@@ -17,16 +17,13 @@
  */
 package org.apache.ratis.protocol;
 
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-
-/** Asynchronous version of {@link AdminProtocol}. */
-public interface AdminAsynchronousProtocol {
-  CompletableFuture<GroupListReply> getGroupListAsync(
-      GroupListRequest request) throws IOException;
-
-  CompletableFuture<GroupInfoReply> getGroupInfoAsync(
-      GroupInfoRequest request) throws IOException;
-
-  CompletableFuture<RaftClientReply> groupManagementAsync(GroupManagementRequest request);
+/**
+ * Client sends this request to a server to request for the information about
+ * the server itself.
+ */
+public class GroupListRequest extends RaftClientRequest {
+  public GroupListRequest(ClientId clientId, RaftPeerId serverId,
+        RaftGroupId groupId, long callId) {
+    super(clientId, serverId, groupId, callId, 0L, null, RaftClientRequest.readRequestType());
+  }
 }

@@ -29,9 +29,7 @@ import org.apache.ratis.util.*;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -245,12 +243,20 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientReply serverInformation(RaftPeerId server)
+  public RaftClientReply getGroups(RaftPeerId server)
       throws IOException {
     Objects.requireNonNull(server, "server == null");
 
-    return sendRequest(new ServerInformationRequest(clientId, server,
+    return sendRequest(new GroupListRequest(clientId, server,
         groupId, nextCallId()));
+  }
+
+  @Override
+  public RaftClientReply getGroupInfo(RaftGroupId raftGroupId, RaftPeerId server) throws IOException {
+    Objects.requireNonNull(server, "server == null");
+    RaftGroupId rgi = raftGroupId == null ? groupId : raftGroupId;
+    return sendRequest(new GroupInfoRequest(clientId, server,
+        rgi, nextCallId()));
   }
 
   private void addServers(Stream<RaftPeer> peersInNewConf) {

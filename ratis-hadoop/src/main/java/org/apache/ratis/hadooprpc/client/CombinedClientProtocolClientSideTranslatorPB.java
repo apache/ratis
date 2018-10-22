@@ -21,12 +21,7 @@ import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.hadooprpc.Proxy;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.GroupManagementRequest;
-import org.apache.ratis.protocol.ServerInformationRequest;
-import org.apache.ratis.protocol.ServerInformationReply;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
 import org.apache.ratis.util.CheckedFunction;
 import org.apache.ratis.util.ProtoUtils;
@@ -75,11 +70,19 @@ public class CombinedClientProtocolClientSideTranslatorPB
   }
 
   @Override
-  public ServerInformationReply getInfo(ServerInformationRequest request) throws IOException {
+  public GroupListReply getGroupList(GroupListRequest request) throws IOException {
     return handleRequest(request,
-        ClientProtoUtils::toServerInformationRequestProto,
-        ClientProtoUtils::toServerInformationReply,
-        p -> getProtocol().serverInformation(null, p));
+        ClientProtoUtils::toGroupListRequestProto,
+        ClientProtoUtils::toGroupListReply,
+        p -> getProtocol().groupList(null, p));
+  }
+
+  @Override
+  public GroupInfoReply getGroupInfo(GroupInfoRequest request) throws IOException {
+    return handleRequest(request,
+        ClientProtoUtils::toGroupInfoRequestProto,
+        ClientProtoUtils::toGroupInfoReply,
+        p -> getProtocol().groupInfo(null, p));
   }
 
   static <REQUEST extends RaftClientRequest, REPLY extends RaftClientReply,

@@ -49,6 +49,9 @@ service AdminProtocolService {
   rpc groupManagement(ratis.common.GroupManagementRequestProto)
       returns(ratis.common.RaftClientReplyProto) {}
 
-  rpc serverInformation(ratis.common.ServerInformationRequestProto)
-      returns(ratis.common.ServerInformationReplyProto) {}
+  rpc groupList(ratis.common.GroupListRequestProto)
+      returns(ratis.common.GroupListReplyProto) {}
+
+  rpc groupInfo(ratis.common.GroupInfoRequestProto)
+      returns(ratis.common.GroupInfoReplyProto) {}
 }
