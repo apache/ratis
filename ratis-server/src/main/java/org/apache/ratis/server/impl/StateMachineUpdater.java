@@ -44,7 +44,7 @@ import java.util.concurrent.CompletableFuture;
  */
 class StateMachineUpdater implements Runnable {
   static final Logger LOG = LoggerFactory.getLogger(StateMachineUpdater.class);
-  private volatile long stopIndex = -1;
+  private volatile Long stopIndex = null;
 
   enum State {
     RUNNING, STOP, RELOAD
@@ -100,13 +100,13 @@ class StateMachineUpdater implements Runnable {
    *
    * @throws InterruptedException
    */
-  public void stopAndJoin()
-      throws InterruptedException {
-    if (stopIndex == -1) {
+  void stopAndJoin() throws InterruptedException {
+    if (stopIndex == null) {
       synchronized (this) {
         this.stopIndex = raftLog.getLastCommittedIndex();
         notifyUpdater();
       }
+      LOG.info("{}: set stopIndex = {}", this, stopIndex);
     }
     updater.join();
   }
@@ -210,7 +210,7 @@ class StateMachineUpdater implements Runnable {
   }
 
   private boolean shouldStop() {
-    return stopIndex > -1 && getLastAppliedIndex() >= stopIndex;
+    return stopIndex != null && getLastAppliedIndex() >= stopIndex;
   }
 
   private boolean shouldTakeSnapshot() {
