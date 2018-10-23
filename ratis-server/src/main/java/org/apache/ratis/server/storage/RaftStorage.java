@@ -17,7 +17,10 @@
  */
 package org.apache.ratis.server.storage;
 
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachineStorage;
@@ -28,6 +31,8 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.nio.file.Files;
 
 public class RaftStorage implements Closeable {
@@ -115,7 +120,27 @@ public class RaftStorage implements Closeable {
     return metaFile;
   }
 
-  public SnapshotInfo getLastestSnapshot() throws IOException {
+  public void writeRaftConfiguration(LogEntryProto conf) {
+    File confFile = storageDir.getMetaConfFile();
+    try (FileOutputStream fio = new FileOutputStream(confFile)) {
+      conf.writeTo(fio);
+    } catch (Exception e) {
+      LOG.error("Failed writing configuration to file:" + confFile, e);
+    }
+  }
+
+  public RaftConfiguration readRaftConfiguration() {
+    File confFile = storageDir.getMetaConfFile();
+    try (FileInputStream fio = new FileInputStream(confFile)) {
+      LogEntryProto confProto = LogEntryProto.newBuilder().mergeFrom(fio).build();
+      return ServerProtoUtils.toRaftConfiguration(confProto);
+    } catch (Exception e) {
+      LOG.error("Failed reading configuration from file:" + confFile, e);
+      return null;
+    }
+  }
+
+  public SnapshotInfo getLatestSnapshot() throws IOException {
     return getStateMachineStorage().getLatestSnapshot();
   }
 

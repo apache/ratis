@@ -51,6 +51,7 @@ public class RaftStorageDirectory {
   static final String TEMP = "tmp";
   static final Pattern CLOSED_SEGMENT_REGEX = Pattern.compile("log_(\\d+)-(\\d+)");
   static final Pattern OPEN_SEGMENT_REGEX = Pattern.compile("log_inprogress_(\\d+)(?:\\..*)?");
+  private static final String CONF_EXTENSION = ".conf";
 
 
   enum StorageState {
@@ -137,6 +138,10 @@ public class RaftStorageDirectory {
   File getMetaTmpFile() {
     return new File(getCurrentDir(), META_FILE_NAME
         + AtomicFileOutputStream.TMP_EXTENSION);
+  }
+
+  File getMetaConfFile() {
+    return new File(getCurrentDir(), META_FILE_NAME + CONF_EXTENSION);
   }
 
   File getOpenLogFile(long startIndex) {

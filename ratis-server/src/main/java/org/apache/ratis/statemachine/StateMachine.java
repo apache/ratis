@@ -98,17 +98,6 @@ public interface StateMachine extends Closeable {
   long takeSnapshot() throws IOException;
 
   /**
-   * Record the RaftConfiguration in the state machine. The RaftConfiguration
-   * should also be stored in the snapshot.
-   */
-  void setRaftConfiguration(RaftConfiguration conf);
-
-  /**
-   * @return the latest raft configuration recorded in the state machine.
-   */
-  RaftConfiguration getRaftConfiguration();
-
-  /**
    * @return StateMachineStorage to interact with the durability guarantees provided by the
    * state machine.
    */

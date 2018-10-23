@@ -23,7 +23,6 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -47,7 +46,6 @@ import java.util.concurrent.atomic.AtomicReference;
 public class BaseStateMachine implements StateMachine {
   private final CompletableFuture<RaftServer> server = new CompletableFuture<>();
   private volatile RaftGroupId groupId;
-  private volatile RaftConfiguration raftConf;
   protected final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
 
   private final AtomicReference<TermIndex> lastAppliedTermIndex = new AtomicReference<>();
@@ -68,16 +66,6 @@ public class BaseStateMachine implements StateMachine {
     this.groupId = groupId;
     this.server.complete(server);
     lifeCycle.setName("" + this);
-  }
-
-  @Override
-  public void setRaftConfiguration(RaftConfiguration conf) {
-    this.raftConf = conf;
-  }
-
-  @Override
-  public RaftConfiguration getRaftConfiguration() {
-    return this.raftConf;
   }
 
   @Override

@@ -156,12 +156,16 @@ public class ServerState implements Closeable {
       return RaftServerConstants.INVALID_LOG_INDEX;
     }
 
-    // get the raft configuration from the snapshot
-    RaftConfiguration raftConf = sm.getRaftConfiguration();
+    // get the raft configuration from raft metafile
+    RaftConfiguration raftConf = storage.readRaftConfiguration();
     if (raftConf != null) {
       setRaftConf(raftConf.getLogEntryIndex(), raftConf);
     }
     return snapshot.getIndex();
+  }
+
+  void writeRaftConfiguration(LogEntryProto conf) {
+    storage.writeRaftConfiguration(conf);
   }
 
   void start() {
