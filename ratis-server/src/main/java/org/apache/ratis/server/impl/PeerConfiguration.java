@@ -87,4 +87,20 @@ class PeerConfiguration {
     }
     return false;
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    } else if (obj == null || obj.getClass() != this.getClass()) {
+      return false;
+    }
+    final PeerConfiguration that = (PeerConfiguration)obj;
+    return this.peers.equals(that.peers);
+  }
+
+  @Override
+  public int hashCode() {
+    return peers.keySet().hashCode(); // hashCode of a set is well defined in Java.
+  }
 }

@@ -44,8 +44,16 @@ public class ConfigurationManager {
   }
 
   synchronized void addConfiguration(long logIndex, RaftConfiguration conf) {
-    Preconditions.assertTrue(configurations.isEmpty() ||
-        configurations.lastEntry().getKey() < logIndex);
+    final RaftConfiguration found = configurations.get(logIndex);
+    if (found != null) {
+      Preconditions.assertTrue(found.equals(conf));
+      return;
+    }
+    if (!configurations.isEmpty()) {
+      final Map.Entry<Long, RaftConfiguration> lastEntry = configurations.lastEntry();
+      Preconditions.assertTrue(lastEntry.getKey() < logIndex,
+          () -> "lastEntry = " + lastEntry + ", lastEntry.index >= logIndex = " + logIndex);
+    }
     configurations.put(logIndex, conf);
     this.currentConf = conf;
   }

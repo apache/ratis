@@ -261,4 +261,22 @@ public class RaftConfiguration {
   Collection<RaftPeer> getPeersInConf() {
     return conf.getPeers();
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    } else if (obj == null || obj.getClass() != this.getClass()) {
+      return false;
+    }
+    final RaftConfiguration that = (RaftConfiguration)obj;
+    return this.logEntryIndex == that.logEntryIndex
+        && Objects.equals(this.conf,  that.conf)
+        && Objects.equals(this.oldConf,  that.oldConf);
+  }
+
+  @Override
+  public int hashCode() {
+    return Long.hashCode(logEntryIndex);
+  }
 }
