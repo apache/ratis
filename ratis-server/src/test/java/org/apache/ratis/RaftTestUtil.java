@@ -113,14 +113,11 @@ public interface RaftTestUtil {
     return leader != null ? leader.getId().toString() : null;
   }
 
-  static boolean logEntriesContains(RaftLog log, SimpleMessage... expectedMessages) {
-    return logEntriesContains(log, 0L, Long.MAX_VALUE, expectedMessages);
-  }
-
-  static boolean logEntriesContains(RaftLog log, long startIndex, long endIndex, SimpleMessage... expectedMessages) {
+  static boolean logEntriesContains(RaftLog log,
+      SimpleMessage... expectedMessages) {
     int idxEntries = 0;
     int idxExpected = 0;
-    TermIndex[] termIndices = log.getEntries(startIndex, endIndex);
+    TermIndex[] termIndices = log.getEntries(0, Long.MAX_VALUE);
     while (idxEntries < termIndices.length
         && idxExpected < expectedMessages.length) {
       try {
@@ -378,14 +375,5 @@ public interface RaftTestUtil {
         e.printStackTrace();
       }
     }).start();
-  }
-
-  static void assertSameLog(RaftLog expected, RaftLog computed) throws Exception {
-    Assert.assertEquals(expected.getLastEntryTermIndex(), computed.getLastEntryTermIndex());
-    final long lastIndex = expected.getNextIndex() - 1;
-    Assert.assertEquals(expected.getLastEntryTermIndex().getIndex(), lastIndex);
-    for(long i = 0; i < lastIndex; i++) {
-      Assert.assertEquals(expected.get(i), computed.get(i));
-    }
   }
 }

@@ -29,8 +29,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.server.storage.RaftLog;
-import org.apache.ratis.server.storage.RaftLogIOException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -38,7 +36,6 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.stream.LongStream;
 
 import static java.util.Arrays.asList;
 
@@ -113,19 +110,8 @@ public abstract class RetryCacheTests extends BaseTest {
       Assert.assertEquals(2, RaftServerTestUtil.getRetryCacheSize(server));
       Assert.assertNotNull(RaftServerTestUtil.getRetryEntry(server, clientId, callId));
       // make sure there is only one log entry committed
-      Assert.assertEquals(1, count(server.getState().getLog(), oldLastApplied + 1));
+      Assert.assertEquals(oldLastApplied + 1, server.getState().getLastAppliedIndex());
     }
-  }
-
-  static int count(RaftLog log, long startIndex) throws RaftLogIOException {
-    final long nextIndex = log.getNextIndex();
-    int count = 0;
-    for(long i = startIndex; i < nextIndex; i++) {
-      if (log.get(i).hasStateMachineLogEntry()) {
-        count++;
-      }
-    }
-    return count;
   }
 
   /**
@@ -172,7 +158,8 @@ public abstract class RetryCacheTests extends BaseTest {
     }
 
     // check the new leader and make sure the retry did not get committed
-    Assert.assertEquals(0, count(cluster.getLeader().getState().getLog(), oldLastApplied + 1));
+    Assert.assertEquals(oldLastApplied + 3,
+        cluster.getLeader().getState().getLastAppliedIndex());
     client.close();
   }
 }

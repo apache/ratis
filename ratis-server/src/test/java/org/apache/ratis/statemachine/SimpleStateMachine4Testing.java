@@ -20,15 +20,13 @@ package org.apache.ratis.statemachine;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.io.MD5Hash;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
@@ -36,29 +34,22 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.LogInputStream;
 import org.apache.ratis.server.storage.LogOutputStream;
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.statemachine.impl.TransactionContextImpl;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.util.Daemon;
-import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.LifeCycle;
-import org.apache.ratis.util.MD5FileUtil;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.Objects;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 /**
  * A {@link StateMachine} implementation example that simply stores all the log
@@ -77,8 +68,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     return (SimpleStateMachine4Testing)s.getStateMachine();
   }
 
-  private final SortedMap<Long, LogEntryProto> indexMap = Collections.synchronizedSortedMap(new TreeMap<>());
-  private final SortedMap<String, LogEntryProto> dataMap = Collections.synchronizedSortedMap(new TreeMap<>());
+  private final List<LogEntryProto> list =
+      Collections.synchronizedList(new ArrayList<>());
   private final Daemon checkpointer;
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
   private final RaftProperties properties = new RaftProperties();
@@ -128,14 +119,14 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public SimpleStateMachine4Testing() {
     checkpointer = new Daemon(() -> {
       while (running) {
-        if (indexMap.lastKey() - endIndexLastCkpt >= SNAPSHOT_THRESHOLD) {
-          endIndexLastCkpt = takeSnapshot();
-        }
-
-        try {
-          TimeUnit.SECONDS.sleep(1);
-        } catch(InterruptedException ignored) {
-        }
+          if (list.get(list.size() - 1).getIndex() - endIndexLastCkpt >=
+              SNAPSHOT_THRESHOLD) {
+            endIndexLastCkpt = takeSnapshot();
+          }
+          try {
+            Thread.sleep(1000);
+          } catch (InterruptedException ignored) {
+          }
       }
     });
   }
@@ -146,12 +137,6 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   public RoleInfoProto getLeaderElectionTimeoutInfo() {
     return leaderElectionTimeoutInfo;
-  }
-
-  private void put(LogEntryProto entry) {
-    final LogEntryProto previous = indexMap.put(entry.getIndex(), entry);
-    Preconditions.assertNull(previous, "previous");
-    dataMap.put(entry.getStateMachineLogEntry().getLogData().toStringUtf8(), entry);
   }
 
   @Override
@@ -186,7 +171,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
-    put(entry);
+    list.add(entry);
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
     return CompletableFuture.completedFuture(
         new SimpleMessage(entry.getIndex() + " OK"));
@@ -207,7 +192,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
         termIndex.getIndex(), snapshotFile);
     try (LogOutputStream out = new LogOutputStream(snapshotFile, false,
         segmentMaxSize, preallocatedSize, bufferSize)) {
-      for (final LogEntryProto entry : indexMap.values()) {
+      for (final LogEntryProto entry : list) {
         if (entry.getIndex() > endIndex) {
           break;
         } else {
@@ -256,13 +241,13 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {
-          put(entry);
+          list.add(entry);
           updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
         }
       }
       Preconditions.assertTrue(
-          !indexMap.isEmpty() && endIndex == indexMap.lastKey(),
-          "endIndex=%s, indexMap=%s", endIndex, indexMap);
+          !list.isEmpty() && endIndex == list.get(list.size() - 1).getIndex(),
+          "endIndex=%s, list=%s", endIndex, list);
       this.endIndexLastCkpt = endIndex;
       setLastAppliedTermIndex(snapshot.getTermIndex());
       this.storage.loadLatestSnapshot();
@@ -279,21 +264,18 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
    */
   @Override
   public CompletableFuture<Message> query(Message request) {
-    final String string = request.getContent().toStringUtf8();
-    Exception exception;
+    final ByteString bytes = request.getContent();
     try {
-      LOG.info("query " + string);
-      final LogEntryProto entry = dataMap.get(string);
-      if (entry != null) {
-        return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));
-      }
-      exception = new IndexOutOfBoundsException("Log entry not found for query " + string);
+      final long index = bytes.isEmpty()? getLastAppliedTermIndex().getIndex()
+          : Long.parseLong(bytes.toStringUtf8());
+      LOG.info("query log index " + index);
+      final LogEntryProto entry = list.get(Math.toIntExact(index - 1));
+      return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));
     } catch (Exception e) {
       LOG.warn("Failed request " + request, e);
-      exception = e;
+      return JavaUtils.completeExceptionally(new StateMachineException(
+          "Failed request " + request, e));
     }
-    return JavaUtils.completeExceptionally(new StateMachineException(
-        "Failed request " + request, exception));
   }
 
   static final ByteString STATE_MACHINE_DATA = ByteString.copyFromUtf8("StateMachine Data");
@@ -332,7 +314,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   public LogEntryProto[] getContent() {
-    return indexMap.values().toArray(new LogEntryProto[0]);
+    return list.toArray(new LogEntryProto[list.size()]);
   }
 
   public void blockStartTransaction() {

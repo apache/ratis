@@ -15,63 +15,55 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server;
+package org.apache.ratis;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.BaseTest;
-import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.examples.ParameterizedBaseTest;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.Logger;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Collection;
 
 /**
  * Test restarting raft peers.
  */
-public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
-    extends BaseTest
-    implements MiniRaftCluster.Factory.Get<CLUSTER> {
+@RunWith(Parameterized.class)
+public class TestRestartRaftPeer extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  static final int NUM_SERVERS = 3;
-
-  @Before
-  public void setup() {
-    final RaftProperties prop = getProperties();
+  @Parameterized.Parameters
+  public static Collection<Object[]> data() throws IOException {
+    RaftProperties prop = new RaftProperties();
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("8KB"));
+    return ParameterizedBaseTest.getMiniRaftClusters(prop, 3);
   }
+
+  @Parameterized.Parameter
+  public MiniRaftCluster cluster;
 
   @Test
-  public void testRestartFollower() throws Exception {
-    try(final MiniRaftCluster cluster = newCluster(NUM_SERVERS)) {
-      runTestRestartFollower(cluster, LOG);
-    }
-  }
-
-  static void runTestRestartFollower(MiniRaftCluster cluster, Logger LOG) throws Exception {
+  public void restartFollower() throws Exception {
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = cluster.getLeader().getId();
@@ -79,9 +71,9 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
     // write some messages
     final byte[] content = new byte[1024];
-    Arrays.fill(content, (byte)1);
+    Arrays.fill(content, (byte) 1);
     final SimpleMessage message = new SimpleMessage(new String(content));
-    for(int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++) {
       Assert.assertTrue(client.send(message).isSuccess());
     }
 
@@ -91,20 +83,24 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     cluster.restartServer(followerId, false);
 
     // write some more messages
-    for(int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++) {
       Assert.assertTrue(client.send(message).isSuccess());
     }
     client.close();
 
-    final long leaderLastIndex = cluster.getLeader().getState().getLog().getLastEntryTermIndex().getIndex();
     // make sure the restarted follower can catchup
-    final ServerState followerState = cluster.getRaftServerImpl(followerId).getState();
-    JavaUtils.attempt(() -> followerState.getLastAppliedIndex() >= leaderLastIndex,
-        10, 500, "follower catchup", LOG);
+    boolean catchup = false;
+    long lastAppliedIndex = 0;
+    for (int i = 0; i < 10 && !catchup; i++) {
+      Thread.sleep(500);
+      lastAppliedIndex = cluster.getRaftServerImpl(followerId).getState().getLastAppliedIndex();
+      catchup = lastAppliedIndex >= 20;
+    }
+    Assert.assertTrue("lastAppliedIndex=" + lastAppliedIndex, catchup);
 
     // make sure the restarted peer's log segments is correct
     cluster.restartServer(followerId, false);
     Assert.assertTrue(cluster.getRaftServerImpl(followerId).getState().getLog()
-        .getLastEntryTermIndex().getIndex() >= leaderLastIndex);
+        .getLastEntryTermIndex().getIndex() >= 20);
   }
 }

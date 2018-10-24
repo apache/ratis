@@ -18,8 +18,6 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.util.AutoCloseableLock;
@@ -30,10 +28,6 @@ import java.util.function.Consumer;
 public interface RaftStorageTestUtils {
   static void setRaftLogWorkerLogLevel(Level level) {
     LogUtils.setLogLevel(RaftLogWorker.LOG, level);
-  }
-
-  static String getLogFlushTimeMetric(RaftPeerId serverId) {
-    return RaftLogWorker.class.getName() + "." + serverId + ".flush-time";
   }
 
   static void printLog(RaftLog log, Consumer<String> println) {
@@ -56,7 +50,8 @@ public interface RaftStorageTestUtils {
       b.append(i == committed? 'c': ' ');
       b.append(String.format("%3d: ", i));
       try {
-        b.append(ServerProtoUtils.toLogEntryString(log.get(i)));
+        final RaftProtos.LogEntryProto entry = log.get(i);
+        b.append(entry != null? entry.getLogEntryBodyCase(): null);
       } catch (RaftLogIOException e) {
         b.append(e);
       }

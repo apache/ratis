@@ -20,67 +20,61 @@ package org.apache.ratis.server;
 
 import com.codahale.metrics.Timer;
 import org.apache.log4j.Level;
-import org.apache.ratis.BaseTest;
-import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.RatisMetricsRegistry;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.ratis.server.storage.RaftStorageTestUtils;
-import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.LogUtils;
+import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import javax.management.ObjectName;
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
 
-public class TestRaftLogMetrics extends BaseTest
-    implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
+public class TestRaftLogMetrics {
 
   {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 3;
 
-  {
-    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        MetricsStateMachine.class, StateMachine.class);
+  protected static final RaftProperties properties = new RaftProperties();
+
+  private final MiniRaftClusterWithSimulatedRpc cluster = MiniRaftClusterWithSimulatedRpc
+      .FACTORY.newCluster(NUM_SERVERS, getProperties());
+
+  public RaftProperties getProperties() {
+    return properties;
   }
 
-  static class MetricsStateMachine extends BaseStateMachine {
-    static MetricsStateMachine get(RaftServerImpl s) {
-      return (MetricsStateMachine)s.getStateMachine();
-    }
+  @Before
+  public void setup() throws IOException {
+    Assert.assertNull(cluster.getLeader());
+    cluster.start();
+  }
 
-    private final AtomicInteger flushCount = new AtomicInteger();
-
-    int getFlushCount() {
-      return flushCount.get();
+  @After
+  public void tearDown() {
+    if (cluster != null) {
+      cluster.shutdown();
     }
+  }
 
-    @Override
-    public CompletableFuture<Void> flushStateMachineData(long index) {
-      flushCount.incrementAndGet();
-      return super.flushStateMachineData(index);
-    }
+  private String getLogFlushTimeMetric(String serverId) {
+    return new StringBuilder("org.apache.ratis.server.storage.RaftLogWorker.")
+        .append(serverId).append(".flush-time").toString();
   }
 
   @Test
   public void testFlushMetric() throws Exception {
-    try(final MiniRaftCluster cluster = newCluster(NUM_SERVERS)) {
-      cluster.start();
-      runTestFlushMetric(cluster);
-    }
-  }
-
-  static void runTestFlushMetric(MiniRaftCluster cluster) throws Exception {
     int numMsg = 2;
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numMsg);
 
@@ -91,21 +85,22 @@ public class TestRaftLogMetrics extends BaseTest
     }
 
     for (RaftServerProxy rsp: cluster.getServers()) {
-      final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(rsp.getId());
+      String flushTimeMetric = getLogFlushTimeMetric(rsp.getId().toString());
       Timer tm = RatisMetricsRegistry.getRegistry().getTimers().get(flushTimeMetric);
       Assert.assertNotNull(tm);
 
-      final MetricsStateMachine stateMachine = MetricsStateMachine.get(rsp.getImpl(cluster.getGroupId()));
-      final int expectedFlush = stateMachine.getFlushCount();
+      // Number of log entries expected = numMsg + 1 entry for start-log-segment
+      int numExpectedLogEntries = numMsg + 1;
 
-      Assert.assertEquals(expectedFlush, tm.getCount());
+      Assert.assertEquals(numExpectedLogEntries, tm.getCount());
       Assert.assertTrue(tm.getMeanRate() > 0);
 
       // Test jmx
       ObjectName oname = new ObjectName("metrics", "name", flushTimeMetric);
-      Assert.assertEquals(expectedFlush,
+      Assert.assertEquals(numExpectedLogEntries,
           ((Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count"))
               .intValue());
     }
   }
+
 }
