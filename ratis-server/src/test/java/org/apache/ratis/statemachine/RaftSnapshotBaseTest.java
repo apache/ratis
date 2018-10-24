@@ -33,7 +33,9 @@ import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -45,6 +47,8 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 public abstract class RaftSnapshotBaseTest extends BaseTest {
   static {
@@ -56,25 +60,31 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   static final Logger LOG = LoggerFactory.getLogger(RaftSnapshotBaseTest.class);
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 10;
 
-  static File getSnapshotFile(MiniRaftCluster cluster, int i) {
+  static List<File> getSnapshotFiles(MiniRaftCluster cluster, long startIndex, long endIndex) {
     final RaftServerImpl leader = cluster.getLeader();
-    final SimpleStateMachine4Testing sm = SimpleStateMachine4Testing.get(leader);
-    return sm.getStateMachineStorage().getSnapshotFile(
-        leader.getState().getCurrentTerm(), i);
+    final SimpleStateMachineStorage storage = SimpleStateMachine4Testing.get(leader).getStateMachineStorage();
+    final long term = leader.getState().getCurrentTerm();
+    return LongStream.range(startIndex, endIndex)
+        .mapToObj(i -> storage.getSnapshotFile(term, i))
+        .collect(Collectors.toList());
   }
 
-  static void assertLeaderContent(MiniRaftCluster cluster)
-      throws InterruptedException {
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
-    Assert.assertEquals(SNAPSHOT_TRIGGER_THRESHOLD * 2,
-        leader.getState().getLog().getLastCommittedIndex());
-    final LogEntryProto[] entries = SimpleStateMachine4Testing.get(leader).getContent();
 
-    for (int i = 1; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-      Assert.assertEquals(i+1, entries[i].getIndex());
-      Assert.assertArrayEquals(
-          new SimpleMessage("m" + i).getContent().toByteArray(),
-          entries[i].getStateMachineLogEntry().getLogData().toByteArray());
+  static void assertLeaderContent(MiniRaftCluster cluster) throws Exception {
+    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftLog leaderLog = leader.getState().getLog();
+    final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
+    final LogEntryProto e = leaderLog.get(lastIndex);
+
+    final LogEntryProto[] entries = SimpleStateMachine4Testing.get(leader).getContent();
+    long message = 0;
+    for (int i = 0; i < entries.length; i++) {
+      LOG.info("{}) {} {}", i, message, entries[i]);
+      if (entries[i].hasStateMachineLogEntry()) {
+        final SimpleMessage m = new SimpleMessage("m" + message++);
+        Assert.assertArrayEquals(m.getContent().toByteArray(),
+            entries[i].getStateMachineLogEntry().getLogData().toByteArray());
+      }
     }
   }
 
@@ -118,15 +128,12 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       }
     }
 
+    final long nextIndex = cluster.getLeader().getState().getLog().getNextIndex();
+    LOG.info("nextIndex = {}", nextIndex);
     // wait for the snapshot to be done
-    final File snapshotFile = getSnapshotFile(cluster, i);
-
-    int retries = 0;
-    do {
-      Thread.sleep(1000);
-    } while (!snapshotFile.exists() && retries++ < 10);
-
-    Assert.assertTrue(snapshotFile + " does not exist", snapshotFile.exists());
+    final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
+    JavaUtils.attempt(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
+        10, 1000, "snapshotFile.exist", LOG);
 
     // restart the peer and check if it can correctly load snapshot
     cluster.restart(false);
@@ -138,6 +145,14 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     }
   }
 
+  static boolean exists(File f) {
+    if (f.exists()) {
+      LOG.info("File exists: " + f);
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Basic test for install snapshot: start a one node cluster and let it
    * generate a snapshot. Then delete the log and restart the node, and add more
@@ -145,7 +160,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
    */
   @Test
   public void testBasicInstallSnapshot() throws Exception {
-    List<LogPathAndIndex> logs;
+    final List<LogPathAndIndex> logs;
     try {
       RaftTestUtil.waitForLeader(cluster);
       final RaftPeerId leaderId = cluster.getLeader().getId();
@@ -161,15 +176,13 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       // wait for the snapshot to be done
       RaftStorageDirectory storageDirectory = cluster.getLeader().getState()
           .getStorage().getStorageDir();
-      final File snapshotFile = getSnapshotFile(cluster, i);
+
+      final long nextIndex = cluster.getLeader().getState().getLog().getNextIndex();
+      LOG.info("nextIndex = {}", nextIndex);
+      final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
+      JavaUtils.attempt(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
+          10, 1000, "snapshotFile.exist", LOG);
       logs = storageDirectory.getLogSegmentFiles();
-
-      int retries = 0;
-      do {
-        Thread.sleep(1000);
-      } while (!snapshotFile.exists() && retries++ < 10);
-
-      Assert.assertTrue(snapshotFile + " does not exist", snapshotFile.exists());
     } finally {
       cluster.shutdown();
     }

@@ -192,7 +192,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       // submit some messages
       final List<CompletableFuture<RaftClientReply>> futures = new ArrayList<>();
       for (int i = 0; i < numMesssages; i++) {
-        final String s = "m" + i;
+        final String s = "" + i;
         LOG.info("sendAsync " + s);
         futures.add(client.sendAsync(new RaftTestUtil.SimpleMessage(s)));
       }
@@ -218,12 +218,12 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       // test a failure case
       testFailureCaseAsync("sendStaleReadAsync(..) with a larger commit index",
           () -> client.sendStaleReadAsync(
-              new RaftTestUtil.SimpleMessage("" + (numMesssages + 1)),
+              new RaftTestUtil.SimpleMessage("" + Long.MAX_VALUE),
               followerCommitInfo.getCommitIndex(), follower),
           StateMachineException.class, IndexOutOfBoundsException.class);
 
       // test sendStaleReadAsync
-      for (int i = 1; i < followerCommitInfo.getCommitIndex(); i++) {
+      for (int i = 0; i < numMesssages; i++) {
         final int query = i;
         LOG.info("sendStaleReadAsync, query=" + query);
         final Message message = new RaftTestUtil.SimpleMessage("" + query);

@@ -21,6 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
+import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
@@ -107,8 +108,8 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
     final long seqNum = 111;
-    RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, seqNum, new RaftTestUtil.SimpleMessage("message"));
+    final SimpleMessage message = new SimpleMessage("message");
+    final RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId, callId, seqNum, message);
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertFalse(reply.isSuccess());
     Assert.assertNotNull(reply.getStateMachineException());
@@ -131,8 +132,8 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
       }
       Assert.assertNotNull(
           RaftServerTestUtil.getRetryEntry(server, client.getId(), callId));
-      Assert.assertEquals(oldLastApplied + 1,
-          server.getState().getLastAppliedIndex());
+      final RaftLog log = server.getState().getLog();
+      RaftTestUtil.logEntriesContains(log, oldLastApplied + 1, log.getNextIndex(), message);
     }
 
     client.close();

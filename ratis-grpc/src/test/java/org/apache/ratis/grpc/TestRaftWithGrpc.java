@@ -92,16 +92,17 @@ public class TestRaftWithGrpc
         Assert.assertEquals(raftServer.getState().getLog().getNextIndex(), index);
         if (!raftServer.isLeader()) {
           TermIndex[] serverEntries = raftServer.getState().getLog().getEntries(0, Integer.MAX_VALUE);
-          Arrays.equals(serverEntries, leaderEntries);
+          Assert.assertArrayEquals(serverEntries, leaderEntries);
         }
       });
 
       // Wait for heartbeats from leader to be received by followers
-      Thread.sleep(1000);
+      Thread.sleep(500);
       RaftServerTestUtil.getLogAppenders(cluster.getLeader()).forEach(logAppender -> {
         // FollowerInfo in the leader state should have updated next and match index.
-        Assert.assertEquals(logAppender.getFollower().getMatchIndex(), index - 1);
-        Assert.assertEquals(logAppender.getFollower().getNextIndex(), index);
+        final long followerMatchIndex = logAppender.getFollower().getMatchIndex();
+        Assert.assertTrue(followerMatchIndex >= index - 1);
+        Assert.assertEquals(followerMatchIndex + 1, logAppender.getFollower().getNextIndex());
       });
     }
     cluster.shutdown();

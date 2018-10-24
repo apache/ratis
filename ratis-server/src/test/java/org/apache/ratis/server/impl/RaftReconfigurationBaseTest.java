@@ -61,8 +61,6 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
 
   protected static final RaftProperties prop = new RaftProperties();
   
-  private static final ClientId clientId = ClientId.randomId();
-
   static final int STAGING_CATCHUP_GAP = 10;
   @BeforeClass
   public static void setup() {
@@ -416,17 +414,16 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
       cluster.start();
       RaftTestUtil.waitForLeader(cluster);
 
-      final RaftPeerId leaderId = cluster.getLeader().getId();
-      final RaftClient client = cluster.createClient(leaderId);
+      final RaftServerImpl leader = cluster.getLeader();
+      final RaftClient client = cluster.createClient(leader.getId());
       client.send(new SimpleMessage("m"));
 
-      final long committedIndex = cluster.getLeader().getState().getLog()
-          .getLastCommittedIndex();
+      final RaftLog leaderLog = leader.getState().getLog();
+      final long committedIndex = leaderLog.getLastCommittedIndex();
       final RaftConfiguration confBefore = cluster.getLeader().getRaftConf();
 
       // no real configuration change in the request
-      RaftClientReply reply = client.setConfiguration(cluster.getPeers()
-          .toArray(new RaftPeer[0]));
+      final RaftClientReply reply = client.setConfiguration(cluster.getPeers().toArray(RaftPeer.emptyArray()));
       Assert.assertTrue(reply.isSuccess());
       Assert.assertEquals(committedIndex, cluster.getLeader().getState()
           .getLog().getLastCommittedIndex());
