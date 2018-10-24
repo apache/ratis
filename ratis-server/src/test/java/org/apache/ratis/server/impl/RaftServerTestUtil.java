@@ -41,8 +41,7 @@ public class RaftServerTestUtil {
         3, sleepMs, "waitAndCheckNewConf", LOG);
   }
   private static void waitAndCheckNewConf(MiniRaftCluster cluster,
-      RaftPeer[] peers, Collection<String> deadPeers)
-      throws Exception {
+      RaftPeer[] peers, Collection<String> deadPeers) {
     LOG.info(cluster.printServers());
     Assert.assertNotNull(cluster.getLeader());
 
@@ -61,9 +60,11 @@ public class RaftServerTestUtil {
         numIncluded++;
         Assert.assertTrue(server.getRaftConf().isStable());
         Assert.assertTrue(server.getRaftConf().hasNoChange(peers));
-      } else {
-        Assert.assertFalse(server.getId() + " is still running: " + server,
-            server.isAlive());
+      } else if (server.isAlive()) {
+        // The server is successfully removed from the conf
+        // It may not be shutdown since it may not be able to talk to the new leader (who is not in its conf).
+        Assert.assertTrue(server.getRaftConf().isStable());
+        Assert.assertFalse(server.getRaftConf().containsInConf(server.getId()));
       }
     }
     Assert.assertEquals(peers.length, numIncluded + deadIncluded);
