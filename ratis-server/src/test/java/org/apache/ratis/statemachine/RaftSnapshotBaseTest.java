@@ -189,7 +189,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
     // delete the log segments from the leader
     for (LogPathAndIndex path : logs) {
-      FileUtils.deleteFile(path.path.toFile());
+      FileUtils.delete(path.getPath());
     }
 
     // restart the peer

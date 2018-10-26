@@ -151,7 +151,9 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private void put(LogEntryProto entry) {
     final LogEntryProto previous = indexMap.put(entry.getIndex(), entry);
     Preconditions.assertNull(previous, "previous");
-    dataMap.put(entry.getStateMachineLogEntry().getLogData().toStringUtf8(), entry);
+    final String s = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
+    dataMap.put(s, entry);
+    LOG.info("put {}, {} -> {}", entry.getIndex(), s, ServerProtoUtils.toLogEntryString(entry));
   }
 
   @Override

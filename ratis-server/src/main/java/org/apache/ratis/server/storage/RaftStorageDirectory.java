@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.storage;
 
+import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.slf4j.Logger;
@@ -61,7 +62,7 @@ public class RaftStorageDirectory {
   }
 
   public static class LogPathAndIndex {
-    public final Path path;
+    private final Path path;
     public final long startIndex;
     public final long endIndex;
 
@@ -69,6 +70,14 @@ public class RaftStorageDirectory {
       this.path = path;
       this.startIndex = startIndex;
       this.endIndex = endIndex;
+    }
+
+    public Path getPath() {
+      return path;
+    }
+
+    public boolean isOpen() {
+      return endIndex == RaftServerConstants.INVALID_LOG_INDEX;
     }
 
     @Override

@@ -29,13 +29,13 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.OpenCloseState;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
@@ -53,6 +53,7 @@ public abstract class RaftLog implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
   public static final String LOG_SYNC = RaftLog.class.getSimpleName() + ".logSync";
 
+
   /**
    * The largest committed index. Note the last committed log may be included
    * in the latest snapshot file.
@@ -63,11 +64,12 @@ public abstract class RaftLog implements Closeable {
   private final int maxBufferSize;
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
-  private volatile boolean isOpen = false;
+  private final OpenCloseState state;
 
   public RaftLog(RaftPeerId selfId, int maxBufferSize) {
     this.selfId = selfId;
     this.maxBufferSize = maxBufferSize;
+    this.state = new OpenCloseState(getName());
   }
 
   public long getLastCommittedIndex() {
@@ -75,8 +77,7 @@ public abstract class RaftLog implements Closeable {
   }
 
   public void checkLogState() {
-    Preconditions.assertTrue(isOpen,
-        () -> getSelfId() + ": The RaftLog has not been opened or has been closed");
+    state.assertOpen();
   }
 
   /**
@@ -182,7 +183,7 @@ public abstract class RaftLog implements Closeable {
 
   public void open(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer)
       throws IOException {
-    isOpen = true;
+    state.open();
   }
 
   public abstract long getStartIndex();
@@ -293,11 +294,7 @@ public abstract class RaftLog implements Closeable {
 
   @Override
   public String toString() {
-    if (!isOpen) {
-      return "Closed log";
-    }
-    TermIndex last = getLastEntryTermIndex();
-    return last == null ? "null" : Collections.singletonList(last).toString();
+    return getName() + ":" + state;
   }
 
   public static class Metadata {
@@ -336,11 +333,15 @@ public abstract class RaftLog implements Closeable {
 
   @Override
   public void close() throws IOException {
-    isOpen = false;
+    state.close();
   }
 
   public RaftPeerId getSelfId() {
     return selfId;
+  }
+
+  public String getName() {
+    return selfId + "-" + getClass().getSimpleName();
   }
 
   /**

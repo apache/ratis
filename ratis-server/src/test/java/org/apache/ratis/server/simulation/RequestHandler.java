@@ -77,7 +77,7 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
   void interruptAndJoinDaemon() throws InterruptedException {
     daemons.forEach(Thread::interrupt);
     for (Daemon d : daemons) {
-      d.join();
+      d.join(1000);
     }
   }
 
@@ -118,6 +118,9 @@ public class RequestHandler<REQUEST extends RaftRpcMessage,
     public void run() {
       while (handlerImpl.isAlive()) {
         try {
+          if (Thread.interrupted()) {
+            throw new InterruptedException(this + " was interrupted previously.");
+          }
           handleRequest(rpc.takeRequest(getServerId()));
         } catch (InterruptedIOException e) {
           LOG.info(this + " is interrupted by " + e);

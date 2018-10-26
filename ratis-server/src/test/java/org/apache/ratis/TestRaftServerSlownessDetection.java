@@ -31,6 +31,7 @@ import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 
@@ -41,6 +42,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * Test Raft Server Slowness detection and notification to Leader's statemachine.
  */
+//TODO: fix StateMachine.notifySlowness(..); see RATIS-370
+@Ignore
 public class TestRaftServerSlownessDetection extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);

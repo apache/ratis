@@ -20,7 +20,6 @@ package org.apache.ratis.server.storage;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -141,7 +140,6 @@ public class SegmentedRaftLog extends RaftLog {
       List<LogPathAndIndex> paths = storage.getStorageDir().getLogSegmentFiles();
       int i = 0;
       for (LogPathAndIndex pi : paths) {
-        boolean isOpen = pi.endIndex == RaftServerConstants.INVALID_LOG_INDEX;
         // During the initial loading, we can only confirm the committed
         // index based on the snapshot. This means if a log segment is not kept
         // in cache after the initial loading, later we have to load its content
@@ -150,7 +148,7 @@ public class SegmentedRaftLog extends RaftLog {
         // so that during the initial loading we can apply part of the log
         // entries to the state machine
         boolean keepEntryInCache = (paths.size() - i++) <= cache.getMaxCachedSegments();
-        cache.loadSegment(pi, isOpen, keepEntryInCache, logConsumer);
+        cache.loadSegment(pi, keepEntryInCache, logConsumer);
       }
 
       // if the largest index is smaller than the last index in snapshot, we do

@@ -25,12 +25,15 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.PureJavaCrc32C;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.Checksum;
 
 public class LogReader implements Closeable {
+  static final Logger LOG = LoggerFactory.getLogger(LogReader.class);
   /**
    * InputStream wrapper that keeps track of the current stream position.
    *
@@ -121,12 +124,14 @@ public class LogReader implements Closeable {
 
   private static final int maxOpSize = 32 * 1024 * 1024;
 
+  private final File file;
   private final LimitedInputStream limiter;
   private final DataInputStream in;
   private byte[] temp = new byte[4096];
   private final Checksum checksum;
 
   LogReader(File file) throws FileNotFoundException {
+    this.file = file;
     this.limiter = new LimitedInputStream(
         new BufferedInputStream(new FileInputStream(file)));
     in = new DataInputStream(limiter);
@@ -153,6 +158,16 @@ public class LogReader implements Closeable {
   LogEntryProto readEntry() throws IOException {
     try {
       return decodeEntry();
+    } catch (EOFException eof) {
+      in.reset();
+      // The last entry is partially written.
+      // It is okay to ignore it since this entry is never committed in this server.
+      if (LOG.isWarnEnabled()) {
+        LOG.warn("Ignoring the last partial written log entry in " + file + ": " + eof);
+      } else if (LOG.isTraceEnabled()) {
+        LOG.trace("Ignoring the last partial written log entry in " + file , eof);
+      }
+      return null;
     } catch (IOException e) {
       in.reset();
 
@@ -286,7 +301,7 @@ public class LogReader implements Closeable {
   }
 
   @Override
-  public void close() throws IOException {
-    IOUtils.cleanup(null, in);
+  public void close() {
+    IOUtils.cleanup(LOG, in);
   }
 }

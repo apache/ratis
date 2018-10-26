@@ -26,7 +26,9 @@ import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TraditionalBinaryPrefix;
 import org.junit.After;
@@ -42,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 import static org.apache.ratis.server.storage.LogSegment.getEntrySize;
@@ -75,26 +78,47 @@ public class TestRaftLogSegment extends BaseTest {
     }
   }
 
-  private File prepareLog(boolean isOpen, long start, int size, long term)
+  File prepareLog(boolean isOpen, long startIndex, int numEntries, long term, boolean isLastEntryPartiallyWritten)
       throws IOException {
+    if (!isOpen) {
+      Preconditions.assertTrue(!isLastEntryPartiallyWritten, "For closed log, the last entry cannot be partially written.");
+    }
     RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
-    File file = isOpen ? storage.getStorageDir().getOpenLogFile(start) :
-        storage.getStorageDir().getClosedLogFile(start, start + size - 1);
+    final File file = isOpen ?
+        storage.getStorageDir().getOpenLogFile(startIndex) :
+        storage.getStorageDir().getClosedLogFile(startIndex, startIndex + numEntries - 1);
 
-    LogEntryProto[] entries = new LogEntryProto[size];
+    final LogEntryProto[] entries = new LogEntryProto[numEntries];
     try (LogOutputStream out = new LogOutputStream(file, false,
         segmentMaxSize, preallocatedSize, bufferSize)) {
-      for (int i = 0; i < size; i++) {
+      for (int i = 0; i < entries.length; i++) {
         SimpleOperation op = new SimpleOperation("m" + i);
-        entries[i] = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i + start);
+        entries[i] = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i + startIndex);
         out.write(entries[i]);
       }
     }
+
+    if (isLastEntryPartiallyWritten) {
+      final int entrySize = size(entries[entries.length - 1]);
+      final int truncatedEntrySize = ThreadLocalRandom.current().nextInt(entrySize - 1) + 1;
+      // 0 < truncatedEntrySize < entrySize
+      final long fileLength = file.length();
+      final long truncatedFileLength = fileLength - (entrySize - truncatedEntrySize);
+      LOG.info("truncate last entry: entry(size={}, truncated={}), file(length={}, truncated={})",
+          entrySize, truncatedEntrySize, fileLength, truncatedFileLength);
+      FileUtils.truncateFile(file, truncatedFileLength);
+    }
+
     storage.close();
     return file;
   }
 
-  private void checkLogSegment(LogSegment segment, long start, long end,
+  static int size(LogEntryProto entry) {
+    final int n = entry.getSerializedSize();
+    return CodedOutputStream.computeUInt32SizeNoTag(n) + n + 4;
+  }
+
+  static void checkLogSegment(LogSegment segment, long start, long end,
       boolean isOpen, long totalSize, long term) throws Exception {
     Assert.assertEquals(start, segment.getStartIndex());
     Assert.assertEquals(end, segment.getEndIndex());
@@ -117,27 +141,38 @@ public class TestRaftLogSegment extends BaseTest {
 
   @Test
   public void testLoadLogSegment() throws Exception {
-    testLoadSegment(true);
+    testLoadSegment(true, false);
+  }
+
+  @Test
+  public void testLoadLogSegmentLastEntryPartiallyWritten() throws Exception {
+    testLoadSegment(true, true);
   }
 
   @Test
   public void testLoadCache() throws Exception {
-    testLoadSegment(false);
+    testLoadSegment(false, false);
   }
 
-  private void testLoadSegment(boolean loadInitial) throws Exception {
+  @Test
+  public void testLoadCacheLastEntryPartiallyWritten() throws Exception {
+    testLoadSegment(false, true);
+  }
+
+  private void testLoadSegment(boolean loadInitial, boolean isLastEntryPartiallyWritten) throws Exception {
     // load an open segment
-    File openSegmentFile = prepareLog(true, 0, 100, 0);
+    final File openSegmentFile = prepareLog(true, 0, 100, 0, isLastEntryPartiallyWritten);
     RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     LogSegment openSegment = LogSegment.loadSegment(storage, openSegmentFile, 0,
         INVALID_LOG_INDEX, true, loadInitial, null);
-    checkLogSegment(openSegment, 0, 99, true, openSegmentFile.length(), 0);
+    final int delta = isLastEntryPartiallyWritten? 1: 0;
+    checkLogSegment(openSegment, 0, 99 - delta, true, openSegmentFile.length(), 0);
     storage.close();
     // for open segment we currently always keep log entries in the memory
     Assert.assertEquals(0, openSegment.getLoadingTimes());
 
     // load a closed segment (1000-1099)
-    File closedSegmentFile = prepareLog(false, 1000, 100, 1);
+    final File closedSegmentFile = prepareLog(false, 1000, 100, 1, false);
     LogSegment closedSegment = LogSegment.loadSegment(storage, closedSegmentFile,
         1000, 1099, false, loadInitial, null);
     checkLogSegment(closedSegment, 1000, 1099, false,

@@ -31,12 +31,13 @@ public interface FileUtils {
   Logger LOG = LoggerFactory.getLogger(FileUtils.class);
 
   static void truncateFile(File f, long target) throws IOException {
+    final long original = f.length();
     LogUtils.runAndLog(LOG,
         () -> {
           try (FileOutputStream out = new FileOutputStream(f, true)) {
             out.getChannel().truncate(target);
           }},
-        () -> "FileOutputStream.getChannel().truncate " + f + " to target length " + target);
+        () -> "FileOutputStream.getChannel().truncate " + f + " length: " + original + " -> " + target);
   }
 
   static OutputStream createNewFile(Path p) throws IOException {

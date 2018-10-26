@@ -92,9 +92,16 @@ public class LogOutputStream implements Closeable {
   }
 
   /**
+   * Write the given entry to this output stream.
+   *
    * Format:
-   * LogEntryProto's protobuf
-   * 4-byte checksum of the above protobuf
+   *   (1) The serialized size of the entry.
+   *   (2) The entry.
+   *   (3) 4-byte checksum of the entry.
+   *
+   * Size in bytes to be written:
+   *   (size to encode n) + n + (checksum size),
+   *   where n is the entry serialized size and the checksum size is 4.
    */
   public void write(LogEntryProto entry) throws IOException {
     final int serialized = entry.getSerializedSize();

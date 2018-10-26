@@ -97,7 +97,8 @@ public interface IOUtils {
     for(int toRead = len; toRead > 0; ) {
       final int ret = in.read(buf, off, toRead);
       if (ret < 0) {
-        throw new IOException( "Premature EOF from inputStream");
+        final int read = len - toRead;
+        throw new EOFException("Premature EOF: read length is " + len + " but encountered EOF at " + read);
       }
       toRead -= ret;
       off += ret;

@@ -105,10 +105,10 @@ class RaftLogCache {
     return maxCachedSegments;
   }
 
-  void loadSegment(LogPathAndIndex pi, boolean isOpen, boolean keepEntryInCache,
+  void loadSegment(LogPathAndIndex pi, boolean keepEntryInCache,
       Consumer<LogEntryProto> logConsumer) throws IOException {
-    LogSegment logSegment = LogSegment.loadSegment(storage, pi.path.toFile(),
-        pi.startIndex, pi.endIndex, isOpen, keepEntryInCache, logConsumer);
+    LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(),
+        pi.startIndex, pi.endIndex, pi.isOpen(), keepEntryInCache, logConsumer);
     addSegment(logSegment);
   }
 

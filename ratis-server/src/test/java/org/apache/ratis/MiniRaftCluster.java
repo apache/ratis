@@ -204,15 +204,17 @@ public abstract class MiniRaftCluster implements Closeable {
   /**
    * start a stopped server again.
    */
-  public void restartServer(RaftPeerId newId, boolean format) throws IOException {
-    restartServer(newId, group, format);
+  public RaftServerImpl restartServer(RaftPeerId newId, boolean format) throws IOException {
+    return restartServer(newId, group, format);
   }
 
-  public void restartServer(RaftPeerId newId, RaftGroup group, boolean format) throws IOException {
+  public RaftServerImpl restartServer(RaftPeerId newId, RaftGroup group, boolean format) throws IOException {
     killServer(newId);
     servers.remove(newId);
 
-    putNewServer(newId, group, format).start();
+    final RaftServerProxy proxy = putNewServer(newId, group, format);
+    proxy.start();
+    return group == null? null: proxy.getImpl(group.getGroupId());
   }
 
   public void restart(boolean format) throws IOException {
@@ -579,18 +581,18 @@ public abstract class MiniRaftCluster implements Closeable {
     LOG.info(printServers());
 
     final ExecutorService executor = Executors.newFixedThreadPool(servers.size(), Daemon::new);
+    getServers().forEach(proxy -> executor.submit(proxy::close));
     try {
-      getServers().forEach(proxy -> executor.submit(proxy::close));
+      executor.shutdown();
       // just wait for a few seconds
       executor.awaitTermination(5, TimeUnit.SECONDS);
     } catch(InterruptedException e) {
       LOG.warn("shutdown interrupted", e);
-    } finally {
-      executor.shutdownNow();
     }
 
     timer.cancel();
     ExitUtils.assertNotTerminated();
+    LOG.info(getClass().getSimpleName() + " shutdown completed");
   }
 
   /**
