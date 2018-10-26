@@ -59,6 +59,7 @@ public class MasterServer implements Closeable {
     @Parameter(names = "-port", description = "Port number")
     private int port = 9999;
 
+    @Parameter(names = "-dir", description = "Working directory")
     private String workingDir = null;
 
     private StateMachine metaStateMachine;

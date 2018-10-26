@@ -20,6 +20,7 @@
 package org.apache.ratis.logservice.util;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogService;
 import org.apache.ratis.logservice.api.LogInfo;
@@ -27,6 +28,7 @@ import org.apache.ratis.logservice.client.LogServiceClient;
 import org.apache.ratis.logservice.worker.LogServiceWorker;
 import org.apache.ratis.logservice.server.MasterServer;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,6 +42,7 @@ import java.util.stream.IntStream;
 public class LogServiceCluster implements AutoCloseable {
     private List<MasterServer> masters;
     private List<LogServiceWorker> workers = new ArrayList<>();
+    private String baseTestDir = BaseTest.getRootTestDir().getAbsolutePath();
 
     /**
      * Create a number of worker nodes with random ports and start them
@@ -48,7 +51,10 @@ public class LogServiceCluster implements AutoCloseable {
     public void createWorkers(int numWorkers) {
         String meta = getMetaIdentity();
         List<LogServiceWorker> newWorkers = IntStream.range(0, numWorkers).parallel().mapToObj(i ->
-                LogServiceWorker.newBuilder().setMetaIdentity(meta).build()).collect(Collectors.toList());
+                LogServiceWorker.newBuilder()
+                        .setMetaIdentity(meta)
+                        .setWorkingDir(baseTestDir + "/workers/" + i)
+                        .build()).collect(Collectors.toList());
         newWorkers.parallelStream().forEach( worker -> {
             try {
                 worker.start();
@@ -78,11 +84,12 @@ public class LogServiceCluster implements AutoCloseable {
                 MasterServer.newBuilder()
                         .setHost(LogServiceUtils.getHostName())
                         .setPort(9000 + i)
-                        .setWorkingDir("/tmp/r" + i)
+                        .setWorkingDir(baseTestDir + "/masters/" + i)
                         .build())
                 .collect(Collectors.toList());
         masters.parallelStream().forEach(master -> {
             try {
+                master.cleanUp();
                 master.start(getMetaIdentity());
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -126,7 +133,6 @@ public class LogServiceCluster implements AutoCloseable {
         masters.stream().parallel().forEach(master -> {
             try {
                 master.close();
-                master.cleanUp();
             } catch (IOException e) {
                 e.printStackTrace();
             }

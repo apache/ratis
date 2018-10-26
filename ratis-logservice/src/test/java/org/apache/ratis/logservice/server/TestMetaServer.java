@@ -40,7 +40,7 @@ import java.util.stream.IntStream;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
-@Ignore
+
 public class TestMetaServer {
 
     static LogServiceCluster cluster = null;
@@ -82,7 +82,7 @@ public class TestMetaServer {
         LogWriter writer = stream.createWriter();
         ByteBuffer testMessage =  ByteBuffer.wrap("Hello world!".getBytes());
         List<LogInfo> listLogs = client.listLogs();
-        assert(listLogs.size() == 1);
+        assert(listLogs.stream().filter(log -> log.getLogName().getName().startsWith("testReadWrite")).count() == 1);
         List<LogServiceWorker> workers = cluster.getWorkers();
         for(LogServiceWorker worker : workers) {
              RaftServerImpl server = ((RaftServerProxy)worker.getServer())
@@ -175,6 +175,7 @@ public class TestMetaServer {
 
     }
 
+    @Ignore ("Too heavy for the current implementation")
     @Test
     public void testFinalClieanUp() throws IOException {
         LogServiceClient client = new LogServiceClient(cluster.getMetaIdentity());
