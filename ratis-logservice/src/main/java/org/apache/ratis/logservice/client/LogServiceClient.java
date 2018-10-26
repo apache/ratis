@@ -20,11 +20,13 @@ package org.apache.ratis.logservice.client;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.logservice.LogServiceFactory;
 import org.apache.ratis.logservice.api.LogInfo;
 import org.apache.ratis.logservice.api.LogName;
-import org.apache.ratis.logservice.api.LogService;
+import org.apache.ratis.logservice.api.LogServiceConfiguration;
+import org.apache.ratis.logservice.api.LogStream;
+import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.common.Constants;
+import org.apache.ratis.logservice.impl.LogStreamImpl;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
 import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
 import org.apache.ratis.protocol.*;
@@ -48,13 +50,22 @@ public class LogServiceClient implements AutoCloseable {
 
     // the raft client for meta quorum. All DML operations are going using this client.
     final private RaftClient client;
-
+    final private LogServiceConfiguration config;
 
     /**
      * Constuctor. Build raft client for meta quorum
      * @param metaQuorum
      */
     public LogServiceClient(String metaQuorum) {
+        this(metaQuorum, new LogServiceConfiguration());
+    }
+
+    /**
+     * Constuctor (with configuration). Build raft client for meta quorum
+     * @param metaQuorum
+     * @param config log serice configuration
+     */
+    public LogServiceClient(String metaQuorum, LogServiceConfiguration config) {
         Set<RaftPeer> peers = getPeersFromQuorum(metaQuorum);
         RaftProperties properties = new RaftProperties();
         RaftGroup meta = RaftGroup.valueOf(Constants.metaGroupID, peers);
@@ -63,6 +74,7 @@ public class LogServiceClient implements AutoCloseable {
                 .setClientId(ClientId.randomId())
                 .setProperties(properties)
                 .build();
+        this.config = config;
     }
 
     /**
@@ -71,7 +83,7 @@ public class LogServiceClient implements AutoCloseable {
      * @return
      * @throws IOException
      */
-    public LogService createLog(LogName logName) throws IOException {
+    public LogStream createLog(LogName logName) throws IOException {
         RaftClientReply reply = client.sendReadOnly(
                 () -> MetaServiceProtoUtil.toCreateLogRequestProto(logName).toByteString());
         CreateLogReplyProto message = CreateLogReplyProto.parseFrom(reply.getMessage().getContent());
@@ -79,7 +91,7 @@ public class LogServiceClient implements AutoCloseable {
             throw MetaServiceProtoUtil.toMetaServiceException(message.getException());
         }
         LogInfo info = MetaServiceProtoUtil.toLogInfo(message.getLog());
-        return LogServiceFactory.getInstance().createLogService(getRaftClient(info), null);
+        return new LogStreamImpl(logName, getRaftClient(info), config);
     }
 
     /**
@@ -88,7 +100,7 @@ public class LogServiceClient implements AutoCloseable {
      * @return
      * @throws IOException
      */
-    public LogService getLog(LogName logName) throws IOException {
+    public LogStream getLog(LogName logName) throws IOException {
         RaftClientReply reply = client.sendReadOnly
                 (() -> MetaServiceProtoUtil.toGetLogRequestProto(logName).toByteString());
         GetLogReplyProto message = GetLogReplyProto.parseFrom(reply.getMessage().getContent());
@@ -96,7 +108,7 @@ public class LogServiceClient implements AutoCloseable {
             throw MetaServiceProtoUtil.toMetaServiceException(message.getException());
         }
         LogInfo info = MetaServiceProtoUtil.toLogInfo(message.getLog());
-        return LogServiceFactory.getInstance().createLogService(getRaftClient(info), null);
+        return new LogStreamImpl(logName, getRaftClient(info), config);
     }
 
 
@@ -141,6 +153,37 @@ public class LogServiceClient implements AutoCloseable {
         RaftProperties properties = new RaftProperties();
         return RaftClient.newBuilder().setRaftGroup(logInfo.getRaftGroup()).setProperties(properties).build();
 
+    }
+
+    /**
+     * Archives the given log out of the state machine and into a configurable long-term storage. A log must be
+     * in {@link State#CLOSED} to archive it.
+     *
+     * @param name The name of the log to archive.
+     */
+    void archiveLog(LogName name) throws IOException {
+      // TODO: write me
+    }
+
+    /**
+     * Moves the {@link LogStream} identified by the {@code name} from {@link State.OPEN} to {@link State.CLOSED}.
+     * If the log is not {@link State#OPEN}, this method returns an error.
+     *
+     * @param name The name of the log to close
+     */
+    // TODO this name sucks, confusion WRT the Java Closeable interface.
+    void closeLog(LogName name) throws IOException {
+      //TODO: write me
+    }
+
+    /**
+     * Updates a log with the new configuration object, overriding
+     * the previous configuration.
+     *
+     * @param config The new configuration object
+     */
+    void updateConfiguration(LogName name, LogServiceConfiguration config) {
+      //TODO: write me
     }
 
 }

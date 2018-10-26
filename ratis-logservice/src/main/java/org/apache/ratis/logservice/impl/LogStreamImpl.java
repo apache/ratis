@@ -17,19 +17,26 @@
  */
 package org.apache.ratis.logservice.impl;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogReader;
-import org.apache.ratis.logservice.api.LogService;
-import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogServiceConfiguration;
+import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogWriter;
 import org.apache.ratis.logservice.api.RecordListener;
-import org.apache.ratis.logservice.proto.LogServiceProtos;
+import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogLastCommittedIndexReplyProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogLengthReplyProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogStartIndexReplyProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceException;
+import org.apache.ratis.logservice.util.LogServiceProtoUtil;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +54,7 @@ public class LogStreamImpl implements LogStream {
   /*
    * Parent log service instance
    */
-  LogService service;
+  RaftClient raftClient;
   /*
    * Log stream configuration
    */
@@ -62,22 +69,16 @@ public class LogStreamImpl implements LogStream {
    */
   long length;
 
-  public LogStreamImpl(LogServiceProtos.LogStreamProto proto, LogService service) {
-    this.service = service;
-    this.name = LogName.of(proto.getLogName().getName());
-    this.config = service.getConfiguration();
-    init();
-  }
 
-  public LogStreamImpl(LogName name, LogService logService) {
-    this.service = logService;
+  public LogStreamImpl(LogName name, RaftClient raftClient) {
+    this.raftClient = raftClient;
     this.name = name;
-    this.config = this.service.getConfiguration();
+    this.config = new LogServiceConfiguration();
     init();
   }
 
-  public LogStreamImpl(LogName name, LogService logService, LogServiceConfiguration config) {
-    this.service = logService;
+  public LogStreamImpl(LogName name, RaftClient raftClient, LogServiceConfiguration config) {
+    this.raftClient = raftClient;
     this.name = name;
     this.config = config;
     init();
@@ -100,9 +101,17 @@ public class LogStreamImpl implements LogStream {
   }
 
   @Override
-  public long getSize() {
-    // TODO use raft client to query state machine
-    return 0;
+  public long getSize() throws IOException{
+      RaftClientReply reply = raftClient
+          .sendReadOnly(Message.valueOf(LogServiceProtoUtil
+              .toGetLengthRequestProto(name).toByteString()));
+      GetLogLengthReplyProto proto =
+          GetLogLengthReplyProto.parseFrom(reply.getMessage().getContent());
+      if (proto.hasException()) {
+        LogServiceException e = proto.getException();
+        throw new IOException(e.getErrorMsg());
+      }
+      return proto.getLength();
   }
 
   @Override
@@ -116,9 +125,39 @@ public class LogStreamImpl implements LogStream {
   }
 
   @Override
-  public long getLastRecordId() {
-    // TODO use raft client to query state machine
-    return 0;
+  public long getLastRecordId() throws IOException {
+    try {
+      RaftClientReply reply = raftClient
+          .sendReadOnly(Message.valueOf(LogServiceProtoUtil
+              .toGetLastCommittedIndexRequestProto(name).toByteString()));
+      GetLogLastCommittedIndexReplyProto proto =
+          GetLogLastCommittedIndexReplyProto.parseFrom(reply.getMessage().getContent());
+      if (proto.hasException()) {
+        LogServiceException e = proto.getException();
+        throw new IOException(e.getErrorMsg());
+      }
+      return proto.getLastCommittedIndex();
+    } catch (Exception e) {
+      throw new IOException(e);
+    }
+  }
+
+  @Override
+  public long getStartRecordId() throws IOException {
+    try {
+      RaftClientReply reply = raftClient
+          .sendReadOnly(Message.valueOf(LogServiceProtoUtil
+              .toGetStartIndexProto(name).toByteString()));
+      GetLogStartIndexReplyProto proto =
+          GetLogStartIndexReplyProto.parseFrom(reply.getMessage().getContent());
+      if (proto.hasException()) {
+        LogServiceException e = proto.getException();
+        throw new IOException(e.getErrorMsg());
+      }
+      return proto.getStartIndex();
+    } catch (Exception e) {
+      throw new IOException(e);
+    }
   }
 
   @Override
@@ -152,8 +191,8 @@ public class LogStreamImpl implements LogStream {
   }
 
   @Override
-  public LogService getLogService() {
-    return service;
+  public RaftClient getRaftClient() {
+    return raftClient;
   }
 
 }

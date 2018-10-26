@@ -18,7 +18,11 @@
 package org.apache.ratis.logservice;
 
 import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
+import org.junit.Ignore;
 
+@Ignore
 public class TestLogServiceWithGrpc extends LogServiceBaseTest<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
+
+
 }

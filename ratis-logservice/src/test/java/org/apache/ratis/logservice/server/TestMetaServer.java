@@ -24,7 +24,6 @@ import org.apache.ratis.logservice.common.LogAlreadyExistException;
 import org.apache.ratis.logservice.common.LogNotFoundException;
 import org.apache.ratis.logservice.util.LogServiceCluster;
 import org.apache.ratis.logservice.worker.LogServiceWorker;
-import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.junit.AfterClass;
@@ -66,19 +65,17 @@ public class TestMetaServer {
     public void testCreateAndGetLog() throws IOException {
         LogServiceClient client = new LogServiceClient(cluster.getMetaIdentity());
         // This should be LogServiceStream ?
-        LogService logService1 = client.createLog(LogName.of("testCreateLog"));
-        assertNotNull(logService1);
-        LogService logService2 = client.getLog(LogName.of("testCreateLog"));
-        assertNotNull(logService2);
+        LogStream logStream1 = client.createLog(LogName.of("testCreateLog"));
+        assertNotNull(logStream1);
+        LogStream logStream2 = client.getLog(LogName.of("testCreateLog"));
+        assertNotNull(logStream2);
     }
 
 
     @Test
     public void testReadWritetoLog() throws IOException, InterruptedException {
         LogServiceClient client = new LogServiceClient(cluster.getMetaIdentity());
-        LogService logService = client.createLog(LogName.of("testReadWrite"));
-        assertNotNull(logService);
-        LogStream stream = logService.createLog(LogName.of("testReadWrite"));
+        LogStream stream = client.createLog(LogName.of("testReadWrite"));
         LogWriter writer = stream.createWriter();
         ByteBuffer testMessage =  ByteBuffer.wrap("Hello world!".getBytes());
         List<LogInfo> listLogs = client.listLogs();
@@ -110,13 +107,11 @@ public class TestMetaServer {
     public void testDeleteLog() throws IOException {
         LogServiceClient client = new LogServiceClient(cluster.getMetaIdentity());
         // This should be LogServiceStream ?
-        LogService logService1 = client.createLog(LogName.of("testDeleteLog"));
-        assertNotNull(logService1);
-        LogService logService2 = client.getLog(LogName.of("testDeleteLog"));
-        assertNotNull(logService2);
+        LogStream logStream1 = client.createLog(LogName.of("testDeleteLog"));
+        assertNotNull(logStream1);
         client.deleteLog(LogName.of("testDeleteLog"));
         try {
-            logService2 = client.getLog(LogName.of("testDeleteLog"));
+          logStream1 = client.getLog(LogName.of("testDeleteLog"));
             fail("Failed to throw LogNotFoundException");
         } catch(Exception e) {
             assert(e instanceof LogNotFoundException);
@@ -132,7 +127,7 @@ public class TestMetaServer {
     public void testGetNotExistingLog() {
         LogServiceClient client = new LogServiceClient(cluster.getMetaIdentity());
         try {
-            LogService log = client.getLog(LogName.of("no_such_log"));
+            LogStream log = client.getLog(LogName.of("no_such_log"));
             fail("LogNotFoundException was not thrown");
         } catch (IOException e) {
             assert(e instanceof LogNotFoundException);
@@ -146,10 +141,10 @@ public class TestMetaServer {
     @Test
     public void testAlreadyExistLog() throws IOException {
         LogServiceClient client = new LogServiceClient(cluster.getMetaIdentity());
-        LogService logService1 = client.createLog(LogName.of("test1"));
-        assertNotNull(logService1);
+        LogStream logStream1 = client.createLog(LogName.of("test1"));
+        assertNotNull(logStream1);
         try {
-            LogService logService2 = client.createLog(LogName.of("test1"));
+            logStream1 = client.createLog(LogName.of("test1"));
             fail("Didn't fail with LogAlreadyExistException");
         } catch (IOException e) {
             assert(e instanceof LogAlreadyExistException);

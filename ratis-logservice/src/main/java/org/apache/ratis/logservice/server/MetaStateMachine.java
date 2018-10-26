@@ -18,31 +18,15 @@
 
 package org.apache.ratis.logservice.server;
 
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.logservice.api.LogName;
-import org.apache.ratis.logservice.api.LogInfo;
-import org.apache.ratis.logservice.common.LogAlreadyExistException;
-import org.apache.ratis.logservice.common.LogNotFoundException;
-import org.apache.ratis.logservice.common.NoEnoughWorkersException;
-import org.apache.ratis.logservice.proto.MetaServiceProtos;
-import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
-import org.apache.ratis.logservice.util.LogServiceProtoUtil;
-import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
-import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.statemachine.impl.BaseStateMachine;
-import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
-import org.apache.ratis.util.AutoCloseableLock;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.apache.ratis.logservice.common.Constants.metaGroupID;
+import static org.apache.ratis.logservice.common.Constants.serversGroupID;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -51,8 +35,39 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
-import static org.apache.ratis.logservice.common.Constants.metaGroupID;
-import static org.apache.ratis.logservice.common.Constants.serversGroupID;
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.logservice.api.LogInfo;
+import org.apache.ratis.logservice.api.LogName;
+import org.apache.ratis.logservice.common.LogAlreadyExistException;
+import org.apache.ratis.logservice.common.LogNotFoundException;
+import org.apache.ratis.logservice.common.NoEnoughWorkersException;
+import org.apache.ratis.logservice.proto.MetaServiceProtos;
+import org.apache.ratis.logservice.proto.MetaServiceProtos.ArchiveLogReplyProto;
+import org.apache.ratis.logservice.proto.MetaServiceProtos.ArchiveLogRequestProto;
+import org.apache.ratis.logservice.proto.MetaServiceProtos.CreateLogRequestProto;
+import org.apache.ratis.logservice.proto.MetaServiceProtos.DeleteLogRequestProto;
+import org.apache.ratis.logservice.proto.MetaServiceProtos.LogServicePingRequestProto;
+import org.apache.ratis.logservice.proto.MetaServiceProtos.LogServiceRegisterLogRequestProto;
+import org.apache.ratis.logservice.proto.MetaServiceProtos.LogServiceUnregisterLogRequestProto;
+import org.apache.ratis.logservice.proto.MetaServiceProtos.MetaSMRequestProto;
+import org.apache.ratis.logservice.util.LogServiceProtoUtil;
+import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
+import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.util.AutoCloseableLock;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * State Machine serving meta data for LogService. It persists the pairs 'log name' -> RaftGroup

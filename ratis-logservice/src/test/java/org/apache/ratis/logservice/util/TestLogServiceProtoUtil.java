@@ -139,7 +139,7 @@ public class TestLogServiceProtoUtil {
   public void testSyncReply() {
 
     SyncLogReplyProto proto =
-        LogServiceProtoUtil.toSyncLogReplyProto(null);
+        LogServiceProtoUtil.toSyncLogReplyProto(0, null);
     //TODO finish test
   }
 

@@ -18,16 +18,15 @@
 
 package org.apache.ratis.logservice.util;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.ratis.logservice.api.LogName;
-import org.apache.ratis.logservice.api.LogService;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
-import org.apache.ratis.logservice.impl.LogStreamImpl;
 import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.LogServiceProtos.*;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
@@ -43,7 +42,7 @@ public class LogServiceProtoUtil {
     return LogName.of(logNameProto.getName());
   }
 
-  public static LogStreamProto toLogStreamProto(LogStream logStream) {
+  public static LogStreamProto toLogStreamProto(LogStream logStream) throws IOException {
     LogNameProto logNameProto =
             LogNameProto.newBuilder().setName(logStream.getName().getName()).build();
     LogStreamProto logStreamProto =
@@ -56,11 +55,6 @@ public class LogServiceProtoUtil {
                     .build();
     return logStreamProto;
   }
-
-  public static LogStream toLogStream(LogStreamProto logStream, LogService parent) {
-    return new LogStreamImpl(logStream, parent);
-  }
-
 
   public static LogServiceRequestProto toCloseLogRequestProto(LogName logName) {
     LogNameProto logNameProto = LogNameProto.newBuilder().setName(logName.getName()).build();
@@ -87,6 +81,15 @@ public class LogServiceProtoUtil {
     GetLogLengthRequestProto.Builder builder = GetLogLengthRequestProto.newBuilder();
     builder.setLogName(logNameProto);
     return LogServiceRequestProto.newBuilder().setLengthQuery(builder.build()).build();
+  }
+
+  public static LogServiceRequestProto toGetLastCommittedIndexRequestProto(LogName name) {
+    LogNameProto logNameProto =
+        LogNameProto.newBuilder().setName(name.getName()).build();
+    GetLogLastCommittedIndexRequestProto.Builder builder =
+        GetLogLastCommittedIndexRequestProto.newBuilder();
+    builder.setLogName(logNameProto);
+    return LogServiceRequestProto.newBuilder().setLastIndexQuery(builder.build()).build();
   }
 
   public static LogServiceRequestProto toGetStartIndexProto(LogName name) {
@@ -139,15 +142,6 @@ public class LogServiceProtoUtil {
     return LogServiceRequestProto.newBuilder().setAppendRequest(builder.build()).build();
   }
 
-  public static List<LogStream> toListLogStreams(List<LogStreamProto> logStreamProtos,
-      LogService parent) {
-    List<LogStream> logStreams = new ArrayList<>(logStreamProtos.size());
-    for (LogStreamProto proto : logStreamProtos) {
-      logStreams.add(toLogStream(proto, parent));
-    }
-    return logStreams;
-  }
-
   public static List<byte[]> toListByteArray(List<ByteString> list) {
     List<byte[]> retVal = new ArrayList<byte[]>(list.size());
     for(int i=0; i < list.size(); i++) {
@@ -181,6 +175,19 @@ public class LogServiceProtoUtil {
     return builder.build();
   }
 
+  public static GetLogLastCommittedIndexReplyProto
+        toGetLogLastIndexReplyProto(long lastIndex, Throwable t) {
+
+    GetLogLastCommittedIndexReplyProto.Builder builder =
+        GetLogLastCommittedIndexReplyProto.newBuilder();
+    if (t != null) {
+      builder.setException(toLogException(t));
+    } else {
+      builder.setLastCommittedIndex(lastIndex);
+    }
+    return builder.build();
+  }
+
   public static ReadLogReplyProto toReadLogReplyProto(List<byte[]> entries, Throwable t) {
     ReadLogReplyProto.Builder builder = ReadLogReplyProto.newBuilder();
     if (t != null) {
@@ -198,18 +205,19 @@ public class LogServiceProtoUtil {
     if (t!= null) {
       builder.setException(toLogException(t));
     } else if (ids != null){
-      int index = 0;
       for(long id: ids) {
-        builder.setRecordId(index++, id);
+        builder.addRecordId(id);
       }
     }
     return builder.build();
   }
 
-  public static SyncLogReplyProto toSyncLogReplyProto(Throwable t) {
+  public static SyncLogReplyProto toSyncLogReplyProto(long index, Throwable t) {
     SyncLogReplyProto.Builder builder = SyncLogReplyProto.newBuilder();
     if (t != null) {
       builder.setException(toLogException(t));
+    } else {
+      builder.setLastRecordId(index);
     }
     return builder.build();
   }

@@ -47,12 +47,13 @@ public class LogWriterImpl implements LogWriter {
   private RaftClient   raftClient;
   /*
    * Log service configuration object
+   * TODO: usage of custom configuration
    */
   private LogServiceConfiguration config;
 
   public LogWriterImpl(LogStream logStream) {
     this.parent = logStream;
-    this.raftClient = logStream.getLogService().getRaftClient();
+    this.raftClient = logStream.getRaftClient();
     this.config = logStream.getConfiguration();
   }
 
@@ -60,41 +61,45 @@ public class LogWriterImpl implements LogWriter {
   public long write(ByteBuffer data) throws IOException {
     List<ByteBuffer> list = new ArrayList<ByteBuffer>();
     list.add(data);
-    RaftClientReply reply =
-            null;
-    try {
-      reply = raftClient.sendAsync(Message.valueOf(LogServiceProtoUtil
-          .toAppendBBEntryLogRequestProto(parent.getName(), list)
-          .toByteString())).get();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    } catch (ExecutionException e) {
-      e.printStackTrace();
-    }
-    AppendLogEntryReplyProto proto = AppendLogEntryReplyProto.parseFrom(reply.getMessage().getContent());
-    if (proto.hasException()) {
-      LogServiceException e = proto.getException();
-      throw new IOException(e.getErrorMsg());
-    }
-    //TODO current record id
-    return 0;
-  }
+     return write(list);
+   }
 
-  @Override
-  public long sync() throws IOException {
-    RaftClientReply reply =
-        raftClient.send(Message.valueOf(LogServiceProtoUtil
-            .toSyncLogRequestProto(parent.getName())
-            .toByteString()));
-    SyncLogReplyProto proto = SyncLogReplyProto.parseFrom(reply.getMessage().getContent());
-    if (proto.hasException()) {
-      LogServiceException e = proto.getException();
-      throw new IOException(e.getErrorMsg());
-    }
-    //TODO current record id
-    return 0;
-  }
+   @Override
+   public long write(List<ByteBuffer> list) throws IOException {
 
+     try {
+       RaftClientReply reply = raftClient.send(Message.valueOf(
+         LogServiceProtoUtil.toAppendBBEntryLogRequestProto(parent.getName(), list).toByteString()));
+       AppendLogEntryReplyProto proto =
+           AppendLogEntryReplyProto.parseFrom(reply.getMessage().getContent());
+       if (proto.hasException()) {
+         LogServiceException e = proto.getException();
+         throw new IOException(e.getErrorMsg());
+       }
+       List<Long> ids = proto.getRecordIdList();
+       // The above call Always returns one id (regardless of a batch size)
+       return ids.get(0);
+     } catch (Exception e) {
+       throw new IOException(e);
+   }
+ }
+
+ @Override
+ public long sync() throws IOException {
+     try {
+       RaftClientReply reply = raftClient.send(Message
+           .valueOf(LogServiceProtoUtil.toSyncLogRequestProto(parent.getName()).toByteString()));
+
+       SyncLogReplyProto proto = SyncLogReplyProto.parseFrom(reply.getMessage().getContent());
+       if (proto.hasException()) {
+         LogServiceException e = proto.getException();
+         throw new IOException(e.getErrorMsg());
+       }
+       return proto.getLastRecordId();
+     } catch (Exception e) {
+       throw new IOException(e);
+   }
+  }
   @Override
   public void close() throws IOException {
     //TODO

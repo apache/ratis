@@ -18,7 +18,9 @@
 package org.apache.ratis.logservice;
 
 import org.apache.ratis.netty.MiniRaftClusterWithNetty;
+import org.junit.Ignore;
 
+@Ignore
 public class TestLogServiceWithNetty
     extends LogServiceBaseTest<MiniRaftClusterWithNetty>
     implements MiniRaftClusterWithNetty.FactoryGet {

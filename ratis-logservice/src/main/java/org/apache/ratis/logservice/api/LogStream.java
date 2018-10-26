@@ -17,8 +17,10 @@
  */
 package org.apache.ratis.logservice.api;
 
+import java.io.IOException;
 import java.util.Collection;
-import java.util.Set;
+
+import org.apache.ratis.client.RaftClient;
 
 /**
  * A distributed log with "infinite" length that supports reads and writes.
@@ -45,8 +47,9 @@ public interface LogStream extends AutoCloseable{
 
   /**
    * Returns the size of this LogStream in bytes.
+   * @throws IOException
    */
-  long getSize();
+  long getSize() throws IOException;
 
   /**
    * Creates a reader to read this LogStream.
@@ -64,8 +67,15 @@ public interface LogStream extends AutoCloseable{
 
   /**
    * Returns the recordId of the last record in this LogStream. For an empty log, the recordId is {@code 0}.
+   * @throws IOException
    */
-  long getLastRecordId();
+  long getLastRecordId() throws IOException;
+
+  /**
+   * Returns the recordId of the first record in this LogStream. For an empty log, the recordId is {@code 0}.
+   * @throws IOException
+   */
+  long getStartRecordId() throws IOException;
 
   /**
    * Returns all {@link RecordListeners} for this LogStream.
@@ -92,8 +102,9 @@ public interface LogStream extends AutoCloseable{
   boolean removeRecordListener (RecordListener listener);
 
   /**
-   * Get log service
-   * @return log service instance
+   * Get Raft Client
+   * @return Raft client
    */
-  LogService getLogService();
+
+  RaftClient getRaftClient();
 }

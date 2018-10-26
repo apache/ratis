@@ -33,6 +33,11 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Log Reader implementation. This class is not thread-safe
+ *
+ */
+
 public class LogReaderImpl implements LogReader {
   public static final Logger LOG = LoggerFactory.getLogger(LogReaderImpl.class);
 
@@ -56,7 +61,7 @@ public class LogReaderImpl implements LogReader {
 
   public LogReaderImpl(LogStream logStream) {
     this.parent = logStream;
-    this.raftClient = logStream.getLogService().getRaftClient();
+    this.raftClient = logStream.getRaftClient();
     this.config = logStream.getConfiguration();
   }
 
@@ -67,77 +72,99 @@ public class LogReaderImpl implements LogReader {
 
   @Override
   public ByteBuffer readNext() throws IOException {
-    int num = 1;
-    RaftClientReply reply =
-        raftClient.sendReadOnly(Message.valueOf(LogServiceProtoUtil
-            .toReadLogRequestProto(parent.getName(), currentRecordId, num)
-            .toByteString()));
-    ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
-    if (proto.hasException()) {
-      LogServiceException e = proto.getException();
-      throw new IOException(e.getErrorMsg());
+
+    try {
+      RaftClientReply reply =
+          raftClient
+              .sendReadOnly(Message.valueOf(LogServiceProtoUtil
+                  .toReadLogRequestProto(parent.getName(), currentRecordId, 1).toByteString()));
+      ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
+      if (proto.hasException()) {
+        LogServiceException e = proto.getException();
+        throw new IOException(e.getErrorMsg());
+      }
+
+      currentRecordId++;
+
+      if (proto.getLogRecordCount() > 0) {
+        proto.getLogRecord(0);
+        return ByteBuffer.wrap(proto.getLogRecord(0).toByteArray());
+      } else {
+        return null;
+      }
+    } catch (Exception e) {
+      throw new IOException(e);
     }
-    proto.getLogRecord(0);
-    currentRecordId++;
-    return ByteBuffer.wrap(proto.getLogRecord(0).toByteArray());
   }
 
   @Override
   public void readNext(ByteBuffer buffer) throws IOException {
-    int num = 1;
-    RaftClientReply reply =
-        raftClient.sendReadOnly(Message.valueOf(LogServiceProtoUtil
-            .toReadLogRequestProto(parent.getName(), currentRecordId, num)
-            .toByteString()));
-    ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
-    if (proto.hasException()) {
-      LogServiceException e = proto.getException();
-      throw new IOException(e.getErrorMsg());
+    try {
+      RaftClientReply reply =
+          raftClient
+              .sendReadOnly(Message.valueOf(LogServiceProtoUtil
+                  .toReadLogRequestProto(parent.getName(), currentRecordId, 1).toByteString()));
+      ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
+      if (proto.hasException()) {
+        LogServiceException e = proto.getException();
+        throw new IOException(e.getErrorMsg());
+      }
+      currentRecordId++;
+      if (proto.getLogRecordCount() > 0) {
+        // TODO limits
+        buffer.put(proto.getLogRecord(0).toByteArray());
+      }
+    } catch (Exception e) {
+      throw new IOException(e);
     }
-    currentRecordId++;
-    //TODO limits
-    buffer.put(proto.getLogRecord(0).toByteArray());
   }
 
   @Override
   public List<ByteBuffer> readBulk(int numRecords) throws IOException {
-    RaftClientReply reply =
-        raftClient.sendReadOnly(Message.valueOf(LogServiceProtoUtil
-            .toReadLogRequestProto(parent.getName(), currentRecordId, numRecords)
-            .toByteString()));
-    ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
-    if (proto.hasException()) {
-      LogServiceException e = proto.getException();
-      throw new IOException(e.getErrorMsg());
+
+    try {
+      RaftClientReply reply = raftClient
+          .sendReadOnly(Message.valueOf(LogServiceProtoUtil
+              .toReadLogRequestProto(parent.getName(), currentRecordId, numRecords).toByteString()));
+      ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
+      if (proto.hasException()) {
+        LogServiceException e = proto.getException();
+        throw new IOException(e.getErrorMsg());
+      }
+      int n = proto.getLogRecordCount();
+
+      // TODO correct current record
+      currentRecordId += n;
+      List<ByteBuffer> ret = new ArrayList<ByteBuffer>();
+      for (int i = 0; i < n; i++) {
+        ret.add(ByteBuffer.wrap(proto.getLogRecord(i).toByteArray()));
+      }
+      return ret;
+    } catch (Exception e) {
+      throw new IOException(e);
     }
-    //TODO correct current record
-    currentRecordId+= numRecords;
-    List<ByteBuffer> ret = new ArrayList<ByteBuffer>();
-    int n = proto.getLogRecordCount();
-    for(int i=0; i < n; i++) {
-      ret.add(ByteBuffer.wrap(proto.getLogRecord(i).toByteArray()));
-    }
-    return ret;
   }
 
   @Override
   public int readBulk(List<ByteBuffer> buffers) throws IOException {
-    RaftClientReply reply =
-        raftClient.sendReadOnly(Message.valueOf(LogServiceProtoUtil
-            .toReadLogRequestProto(parent.getName(), currentRecordId, buffers.size())
-            .toByteString()));
-    ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
-    if (proto.hasException()) {
-      LogServiceException e = proto.getException();
-      throw new IOException(e.getErrorMsg());
+    try {
+      RaftClientReply reply = raftClient.sendReadOnly(Message.valueOf(LogServiceProtoUtil
+          .toReadLogRequestProto(parent.getName(), currentRecordId, buffers.size()).toByteString()));
+      ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
+      if (proto.hasException()) {
+        LogServiceException e = proto.getException();
+        throw new IOException(e.getErrorMsg());
+      }
+      // TODO correct current record
+      int n = proto.getLogRecordCount();
+      currentRecordId += n;
+      for (int i = 0; i < n; i++) {
+        buffers.get(i).put(proto.getLogRecord(i).toByteArray());
+      }
+      return n;
+    } catch (Exception e) {
+      throw new IOException(e);
     }
-    //TODO correct current record
-    int n = proto.getLogRecordCount();
-    currentRecordId += n;
-    for(int i=0; i< n; i++) {
-      buffers.get(i).put(proto.getLogRecord(i).toByteArray());
-    }
-    return n;
   }
 
   @Override

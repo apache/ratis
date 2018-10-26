@@ -22,13 +22,6 @@ import org.apache.ratis.protocol.Message;
 public abstract class LogMessage implements Message {
 
   /*
-   * Type of messages
-   */
-  public static enum Type {
-    APPEND, CLOSE, SYNC, GET_START_INDEX, READ, GET_LENGTH
-  }
-
-  /*
    * Log name
    */
   protected LogName logName;
@@ -40,11 +33,5 @@ public abstract class LogMessage implements Message {
   public LogName getLogName() {
     return logName;
   }
-
-  /**
-   * Get message type
-   * @return message type
-   */
-  public abstract Type getType();
 
 }

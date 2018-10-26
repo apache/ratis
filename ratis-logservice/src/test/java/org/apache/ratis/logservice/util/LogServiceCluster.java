@@ -22,7 +22,7 @@ package org.apache.ratis.logservice.util;
 import org.apache.commons.io.FileUtils;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.logservice.api.LogName;
-import org.apache.ratis.logservice.api.LogService;
+import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogInfo;
 import org.apache.ratis.logservice.client.LogServiceClient;
 import org.apache.ratis.logservice.worker.LogServiceWorker;
@@ -103,7 +103,7 @@ public class LogServiceCluster implements AutoCloseable {
      * @param logName
      * @throws IOException
      */
-    public LogService createLog(LogName logName) throws IOException {
+    public LogStream createLog(LogName logName) throws IOException {
         LogServiceClient client = new LogServiceClient(getMetaIdentity());
         return client.createLog(logName);
     }
@@ -146,7 +146,7 @@ public class LogServiceCluster implements AutoCloseable {
         });
     }
 
-    public LogService getLog(LogName logName) throws IOException {
+    public LogStream getLog(LogName logName) throws IOException {
         LogServiceClient client = new LogServiceClient(getMetaIdentity());
         return client.getLog(logName);
 

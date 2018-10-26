@@ -80,8 +80,9 @@ message SyncLogRequestProto {
 
 // Sync reply
 message SyncLogReplyProto {
+	uint64 lastRecordId = 1;
 	// optional
-	LogServiceException exception = 1;
+	LogServiceException exception = 2;
 }
 
 // Read request
@@ -121,6 +122,16 @@ message GetLogStartIndexReplyProto {
 	LogServiceException exception = 2;
 }
 
+message GetLogLastCommittedIndexRequestProto {
+	LogNameProto logName  = 1;
+}
+
+message GetLogLastCommittedIndexReplyProto {
+	uint64 lastCommittedIndex = 1;
+	//optional
+	LogServiceException exception = 2;
+}
+
 message LogServiceRequestProto {
   oneof Request {
     CloseLogRequestProto closeLog = 1;
@@ -130,6 +141,7 @@ message LogServiceRequestProto {
 	GetLogStartIndexRequestProto startIndexQuery = 5;
 	AppendLogEntryRequestProto appendRequest = 6;
 	SyncLogRequestProto          syncRequest = 7;
+	GetLogLastCommittedIndexRequestProto lastIndexQuery = 8;
   }
 }
 
