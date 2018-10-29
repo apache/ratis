@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.storage;
 
+import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.protocol.ChecksumException;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedInputStream;
@@ -25,11 +26,11 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.PureJavaCrc32C;
+import org.apache.ratis.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.util.zip.Checksum;
 
 public class LogReader implements Closeable {
@@ -138,13 +139,37 @@ public class LogReader implements Closeable {
     checksum = new PureJavaCrc32C();
   }
 
-  String readLogHeader() throws IOException {
-    byte[] header = new byte[SegmentedRaftLog.HEADER_BYTES.length];
-    int num = in.read(header);
-    if (num < header.length) {
-      throw new EOFException("EOF before reading a complete log header");
+  /**
+   * Read header from the log file:
+   *
+   * (1) The header in file is verified successfully.
+   *     Then, return true.
+   *
+   * (2) The header in file is partially written.
+   *     Then, return false.
+   *
+   * (3) The header in file is corrupted or there is some other {@link IOException}.
+   *     Then, throw an exception.
+   */
+  boolean verifyHeader() throws IOException {
+    final int headerLength = SegmentedRaftLogFormat.getHeaderLength();
+    final int readLength = in.read(temp, 0, headerLength);
+    Preconditions.assertTrue(readLength <= headerLength);
+    final int matchLength = SegmentedRaftLogFormat.matchHeader(temp, 0, readLength);
+    Preconditions.assertTrue(matchLength <= readLength);
+
+    if (readLength == headerLength && matchLength == readLength) {
+      // The header is matched successfully
+      return true;
+    } else if (SegmentedRaftLogFormat.isTerminator(temp, matchLength, readLength - matchLength)) {
+      // The header is partially written
+      return false;
     }
-    return new String(header, StandardCharsets.UTF_8);
+    // The header is corrupted
+    throw new CorruptedFileException(file, "Log header mismatched: expected header length="
+        + SegmentedRaftLogFormat.getHeaderLength() + ", read length=" + readLength + ", match length=" + matchLength
+        + ", header in file=" + StringUtils.bytes2HexString(temp, 0, readLength)
+        + ", expected header=" + SegmentedRaftLogFormat.applyHeaderTo(StringUtils::bytes2HexString));
   }
 
   /**
@@ -196,13 +221,12 @@ public class LogReader implements Closeable {
     int numRead = -1, idx = 0;
     while (true) {
       try {
-        numRead = -1;
         numRead = in.read(temp);
         if (numRead == -1) {
           return;
         }
         for (idx = 0; idx < numRead; idx++) {
-          if (temp[idx] != RaftServerConstants.LOG_TERMINATE_BYTE) {
+          if (!SegmentedRaftLogFormat.isTerminator(temp[idx])) {
             throw new IOException("Read extra bytes after the terminator!");
           }
         }
@@ -243,7 +267,7 @@ public class LogReader implements Closeable {
     // Each log entry starts with a var-int. Thus a valid entry's first byte
     // should not be 0. So if the terminate byte is 0, we should hit the end
     // of the segment.
-    if (nextByte == RaftServerConstants.LOG_TERMINATE_BYTE) {
+    if (SegmentedRaftLogFormat.isTerminator(nextByte)) {
       verifyTerminator();
       return null;
     }

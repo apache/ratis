@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.util.CheckedConsumer;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PureJavaCrc32C;
@@ -43,7 +43,7 @@ public class LogOutputStream implements Closeable {
     fill = ByteBuffer.allocateDirect(BUFFER_SIZE);
     fill.position(0);
     for (int i = 0; i < fill.capacity(); i++) {
-      fill.put(RaftServerConstants.LOG_TERMINATE_BYTE);
+      fill.put(SegmentedRaftLogFormat.getTerminator());
     }
   }
 
@@ -136,7 +136,7 @@ public class LogOutputStream implements Closeable {
     preallocatedPos = 0;
     preallocate(); // preallocate file
 
-    out.write(SegmentedRaftLog.HEADER_BYTES);
+    SegmentedRaftLogFormat.applyHeaderTo(CheckedConsumer.asCheckedFunction(out::write));
     flush();
   }
 

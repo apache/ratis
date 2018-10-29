@@ -64,6 +64,22 @@ public class OpenCloseState {
     }
   }
 
+  public boolean isUnopened() {
+    return state.get() == initTrace;
+  }
+
+  public boolean isOpened() {
+    return state.get() instanceof OpenTrace;
+  }
+
+  public boolean isClosed() {
+    return state.get() instanceof CloseTrace;
+  }
+
+  public Throwable getThrowable() {
+    return state.get();
+  }
+
   /**
    * Transit to open state.
    * The method is NOT idempotent.
@@ -76,17 +92,27 @@ public class OpenCloseState {
     }
   }
 
+  private boolean readyToClose(Throwable t) {
+    return t == initTrace || t instanceof OpenTrace;
+  }
+
   /**
    * Transit to close state.
    * The method is idempotent.
+   *
+   * @return true if the state is transited to close as a result of the invocation of this method.
+   *         Otherwise, return false since it is already closed.
+   *
+   * @throws IOException if the current state is not allowed to transit to close.
    */
-  public void close() throws IOException {
-    final Throwable t = state.updateAndGet(
-        previous -> previous instanceof OpenTrace? new CloseTrace("Close "+ name): previous);
-    // If t is CloseTrace, t is either the previous or the newly created object.
-    if (!(t instanceof CloseTrace)) {
-      throw new IOException("Failed to close " + name + " since it is " + toString(t));
+  public boolean close() throws IOException {
+    final Throwable previous = state.getAndUpdate(prev -> readyToClose(prev)? new CloseTrace("Close "+ name): prev);
+    if (readyToClose(previous)) {
+      return true;
+    } else if (previous instanceof CloseTrace) {
+      return false; // already closed
     }
+    throw new IOException("Failed to close " + name + " since it is " + toString(previous));
   }
 
   @Override

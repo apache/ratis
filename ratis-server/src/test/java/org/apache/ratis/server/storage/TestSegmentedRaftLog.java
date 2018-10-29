@@ -40,6 +40,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -397,5 +398,17 @@ public class TestSegmentedRaftLog extends BaseTest {
       RaftLogCache cache = raftLog.getRaftLogCache();
       Assert.assertEquals(5, cache.getNumOfSegments());
     }
+  }
+
+
+  @Test
+  public void testSegmentedRaftLogFormatInternalHeader() throws Exception {
+    testFailureCase("testSegmentedRaftLogFormatInternalHeader",
+        () -> SegmentedRaftLogFormat.applyHeaderTo(header -> {
+          LOG.info("header  = " + new String(header, StandardCharsets.UTF_8));
+          header[0] += 1; // try changing the internal header
+          LOG.info("header' = " + new String(header, StandardCharsets.UTF_8));
+          return null;
+        }), IllegalStateException.class);
   }
 }

@@ -15,30 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.impl;
+package org.apache.ratis.util;
 
-public interface RaftServerConstants {
-  long INVALID_LOG_INDEX = -1;
-  long DEFAULT_CALLID = 0;
-  long DEFAULT_SEQNUM = 0L;
+/** Consumer with a throws-clause. */
+@FunctionalInterface
+public interface CheckedConsumer<INPUT, THROWABLE extends Throwable> {
+  /**
+   * The same as {@link java.util.function.Consumer#accept(Object)}
+   * except that this method is declared with a throws-clause.
+   */
+  void accept(INPUT input) throws THROWABLE;
 
-  enum StartupOption {
-    FORMAT("format"),
-    REGULAR("regular");
-
-    private final String option;
-
-    StartupOption(String arg) {
-      this.option = arg;
-    }
-
-    public static StartupOption getOption(String arg) {
-      for (StartupOption s : StartupOption.values()) {
-        if (s.option.equals(arg)) {
-          return s;
-        }
-      }
-      return REGULAR;
-    }
+  /** @return a {@link CheckedFunction} with {@link Void} return type. */
+  static <INPUT, THROWABLE extends Throwable> CheckedFunction<INPUT, Void, THROWABLE> asCheckedFunction(
+      CheckedConsumer<INPUT, THROWABLE> consumer) {
+    return input -> {
+      consumer.accept(input);
+      return null;
+    };
   }
 }

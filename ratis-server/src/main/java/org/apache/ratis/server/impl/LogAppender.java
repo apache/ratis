@@ -44,6 +44,7 @@ import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX
 import static org.apache.ratis.util.LifeCycle.State.CLOSED;
 import static org.apache.ratis.util.LifeCycle.State.CLOSING;
 import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
+import static org.apache.ratis.util.LifeCycle.State.NEW;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
@@ -117,6 +118,9 @@ public class LogAppender {
   }
 
   public void stopAppender() {
+    if (lifeCycle.compareAndTransition(NEW, CLOSED)) {
+      return;
+    }
     lifeCycle.transition(CLOSING);
     daemon.interrupt();
   }

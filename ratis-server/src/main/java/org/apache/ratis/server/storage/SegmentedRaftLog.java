@@ -68,9 +68,6 @@ import java.util.function.Consumer;
  * we may have hole when append further log.
  */
 public class SegmentedRaftLog extends RaftLog {
-  static final String HEADER_STR = "RAFTLOG1";
-  static final byte[] HEADER_BYTES = HEADER_STR.getBytes(StandardCharsets.UTF_8);
-
   /**
    * I/O task definitions.
    */

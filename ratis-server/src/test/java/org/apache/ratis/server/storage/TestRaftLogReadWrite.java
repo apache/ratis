@@ -104,7 +104,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   public void testReadWriteLog() throws IOException {
     final RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
-    long size = SegmentedRaftLog.HEADER_BYTES.length;
+    long size = SegmentedRaftLogFormat.getHeaderLength();
 
     final LogEntryProto[] entries = new LogEntryProto[100];
     try (LogOutputStream out =
@@ -162,7 +162,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   public void testReadWithPadding() throws IOException {
     final RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
-    long size = SegmentedRaftLog.HEADER_BYTES.length;
+    long size = SegmentedRaftLogFormat.getHeaderLength();
 
     LogEntryProto[] entries = new LogEntryProto[100];
     LogOutputStream out = new LogOutputStream(openSegment, false,

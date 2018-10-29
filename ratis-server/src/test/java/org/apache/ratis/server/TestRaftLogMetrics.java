@@ -26,11 +26,11 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.metrics.RatisMetricsRegistry;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.junit.Assert;
 import org.junit.Test;
@@ -90,12 +90,21 @@ public class TestRaftLogMetrics extends BaseTest
       }
     }
 
-    for (RaftServerProxy rsp: cluster.getServers()) {
-      final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(rsp.getId());
+    // For leader, flush must happen before client can get replies.
+    assertFlushCount(cluster.getLeader());
+
+    // For followers, flush can be lagged behind.  Attempt multiple times.
+    for(RaftServerImpl f : cluster.getFollowers()) {
+      JavaUtils.attempt(() -> assertFlushCount(f), 10, 100, f.getId() + "-assertFlushCount", null);
+    }
+  }
+
+  static void assertFlushCount(RaftServerImpl server) throws Exception {
+      final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getId());
       Timer tm = RatisMetricsRegistry.getRegistry().getTimers().get(flushTimeMetric);
       Assert.assertNotNull(tm);
 
-      final MetricsStateMachine stateMachine = MetricsStateMachine.get(rsp.getImpl(cluster.getGroupId()));
+      final MetricsStateMachine stateMachine = MetricsStateMachine.get(server);
       final int expectedFlush = stateMachine.getFlushCount();
 
       Assert.assertEquals(expectedFlush, tm.getCount());
@@ -106,6 +115,5 @@ public class TestRaftLogMetrics extends BaseTest
       Assert.assertEquals(expectedFlush,
           ((Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count"))
               .intValue());
-    }
   }
 }

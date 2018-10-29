@@ -33,17 +33,21 @@ import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
+import org.apache.ratis.server.storage.SegmentedRaftLogFormat;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.StringUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 
 import java.io.File;
+import java.io.RandomAccessFile;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -57,7 +61,6 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
   }
 
@@ -154,12 +157,57 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     server.getProxy().close();
   }
 
-  static File getOpenLogFile(RaftServerImpl server) throws Exception {
-    final List<Path> openLogs = server.getState().getStorage().getStorageDir().getLogSegmentFiles().stream()
+  static List<Path> getOpenLogFiles(RaftServerImpl server) throws Exception {
+    return server.getState().getStorage().getStorageDir().getLogSegmentFiles().stream()
         .filter(LogPathAndIndex::isOpen)
         .map(LogPathAndIndex::getPath)
         .collect(Collectors.toList());
+  }
+
+  static File getOpenLogFile(RaftServerImpl server) throws Exception {
+    final List<Path> openLogs = getOpenLogFiles(server);
     Assert.assertEquals(1, openLogs.size());
     return openLogs.get(0).toFile();
+  }
+
+  @Test
+  public void testRestartWithCorruptedLogHeader() throws Exception {
+    try(final MiniRaftCluster cluster = newCluster(NUM_SERVERS)) {
+      runTestRestartWithCorruptedLogHeader(cluster, LOG);
+    }
+  }
+
+  static void runTestRestartWithCorruptedLogHeader(MiniRaftCluster cluster, Logger LOG) throws Exception {
+    cluster.start();
+    RaftTestUtil.waitForLeader(cluster);
+
+    // shutdown all servers
+    cluster.getServers().forEach(RaftServerProxy::close);
+
+    for(RaftServerImpl impl : cluster.iterateServerImpls()) {
+      final File openLogFile = JavaUtils.attempt(() -> getOpenLogFile(impl),
+          10, 100, impl.getId() + "-getOpenLogFile", LOG);
+      for(int i = 0; i < SegmentedRaftLogFormat.getHeaderLength(); i++) {
+        assertCorruptedLogHeader(impl.getId(), openLogFile, i, cluster, LOG);
+        Assert.assertTrue(getOpenLogFiles(impl).isEmpty());
+      }
+    }
+  }
+
+  static void assertCorruptedLogHeader(RaftPeerId id, File openLogFile, int partialLength,
+      MiniRaftCluster cluster, Logger LOG) throws Exception {
+    Preconditions.assertTrue(partialLength < SegmentedRaftLogFormat.getHeaderLength());
+    try(final RandomAccessFile raf = new RandomAccessFile(openLogFile, "rw")) {
+      SegmentedRaftLogFormat.applyHeaderTo(header -> {
+        LOG.info("header    = {}", StringUtils.bytes2HexString(header));
+        final byte[] corrupted = new byte[header.length];
+        System.arraycopy(header, 0, corrupted, 0, partialLength);
+        LOG.info("corrupted = {}", StringUtils.bytes2HexString(corrupted));
+        raf.write(corrupted);
+        return null;
+      });
+    }
+    final RaftServerImpl server = cluster.restartServer(id, false);
+    server.getProxy().close();
   }
 }

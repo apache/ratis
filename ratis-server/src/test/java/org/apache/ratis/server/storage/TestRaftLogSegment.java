@@ -125,7 +125,7 @@ public class TestRaftLogSegment extends BaseTest {
     Assert.assertEquals(isOpen, segment.isOpen());
     Assert.assertEquals(totalSize, segment.getTotalSize());
 
-    long offset = SegmentedRaftLog.HEADER_BYTES.length;
+    long offset = SegmentedRaftLogFormat.getHeaderLength();
     for (long i = start; i <= end; i++) {
       LogSegment.LogRecord record = segment.getLogRecord(i);
       LogRecordWithEntry lre = segment.getEntryWithoutLoading(i);
@@ -184,7 +184,7 @@ public class TestRaftLogSegment extends BaseTest {
   public void testAppendEntries() throws Exception {
     final long start = 1000;
     LogSegment segment = LogSegment.newOpenSegment(null, start);
-    long size = SegmentedRaftLog.HEADER_BYTES.length;
+    long size = SegmentedRaftLogFormat.getHeaderLength();
     final long max = 8 * 1024 * 1024;
     checkLogSegment(segment, start, start - 1, true, size, 0);
 
@@ -267,7 +267,7 @@ public class TestRaftLogSegment extends BaseTest {
     segment.truncate(start);
     Assert.assertEquals(0, segment.numOfEntries());
     checkLogSegment(segment, start, start - 1, false,
-        SegmentedRaftLog.HEADER_BYTES.length, term);
+        SegmentedRaftLogFormat.getHeaderLength(), term);
   }
 
   @Test
@@ -307,7 +307,7 @@ public class TestRaftLogSegment extends BaseTest {
       out.write(entry);
     }
     Assert.assertEquals(file.length(),
-        size + SegmentedRaftLog.HEADER_BYTES.length);
+        size + SegmentedRaftLogFormat.getHeaderLength());
     try (LogInputStream in = new LogInputStream(file, 0,
         INVALID_LOG_INDEX, true)) {
       LogEntryProto entry = in.nextEntry();
@@ -332,7 +332,7 @@ public class TestRaftLogSegment extends BaseTest {
     LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
     final long entrySize = LogSegment.getEntrySize(entry);
 
-    long totalSize = SegmentedRaftLog.HEADER_BYTES.length;
+    long totalSize = SegmentedRaftLogFormat.getHeaderLength();
     long preallocated = 16 * 1024;
     try (LogOutputStream out = new LogOutputStream(file, false,
         max.getSize(), 16 * 1024, 10 * 1024)) {

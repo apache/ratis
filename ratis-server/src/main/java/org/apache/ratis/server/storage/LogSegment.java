@@ -25,6 +25,8 @@ import org.apache.ratis.thirdparty.com.google.common.cache.CacheLoader;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,6 +47,8 @@ import java.util.function.Consumer;
  * This class will be protected by the RaftServer's lock.
  */
 class LogSegment implements Comparable<Long> {
+  static final Logger LOG = LoggerFactory.getLogger(LogSegment.class);
+
   static long getEntrySize(LogEntryProto entry) {
     final int serialized = ServerProtoUtils.removeStateMachineData(entry).getSerializedSize();
     return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4;
@@ -103,12 +107,11 @@ class LogSegment implements Comparable<Long> {
     return new LogSegment(storage, false, start, end);
   }
 
-  private static void readSegmentFile(File file, long start, long end,
+  private static int readSegmentFile(File file, long start, long end,
       boolean isOpen, Consumer<LogEntryProto> entryConsumer) throws IOException {
+    int count = 0;
     try (LogInputStream in = new LogInputStream(file, start, end, isOpen)) {
-      LogEntryProto next;
-      LogEntryProto prev = null;
-      while ((next = in.nextEntry()) != null) {
+      for(LogEntryProto prev = null, next; (next = in.nextEntry()) != null; prev = next) {
         if (prev != null) {
           Preconditions.assertTrue(next.getIndex() == prev.getIndex() + 1,
               "gap between entry %s and entry %s", prev, next);
@@ -117,9 +120,10 @@ class LogSegment implements Comparable<Long> {
         if (entryConsumer != null) {
           entryConsumer.accept(next);
         }
-        prev = next;
+        count++;
       }
     }
+    return count;
   }
 
   static LogSegment loadSegment(RaftStorage storage, File file,
@@ -130,15 +134,20 @@ class LogSegment implements Comparable<Long> {
         LogSegment.newOpenSegment(storage, start) :
         LogSegment.newCloseSegment(storage, start, end);
 
-    readSegmentFile(file, start, end, isOpen, entry -> {
-      segment.append(keepEntryInCache | isOpen, entry);
+    final int entryCount = readSegmentFile(file, start, end, isOpen, entry -> {
+      segment.append(keepEntryInCache || isOpen, entry);
       if (logConsumer != null) {
         logConsumer.accept(entry);
       }
     });
+    LOG.info("Successfully read {} entries from segment file {}", entryCount, file);
 
-    // truncate padding if necessary
-    if (file.length() > segment.getTotalSize()) {
+    if (entryCount == 0) {
+      // The segment does not have any entries, delete the file.
+      FileUtils.deleteFile(file);
+      return null;
+    } else if (file.length() > segment.getTotalSize()) {
+      // The segment has extra padding, truncate it.
       FileUtils.truncateFile(file, segment.getTotalSize());
     }
 
@@ -217,7 +226,7 @@ class LogSegment implements Comparable<Long> {
     this.isOpen = isOpen;
     this.startIndex = start;
     this.endIndex = end;
-    totalSize = SegmentedRaftLog.HEADER_BYTES.length;
+    totalSize = SegmentedRaftLogFormat.getHeaderLength();
     hasEntryCache = isOpen;
   }
 

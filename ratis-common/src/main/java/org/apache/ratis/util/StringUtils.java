@@ -88,6 +88,11 @@ public class StringUtils {
     return bytes2HexString(ByteBuffer.wrap(bytes));
   }
 
+  public static String bytes2HexString(byte[] bytes, int offset, int length) {
+    Objects.requireNonNull(bytes, "bytes == null");
+    return bytes2HexString(ByteBuffer.wrap(bytes, offset, length));
+  }
+
   public static String bytes2HexString(ByteBuffer bytes) {
     Objects.requireNonNull(bytes, "bytes == null");
 

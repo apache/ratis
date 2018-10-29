@@ -23,9 +23,11 @@ import java.io.Closeable;
 import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
+import java.util.Optional;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.OpenCloseState;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,17 +59,11 @@ public class LogInputStream implements Closeable {
     }
   }
 
-  private enum State {
-    UNINIT,
-    OPEN,
-    CLOSED
-  }
-
   private final File logFile;
   private final long startIndex;
   private final long endIndex;
   private final boolean isOpen;
-  private State state = State.UNINIT;
+  private final OpenCloseState state;
   private LogReader reader;
 
   public LogInputStream(File log, long startIndex, long endIndex,
@@ -82,20 +78,19 @@ public class LogInputStream implements Closeable {
     this.startIndex = startIndex;
     this.endIndex = endIndex;
     this.isOpen = isOpen;
+    this.state = new OpenCloseState(getName());
   }
 
   private void init() throws IOException {
-    Preconditions.assertTrue(state == State.UNINIT);
+    state.open();
     try {
-      reader = new LogReader(logFile);
-      // read the log header
-      String header = reader.readLogHeader();
-      Preconditions.assertTrue(SegmentedRaftLog.HEADER_STR.equals(header),
-          "Corrupted log header: %s", header);
-      state = State.OPEN;
+      final LogReader r = new LogReader(logFile);
+      if (r.verifyHeader()) {
+        reader = r;
+      }
     } finally {
       if (reader == null) {
-        state = State.CLOSED;
+        state.close();
       }
     }
   }
@@ -113,19 +108,18 @@ public class LogInputStream implements Closeable {
   }
 
   public LogEntryProto nextEntry() throws IOException {
-    LogEntryProto entry = null;
-    switch (state) {
-      case UNINIT:
+    if (state.isUnopened()) {
         try {
           init();
         } catch (Throwable e) {
           LOG.error("caught exception initializing " + this, e);
           throw IOUtils.asIOException(e);
         }
-        Preconditions.assertTrue(state != State.UNINIT);
-        return nextEntry();
-      case OPEN:
-        entry = reader.readEntry();
+    }
+
+    Preconditions.assertTrue(!state.isUnopened());
+    if (state.isOpened()) {
+        final LogEntryProto entry = reader.readEntry();
         if (entry != null) {
           long index = entry.getIndex();
           if (!isOpen() && index >= endIndex) {
@@ -142,20 +136,20 @@ public class LogInputStream implements Closeable {
             }
           }
         }
-        break;
-      case CLOSED:
-        break; // return null
+        return entry;
+    } else if (state.isClosed()) {
+      return null;
     }
-    return entry;
+    throw new IOException("Failed to get next entry from " + this, state.getThrowable());
   }
 
   long scanNextEntry() throws IOException {
-    Preconditions.assertTrue(state == State.OPEN);
+    state.assertOpen();
     return reader.scanEntry();
   }
 
   long getPosition() {
-    if (state == State.OPEN) {
+    if (state.isOpened()) {
       return reader.getPos();
     } else {
       return 0;
@@ -164,10 +158,9 @@ public class LogInputStream implements Closeable {
 
   @Override
   public void close() throws IOException {
-    if (state == State.OPEN) {
-      reader.close();
+    if (state.close()) {
+      Optional.ofNullable(reader).ifPresent(LogReader::close);
     }
-    state = State.CLOSED;
   }
 
   boolean isOpen() {

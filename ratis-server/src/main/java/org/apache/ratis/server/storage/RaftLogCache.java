@@ -109,7 +109,9 @@ class RaftLogCache {
       Consumer<LogEntryProto> logConsumer) throws IOException {
     LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(),
         pi.startIndex, pi.endIndex, pi.isOpen(), keepEntryInCache, logConsumer);
-    addSegment(logSegment);
+    if (logSegment != null) {
+      addSegment(logSegment);
+    }
   }
 
   long getCachedSegmentNum() {

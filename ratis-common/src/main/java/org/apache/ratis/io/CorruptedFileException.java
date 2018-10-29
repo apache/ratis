@@ -15,30 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.impl;
+package org.apache.ratis.io;
 
-public interface RaftServerConstants {
-  long INVALID_LOG_INDEX = -1;
-  long DEFAULT_CALLID = 0;
-  long DEFAULT_SEQNUM = 0L;
+import java.io.File;
+import java.io.IOException;
 
-  enum StartupOption {
-    FORMAT("format"),
-    REGULAR("regular");
-
-    private final String option;
-
-    StartupOption(String arg) {
-      this.option = arg;
-    }
-
-    public static StartupOption getOption(String arg) {
-      for (StartupOption s : StartupOption.values()) {
-        if (s.option.equals(arg)) {
-          return s;
-        }
-      }
-      return REGULAR;
-    }
+public class CorruptedFileException extends IOException {
+  public CorruptedFileException(File file, String message) {
+    super("File " + file + " (exist? " + file.exists() + ", length=" + file.length() + ") is corrupted: " + message);
   }
 }
