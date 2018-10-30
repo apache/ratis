@@ -280,13 +280,18 @@ public interface RaftTestUtil {
     private final StateMachineLogEntryProto smLogEntryProto;
 
     public SimpleOperation(String op) {
-      this(clientId, callId.incrementAndGet(), op);
+      this(op, false);
     }
 
-    private SimpleOperation(ClientId clientId, long callId, String op) {
+    public SimpleOperation(String op, boolean hasStateMachineData) {
+      this(clientId, callId.incrementAndGet(), op, hasStateMachineData);
+    }
+
+    private SimpleOperation(ClientId clientId, long callId, String op, boolean hasStateMachineData) {
       this.op = Objects.requireNonNull(op);
+      final ByteString bytes = ProtoUtils.toByteString(op);
       this.smLogEntryProto = ServerProtoUtils.toStateMachineLogEntryProto(
-          clientId, callId, ProtoUtils.toByteString(op), null);
+          clientId, callId, bytes, hasStateMachineData? bytes: null);
     }
 
     @Override

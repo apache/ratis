@@ -144,6 +144,30 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, FORCE_SYNC_NUM_KEY, forceSyncNum);
     }
 
+    interface StateMachineData {
+      String PREFIX = Log.PREFIX + ".statemachine.data";
+
+      String SYNC_KEY = PREFIX + ".sync";
+      boolean SYNC_DEFAULT = true;
+      static boolean sync(RaftProperties properties) {
+        return getBoolean(properties::getBoolean,
+            SYNC_KEY, SYNC_DEFAULT, getDefaultLog());
+      }
+      static void setSync(RaftProperties properties, boolean sync) {
+        setBoolean(properties::setBoolean, SYNC_KEY, sync);
+      }
+
+      String SYNC_TIMEOUT_KEY = PREFIX + ".sync.timeout";
+      TimeDuration SYNC_TIMEOUT_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
+      static TimeDuration syncTimeout(RaftProperties properties) {
+        return getTimeDuration(properties.getTimeDuration(SYNC_TIMEOUT_DEFAULT.getUnit()),
+            SYNC_TIMEOUT_KEY, SYNC_TIMEOUT_DEFAULT, getDefaultLog());
+      }
+      static void setSyncTimeout(RaftProperties properties, TimeDuration syncTimeout) {
+        setTimeDuration(properties::setTimeDuration, SYNC_TIMEOUT_KEY, syncTimeout);
+      }
+    }
+
     interface Appender {
       String PREFIX = Log.PREFIX + ".appender";
 

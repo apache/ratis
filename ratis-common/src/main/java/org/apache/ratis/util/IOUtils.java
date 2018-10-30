@@ -20,6 +20,7 @@
 
 package org.apache.ratis.util;
 
+import org.apache.ratis.protocol.TimeoutIOException;
 import org.slf4j.Logger;
 
 import java.io.Closeable;
@@ -35,6 +36,8 @@ import java.nio.channels.FileChannel;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
 /**
  * IO related utility methods.
@@ -58,15 +61,30 @@ public interface IOUtils {
     return cause != null? asIOException(cause): new IOException(e);
   }
 
-  static <T> T getFromFuture(CompletableFuture<T> future, Object name) throws IOException {
+  static <T> T getFromFuture(CompletableFuture<T> future, Supplier<Object> name) throws IOException {
     try {
       return future.get();
     } catch (InterruptedException e) {
-      throw toInterruptedIOException(name + " interrupted.", e);
+      throw toInterruptedIOException(name.get() + " interrupted.", e);
     } catch (ExecutionException e) {
       throw toIOException(e);
     } catch (CompletionException e) {
       throw asIOException(JavaUtils.unwrapCompletionException(e));
+    }
+  }
+
+  static <T> T getFromFuture(CompletableFuture<T> future, Supplier<Object> name, TimeDuration timeout)
+      throws IOException {
+    try {
+      return future.get(timeout.getDuration(), timeout.getUnit());
+    } catch (InterruptedException e) {
+      throw toInterruptedIOException(name.get() + " interrupted.", e);
+    } catch (ExecutionException e) {
+      throw toIOException(e);
+    } catch (CompletionException e) {
+      throw asIOException(JavaUtils.unwrapCompletionException(e));
+    } catch(TimeoutException e) {
+      throw new TimeoutIOException("Timeout: " + name.get(), e);
     }
   }
 

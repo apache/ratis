@@ -263,13 +263,13 @@ public class RaftServerProxy implements RaftServer {
 
   public RaftServerImpl getImpl(RaftGroupId groupId) throws IOException {
     Objects.requireNonNull(groupId, "groupId == null");
-    return IOUtils.getFromFuture(getImplFuture(groupId), getId());
+    return IOUtils.getFromFuture(getImplFuture(groupId), this::getId);
   }
 
   List<RaftServerImpl> getImpls() throws IOException {
     final List<RaftServerImpl> list = new ArrayList<>();
     for(CompletableFuture<RaftServerImpl> f : impls.getAll()) {
-      list.add(IOUtils.getFromFuture(f, getId()));
+      list.add(IOUtils.getFromFuture(f, this::getId));
     }
     return list;
   }

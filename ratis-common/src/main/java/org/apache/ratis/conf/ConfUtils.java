@@ -254,8 +254,8 @@ public interface ConfUtils {
     }
     if (printKey(confClass, out, f, "KEY", "DEFAULT",
         (b, defaultField) ->
-            b.append(defaultField.getType().getSimpleName()).append(", ")
-                .append("default=" + defaultField.get(null)))) {
+            b.append(defaultField.getGenericType().getTypeName()).append(", ")
+             .append("default=").append(defaultField.get(null)))) {
       return;
     }
     if (printKey(confClass, out, f, "PARAMETER", "CLASS",

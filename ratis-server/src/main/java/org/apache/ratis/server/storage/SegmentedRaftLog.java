@@ -27,6 +27,7 @@ import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -101,13 +102,21 @@ public class SegmentedRaftLog extends RaftLog {
 
   public SegmentedRaftLog(RaftPeerId selfId, RaftServerImpl server,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
+    this(selfId, server, server != null? server.getStateMachine(): null,
+        server != null? server::submitUpdateCommitEvent: null,
+        storage, lastIndexInSnapshot, properties);
+  }
+
+  SegmentedRaftLog(RaftPeerId selfId, RaftServerImpl server,
+      StateMachine stateMachine, Runnable submitUpdateCommitEvent,
+      RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
     super(selfId, RaftServerConfigKeys.Log.Appender.bufferCapacity(properties)
         .getSizeInt());
     this.server = server;
     this.storage = storage;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     cache = new RaftLogCache(selfId, storage, properties);
-    fileLogWorker = new RaftLogWorker(selfId, server, storage, properties);
+    this.fileLogWorker = new RaftLogWorker(selfId, stateMachine, submitUpdateCommitEvent, storage, properties);
     lastCommitted.set(lastIndexInSnapshot);
   }
 

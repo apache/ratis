@@ -100,12 +100,14 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     private final EnumMap<Type, CompletableFuture<Void>> maps = new EnumMap<>(Type.class);
 
     void block(Type type) {
+      LOG.info("block {}", type);
       final CompletableFuture<Void> future = new CompletableFuture<>();
       final CompletableFuture<Void> previous = maps.putIfAbsent(type, future);
       Preconditions.assertNull(previous, "previous");
     }
 
     void unblock(Type type) {
+      LOG.info("unblock {}", type);
       final CompletableFuture<Void> future = maps.remove(type);
       Objects.requireNonNull(future, "future == null");
       future.complete(null);

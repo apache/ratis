@@ -30,8 +30,11 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.After;
 import org.junit.Assert;
@@ -46,6 +49,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static org.mockito.Matchers.any;
@@ -175,12 +179,18 @@ public class TestSegmentedRaftLog extends BaseTest {
       Supplier<String> stringSupplier) {
     List<LogEntryProto> eList = new ArrayList<>();
     for (SegmentRange range : slist) {
-      for (long index = range.start; index <= range.end; index++) {
-        SimpleOperation m = stringSupplier == null ?
-            new SimpleOperation("m" + index) :
-            new SimpleOperation(stringSupplier.get());
-        eList.add(ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, index));
-      }
+      prepareLogEntries(range, stringSupplier, false, eList);
+    }
+    return eList;
+  }
+
+  List<LogEntryProto> prepareLogEntries(SegmentRange range,
+      Supplier<String> stringSupplier, boolean hasStataMachineData, List<LogEntryProto> eList) {
+    for(long index = range.start; index <= range.end; index++) {
+      SimpleOperation m = stringSupplier == null?
+          new SimpleOperation("m" + index, hasStataMachineData):
+          new SimpleOperation(stringSupplier.get(), hasStataMachineData);
+      eList.add(ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, index));
     }
     return eList;
   }
@@ -400,6 +410,60 @@ public class TestSegmentedRaftLog extends BaseTest {
     }
   }
 
+  @Test
+  public void testSegmentedRaftLogStateMachineData() throws Exception {
+    final SegmentRange range = new SegmentRange(0, 10, 1, true);
+    final List<LogEntryProto> entries = prepareLogEntries(range, null, true, new ArrayList<>());
+
+    final SimpleStateMachine4Testing sm = new SimpleStateMachine4Testing();
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, sm, null, storage, -1, properties)) {
+      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+
+      int next = 0;
+      long flush = -1;
+      assertIndices(raftLog, flush, next);
+      raftLog.appendEntry(entries.get(next++));
+      assertIndices(raftLog, flush, next);
+      raftLog.appendEntry(entries.get(next++));
+      assertIndices(raftLog, flush, next);
+      raftLog.appendEntry(entries.get(next++));
+      assertIndicesMultipleAttempts(raftLog, flush += 3, next);
+
+      sm.blockFlushStateMachineData();
+      raftLog.appendEntry(entries.get(next++));
+      {
+        sm.blockWriteStateMachineData();
+        final Thread t = startAppendEntryThread(raftLog, entries.get(next++));
+        TimeUnit.SECONDS.sleep(1);
+        Assert.assertTrue(t.isAlive());
+        sm.unblockWriteStateMachineData();
+        t.join();
+      }
+      assertIndices(raftLog, flush, next);
+      TimeUnit.SECONDS.sleep(1);
+      assertIndices(raftLog, flush, next);
+      sm.unblockFlushStateMachineData();
+      assertIndicesMultipleAttempts(raftLog, flush + 2, next);
+    }
+  }
+
+  static Thread startAppendEntryThread(RaftLog raftLog, LogEntryProto entry) {
+    final Thread t = new Thread(() -> raftLog.appendEntry(entry));
+    t.start();
+    return t;
+  }
+
+  void assertIndices(RaftLog raftLog, long expectedFlushIndex, long expectedNextIndex) {
+    LOG.info("assert expectedFlushIndex={}", expectedFlushIndex);
+    Assert.assertEquals(expectedFlushIndex, raftLog.getLatestFlushedIndex());
+    LOG.info("assert expectedNextIndex={}", expectedNextIndex);
+    Assert.assertEquals(expectedNextIndex, raftLog.getNextIndex());
+  }
+
+  void assertIndicesMultipleAttempts(RaftLog raftLog, long expectedFlushIndex, long expectedNextIndex) throws Exception {
+    JavaUtils.attempt(() -> assertIndices(raftLog, expectedFlushIndex, expectedNextIndex),
+        10, 100, "assertIndices", LOG);
+  }
 
   @Test
   public void testSegmentedRaftLogFormatInternalHeader() throws Exception {
@@ -410,5 +474,13 @@ public class TestSegmentedRaftLog extends BaseTest {
           LOG.info("header' = " + new String(header, StandardCharsets.UTF_8));
           return null;
         }), IllegalStateException.class);
+
+    // reset the header
+    SegmentedRaftLogFormat.applyHeaderTo(header -> {
+      LOG.info("header'  = " + new String(header, StandardCharsets.UTF_8));
+      header[0] -= 1; // try changing the internal header
+      LOG.info("header'' = " + new String(header, StandardCharsets.UTF_8));
+      return null;
+    });
   }
 }

@@ -24,7 +24,6 @@ import org.apache.ratis.metrics.RatisMetricsRegistry;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
-import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.storage.RaftLogCache.SegmentFileInfo;
 import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
@@ -37,11 +36,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 /**
@@ -81,22 +80,26 @@ class RaftLogWorker implements Runnable {
   private final long preallocatedSize;
   private final int bufferSize;
 
-  RaftLogWorker(RaftPeerId selfId, RaftServerImpl raftServer, RaftStorage storage,
-                RaftProperties properties) {
+  private final boolean stateMachineDataSync;
+  private final TimeDuration stateMachineDataSyncTimeout;
+
+  RaftLogWorker(RaftPeerId selfId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
+      RaftStorage storage, RaftProperties properties) {
     this.name = selfId + "-" + getClass().getSimpleName();
     LOG.info("new {} for {}", name, storage);
 
-    this.submitUpdateCommitEvent = raftServer != null? raftServer::submitUpdateCommitEvent: () -> {};
-    this.stateMachine = raftServer != null? raftServer.getStateMachine(): null;
+    this.submitUpdateCommitEvent = submitUpdateCommitEvent;
+    this.stateMachine = stateMachine;
 
     this.storage = storage;
-    this.segmentMaxSize =
-        RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
-    this.preallocatedSize =
-        RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
-    this.bufferSize =
-        RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
+    this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
+    this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
+    this.bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
+
+    this.stateMachineDataSync = RaftServerConfigKeys.Log.StateMachineData.sync(properties);
+    this.stateMachineDataSyncTimeout = RaftServerConfigKeys.Log.StateMachineData.syncTimeout(properties);
+
     this.workerThread = new Thread(this, name);
 
     // Server Id can be null in unit tests
@@ -220,16 +223,19 @@ class RaftLogWorker implements Runnable {
 
   private void flushWrites() throws IOException {
     if (out != null) {
-      LOG.debug("flush data to " + out + ", reset pending_sync_number to 0");
+      LOG.debug("{}: flush {}", name, out);
       final Timer.Context timerContext = logFlushTimer.get().time();
       try {
         final CompletableFuture<Void> f = stateMachine != null ?
             stateMachine.flushStateMachineData(lastWrittenIndex) :
             CompletableFuture.completedFuture(null);
+        if (stateMachineDataSync) {
+          IOUtils.getFromFuture(f, () -> name + "-flushStateMachineData", stateMachineDataSyncTimeout);
+        }
         out.flush();
-        f.get();
-      } catch (InterruptedException | ExecutionException e) {
-        throw IOUtils.asIOException(e);
+        if (!stateMachineDataSync) {
+          IOUtils.getFromFuture(f, () -> name + "-flushStateMachineData");
+        }
       } finally {
         timerContext.stop();
       }
@@ -238,10 +244,10 @@ class RaftLogWorker implements Runnable {
   }
 
   private void updateFlushedIndex() {
-    LOG.debug("{}: updateFlushedIndex {} -> {}", name, lastWrittenIndex, flushedIndex);
+    LOG.debug("{}: updateFlushedIndex {} -> {}", name, flushedIndex, lastWrittenIndex);
     flushedIndex = lastWrittenIndex;
     pendingFlushNum = 0;
-    submitUpdateCommitEvent.run();
+    Optional.ofNullable(submitUpdateCommitEvent).ifPresent(Runnable::run);
   }
 
   /**
@@ -300,6 +306,10 @@ class RaftLogWorker implements Runnable {
 
     @Override
     public void execute() throws IOException {
+      if (stateMachineDataSync && stateMachineFuture != null) {
+        IOUtils.getFromFuture(stateMachineFuture, () -> this + "-writeStateMachineData", stateMachineDataSyncTimeout);
+      }
+
       Preconditions.assertTrue(out != null);
       Preconditions.assertTrue(lastWrittenIndex + 1 == entry.getIndex(),
           "lastWrittenIndex == %s, entry == %s", lastWrittenIndex, entry);
