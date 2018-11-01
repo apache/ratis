@@ -83,7 +83,7 @@ public final class TimeoutScheduler {
       try {
         task.run();
       } catch(Throwable t) {
-        errorHandler.accept((THROWABLE) t);
+        errorHandler.accept(JavaUtils.cast(t));
       } finally {
         onTaskCompleted();
       }

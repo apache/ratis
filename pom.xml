@@ -472,7 +472,6 @@
             <fork>true</fork>
             <meminitial>512m</meminitial>
             <maxmem>2048m</maxmem>
-            <showWarnings>true</showWarnings>
             <showDeprecation>false</showDeprecation>
             <useIncrementalCompilation>false</useIncrementalCompilation>
             <compilerArgs>

@@ -77,6 +77,7 @@ public abstract class BaseTest {
     return new File(getClassTestDir(), testName.getMethodName());
   }
 
+  @SafeVarargs
   public static void assertThrowable(
       String description, Throwable t,
       Class<? extends Throwable> exceptedThrowableClass, Logger log,
@@ -94,6 +95,7 @@ public abstract class BaseTest {
     }
   }
 
+  @SafeVarargs
   public static void testFailureCase(
       String description, CheckedRunnable<?> testCode,
       Class<? extends Throwable> exceptedThrowableClass, Logger log,
@@ -110,13 +112,15 @@ public abstract class BaseTest {
     }
   }
 
-  public void testFailureCase(
+  @SafeVarargs
+  public final void testFailureCase(
       String description, CheckedRunnable<?> testCode,
       Class<? extends Throwable> exceptedThrowableClass,
       Class<? extends Throwable>... exceptedCauseClasses) {
     testFailureCase(description, testCode, exceptedThrowableClass, LOG, exceptedCauseClasses);
   }
 
+  @SafeVarargs
   public static void testFailureCaseAsync(
       String description, Supplier<CompletableFuture<?>> testCode,
       Class<? extends Throwable> exceptedThrowableClass, Logger log,
@@ -130,7 +134,8 @@ public abstract class BaseTest {
     }
   }
 
-  public void testFailureCaseAsync(
+  @SafeVarargs
+  public final void testFailureCaseAsync(
       String description, Supplier<CompletableFuture<?>> testCode, Class<? extends Throwable> exceptedThrowableClass,
       Class<? extends Throwable>... exceptedCauseClasses) {
     testFailureCaseAsync(description, testCode, exceptedThrowableClass, LOG, exceptedCauseClasses);

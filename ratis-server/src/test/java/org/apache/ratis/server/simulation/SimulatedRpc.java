@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.ServerFactory;
+import org.apache.ratis.util.JavaUtils;
 
 import java.util.Objects;
 
@@ -57,8 +58,7 @@ class SimulatedRpc implements RpcType {
     private final SimulatedClientRpc client2serverRequestReply;
 
     Factory(Parameters parameters) {
-      serverRequestReply = parameters.getNonNull(
-          SERVER_REQUEST_REPLY_KEY, SimulatedRequestReply.class);
+      serverRequestReply = JavaUtils.cast(parameters.getNonNull(SERVER_REQUEST_REPLY_KEY, SimulatedRequestReply.class));
       client2serverRequestReply = parameters.getNonNull(
           CLIENT_TO_SERVER_REQUEST_REPLY_KEY, SimulatedClientRpc.class);
     }

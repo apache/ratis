@@ -76,7 +76,8 @@ public interface LogUtils {
       } else if (log.isWarnEnabled()){
         log.warn("Failed to " + name.get() + ": " + t);
       }
-      throw (THROWABLE)t;
+      final THROWABLE throwable = JavaUtils.cast(t);
+      throw throwable;
     }
 
     if (log.isTraceEnabled()) {

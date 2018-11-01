@@ -280,7 +280,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     @Override
     public void run() {
       try (RaftClient client = cluster.createClient()) {
-        final CompletableFuture f = new CompletableFuture();
+        final CompletableFuture<Void> f = new CompletableFuture<>();
         for (int i = 0; i < messages.length; i++) {
           if (!useAsync) {
             final RaftClientReply reply =

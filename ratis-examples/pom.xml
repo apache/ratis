@@ -178,21 +178,6 @@
             <root>${project.basedir}</root>
           </roots>
         </configuration>
-        <executions>
-          <execution>
-            <id>update-pom-license</id>
-            <goals>
-              <goal>update-file-header</goal>
-            </goals>
-            <phase>package</phase>
-            <configuration>
-              <licenseName>apache_v2</licenseName>
-              <includes>
-                <include>dependency-reduced-pom.xml</include>
-              </includes>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

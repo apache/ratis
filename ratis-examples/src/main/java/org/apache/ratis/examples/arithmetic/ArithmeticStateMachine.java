@@ -32,6 +32,7 @@ import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.JavaUtils;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -127,7 +128,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
         reset();
       }
       setLastAppliedTermIndex(last);
-      variables.putAll((Map<String, Double>) in.readObject());
+      variables.putAll(JavaUtils.cast(in.readObject()));
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
     }

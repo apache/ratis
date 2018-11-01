@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
+import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
@@ -42,7 +43,8 @@ public class GrpcServerProtocolClient implements Closeable {
   public GrpcServerProtocolClient(RaftPeer target, int flowControlWindow,
       TimeDuration requestTimeoutDuration) {
     channel = NettyChannelBuilder.forTarget(target.getAddress())
-        .usePlaintext(true).flowControlWindow(flowControlWindow)
+        .negotiationType(NegotiationType.PLAINTEXT)
+        .flowControlWindow(flowControlWindow)
         .build();
     blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);

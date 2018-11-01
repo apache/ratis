@@ -348,8 +348,8 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
         throw new IllegalArgumentException(
             "getLength on uninitialized RpcWrapper");
       }
-      return CodedOutputStream.computeRawVarint32Size(headerLen) +  headerLen
-          + CodedOutputStream.computeRawVarint32Size(reqLen) + reqLen;
+      return CodedOutputStream.computeUInt32SizeNoTag(headerLen) +  headerLen
+          + CodedOutputStream.computeUInt32SizeNoTag(reqLen) + reqLen;
     }
   }
 
@@ -462,7 +462,7 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
         throw new IllegalArgumentException(
             "getLength on uninitialized RpcWrapper");
       }
-      return CodedOutputStream.computeRawVarint32Size(resLen) + resLen;
+      return CodedOutputStream.computeUInt32SizeNoTag(resLen) + resLen;
     }
   }
 

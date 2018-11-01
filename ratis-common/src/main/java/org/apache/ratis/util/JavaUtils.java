@@ -63,6 +63,12 @@ public interface JavaUtils {
     return clazz.isInstance(obj)? clazz.cast(obj): null;
   }
 
+  static <T> T cast(Object obj) {
+    @SuppressWarnings("unchecked")
+    final T t = (T)obj;
+    return t;
+  }
+
   /**
    * Invoke {@link Callable#call()} and, if there any,
    * wrap the checked exception by {@link RuntimeException}.
