@@ -17,8 +17,12 @@
  */
 package org.apache.ratis.logservice.util;
 
-public class TestUtils {
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
+public class TestUtils {
 
   public static boolean equals(byte[] a, byte[] b) {
     if (a == null || b == null) {
@@ -33,5 +37,19 @@ public class TestUtils {
       }
     }
     return true;
+  }
+
+  public static List<ByteBuffer> getRandomData(int dataSize, int totalRecords) {
+    byte[][] data = new byte[totalRecords][dataSize];
+    Random r = new Random();
+    for(int i=0; i < data.length; i++) {
+      data[i] = new byte[dataSize];
+      r.nextBytes(data[i]);
+    }
+    List<ByteBuffer> list = new ArrayList<ByteBuffer>();
+    for (int i=0; i < data.length; i++) {
+      list.add(ByteBuffer.wrap(data[i]));
+    }
+    return list;
   }
 }

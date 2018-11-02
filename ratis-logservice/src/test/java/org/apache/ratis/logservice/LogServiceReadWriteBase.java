@@ -21,9 +21,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
@@ -32,11 +30,12 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogReader;
-import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.api.LogStateMachine;
 import org.apache.ratis.logservice.api.LogWriter;
+import org.apache.ratis.logservice.impl.LogStreamImpl;
+import org.apache.ratis.logservice.util.TestUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.junit.After;
 import org.junit.Before;
@@ -68,60 +67,45 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testLogServiceReadWrite() throws Exception {
-//    RaftClient raftClient =
-//        RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
-//            .build();
-//    LogService logService = LogServiceFactory.getInstance().createLogService(raftClient,
-//      new LogServiceConfiguration());
-//    LogName logName = LogName.of("log1");
-//    LogStream logStream = logService.createLog(logName);
-//    assertEquals("log1", logStream.getName().getName());
-//    assertEquals(State.OPEN, logStream.getState());
-//    assertEquals(0, logStream.getSize());
-//
-//    LogReader reader = logStream.createReader();
-//    LogWriter writer = logStream.createWriter();
-//
-//    // Check last record id
-//    long lastId = logStream.getLastRecordId();
-//    LOG.info("last id {}", lastId);
-//
-//    // Add some records
-//    List<ByteBuffer> records = getRandomData(100, 10);
-//    long id = writer.write(records);
-//    LOG.info("id {}", id);
-//    // Check log size
-//    long size = logStream.getSize();
-//    assertEquals(10 * 100, size);
-//    LOG.info("size {}", size);
-//
-//    // Check last record id
-//    long lastId2 = logStream.getLastRecordId();
-//    LOG.info("last id {}", lastId2);
-//
-//    // Check first record id
-//    long startId = logStream.getStartRecordId();
-//    LOG.info("start id {}", startId);
-//    //
-//    reader.seek(lastId + 1);
-//    // Read records back
-//    List<ByteBuffer> data = reader.readBulk(1);
-//    assertEquals(1, data.size());
-//
-  }
+    RaftClient raftClient =
+        RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
+            .build();
+    LogName logName = LogName.of("log1");
+    // TODO need API to circumvent metadata service for testing
+    try (LogStream logStream = new LogStreamImpl(logName, raftClient)) {
+      assertEquals("log1", logStream.getName().getName());
+      assertEquals(State.OPEN, logStream.getState());
+      assertEquals(0, logStream.getSize());
 
-  private List<ByteBuffer> getRandomData(int dataSize, int totalRecords) {
-    byte[][] data = new byte[totalRecords][dataSize];
-    Random r = new Random();
-    for(int i=0; i < data.length; i++) {
-      data[i] = new byte[dataSize];
-      r.nextBytes(data[i]);
+      LogReader reader = logStream.createReader();
+      LogWriter writer = logStream.createWriter();
+
+      // Check last record id
+      long lastId = logStream.getLastRecordId();
+      LOG.info("last id {}", lastId);
+
+      // Add some records
+      List<ByteBuffer> records = TestUtils.getRandomData(100, 10);
+      long id = writer.write(records);
+      LOG.info("id {}", id);
+      // Check log size
+      long size = logStream.getSize();
+      assertEquals(10 * 100, size);
+      LOG.info("size {}", size);
+
+      // Check last record id
+      long lastId2 = logStream.getLastRecordId();
+      LOG.info("last id {}", lastId2);
+
+      // Check first record id
+      long startId = logStream.getStartRecordId();
+      LOG.info("start id {}", startId);
+      //
+      reader.seek(lastId + 1);
+      // Read records back
+      List<ByteBuffer> data = reader.readBulk(1);
+      assertEquals(1, data.size());
     }
-    List<ByteBuffer> list = new ArrayList<ByteBuffer>();
-    for (int i=0; i < data.length; i++) {
-      list.add(ByteBuffer.wrap(data[i]));
-    }
-    return list;
   }
 
   @After
