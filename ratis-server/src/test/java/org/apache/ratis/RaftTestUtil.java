@@ -36,6 +36,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,8 +47,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 
@@ -57,60 +61,54 @@ public interface RaftTestUtil {
 
   static RaftServerImpl waitForLeader(MiniRaftCluster cluster)
       throws InterruptedException {
-    return waitForLeader(cluster, false);
+    return waitForLeader(cluster, null);
   }
 
-  static RaftServerImpl waitForLeader(
-      MiniRaftCluster cluster, boolean tolerateMultipleLeaders) throws InterruptedException {
-    return waitForLeader(cluster, tolerateMultipleLeaders, null);
-  }
-
-  static RaftServerImpl waitForLeader(
-      MiniRaftCluster cluster, boolean tolerateMultipleLeaders, RaftGroupId groupId)
+  static RaftServerImpl waitForLeader(MiniRaftCluster cluster, RaftGroupId groupId)
       throws InterruptedException {
-    final long sleepTime = (cluster.getMaxTimeout() * 3) >> 1;
+    return waitForLeader(cluster, groupId, true);
+  }
+
+  static RaftServerImpl waitForLeader(
+      MiniRaftCluster cluster, RaftGroupId groupId, boolean expectLeader)
+      throws InterruptedException {
+    final String name = "waitForLeader-" + groupId + "-(expectLeader? " + expectLeader + ")";
+    final int numAttempts = expectLeader? 100: 10;
+    final TimeDuration sleepTime = cluster.getTimeoutMax().apply(d -> (d * 3) >> 1);
     LOG.info(cluster.printServers(groupId));
-    RaftServerImpl leader = null;
-    for(int i = 0; leader == null && i < 10; i++) {
-      Thread.sleep(sleepTime);
-      try {
-        leader = cluster.getLeader(groupId);
-      } catch(IllegalStateException e) {
-        if (!tolerateMultipleLeaders) {
-          throw e;
-        }
+
+    final AtomicReference<IllegalStateException> exception = new AtomicReference<>();
+    final Runnable handleNoLeaders = () -> {
+      throw cluster.newIllegalStateExceptionForNoLeaders(groupId);
+    };
+    final Consumer<List<RaftServerImpl>> handleMultipleLeaders = leaders -> {
+      final IllegalStateException ise = cluster.newIllegalStateExceptionForMultipleLeaders(groupId, leaders);
+      exception.set(ise);
+    };
+
+    final RaftServerImpl leader = JavaUtils.attempt(
+        () -> cluster.getLeader(groupId, handleNoLeaders, handleMultipleLeaders),
+        numAttempts, sleepTime, name, LOG);
+
+    LOG.info(cluster.printServers(groupId));
+    if (expectLeader) {
+      return Optional.ofNullable(leader).orElseThrow(exception::get);
+    } else {
+      if (leader == null) {
+        return null;
+      } else {
+        throw new IllegalStateException("expectLeader = " + expectLeader + " but leader = " + leader);
       }
     }
-    LOG.info(cluster.printServers(groupId));
-    return leader;
   }
 
-  static RaftServerImpl waitForLeader(
-      MiniRaftCluster cluster, final String leaderId) throws InterruptedException {
-    LOG.info(cluster.printServers());
-    for(int i = 0; !cluster.tryEnforceLeader(leaderId) && i < 10; i++) {
-      RaftServerImpl currLeader = cluster.getLeader();
-      LOG.info("try enforcing leader to " + leaderId + " but " +
-          (currLeader == null ? "no leader for this round" : "new leader is " + currLeader.getId()));
-    }
-    LOG.info(cluster.printServers());
-
-    final RaftServerImpl leader = cluster.getLeader();
-    Assert.assertEquals(leaderId, leader.getId().toString());
-    return leader;
-  }
-
-  static String waitAndKillLeader(MiniRaftCluster cluster,
-      boolean expectLeader) throws InterruptedException {
+  static String waitAndKillLeader(MiniRaftCluster cluster) throws InterruptedException {
     final RaftServerImpl leader = waitForLeader(cluster);
-    if (!expectLeader) {
-      Assert.assertNull(leader);
-    } else {
-      Assert.assertNotNull(leader);
-      LOG.info("killing leader = " + leader);
-      cluster.killServer(leader.getId());
-    }
-    return leader != null ? leader.getId().toString() : null;
+    Assert.assertNotNull(leader);
+
+    LOG.info("killing leader = " + leader);
+    cluster.killServer(leader.getId());
+    return leader.getId().toString();
   }
 
   static boolean logEntriesContains(RaftLog log, SimpleMessage... expectedMessages) {

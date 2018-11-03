@@ -46,6 +46,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -143,6 +144,10 @@ public abstract class MiniRaftCluster implements Closeable {
     return ids;
   }
 
+  public static int getIdIndex(String id) {
+    return Integer.parseInt(id.substring(1));
+  }
+
   protected RaftGroup group;
   protected final RaftProperties properties;
   protected final Parameters parameters;
@@ -226,8 +231,14 @@ public abstract class MiniRaftCluster implements Closeable {
     start();
   }
 
+  /** @deprecated use {@link #getTimeoutMax()}. */
+  @Deprecated
   public int getMaxTimeout() {
     return RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
+  }
+
+  public TimeDuration getTimeoutMax() {
+    return RaftServerConfigKeys.Rpc.timeoutMax(properties);
   }
 
   private RaftServerProxy newRaftServer(RaftPeerId id, RaftGroup group, boolean format) {
@@ -410,15 +421,60 @@ public abstract class MiniRaftCluster implements Closeable {
     return leader;
   }
 
+  IllegalStateException newIllegalStateExceptionForNoLeaders(RaftGroupId groupId) {
+    final String g = groupId == null? "": " for " + groupId;
+    return new IllegalStateException("No leader yet " + g + ": " + printServers(groupId));
+  }
+
+  IllegalStateException newIllegalStateExceptionForMultipleLeaders(RaftGroupId groupId, List<RaftServerImpl> leaders) {
+    final String g = groupId == null? "": " for " + groupId;
+    return new IllegalStateException("Found multiple leaders" + g
+        + " at the same term (=" + leaders.get(0).getState().getCurrentTerm()
+        + "), leaders.size() = " + leaders.size() + " > 1, leaders = " + leaders
+        + ": " + printServers(groupId));
+  }
+
+  /**
+   * Get leader for the single group case.
+   * Do not use this method if this cluster has multiple groups.
+   *
+   * @return the unique leader with the highest term. Or, return null if there is no leader.
+   * @throws IllegalStateException if there are multiple leaders with the same highest term.
+   */
   public RaftServerImpl getLeader() {
-    return getLeader((RaftGroupId)null);
+    return getLeader(getLeaders(null), null, leaders -> {
+      throw newIllegalStateExceptionForMultipleLeaders(null, leaders);
+    });
   }
 
-  public RaftServerImpl getLeader(RaftGroupId groupId) {
-    return getLeader(getServerAliveStream(groupId));
+  RaftServerImpl getLeader(RaftGroupId groupId, Runnable handleNoLeaders,
+      Consumer<List<RaftServerImpl>> handleMultipleLeaders) {
+    return getLeader(getLeaders(groupId), handleNoLeaders, handleMultipleLeaders);
   }
 
-  static RaftServerImpl getLeader(Stream<RaftServerImpl> serverAliveStream) {
+  static RaftServerImpl getLeader(List<RaftServerImpl> leaders, Runnable handleNoLeaders,
+      Consumer<List<RaftServerImpl>> handleMultipleLeaders) {
+    if (leaders.isEmpty()) {
+      if (handleNoLeaders != null) {
+        handleNoLeaders.run();
+      }
+      return null;
+    } else if (leaders.size() > 1) {
+      if (handleMultipleLeaders != null) {
+        handleMultipleLeaders.accept(leaders);
+      }
+      return null;
+    } else {
+      return leaders.get(0);
+    }
+  }
+
+  /**
+   * @return the list of leaders with the highest term (i.e. leaders with a lower term are not included).
+   *         from the given group.
+   */
+  private List<RaftServerImpl> getLeaders(RaftGroupId groupId) {
+    final Stream<RaftServerImpl> serverAliveStream = getServerAliveStream(groupId);
     final List<RaftServerImpl> leaders = new ArrayList<>();
     serverAliveStream.filter(RaftServerImpl::isLeader).forEach(s -> {
       if (leaders.isEmpty()) {
@@ -434,13 +490,7 @@ public abstract class MiniRaftCluster implements Closeable {
         }
       }
     });
-    if (leaders.isEmpty()) {
-      return null;
-    } else if (leaders.size() > 1) {
-      throw new IllegalStateException(leaders
-          + ", leaders.size() = " + leaders.size() + " > 1");
-    }
-    return leaders.get(0);
+    return leaders;
   }
 
   boolean isLeader(String leaderId) {
@@ -469,7 +519,8 @@ public abstract class MiniRaftCluster implements Closeable {
 
   private Stream<RaftServerImpl> getServerStream(RaftGroupId groupId) {
     final Stream<RaftServerProxy> stream = getRaftServerProxyStream(groupId);
-    return groupId != null? stream.map(s -> RaftServerTestUtil.getRaftServerImpl(s, groupId))
+    return groupId != null?
+        stream.filter(s -> s.containsGroup(groupId)).map(s -> RaftServerTestUtil.getRaftServerImpl(s, groupId))
         : stream.flatMap(s -> RaftServerTestUtil.getRaftServerImpls(s).stream());
   }
 

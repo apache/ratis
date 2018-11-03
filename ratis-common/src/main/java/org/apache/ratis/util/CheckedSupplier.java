@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -27,12 +27,4 @@ public interface CheckedSupplier<OUTPUT, THROWABLE extends Throwable> {
    * except that this method is declared with a throws-clause.
    */
   OUTPUT get() throws THROWABLE;
-
-  static <THROWABLE extends Throwable> CheckedSupplier<?, THROWABLE> valueOf(
-      CheckedRunnable<THROWABLE> runnable) {
-    return () -> {
-      runnable.run();
-      return null;
-    };
-  }
 }

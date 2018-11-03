@@ -20,7 +20,6 @@ package org.apache.ratis.server.impl;
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -141,9 +140,8 @@ public abstract class ServerInformationBaseTest<CLUSTER extends MiniRaftCluster>
 
   RaftClientReply sendMessages(int n, MiniRaftCluster cluster) throws Exception {
     LOG.info("sendMessages: " + n);
-    final RaftPeerId leader = RaftTestUtil.waitForLeader(cluster, true, cluster.getGroupId()).getId();
     RaftClientReply reply = null;
-    try(final RaftClient client = cluster.createClient(leader)) {
+    try(final RaftClient client = cluster.createClient()) {
       for(int i = 0; i < n; i++) {
         reply = client.send(Message.valueOf("m" + i));
       }

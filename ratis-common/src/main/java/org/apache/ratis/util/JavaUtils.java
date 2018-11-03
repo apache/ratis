@@ -1,23 +1,20 @@
 /*
- * *
- *  * Licensed to the Apache Software Foundation (ASF) under one
- *  * or more contributor license agreements.  See the NOTICE file
- *  * distributed with this work for additional information
- *  * regarding copyright ownership.  The ASF licenses this file
- *  * to you under the Apache License, Version 2.0 (the
- *  * "License"); you may not use this file except in compliance
- *  * with the License.  You may obtain a copy of the License at
- *  *
- *  *     http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.ratis.util;
 
 import org.slf4j.Logger;
@@ -49,6 +46,7 @@ public interface JavaUtils {
   Logger LOG = LoggerFactory.getLogger(JavaUtils.class);
 
   DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss,SSS");
+  CompletableFuture[] EMPTY_COMPLETABLE_FUTURE_ARRAY = {};
 
   static String date() {
     return DATE_FORMAT.format(new Date());
@@ -92,20 +90,6 @@ public interface JavaUtils {
   }
 
   /**
-   * Get the value from the future and then consume it.
-   */
-  static <T> void getAndConsume(CompletableFuture<T> future, Consumer<T> consumer) {
-    final T t;
-    try {
-      t = future.get();
-    } catch (Exception ignored) {
-      LOG.warn("Failed to get()", ignored);
-      return;
-    }
-    consumer.accept(t);
-  }
-
-  /**
    * Create a memoized supplier which gets a value by invoking the initializer once
    * and then keeps returning the same value as its supplied results.
    *
@@ -129,14 +113,23 @@ public interface JavaUtils {
     return ROOT_THREAD_GROUP.get();
   }
 
-  /** Attempt to get a return value from the given supplier multiple times. */
+  /** @deprecated use {@link #attempt(CheckedSupplier, int, TimeDuration, String, Logger)} */
+  @Deprecated
   static <RETURN, THROWABLE extends Throwable> RETURN attempt(
       CheckedSupplier<RETURN, THROWABLE> supplier,
       int numAttempts, long sleepMs, String name, Logger log)
       throws THROWABLE, InterruptedException {
+    return attempt(supplier, numAttempts, TimeDuration.valueOf(sleepMs, TimeUnit.MILLISECONDS), name, log);
+  }
+
+  /** Attempt to get a return value from the given supplier multiple times. */
+  static <RETURN, THROWABLE extends Throwable> RETURN attempt(
+      CheckedSupplier<RETURN, THROWABLE> supplier,
+      int numAttempts, TimeDuration sleepTime, String name, Logger log)
+      throws THROWABLE, InterruptedException {
     Objects.requireNonNull(supplier, "supplier == null");
     Preconditions.assertTrue(numAttempts > 0, () -> "numAttempts = " + numAttempts + " <= 0");
-    Preconditions.assertTrue(sleepMs >= 0L, () -> "sleepMs = " + sleepMs + " < 0");
+    Preconditions.assertTrue(!sleepTime.isNegative(), () -> "sleepTime = " + sleepTime + " < 0");
 
     for(int i = 1; i <= numAttempts; i++) {
       try {
@@ -147,31 +140,45 @@ public interface JavaUtils {
         }
         if (log != null && log.isWarnEnabled()) {
           log.warn("FAILED " + name + " attempt #" + i + "/" + numAttempts
-              + ": " + t + ", sleep " + sleepMs + "ms and then retry.", t);
+              + ": " + t + ", sleep " + sleepTime + " and then retry.", t);
         }
       }
 
-      if (sleepMs > 0) {
-        Thread.sleep(sleepMs);
-      }
+      sleepTime.sleep();
     }
     throw new IllegalStateException("BUG: this line should be unreachable.");
   }
 
-  /** Attempt to run the given op multiple times. */
+  /** @deprecated use {@link #attempt(CheckedRunnable, int, TimeDuration, String, Logger)} */
+  @Deprecated
   static <THROWABLE extends Throwable> void attempt(
       CheckedRunnable<THROWABLE> op, int numAttempts, long sleepMs, String name, Logger log)
       throws THROWABLE, InterruptedException {
-    attempt(CheckedSupplier.valueOf(op), numAttempts, sleepMs, name, log);
+    attempt(op, numAttempts, TimeDuration.valueOf(sleepMs, TimeUnit.MILLISECONDS), name, log);
+  }
+
+  /** Attempt to run the given op multiple times. */
+  static <THROWABLE extends Throwable> void attempt(
+      CheckedRunnable<THROWABLE> runnable, int numAttempts, TimeDuration sleepTime, String name, Logger log)
+      throws THROWABLE, InterruptedException {
+    attempt(CheckedRunnable.asCheckedSupplier(runnable), numAttempts, sleepTime, name, log);
+  }
+
+  /** @deprecated use {@link #attempt(BooleanSupplier, int, TimeDuration, String, Logger)} */
+  @Deprecated
+  static void attempt(
+      BooleanSupplier condition, int numAttempts, long sleepMs, String name, Logger log)
+      throws InterruptedException {
+    attempt(condition, numAttempts, TimeDuration.valueOf(sleepMs, TimeUnit.MILLISECONDS), name, log);
   }
 
   /** Attempt to wait the given condition to return true multiple times. */
   static void attempt(
-      BooleanSupplier condition, int numAttempts, long sleepMs, String name, Logger log)
+      BooleanSupplier condition, int numAttempts, TimeDuration sleepTime, String name, Logger log)
       throws InterruptedException {
     Objects.requireNonNull(condition, "condition == null");
     Preconditions.assertTrue(numAttempts > 0, () -> "numAttempts = " + numAttempts + " <= 0");
-    Preconditions.assertTrue(sleepMs >= 0L, () -> "sleepMs = " + sleepMs + " < 0");
+    Preconditions.assertTrue(!sleepTime.isNegative(), () -> "sleepTime = " + sleepTime + " < 0");
 
     for(int i = 1; i <= numAttempts; i++) {
       if (condition.getAsBoolean()) {
@@ -179,11 +186,10 @@ public interface JavaUtils {
       }
       if (log != null && log.isWarnEnabled()) {
         log.warn("FAILED " + name + " attempt #" + i + "/" + numAttempts
-            + ": sleep " + sleepMs + "ms and then retry.");
+            + ": sleep " + sleepTime + " and then retry.");
       }
-      if (sleepMs > 0) {
-        Thread.sleep(sleepMs);
-      }
+
+      sleepTime.sleep();
     }
 
     if (!condition.getAsBoolean()) {
@@ -222,7 +228,7 @@ public interface JavaUtils {
   }
 
   static <T> CompletableFuture<Void> allOf(List<CompletableFuture<T>> futures) {
-    return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[futures.size()]));
+    return CompletableFuture.allOf(futures.toArray(EMPTY_COMPLETABLE_FUTURE_ARRAY));
   }
 
   static <OUTPUT, THROWABLE extends Throwable> OUTPUT supplyAndWrapAsCompletionException(

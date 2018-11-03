@@ -375,7 +375,7 @@ public abstract class RaftReconfigurationBaseTest extends BaseTest {
           committedIndex <= 1);
 
       LOG.info("kill the current leader");
-      final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster, true);
+      final String oldLeaderId = RaftTestUtil.waitAndKillLeader(cluster);
       LOG.info("start new peers: {}", Arrays.asList(c1.newPeers));
       for (RaftPeer np : c1.newPeers) {
         cluster.restartServer(np.getId(), false);

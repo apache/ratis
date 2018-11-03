@@ -291,7 +291,7 @@ public class TestRaftStream extends BaseTest {
 
     // force change the leader
     Thread.sleep(500);
-    RaftTestUtil.waitAndKillLeader(cluster, true);
+    RaftTestUtil.waitAndKillLeader(cluster);
     final RaftServerImpl newLeader = waitForLeader(cluster);
     Assert.assertNotEquals(leader.getId(), newLeader.getId());
     Thread.sleep(500);

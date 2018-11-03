@@ -31,6 +31,8 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.server.storage.RaftLogIOException;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -38,7 +40,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.stream.LongStream;
+import java.util.concurrent.TimeUnit;
 
 import static java.util.Arrays.asList;
 
@@ -154,8 +156,11 @@ public abstract class RetryCacheTests extends BaseTest {
     // trigger setConfiguration
     cluster.setConfiguration(allPeers);
 
-    RaftTestUtil.waitForLeader(cluster);
-    final RaftPeerId newLeaderId = cluster.getLeader().getId();
+    final RaftPeerId newLeaderId = JavaUtils.attempt(() -> {
+      final RaftPeerId id = RaftTestUtil.waitForLeader(cluster).getId();
+      Assert.assertNotEquals(leaderId, id);
+      return id;
+    }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "wait for a leader different than " + leaderId, LOG);
     Assert.assertNotEquals(leaderId, newLeaderId);
     // same clientId and callId in the request
     r = cluster.newRaftClientRequest(client.getId(), newLeaderId,

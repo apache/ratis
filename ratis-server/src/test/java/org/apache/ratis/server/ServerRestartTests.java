@@ -42,6 +42,7 @@ import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -50,6 +51,7 @@ import java.io.File;
 import java.io.RandomAccessFile;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -180,6 +182,10 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   static void runTestRestartWithCorruptedLogHeader(MiniRaftCluster cluster, Logger LOG) throws Exception {
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
+    for(RaftServerImpl impl : cluster.iterateServerImpls()) {
+      JavaUtils.attempt(() -> getOpenLogFile(impl), 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS),
+          impl.getId() + ": wait for log file creation", LOG);
+    }
 
     // shutdown all servers
     cluster.getServers().forEach(RaftServerProxy::close);

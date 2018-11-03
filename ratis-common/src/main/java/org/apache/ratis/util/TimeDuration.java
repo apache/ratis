@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,11 +17,18 @@
  */
 package org.apache.ratis.util;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.LongUnaryOperator;
 
 /**
  * Time duration is represented together with a {@link TimeUnit}.
+ *
+ * This class is immutable.
  */
 public class TimeDuration implements Comparable<TimeDuration> {
 
@@ -117,6 +124,15 @@ public class TimeDuration implements Comparable<TimeDuration> {
 
   public int toInt(TimeUnit targetUnit) {
     return Math.toIntExact(toLong(targetUnit));
+  }
+
+  /**
+   * Apply the given operator to the duration value of this object.
+   *
+   * @return a new object with the new duration value and the same unit of this object.
+   */
+  public TimeDuration apply(LongUnaryOperator operator) {
+    return valueOf(operator.applyAsLong(duration), unit);
   }
 
   public boolean isNegative() {

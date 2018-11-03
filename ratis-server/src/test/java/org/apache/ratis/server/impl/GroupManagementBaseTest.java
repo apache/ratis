@@ -28,7 +28,6 @@ import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.util.CheckedBiConsumer;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -89,7 +88,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     for(RaftPeer p : newGroup.getPeers()) {
       client.groupAdd(newGroup, p.getId());
     }
-    Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, true));
+    Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));
     TimeUnit.SECONDS.sleep(1);
 
     // restart the servers with null group
@@ -99,7 +98,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     }
 
     // the servers should retrieve the conf from the log.
-    Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, true));
+    Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));
 
     cluster.shutdown();
   }
@@ -173,7 +172,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
           client.groupAdd(groups[i], p.getId());
         }
       }
-      Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, true, gid));
+      Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, gid));
       checker.accept(cluster, groups[i]);
     }
     printThreadCount(type, "start groups");
@@ -220,7 +219,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       client.setConfiguration(allPeers.toArray(RaftPeer.emptyArray()));
     }
 
-    Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, true));
+    Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));
     checker.accept(cluster, groups[chosen]);
     LOG.info("update groups: " + cluster.printServers());
     printThreadCount(type, "update groups");

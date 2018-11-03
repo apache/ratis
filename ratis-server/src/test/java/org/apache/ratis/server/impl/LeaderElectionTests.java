@@ -30,12 +30,12 @@ import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
 
 import java.util.Iterator;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.ratis.RaftTestUtil.waitAndKillLeader;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
@@ -51,10 +51,12 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     LOG.info("Running testBasicLeaderElection");
     final MiniRaftCluster cluster = newCluster(5);
     cluster.start();
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, true);
-    waitAndKillLeader(cluster, false);
+    RaftTestUtil.waitAndKillLeader(cluster);
+    RaftTestUtil.waitAndKillLeader(cluster);
+    RaftTestUtil.waitAndKillLeader(cluster);
+    testFailureCase("waitForLeader after killed a majority of servers",
+        () -> RaftTestUtil.waitForLeader(cluster, null, false),
+        IllegalStateException.class);
     cluster.shutdown();
   }
 
@@ -76,15 +78,33 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testEnforceLeader() throws Exception {
-    final int numServer = 3;
     LOG.info("Running testEnforceLeader");
-    final String leader = "s" + ThreadLocalRandom.current().nextInt(numServer);
-    LOG.info("enforce leader to " + leader);
-    final MiniRaftCluster cluster = newCluster(numServer);
-    cluster.start();
-    waitForLeader(cluster);
-    waitForLeader(cluster, leader);
-    cluster.shutdown();
+    final int numServer = 5;
+    try(final MiniRaftCluster cluster = newCluster(numServer)) {
+      cluster.start();
+
+      final RaftPeerId firstLeader = waitForLeader(cluster).getId();
+      LOG.info("firstLeader = {}", firstLeader);
+      final int first = MiniRaftCluster.getIdIndex(firstLeader.toString());
+
+      final int random = ThreadLocalRandom.current().nextInt(numServer - 1);
+      final String newLeader = "s" + (random < first? random: random + 1);
+      LOG.info("enforce leader to {}", newLeader);
+      enforceLeader(cluster, newLeader, LOG);
+    }
+  }
+
+  static void enforceLeader(MiniRaftCluster cluster, final String newLeader, Logger LOG) throws InterruptedException {
+    LOG.info(cluster.printServers());
+    for(int i = 0; !cluster.tryEnforceLeader(newLeader) && i < 10; i++) {
+      RaftServerImpl currLeader = cluster.getLeader();
+      LOG.info("try enforcing leader to " + newLeader + " but " +
+          (currLeader == null ? "no leader for round " + i : "new leader is " + currLeader.getId()));
+    }
+    LOG.info(cluster.printServers());
+
+    final RaftServerImpl leader = cluster.getLeader();
+    Assert.assertEquals(newLeader, leader.getId().toString());
   }
 
   @Test
