@@ -34,7 +34,6 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.util.LogUtils;
 import org.junit.*;
 
@@ -75,11 +74,15 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
     ConcurrentLinkedQueue<Long> applied = new ConcurrentLinkedQueue<>();
 
     @Override
-    public TransactionContext startTransaction(RaftClientRequest request) throws IOException {
+    public TransactionContext startTransaction(RaftClientRequest request) {
       // only leader will get this call
       isLeader.set(true);
       // send the next transaction id as the "context" from SM
-      return new TransactionContextImpl(this, request, null, transactions.incrementAndGet());
+      return TransactionContext.newBuilder()
+          .setStateMachine(this)
+          .setClientRequest(request)
+          .setStateMachineContext(transactions.incrementAndGet())
+          .build();
     }
 
     @Override

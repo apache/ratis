@@ -18,7 +18,6 @@
 package org.apache.ratis.statemachine.impl;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -32,6 +31,8 @@ import java.util.Objects;
 
 /**
  * Implementation of {@link TransactionContext}
+ *
+ * This is a private API.  Applications should use {@link TransactionContext} and {@link TransactionContext.Builder}.
  */
 public class TransactionContextImpl implements TransactionContext {
   /** The role of the server when this object is created. */
@@ -71,13 +72,6 @@ public class TransactionContextImpl implements TransactionContext {
     this.stateMachine = stateMachine;
   }
 
-  /** The same as this(stateMachine, clientRequest, smLogEntryProto, null). */
-  public TransactionContextImpl(
-      StateMachine stateMachine, RaftClientRequest clientRequest,
-      StateMachineLogEntryProto smLogEntryProto) {
-    this(stateMachine, clientRequest, smLogEntryProto, null);
-  }
-
   /**
    * Construct a {@link TransactionContext} from a client request.
    * Used by the state machine to start a transaction
@@ -101,7 +95,7 @@ public class TransactionContextImpl implements TransactionContext {
    */
   public TransactionContextImpl(RaftPeerRole serverRole, StateMachine stateMachine, LogEntryProto logEntry) {
     this(serverRole, stateMachine);
-    setLogEntry(logEntry);
+    this.logEntry = logEntry;
     this.smLogEntryProto = logEntry.getStateMachineLogEntry();
   }
 
@@ -137,14 +131,11 @@ public class TransactionContextImpl implements TransactionContext {
   }
 
   @Override
-  public TransactionContext setLogEntry(LogEntryProto logEntry) {
-    Objects.requireNonNull(logEntry, "logEntry == null");
-    Preconditions.assertTrue(logEntry.getLogEntryBodyCase() == LogEntryBodyCase.STATEMACHINELOGENTRY,
-        () -> "LogEntryBodyCase = " + logEntry.getLogEntryBodyCase()
-            + " != " + LogEntryBodyCase.STATEMACHINELOGENTRY + ", logEntry=" + logEntry);
-    Preconditions.assertTrue(this.logEntry == null, "this.logEntry != null");
-    this.logEntry = logEntry;
-    return this;
+  public LogEntryProto initLogEntry(long term, long index) {
+    Preconditions.assertTrue(serverRole == RaftPeerRole.LEADER);
+    Preconditions.assertNull(logEntry, "logEntry");
+    Objects.requireNonNull(smLogEntryProto, "smLogEntryProto == null");
+    return logEntry = ServerProtoUtils.toLogEntryProto(smLogEntryProto, term, index);
   }
 
   @Override
@@ -158,7 +149,8 @@ public class TransactionContextImpl implements TransactionContext {
     return logEntry;
   }
 
-  private TransactionContext setException(IOException ioe) {
+  @Override
+  public TransactionContext setException(Exception ioe) {
     assert exception != null;
     this.exception = ioe;
     return this;

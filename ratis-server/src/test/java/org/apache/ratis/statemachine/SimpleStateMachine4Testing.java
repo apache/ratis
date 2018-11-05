@@ -39,7 +39,6 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
-import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.JavaUtils;
@@ -303,10 +302,13 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   static final ByteString STATE_MACHINE_DATA = ByteString.copyFromUtf8("StateMachine Data");
 
   @Override
-  public TransactionContext startTransaction(RaftClientRequest request) throws IOException {
+  public TransactionContext startTransaction(RaftClientRequest request) {
     blocking.await(Blocking.Type.START_TRANSACTION);
-    return new TransactionContextImpl(this, request,
-        ServerProtoUtils.toStateMachineLogEntryProto(request, null, STATE_MACHINE_DATA));
+    return TransactionContext.newBuilder()
+        .setStateMachine(this)
+        .setClientRequest(request)
+        .setStateMachineData(STATE_MACHINE_DATA)
+        .build();
   }
 
   @Override

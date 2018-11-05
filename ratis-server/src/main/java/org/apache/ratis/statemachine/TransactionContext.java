@@ -18,13 +18,17 @@
 package org.apache.ratis.statemachine;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.statemachine.impl.TransactionContextImpl;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.Preconditions;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Objects;
 
 /**
  * Context for a transaction.
@@ -60,6 +64,9 @@ public interface TransactionContext {
    */
   StateMachineLogEntryProto getStateMachineLogEntry();
 
+  /** Set exception in case of failure. */
+  TransactionContext setException(Exception exception);
+
   /**
    * Returns the exception from the {@link StateMachine} or the log
    * @return the exception from the {@link StateMachine} or the log
@@ -81,13 +88,12 @@ public interface TransactionContext {
   Object getStateMachineContext();
 
   /**
-   * Set the {@link LogEntryProto} the current {@link TransactionContext} specific to. The log
-   * entry's body case must be {@link LogEntryBodyCase#STATEMACHINELOGENTRY}. The current
-   * {@link TransactionContext} log entry must be null, otherwise, a exception will be thrown
-   * @param logEntry target {@link LogEntryProto}
-   * @return the current {@link TransactionContext} itself
+   * Initialize {@link LogEntryProto} using the internal {@link StateMachineLogEntryProto}.
+   * @param term The current term.
+   * @param index The index of the log entry.
+   * @return the result {@link LogEntryProto}
    */
-  TransactionContext setLogEntry(LogEntryProto logEntry);
+  LogEntryProto initLogEntry(long term, long index);
 
   /**
    * Sets the data from the {@link StateMachine}
@@ -132,4 +138,79 @@ public interface TransactionContext {
    * @return cancelled transaction
    */
   TransactionContext cancelTransaction() throws IOException;
+
+  static Builder newBuilder() {
+    return new Builder();
+  }
+
+  class Builder {
+    private RaftPeerRole serverRole = RaftPeerRole.LEADER;
+    private StateMachine stateMachine;
+    private Object stateMachineContext;
+
+    private RaftClientRequest clientRequest;
+    private LogEntryProto logEntry;
+    private StateMachineLogEntryProto stateMachineLogEntry;
+    private ByteString logData;
+    private ByteString stateMachineData;
+
+    public Builder setServerRole(RaftPeerRole serverRole) {
+      this.serverRole = serverRole;
+      return this;
+    }
+
+    public Builder setStateMachine(StateMachine stateMachine) {
+      this.stateMachine = stateMachine;
+      return this;
+    }
+
+    public Builder setStateMachineContext(Object stateMachineContext) {
+      this.stateMachineContext = stateMachineContext;
+      return this;
+    }
+
+    public Builder setClientRequest(RaftClientRequest clientRequest) {
+      this.clientRequest = clientRequest;
+      return this;
+    }
+
+    public Builder setLogEntry(LogEntryProto logEntry) {
+      this.logEntry = logEntry;
+      return this;
+    }
+
+    public Builder setStateMachineLogEntry(StateMachineLogEntryProto stateMachineLogEntry) {
+      this.stateMachineLogEntry = stateMachineLogEntry;
+      return this;
+    }
+
+    public Builder setLogData(ByteString logData) {
+      this.logData = logData;
+      return this;
+    }
+
+    public Builder setStateMachineData(ByteString stateMachineData) {
+      this.stateMachineData = stateMachineData;
+      return this;
+    }
+
+    public TransactionContext build() {
+      Objects.requireNonNull(serverRole, "serverRole == null");
+      Objects.requireNonNull(stateMachine, "stateMachine == null");
+      if (clientRequest != null) {
+        Preconditions.assertTrue(serverRole == RaftPeerRole.LEADER,
+            () -> "serverRole MUST be LEADER since clientRequest != null, serverRole is " + serverRole);
+        Preconditions.assertNull(logEntry, () -> "logEntry MUST be null since clientRequest != null");
+        if (stateMachineLogEntry == null) {
+          stateMachineLogEntry = ServerProtoUtils.toStateMachineLogEntryProto(clientRequest, logData, stateMachineData);
+        }
+        return new TransactionContextImpl(stateMachine, clientRequest, stateMachineLogEntry, stateMachineContext);
+      } else {
+        Objects.requireNonNull(logEntry, "logEntry MUST NOT be null since clientRequest == null");
+        Preconditions.assertTrue(logEntry.hasStateMachineLogEntry(),
+            () -> "Unexpected logEntry: stateMachineLogEntry not found, logEntry=" + logEntry);
+        return new TransactionContextImpl(serverRole, stateMachine, logEntry);
+      }
+    }
+  }
 }

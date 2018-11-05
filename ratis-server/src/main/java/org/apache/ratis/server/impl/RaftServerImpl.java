@@ -32,7 +32,6 @@ import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.statemachine.impl.TransactionContextImpl;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
@@ -1102,7 +1101,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // check whether there is a TransactionContext because we are the leader.
       TransactionContext trx = role.getLeaderState()
           .map(leader -> leader.getTransactionContext(next.getIndex())).orElseGet(
-              () -> new TransactionContextImpl(role.getCurrentRole(), stateMachine, next));
+              () -> TransactionContext.newBuilder()
+                  .setServerRole(role.getCurrentRole())
+                  .setStateMachine(stateMachine)
+                  .setLogEntry(next)
+                  .build());
 
       // Let the StateMachine inject logic for committed transactions in sequential order.
       trx = stateMachine.applyTransactionSerial(trx);

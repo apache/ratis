@@ -151,7 +151,7 @@ public abstract class RaftLog implements Closeable {
       }
 
       // build the log entry after calling the StateMachine
-      final LogEntryProto e = ServerProtoUtils.toLogEntryProto(operation.getStateMachineLogEntry(), term, nextIndex);
+      final LogEntryProto e = operation.initLogEntry(term, nextIndex);
 
       int entrySize = e.getSerializedSize();
       if (entrySize > maxBufferSize) {
@@ -160,7 +160,6 @@ public abstract class RaftLog implements Closeable {
                 + maxBufferSize));
       }
       appendEntry(e);
-      operation.setLogEntry(e);
       return nextIndex;
     }
   }
