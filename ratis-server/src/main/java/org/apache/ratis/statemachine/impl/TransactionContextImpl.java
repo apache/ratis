@@ -151,7 +151,6 @@ public class TransactionContextImpl implements TransactionContext {
 
   @Override
   public TransactionContext setException(Exception ioe) {
-    assert exception != null;
     this.exception = ioe;
     return this;
   }
