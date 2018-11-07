@@ -22,6 +22,7 @@ import com.codahale.metrics.Timer;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.RatisMetricsRegistry;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
@@ -50,11 +51,39 @@ import java.util.function.Supplier;
 class RaftLogWorker implements Runnable {
   static final Logger LOG = LoggerFactory.getLogger(RaftLogWorker.class);
 
+  static class StateMachineDataPolicy {
+    private final boolean sync;
+    private final TimeDuration syncTimeout;
+    private final int syncTimeoutRetry;
+
+    StateMachineDataPolicy(RaftProperties properties) {
+      this.sync = RaftServerConfigKeys.Log.StateMachineData.sync(properties);
+      this.syncTimeout = RaftServerConfigKeys.Log.StateMachineData.syncTimeout(properties);
+      this.syncTimeoutRetry = RaftServerConfigKeys.Log.StateMachineData.syncTimeoutRetry(properties);
+    }
+
+    boolean isSync() {
+      return sync;
+    }
+
+    void getFromFuture(CompletableFuture<?> future, Supplier<Object> getName) throws IOException {
+      Preconditions.assertTrue(isSync());
+      for(int retry = 0; syncTimeoutRetry == -1 || retry <= syncTimeoutRetry; retry++) {
+        try {
+          IOUtils.getFromFuture(future, getName, syncTimeout);
+          return;
+        } catch(TimeoutIOException e) {
+          LOG.warn("Timeout " + retry + (syncTimeoutRetry == -1? "/~": "/" + syncTimeoutRetry), e);
+        }
+      }
+    }
+  }
+
   private final String name;
   /**
    * The task queue accessed by rpc handler threads and the io worker thread.
    */
-  private final BlockingQueue<Task> queue = new ArrayBlockingQueue<>(4096);
+  private final BlockingQueue<Task> queue;
   private volatile boolean running = true;
   private final Thread workerThread;
 
@@ -80,8 +109,7 @@ class RaftLogWorker implements Runnable {
   private final long preallocatedSize;
   private final int bufferSize;
 
-  private final boolean stateMachineDataSync;
-  private final TimeDuration stateMachineDataSyncTimeout;
+  private final StateMachineDataPolicy stateMachineDataPolicy;
 
   RaftLogWorker(RaftPeerId selfId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
       RaftStorage storage, RaftProperties properties) {
@@ -92,13 +120,13 @@ class RaftLogWorker implements Runnable {
     this.stateMachine = stateMachine;
 
     this.storage = storage;
+    this.queue = new ArrayBlockingQueue<>(RaftServerConfigKeys.Log.queueSize(properties));
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
     this.bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
 
-    this.stateMachineDataSync = RaftServerConfigKeys.Log.StateMachineData.sync(properties);
-    this.stateMachineDataSyncTimeout = RaftServerConfigKeys.Log.StateMachineData.syncTimeout(properties);
+    this.stateMachineDataPolicy = new StateMachineDataPolicy(properties);
 
     this.workerThread = new Thread(this, name);
 
@@ -229,12 +257,12 @@ class RaftLogWorker implements Runnable {
         final CompletableFuture<Void> f = stateMachine != null ?
             stateMachine.flushStateMachineData(lastWrittenIndex) :
             CompletableFuture.completedFuture(null);
-        if (stateMachineDataSync) {
-          IOUtils.getFromFuture(f, () -> name + "-flushStateMachineData", stateMachineDataSyncTimeout);
+        if (stateMachineDataPolicy.isSync()) {
+          stateMachineDataPolicy.getFromFuture(f, () -> this + "-flushStateMachineData");
         }
         out.flush();
-        if (!stateMachineDataSync) {
-          IOUtils.getFromFuture(f, () -> name + "-flushStateMachineData");
+        if (!stateMachineDataPolicy.isSync()) {
+          IOUtils.getFromFuture(f, () -> this + "-flushStateMachineData");
         }
       } finally {
         timerContext.stop();
@@ -306,8 +334,8 @@ class RaftLogWorker implements Runnable {
 
     @Override
     public void execute() throws IOException {
-      if (stateMachineDataSync && stateMachineFuture != null) {
-        IOUtils.getFromFuture(stateMachineFuture, () -> this + "-writeStateMachineData", stateMachineDataSyncTimeout);
+      if (stateMachineDataPolicy.isSync() && stateMachineFuture != null) {
+        stateMachineDataPolicy.getFromFuture(stateMachineFuture, () -> this + "-writeStateMachineData");
       }
 
       Preconditions.assertTrue(out != null);

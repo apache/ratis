@@ -84,7 +84,7 @@ public interface IOUtils {
     } catch (CompletionException e) {
       throw asIOException(JavaUtils.unwrapCompletionException(e));
     } catch(TimeoutException e) {
-      throw new TimeoutIOException("Timeout: " + name.get(), e);
+      throw new TimeoutIOException("Timeout " + timeout + ": " + name.get(), e);
     }
   }
 

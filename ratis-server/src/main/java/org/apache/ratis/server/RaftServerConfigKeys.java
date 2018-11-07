@@ -91,6 +91,15 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, USE_MEMORY_KEY, useMemory);
     }
 
+    String QUEUE_SIZE_KEY = PREFIX + ".queue.size";
+    int QUEUE_SIZE_DEFAULT = 4096;
+    static int queueSize(RaftProperties properties) {
+      return getInt(properties::getInt, QUEUE_SIZE_KEY, QUEUE_SIZE_DEFAULT, getDefaultLog(), requireMin(1));
+    }
+    static void setQueueSize(RaftProperties properties, int queueSize) {
+      setInt(properties::setInt, QUEUE_SIZE_KEY, queueSize, requireMin(1));
+    }
+
     String SEGMENT_SIZE_MAX_KEY = PREFIX + ".segment.size.max";
     SizeInBytes SEGMENT_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("8MB");
     static SizeInBytes segmentSizeMax(RaftProperties properties) {
@@ -165,6 +174,21 @@ public interface RaftServerConfigKeys {
       }
       static void setSyncTimeout(RaftProperties properties, TimeDuration syncTimeout) {
         setTimeDuration(properties::setTimeDuration, SYNC_TIMEOUT_KEY, syncTimeout);
+      }
+
+      /**
+       * -1: retry indefinitely
+       *  0: no retry
+       * >0: the number of retries
+       */
+      String SYNC_TIMEOUT_RETRY_KEY = PREFIX + ".sync.timeout.retry";
+      int SYNC_TIMEOUT_RETRY_DEFAULT = -1;
+      static int syncTimeoutRetry(RaftProperties properties) {
+        return getInt(properties::getInt, SYNC_TIMEOUT_RETRY_KEY, SYNC_TIMEOUT_RETRY_DEFAULT, getDefaultLog(),
+            requireMin(-1));
+      }
+      static void setSyncTimeoutRetry(RaftProperties properties, int syncTimeoutRetry) {
+        setInt(properties::setInt, SYNC_TIMEOUT_RETRY_KEY, syncTimeoutRetry, requireMin(-1));
       }
     }
 
