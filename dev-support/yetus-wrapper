@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 # you must be this high to ride the ride
 if [[ -z "${BASH_VERSINFO[0]}" ]] \
    || [[ "${BASH_VERSINFO[0]}" -lt 3 ]] \
@@ -72,10 +73,10 @@ WANTED="$1"
 shift
 ARGV=("$@")
 
-HADOOP_YETUS_VERSION=${HADOOP_YETUS_VERSION:-0.4.0}
+HADOOP_YETUS_VERSION=${HADOOP_YETUS_VERSION:-0.8.0}
 BIN=$(yetus_abs "${BASH_SOURCE-$0}")
 BINDIR=$(dirname "${BIN}")
-echo "${WANTED}"
+
 ###
 ###  if YETUS_HOME is set, then try to use it
 ###
