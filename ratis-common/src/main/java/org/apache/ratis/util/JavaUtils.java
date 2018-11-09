@@ -139,7 +139,7 @@ public interface JavaUtils {
           throw t;
         }
         if (log != null && log.isWarnEnabled()) {
-          log.warn("FAILED " + name + " attempt #" + i + "/" + numAttempts
+          log.warn("FAILED \"" + name + "\", attempt #" + i + "/" + numAttempts
               + ": " + t + ", sleep " + sleepTime + " and then retry.", t);
         }
       }

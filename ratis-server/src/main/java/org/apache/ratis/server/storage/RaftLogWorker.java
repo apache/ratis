@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -60,6 +61,7 @@ class RaftLogWorker implements Runnable {
       this.sync = RaftServerConfigKeys.Log.StateMachineData.sync(properties);
       this.syncTimeout = RaftServerConfigKeys.Log.StateMachineData.syncTimeout(properties);
       this.syncTimeoutRetry = RaftServerConfigKeys.Log.StateMachineData.syncTimeoutRetry(properties);
+      Preconditions.assertTrue(syncTimeoutRetry >= -1);
     }
 
     boolean isSync() {
@@ -68,14 +70,18 @@ class RaftLogWorker implements Runnable {
 
     void getFromFuture(CompletableFuture<?> future, Supplier<Object> getName) throws IOException {
       Preconditions.assertTrue(isSync());
+      TimeoutIOException lastException = null;
       for(int retry = 0; syncTimeoutRetry == -1 || retry <= syncTimeoutRetry; retry++) {
         try {
           IOUtils.getFromFuture(future, getName, syncTimeout);
           return;
         } catch(TimeoutIOException e) {
           LOG.warn("Timeout " + retry + (syncTimeoutRetry == -1? "/~": "/" + syncTimeoutRetry), e);
+          lastException = e;
         }
       }
+      Objects.requireNonNull(lastException, "lastException == null");
+      throw lastException;
     }
   }
 

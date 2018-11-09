@@ -22,6 +22,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
@@ -31,11 +32,14 @@ import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
-import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -48,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -175,7 +180,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     }
   }
 
-  List<LogEntryProto> prepareLogEntries(List<SegmentRange> slist,
+  static List<LogEntryProto> prepareLogEntries(List<SegmentRange> slist,
       Supplier<String> stringSupplier) {
     List<LogEntryProto> eList = new ArrayList<>();
     for (SegmentRange range : slist) {
@@ -184,15 +189,19 @@ public class TestSegmentedRaftLog extends BaseTest {
     return eList;
   }
 
-  List<LogEntryProto> prepareLogEntries(SegmentRange range,
+  static List<LogEntryProto> prepareLogEntries(SegmentRange range,
       Supplier<String> stringSupplier, boolean hasStataMachineData, List<LogEntryProto> eList) {
     for(long index = range.start; index <= range.end; index++) {
-      SimpleOperation m = stringSupplier == null?
-          new SimpleOperation("m" + index, hasStataMachineData):
-          new SimpleOperation(stringSupplier.get(), hasStataMachineData);
-      eList.add(ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, index));
+      eList.add(prepareLogEntry(range.term, index, stringSupplier, hasStataMachineData));
     }
     return eList;
+  }
+
+  static LogEntryProto prepareLogEntry(long term, long index, Supplier<String> stringSupplier, boolean hasStataMachineData) {
+    final SimpleOperation m = stringSupplier == null?
+        new SimpleOperation("m" + index, hasStataMachineData):
+        new SimpleOperation(stringSupplier.get(), hasStataMachineData);
+    return ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), term, index);
   }
 
   /**
@@ -444,6 +453,35 @@ public class TestSegmentedRaftLog extends BaseTest {
       assertIndices(raftLog, flush, next);
       sm.unblockFlushStateMachineData();
       assertIndicesMultipleAttempts(raftLog, flush + 2, next);
+    }
+  }
+
+  @Test
+  public void testSegmentedRaftLogStateMachineDataTimeoutIOException() throws Exception {
+    RaftServerConfigKeys.Log.StateMachineData.setSync(properties, true);
+    final TimeDuration syncTimeout = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
+    RaftServerConfigKeys.Log.StateMachineData.setSyncTimeout(properties, syncTimeout);
+    final int numRetries = 2;
+    RaftServerConfigKeys.Log.StateMachineData.setSyncTimeoutRetry(properties, numRetries);
+    ExitUtils.disableSystemExit();
+
+    final LogEntryProto entry = prepareLogEntry(0, 0, null, true);
+    final StateMachine sm = new BaseStateMachine() {
+      @Override
+      public CompletableFuture<?> writeStateMachineData(LogEntryProto entry) {
+        return new CompletableFuture<>(); // the future never completes
+      }
+    };
+
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, sm, null, storage, -1, properties)) {
+      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.appendEntry(entry);  // RaftLogWorker should catch TimeoutIOException
+
+      JavaUtils.attempt(() -> {
+        final ExitUtils.ExitException exitException = ExitUtils.getFirstExitException();
+        Objects.requireNonNull(exitException, "exitException == null");
+        Assert.assertEquals(TimeoutIOException.class, exitException.getCause().getClass());
+      }, 3*numRetries, syncTimeout, "RaftLogWorker should catch TimeoutIOException and exit", LOG);
     }
   }
 
