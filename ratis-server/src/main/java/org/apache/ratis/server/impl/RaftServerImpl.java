@@ -920,7 +920,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     if (!isHeartbeat) {
       CodeInjectionForTesting.execute(RaftLog.LOG_SYNC, getId(), null);
     }
-    return JavaUtils.allOf(futures).thenApply(v -> {
+    return JavaUtils.allOf(futures).thenApplyAsync(v -> {
       final AppendEntriesReplyProto reply;
       synchronized(this) {
         if (lifeCycle.getCurrentState() == RUNNING && isFollower()
