@@ -36,8 +36,8 @@ RUN apt-get -q update && apt-get -q install --no-install-recommends -y \
     curl \
     unzip \
     git \
-	 wget \
-	 rsync
+    wget \
+    rsync
 
 # wget configuration
 
@@ -52,22 +52,22 @@ RUN echo "quiet = on" >> "/root/.wgetrc"
 RUN apt-get -q install -y openjdk-8-jdk
 
 ######
-# Install protobuf compiler 3.1
+# Install protobuf compiler
 ######
 
 RUN mkdir -p $HOME/protobuf && \
-   cd $HOME/protobuf && wget https://github.com/google/protobuf/releases/download/v3.1.0/protoc-3.1.0-linux-x86_64.zip && \
-	unzip protoc-3.1.0-linux-x86_64.zip && \
-	mv $HOME/protobuf/bin/protoc /usr/local/bin && \
-	chmod 755 /usr/local/bin/protoc
-
+    cd $HOME/protobuf && \
+    wget https://github.com/google/protobuf/releases/download/v3.5.0/protoc-3.5.0-linux-x86_64.zip && \
+    unzip protoc-3.5.0-linux-x86_64.zip && \
+    mv $HOME/protobuf/bin/protoc /usr/local/bin && \
+    chmod 755 /usr/local/bin/protoc
 
 ######
 # Install Apache Maven
 ######
 RUN mkdir -p /opt/maven && \
     curl -L -s -S \
-         http://www-us.apache.org/dist/maven/maven-3/3.3.9/binaries/apache-maven-3.3.9-bin.tar.gz \
+         http://www-us.apache.org/dist/maven/maven-3/3.6.0/binaries/apache-maven-3.6.0-bin.tar.gz \
          -o /opt/maven.tar.gz && \
     tar xzf /opt/maven.tar.gz --strip-components 1 -C /opt/maven
 ENV MAVEN_HOME /opt/maven
