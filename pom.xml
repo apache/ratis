@@ -50,6 +50,8 @@
     <module>ratis-netty</module>
     <module>ratis-hadoop</module>
 
+    <module>ratis-test</module>
+
     <module>ratis-assembly</module>
     <module>ratis-examples</module>
     <module>ratis-replicated-map</module>

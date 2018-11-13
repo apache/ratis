@@ -20,20 +20,11 @@
     <version>0.3.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>ratis-netty</artifactId>
-  <name>Apache Ratis Netty Support</name>
+  <artifactId>ratis-test</artifactId>
+  <name>Apache Ratis Test</name>
 
   <dependencies>
     <dependency>
-      <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-thirdparty</artifactId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-proto</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-
-    <dependency>
       <artifactId>ratis-common</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
@@ -47,22 +38,36 @@
     <dependency>
       <artifactId>ratis-client</artifactId>
       <groupId>org.apache.ratis</groupId>
-      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <artifactId>ratis-server</artifactId>
+      <groupId>org.apache.ratis</groupId>
     </dependency>
     <dependency>
-      <artifactId>ratis-client</artifactId>
+      <artifactId>ratis-server</artifactId>
       <groupId>org.apache.ratis</groupId>
       <scope>test</scope>
       <type>test-jar</type>
     </dependency>
 
     <dependency>
-      <artifactId>ratis-server</artifactId>
+      <artifactId>ratis-netty</artifactId>
       <groupId>org.apache.ratis</groupId>
-      <scope>provided</scope>
     </dependency>
     <dependency>
-      <artifactId>ratis-server</artifactId>
+      <artifactId>ratis-netty</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <scope>test</scope>
+      <type>test-jar</type>
+    </dependency>
+
+    <dependency>
+      <artifactId>ratis-grpc</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-grpc</artifactId>
       <groupId>org.apache.ratis</groupId>
       <scope>test</scope>
       <type>test-jar</type>
@@ -71,6 +76,17 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-all</artifactId>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>

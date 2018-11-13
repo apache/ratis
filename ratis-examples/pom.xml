@@ -48,20 +48,10 @@
       <artifactId>ratis-client</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
-    <dependency>
-      <artifactId>ratis-client</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <scope>test</scope>
-      <type>test-jar</type>
-    </dependency>
 
     <dependency>
       <artifactId>ratis-server</artifactId>
       <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <groupId>com.beust</groupId>
-      <artifactId>jcommander</artifactId>
     </dependency>
     <dependency>
       <artifactId>ratis-server</artifactId>
@@ -107,6 +97,11 @@
       <groupId>org.apache.ratis</groupId>
       <scope>test</scope>
       <type>test-jar</type>
+    </dependency>
+
+    <dependency>
+      <groupId>com.beust</groupId>
+      <artifactId>jcommander</artifactId>
     </dependency>
 
     <dependency>
