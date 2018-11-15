@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.logservice.api;
+package org.apache.ratis.logservice.server;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;

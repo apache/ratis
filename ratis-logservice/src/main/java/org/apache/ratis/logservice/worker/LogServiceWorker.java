@@ -23,7 +23,7 @@ import com.beust.jcommander.Parameter;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.logservice.api.LogStateMachine;
+import org.apache.ratis.logservice.server.LogStateMachine;
 import org.apache.ratis.logservice.server.ManagementStateMachine;
 import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
 import org.apache.ratis.logservice.util.LogServiceUtils;
