@@ -49,10 +49,9 @@ import java.util.function.Consumer;
  * 2. Segmented RaftLog: the log entries are persisted on disk, and are stored
  *    in segments.
  */
-public abstract class RaftLog implements Closeable {
+public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
   public static final String LOG_SYNC = RaftLog.class.getSimpleName() + ".logSync";
-
 
   /**
    * The largest committed index. Note the last committed log may be included
@@ -64,6 +63,7 @@ public abstract class RaftLog implements Closeable {
   private final int maxBufferSize;
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
+  private final Runner runner = new Runner(this::getName);
   private final OpenCloseState state;
 
   public RaftLog(RaftPeerId selfId, int maxBufferSize) {
@@ -132,12 +132,12 @@ public abstract class RaftLog implements Closeable {
     return last.getIndex() + 1;
   }
 
-  /**
-   * Generate a log entry for the given term and message, and append the entry.
-   * Used by the leader.
-   * @return the index of the new log entry.
-   */
-  public long append(long term, TransactionContext operation) throws StateMachineException {
+  @Override
+  public final long append(long term, TransactionContext transaction) throws StateMachineException {
+    return runner.runSequentially(() -> appendImpl(term, transaction));
+  }
+
+  private long appendImpl(long term, TransactionContext operation) throws StateMachineException {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
@@ -164,12 +164,12 @@ public abstract class RaftLog implements Closeable {
     }
   }
 
-  /**
-   * Generate a log entry for the given term and configurations,
-   * and append the entry. Used by the leader.
-   * @return the index of the new log entry.
-   */
-  public long append(long term, RaftConfiguration newConf) {
+  @Override
+  public final long append(long term, RaftConfiguration configuration) {
+    return runner.runSequentially(() -> appendImpl(term, configuration));
+  }
+
+  private long appendImpl(long term, RaftConfiguration newConf) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       final long nextIndex = getNextIndex();
@@ -240,30 +240,26 @@ public abstract class RaftLog implements Closeable {
     }
   }
 
-  /**
-   * Truncate the log entries till the given index. The log with the given index
-   * will also be truncated (i.e., inclusive).
-   */
-  abstract CompletableFuture<Long> truncate(long index);
+  @Override
+  public final CompletableFuture<Long> truncate(long index) {
+    return runner.runSequentially(() -> truncateImpl(index));
+  }
 
-  /**
-   * Used by the leader when appending a new entry based on client's request
-   * or configuration change.
-   */
-  abstract CompletableFuture<Long> appendEntry(LogEntryProto entry);
+  abstract CompletableFuture<Long> truncateImpl(long index);
 
-  /**
-   * Append all the given log entries. Used by the followers.
-   *
-   * If an existing entry conflicts with a new one (same index but different
-   * terms), delete the existing entry and all entries that follow it (§5.3).
-   *
-   * This method, {@link #append(long, TransactionContext)},
-   * {@link #append(long, RaftConfiguration)}, and {@link #truncate(long)},
-   * do not guarantee the changes are persisted.
-   * Need to wait for the returned futures to persist the changes.
-   */
-  public abstract List<CompletableFuture<Long>> append(LogEntryProto... entries);
+  @Override
+  public final CompletableFuture<Long> appendEntry(LogEntryProto entry) {
+    return runner.runSequentially(() -> appendEntryImpl(entry));
+  }
+
+  abstract CompletableFuture<Long> appendEntryImpl(LogEntryProto entry);
+
+  @Override
+  public final List<CompletableFuture<Long>> append(LogEntryProto... entries) {
+    return runner.runSequentially(() -> appendImpl(entries));
+  }
+
+  abstract List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries);
 
   /**
    * @return the index of the latest entry that has been flushed to the local

@@ -108,7 +108,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  CompletableFuture<Long> truncate(long index) {
+  CompletableFuture<Long> truncateImpl(long index) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       Preconditions.assertTrue(index >= 0);
@@ -126,7 +126,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  CompletableFuture<Long> appendEntry(LogEntryProto entry) {
+  CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       validateLogEntry(entry);
@@ -136,23 +136,12 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public long append(long term, RaftConfiguration newConf) {
-    checkLogState();
-    try(AutoCloseableLock writeLock = writeLock()) {
-      final long nextIndex = getNextIndex();
-      final LogEntryProto e = ServerProtoUtils.toLogEntryProto(newConf, term, nextIndex);
-      entries.add(e);
-      return nextIndex;
-    }
-  }
-
-  @Override
   public long getStartIndex() {
     return entries.size() == 0? RaftServerConstants.INVALID_LOG_INDEX: entries.getTermIndex(0).getIndex();
   }
 
   @Override
-  public List<CompletableFuture<Long>> append(LogEntryProto... entries) {
+  public List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries) {
     checkLogState();
     if (entries == null || entries.length == 0) {
       return Collections.emptyList();

@@ -34,7 +34,6 @@ import org.apache.ratis.util.Preconditions;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -253,7 +252,7 @@ public class SegmentedRaftLog extends RaftLog {
    * {@link #append(LogEntryProto...)} need protection of RaftServer's lock.
    */
   @Override
-  CompletableFuture<Long> truncate(long index) {
+  CompletableFuture<Long> truncateImpl(long index) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       RaftLogCache.TruncationSegments ts = cache.truncate(index);
@@ -266,8 +265,7 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  CompletableFuture<Long> appendEntry(LogEntryProto entry) {
-
+  CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
     checkLogState();
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: appendEntry {}", server.getId(),
@@ -322,8 +320,7 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public List<CompletableFuture<Long>> append(LogEntryProto... entries) {
-
+  public List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries) {
     checkLogState();
     if (entries == null || entries.length == 0) {
       return Collections.emptyList();
