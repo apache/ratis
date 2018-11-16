@@ -39,16 +39,6 @@ public interface RaftClientConfigKeys {
   interface Rpc {
     String PREFIX = RaftClientConfigKeys.PREFIX + ".rpc";
 
-    String RETRY_INTERVAL_KEY = PREFIX + ".retryInterval";
-    TimeDuration RETRY_INTERVAL_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
-    static TimeDuration retryInterval(RaftProperties properties) {
-      return getTimeDuration(properties.getTimeDuration(RETRY_INTERVAL_DEFAULT.getUnit()),
-          RETRY_INTERVAL_KEY, RETRY_INTERVAL_DEFAULT, getDefaultLog());
-    }
-    static void setRetryInterval(RaftProperties properties, TimeDuration timeoutDuration) {
-      setTimeDuration(properties::setTimeDuration, RETRY_INTERVAL_KEY, timeoutDuration);
-    }
-
     String REQUEST_TIMEOUT_KEY = PREFIX + ".request.timeout";
     TimeDuration REQUEST_TIMEOUT_DEFAULT = TimeDuration.valueOf(3000, TimeUnit.MILLISECONDS);
     static TimeDuration requestTimeout(RaftProperties properties) {

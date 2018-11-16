@@ -23,8 +23,11 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -88,6 +91,33 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
     }
   }
+
+  @Test
+  public void testRequestAsyncWithRetryPolicy() throws Exception {
+    LOG.info("Running testWatchRequestsWithRetryPolicy");
+    try(final CLUSTER cluster = newCluster(NUM_SERVERS)) {
+     int maxRetries = 3;
+      final RetryPolicy retryPolicy = RetryPolicies
+          .retryUpToMaximumCountWithFixedSleep(maxRetries, TimeDuration.valueOf(1, TimeUnit.SECONDS));
+      cluster.start();
+      final RaftClient writeClient =
+          cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId(), retryPolicy);
+      // blockStartTransaction of the leader so that no transaction can be committed MAJORITY
+      final RaftServerImpl leader = cluster.getLeader();
+      LOG.info("block leader {}", leader.getId());
+      SimpleStateMachine4Testing.get(leader).blockStartTransaction();
+      RaftClientReply reply =
+          writeClient.sendAsync(RaftTestUtil.SimpleMessage.create(1)[0]).get();
+      RaftRetryFailureException rfe = reply.getRetryFailureException();
+      Assert.assertTrue(rfe != null);
+      Assert.assertTrue(rfe.getMessage().contains(retryPolicy.toString()));
+      // unblock leader so that the next transaction can be committed.
+      SimpleStateMachine4Testing.get(leader).unblockStartTransaction();
+      // make sure the the next request succeeds. This will ensure the first
+      // request completed
+      writeClient.sendAsync(RaftTestUtil.SimpleMessage.create(1)[0]).get();
+      }
+    }
 
   @Test
   public void testAsyncRequestSemaphore() throws Exception {

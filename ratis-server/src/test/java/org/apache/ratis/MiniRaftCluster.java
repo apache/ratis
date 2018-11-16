@@ -21,6 +21,8 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
@@ -61,6 +63,8 @@ public abstract class MiniRaftCluster implements Closeable {
   public static final String CLASS_NAME = MiniRaftCluster.class.getSimpleName();
   public static final String STATEMACHINE_CLASS_KEY = CLASS_NAME + ".statemachine.class";
   private static final StateMachine.Registry STATEMACHINE_REGISTRY_DEFAULT = gid -> new BaseStateMachine();
+  private static final TimeDuration RETRY_INTERVAL_DEFAULT =
+      TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
 
   public static abstract class Factory<CLUSTER extends MiniRaftCluster> {
     public interface Get<CLUSTER extends MiniRaftCluster> {
@@ -155,6 +159,7 @@ public abstract class MiniRaftCluster implements Closeable {
   protected final Map<RaftPeerId, RaftPeer> peers = new ConcurrentHashMap<>();
 
   private volatile StateMachine.Registry stateMachineRegistry = null;
+  private volatile TimeDuration retryInterval;
 
   private final Timer timer;
 
@@ -532,6 +537,10 @@ public abstract class MiniRaftCluster implements Closeable {
     return getServerStream(groupId).filter(RaftServerImpl::isAlive);
   }
 
+  private RetryPolicy getDefaultRetryPolicy() {
+    return RetryPolicies.retryForeverWithSleep(RETRY_INTERVAL_DEFAULT);
+  }
+
   public RaftServerProxy getServer(RaftPeerId id) {
     return servers.get(id);
   }
@@ -572,18 +581,29 @@ public abstract class MiniRaftCluster implements Closeable {
     return createClient(leaderId, group);
   }
 
-  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group) {
-    return createClient(leaderId, group, null);
+  public RaftClient createClient(RaftPeerId leaderId, RetryPolicy retryPolicy) {
+    return createClient(leaderId, group, null, retryPolicy);
   }
 
-  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group, ClientId clientId) {
-    return RaftClient.newBuilder()
+  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group) {
+    return createClient(leaderId, group, null, getDefaultRetryPolicy());
+  }
+
+  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group,
+      ClientId clientId) {
+    return createClient(leaderId, group, clientId, getDefaultRetryPolicy());
+  }
+
+  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group,
+      ClientId clientId, RetryPolicy retryPolicy) {
+    RaftClient.Builder builder = RaftClient.newBuilder()
         .setClientId(clientId)
         .setRaftGroup(group)
         .setLeaderId(leaderId)
         .setProperties(properties)
         .setParameters(parameters)
-        .build();
+        .setRetryPolicy(retryPolicy);
+    return builder.build();
   }
 
   public RaftClientRequest newRaftClientRequest(

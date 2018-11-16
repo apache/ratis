@@ -37,6 +37,6 @@ public class TestRetryPolicy {
      boolean shouldRetry = retryPolicy.shouldRetry(1);
     Assert.assertTrue(shouldRetry);
     Assert.assertTrue(1000 == retryPolicy.getSleepTime().getDuration());
-    Assert.assertFalse(retryPolicy.shouldRetry(2));
+    Assert.assertFalse(retryPolicy.shouldRetry(3));
   }
 }

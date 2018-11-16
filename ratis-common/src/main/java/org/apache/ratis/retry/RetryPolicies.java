@@ -35,11 +35,18 @@ public interface RetryPolicies {
   }
 
   /**
+   * Keep retrying forever with fixed sleep.
+   */
+  static RetryPolicy retryForeverWithSleep(TimeDuration sleepTime) {
+    return new RetryForeverWithSleep(sleepTime);
+  }
+
+  /**
    * Keep trying a limited number of times, waiting a fixed time between attempts,
    * and then fail by re-throwing the exception.
    */
-  static RetryPolicy retryUpToMaximumCountWithFixedSleep(int maxRetries, TimeDuration sleepTime) {
-    return new RetryLimited(maxRetries, sleepTime);
+  static RetryPolicy retryUpToMaximumCountWithFixedSleep(int maxAttempts, TimeDuration sleepTime) {
+    return new RetryLimited(maxAttempts, sleepTime);
   }
 
   class Constants {
@@ -51,7 +58,7 @@ public interface RetryPolicies {
     private RetryForeverNoSleep() {}
 
     @Override
-    public boolean shouldRetry(int retryCount) {
+    public boolean shouldRetry(int attemptCount) {
       return true;
     }
 
@@ -65,7 +72,7 @@ public interface RetryPolicies {
     private NoRetry() {}
 
     @Override
-    public boolean shouldRetry(int retryCount) {
+    public boolean shouldRetry(int attemptCount) {
       return false;
     }
 
@@ -75,30 +82,16 @@ public interface RetryPolicies {
     }
   }
 
-  /**
-   * Retry up to maxRetries.
-   * The actual sleep time of the n-th retry is f(n, sleepTime),
-   * where f is a function provided by the subclass implementation.
-   *
-   * The object of the subclasses should be immutable;
-   * otherwise, the subclass must override hashCode(), equals(..) and toString().
-   */
-  class RetryLimited implements RetryPolicy {
-    private final int maxRetries;
+  class RetryForeverWithSleep implements RetryPolicy {
     private final TimeDuration sleepTime;
 
     private String myString;
 
-    RetryLimited(int maxRetries, TimeDuration sleepTime) {
-      if (maxRetries < 0) {
-        throw new IllegalArgumentException("maxRetries = " + maxRetries+" < 0");
-      }
+    RetryForeverWithSleep(TimeDuration sleepTime) {
       if (sleepTime.isNegative()) {
         throw new IllegalArgumentException(
             "sleepTime = " + sleepTime.getDuration() + " < 0");
       }
-
-      this.maxRetries = maxRetries;
       this.sleepTime = sleepTime;
     }
 
@@ -107,19 +100,64 @@ public interface RetryPolicies {
       return sleepTime;
     }
 
-    public int getMaxRetries() {
-      return maxRetries;
-    }
-
     @Override
-    public boolean shouldRetry(int retryCount) {
-      return retryCount < maxRetries;
+    public boolean shouldRetry(int attemptCount) {
+      return true;
     }
 
     @Override
     public String toString() {
       if (myString == null) {
-        myString = getClass().getSimpleName() + "(maxRetries=" + maxRetries
+        myString = getClass().getSimpleName() + "(sleepTime = " + sleepTime + ")";
+      }
+      return myString;
+    }
+  }
+  /**
+   * Retry up to maxAttempts.
+   * The actual sleep time of the n-th retry is f(n, sleepTime),
+   * where f is a function provided by the subclass implementation.
+   *
+   * The object of the subclasses should be immutable;
+   * otherwise, the subclass must override hashCode(), equals(..) and toString().
+   */
+  class RetryLimited implements RetryPolicy {
+    private final int maxAttempts;
+    private final TimeDuration sleepTime;
+
+    private String myString;
+
+    RetryLimited(int maxAttempts, TimeDuration sleepTime) {
+      if (maxAttempts < 0) {
+        throw new IllegalArgumentException("maxAttempts = " + maxAttempts+" < 0");
+      }
+      if (sleepTime.isNegative()) {
+        throw new IllegalArgumentException(
+            "sleepTime = " + sleepTime.getDuration() + " < 0");
+      }
+
+      this.maxAttempts = maxAttempts;
+      this.sleepTime = sleepTime;
+    }
+
+    @Override
+    public TimeDuration getSleepTime() {
+      return sleepTime;
+    }
+
+    public int getMaxAttempts() {
+      return maxAttempts;
+    }
+
+    @Override
+    public boolean shouldRetry(int attemptCount) {
+      return attemptCount <= maxAttempts;
+    }
+
+    @Override
+    public String toString() {
+      if (myString == null) {
+        myString = getClass().getSimpleName() + "(maxAttempts=" + maxAttempts
             + ", sleepTime=" + sleepTime + ")";
       }
       return myString;

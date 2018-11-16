@@ -52,6 +52,7 @@ final class RaftClientImpl implements RaftClient {
     private final long seqNum;
     private final LongFunction<RaftClientRequest> requestConstructor;
     private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
+    private volatile int attemptCount;
 
     PendingAsyncRequest(long seqNum, LongFunction<RaftClientRequest> requestConstructor) {
       this.seqNum = seqNum;
@@ -59,6 +60,7 @@ final class RaftClientImpl implements RaftClient {
     }
 
     RaftClientRequest newRequest() {
+      attemptCount++;
       return requestConstructor.apply(seqNum);
     }
 
@@ -81,6 +83,10 @@ final class RaftClientImpl implements RaftClient {
       return replyFuture;
     }
 
+    public int getAttemptCount() {
+      return attemptCount;
+    }
+
     @Override
     public String toString() {
       return "[seq=" + getSeqNum() + "]";
@@ -91,7 +97,6 @@ final class RaftClientImpl implements RaftClient {
   private final RaftClientRpc clientRpc;
   private final Collection<RaftPeer> peers;
   private final RaftGroupId groupId;
-  private final TimeDuration retryInterval;
   private final RetryPolicy retryPolicy;
 
   private volatile RaftPeerId leaderId;
@@ -110,7 +115,6 @@ final class RaftClientImpl implements RaftClient {
     this.groupId = group.getGroupId();
     this.leaderId = leaderId != null? leaderId
         : !peers.isEmpty()? peers.iterator().next().getId(): null;
-    this.retryInterval = RaftClientConfigKeys.Rpc.retryInterval(properties);
     Preconditions.assertTrue(retryPolicy != null, "retry policy can't be null");
     this.retryPolicy = retryPolicy;
 
@@ -268,10 +272,10 @@ final class RaftClientImpl implements RaftClient {
       PendingAsyncRequest pending) {
     final RaftClientRequest request = pending.newRequest();
     final CompletableFuture<RaftClientReply> f = pending.getReplyFuture();
-    return sendRequestAsync(request).thenCompose(reply -> {
+    return sendRequestAsync(request, pending.getAttemptCount()).thenCompose(reply -> {
       if (reply == null) {
-        LOG.debug("schedule a retry in {} for {}", retryInterval, request);
-        scheduler.onTimeout(retryInterval,
+        LOG.debug("schedule attempt #{} with policy {} for {}", pending.getAttemptCount(), retryPolicy, request);
+        scheduler.onTimeout(retryPolicy.getSleepTime(),
             () -> getSlidingWindow(request).retry(pending, this::sendRequestWithRetryAsync),
             LOG, () -> "Failed to retry " + request);
       } else {
@@ -284,13 +288,13 @@ final class RaftClientImpl implements RaftClient {
   private RaftClientReply sendRequestWithRetry(
       Supplier<RaftClientRequest> supplier)
       throws InterruptedIOException, StateMachineException, GroupMismatchException {
-    for(int retryCount = 0;; retryCount++) {
+    for(int attemptCount = 0;; attemptCount++) {
       final RaftClientRequest request = supplier.get();
       final RaftClientReply reply = sendRequest(request);
       if (reply != null) {
         return reply;
       }
-      if (!retryPolicy.shouldRetry(retryCount)) {
+      if (!retryPolicy.shouldRetry(attemptCount)) {
         return null;
       }
       try {
@@ -302,7 +306,7 @@ final class RaftClientImpl implements RaftClient {
   }
 
   private CompletableFuture<RaftClientReply> sendRequestAsync(
-      RaftClientRequest request) {
+      RaftClientRequest request, int attemptCount) {
     LOG.debug("{}: send* {}", clientId, request);
     return clientRpc.sendRequestAsync(request).thenApply(reply -> {
       LOG.debug("{}: receive* {}", clientId, reply);
@@ -310,6 +314,8 @@ final class RaftClientImpl implements RaftClient {
       if (reply != null) {
         getSlidingWindow(request).receiveReply(
             request.getSeqNum(), reply, this::sendRequestWithRetryAsync);
+      } else if (!retryPolicy.shouldRetry(attemptCount)) {
+        return handleAsyncRetry(request, attemptCount);
       }
       return reply;
     }).exceptionally(e -> {
@@ -322,12 +328,27 @@ final class RaftClientImpl implements RaftClient {
       if (e instanceof GroupMismatchException) {
         throw new CompletionException(e);
       } else if (e instanceof IOException) {
+        // once the retryLimit is hit, just remove the request from the
+        // sliding window and throw an exception. The exception thrown here will
+        // make sure its not retried any more with sendRequestWithRetryAsync call.
+        if (!retryPolicy.shouldRetry(attemptCount)) {
+          return handleAsyncRetry(request, attemptCount);
+        }
         handleIOException(request, (IOException)e, null);
       } else {
         throw new CompletionException(e);
       }
       return null;
     });
+  }
+
+  private RaftClientReply handleAsyncRetry(RaftClientRequest request, int attemptCount) {
+    RaftClientReply reply = new RaftClientReply(request,
+        new RaftRetryFailureException(
+            "Failed " + request + " for " + attemptCount + " attempts with " + retryPolicy), null);
+    getSlidingWindow(request).receiveReply(
+        request.getSeqNum(), reply, this::sendRequestWithRetryAsync);
+    return reply;
   }
 
   private RaftClientReply sendRequest(RaftClientRequest request)

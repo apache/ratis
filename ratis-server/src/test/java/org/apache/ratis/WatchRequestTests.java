@@ -60,7 +60,6 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     final RaftProperties p = getProperties();
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
-    RaftClientConfigKeys.Rpc.setRetryInterval(p, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS));
   }
 
   @Test

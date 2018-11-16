@@ -15,30 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.retry;
-
-import org.apache.ratis.util.TimeDuration;
-
-import java.util.concurrent.TimeUnit;
+package org.apache.ratis.protocol;
 
 /**
- * Policy abstract for retrying.
+ * Retry failure as per the retryPolicy defined.
  */
-public interface RetryPolicy {
+public class RaftRetryFailureException extends RaftException {
 
-  /**
-   * Determines whether it is supposed to retry the connection if the operation
-   * fails for some reason.
-   *
-   * @param attemptCount The number of times attempted so far
-   * @return true if it has to make another attempt, otherwise, false
-   */
-  boolean shouldRetry(int attemptCount);
-
-  /**
-   * Returns the time duration for sleep in between the retries.
-   */
-  default TimeDuration getSleepTime() {
-    return TimeDuration.valueOf(0, TimeUnit.MILLISECONDS);
+  public RaftRetryFailureException(String msg) {
+    super(msg);
   }
 }

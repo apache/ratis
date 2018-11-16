@@ -17,13 +17,13 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.apache.ratis.conf.ConfUtils.*;
@@ -89,7 +89,7 @@ public interface GrpcConfigKeys {
     }
 
     String RETRY_INTERVAL_KEY = PREFIX + ".retry.interval";
-    TimeDuration RETRY_INTERVAL_DEFAULT = RaftClientConfigKeys.Rpc.RETRY_INTERVAL_DEFAULT;
+    TimeDuration RETRY_INTERVAL_DEFAULT = TimeDuration.valueOf(300, TimeUnit.MILLISECONDS);
     static TimeDuration retryInterval(RaftProperties properties) {
       return getTimeDuration(properties.getTimeDuration(RETRY_INTERVAL_DEFAULT.getUnit()),
           RETRY_INTERVAL_KEY, RETRY_INTERVAL_DEFAULT, getDefaultLog());
