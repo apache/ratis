@@ -17,16 +17,13 @@
  */
 package org.apache.ratis.protocol;
 
-import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /** Asynchronous version of {@link AdminProtocol}. */
 public interface AdminAsynchronousProtocol {
-  CompletableFuture<GroupListReply> getGroupListAsync(
-      GroupListRequest request) throws IOException;
+  CompletableFuture<GroupListReply> getGroupListAsync(GroupListRequest request);
 
-  CompletableFuture<GroupInfoReply> getGroupInfoAsync(
-      GroupInfoRequest request) throws IOException;
+  CompletableFuture<GroupInfoReply> getGroupInfoAsync(GroupInfoRequest request);
 
   CompletableFuture<RaftClientReply> groupManagementAsync(GroupManagementRequest request);
 }

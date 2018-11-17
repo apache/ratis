@@ -61,7 +61,7 @@ public class RaftServerProxy implements RaftServer {
   /**
    * A map: {@link RaftGroupId} -> {@link RaftServerImpl} futures.
    *
-   * The map is synchronized for mutations and the bulk {@link #getAll()} method
+   * The map is synchronized for mutations and the bulk {@link #getGroupIds()}/{@link #getAll()} methods
    * but the (non-bulk) {@link #get(RaftGroupId)} and {@link #containsGroup(RaftGroupId)} methods are not.
    * The thread safety and atomicity guarantees for the non-bulk methods are provided by {@link ConcurrentMap}.
    */
@@ -101,6 +101,10 @@ public class RaftServerProxy implements RaftServer {
       isClosed = true;
       map.values().parallelStream().map(CompletableFuture::join)
           .forEach(impl -> impl.shutdown(false));
+    }
+
+    synchronized List<RaftGroupId> getGroupIds() {
+      return new ArrayList<>(map.keySet());
     }
 
     synchronized List<CompletableFuture<RaftServerImpl>> getAll() {
@@ -217,8 +221,8 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public Iterable<RaftGroupId> getGroupIds() throws IOException {
-    return getImpls().stream().map(RaftServerImpl::getGroupId).collect(Collectors.toList());
+  public Iterable<RaftGroupId> getGroupIds() {
+    return impls.getGroupIds();
   }
 
   @Override
@@ -390,17 +394,13 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public GroupListReply getGroupList(GroupListRequest request)
-      throws IOException {
-    return RaftServerImpl.waitForReply(getId(), request, getGroupListAsync(request),
-        r -> null);
+  public GroupListReply getGroupList(GroupListRequest request) {
+    return new GroupListReply(request, getGroupIds());
   }
 
   @Override
-  public CompletableFuture<GroupListReply> getGroupListAsync(
-      GroupListRequest request) {
-    return getImplFuture(request.getRaftGroupId()).thenApplyAsync(
-        server -> server.getGroupList(request));
+  public CompletableFuture<GroupListReply> getGroupListAsync(GroupListRequest request) {
+    return CompletableFuture.completedFuture(getGroupList(request));
   }
 
   @Override
@@ -409,11 +409,10 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public CompletableFuture<GroupInfoReply> getGroupInfoAsync(GroupInfoRequest request) throws IOException {
+  public CompletableFuture<GroupInfoReply> getGroupInfoAsync(GroupInfoRequest request) {
     return getImplFuture(request.getRaftGroupId()).thenApplyAsync(
         server -> server.getGroupInfo(request));
   }
-
 
   /**
    * Handle a raft configuration change request from client.

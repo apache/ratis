@@ -344,15 +344,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return infos;
   }
 
-  GroupListReply getGroupList(GroupListRequest request) {
-    Iterable<RaftGroupId> groupIds = null;
-    try {
-      groupIds = proxy.getGroupIds();
-    } catch (IOException e) {
-    }
-    return new GroupListReply(request, groupIds);
-  }
-
   GroupInfoReply getGroupInfo(GroupInfoRequest request) {
     return new GroupInfoReply(request, getRoleInfoProto(),
         state.getStorage().getStorageDir().hasMetaFile(), getCommitInfos(), getGroup());
