@@ -115,7 +115,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   LogAppender newLogAppender(
       LeaderState state, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
       boolean attendVote) {
-    final FollowerInfo f = new FollowerInfo(peer, lastRpcTime, nextIndex, attendVote, rpcSlownessTimeoutMs);
+    final FollowerInfo f = new FollowerInfo(getId(), peer, lastRpcTime, nextIndex, attendVote, rpcSlownessTimeoutMs);
     return getProxy().getFactory().newLogAppender(this, state, f);
   }
 
@@ -1015,10 +1015,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       RaftPeerId targetId, long term, TermIndex lastEntry) {
     return ServerProtoUtils.toRequestVoteRequestProto(getId(), targetId,
         groupId, term, lastEntry);
-  }
-
-  void commitIndexChanged() {
-    role.getLeaderState().ifPresent(LeaderState::commitIndexChanged);
   }
 
   public void submitUpdateCommitEvent() {

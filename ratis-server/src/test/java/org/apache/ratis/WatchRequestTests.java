@@ -25,10 +25,12 @@ import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.CheckedFunction;
 import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Before;
@@ -41,15 +43,14 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
-  static {
+  {
+    RaftServerTestUtil.setWatchRequestsLogLevel(Level.DEBUG);
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   static final int NUM_SERVERS = 3;
@@ -64,11 +65,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testWatchRequestAsync() throws Exception {
-    LOG.info("Running testWatchRequests");
-    try(final CLUSTER cluster = newCluster(NUM_SERVERS)) {
-      cluster.start();
-      runTest(WatchRequestTests::runTestWatchRequestAsync, cluster, LOG);
-    }
+    runWithNewCluster(NUM_SERVERS, cluster -> runTest(WatchRequestTests::runTestWatchRequestAsync, cluster, LOG));
   }
 
   static class TestParameters {
@@ -123,14 +120,6 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  static long getLogIndex(RaftClient writeClient) throws Exception {
-    // send a message in order to get the current log index
-    final RaftTestUtil.SimpleMessage message = new RaftTestUtil.SimpleMessage("getLogIndex");
-    final RaftClientReply reply = writeClient.sendAsync(message).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-    Assert.assertTrue(reply.isSuccess());
-    return reply.getLogIndex();
-  }
-
   static void runTest(CheckedFunction<TestParameters, Void, Exception> testCase, MiniRaftCluster cluster, Logger LOG) throws Exception {
     try(final RaftClient writeClient = cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId());
         final RaftClient watchMajorityClient = cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId());
@@ -146,7 +135,6 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
         LOG.info("{}) {}, {}", i, p, cluster.printServers());
         testCase.apply(p);
       }
-
     }
   }
 
@@ -201,36 +189,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     // unblock leader so that the transaction can be committed.
     SimpleStateMachine4Testing.get(leader).unblockStartTransaction();
     LOG.info("unblock leader {}", leader.getId());
-    for(int i = 0; i < numMessages; i++) {
-      final RaftClientReply reply = replies.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      final long logIndex = reply.getLogIndex();
-      LOG.info("{}: receive reply for logIndex={}", i, logIndex);
-      Assert.assertTrue(reply.isSuccess());
 
-      final WatchReplies watchReplies = watches.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      Assert.assertEquals(logIndex, watchReplies.logIndex);
-      final RaftClientReply watchMajorityReply = watchReplies.majority.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      LOG.info("watchMajorityReply({}) = {}", logIndex, watchMajorityReply);
-      Assert.assertTrue(watchMajorityReply.isSuccess());
-
-      final RaftClientReply watchMajorityCommittedReply
-          = watchReplies.majorityCommitted.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      LOG.info("watchMajorityCommittedReply({}) = ", logIndex, watchMajorityCommittedReply);
-      Assert.assertTrue(watchMajorityCommittedReply.isSuccess());
-      { // check commit infos
-        final Collection<CommitInfoProto> commitInfos = watchMajorityCommittedReply.getCommitInfos();
-        Assert.assertEquals(NUM_SERVERS, commitInfos.size());
-
-        // One follower has not committed, so min must be less than logIndex
-        Assert.assertTrue(commitInfos.stream()
-            .map(CommitInfoProto::getCommitIndex).min(Long::compare).get() < logIndex);
-
-        // All other followers have committed
-        commitInfos.stream()
-            .map(CommitInfoProto::getCommitIndex).sorted(Long::compare)
-            .skip(1).forEach(ci -> Assert.assertTrue(logIndex <= ci));
-      }
-    }
+    checkMajority(replies, watches, LOG);
 
     Assert.assertEquals(numMessages, watches.size());
 
@@ -242,10 +202,50 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     // unblock follower so that the transaction can be replicated and committed to all.
     LOG.info("unblock follower {}", blockedFollower.getId());
     SimpleStateMachine4Testing.get(blockedFollower).unblockFlushStateMachineData();
-    for(int i = 0; i < numMessages; i++) {
+    checkAll(watches, LOG);
+    return null;
+  }
+
+  static void checkMajority(List<CompletableFuture<RaftClientReply>> replies,
+      List<CompletableFuture<WatchReplies>> watches, Logger LOG) throws Exception {
+    for(int i = 0; i < replies.size(); i++) {
+      final RaftClientReply reply = replies.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
+      LOG.info("checkMajority {}: receive {}", i, reply);
+      final long logIndex = reply.getLogIndex();
+      Assert.assertTrue(reply.isSuccess());
+
+      final WatchReplies watchReplies = watches.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
+      Assert.assertEquals(logIndex, watchReplies.logIndex);
+      final RaftClientReply watchMajorityReply = watchReplies.majority.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
+      LOG.info("watchMajorityReply({}) = {}", logIndex, watchMajorityReply);
+      Assert.assertTrue(watchMajorityReply.isSuccess());
+
+      final RaftClientReply watchMajorityCommittedReply
+          = watchReplies.majorityCommitted.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
+      LOG.info("watchMajorityCommittedReply({}) = {}", logIndex, watchMajorityCommittedReply);
+      Assert.assertTrue(watchMajorityCommittedReply.isSuccess());
+      { // check commit infos
+        final Collection<CommitInfoProto> commitInfos = watchMajorityCommittedReply.getCommitInfos();
+        final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);
+        Assert.assertEquals(NUM_SERVERS, commitInfos.size());
+
+        // One follower has not committed, so min must be less than logIndex
+        final long min = commitInfos.stream().map(CommitInfoProto::getCommitIndex).min(Long::compare).get();
+        Assert.assertTrue(message, logIndex > min);
+
+        // All other followers have committed
+        commitInfos.stream()
+            .map(CommitInfoProto::getCommitIndex).sorted(Long::compare)
+            .skip(1).forEach(ci -> Assert.assertTrue(message, logIndex <= ci));
+      }
+    }
+  }
+
+  static void checkAll(List<CompletableFuture<WatchReplies>> watches, Logger LOG) throws Exception {
+    for(int i = 0; i < watches.size(); i++) {
       final WatchReplies watchReplies = watches.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
       final long logIndex = watchReplies.logIndex;
-      LOG.info("UNBLOCK_FOLLOWER {}: logIndex={}", i, logIndex);
+      LOG.info("checkAll {}: logIndex={}", i, logIndex);
       final RaftClientReply watchAllReply = watchReplies.all.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
       LOG.info("watchAllReply({}) = {}", logIndex, watchAllReply);
       Assert.assertTrue(watchAllReply.isSuccess());
@@ -255,11 +255,11 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       Assert.assertTrue(watchAllCommittedReply.isSuccess());
       { // check commit infos
         final Collection<CommitInfoProto> commitInfos = watchAllCommittedReply.getCommitInfos();
+        final String message = "logIndex=" + logIndex + ", " + ProtoUtils.toString(commitInfos);
         Assert.assertEquals(NUM_SERVERS, commitInfos.size());
-        commitInfos.forEach(info -> Assert.assertTrue(logIndex <= info.getCommitIndex()));
+        commitInfos.forEach(info -> Assert.assertTrue(message, logIndex <= info.getCommitIndex()));
       }
     }
-    return null;
   }
 
   static <T> void assertNotDone(List<CompletableFuture<T>> futures) {
@@ -280,11 +280,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testWatchRequestAsyncChangeLeader() throws Exception {
-    LOG.info("Running testWatchRequestAsyncChangeLeader");
-    try(final CLUSTER cluster = newCluster(NUM_SERVERS)) {
-      cluster.start();
-      runTest(WatchRequestTests::runTestWatchRequestAsyncChangeLeader, cluster, LOG);
-    }
+    runWithNewCluster(NUM_SERVERS,
+        cluster -> runTest(WatchRequestTests::runTestWatchRequestAsyncChangeLeader, cluster, LOG));
   }
 
   static Void runTestWatchRequestAsyncChangeLeader(TestParameters p) throws Exception {
@@ -307,37 +304,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     Assert.assertEquals(numMessages, watches.size());
 
     // since only one follower is blocked, requests can be committed MAJORITY but neither ALL nor ALL_COMMITTED.
-    for(int i = 0; i < numMessages; i++) {
-      final RaftClientReply reply = replies.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      final long logIndex = reply.getLogIndex();
-      LOG.info("UNBLOCK_F1 {}: reply logIndex={}", i, logIndex);
-      Assert.assertTrue(reply.isSuccess());
+    checkMajority(replies, watches, LOG);
 
-      final WatchReplies watchReplies = watches.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      Assert.assertEquals(logIndex, watchReplies.logIndex);
-      final RaftClientReply watchMajorityReply = watchReplies.majority.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      LOG.info("watchMajorityReply({}) = {}", logIndex, watchMajorityReply);
-      Assert.assertTrue(watchMajorityReply.isSuccess());
-
-      final RaftClientReply watchMajorityCommittedReply
-          = watchReplies.majorityCommitted.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      LOG.info("watchMajorityCommittedReply({}) = ", logIndex, watchMajorityCommittedReply);
-      Assert.assertTrue(watchMajorityCommittedReply.isSuccess());
-      { // check commit infos
-        final Collection<CommitInfoProto> commitInfos = watchMajorityCommittedReply.getCommitInfos();
-        LOG.info("commitInfos=" + commitInfos);
-        Assert.assertEquals(NUM_SERVERS, commitInfos.size());
-
-        // One follower has not committed, so min must be less than logIndex
-        Assert.assertTrue(commitInfos.stream()
-            .map(CommitInfoProto::getCommitIndex).min(Long::compare).get() < logIndex);
-
-        // All other followers have committed
-        commitInfos.stream()
-            .map(CommitInfoProto::getCommitIndex).sorted(Long::compare)
-            .skip(1).forEach(ci -> Assert.assertTrue(logIndex <= ci));
-      }
-    }
     TimeUnit.SECONDS.sleep(1);
     assertNotDone(watches.stream().map(CompletableFuture::join).map(w -> w.all));
     assertNotDone(watches.stream().map(CompletableFuture::join).map(w -> w.allCommitted));
@@ -348,23 +316,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     // unblock follower so that the transaction can be replicated and committed to all.
     SimpleStateMachine4Testing.get(blockedFollower).unblockFlushStateMachineData();
     LOG.info("unblock follower {}", blockedFollower.getId());
-    for(int i = 0; i < numMessages; i++) {
-      final WatchReplies watchReplies = watches.get(i).get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      final long logIndex = watchReplies.logIndex;
-      LOG.info("UNBLOCK_FOLLOWER {}: logIndex={}", i, logIndex);
-      final RaftClientReply watchAllReply = watchReplies.all.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      LOG.info("watchAllReply({}) = {}", logIndex, watchAllReply);
-      Assert.assertTrue(watchAllReply.isSuccess());
-
-      final RaftClientReply watchAllCommittedReply = watchReplies.allCommitted.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      LOG.info("watchAllCommittedReply({}) = {}", logIndex, watchAllCommittedReply);
-      Assert.assertTrue(watchAllCommittedReply.isSuccess());
-      { // check commit infos
-        final Collection<CommitInfoProto> commitInfos = watchAllCommittedReply.getCommitInfos();
-        Assert.assertEquals(NUM_SERVERS, commitInfos.size());
-        commitInfos.forEach(info -> Assert.assertTrue(logIndex <= info.getCommitIndex()));
-      }
-    }
+    checkAll(watches, LOG);
     return null;
   }
 }

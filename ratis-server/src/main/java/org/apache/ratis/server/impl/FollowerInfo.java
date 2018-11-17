@@ -18,39 +18,52 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.storage.RaftLogIndex;
 import org.apache.ratis.util.Timestamp;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 public class FollowerInfo {
+  public static final Logger LOG = LoggerFactory.getLogger(FollowerInfo.class);
+
+  private final String name;
+  private final Consumer<Object> infoIndexChange;
+  private final Consumer<Object> debugIndexChange;
+
   private final RaftPeer peer;
   private final AtomicReference<Timestamp> lastRpcResponseTime;
   private final AtomicReference<Timestamp> lastRpcSendTime;
-  private long nextIndex;
-  private final AtomicLong matchIndex;
-  private final AtomicLong commitIndex = new AtomicLong(RaftServerConstants.INVALID_LOG_INDEX);
+  private final RaftLogIndex nextIndex;
+  private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", 0L);
+  private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftServerConstants.INVALID_LOG_INDEX);
   private volatile boolean attendVote;
   private final int rpcSlownessTimeoutMs;
 
-  FollowerInfo(RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
+
+  FollowerInfo(RaftPeerId id, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
       boolean attendVote, int rpcSlownessTimeoutMs) {
+    this.name = id + "->" + peer.getId();
+    this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
+    this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
+
     this.peer = peer;
     this.lastRpcResponseTime = new AtomicReference<>(lastRpcTime);
     this.lastRpcSendTime = new AtomicReference<>(lastRpcTime);
-    this.nextIndex = nextIndex;
-    this.matchIndex = new AtomicLong(0);
+    this.nextIndex = new RaftLogIndex("nextIndex", nextIndex);
     this.attendVote = attendVote;
     this.rpcSlownessTimeoutMs = rpcSlownessTimeoutMs;
   }
 
-  public void updateMatchIndex(final long matchIndex) {
-    this.matchIndex.set(matchIndex);
-  }
-
   public long getMatchIndex() {
     return matchIndex.get();
+  }
+
+  public void updateMatchIndex(long newMatchIndex) {
+    matchIndex.updateIncreasingly(newMatchIndex, debugIndexChange);
   }
 
   /** @return the commit index acked by the follower. */
@@ -59,30 +72,30 @@ public class FollowerInfo {
   }
 
   boolean updateCommitIndex(long newCommitIndex) {
-    final long old = commitIndex.getAndUpdate(oldCommitIndex -> newCommitIndex);
-    Preconditions.assertTrue(newCommitIndex >= old,
-        () -> "newCommitIndex = " + newCommitIndex + " < old = " + old);
-    return old != newCommitIndex;
+    return commitIndex.updateToMax(newCommitIndex, debugIndexChange);
   }
 
-  public synchronized long getNextIndex() {
-    return nextIndex;
+  public long getNextIndex() {
+    return nextIndex.get();
   }
 
-  public synchronized void updateNextIndex(long i) {
-    nextIndex = i;
+  public void updateNextIndex(long newNextIndex) {
+    nextIndex.updateIncreasingly(newNextIndex, debugIndexChange);
   }
 
-  public synchronized void decreaseNextIndex(long targetIndex) {
-    if (nextIndex > 0) {
-      nextIndex = Math.min(nextIndex - 1, targetIndex);
-    }
+  public void decreaseNextIndex(long newNextIndex) {
+    nextIndex.updateUnconditionally(old -> old <= 0L? old: Math.min(old - 1, newNextIndex), infoIndexChange);
+  }
+
+  public void setSnapshotIndex(long snapshotIndex) {
+    matchIndex.setUnconditionally(snapshotIndex, infoIndexChange);
+    nextIndex.setUnconditionally(snapshotIndex + 1, infoIndexChange);
   }
 
   @Override
   public String toString() {
-    return peer.getId() + "(next=" + nextIndex + ", match=" + matchIndex + "," +
-        " attendVote=" + attendVote +
+    return name + "(c" + getCommitIndex() + ",m" + getMatchIndex() + ",n" + getNextIndex()
+        + ", attendVote=" + attendVote +
         ", lastRpcSendTime=" + lastRpcSendTime.get().elapsedTimeMs() +
         ", lastRpcResponseTime=" + lastRpcResponseTime.get().elapsedTimeMs() + ")";
   }

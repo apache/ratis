@@ -38,9 +38,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
+import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
-import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 /**
@@ -302,18 +303,14 @@ public class LeaderState {
   }
 
   void commitIndexChanged() {
-    final long[] commitIndices = LongStream.concat(LongStream.of(
-        raftLog.getLastCommittedIndex()), senders.stream()
-        .map(LogAppender::getFollower)
-        .mapToLong(FollowerInfo::getCommitIndex))
-        .sorted().toArray();
-
-    // Normally, leader commit index is always ahead followers.
-    // However, after a leader change, the new leader commit index may
-    // be behind some followers in the beginning.
-    watchRequests.update(ReplicationLevel.MAJORITY, commitIndices[commitIndices.length-1]);
-    watchRequests.update(ReplicationLevel.ALL_COMMITTED, commitIndices[0]);
-    watchRequests.update(ReplicationLevel.MAJORITY_COMMITTED, getMajority(commitIndices));
+    getMajorityMin(FollowerInfo::getCommitIndex, raftLog::getLastCommittedIndex).ifPresent(m -> {
+      // Normally, leader commit index is always ahead followers.
+      // However, after a leader change, the new leader commit index may
+      // be behind some followers in the beginning.
+      watchRequests.update(ReplicationLevel.ALL_COMMITTED, m.min);
+      watchRequests.update(ReplicationLevel.MAJORITY_COMMITTED, m.majority);
+      watchRequests.update(ReplicationLevel.MAJORITY, m.max);
+    });
   }
 
   private void applyOldNewConf() {
@@ -503,37 +500,71 @@ public class LeaderState {
     eventQueue.submit(UPDATE_COMMIT_EVENT);
   }
 
+  static class MinMajorityMax {
+    private final long min;
+    private final long majority;
+    private final long max;
+
+    MinMajorityMax(long min, long majority, long max) {
+      this.min = min;
+      this.majority = majority;
+      this.max = max;
+    }
+
+    MinMajorityMax combine(MinMajorityMax that) {
+      return new MinMajorityMax(
+          Math.min(this.min, that.min),
+          Math.min(this.majority, that.majority),
+          Math.min(this.max, that.max));
+    }
+
+    static MinMajorityMax valueOf(long[] sorted) {
+      return new MinMajorityMax(sorted[0], getMajority(sorted), getMax(sorted));
+    }
+
+    static long getMajority(long[] sorted) {
+      return sorted[(sorted.length - 1) / 2];
+    }
+
+    static long getMax(long[] sorted) {
+      return sorted[sorted.length - 1];
+    }
+  }
+
   private void updateCommit() {
+    getMajorityMin(FollowerInfo::getMatchIndex, raftLog::getLatestFlushedIndex)
+        .ifPresent(m -> updateCommit(m.majority, m.min));
+  }
+
+  private Optional<MinMajorityMax> getMajorityMin(ToLongFunction<FollowerInfo> followerIndex, LongSupplier logIndex) {
     final RaftPeerId selfId = server.getId();
     final RaftConfiguration conf = server.getRaftConf();
 
     final List<FollowerInfo> followers = voterLists.get(0);
     final boolean includeSelf = conf.containsInConf(selfId);
     if (followers.isEmpty() && !includeSelf) {
-      return;
+      return Optional.empty();
     }
 
-    final long[] indicesInNewConf = getSortedLogIndices(followers, includeSelf);
-    final long majorityInNewConf = getMajority(indicesInNewConf);
-    final long majority;
-    final long min;
+    final long[] indicesInNewConf = getSorted(followers, includeSelf, followerIndex, logIndex);
+    final MinMajorityMax newConf = MinMajorityMax.valueOf(indicesInNewConf);
 
     if (!conf.isTransitional()) {
-      majority = majorityInNewConf;
-      min = indicesInNewConf[0];
+      return Optional.of(newConf);
     } else { // configuration is in transitional state
       final List<FollowerInfo> oldFollowers = voterLists.get(1);
       final boolean includeSelfInOldConf = conf.containsInOldConf(selfId);
       if (oldFollowers.isEmpty() && !includeSelfInOldConf) {
-        return;
+        return Optional.empty();
       }
 
-      final long[] indicesInOldConf = getSortedLogIndices(oldFollowers, includeSelfInOldConf);
-      final long majorityInOldConf = getMajority(indicesInOldConf);
-      majority = Math.min(majorityInNewConf, majorityInOldConf);
-      min = Math.min(indicesInNewConf[0], indicesInOldConf[0]);
+      final long[] indicesInOldConf = getSorted(oldFollowers, includeSelfInOldConf, followerIndex, logIndex);
+      final MinMajorityMax oldConf = MinMajorityMax.valueOf(indicesInOldConf);
+      return Optional.of(newConf.combine(oldConf));
     }
+  }
 
+  private void updateCommit(long majority, long min) {
     final long oldLastCommitted = raftLog.getLastCommittedIndex();
     if (majority > oldLastCommitted) {
       // copy the entries out from the raftlog, in order to prevent that
@@ -605,11 +636,8 @@ public class LeaderState {
     notifySenders();
   }
 
-  static long getMajority(long[] indices) {
-    return indices[(indices.length - 1) / 2];
-  }
-
-  private long[] getSortedLogIndices(List<FollowerInfo> followers, boolean includeSelf) {
+  private static long[] getSorted(List<FollowerInfo> followers, boolean includeSelf,
+      ToLongFunction<FollowerInfo> getFollowerIndex, LongSupplier getLogIndex) {
     final int length = includeSelf ? followers.size() + 1 : followers.size();
     if (length == 0) {
       throw new IllegalArgumentException("followers.size() == "
@@ -617,11 +645,11 @@ public class LeaderState {
     }
     final long[] indices = new long[length];
     for (int i = 0; i < followers.size(); i++) {
-      indices[i] = followers.get(i).getMatchIndex();
+      indices[i] = getFollowerIndex.applyAsLong(followers.get(i));
     }
     if (includeSelf) {
       // note that we also need to wait for the local disk I/O
-      indices[length - 1] = raftLog.getLatestFlushedIndex();
+      indices[length - 1] = getLogIndex.getAsLong();
     }
 
     Arrays.sort(indices);

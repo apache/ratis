@@ -79,6 +79,21 @@ public abstract class MiniRaftCluster implements Closeable {
       default CLUSTER newCluster(int numPeers) throws IOException {
         return getFactory().newCluster(numPeers, getProperties());
       }
+
+      default void runWithNewCluster(int numServers, CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
+        final StackTraceElement caller = JavaUtils.getCallerStackTraceElement();
+        LOG.info("Running " + caller.getMethodName());
+        final CLUSTER cluster = newCluster(numServers);
+        try {
+          cluster.start();
+          testCase.accept(cluster);
+        } catch(Throwable t) {
+          LOG.error("Failed " + caller + ": " + cluster.printServers(), t);
+          throw t;
+        } finally {
+          cluster.shutdown();
+        }
+      }
     }
 
     public abstract CLUSTER newCluster(

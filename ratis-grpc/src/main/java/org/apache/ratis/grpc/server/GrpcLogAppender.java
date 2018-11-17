@@ -206,10 +206,19 @@ public class GrpcLogAppender extends LogAppender {
      */
     @Override
     public void onNext(AppendEntriesReplyProto reply) {
-      LOG.debug("{} received {} response from {}", server.getId(),
-          (!firstResponseReceived ? "the first" : "a"),
-          follower.getPeer());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("{}<-{}: received {} reply {} ", server.getId(), follower.getPeer(),
+            (!firstResponseReceived? "the first": "a"), ServerProtoUtils.toString(reply));
+      }
 
+      try {
+        onNextImpl(reply);
+      } catch(Throwable t) {
+        LOG.error("Failed onNext " + reply, t);
+      }
+    }
+
+    private void onNextImpl(AppendEntriesReplyProto reply) {
       // update the last rpc time
       follower.updateLastRpcResponseTime();
 
@@ -428,8 +437,7 @@ public class GrpcLogAppender extends LogAppender {
     }
 
     if (responseHandler.hasAllResponse()) {
-      follower.updateMatchIndex(snapshot.getTermIndex().getIndex());
-      follower.updateNextIndex(snapshot.getTermIndex().getIndex() + 1);
+      follower.setSnapshotIndex(snapshot.getTermIndex().getIndex());
       LOG.info("{}: install snapshot-{} successfully on follower {}",
           server.getId(), snapshot.getTermIndex().getIndex(), follower.getPeer());
     }

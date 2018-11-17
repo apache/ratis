@@ -67,6 +67,11 @@ public interface JavaUtils {
     return t;
   }
 
+  static StackTraceElement getCallerStackTraceElement() {
+    final StackTraceElement[] trace = Thread.currentThread().getStackTrace();
+    return trace[3];
+  }
+
   /**
    * Invoke {@link Callable#call()} and, if there any,
    * wrap the checked exception by {@link RuntimeException}.

@@ -262,7 +262,7 @@ public class LogAppender {
 
   protected void updateCommitIndex(long commitIndex) {
     if (follower.updateCommitIndex(commitIndex)) {
-      server.commitIndexChanged();
+      leaderState.commitIndexChanged();
     }
   }
 
@@ -398,8 +398,7 @@ public class LogAppender {
     }
 
     if (reply != null) {
-      follower.updateMatchIndex(snapshot.getTermIndex().getIndex());
-      follower.updateNextIndex(snapshot.getTermIndex().getIndex() + 1);
+      follower.setSnapshotIndex(snapshot.getTermIndex().getIndex());
       LOG.info("{}: install snapshot-{} successfully on follower {}",
           server.getId(), snapshot.getTermIndex().getIndex(), follower.getPeer());
     }

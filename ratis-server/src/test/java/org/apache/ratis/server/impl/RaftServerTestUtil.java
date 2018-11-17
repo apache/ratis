@@ -17,11 +17,13 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.log4j.Level;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.slf4j.Logger;
@@ -34,6 +36,10 @@ import java.util.stream.Stream;
 
 public class RaftServerTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftServerTestUtil.class);
+
+  public static void setWatchRequestsLogLevel(Level level) {
+    LogUtils.setLogLevel(WatchRequests.LOG, level);
+  }
 
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,
       RaftPeer[] peers, int numOfRemovedPeers, Collection<String> deadPeers)

@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
@@ -76,6 +77,9 @@ public class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase
           server.appendEntriesAsync(request).thenCombine(previous,
               (reply, v) -> {
             if (!isClosed.get()) {
+              if (LOG.isDebugEnabled()) {
+                LOG.debug(server.getId() + ": reply " + ServerProtoUtils.toString(reply));
+              }
               responseObserver.onNext(reply);
             }
             current.complete(null);
