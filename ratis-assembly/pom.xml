@@ -136,7 +136,7 @@
     <!-- Intra-project dependencies -->
     <dependency>
       <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-thirdparty</artifactId>
+      <artifactId>ratis-thirdparty-misc</artifactId>
     </dependency>
     <dependency>
       <artifactId>ratis-proto</artifactId>

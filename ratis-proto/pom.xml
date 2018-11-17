@@ -185,7 +185,7 @@
   <dependencies>
     <dependency>
       <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-thirdparty</artifactId>
+      <artifactId>ratis-thirdparty-misc</artifactId>
     </dependency>
   </dependencies>
 </project>
