@@ -168,7 +168,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       return false;
     }
     LOG.info("{}: start {}", getId(), groupId);
-    state.start();
     RaftConfiguration conf = getRaftConf();
     if (conf != null && conf.contains(getId())) {
       LOG.debug("{} starts as a follower, conf={}", getId(), conf);
@@ -179,6 +178,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
 
     registerMBean(getId(), getGroupId(), jmxAdapter, jmxAdapter);
+    state.start();
     return true;
   }
 
@@ -481,9 +481,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
       // append the message to its local log
       final LeaderState leaderState = role.getLeaderStateNonNull();
-      final long entryIndex;
       try {
-        entryIndex = state.applyLog(context);
+        state.appendLog(context);
       } catch (StateMachineException e) {
         // the StateMachineException is thrown by the SM in the preAppend stage.
         // Return the exception in a RaftClientReply.
@@ -497,7 +496,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
 
       // put the request into the pending queue
-      pending = leaderState.addPendingRequest(entryIndex, request, context);
+      pending = leaderState.addPendingRequest(request, context);
       leaderState.notifySenders();
     }
     return pending.getFuture();

@@ -38,7 +38,7 @@ public abstract class RaftServerRpcWithProxy<PROXY extends Closeable, PROXIES ex
 
   public RaftServerRpcWithProxy(Supplier<RaftPeerId> idSupplier, Function<RaftPeerId, PROXIES> proxyCreater) {
     this.idSupplier = idSupplier;
-    this.lifeCycleSupplier = JavaUtils.memoize(() -> new LifeCycle(getId()));
+    this.lifeCycleSupplier = JavaUtils.memoize(() -> new LifeCycle(getId() + "-" + getClass().getSimpleName()));
     this.proxiesSupplier = JavaUtils.memoize(() -> proxyCreater.apply(getId()));
   }
 

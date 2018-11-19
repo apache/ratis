@@ -75,6 +75,8 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     final RaftLog leaderLog = leader.getState().getLog();
     final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
     final LogEntryProto e = leaderLog.get(lastIndex);
+    Assert.assertTrue(e.hasMetadataEntry());
+    Assert.assertEquals(leaderLog.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
 
     final LogEntryProto[] entries = SimpleStateMachine4Testing.get(leader).getContent();
     long message = 0;

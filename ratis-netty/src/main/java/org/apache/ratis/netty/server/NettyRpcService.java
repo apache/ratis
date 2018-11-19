@@ -48,7 +48,6 @@ import org.apache.ratis.util.ProtoUtils;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.ClosedChannelException;
 import java.util.Objects;
 
 /**
@@ -130,8 +129,12 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
   }
 
   @Override
-  public void startImpl() {
-    channelFuture.syncUninterruptibly();
+  public void startImpl() throws IOException {
+    try {
+      channelFuture.syncUninterruptibly();
+    } catch(Throwable t) {
+      throw new IOException(getId() + ": Failed to start " + getClass().getSimpleName(), t);
+    }
   }
 
   @Override

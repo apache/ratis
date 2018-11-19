@@ -291,10 +291,12 @@ public class LeaderState {
     return pending;
   }
 
-  PendingRequest addPendingRequest(long index, RaftClientRequest request,
-      TransactionContext entry) {
-    LOG.debug("{}: addPendingRequest at index={}, request={}", server.getId(), index, request);
-    return pendingRequests.addPendingRequest(index, request, entry);
+  PendingRequest addPendingRequest(RaftClientRequest request, TransactionContext entry) {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("{}: addPendingRequest at {}, entry=", server.getId(), request,
+          ServerProtoUtils.toLogEntryString(entry.getLogEntry()));
+    }
+    return pendingRequests.add(request, entry);
   }
 
   CompletableFuture<Void> addWatchReqeust(RaftClientRequest request) {
@@ -573,6 +575,7 @@ public class LeaderState {
           oldLastCommitted + 1, majority + 1);
       if (server.getState().updateStatemachine(majority, currentTerm)) {
         watchRequests.update(ReplicationLevel.MAJORITY, majority);
+        logMetadata(majority);
         commitIndexChanged();
       }
       checkAndUpdateConfiguration(entriesToCommit);
@@ -580,6 +583,11 @@ public class LeaderState {
 
     watchRequests.update(ReplicationLevel.ALL, min);
     pendingRequests.checkDelayedReplies(min);
+  }
+
+  private void logMetadata(long commitIndex) {
+    raftLog.appendMetadata(currentTerm, commitIndex);
+    notifySenders();
   }
 
   private boolean committedConf(TermIndex[] entries) {

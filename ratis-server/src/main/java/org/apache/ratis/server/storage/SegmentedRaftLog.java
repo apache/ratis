@@ -110,20 +110,17 @@ public class SegmentedRaftLog extends RaftLog {
   SegmentedRaftLog(RaftPeerId selfId, RaftServerImpl server,
       StateMachine stateMachine, Runnable submitUpdateCommitEvent,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
-    super(selfId, RaftServerConfigKeys.Log.Appender.bufferCapacity(properties)
-        .getSizeInt());
+    super(selfId, lastIndexInSnapshot, RaftServerConfigKeys.Log.Appender.bufferCapacity(properties).getSizeInt());
     this.server = server;
     this.storage = storage;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     cache = new RaftLogCache(selfId, storage, properties);
     this.fileLogWorker = new RaftLogWorker(selfId, stateMachine, submitUpdateCommitEvent, storage, properties);
-    lastCommitted.set(lastIndexInSnapshot);
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties);
   }
 
   @Override
-  public void open(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer)
-      throws IOException {
+  protected void openImpl(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer) throws IOException {
     loadLogSegments(lastIndexInSnapshot, consumer);
     File openSegmentFile = null;
     LogSegment openSegment = cache.getOpenSegment();
@@ -133,7 +130,6 @@ public class SegmentedRaftLog extends RaftLog {
     }
     fileLogWorker.start(Math.max(cache.getEndIndex(), lastIndexInSnapshot),
         openSegmentFile);
-    super.open(lastIndexInSnapshot, consumer);
   }
 
   @Override

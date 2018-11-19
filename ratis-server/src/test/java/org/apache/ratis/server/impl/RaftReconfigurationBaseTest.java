@@ -25,6 +25,7 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.storage.RaftLog;
@@ -396,8 +397,11 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       // no real configuration change in the request
       final RaftClientReply reply = client.setConfiguration(cluster.getPeers().toArray(RaftPeer.emptyArray()));
       Assert.assertTrue(reply.isSuccess());
-      Assert.assertEquals(committedIndex, cluster.getLeader().getState()
-          .getLog().getLastCommittedIndex());
+      final long newCommittedIndex = leaderLog.getLastCommittedIndex();
+      for(long i = committedIndex + 1; i <= newCommittedIndex; i++) {
+        final LogEntryProto e = leaderLog.get(i);
+        Assert.assertTrue(e.hasMetadataEntry());
+      }
       Assert.assertSame(confBefore, cluster.getLeader().getRaftConf());
       client.close();
     }

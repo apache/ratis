@@ -103,6 +103,18 @@ interface RaftLogSequentialOps {
   long append(long term, RaftConfiguration configuration);
 
   /**
+   * Append asynchronously a log entry for the given term and commit index
+   * unless the given commit index is an index of a metadata entry
+   * Used by the leader.
+   *
+   * Note that the underlying I/O operation is submitted but may not be completed when this method returns.
+   *
+   * @return the index of the new log entry if it is appended;
+   *         otherwise, return {@link org.apache.ratis.server.impl.RaftServerConstants#INVALID_LOG_INDEX}.
+   */
+  long appendMetadata(long term, long commitIndex);
+
+  /**
    * Append asynchronously an entry.
    * Used by the leader and the followers.
    */

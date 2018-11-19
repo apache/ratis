@@ -22,9 +22,13 @@ import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.examples.ParameterizedBaseTest;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.ServerState;
+import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.LogUtils;
@@ -38,9 +42,11 @@ import org.junit.runners.Parameterized;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -95,7 +101,7 @@ public class TestBatchAppend extends BaseTest {
       for (int i = 0; i < num; i++) {
         for (int j = 0; j < 6; j++) {
           byte[] bytes = new byte[1024 * (j + 1)];
-          Arrays.fill(bytes, (byte) j);
+          Arrays.fill(bytes, (byte) (j + '0'));
           msgs[i * 6 + j] = new SimpleMessage(new String(bytes));
         }
       }
@@ -144,18 +150,20 @@ public class TestBatchAppend extends BaseTest {
 
     latch.countDown();
 
-    senders.forEach(sender -> {
-      try {
-        sender.join();
-      } catch (InterruptedException ignored) {
-      }
-    });
-
     for (Sender s : senders) {
+      s.join();
       Assert.assertTrue(s.succeed.get());
     }
 
-    Assert.assertEquals(6 * numMsgs * numClients,
-        cluster.getLeader().getState().getLastAppliedIndex());
+    final ServerState leaderState = cluster.getLeader().getState();
+    final RaftLog leaderLog = leaderState.getLog();
+    final EnumMap<LogEntryBodyCase, AtomicLong> counts = RaftTestUtil.countEntries(leaderLog);
+    LOG.info("counts = " + counts);
+    Assert.assertEquals(6 * numMsgs * numClients, counts.get(LogEntryBodyCase.STATEMACHINELOGENTRY).get());
+
+    final LogEntryProto lastStateMachineEntry = RaftTestUtil.getLastEntry(LogEntryBodyCase.STATEMACHINELOGENTRY, leaderLog);
+    LOG.info("lastStateMachineEntry = " + lastStateMachineEntry);
+    Assert.assertTrue(lastStateMachineEntry.getIndex() <= leaderState.getLastAppliedIndex());
+
   }
 }

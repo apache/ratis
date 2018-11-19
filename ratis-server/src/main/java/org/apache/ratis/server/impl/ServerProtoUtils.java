@@ -70,6 +70,9 @@ public interface ServerProtoUtils {
       final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
       final ByteString clientId = smLog.getClientId();
       s = ", " + (clientId.isEmpty()? "<empty clientId>": ClientId.valueOf(clientId)) + ", cid=" + smLog.getCallId();
+    } else if (entry.hasMetadataEntry()) {
+      final MetadataProto metadata = entry.getMetadataEntry();
+      s = "(c" + metadata.getCommitIndex() + ")";
     } else {
       s = "";
     }
@@ -127,6 +130,18 @@ public interface ServerProtoUtils {
         .setIndex(index)
         .setStateMachineLogEntry(smLog)
         .build();
+  }
+
+  static LogEntryProto toLogEntryProto(long commitIndex, long term, long index) {
+    return LogEntryProto.newBuilder()
+        .setTerm(term)
+        .setIndex(index)
+        .setMetadataEntry(toMetadataEntryBuilder(commitIndex))
+        .build();
+  }
+
+  static MetadataProto.Builder toMetadataEntryBuilder(long commitIndex) {
+    return MetadataProto.newBuilder().setCommitIndex(commitIndex);
   }
 
   static StateMachineEntryProto.Builder toStateMachineEntryProtoBuilder(ByteString stateMachineData) {

@@ -165,7 +165,7 @@ public class RaftServerProxy implements RaftServer {
 
     this.serverRpc = factory.newRaftServerRpc(this);
     this.id = id != null? id: RaftPeerId.valueOf(getIdStringFrom(serverRpc));
-    this.lifeCycle = new LifeCycle(this.id);
+    this.lifeCycle = new LifeCycle(this.id + "-" + getClass().getSimpleName());
   }
 
   /** Check the storage dir and add groups*/

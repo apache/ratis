@@ -19,6 +19,7 @@ package org.apache.ratis;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
@@ -33,6 +34,7 @@ import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -45,6 +47,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -192,6 +195,8 @@ public interface RaftTestUtil {
         entries.add(e);
       } else if (e.hasConfigurationEntry()) {
         LOG.info("Found ConfigurationEntry at {}, ignoring it.", ti);
+      } else if (e.hasMetadataEntry()) {
+        LOG.info("Found MetadataEntry at {}, ignoring it.", ti);
       } else {
         throw new AssertionError("Unexpected LogEntryBodyCase " + e.getLogEntryBodyCase() + " at " + ti
             + ": " + ServerProtoUtils.toString(e));
@@ -390,5 +395,27 @@ public interface RaftTestUtil {
     for(long i = 0; i < lastIndex; i++) {
       Assert.assertEquals(expected.get(i), computed.get(i));
     }
+  }
+
+  static EnumMap<LogEntryBodyCase, AtomicLong> countEntries(RaftLog raftLog) throws Exception {
+    final EnumMap<LogEntryBodyCase, AtomicLong> counts = new EnumMap<>(LogEntryBodyCase.class);
+    for(long i = 0; i < raftLog.getNextIndex(); i++) {
+      final LogEntryProto e = raftLog.get(i);
+      counts.computeIfAbsent(e.getLogEntryBodyCase(), c -> new AtomicLong()).incrementAndGet();
+    }
+    return counts;
+  }
+
+  static LogEntryProto getLastEntry(LogEntryBodyCase targetCase, RaftLog raftLog) throws Exception {
+    try(AutoCloseableLock readLock = raftLog.readLock()) {
+      long i = raftLog.getNextIndex() - 1;
+      for(; i >= 0; i--) {
+        final LogEntryProto entry = raftLog.get(i);
+        if (entry.getLogEntryBodyCase() == targetCase) {
+          return entry;
+        }
+      }
+    }
+    return null;
   }
 }

@@ -183,7 +183,7 @@ public class ServerState implements Closeable {
     if (RaftServerConfigKeys.Log.useMemory(prop)) {
       final int maxBufferSize =
           RaftServerConfigKeys.Log.Appender.bufferCapacity(prop).getSizeInt();
-      log = new MemoryRaftLog(id, maxBufferSize);
+      log = new MemoryRaftLog(id, lastIndexInSnapshot, maxBufferSize);
     } else {
       log = new SegmentedRaftLog(id, server, this.storage,
           lastIndexInSnapshot, prop);
@@ -278,8 +278,9 @@ public class ServerState implements Closeable {
     return log;
   }
 
-  long applyLog(TransactionContext operation) throws StateMachineException {
-    return log.append(currentTerm, operation);
+  void appendLog(TransactionContext operation) throws StateMachineException {
+    log.append(currentTerm, operation);
+    Objects.requireNonNull(operation.getLogEntry());
   }
 
   /**

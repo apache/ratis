@@ -37,10 +37,11 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+
 /**
  * Base class of RaftLog. Currently we provide two types of RaftLog
  * implementation:
@@ -53,12 +54,14 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
   public static final String LOG_SYNC = RaftLog.class.getSimpleName() + ".logSync";
 
+  private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", getSelfId(), s);
+  private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", getSelfId(), s);
+
   /**
    * The largest committed index. Note the last committed log may be included
    * in the latest snapshot file.
    */
-  protected final AtomicLong lastCommitted =
-      new AtomicLong(RaftServerConstants.INVALID_LOG_INDEX);
+  private final RaftLogIndex commitIndex;
   private final RaftPeerId selfId;
   private final int maxBufferSize;
 
@@ -66,14 +69,17 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   private final Runner runner = new Runner(this::getName);
   private final OpenCloseState state;
 
-  public RaftLog(RaftPeerId selfId, int maxBufferSize) {
+  private volatile LogEntryProto lastMetadataEntry = null;
+
+  public RaftLog(RaftPeerId selfId, long commitIndex, int maxBufferSize) {
     this.selfId = selfId;
+    this.commitIndex = new RaftLogIndex("commitIndex", commitIndex);
     this.maxBufferSize = maxBufferSize;
     this.state = new OpenCloseState(getName());
   }
 
   public long getLastCommittedIndex() {
-    return lastCommitted.get();
+    return commitIndex.get();
   }
 
   public void checkLogState() {
@@ -88,16 +94,15 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
    */
   public boolean updateLastCommitted(long majorityIndex, long currentTerm) {
     try(AutoCloseableLock writeLock = writeLock()) {
-      final long oldCommittedIndex = lastCommitted.get();
+      final long oldCommittedIndex = getLastCommittedIndex();
       if (oldCommittedIndex < majorityIndex) {
         // Only update last committed index for current term. See §5.4.2 in
         // paper for details.
         final TermIndex entry = getTermIndex(majorityIndex);
         if (entry != null && entry.getTerm() == currentTerm) {
-          final long commitIndex = Math.min(majorityIndex, getLatestFlushedIndex());
-          if (commitIndex > oldCommittedIndex) {
-            LOG.debug("{}: updateLastCommitted {} -> {}", selfId, oldCommittedIndex, commitIndex);
-            lastCommitted.set(commitIndex);
+          final long newCommitIndex = Math.min(majorityIndex, getLatestFlushedIndex());
+          if (newCommitIndex > oldCommittedIndex) {
+            commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);
           }
           return true;
         }
@@ -165,6 +170,48 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   }
 
   @Override
+  public final long appendMetadata(long term, long newCommitIndex) {
+    return runner.runSequentially(() -> appendMetadataImpl(term, newCommitIndex));
+  }
+
+  private long appendMetadataImpl(long term, long newCommitIndex) {
+    checkLogState();
+    if (!shouldAppendMetadata(newCommitIndex)) {
+      return RaftServerConstants.INVALID_LOG_INDEX;
+    }
+
+    final LogEntryProto entry;
+    final long nextIndex;
+    try(AutoCloseableLock writeLock = writeLock()) {
+      nextIndex = getNextIndex();
+      entry = ServerProtoUtils.toLogEntryProto(newCommitIndex, term, nextIndex);
+      appendEntry(entry);
+    }
+    lastMetadataEntry = entry;
+    return nextIndex;
+  }
+
+  private boolean shouldAppendMetadata(long newCommitIndex) {
+    if (newCommitIndex <= 0) {
+      // do not log the first conf entry
+      return false;
+    } else if (Optional.ofNullable(lastMetadataEntry)
+        .filter(e -> e.getIndex() == newCommitIndex || e.getMetadataEntry().getCommitIndex() >= newCommitIndex)
+        .isPresent()) {
+      //log neither lastMetadataEntry, nor entries with a smaller commit index.
+      return false;
+    }
+    try {
+      if (get(newCommitIndex).hasMetadataEntry()) {
+        // do not log the metadata entry
+        return false;
+      }
+    } catch(RaftLogIOException e) {
+      LOG.error("Failed to get log entry for index " + newCommitIndex, e);
+    }
+    return true;
+  }
+  @Override
   public final long append(long term, RaftConfiguration configuration) {
     return runner.runSequentially(() -> appendImpl(term, configuration));
   }
@@ -180,9 +227,20 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     }
   }
 
-  public void open(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer)
-      throws IOException {
+  public final void open(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer) throws IOException {
+    openImpl(lastIndexInSnapshot, e -> {
+      if (e.hasMetadataEntry()) {
+        lastMetadataEntry = e;
+      } else if (consumer != null) {
+        consumer.accept(e);
+      }
+    });
+    Optional.ofNullable(lastMetadataEntry).ifPresent(
+        e -> commitIndex.updateIncreasingly(e.getMetadataEntry().getCommitIndex(), infoIndexChange));
     state.open();
+  }
+
+  protected void openImpl(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer) throws IOException {
   }
 
   public abstract long getStartIndex();
@@ -230,7 +288,10 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   /**
    * Validate the term and index of entry w.r.t RaftLog
    */
-  public void validateLogEntry(LogEntryProto entry) {
+  void validateLogEntry(LogEntryProto entry) {
+    if (entry.hasMetadataEntry()) {
+      return;
+    }
     TermIndex lastTermIndex = getLastEntryTermIndex();
     if (lastTermIndex != null) {
       Preconditions.assertTrue(entry.getTerm() >= lastTermIndex.getTerm(),

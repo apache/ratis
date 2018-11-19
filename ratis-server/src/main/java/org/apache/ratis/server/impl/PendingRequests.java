@@ -134,8 +134,6 @@ class PendingRequests {
   private PendingRequest pendingSetConf;
   private final String name;
   private final RequestMap pendingRequests;
-  private PendingRequest last = null;
-
   private final DelayedReplies delayedReplies;
 
   PendingRequests(RaftPeerId id) {
@@ -144,29 +142,19 @@ class PendingRequests {
     this.delayedReplies = new DelayedReplies(id);
   }
 
-  PendingRequest addPendingRequest(long index, RaftClientRequest request,
-      TransactionContext entry) {
+  PendingRequest add(RaftClientRequest request, TransactionContext entry) {
     // externally synced for now
     Preconditions.assertTrue(request.is(RaftClientRequestProto.TypeCase.WRITE));
-    if (last != null && !(last.getRequest() instanceof SetConfigurationRequest)) {
-      Preconditions.assertTrue(index == last.getIndex() + 1,
-          () -> "index = " + index + " != last.getIndex() + 1, last=" + last);
-    }
-    return add(index, request, entry);
-  }
-
-  private PendingRequest add(long index, RaftClientRequest request,
-      TransactionContext entry) {
+    final long index = entry.getLogEntry().getIndex();
+    LOG.debug("{}: addPendingRequest at index={}, request={}", name, index, request);
     final PendingRequest pending = new PendingRequest(index, request, entry);
     pendingRequests.put(index, pending);
-    last = pending;
     return pending;
   }
 
   PendingRequest addConfRequest(SetConfigurationRequest request) {
     Preconditions.assertTrue(pendingSetConf == null);
     pendingSetConf = new PendingRequest(request);
-    last = pendingSetConf;
     return pendingSetConf;
   }
 
