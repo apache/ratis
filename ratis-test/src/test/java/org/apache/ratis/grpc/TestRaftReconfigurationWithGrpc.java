@@ -22,15 +22,10 @@ import org.apache.ratis.grpc.server.GrpcServerProtocolService;
 import org.apache.ratis.server.impl.RaftReconfigurationBaseTest;
 import org.apache.ratis.util.LogUtils;
 
-import java.io.IOException;
-
-public class TestRaftReconfigurationWithGrpc extends RaftReconfigurationBaseTest {
+public class TestRaftReconfigurationWithGrpc
+    extends RaftReconfigurationBaseTest<MiniRaftClusterWithGrpc>
+    implements MiniRaftClusterWithGrpc.FactoryGet {
   static {
     LogUtils.setLogLevel(GrpcServerProtocolService.LOG, Level.DEBUG);
-  }
-
-  @Override
-  public MiniRaftClusterWithGrpc getCluster(int peerNum) {
-    return MiniRaftClusterWithGrpc.FACTORY.newCluster(peerNum, prop);
   }
 }

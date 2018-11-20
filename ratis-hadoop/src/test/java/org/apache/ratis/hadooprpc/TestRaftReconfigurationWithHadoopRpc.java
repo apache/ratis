@@ -30,16 +30,17 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONN
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONNECT_TIMEOUT_KEY;
 
 public class TestRaftReconfigurationWithHadoopRpc
-    extends RaftReconfigurationBaseTest {
+    extends RaftReconfigurationBaseTest<MiniRaftClusterWithHadoopRpc>
+    implements MiniRaftClusterWithHadoopRpc.Factory.Get {
   static {
     ((Log4JLogger) Client.LOG).getLogger().setLevel(Level.ERROR);
   }
 
   @Override
-  public MiniRaftCluster getCluster(int peerNum) throws IOException {
+  public MiniRaftClusterWithHadoopRpc newCluster(int numPeers) {
     final Configuration hadoopConf = new Configuration();
     hadoopConf.setInt(IPC_CLIENT_CONNECT_TIMEOUT_KEY, 1000);
     hadoopConf.setInt(IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, 0);
-    return MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(peerNum, prop, hadoopConf);
+    return MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(numPeers, getProperties(), hadoopConf);
   }
 }

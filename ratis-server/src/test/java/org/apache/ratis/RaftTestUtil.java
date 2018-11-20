@@ -102,13 +102,13 @@ public interface RaftTestUtil {
     }
   }
 
-  static String waitAndKillLeader(MiniRaftCluster cluster) throws InterruptedException {
+  static RaftPeerId waitAndKillLeader(MiniRaftCluster cluster) throws InterruptedException {
     final RaftServerImpl leader = waitForLeader(cluster);
     Assert.assertNotNull(leader);
 
     LOG.info("killing leader = " + leader);
     cluster.killServer(leader.getId());
-    return leader.getId().toString();
+    return leader.getId();
   }
 
   static boolean logEntriesContains(RaftLog log, SimpleMessage... expectedMessages) {

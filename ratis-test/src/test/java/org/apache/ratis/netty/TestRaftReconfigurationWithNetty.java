@@ -17,15 +17,9 @@
  */
 package org.apache.ratis.netty;
 
-import java.io.IOException;
-
-import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftReconfigurationBaseTest;
 
 public class TestRaftReconfigurationWithNetty
-    extends RaftReconfigurationBaseTest {
-  @Override
-  public MiniRaftCluster getCluster(int peerNum) throws IOException {
-    return MiniRaftClusterWithNetty.FACTORY.newCluster(peerNum, prop);
-  }
+    extends RaftReconfigurationBaseTest<MiniRaftClusterWithNetty>
+    implements MiniRaftClusterWithNetty.FactoryGet {
 }

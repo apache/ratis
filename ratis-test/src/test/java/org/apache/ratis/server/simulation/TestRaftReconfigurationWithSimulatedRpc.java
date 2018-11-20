@@ -17,15 +17,9 @@
  */
 package org.apache.ratis.server.simulation;
 
-import java.io.IOException;
-
-import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.server.impl.RaftReconfigurationBaseTest;
 
 public class TestRaftReconfigurationWithSimulatedRpc
-    extends RaftReconfigurationBaseTest {
-  @Override
-  public MiniRaftCluster getCluster(int peerNum) throws IOException {
-    return MiniRaftClusterWithSimulatedRpc.FACTORY.newCluster(peerNum, prop);
-  }
+    extends RaftReconfigurationBaseTest<MiniRaftClusterWithSimulatedRpc>
+    implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
 }

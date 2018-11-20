@@ -22,6 +22,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -42,14 +43,14 @@ public class RaftServerTestUtil {
   }
 
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,
-      RaftPeer[] peers, int numOfRemovedPeers, Collection<String> deadPeers)
+      RaftPeer[] peers, int numOfRemovedPeers, Collection<RaftPeerId> deadPeers)
       throws Exception {
     final TimeDuration sleepTime = cluster.getTimeoutMax().apply(n -> n * (numOfRemovedPeers + 2));
     JavaUtils.attempt(() -> waitAndCheckNewConf(cluster, peers, deadPeers),
         10, sleepTime, "waitAndCheckNewConf", LOG);
   }
   private static void waitAndCheckNewConf(MiniRaftCluster cluster,
-      RaftPeer[] peers, Collection<String> deadPeers) {
+      RaftPeer[] peers, Collection<RaftPeerId> deadPeers) {
     LOG.info("waitAndCheckNewConf: peers={}, deadPeers={}, {}", Arrays.asList(peers), deadPeers, cluster.printServers());
     Assert.assertNotNull(cluster.getLeader());
 
@@ -59,7 +60,7 @@ public class RaftServerTestUtil {
         .setConf(peers).setLogEntryIndex(0).build();
     for (RaftServerImpl server : cluster.iterateServerImpls()) {
       LOG.info("checking {}", server);
-      if (deadPeers != null && deadPeers.contains(server.getId().toString())) {
+      if (deadPeers != null && deadPeers.contains(server.getId())) {
         if (current.containsInConf(server.getId())) {
           deadIncluded++;
         }
