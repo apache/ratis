@@ -165,6 +165,15 @@ public interface RaftServerConfigKeys {
       static void setSync(RaftProperties properties, boolean sync) {
         setBoolean(properties::setBoolean, SYNC_KEY, sync);
       }
+      String CACHING_ENABLED_KEY = PREFIX + ".caching.enabled";
+      boolean CACHING_ENABLED_DEFAULT = false;
+      static boolean cachingEnabled(RaftProperties properties) {
+        return getBoolean(properties::getBoolean,
+            CACHING_ENABLED_KEY, CACHING_ENABLED_DEFAULT, getDefaultLog());
+      }
+      static void setCachingEnabled(RaftProperties properties, boolean enable) {
+        setBoolean(properties::setBoolean, CACHING_ENABLED_KEY, enable);
+      }
 
       String SYNC_TIMEOUT_KEY = PREFIX + ".sync.timeout";
       TimeDuration SYNC_TIMEOUT_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);

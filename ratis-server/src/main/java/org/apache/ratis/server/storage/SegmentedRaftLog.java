@@ -98,6 +98,7 @@ public class SegmentedRaftLog extends RaftLog {
   private final RaftLogCache cache;
   private final RaftLogWorker fileLogWorker;
   private final long segmentMaxSize;
+  private final boolean stateMachineCachingEnabled;
 
   public SegmentedRaftLog(RaftPeerId selfId, RaftServerImpl server,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
@@ -117,6 +118,7 @@ public class SegmentedRaftLog extends RaftLog {
     cache = new RaftLogCache(selfId, storage, properties);
     this.fileLogWorker = new RaftLogWorker(selfId, stateMachine, submitUpdateCommitEvent, storage, properties);
     lastCommitted.set(lastIndexInSnapshot);
+    stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties);
   }
 
   @Override
@@ -298,7 +300,12 @@ public class SegmentedRaftLog extends RaftLog {
       // will leave a spurious entry in the cache.
       CompletableFuture<Long> writeFuture =
           fileLogWorker.writeLogEntry(entry).getFuture();
-      cache.appendEntry(entry);
+      if (stateMachineCachingEnabled) {
+        // The stateMachineData will be cached inside the StateMachine itself.
+        cache.appendEntry(ServerProtoUtils.removeStateMachineData(entry));
+      } else {
+        cache.appendEntry(entry);
+      }
       return writeFuture;
     } catch (Throwable throwable) {
       LOG.error(getSelfId() + "exception while appending entry with index:" +
