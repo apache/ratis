@@ -21,6 +21,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.ratis.server.storage.RaftLogCache.LogSegmentList;
+import org.apache.ratis.util.AutoCloseableLock;
+
 public interface CacheInvalidationPolicy {
   /**
    * Determine which log segments should evict their log entry cache
@@ -34,13 +37,21 @@ public interface CacheInvalidationPolicy {
    * @return the log segments that should evict cache
    */
   List<LogSegment> evict(long[] followerNextIndices, long localFlushedIndex,
-      long lastAppliedIndex, List<LogSegment> segments, int maxCachedSegments);
+      long lastAppliedIndex, LogSegmentList segments, int maxCachedSegments);
 
   class CacheInvalidationPolicyDefault implements CacheInvalidationPolicy {
     @Override
     public List<LogSegment> evict(long[] followerNextIndices,
         long localFlushedIndex, long lastAppliedIndex,
-        List<LogSegment> segments, final int maxCachedSegments) {
+        LogSegmentList segments, final int maxCachedSegments) {
+      try(AutoCloseableLock readLock = segments.readLock()) {
+        return evictImpl(followerNextIndices, localFlushedIndex, lastAppliedIndex, segments, maxCachedSegments);
+      }
+    }
+
+    private List<LogSegment> evictImpl(long[] followerNextIndices,
+        long localFlushedIndex, long lastAppliedIndex,
+        LogSegmentList segments, final int maxCachedSegments) {
       List<LogSegment> result = new ArrayList<>();
       int safeIndex = segments.size() - 1;
       for (; safeIndex >= 0; safeIndex--) {

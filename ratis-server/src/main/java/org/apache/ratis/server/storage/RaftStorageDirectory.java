@@ -210,9 +210,7 @@ public class RaftStorageDirectory {
         }
       }
     }
-    Collections.sort(list,
-        (o1, o2) -> o1.startIndex == o2.startIndex ?
-            0 : (o1.startIndex < o2.startIndex ? -1 : 1));
+    list.sort(Comparator.comparingLong(o -> o.startIndex));
     return list;
   }
 

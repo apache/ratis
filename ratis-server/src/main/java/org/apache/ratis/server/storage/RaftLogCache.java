@@ -21,17 +21,20 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
 import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
@@ -86,9 +89,159 @@ class RaftLogCache {
     }
   }
 
+  static class LogSegmentList {
+    private final List<LogSegment> segments = new ArrayList<>();
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
+
+    AutoCloseableLock readLock() {
+      return AutoCloseableLock.acquire(lock.readLock());
+    }
+
+    AutoCloseableLock writeLock() {
+      return AutoCloseableLock.acquire(lock.writeLock());
+    }
+
+    boolean isEmpty() {
+      try(AutoCloseableLock readLock = readLock()) {
+        return segments.isEmpty();
+      }
+    }
+
+    int size() {
+      try(AutoCloseableLock readLock = readLock()) {
+        return segments.size();
+      }
+    }
+
+    long countCached() {
+      try(AutoCloseableLock readLock = readLock()) {
+        return segments.stream().filter(LogSegment::hasCache).count();
+      }
+    }
+
+    LogSegment getLast() {
+      try(AutoCloseableLock readLock = readLock()) {
+        return segments.isEmpty()? null: segments.get(segments.size() - 1);
+      }
+    }
+
+    LogSegment get(int i) {
+      try(AutoCloseableLock readLock = readLock()) {
+        return segments.get(i);
+      }
+    }
+
+    int binarySearch(long index) {
+      try(AutoCloseableLock readLock = readLock()) {
+        return Collections.binarySearch(segments, index);
+      }
+    }
+
+    LogSegment search(long index) {
+      try(AutoCloseableLock readLock = readLock()) {
+        final int i = Collections.binarySearch(segments, index);
+        return i < 0? null: segments.get(i);
+      }
+    }
+
+    TermIndex[] getTermIndex(long startIndex, long realEnd, LogSegment openSegment) {
+      final TermIndex[] entries = new TermIndex[Math.toIntExact(realEnd - startIndex)];
+      final int searchIndex;
+      long index = startIndex;
+
+      try(AutoCloseableLock readLock = readLock()) {
+        searchIndex = Collections.binarySearch(segments, startIndex);
+        if (searchIndex >= 0) {
+          for(int i = searchIndex; i < segments.size() && index < realEnd; i++) {
+            final LogSegment s = segments.get(i);
+            final int numberFromSegment = Math.toIntExact(Math.min(realEnd - index, s.getEndIndex() - index + 1));
+            getFromSegment(s, index, entries, Math.toIntExact(index - startIndex), numberFromSegment);
+            index += numberFromSegment;
+          }
+        }
+      }
+
+      // openSegment is read outside the lock.
+      if (searchIndex < 0) {
+        getFromSegment(openSegment, startIndex, entries, 0, entries.length);
+      } else if (index < realEnd) {
+        getFromSegment(openSegment, index, entries,
+            Math.toIntExact(index - startIndex), Math.toIntExact(realEnd - index));
+      }
+      return entries;
+    }
+
+    boolean add(LogSegment logSegment) {
+      try(AutoCloseableLock writeLock = writeLock()) {
+        return segments.add(logSegment);
+      }
+    }
+
+    void clear() {
+      try(AutoCloseableLock writeLock = writeLock()) {
+        segments.forEach(LogSegment::clear);
+        segments.clear();
+      }
+    }
+
+    TruncationSegments truncate(long index, LogSegment openSegment, Runnable clearOpenSegment) {
+      try(AutoCloseableLock writeLock = writeLock()) {
+        final int segmentIndex = binarySearch(index);
+        if (segmentIndex == -segments.size() - 1) {
+          if (openSegment != null && openSegment.getEndIndex() >= index) {
+            final long oldEnd = openSegment.getEndIndex();
+            if (index == openSegment.getStartIndex()) {
+              // the open segment should be deleted
+              final SegmentFileInfo deleted = deleteOpenSegment(openSegment, clearOpenSegment);
+              return new TruncationSegments(null, Collections.singletonList(deleted));
+            } else {
+              openSegment.truncate(index);
+              Preconditions.assertTrue(!openSegment.isOpen());
+              final SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
+                  oldEnd, true, openSegment.getTotalSize(), openSegment.getEndIndex());
+              segments.add(openSegment);
+              clearOpenSegment.run();
+              return new TruncationSegments(info, Collections.emptyList());
+            }
+          }
+        } else if (segmentIndex >= 0) {
+          final LogSegment ts = segments.get(segmentIndex);
+          final long oldEnd = ts.getEndIndex();
+          final List<SegmentFileInfo> list = new ArrayList<>();
+          ts.truncate(index);
+          final int size = segments.size();
+          for(int i = size - 1;
+              i >= (ts.numOfEntries() == 0? segmentIndex: segmentIndex + 1);
+              i--) {
+            LogSegment s = segments.remove(i);
+            final long endOfS = i == segmentIndex? oldEnd: s.getEndIndex();
+            s.clear();
+            list.add(new SegmentFileInfo(s.getStartIndex(), endOfS, false, 0, s.getEndIndex()));
+          }
+          if (openSegment != null) {
+            list.add(deleteOpenSegment(openSegment, clearOpenSegment));
+          }
+          SegmentFileInfo t = ts.numOfEntries() == 0? null:
+              new SegmentFileInfo(ts.getStartIndex(), oldEnd, false, ts.getTotalSize(), ts.getEndIndex());
+          return new TruncationSegments(t, list);
+        }
+        return null;
+      }
+    }
+
+    static SegmentFileInfo deleteOpenSegment(LogSegment openSegment, Runnable clearOpenSegment) {
+      final long oldEnd = openSegment.getEndIndex();
+      openSegment.clear();
+      final SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(), oldEnd, true,
+          0, openSegment.getEndIndex());
+      clearOpenSegment.run();
+      return info;
+    }
+  }
+
   private final String name;
   private volatile LogSegment openSegment;
-  private final List<LogSegment> closedSegments;
+  private final LogSegmentList closedSegments = new LogSegmentList();
   private final RaftStorage storage;
 
   private final int maxCachedSegments;
@@ -98,7 +251,6 @@ class RaftLogCache {
     this.name = selfId + "-" + getClass().getSimpleName();
     this.storage = storage;
     maxCachedSegments = RaftServerConfigKeys.Log.maxCachedSegmentNum(properties);
-    closedSegments = new ArrayList<>();
   }
 
   int getMaxCachedSegments() {
@@ -115,11 +267,11 @@ class RaftLogCache {
   }
 
   long getCachedSegmentNum() {
-    return closedSegments.stream().filter(LogSegment::hasCache).count();
+    return closedSegments.countCached();
   }
 
   boolean shouldEvict() {
-    return getCachedSegmentNum() > maxCachedSegments;
+    return closedSegments.countCached() > maxCachedSegments;
   }
 
   void evictCache(long[] followerIndices, long flushedIndex,
@@ -131,13 +283,9 @@ class RaftLogCache {
     }
   }
 
-  private LogSegment getLastClosedSegment() {
-    return closedSegments.isEmpty() ?
-        null : closedSegments.get(closedSegments.size() - 1);
-  }
 
   private void validateAdding(LogSegment segment) {
-    final LogSegment lastClosed = getLastClosedSegment();
+    final LogSegment lastClosed = closedSegments.getLast();
     if (lastClosed != null) {
       Preconditions.assertTrue(!lastClosed.isOpen());
       Preconditions.assertTrue(lastClosed.getEndIndex() + 1 == segment.getStartIndex());
@@ -192,8 +340,7 @@ class RaftLogCache {
     if (openSegment != null && index >= openSegment.getStartIndex()) {
       return openSegment;
     } else {
-      int segmentIndex = Collections.binarySearch(closedSegments, index);
-      return segmentIndex < 0 ? null : closedSegments.get(segmentIndex);
+      return closedSegments.search(index);
     }
   }
 
@@ -219,31 +366,10 @@ class RaftLogCache {
     if (startIndex >= realEnd) {
       return TermIndex.EMPTY_TERMINDEX_ARRAY;
     }
-
-    TermIndex[] entries = new TermIndex[Math.toIntExact(realEnd - startIndex)];
-    int segmentIndex = Collections.binarySearch(closedSegments, startIndex);
-    if (segmentIndex < 0) {
-      getFromSegment(openSegment, startIndex, entries, 0, entries.length);
-    } else {
-      long index = startIndex;
-      for (int i = segmentIndex; i < closedSegments.size() && index < realEnd; i++) {
-        LogSegment s = closedSegments.get(i);
-        int numberFromSegment = Math.toIntExact(
-            Math.min(realEnd - index, s.getEndIndex() - index + 1));
-        getFromSegment(s, index, entries,
-            Math.toIntExact(index - startIndex), numberFromSegment);
-        index += numberFromSegment;
-      }
-      if (index < realEnd) {
-        getFromSegment(openSegment, index, entries,
-            Math.toIntExact(index - startIndex),
-            Math.toIntExact(realEnd - index));
-      }
-    }
-    return entries;
+    return closedSegments.getTermIndex(startIndex, realEnd, openSegment);
   }
 
-  private void getFromSegment(LogSegment segment, long startIndex,
+  private static void getFromSegment(LogSegment segment, long startIndex,
       TermIndex[] entries, int offset, int size) {
     long endIndex = segment.getEndIndex();
     endIndex = Math.min(endIndex, startIndex + size - 1);
@@ -289,66 +415,66 @@ class RaftLogCache {
     openSegment.appendToOpenSegment(entry);
   }
 
-  private SegmentFileInfo deleteOpenSegment() {
-    final long oldEnd = openSegment.getEndIndex();
-    openSegment.clear();
-    SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
-        oldEnd, true, 0, openSegment.getEndIndex());
-    clearOpenSegment();
-    return info;
-  }
-
   /**
    * truncate log entries starting from the given index (inclusive)
    */
   TruncationSegments truncate(long index) {
-    int segmentIndex = Collections.binarySearch(closedSegments, index);
-    if (segmentIndex == -closedSegments.size() - 1) {
-      if (openSegment != null && openSegment.getEndIndex() >= index) {
-        final long oldEnd = openSegment.getEndIndex();
-        if (index == openSegment.getStartIndex()) {
-          // the open segment should be deleted
-          return new TruncationSegments(null,
-              Collections.singletonList(deleteOpenSegment()));
-        } else {
-          openSegment.truncate(index);
-          Preconditions.assertTrue(!openSegment.isOpen());
-          SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
-              oldEnd, true, openSegment.getTotalSize(),
-              openSegment.getEndIndex());
-          closedSegments.add(openSegment);
-          clearOpenSegment();
-          return new TruncationSegments(info, Collections.emptyList());
-        }
-      }
-    } else if (segmentIndex >= 0) {
-      LogSegment ts = closedSegments.get(segmentIndex);
-      final long oldEnd = ts.getEndIndex();
-      List<SegmentFileInfo> list = new ArrayList<>();
-      ts.truncate(index);
-      final int size = closedSegments.size();
-      for (int i = size - 1;
-           i >= (ts.numOfEntries() == 0 ? segmentIndex : segmentIndex + 1);
-           i-- ) {
-        LogSegment s = closedSegments.remove(i);
-        final long endOfS = i == segmentIndex ? oldEnd : s.getEndIndex();
-        s.clear();
-        list.add(new SegmentFileInfo(s.getStartIndex(), endOfS, false, 0,
-            s.getEndIndex()));
-      }
-      if (openSegment != null) {
-        list.add(deleteOpenSegment());
-      }
-      SegmentFileInfo t = ts.numOfEntries() == 0 ? null :
-          new SegmentFileInfo(ts.getStartIndex(), oldEnd, false,
-              ts.getTotalSize(), ts.getEndIndex());
-      return new TruncationSegments(t, list);
-    }
-    return null;
+    return closedSegments.truncate(index, openSegment, this::clearOpenSegment);
   }
 
   Iterator<TermIndex> iterator(long startIndex) {
     return new EntryIterator(startIndex);
+  }
+
+  static class TruncateIndices {
+    final int arrayIndex;
+    final long truncateIndex;
+
+    TruncateIndices(int arrayIndex, long truncateIndex) {
+      this.arrayIndex = arrayIndex;
+      this.truncateIndex = truncateIndex;
+    }
+
+    int getArrayIndex() {
+      return arrayIndex;
+    }
+
+    long getTruncateIndex() {
+      return truncateIndex;
+    }
+  }
+
+  TruncateIndices computeTruncateIndices(Consumer<TermIndex> failClientRequest, LogEntryProto... entries) {
+    int arrayIndex = 0;
+    long truncateIndex = -1;
+
+    try(AutoCloseableLock readLock = closedSegments.readLock()) {
+      final Iterator<TermIndex> i = iterator(entries[0].getIndex());
+      for(; i.hasNext() && arrayIndex < entries.length; arrayIndex++) {
+        final TermIndex storedEntry = i.next();
+        Preconditions.assertTrue(storedEntry.getIndex() == entries[arrayIndex].getIndex(),
+            "The stored entry's index %s is not consistent with the received entries[%s]'s index %s",
+            storedEntry.getIndex(), arrayIndex, entries[arrayIndex].getIndex());
+
+        if (storedEntry.getTerm() != entries[arrayIndex].getTerm()) {
+          // we should truncate from the storedEntry's arrayIndex
+          truncateIndex = storedEntry.getIndex();
+          if (LOG.isTraceEnabled()) {
+            LOG.trace("{}: truncate to {}, arrayIndex={}, ti={}, storedEntry={}, entries={}",
+                name, truncateIndex, arrayIndex,
+                ServerProtoUtils.toTermIndex(entries[arrayIndex]), storedEntry,
+                ServerProtoUtils.toString(entries));
+          }
+
+          // fail all requests starting at truncateIndex
+          failClientRequest.accept(storedEntry);
+          for(; i.hasNext(); ) {
+            failClientRequest.accept(i.next());
+          }
+        }
+      }
+    }
+    return new TruncateIndices(arrayIndex, truncateIndex);
   }
 
   private class EntryIterator implements Iterator<TermIndex> {
@@ -358,7 +484,7 @@ class RaftLogCache {
 
     EntryIterator(long start) {
       this.nextIndex = start;
-      segmentIndex = Collections.binarySearch(closedSegments, nextIndex);
+      segmentIndex = closedSegments.binarySearch(nextIndex);
       if (segmentIndex >= 0) {
         currentSegment = closedSegments.get(segmentIndex);
       } else {
@@ -412,7 +538,6 @@ class RaftLogCache {
       openSegment.clear();
       clearOpenSegment();
     }
-    closedSegments.forEach(LogSegment::clear);
     closedSegments.clear();
   }
 }
