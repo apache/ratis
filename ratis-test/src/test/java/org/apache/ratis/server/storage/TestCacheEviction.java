@@ -21,6 +21,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -28,8 +29,8 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.storage.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
+import org.apache.ratis.server.storage.RaftLogCache.LogSegmentList;
 import org.apache.ratis.server.storage.TestSegmentedRaftLog.SegmentRange;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.SizeInBytes;
@@ -46,9 +47,9 @@ import java.util.concurrent.CompletableFuture;
 public class TestCacheEviction extends BaseTest {
   private static final CacheInvalidationPolicy policy = new CacheInvalidationPolicyDefault();
 
-  private List<LogSegment> prepareSegments(int numSegments, boolean[] cached, long start, long size) {
+  static LogSegmentList prepareSegments(int numSegments, boolean[] cached, long start, long size) {
     Assert.assertEquals(numSegments, cached.length);
-    List<LogSegment> segments = new ArrayList<>(numSegments);
+    final LogSegmentList segments = new LogSegmentList();
     for (int i = 0; i < numSegments; i++) {
       LogSegment s = LogSegment.newCloseSegment(null, start, start + size - 1);
       if (cached[i]) {
@@ -64,7 +65,7 @@ public class TestCacheEviction extends BaseTest {
   @Test
   public void testBasicEviction() throws Exception {
     final int maxCached = 5;
-    List<LogSegment> segments = prepareSegments(5,
+    final LogSegmentList segments = prepareSegments(5,
         new boolean[]{true, true, true, true, true}, 0, 10);
 
     // case 1, make sure we do not evict cache for segments behind local flushed index
@@ -103,7 +104,7 @@ public class TestCacheEviction extends BaseTest {
   @Test
   public void testEvictionWithFollowerIndices() throws Exception {
     final int maxCached = 6;
-    List<LogSegment> segments = prepareSegments(6,
+    final LogSegmentList segments = prepareSegments(6,
         new boolean[]{true, true, true, true, true, true}, 0, 10);
 
     // case 1, no matter where the followers are, we do not evict segments behind local

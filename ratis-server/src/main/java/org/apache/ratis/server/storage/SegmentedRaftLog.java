@@ -25,6 +25,7 @@ import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
+import org.apache.ratis.server.storage.RaftLogCache.TruncateIndices;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
@@ -36,7 +37,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -322,51 +322,25 @@ public class SegmentedRaftLog extends RaftLog {
     }
   }
 
+  private void failClientRequest(TermIndex ti) {
+    try {
+      final LogEntryProto entry = get(ti.getIndex());
+      server.failClientRequest(entry);
+    } catch(RaftLogIOException e) {
+      LOG.error(getName() + ": Failed to read log " + ti, e);
+    }
+  }
+
   @Override
   public List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries) {
     checkLogState();
     if (entries == null || entries.length == 0) {
       return Collections.emptyList();
     }
-
     try(AutoCloseableLock writeLock = writeLock()) {
-      Iterator<TermIndex> iter = cache.iterator(entries[0].getIndex());
-      int index = 0;
-      long truncateIndex = -1;
-      for (; iter.hasNext() && index < entries.length; index++) {
-        TermIndex storedEntry = iter.next();
-        Preconditions.assertTrue(
-            storedEntry.getIndex() == entries[index].getIndex(),
-            "The stored entry's index %s is not consistent with" +
-                " the received entries[%s]'s index %s", storedEntry.getIndex(),
-            index, entries[index].getIndex());
-
-        if (storedEntry.getTerm() != entries[index].getTerm()) {
-          // we should truncate from the storedEntry's index
-          truncateIndex = storedEntry.getIndex();
-          if (LOG.isTraceEnabled()) {
-            LOG.trace("{}: truncate to {}, index={}, ti={}, storedEntry={}, entries={}",
-                server.getId(), truncateIndex, index,
-                ServerProtoUtils.toTermIndex(entries[index]), storedEntry,
-                ServerProtoUtils.toString(entries));
-          }
-          while (true) {
-            try {
-              final LogEntryProto entry = get(storedEntry.getIndex());
-              server.failClientRequest(entry);
-            } catch (RaftLogIOException e) {
-              LOG.error("Failed to read log " + storedEntry, e);
-            }
-
-            if (iter.hasNext()) {
-              storedEntry = iter.next();
-            } else {
-              break;
-            }
-          }
-          break;
-        }
-      }
+      final TruncateIndices ti = cache.computeTruncateIndices(this::failClientRequest, entries);
+      final long truncateIndex = ti.getTruncateIndex();
+      final int index = ti.getArrayIndex();
 
       final List<CompletableFuture<Long>> futures;
       if (truncateIndex != -1) {
