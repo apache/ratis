@@ -30,29 +30,21 @@ import org.junit.Test;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
-import static org.apache.ratis.util.Preconditions.assertTrue;
-
-public abstract class ServerInformationBaseTest<CLUSTER extends MiniRaftCluster>
+public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
-  static {
+  {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   @Test
-  public void testServerInformation() throws Exception {
-    runTest(3);
+  public void testGroupInfo() throws Exception {
+    runWithNewCluster(3, this::runTest);
   }
 
-  private void runTest(int num) throws Exception {
-    LOG.info("Running server info test with " + num);
-
-    final MiniRaftCluster cluster = newCluster(num);
-
-    cluster.start();
+  private void runTest(CLUSTER cluster) throws Exception {
     // all the peers in the cluster are in the same group, get it.
     RaftGroup group = cluster.getGroup();
 
@@ -69,25 +61,17 @@ public abstract class ServerInformationBaseTest<CLUSTER extends MiniRaftCluster>
     // for each of them.
     for (RaftPeer peer : peers) {
       try (final RaftClient client = cluster.createClient(peer.getId())) {
-        RaftClientReply reply = client.getGroups(peer.getId());
-        assertTrue(reply instanceof GroupListReply);
-        GroupListReply info = (GroupListReply) reply;
-        List<RaftGroupId> groupList = (StreamSupport
-            .stream(info.getGroupIds().spliterator(), false)
-            .filter(id -> group.getGroupId().equals(id)).collect(Collectors.toList()));
+        GroupListReply info = client.getGroupList(peer.getId());
+        List<RaftGroupId> groupList = info.getGroupIds().stream()
+            .filter(id -> group.getGroupId().equals(id)).collect(Collectors.toList());
         assert (groupList.size() == 1);
-        reply = client.getGroupInfo(groupList.get(0), peer.getId());
-        assertTrue(reply instanceof GroupInfoReply);
-        GroupInfoReply gi = (GroupInfoReply) reply;
+        final GroupInfoReply gi = client.getGroupInfo(groupList.get(0), peer.getId());
         assert (sameGroup(group, gi.getGroup()));
-        groupList = (StreamSupport
-            .stream(info.getGroupIds().spliterator(), false)
-            .filter(id -> group2.getGroupId().equals(id)).collect(Collectors.toList()));
+        groupList = info.getGroupIds().stream()
+            .filter(id -> group2.getGroupId().equals(id)).collect(Collectors.toList());
         assert (groupList.size() == 1);
-        reply = client.getGroupInfo(groupList.get(0), peer.getId());
-        assertTrue(reply instanceof GroupInfoReply);
-        gi = (GroupInfoReply) reply;
-        assert (sameGroup(group2, gi.getGroup()));
+        final GroupInfoReply gi2 = client.getGroupInfo(groupList.get(0), peer.getId());
+        assert (sameGroup(group2, gi2.getGroup()));
       }
     }
 
@@ -113,18 +97,14 @@ public abstract class ServerInformationBaseTest<CLUSTER extends MiniRaftCluster>
       }
     }
 
-    // check getGroups
+    // check getGroupList
     for(RaftPeer peer : peers) {
       if (peer.getId().equals(killedFollower)) {
         continue;
       }
       try(final RaftClient client = cluster.createClient(peer.getId())) {
-        RaftClientReply reply = client.getGroups(peer.getId());
-        assertTrue(reply instanceof GroupListReply);
-        GroupListReply info = (GroupListReply)reply;
-        assertTrue(StreamSupport
-            .stream(info.getGroupIds().spliterator(), false)
-            .filter(id -> group.getGroupId().equals(id)).collect(Collectors.toList()).size() == 1);
+        GroupListReply info = client.getGroupList(peer.getId());
+        Assert.assertEquals(1, info.getGroupIds().stream().filter(id -> group.getGroupId().equals(id)).count());
         for(CommitInfoProto i : info.getCommitInfos()) {
           if (RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
             Assert.assertTrue(i.getCommitIndex() <= maxCommit);
@@ -134,8 +114,6 @@ public abstract class ServerInformationBaseTest<CLUSTER extends MiniRaftCluster>
         }
       }
     }
-
-    cluster.shutdown();
   }
 
   RaftClientReply sendMessages(int n, MiniRaftCluster cluster) throws Exception {

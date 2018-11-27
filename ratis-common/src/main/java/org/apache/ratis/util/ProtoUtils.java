@@ -78,15 +78,6 @@ public interface ProtoUtils {
         ByteString.EMPTY : ByteString.copyFrom(bytes, offset, size);
   }
 
-  static RaftPeerProto toRaftPeerProto(RaftPeer peer) {
-    RaftPeerProto.Builder builder = RaftPeerProto.newBuilder()
-        .setId(peer.getId().toByteString());
-    if (peer.getAddress() != null) {
-      builder.setAddress(peer.getAddress());
-    }
-    return builder.build();
-  }
-
   static RaftPeer toRaftPeer(RaftPeerProto p) {
     return new RaftPeer(RaftPeerId.valueOf(p.getId()), p.getAddress());
   }
@@ -111,7 +102,7 @@ public interface ProtoUtils {
 
       @Override
       public RaftPeerProto next() {
-        return toRaftPeerProto(i.next());
+        return i.next().getRaftPeerProto();
       }
     };
   }
@@ -136,14 +127,14 @@ public interface ProtoUtils {
 
   static CommitInfoProto toCommitInfoProto(RaftPeer peer, long commitIndex) {
     return CommitInfoProto.newBuilder()
-        .setServer(toRaftPeerProto(peer))
+        .setServer(peer.getRaftPeerProto())
         .setCommitIndex(commitIndex)
         .build();
   }
 
-  static void addCommitInfos(Collection<CommitInfoProto> commitInfos, Consumer<CommitInfoProto> adder) {
+  static void addCommitInfos(Collection<CommitInfoProto> commitInfos, Consumer<CommitInfoProto> accumulator) {
     if (commitInfos != null && !commitInfos.isEmpty()) {
-      commitInfos.stream().forEach(i -> adder.accept(i));
+      commitInfos.forEach(accumulator);
     }
   }
 

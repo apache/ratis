@@ -17,10 +17,13 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 
 import java.net.InetSocketAddress;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A {@link RaftPeer} is a server in a Raft cluster.
@@ -40,6 +43,8 @@ public class RaftPeer {
   /** The address of the peer. */
   private final String address;
 
+  private final Supplier<RaftPeerProto> raftPeerProto;
+
   /** Construct a peer with the given id and a null address. */
   public RaftPeer(RaftPeerId id) {
     this(id, (String)null);
@@ -54,6 +59,16 @@ public class RaftPeer {
   public RaftPeer(RaftPeerId id, String address) {
     this.id = Objects.requireNonNull(id, "id == null");
     this.address = address;
+    this.raftPeerProto = JavaUtils.memoize(this::buildRaftPeerProto);
+  }
+
+  private RaftPeerProto buildRaftPeerProto() {
+    final RaftPeerProto.Builder builder = RaftPeerProto.newBuilder()
+        .setId(getId().toByteString());
+    if (getAddress() != null) {
+      builder.setAddress(getAddress());
+    }
+    return builder.build();
   }
 
   /** @return The id of the peer. */
@@ -64,6 +79,10 @@ public class RaftPeer {
   /** @return The address of the peer. */
   public String getAddress() {
     return address;
+  }
+
+  public RaftPeerProto getRaftPeerProto() {
+    return raftPeerProto.get();
   }
 
   @Override

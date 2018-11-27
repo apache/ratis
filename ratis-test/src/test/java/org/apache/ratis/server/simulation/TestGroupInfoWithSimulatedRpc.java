@@ -15,11 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.hadooprpc;
+package org.apache.ratis.server.simulation;
 
-import org.apache.ratis.server.impl.ServerInformationBaseTest;
+import org.apache.ratis.server.impl.GroupInfoBaseTest;
 
-public class TestServerInformationWithHadoopRpc
-    extends ServerInformationBaseTest<MiniRaftClusterWithHadoopRpc>
-    implements MiniRaftClusterWithHadoopRpc.Factory.Get{
+public class TestGroupInfoWithSimulatedRpc
+    extends GroupInfoBaseTest<MiniRaftClusterWithSimulatedRpc>
+    implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
 }

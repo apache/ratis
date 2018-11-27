@@ -331,7 +331,7 @@ public interface ServerProtoUtils {
       return ServerRpcProto.getDefaultInstance();
     }
     return ServerRpcProto.newBuilder()
-        .setId(ProtoUtils.toRaftPeerProto(peer))
+        .setId(peer.getRaftPeerProto())
         .setLastRpcElapsedTimeMs(delay)
         .build();
   }

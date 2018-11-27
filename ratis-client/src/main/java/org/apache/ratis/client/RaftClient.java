@@ -103,11 +103,11 @@ public interface RaftClient extends Closeable {
   /** Send groupRemove request to the given server (not the raft service). */
   RaftClientReply groupRemove(RaftGroupId groupId, boolean deleteDirectory, RaftPeerId server) throws IOException;
 
-  /** Send getGroups request to the given server.*/
-  RaftClientReply getGroups(RaftPeerId server) throws IOException;
+  /** Send getGroupList request to the given server.*/
+  GroupListReply getGroupList(RaftPeerId server) throws IOException;
 
   /** Send getGroupInfo request to the given server.*/
-  RaftClientReply getGroupInfo(RaftGroupId group, RaftPeerId server) throws IOException;
+  GroupInfoReply getGroupInfo(RaftGroupId group, RaftPeerId server) throws IOException;
 
   /** @return a {@link Builder}. */
   static Builder newBuilder() {

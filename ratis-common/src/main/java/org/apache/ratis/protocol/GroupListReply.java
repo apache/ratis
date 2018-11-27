@@ -17,27 +17,29 @@
  */
 package org.apache.ratis.protocol;
 
+import java.util.List;
+
 /**
  * The response of server information request. Sent from server to client.
  */
 public class GroupListReply extends RaftClientReply {
 
-    private final Iterable<RaftGroupId> groupIds;
+  private final List<RaftGroupId> groupIds;
 
   public GroupListReply(
-      RaftClientRequest request,  Iterable<RaftGroupId> groupIds) {
+      RaftClientRequest request,  List<RaftGroupId> groupIds) {
     super(request, null);
     this.groupIds = groupIds;
   }
 
   public GroupListReply(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
-      long callId, boolean success, Iterable<RaftGroupId> groupIds) {
+      long callId, boolean success, List<RaftGroupId> groupIds) {
     super(clientId, serverId, groupId, callId, success, null, null, 0L, null);
     this.groupIds = groupIds;
   }
 
-    public Iterable<RaftGroupId> getGroupIds() {
+  public List<RaftGroupId> getGroupIds() {
     return groupIds;
   }
 }

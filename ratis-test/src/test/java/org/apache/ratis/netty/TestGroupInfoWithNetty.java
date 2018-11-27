@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.netty;
 
-import org.apache.ratis.server.impl.ServerInformationBaseTest;
+import org.apache.ratis.server.impl.GroupInfoBaseTest;
 
-public class TestServerInformationWithNetty
-    extends ServerInformationBaseTest<MiniRaftClusterWithNetty>
+public class TestGroupInfoWithNetty
+    extends GroupInfoBaseTest<MiniRaftClusterWithNetty>
     implements MiniRaftClusterWithNetty.FactoryGet {
 }

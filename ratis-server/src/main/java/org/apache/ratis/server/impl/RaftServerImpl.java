@@ -352,7 +352,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   public RoleInfoProto getRoleInfoProto() {
     RaftPeerRole currentRole = role.getCurrentRole();
     RoleInfoProto.Builder roleInfo = RoleInfoProto.newBuilder()
-        .setSelf(ProtoUtils.toRaftPeerProto(getPeer()))
+        .setSelf(getPeer().getRaftPeerProto())
         .setRole(currentRole)
         .setRoleElapsedTimeMs(role.getRoleElapsedTimeMs());
     switch (currentRole) {

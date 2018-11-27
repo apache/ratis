@@ -24,6 +24,7 @@ import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
@@ -158,7 +159,7 @@ public interface ClientProtoUtils {
             NotLeaderExceptionProto.newBuilder();
         final RaftPeer suggestedLeader = nle.getSuggestedLeader();
         if (suggestedLeader != null) {
-          nleBuilder.setSuggestedLeader(ProtoUtils.toRaftPeerProto(suggestedLeader));
+          nleBuilder.setSuggestedLeader(suggestedLeader.getRaftPeerProto());
         }
         nleBuilder.addAllPeersInConf(
             ProtoUtils.toRaftPeerProtos(Arrays.asList(nle.getPeers())));
@@ -253,8 +254,9 @@ public interface ClientProtoUtils {
     final RaftRpcReplyProto rp = replyProto.getRpcReply();
     ClientId clientId = ClientId.valueOf(rp.getRequestorId());
     final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
-    final Iterable<RaftGroupId> groupInfos = replyProto.getGroupIdList().stream()
-        .map(id -> ProtoUtils.toRaftGroupId(id)).collect(Collectors.toList());
+    final List<RaftGroupId> groupInfos = replyProto.getGroupIdList().stream()
+        .map(ProtoUtils::toRaftGroupId)
+        .collect(Collectors.toList());
     return new GroupListReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
         groupId, rp.getCallId(), rp.getSuccess(), groupInfos);
   }

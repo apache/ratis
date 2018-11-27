@@ -20,7 +20,6 @@ package org.apache.ratis.client.impl;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
@@ -247,20 +246,21 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientReply getGroups(RaftPeerId server)
-      throws IOException {
+  public GroupListReply getGroupList(RaftPeerId server) throws IOException {
     Objects.requireNonNull(server, "server == null");
 
-    return sendRequest(new GroupListRequest(clientId, server,
-        groupId, nextCallId()));
+    final RaftClientReply reply = sendRequest(new GroupListRequest(clientId, server, groupId, nextCallId()));
+    Preconditions.assertTrue(reply instanceof GroupListReply, () -> "Unexpected reply: " + reply);
+    return (GroupListReply)reply;
   }
 
   @Override
-  public RaftClientReply getGroupInfo(RaftGroupId raftGroupId, RaftPeerId server) throws IOException {
+  public GroupInfoReply getGroupInfo(RaftGroupId raftGroupId, RaftPeerId server) throws IOException {
     Objects.requireNonNull(server, "server == null");
     RaftGroupId rgi = raftGroupId == null ? groupId : raftGroupId;
-    return sendRequest(new GroupInfoRequest(clientId, server,
-        rgi, nextCallId()));
+    final RaftClientReply reply = sendRequest(new GroupInfoRequest(clientId, server, rgi, nextCallId()));
+    Preconditions.assertTrue(reply instanceof GroupInfoReply, () -> "Unexpected reply: " + reply);
+    return (GroupInfoReply)reply;
   }
 
   private void addServers(Stream<RaftPeer> peersInNewConf) {

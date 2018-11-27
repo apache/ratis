@@ -15,11 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.simulation;
+package org.apache.ratis.grpc;
 
-import org.apache.ratis.server.impl.ServerInformationBaseTest;
+import org.apache.ratis.server.impl.GroupInfoBaseTest;
 
-public class TestServerInformationWithSimulatedRpc
-    extends ServerInformationBaseTest<MiniRaftClusterWithSimulatedRpc>
-    implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
+public class TestGroupInfoWithGrpc
+    extends GroupInfoBaseTest<MiniRaftClusterWithGrpc>
+    implements MiniRaftClusterWithGrpc.FactoryGet {
 }

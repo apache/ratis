@@ -221,7 +221,7 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
-  public Iterable<RaftGroupId> getGroupIds() {
+  public List<RaftGroupId> getGroupIds() {
     return impls.getGroupIds();
   }
 
