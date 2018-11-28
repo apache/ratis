@@ -19,10 +19,8 @@
 package org.apache.ratis.logservice.server;
 
 import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
-import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.*;
@@ -31,73 +29,60 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.LifeCycle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.net.*;
-import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Set;
 
-import static org.apache.ratis.logservice.common.Constants.metaGroupID;
+import static org.apache.ratis.logservice.common.Constants.META_GROUP_ID;
 import static org.apache.ratis.logservice.util.LogServiceUtils.getPeersFromQuorum;
 
 /**
  * Master quorum is responsible for tracking all available quorum members
  */
-public class MasterServer implements Closeable {
-
+public class MetadataServer extends BaseServer {
+    private static final Logger LOG = LoggerFactory.getLogger(MetadataServer.class);
 
     // RaftServer internal server. Has meta raft group and MetaStateMachine
     private  RaftServer server;
 
     private String id;
 
-    private String host;
-
-    @Parameter(names = "-port", description = "Port number")
-    private int port = 9999;
-
-    @Parameter(names = "-dir", description = "Working directory")
-    private String workingDir = null;
-
     private StateMachine metaStateMachine;
 
     private LifeCycle lifeCycle;
 
-    public MasterServer(String hostname, int port, String workingDir) {
-        this.port = port;
-        this.host = hostname;
-        this.workingDir = workingDir;
-        id = host + "_" + port;
-        this.lifeCycle = new LifeCycle(this.id);
-
+    public MetadataServer(ServerOpts opts) {
+      super(opts);
+      LOG.debug("Metadata Server options: {}", opts);
+      this.id = opts.getHost() + "_" + opts.getPort();
+      this.lifeCycle = new LifeCycle(this.id);
     }
 
-    public MasterServer() {
-
-    }
-
-    public void start(String metaGroupId) throws IOException  {
-        if (host == null) {
-            host = LogServiceUtils.getHostName();
+    public void start() throws IOException  {
+        final ServerOpts opts = getServerOpts();
+        if (opts.getHost() == null) {
+            opts.setHost(LogServiceUtils.getHostName());
         }
         this.lifeCycle = new LifeCycle(this.id);
         RaftProperties properties = new RaftProperties();
-        if(workingDir != null) {
-            RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(new File(workingDir)));
+        if(opts.getWorkingDir() != null) {
+            RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(new File(opts.getWorkingDir())));
         }
-        GrpcConfigKeys.Server.setPort(properties, port);
-        NettyConfigKeys.Server.setPort(properties, port);
-        Set<RaftPeer> peers = getPeersFromQuorum(metaGroupId);
-        RaftGroup metaGroup = RaftGroup.valueOf(Constants.metaGroupID, peers);
-        metaStateMachine = new MetaStateMachine();
+        GrpcConfigKeys.Server.setPort(properties, opts.getPort());
+        NettyConfigKeys.Server.setPort(properties, opts.getPort());
+        Set<RaftPeer> peers = getPeersFromQuorum(opts.getMetaQuorum());
+        RaftGroupId raftMetaGroupId = RaftGroupId.valueOf(opts.getMetaGroupId());
+        RaftGroup metaGroup = RaftGroup.valueOf(raftMetaGroupId, peers);
+        metaStateMachine = new MetaStateMachine(raftMetaGroupId, RaftGroupId.valueOf(opts.getLogServerGroupId()));
         server = RaftServer.newBuilder()
                 .setGroup(metaGroup)
                 .setServerId(RaftPeerId.valueOf(id))
                 .setStateMachineRegistry(raftGroupId -> {
-                    if(raftGroupId.equals(metaGroupID)) {
+                    if(raftGroupId.equals(META_GROUP_ID)) {
                         return metaStateMachine;
                     }
                     return null;
@@ -109,17 +94,27 @@ public class MasterServer implements Closeable {
     }
 
     public static void main(String[] args) throws IOException {
-        MasterServer master = new MasterServer();
+        ServerOpts opts = new ServerOpts();
         JCommander.newBuilder()
-                .addObject(master)
+                .addObject(opts)
                 .build()
                 .parse(args);
-        master.start(null);
 
-
+        try (MetadataServer master = new MetadataServer(opts)) {
+          master.start();
+          while (true) {
+            try {
+              Thread.sleep(1000);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              return;
+            }
+          }
+        }
     }
-    public static MasterServer.Builder newBuilder() {
-        return new MasterServer.Builder();
+
+    public static MetadataServer.Builder newBuilder() {
+        return new MetadataServer.Builder();
     }
 
     @Override
@@ -132,47 +127,20 @@ public class MasterServer implements Closeable {
     }
 
     public String getAddress() {
-        return host + ":" + port;
+        return getServerOpts().getHost() + ":" + getServerOpts().getPort();
     }
 
     public void cleanUp() throws IOException {
-        FileUtils.deleteFully(new File(workingDir));
+        FileUtils.deleteFully(new File(getServerOpts().getWorkingDir()));
     }
 
-    public static class Builder {
-        private String host = null;
-        private int port = 9999;
-        private String workingDir = null;
-
+    public static class Builder extends BaseServer.Builder<MetadataServer> {
         /**
-         * @return a {@link MasterServer} object.
+         * @return a {@link MetadataServer} object.
          */
-        public MasterServer build()  {
-            if (host == null) {
-                host = LogServiceUtils.getHostName();
-            }
-            return new MasterServer(host, port, workingDir);
-        }
-
-        /**
-         * Set the server hostname.
-         */
-        public Builder setHost(String host) {
-            this.host = host;
-            return this;
-        }
-
-        /**
-         * Set server port
-         */
-        public Builder setPort(int port) {
-            this.port = port;
-            return this;
-        }
-
-        public Builder setWorkingDir(String workingDir) {
-            this.workingDir = workingDir;
-            return this;
+        public MetadataServer build()  {
+            validate();
+            return new MetadataServer(getOpts());
         }
     }
 }

@@ -23,7 +23,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;

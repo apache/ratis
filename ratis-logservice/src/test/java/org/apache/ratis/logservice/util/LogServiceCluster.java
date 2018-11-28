@@ -19,16 +19,13 @@
 
 package org.apache.ratis.logservice.util;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogStream;
-import org.apache.ratis.logservice.api.LogInfo;
 import org.apache.ratis.logservice.client.LogServiceClient;
-import org.apache.ratis.logservice.worker.LogServiceWorker;
-import org.apache.ratis.logservice.server.MasterServer;
+import org.apache.ratis.logservice.server.LogServer;
+import org.apache.ratis.logservice.server.MetadataServer;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +37,8 @@ import java.util.stream.IntStream;
  */
 
 public class LogServiceCluster implements AutoCloseable {
-    private List<MasterServer> masters;
-    private List<LogServiceWorker> workers = new ArrayList<>();
+    private List<MetadataServer> masters;
+    private List<LogServer> workers = new ArrayList<>();
     private String baseTestDir = BaseTest.getRootTestDir().getAbsolutePath();
 
     /**
@@ -50,9 +47,11 @@ public class LogServiceCluster implements AutoCloseable {
      */
     public void createWorkers(int numWorkers) {
         String meta = getMetaIdentity();
-        List<LogServiceWorker> newWorkers = IntStream.range(0, numWorkers).parallel().mapToObj(i ->
-                LogServiceWorker.newBuilder()
-                        .setMetaIdentity(meta)
+        List<LogServer> newWorkers = IntStream.range(0, numWorkers).parallel().mapToObj(i ->
+                LogServer.newBuilder()
+                        .setHostName("localhost")
+                        .setPort(10000 + i)
+                        .setMetaQuorum(meta)
                         .setWorkingDir(baseTestDir + "/workers/" + i)
                         .build()).collect(Collectors.toList());
         newWorkers.parallelStream().forEach( worker -> {
@@ -70,6 +69,7 @@ public class LogServiceCluster implements AutoCloseable {
      * @return the string that represent the meta quorum ID that can can be used to manually create a worker nodes
      */
     public String getMetaIdentity() {
+        // Nb. Can only be called after the masters have been instantiated.
         return masters.stream().map(object -> object.getAddress()).collect(Collectors.joining(","));
     }
 
@@ -80,17 +80,28 @@ public class LogServiceCluster implements AutoCloseable {
      */
 
     public LogServiceCluster(int numServers) {
+        // Have to construct the meta quorum by hand -- `getMetaIdentity()` requires
+        // uses the masters to build the quorum (chicken and egg problem).
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < numServers; i++) {
+          if (sb.length() > 0) {
+            sb.append(",");
+          }
+          sb.append("localhost:").append(9000 + i);
+        }
+        String metaQuorum = sb.toString();
         this.masters = IntStream.range(0, numServers).parallel().mapToObj(i ->
-                MasterServer.newBuilder()
-                        .setHost(LogServiceUtils.getHostName())
+                MetadataServer.newBuilder()
+                        .setHostName("localhost")
                         .setPort(9000 + i)
                         .setWorkingDir(baseTestDir + "/masters/" + i)
+                        .setMetaQuorum(metaQuorum)
                         .build())
                 .collect(Collectors.toList());
         masters.parallelStream().forEach(master -> {
             try {
                 master.cleanUp();
-                master.start(getMetaIdentity());
+                master.start();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -103,15 +114,16 @@ public class LogServiceCluster implements AutoCloseable {
      * @param logName
      * @throws IOException
      */
-    public LogStream createLog(LogName logName) throws IOException {
-        LogServiceClient client = new LogServiceClient(getMetaIdentity());
-        return client.createLog(logName);
+    public LogStream createLog(LogName logName) throws Exception {
+        try (LogServiceClient client = new LogServiceClient(getMetaIdentity())) {
+            return client.createLog(logName);
+        }
     }
 
     /**
      * @return the current set of the workers
      */
-    public List<LogServiceWorker> getWorkers() {
+    public List<LogServer> getWorkers() {
         return workers;
     }
 
@@ -119,7 +131,7 @@ public class LogServiceCluster implements AutoCloseable {
      *
      * @return the current set of the masters
      */
-    public List<MasterServer> getMasters() {
+    public List<MetadataServer> getMasters() {
         return masters;
     }
 
@@ -146,10 +158,10 @@ public class LogServiceCluster implements AutoCloseable {
         });
     }
 
-    public LogStream getLog(LogName logName) throws IOException {
-        LogServiceClient client = new LogServiceClient(getMetaIdentity());
-        return client.getLog(logName);
-
+    public LogStream getLog(LogName logName) throws Exception {
+        try (LogServiceClient client = new LogServiceClient(getMetaIdentity())) {
+            return client.getLog(logName);
+        }
     }
 
     /**
@@ -157,6 +169,5 @@ public class LogServiceCluster implements AutoCloseable {
      */
     public void cleanUp() {
 //        FileUtils.deleteDirectory();
-
     }
 }

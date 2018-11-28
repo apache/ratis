@@ -24,8 +24,10 @@ import java.util.UUID;
 
 public class Constants {
 
-    final public static RaftGroupId metaGroupID = RaftGroupId.valueOf(new UUID(0,1));
+    public static final UUID META_GROUP_UUID = new UUID(0,1);
+    public static final RaftGroupId META_GROUP_ID = RaftGroupId.valueOf(META_GROUP_UUID);
 
-    final public static RaftGroupId serversGroupID = RaftGroupId.valueOf(new UUID(0,2));
+    public static final UUID SERVERS_GROUP_UUID = new UUID(0,2);
+    public static final RaftGroupId SERVERS_GROUP_ID = RaftGroupId.valueOf(SERVERS_GROUP_UUID);
 
 }

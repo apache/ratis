@@ -18,9 +18,6 @@
 
 package org.apache.ratis.logservice.server;
 
-import static org.apache.ratis.logservice.common.Constants.metaGroupID;
-import static org.apache.ratis.logservice.common.Constants.serversGroupID;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -85,7 +82,7 @@ public class MetaStateMachine extends BaseStateMachine {
     //Persisted map between log and RaftGroup
     private Map<LogName, RaftGroup> map = new ConcurrentHashMap<>();
     // List of the currently known peers.
-    private final Set<RaftPeer> peers = new HashSet();
+    private final Set<RaftPeer> peers = new HashSet<>();
 
     // keep a copy of raftServer to get group information.
     private RaftServer raftServer;
@@ -101,6 +98,13 @@ public class MetaStateMachine extends BaseStateMachine {
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
+    private RaftGroupId metadataGroupId;
+    private RaftGroupId logServerGroupId;
+
+    public MetaStateMachine(RaftGroupId metadataGroupId, RaftGroupId logServerGroupId) {
+      this.metadataGroupId = metadataGroupId;
+      this.logServerGroupId = logServerGroupId;
+    }
 
     @Override
     public void initialize(RaftServer server, RaftGroupId groupId, RaftStorage storage) throws IOException {
@@ -170,7 +174,9 @@ public class MetaStateMachine extends BaseStateMachine {
     public CompletableFuture<Message> query(Message request) {
         if (currentGroup == null) {
             try {
-                List<RaftGroup> x = StreamSupport.stream(raftServer.getGroups().spliterator(), false).filter(group -> group.getGroupId().equals(metaGroupID)).collect(Collectors.toList());
+                List<RaftGroup> x = StreamSupport.stream(raftServer.getGroups().spliterator(), false)
+                    .filter(group -> group.getGroupId().equals(metadataGroupId))
+                    .collect(Collectors.toList());
                 if (x.size() == 1) {
                     currentGroup = x.get(0);
                 }
@@ -221,7 +227,7 @@ public class MetaStateMachine extends BaseStateMachine {
                 RaftClient client = RaftClient.newBuilder()
                         .setProperties(properties)
                         .setClientId(ClientId.randomId())
-                        .setRaftGroup(RaftGroup.valueOf(serversGroupID, peer))
+                        .setRaftGroup(RaftGroup.valueOf(logServerGroupId, peer))
                         .build();
                 try {
                     client.groupRemove(raftGroup.getGroupId(), true, peer.getId());
@@ -301,7 +307,8 @@ public class MetaStateMachine extends BaseStateMachine {
                     avail.add(pg);
                 });
                 peers.forEach(i -> {
-                    RaftClient client = RaftClient.newBuilder().setProperties(properties).setRaftGroup(RaftGroup.valueOf(serversGroupID, i)).build();
+                    RaftClient client = RaftClient.newBuilder().setProperties(properties)
+                      .setRaftGroup(RaftGroup.valueOf(logServerGroupId, i)).build();
                     try {
                         client.groupAdd(raftGroup, i.getId());
                     } catch (IOException e) {
