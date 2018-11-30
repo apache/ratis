@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -582,7 +582,6 @@ public class LeaderState {
     }
 
     watchRequests.update(ReplicationLevel.ALL, min);
-    pendingRequests.checkDelayedReplies(min);
   }
 
   private void logMetadata(long commitIndex) {
@@ -681,13 +680,8 @@ public class LeaderState {
     return lists;
   }
 
-  /** @return true if the request is replied; otherwise, the reply is delayed, return false. */
-  boolean replyPendingRequest(long logIndex, RaftClientReply reply, RetryCache.CacheEntry cacheEntry) {
-    if (!pendingRequests.replyPendingRequest(logIndex, reply, cacheEntry)) {
-      submitUpdateCommitEvent();
-      return false;
-    }
-    return true;
+  void replyPendingRequest(long logIndex, RaftClientReply reply) {
+    pendingRequests.replyPendingRequest(logIndex, reply);
   }
 
   TransactionContext getTransactionContext(long index) {

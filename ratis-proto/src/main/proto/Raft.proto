@@ -212,7 +212,6 @@ enum RaftPeerRole {
 }
 
 message WriteRequestTypeProto {
-  ReplicationLevel replication = 1;
 }
 
 message ReadRequestTypeProto {

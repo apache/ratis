@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,11 +17,11 @@
  */
 package org.apache.ratis;
 
+import org.apache.log4j.Level;
 import org.apache.ratis.MiniRaftCluster.PeerChanges;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -32,41 +32,24 @@ import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.server.storage.RaftLogIOException;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Arrays.asList;
 
-public abstract class RetryCacheTests extends BaseTest {
+public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
+    extends BaseTest
+    implements MiniRaftCluster.Factory.Get<CLUSTER> {
+  static {
+    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+  }
+
   public static final int NUM_SERVERS = 3;
-  protected static final RaftProperties properties = new RaftProperties();
-
-  public abstract MiniRaftCluster getCluster();
-
-  public RaftProperties getProperties() {
-    return properties;
-  }
-
-  @Before
-  public void setup() throws IOException {
-    Assert.assertNull(getCluster().getLeader());
-    getCluster().start();
-  }
-
-  @After
-  public void tearDown() {
-    final MiniRaftCluster cluster = getCluster();
-    if (cluster != null) {
-      cluster.shutdown();
-    }
-  }
 
   /**
    * make sure the retry cache can correct capture the retry from a client,
@@ -74,10 +57,12 @@ public abstract class RetryCacheTests extends BaseTest {
    */
   @Test
   public void testBasicRetry() throws Exception {
-    final MiniRaftCluster cluster = getCluster();
-    RaftTestUtil.waitForLeader(cluster);
+    runWithNewCluster(NUM_SERVERS, this::runTestBasicRetry);
+  }
 
-    final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage().getId();
+  void runTestBasicRetry(CLUSTER cluster) throws Exception {
+    RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage(false).getId();
     long oldLastApplied = cluster.getLeader().getState().getLastAppliedIndex();
 
     final RaftClient client = cluster.createClient(leaderId);
@@ -135,10 +120,12 @@ public abstract class RetryCacheTests extends BaseTest {
    */
   @Test
   public void testRetryOnNewLeader() throws Exception {
-    final MiniRaftCluster cluster = getCluster();
-    RaftTestUtil.waitForLeader(cluster);
+    runWithNewCluster(NUM_SERVERS, this::runTestRetryOnNewLeader);
+  }
 
-    final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage().getId();
+  void runTestRetryOnNewLeader(CLUSTER cluster) throws Exception {
+    RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage(false).getId();
 
     final RaftClient client = cluster.createClient(leaderId);
     RaftClientRpc rpc = client.getClientRpc();

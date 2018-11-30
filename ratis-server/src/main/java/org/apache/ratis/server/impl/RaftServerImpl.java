@@ -1053,18 +1053,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
 
       // update pending request
-      boolean updateCache = true;  // always update cache for follower
       synchronized (RaftServerImpl.this) {
         final LeaderState leaderState = role.getLeaderState().orElse(null);
         if (isLeader() && leaderState != null) { // is leader and is running
-          // For leader, update cache unless the reply is delayed.
-          // When a reply is delayed, the cache will be updated in DelayedReply.getReply().
-          updateCache = leaderState.replyPendingRequest(logIndex, r, cacheEntry);
+          leaderState.replyPendingRequest(logIndex, r);
         }
       }
-      if (updateCache) {
-        cacheEntry.updateResult(r);
-      }
+      cacheEntry.updateResult(r);
     });
   }
 

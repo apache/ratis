@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,8 +19,6 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.*;
-import org.apache.ratis.server.impl.RetryCache.CacheEntry;
-import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;
@@ -28,10 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
-import java.util.PriorityQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -76,70 +72,13 @@ class PendingRequests {
     }
   }
 
-  private static class DelayedReplies {
-    private final String name;
-    private final PriorityQueue<PendingRequest> q = new PriorityQueue<>();
-    private AtomicLong allAckedIndex = new AtomicLong();
-
-    private DelayedReplies(Object name) {
-      this.name = name + "-" + getClass().getSimpleName();
-    }
-
-    boolean delay(PendingRequest request, RaftClientReply reply, CacheEntry cacheEntry) {
-      if (request.getIndex() <= allAckedIndex.get()) {
-        return false; // delay is not required.
-      }
-
-      LOG.debug("{}: delay request {}", name, request);
-      request.setDelayedReply(reply, cacheEntry);
-      final boolean offered;
-      synchronized (q) {
-        offered = q.offer(request);
-      }
-      Preconditions.assertTrue(offered);
-      return true;
-    }
-
-    void update(final long allAcked) {
-      final long old = allAckedIndex.getAndUpdate(n -> allAcked > n? allAcked : n);
-      if (allAcked <= old) {
-        return;
-      }
-
-      LOG.debug("{}: update allAckedIndex {} -> {}", name, old, allAcked);
-      for(;;) {
-        final PendingRequest polled;
-        synchronized (q) {
-          final PendingRequest peeked = q.peek();
-          if (peeked == null || peeked.getIndex() > allAcked) {
-            return;
-          }
-          polled = q.poll();
-          Preconditions.assertTrue(polled == peeked);
-        }
-        LOG.debug("{}: complete delay request {}", name, polled);
-        polled.completeDelayedReply();
-      }
-    }
-
-    void failReplies() {
-      synchronized (q) {
-        for(; !q.isEmpty();) {
-          q.poll().failDelayedReply();
-        }
-      }
-    }
-  }
-
   private PendingRequest pendingSetConf;
   private final String name;
   private final RequestMap pendingRequests;
-  private final DelayedReplies delayedReplies;
 
   PendingRequests(RaftPeerId id) {
     this.name = id + "-" + getClass().getSimpleName();
     this.pendingRequests = new RequestMap(id);
-    this.delayedReplies = new DelayedReplies(id);
   }
 
   PendingRequest add(RaftClientRequest request, TransactionContext entry) {
@@ -185,21 +124,12 @@ class PendingRequests {
     return pendingRequest != null ? pendingRequest.getEntry() : null;
   }
 
-  /** @return true if the request is replied; otherwise, the reply is delayed, return false. */
-  boolean replyPendingRequest(long index, RaftClientReply reply, CacheEntry cacheEntry) {
+  void replyPendingRequest(long index, RaftClientReply reply) {
     final PendingRequest pending = pendingRequests.remove(index);
     if (pending != null) {
       Preconditions.assertTrue(pending.getIndex() == index);
-
-      final ReplicationLevel replication = pending.getRequest().getType().getWrite().getReplication();
-      if (replication == ReplicationLevel.ALL) {
-        if (delayedReplies.delay(pending, reply, cacheEntry)) {
-          return false;
-        }
-      }
       pending.setReply(reply);
     }
-    return true;
   }
 
   /**
@@ -213,11 +143,6 @@ class PendingRequests {
     if (pendingSetConf != null) {
       pendingSetConf.setNotLeaderException(nle, commitInfos);
     }
-    delayedReplies.failReplies();
     return transactions;
-  }
-
-  void checkDelayedReplies(long allAckedIndex) {
-    delayedReplies.update(allAckedIndex);
   }
 }

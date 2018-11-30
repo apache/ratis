@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,30 +17,9 @@
  */
 package org.apache.ratis.hadooprpc;
 
-import org.apache.log4j.Level;
 import org.apache.ratis.RetryCacheTests;
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.LogUtils;
 
-import java.io.IOException;
-
-public class TestRetryCacheWithHadoopRpc extends RetryCacheTests {
-  static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
-  }
-
-  private final MiniRaftClusterWithHadoopRpc cluster;
-
-  public TestRetryCacheWithHadoopRpc() throws IOException {
-    cluster = MiniRaftClusterWithHadoopRpc.FACTORY.newCluster(
-        NUM_SERVERS, getProperties());
-  }
-
-  @Override
-  public MiniRaftClusterWithHadoopRpc getCluster() {
-    return cluster;
-  }
+public class TestRetryCacheWithHadoopRpc
+    extends RetryCacheTests<MiniRaftClusterWithHadoopRpc>
+    implements MiniRaftClusterWithHadoopRpc.Factory.Get {
 }

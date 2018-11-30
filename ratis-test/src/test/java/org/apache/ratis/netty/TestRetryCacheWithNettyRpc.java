@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,29 +17,9 @@
  */
 package org.apache.ratis.netty;
 
-import java.io.IOException;
-
-import org.apache.log4j.Level;
 import org.apache.ratis.RetryCacheTests;
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.LogUtils;
 
-public class TestRetryCacheWithNettyRpc extends RetryCacheTests {
-  static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
-  }
-
-  private final MiniRaftClusterWithNetty cluster;
-
-  public TestRetryCacheWithNettyRpc() throws IOException {
-    cluster = MiniRaftClusterWithNetty.FACTORY.newCluster(
-        NUM_SERVERS, getProperties());
-  }
-
-  @Override
-  public MiniRaftClusterWithNetty getCluster() {
-    return cluster;
-  }
+public class TestRetryCacheWithNettyRpc
+    extends RetryCacheTests<MiniRaftClusterWithNetty>
+    implements MiniRaftClusterWithNetty.FactoryGet {
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -27,12 +27,10 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
@@ -50,7 +48,6 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.apache.ratis.RaftBasicTests.runTestDelayRequestIfLeaderStepDown;
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends BaseTest
@@ -174,12 +171,12 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     cluster.shutdown();
   }
 
-  void runTestBasicAppendEntriesAsync(ReplicationLevel replication, boolean killLeader) throws Exception {
+  void runTestBasicAppendEntriesAsync(boolean killLeader) throws Exception {
     final CLUSTER cluster = newCluster(killLeader? 5: 3);
     try {
       cluster.start();
       waitForLeader(cluster);
-      RaftBasicTests.runTestBasicAppendEntries(true, replication, killLeader, 100, cluster, LOG);
+      RaftBasicTests.runTestBasicAppendEntries(true, killLeader, 100, cluster, LOG);
     } finally {
       cluster.shutdown();
     }
@@ -187,17 +184,12 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testBasicAppendEntriesAsync() throws Exception {
-    runTestBasicAppendEntriesAsync(ReplicationLevel.MAJORITY, false);
+    runTestBasicAppendEntriesAsync(false);
   }
 
   @Test
   public void testBasicAppendEntriesAsyncKillLeader() throws Exception {
-    runTestBasicAppendEntriesAsync(ReplicationLevel.MAJORITY, true);
-  }
-
-  @Test
-  public void testBasicAppendEntriesAsyncWithAllReplication() throws Exception {
-    runTestBasicAppendEntriesAsync(ReplicationLevel.ALL, false);
+    runTestBasicAppendEntriesAsync(true);
   }
 
   @Test
@@ -334,12 +326,5 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
     //reset for the other tests
     RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), oldExpiryTime);
-  }
-
-  @Test
-  public void testAsyncDelayRequestIfLeaderStepDown() throws Exception {
-    final CLUSTER cluster = newCluster(5);
-    cluster.start();
-    runTestDelayRequestIfLeaderStepDown(true, cluster, LOG);
   }
 }

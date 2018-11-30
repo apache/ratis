@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -50,15 +50,9 @@ public interface RaftClient extends Closeable {
    * For readonly messages, use {@link #sendReadOnlyAsync(Message)} instead.
    *
    * @param message The request message.
-   * @param replication The replication level required.
    * @return a future of the reply.
    */
-  CompletableFuture<RaftClientReply> sendAsync(Message message, ReplicationLevel replication);
-
-  /** The same as sendAsync(message, MAJORITY). */
-  default CompletableFuture<RaftClientReply> sendAsync(Message message) {
-    return sendAsync(message, ReplicationLevel.MAJORITY);
-  }
+  CompletableFuture<RaftClientReply> sendAsync(Message message);
 
   /** Async call to send the given readonly message to the raft service. */
   CompletableFuture<RaftClientReply> sendReadOnlyAsync(Message message);
@@ -75,15 +69,9 @@ public interface RaftClient extends Closeable {
    * For readonly messages, use {@link #sendReadOnly(Message)} instead.
    *
    * @param message The request message.
-   * @param replication The replication level required.
    * @return the reply.
    */
-  RaftClientReply send(Message message, ReplicationLevel replication) throws IOException;
-
-  /** The same as send(message, MAJORITY). */
-  default RaftClientReply send(Message message) throws IOException {
-    return send(message, ReplicationLevel.MAJORITY);
-  }
+  RaftClientReply send(Message message) throws IOException;
 
   /** Send the given readonly message to the raft service. */
   RaftClientReply sendReadOnly(Message message) throws IOException;

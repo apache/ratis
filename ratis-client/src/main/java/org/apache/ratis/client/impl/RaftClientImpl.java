@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -137,8 +137,8 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> sendAsync(Message message, ReplicationLevel replication) {
-    return sendAsync(RaftClientRequest.writeRequestType(replication), message, null);
+  public CompletableFuture<RaftClientReply> sendAsync(Message message) {
+    return sendAsync(RaftClientRequest.writeRequestType(), message, null);
   }
 
   @Override
@@ -183,8 +183,8 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientReply send(Message message, ReplicationLevel replication) throws IOException {
-    return send(RaftClientRequest.writeRequestType(replication), message, null);
+  public RaftClientReply send(Message message) throws IOException {
+    return send(RaftClientRequest.writeRequestType(), message, null);
   }
 
   @Override

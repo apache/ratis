@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -425,10 +425,6 @@ public abstract class MiniRaftCluster implements Closeable {
     return b.toString();
   }
 
-  public RaftServerImpl getLeaderAndSendFirstMessage() throws IOException {
-    return getLeaderAndSendFirstMessage(false);
-  }
-
   public RaftServerImpl getLeaderAndSendFirstMessage(boolean ignoreException) throws IOException {
     final RaftServerImpl leader = getLeader();
     try(RaftClient client = createClient(leader.getId())) {
@@ -629,13 +625,8 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public RaftClientRequest newRaftClientRequest(
       ClientId clientId, RaftPeerId leaderId, long callId, long seqNum, Message message) {
-    return newRaftClientRequest(clientId, leaderId, callId, seqNum, message, ReplicationLevel.MAJORITY);
-  }
-
-  public RaftClientRequest newRaftClientRequest(
-      ClientId clientId, RaftPeerId leaderId, long callId, long seqNum, Message message, ReplicationLevel replication) {
     return new RaftClientRequest(clientId, leaderId, getGroupId(),
-        callId, seqNum, message, RaftClientRequest.writeRequestType(replication));
+        callId, seqNum, message, RaftClientRequest.writeRequestType());
   }
 
   public SetConfigurationRequest newSetConfigurationRequest(
