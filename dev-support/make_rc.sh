@@ -98,8 +98,7 @@ echo "Check the content of ${archivedir}."
 echo "If good, sign and push to dist.apache.org"
 echo "  cd ${archivedir}"
 echo '  for i in *.tar.gz; do echo $i; gpg --print-mds $i > $i.mds ; done'
-echo '  for i in *.tar.gz; do echo $i; gpg --print-md MD5 $i > $i.md5 ; done'
-echo '  for i in *.tar.gz; do echo $i; gpg --print-md SHA512 $i > $i.sha ; done'
+echo '  for i in *.tar.gz; do echo $i; gpg --print-md SHA512 $i > $i.sha512 ; done'
 echo '  for i in *.tar.gz; do echo $i; gpg --armor --output $i.asc --detach-sig $i ; done'
 echo "  rsync -av ${archivedir}/*.gz ${archivedir}/*.mds ${archivedir}/*.asc ~/repos/dist-dev/${artifactid}-VERSION/"
 echo
