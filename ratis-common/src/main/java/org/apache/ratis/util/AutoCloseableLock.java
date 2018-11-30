@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -36,22 +36,34 @@ public class AutoCloseableLock implements AutoCloseable {
    * }}</pre>
    */
   public static AutoCloseableLock acquire(final Lock lock) {
+    return acquire(lock, null);
+  }
+
+  public static AutoCloseableLock acquire(final Lock lock, Runnable preUnlock) {
     lock.lock();
-    return new AutoCloseableLock(lock);
+    return new AutoCloseableLock(lock, preUnlock);
   }
 
   private final Lock underlying;
   private final AtomicBoolean closed = new AtomicBoolean(false);
+  private final Runnable preUnlock;
 
-  private AutoCloseableLock(Lock underlying) {
+  private AutoCloseableLock(Lock underlying, Runnable preUnlock) {
     this.underlying = underlying;
+    this.preUnlock = preUnlock;
   }
 
   /** Unlock the underlying lock.  This method is idempotent. */
   @Override
   public void close() {
     if (closed.compareAndSet(false, true)) {
-      underlying.unlock();
+      try {
+        if (preUnlock != null) {
+          preUnlock.run();
+        }
+      } finally {
+        underlying.unlock();
+      }
     }
   }
 }

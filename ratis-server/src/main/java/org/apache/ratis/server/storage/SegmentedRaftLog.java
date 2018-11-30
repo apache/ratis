@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -38,6 +38,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -93,7 +94,7 @@ public class SegmentedRaftLog extends RaftLog {
     }
   }
 
-  private final RaftServerImpl server;
+  private final Optional<RaftServerImpl> server;
   private final RaftStorage storage;
   private final RaftLogCache cache;
   private final RaftLogWorker fileLogWorker;
@@ -111,7 +112,7 @@ public class SegmentedRaftLog extends RaftLog {
       StateMachine stateMachine, Runnable submitUpdateCommitEvent,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
     super(selfId, lastIndexInSnapshot, RaftServerConfigKeys.Log.Appender.bufferCapacity(properties).getSizeInt());
-    this.server = server;
+    this.server = Optional.ofNullable(server);
     this.storage = storage;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     cache = new RaftLogCache(selfId, storage, properties);
@@ -200,9 +201,9 @@ public class SegmentedRaftLog extends RaftLog {
     }
 
     try {
-      return new EntryWithData(entry, server.getStateMachine().readStateMachineData(entry));
+      return new EntryWithData(entry, server.map(s -> s.getStateMachine().readStateMachineData(entry)).orElse(null));
     } catch (Throwable e) {
-      final String err = server.getId() + ": Failed readStateMachineData for " +
+      final String err = getSelfId() + ": Failed readStateMachineData for " +
           ServerProtoUtils.toLogEntryString(entry);
       LOG.error(err, e);
       throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
@@ -210,13 +211,12 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   private void checkAndEvictCache() {
-    if (server != null && cache.shouldEvict()) {
+    if (server.isPresent() && cache.shouldEvict()) {
       // TODO if the cache is hitting the maximum size and we cannot evict any
       // segment's cache, should block the new entry appending or new segment
       // allocation.
-      cache.evictCache(server.getFollowerNextIndices(),
-          fileLogWorker.getFlushedIndex(),
-          server.getState().getLastAppliedIndex());
+      final RaftServerImpl s = server.get();
+      cache.evictCache(s.getFollowerNextIndices(), fileLogWorker.getFlushedIndex(), s.getState().getLastAppliedIndex());
     }
   }
 
@@ -266,7 +266,7 @@ public class SegmentedRaftLog extends RaftLog {
   CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
     checkLogState();
     if (LOG.isTraceEnabled()) {
-      LOG.trace("{}: appendEntry {}", server.getId(),
+      LOG.trace("{}: appendEntry {}", getSelfId(),
           ServerProtoUtils.toLogEntryString(entry));
     }
     try(AutoCloseableLock writeLock = writeLock()) {
@@ -304,8 +304,7 @@ public class SegmentedRaftLog extends RaftLog {
       }
       return writeFuture;
     } catch (Throwable throwable) {
-      LOG.error(getSelfId() + "exception while appending entry with index:" +
-          entry.getIndex(), throwable);
+      LOG.error(getSelfId() + ": Failed to append " + ServerProtoUtils.toLogEntryString(entry), throwable);
       throw throwable;
     }
   }
@@ -323,9 +322,12 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   private void failClientRequest(TermIndex ti) {
+    if (!server.isPresent()) {
+      return;
+    }
     try {
       final LogEntryProto entry = get(ti.getIndex());
-      server.failClientRequest(entry);
+      server.get().failClientRequest(entry);
     } catch(RaftLogIOException e) {
       LOG.error(getName() + ": Failed to read log " + ti, e);
     }
@@ -341,6 +343,7 @@ public class SegmentedRaftLog extends RaftLog {
       final TruncateIndices ti = cache.computeTruncateIndices(this::failClientRequest, entries);
       final long truncateIndex = ti.getTruncateIndex();
       final int index = ti.getArrayIndex();
+      LOG.debug("truncateIndex={}, arrayIndex={}", truncateIndex, index);
 
       final List<CompletableFuture<Long>> futures;
       if (truncateIndex != -1) {

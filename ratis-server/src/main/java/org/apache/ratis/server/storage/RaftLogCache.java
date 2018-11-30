@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -28,13 +28,14 @@ import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.AutoCloseableReadWriteLock;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
@@ -90,15 +91,23 @@ class RaftLogCache {
   }
 
   static class LogSegmentList {
+    private final Object name;
     private final List<LogSegment> segments = new ArrayList<>();
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
+    private final AutoCloseableReadWriteLock lock;
+
+    LogSegmentList(Object name) {
+      this.name = name;
+      this.lock = new AutoCloseableReadWriteLock(name);
+    }
 
     AutoCloseableLock readLock() {
-      return AutoCloseableLock.acquire(lock.readLock());
+      final StackTraceElement caller = LOG.isTraceEnabled()? JavaUtils.getCallerStackTraceElement(): null;
+      return lock.readLock(caller, LOG::trace);
     }
 
     AutoCloseableLock writeLock() {
-      return AutoCloseableLock.acquire(lock.writeLock());
+      final StackTraceElement caller = LOG.isTraceEnabled()? JavaUtils.getCallerStackTraceElement(): null;
+      return lock.writeLock(caller, LOG::trace);
     }
 
     boolean isEmpty() {
@@ -241,7 +250,7 @@ class RaftLogCache {
 
   private final String name;
   private volatile LogSegment openSegment;
-  private final LogSegmentList closedSegments = new LogSegmentList();
+  private final LogSegmentList closedSegments;
   private final RaftStorage storage;
 
   private final int maxCachedSegments;
@@ -249,6 +258,7 @@ class RaftLogCache {
 
   RaftLogCache(RaftPeerId selfId, RaftStorage storage, RaftProperties properties) {
     this.name = selfId + "-" + getClass().getSimpleName();
+    this.closedSegments = new LogSegmentList(name);
     this.storage = storage;
     maxCachedSegments = RaftServerConfigKeys.Log.maxCachedSegmentNum(properties);
   }
@@ -471,6 +481,7 @@ class RaftLogCache {
           for(; i.hasNext(); ) {
             failClientRequest.accept(i.next());
           }
+          break;
         }
       }
     }

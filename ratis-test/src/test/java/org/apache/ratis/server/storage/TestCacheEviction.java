@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -49,7 +49,7 @@ public class TestCacheEviction extends BaseTest {
 
   static LogSegmentList prepareSegments(int numSegments, boolean[] cached, long start, long size) {
     Assert.assertEquals(numSegments, cached.length);
-    final LogSegmentList segments = new LogSegmentList();
+    final LogSegmentList segments = new LogSegmentList(TestCacheEviction.class.getSimpleName());
     for (int i = 0; i < numSegments; i++) {
       LogSegment s = LogSegment.newCloseSegment(null, start, start + size - 1);
       if (cached[i]) {

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -65,6 +65,8 @@ import static org.mockito.Mockito.when;
 public class TestSegmentedRaftLog extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftLogWorker.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(RaftLogCache.LOG, Level.TRACE);
+    LogUtils.setLogLevel(SegmentedRaftLog.LOG, Level.TRACE);
   }
 
   private static final RaftPeerId peerId = RaftPeerId.valueOf("s0");
@@ -376,7 +378,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, server, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
-      entries.stream().forEach(entry -> RetryCacheTestUtil.createEntry(retryCache, entry));
+      entries.forEach(entry -> RetryCacheTestUtil.createEntry(retryCache, entry));
       // append entries to the raftlog
       entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
     }
@@ -392,7 +394,10 @@ public class TestSegmentedRaftLog extends BaseTest {
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, server, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
-      raftLog.append(newEntries.toArray(new LogEntryProto[newEntries.size()])).forEach(CompletableFuture::join);
+      LOG.info("newEntries[0] = {}", newEntries.get(0));
+      final int last = newEntries.size() - 1;
+      LOG.info("newEntries[{}] = {}", last, newEntries.get(last));
+      raftLog.append(newEntries.toArray(new LogEntryProto[0])).forEach(CompletableFuture::join);
 
       checkFailedEntries(entries, 650, retryCache);
       checkEntries(raftLog, entries, 0, 650);
