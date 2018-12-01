@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -27,11 +27,13 @@ import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -53,19 +55,16 @@ public class TestRaftWithGrpc
 
   @Test
   public void testRequestTimeout() throws Exception {
-    try(MiniRaftClusterWithGrpc cluster = newCluster(NUM_SERVERS)) {
-      cluster.start();
-      testRequestTimeout(false, cluster, LOG);
-    }
+    runWithNewCluster(NUM_SERVERS, cluster -> testRequestTimeout(false, cluster, LOG));
   }
 
   @Test
   public void testUpdateViaHeartbeat() throws Exception {
-    LOG.info("Running testUpdateViaHeartbeat");
-    final MiniRaftClusterWithGrpc cluster = newCluster(NUM_SERVERS);
-    cluster.start();
+    runWithNewCluster(NUM_SERVERS, this::runTestUpdateViaHeartbeat);
+  }
+
+  void runTestUpdateViaHeartbeat(MiniRaftClusterWithGrpc cluster) throws Exception {
     waitForLeader(cluster);
-    long waitTime = 5000;
     try (final RaftClient client = cluster.createClient()) {
       // block append requests
       cluster.getServerAliveStream()
@@ -75,7 +74,7 @@ public class TestRaftWithGrpc
 
       CompletableFuture<RaftClientReply>
           replyFuture = client.sendAsync(new RaftTestUtil.SimpleMessage("abc"));
-      Thread.sleep(waitTime);
+      TimeDuration.valueOf(5 , TimeUnit.SECONDS).sleep();
       // replyFuture should not be completed until append request is unblocked.
       Assert.assertTrue(!replyFuture.isDone());
       // unblock append request.
@@ -84,27 +83,28 @@ public class TestRaftWithGrpc
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
 
-      long index = cluster.getLeader().getState().getLog().getNextIndex();
+      final long index = cluster.getLeader().getState().getLog().getNextIndex();
       TermIndex[] leaderEntries = cluster.getLeader().getState().getLog().getEntries(0, Integer.MAX_VALUE);
       // The entries have been appended in the followers
       // although the append entry timed out at the leader
-      cluster.getServerAliveStream().forEach(raftServer -> {
+
+      final TimeDuration sleepTime = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
+      cluster.getServerAliveStream().filter(impl -> !impl.isLeader()).forEach(raftServer ->
+          JavaUtils.runAsUnchecked(() -> JavaUtils.attempt(() -> {
         Assert.assertEquals(raftServer.getState().getLog().getNextIndex(), index);
-        if (!raftServer.isLeader()) {
-          TermIndex[] serverEntries = raftServer.getState().getLog().getEntries(0, Integer.MAX_VALUE);
-          Assert.assertArrayEquals(serverEntries, leaderEntries);
-        }
-      });
+        TermIndex[] serverEntries = raftServer.getState().getLog().getEntries(0, Integer.MAX_VALUE);
+        Assert.assertArrayEquals(serverEntries, leaderEntries);
+      }, 10, sleepTime, "assertRaftLog-" + raftServer.getId(), LOG)));
 
       // Wait for heartbeats from leader to be received by followers
       Thread.sleep(500);
-      RaftServerTestUtil.getLogAppenders(cluster.getLeader()).forEach(logAppender -> {
+      RaftServerTestUtil.getLogAppenders(cluster.getLeader()).forEach(logAppender ->
+        JavaUtils.runAsUnchecked(() -> JavaUtils.attempt(() -> {
         // FollowerInfo in the leader state should have updated next and match index.
         final long followerMatchIndex = logAppender.getFollower().getMatchIndex();
         Assert.assertTrue(followerMatchIndex >= index - 1);
         Assert.assertEquals(followerMatchIndex + 1, logAppender.getFollower().getNextIndex());
-      });
+      }, 10, sleepTime, "assertRaftLog-" + logAppender.getFollower(), LOG)));
     }
-    cluster.shutdown();
   }
 }

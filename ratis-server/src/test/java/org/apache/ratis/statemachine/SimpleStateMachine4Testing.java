@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -154,7 +154,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     Preconditions.assertNull(previous, "previous");
     final String s = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
     dataMap.put(s, entry);
-    LOG.info("put {}, {} -> {}", entry.getIndex(), s, ServerProtoUtils.toLogEntryString(entry));
+    LOG.info("{}: put {}, {} -> {}", getId(), entry.getIndex(), s, ServerProtoUtils.toLogEntryString(entry));
   }
 
   @Override
@@ -290,7 +290,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       if (entry != null) {
         return CompletableFuture.completedFuture(Message.valueOf(entry.toByteString()));
       }
-      exception = new IndexOutOfBoundsException("Log entry not found for query " + string);
+      exception = new IndexOutOfBoundsException(getId() + ": LogEntry not found for query " + string);
     } catch (Exception e) {
       LOG.warn("Failed request " + request, e);
       exception = e;

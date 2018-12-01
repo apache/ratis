@@ -72,6 +72,21 @@ public interface JavaUtils {
     return trace[3];
   }
 
+  static <T extends Throwable> void runAsUnchecked(CheckedRunnable<T> runnable) {
+    runAsUnchecked(runnable::run, RuntimeException::new);
+  }
+
+  static <THROWABLE extends Throwable> void runAsUnchecked(
+      CheckedRunnable<THROWABLE> runnable, Function<THROWABLE, ? extends RuntimeException> converter) {
+    try {
+      runnable.run();
+    } catch(RuntimeException | Error e) {
+      throw e;
+    } catch(Throwable t) {
+      throw converter.apply(cast(t));
+    }
+  }
+
   /**
    * Invoke {@link Callable#call()} and, if there any,
    * wrap the checked exception by {@link RuntimeException}.
@@ -88,9 +103,7 @@ public interface JavaUtils {
     } catch(RuntimeException | Error e) {
       throw e;
     } catch(Throwable t) {
-      @SuppressWarnings("unchecked")
-      final THROWABLE casted = (THROWABLE)t;
-      throw converter.apply(casted);
+      throw converter.apply(cast(t));
     }
   }
 

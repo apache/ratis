@@ -156,11 +156,17 @@ public interface RaftTestUtil {
     }
   }
 
-  static void assertLogEntries(MiniRaftCluster cluster, SimpleMessage... expectedMessages) {
+  static void assertLogEntries(MiniRaftCluster cluster, SimpleMessage[] expectedMessages) {
+    for(SimpleMessage m : expectedMessages) {
+      assertLogEntries(cluster, m);
+    }
+  }
+
+  static void assertLogEntries(MiniRaftCluster cluster, SimpleMessage expectedMessage) {
     final int size = cluster.getServers().size();
     final long count = cluster.getServerAliveStream()
         .map(s -> s.getState().getLog())
-        .filter(log -> logEntriesContains(log, expectedMessages))
+        .filter(log -> logEntriesContains(log, expectedMessage))
         .count();
     if (2*count <= size) {
       throw new AssertionError("Not in majority: size=" + size
