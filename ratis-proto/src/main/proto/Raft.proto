@@ -316,7 +316,7 @@ message LeaderInfoProto {
 
 message FollowerInfoProto {
   ServerRpcProto leaderInfo = 1;
-  bool inLogSync = 2;
+  uint32 outstandingOp = 2;
 }
 
 message CandidateInfoProto {

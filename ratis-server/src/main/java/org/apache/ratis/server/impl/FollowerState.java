@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -22,35 +22,59 @@ import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.ToIntFunction;
+
 /**
  * Used when the peer is a follower. Used to track the election timeout.
  */
 class FollowerState extends Daemon {
+  enum UpdateType {
+    APPEND_START(AtomicInteger::incrementAndGet),
+    APPEND_COMPLETE(AtomicInteger::decrementAndGet),
+    INSTALL_SNAPSHOT_START(AtomicInteger::incrementAndGet),
+    INSTALL_SNAPSHOT_COMPLETE(AtomicInteger::decrementAndGet),
+    REQUEST_VOTE(AtomicInteger::get);
+
+    private final ToIntFunction<AtomicInteger> updateFunction;
+
+    UpdateType(ToIntFunction<AtomicInteger> updateFunction) {
+      this.updateFunction = updateFunction;
+    }
+
+    int update(AtomicInteger outstanding) {
+      return updateFunction.applyAsInt(outstanding);
+    }
+  }
+
   static final Logger LOG = LoggerFactory.getLogger(FollowerState.class);
 
   private final RaftServerImpl server;
 
   private volatile Timestamp lastRpcTime = new Timestamp();
   private volatile boolean monitorRunning = true;
-  private volatile boolean inLogSync = false;
+  private final AtomicInteger outstandingOp = new AtomicInteger();
 
   FollowerState(RaftServerImpl server) {
     this.server = server;
   }
 
-  void updateLastRpcTime(boolean inLogSync) {
+  void updateLastRpcTime(UpdateType type) {
     lastRpcTime = new Timestamp();
-    LOG.trace("{} update last rpc time to {} {}", server.getId(),
-        lastRpcTime, inLogSync);
-    this.inLogSync = inLogSync;
+
+    final int n = type.update(outstandingOp);
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("{}: update lastRpcTime to {} for {}, outstandingOp={}",
+          server.getId(), lastRpcTime, type, n);
+    }
   }
 
   Timestamp getLastRpcTime() {
     return lastRpcTime;
   }
 
-  public boolean isInLogSync() {
-    return inLogSync;
+  int getOutstandingOp() {
+    return outstandingOp.get();
   }
 
   boolean shouldWithholdVotes() {
@@ -72,7 +96,7 @@ class FollowerState extends Daemon {
           break;
         }
         synchronized (server) {
-          if (!inLogSync && lastRpcTime.elapsedTimeMs() >= electionTimeout) {
+          if (outstandingOp.get() == 0 && lastRpcTime.elapsedTimeMs() >= electionTimeout) {
             LOG.info("{} changes to CANDIDATE, lastRpcTime:{}, electionTimeout:{}ms",
                 server.getId(), lastRpcTime.elapsedTimeMs(), electionTimeout);
             // election timeout, should become a candidate

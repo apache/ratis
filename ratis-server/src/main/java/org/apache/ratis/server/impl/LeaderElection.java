@@ -170,7 +170,7 @@ class LeaderElection extends Daemon {
           case DISCOVERED_A_NEW_TERM:
             final long term = r.term > server.getState().getCurrentTerm() ?
                 r.term : server.getState().getCurrentTerm();
-            server.changeToFollowerAndPersistMetadata(term);
+            server.changeToFollowerAndPersistMetadata(term, Result.DISCOVERED_A_NEW_TERM);
             return;
           case TIMEOUT:
             // should start another election

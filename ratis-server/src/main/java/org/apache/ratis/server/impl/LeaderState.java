@@ -386,7 +386,7 @@ public class LeaderState {
 
   private void stepDown(long term) {
     try {
-      server.changeToFollowerAndPersistMetadata(term);
+      server.changeToFollowerAndPersistMetadata(term, "stepDown");
     } catch(IOException e) {
       final String s = server.getId() + ": Failed to persist metadata for term " + term;
       LOG.warn(s, e);
