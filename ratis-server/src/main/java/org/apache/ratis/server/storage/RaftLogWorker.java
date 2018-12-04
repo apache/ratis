@@ -292,11 +292,12 @@ class RaftLogWorker implements Runnable {
    * Thus all the tasks are created and added sequentially.
    */
   void startLogSegment(long startIndex) {
+    LOG.info("{}: Starting segment from index:{}", name, startIndex);
     addIOTask(new StartLogSegment(startIndex));
   }
 
   void rollLogSegment(LogSegment segmentToClose) {
-    LOG.info("Rolling segment:{} index to:{}", name,
+    LOG.info("{}: Rolling segment to index:{}", name,
         (segmentToClose.getEndIndex() + 1));
     addIOTask(new FinalizeLogSegment(segmentToClose));
     addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
@@ -307,6 +308,7 @@ class RaftLogWorker implements Runnable {
   }
 
   Task truncate(TruncationSegments ts) {
+    LOG.info("{}: Truncating segments {}", name, ts);
     return addIOTask(new TruncateLog(ts));
   }
 
@@ -381,7 +383,6 @@ class RaftLogWorker implements Runnable {
 
       File openFile = storage.getStorageDir()
           .getOpenLogFile(segmentToClose.getStartIndex());
-      LOG.debug("{} finalizing log segment {}", name, openFile);
       Preconditions.assertTrue(openFile.exists(),
           () -> name + ": File " + openFile + " does not exist, segmentToClose="
               + segmentToClose.toDebugString());
@@ -392,8 +393,10 @@ class RaftLogWorker implements Runnable {
         Preconditions.assertTrue(!dstFile.exists());
 
         FileUtils.move(openFile, dstFile);
+        LOG.info("{}: Rolled log segment from {} to {}", name, openFile, dstFile);
       } else { // delete the file of the empty segment
         FileUtils.deleteFile(openFile);
+        LOG.info("{}: Deleted empty log segment {}", name, openFile);
       }
       updateFlushedIndex();
     }
@@ -419,7 +422,6 @@ class RaftLogWorker implements Runnable {
     @Override
     void execute() throws IOException {
       File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
-      LOG.debug("{} creating new log segment {}", name, openFile);
       Preconditions.assertTrue(!openFile.exists(), "open file %s exists for %s",
           openFile, name);
       Preconditions.assertTrue(out == null && pendingFlushNum == 0);
@@ -427,6 +429,7 @@ class RaftLogWorker implements Runnable {
           preallocatedSize, bufferSize);
       Preconditions.assertTrue(openFile.exists(), "Failed to create file %s for %s",
           openFile.getAbsolutePath(), name);
+      LOG.info("{}: created new log segment {}", name, openFile);
     }
 
     @Override
@@ -453,13 +456,18 @@ class RaftLogWorker implements Runnable {
             storage.getStorageDir().getClosedLogFile(
                 segments.toTruncate.startIndex,
                 segments.toTruncate.endIndex);
+        Preconditions.assertTrue(fileToTruncate.exists(),
+            "File %s to be truncated does not exist", fileToTruncate);
         FileUtils.truncateFile(fileToTruncate, segments.toTruncate.targetLength);
 
         // rename the file
         File dstFile = storage.getStorageDir().getClosedLogFile(
             segments.toTruncate.startIndex, segments.toTruncate.newEndIndex);
-        Preconditions.assertTrue(!dstFile.exists());
+        Preconditions.assertTrue(!dstFile.exists(),
+            "Truncated file %s already exists ", dstFile);
         FileUtils.move(fileToTruncate, dstFile);
+        LOG.info("{}: Truncated log file {} to length {} and moved it to {}", name,
+            fileToTruncate, segments.toTruncate.targetLength, dstFile);
 
         // update lastWrittenIndex
         lastWrittenIndex = segments.toTruncate.newEndIndex;
@@ -474,7 +482,10 @@ class RaftLogWorker implements Runnable {
             delFile = storage.getStorageDir()
                 .getClosedLogFile(del.startIndex, del.endIndex);
           }
+          Preconditions.assertTrue(delFile.exists(),
+              "File %s to be deleted does not exist", delFile);
           FileUtils.deleteFile(delFile);
+          LOG.info("{}: Deleted log file {}", name, delFile);
           minStart = Math.min(minStart, del.startIndex);
         }
         if (segments.toTruncate == null) {
