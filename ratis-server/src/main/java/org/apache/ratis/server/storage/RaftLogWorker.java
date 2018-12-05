@@ -297,8 +297,8 @@ class RaftLogWorker implements Runnable {
   }
 
   void rollLogSegment(LogSegment segmentToClose) {
-    LOG.info("{}: Rolling segment to index:{}", name,
-        (segmentToClose.getEndIndex() + 1));
+    LOG.info("{}: Rolling segment {} to index:{}", name,
+        segmentToClose.toString(), segmentToClose.getEndIndex());
     addIOTask(new FinalizeLogSegment(segmentToClose));
     addIOTask(new StartLogSegment(segmentToClose.getEndIndex() + 1));
   }
@@ -369,27 +369,26 @@ class RaftLogWorker implements Runnable {
   }
 
   private class FinalizeLogSegment extends Task {
-    private final LogSegment segmentToClose;
+    private final long startIndex;
+    private final long endIndex;
 
     FinalizeLogSegment(LogSegment segmentToClose) {
-      this.segmentToClose = segmentToClose;
+      Preconditions.assertTrue(segmentToClose != null, "Log segment to be rolled is null");
+      this.startIndex = segmentToClose.getStartIndex();
+      this.endIndex = segmentToClose.getEndIndex();
     }
 
     @Override
     public void execute() throws IOException {
       IOUtils.cleanup(LOG, out);
       out = null;
-      Preconditions.assertTrue(segmentToClose != null);
 
-      File openFile = storage.getStorageDir()
-          .getOpenLogFile(segmentToClose.getStartIndex());
+      File openFile = storage.getStorageDir().getOpenLogFile(startIndex);
       Preconditions.assertTrue(openFile.exists(),
-          () -> name + ": File " + openFile + " does not exist, segmentToClose="
-              + segmentToClose.toDebugString());
-      if (segmentToClose.numOfEntries() > 0) {
+          () -> name + ": File " + openFile + " to be rolled does not exist");
+      if (endIndex - startIndex + 1 > 0) {
         // finalize the current open segment
-        File dstFile = storage.getStorageDir().getClosedLogFile(
-            segmentToClose.getStartIndex(), segmentToClose.getEndIndex());
+        File dstFile = storage.getStorageDir().getClosedLogFile(startIndex, endIndex);
         Preconditions.assertTrue(!dstFile.exists());
 
         FileUtils.move(openFile, dstFile);
@@ -403,12 +402,12 @@ class RaftLogWorker implements Runnable {
 
     @Override
     long getEndIndex() {
-      return segmentToClose.getEndIndex();
+      return endIndex;
     }
 
     @Override
     public String toString() {
-      return super.toString() + ": " + segmentToClose.toDebugString();
+      return super.toString() + ": " + "startIndex=" + startIndex + " endIndex=" + endIndex;
     }
   }
 
