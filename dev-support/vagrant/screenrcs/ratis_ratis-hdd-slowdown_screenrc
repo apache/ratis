@@ -1,0 +1,33 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# huge scrollback buffer
+defscrollback 50000
+
+# no welcome message
+startup_message off
+
+# default windows
+screen -t Server0 0 /home/vagrant/incubator-ratis/dev-support/vagrant/bin/start_ratis_server.sh /home/vagrant/test_data/data0_slowed n0 n0:127.0.0.1:6000,n1:127.0.0.1:6001,n2:127.0.0.1:6002
+screen -t Server1 1 /home/vagrant/incubator-ratis/dev-support/vagrant/bin/start_ratis_server.sh /home/vagrant/test_data/data1_slowed n1 n0:127.0.0.1:6000,n1:127.0.0.1:6001,n2:127.0.0.1:6002
+screen -t Server2 2 /home/vagrant/incubator-ratis/dev-support/vagrant/bin/start_ratis_server.sh /home/vagrant/test_data/data2_slowed n2 n0:127.0.0.1:6000,n1:127.0.0.1:6001,n2:127.0.0.1:6002
+screen -t LoadGen 3 /home/vagrant/incubator-ratis/dev-support/vagrant/bin/start_ratis_load_gen.sh n0:127.0.0.1:6000,n1:127.0.0.1:6001,n2:127.0.0.1:6002
+
+autodetach on
+detach
+
+# Don't kill window after the process died
+# 'k' kills window, 'r' restarts
+zombie kr

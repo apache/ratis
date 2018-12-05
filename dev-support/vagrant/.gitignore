@@ -1,0 +1,5 @@
+.*.sw*
+*~
+*.box
+*.log
+.vagrant

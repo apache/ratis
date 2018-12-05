@@ -1,0 +1,420 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1sfadzh" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="Process_1" isExecutable="false">
+    <bpmn:subProcess id="SubProcess_0z7pqrc" name="Build ratis-build VM&#10;">
+      <bpmn:incoming>SequenceFlow_0urd70f</bpmn:incoming>
+      <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_0y3qocg" name="Download Java&#10;">
+        <bpmn:incoming>SequenceFlow_0omwrdp</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_1gsb6y6</bpmn:outgoing>
+      </bpmn:intermediateThrowEvent>
+      <bpmn:startEvent id="StartEvent_06uerma" name="vagrant up ratis-build --provision">
+        <bpmn:outgoing>SequenceFlow_0omwrdp</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:sequenceFlow id="SequenceFlow_0omwrdp" sourceRef="StartEvent_06uerma" targetRef="IntermediateThrowEvent_0y3qocg" />
+      <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_1aqnusk" name="Install Maven&#10;">
+        <bpmn:incoming>SequenceFlow_1gsb6y6</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_0ba1g32</bpmn:outgoing>
+      </bpmn:intermediateThrowEvent>
+      <bpmn:sequenceFlow id="SequenceFlow_1gsb6y6" sourceRef="IntermediateThrowEvent_0y3qocg" targetRef="IntermediateThrowEvent_1aqnusk" />
+      <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_0jqkmbb" name="Install Namazu Dependencies">
+        <bpmn:incoming>SequenceFlow_0ba1g32</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_1kbg34m</bpmn:outgoing>
+      </bpmn:intermediateThrowEvent>
+      <bpmn:sequenceFlow id="SequenceFlow_0ba1g32" sourceRef="IntermediateThrowEvent_1aqnusk" targetRef="IntermediateThrowEvent_0jqkmbb" />
+      <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_0g8jagu" name="Build Namazu&#10;">
+        <bpmn:incoming>SequenceFlow_1kbg34m</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_1d5wr7n</bpmn:outgoing>
+      </bpmn:intermediateThrowEvent>
+      <bpmn:sequenceFlow id="SequenceFlow_1kbg34m" sourceRef="IntermediateThrowEvent_0jqkmbb" targetRef="IntermediateThrowEvent_0g8jagu" />
+      <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_1v6diup" name="Build Ratis&#10;">
+        <bpmn:incoming>SequenceFlow_1d5wr7n</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_0l4bff2</bpmn:outgoing>
+      </bpmn:intermediateThrowEvent>
+      <bpmn:sequenceFlow id="SequenceFlow_1d5wr7n" sourceRef="IntermediateThrowEvent_0g8jagu" targetRef="IntermediateThrowEvent_1v6diup" />
+      <bpmn:endEvent id="EndEvent_1si4vk8" name="vagrant halt&#10;ratis-test&#10;">
+        <bpmn:incoming>SequenceFlow_0l4bff2</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="SequenceFlow_0l4bff2" sourceRef="IntermediateThrowEvent_1v6diup" targetRef="EndEvent_1si4vk8" />
+    </bpmn:subProcess>
+    <bpmn:subProcess id="SubProcess_1vox2fm" name="Build ratis-servers VM&#10;">
+      <bpmn:incoming>SequenceFlow_18d45r2</bpmn:incoming>
+      <bpmn:startEvent id="StartEvent_118f43t" name="vagrant up&#10;ratis-servers --provision&#10;">
+        <bpmn:outgoing>SequenceFlow_1p4qi6s</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:subProcess id="SubProcess_0h4f1v2" name="Common VM Processes&#10;">
+        <bpmn:incoming>SequenceFlow_1p4qi6s</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_0rls8pr</bpmn:outgoing>
+        <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_1gjprfe" name="Run VM specific Ratis launch (via screenrc)&#10;">
+          <bpmn:incoming>SequenceFlow_09emzly</bpmn:incoming>
+        </bpmn:intermediateThrowEvent>
+        <bpmn:sequenceFlow id="SequenceFlow_09emzly" sourceRef="StartEvent_0set2bm" targetRef="IntermediateThrowEvent_1gjprfe" />
+        <bpmn:intermediateThrowEvent id="StartEvent_0set2bm" name="Kill any ratis processes&#10;">
+          <bpmn:outgoing>SequenceFlow_09emzly</bpmn:outgoing>
+        </bpmn:intermediateThrowEvent>
+      </bpmn:subProcess>
+      <bpmn:sequenceFlow id="SequenceFlow_1p4qi6s" sourceRef="StartEvent_118f43t" targetRef="SubProcess_0h4f1v2" />
+      <bpmn:endEvent id="EndEvent_0liwtzf" name="vagrant suspend ratis-servers&#10;">
+        <bpmn:incoming>SequenceFlow_0rls8pr</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="SequenceFlow_0rls8pr" sourceRef="SubProcess_0h4f1v2" targetRef="EndEvent_0liwtzf" />
+      <bpmn:textAnnotation id="TextAnnotation_04s3sts">
+        <bpmn:text>sets Vagrant box to ratis-test &amp; sets memory, CPU</bpmn:text>
+      </bpmn:textAnnotation>
+      <bpmn:association id="Association_1pw72r1" sourceRef="SubProcess_0h4f1v2" targetRef="TextAnnotation_04s3sts" />
+    </bpmn:subProcess>
+    <bpmn:subProcess id="SubProcess_1nxh3nk" name="Build ratis-hdd-slowdown VM&#10;">
+      <bpmn:incoming>SequenceFlow_1lvmnzt</bpmn:incoming>
+      <bpmn:startEvent id="StartEvent_0l3hmxf" name="vagrant up ratis-hdd-slowdown --provision&#10;">
+        <bpmn:outgoing>SequenceFlow_05xfi9i</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:endEvent id="EndEvent_0h7nqya" name="vagrant suspend ratis-hdd-slowdown&#10;">
+        <bpmn:incoming>SequenceFlow_1rtfyit</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:task id="Task_13zqryo" name="Common VM Processes&#10;">
+        <bpmn:incoming>SequenceFlow_1odg4c0</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_1rtfyit</bpmn:outgoing>
+      </bpmn:task>
+      <bpmn:subProcess id="SubProcess_0brvgq2" name="Prepare Namazu Daemon&#10;">
+        <bpmn:incoming>SequenceFlow_05xfi9i</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_0y93jhx</bpmn:outgoing>
+        <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_01t8cjj" name=" Make test dirs&#10;">
+          <bpmn:outgoing>SequenceFlow_1wxxary</bpmn:outgoing>
+        </bpmn:intermediateThrowEvent>
+        <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_0kuy86e" name="Kill any namazu processes&#10;">
+          <bpmn:incoming>SequenceFlow_1wxxary</bpmn:incoming>
+          <bpmn:outgoing>SequenceFlow_1kpvmtl</bpmn:outgoing>
+        </bpmn:intermediateThrowEvent>
+        <bpmn:sequenceFlow id="SequenceFlow_1wxxary" sourceRef="IntermediateThrowEvent_01t8cjj" targetRef="IntermediateThrowEvent_0kuy86e" />
+        <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_07tr02j" name="Unmount all Fuse mounts&#10;">
+          <bpmn:incoming>SequenceFlow_1kpvmtl</bpmn:incoming>
+        </bpmn:intermediateThrowEvent>
+        <bpmn:sequenceFlow id="SequenceFlow_1kpvmtl" sourceRef="IntermediateThrowEvent_0kuy86e" targetRef="IntermediateThrowEvent_07tr02j" />
+      </bpmn:subProcess>
+      <bpmn:sequenceFlow id="SequenceFlow_05xfi9i" sourceRef="StartEvent_0l3hmxf" targetRef="SubProcess_0brvgq2" />
+      <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_08jwjmk" name="Run namazu (via screenrc)&#10;">
+        <bpmn:incoming>SequenceFlow_0y93jhx</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_1odg4c0</bpmn:outgoing>
+      </bpmn:intermediateThrowEvent>
+      <bpmn:sequenceFlow id="SequenceFlow_1odg4c0" sourceRef="IntermediateThrowEvent_08jwjmk" targetRef="Task_13zqryo" />
+      <bpmn:sequenceFlow id="SequenceFlow_1rtfyit" sourceRef="Task_13zqryo" targetRef="EndEvent_0h7nqya" />
+      <bpmn:sequenceFlow id="SequenceFlow_0y93jhx" sourceRef="SubProcess_0brvgq2" targetRef="IntermediateThrowEvent_08jwjmk" />
+    </bpmn:subProcess>
+    <bpmn:subProcess id="SubProcess_003i1wn" name="run_all_tests.sh:build&#10;">
+      <bpmn:outgoing>SequenceFlow_0urd70f</bpmn:outgoing>
+      <bpmn:outgoing>SequenceFlow_18d45r2</bpmn:outgoing>
+      <bpmn:outgoing>SequenceFlow_1lvmnzt</bpmn:outgoing>
+      <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_0n4ow8g" name="Build&#10;ratis-servers VM&#10;">
+        <bpmn:incoming>SequenceFlow_0pqdxj9</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_171shbg</bpmn:outgoing>
+      </bpmn:intermediateThrowEvent>
+      <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_1cmdrjz" name="vagrant package ratis-build&#10;">
+        <bpmn:incoming>SequenceFlow_1ormzc8</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_0pqdxj9</bpmn:outgoing>
+      </bpmn:intermediateThrowEvent>
+      <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_1pdyawc" name="Build ratis-build VM&#10;">
+        <bpmn:incoming>SequenceFlow_142v0rf</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_1ormzc8</bpmn:outgoing>
+      </bpmn:intermediateThrowEvent>
+      <bpmn:startEvent id="StartEvent_1pvbxq8">
+        <bpmn:outgoing>SequenceFlow_142v0rf</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:endEvent id="EndEvent_0w9o8ng">
+        <bpmn:incoming>SequenceFlow_1kxnv1n</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:intermediateThrowEvent id="IntermediateThrowEvent_0ppv1mn" name="Build ratis-hdd-slowdownVM&#10;">
+        <bpmn:incoming>SequenceFlow_171shbg</bpmn:incoming>
+        <bpmn:outgoing>SequenceFlow_1kxnv1n</bpmn:outgoing>
+      </bpmn:intermediateThrowEvent>
+      <bpmn:sequenceFlow id="SequenceFlow_171shbg" sourceRef="IntermediateThrowEvent_0n4ow8g" targetRef="IntermediateThrowEvent_0ppv1mn" />
+      <bpmn:sequenceFlow id="SequenceFlow_0pqdxj9" sourceRef="IntermediateThrowEvent_1cmdrjz" targetRef="IntermediateThrowEvent_0n4ow8g" />
+      <bpmn:sequenceFlow id="SequenceFlow_1ormzc8" sourceRef="IntermediateThrowEvent_1pdyawc" targetRef="IntermediateThrowEvent_1cmdrjz" />
+      <bpmn:sequenceFlow id="SequenceFlow_142v0rf" sourceRef="StartEvent_1pvbxq8" targetRef="IntermediateThrowEvent_1pdyawc" />
+      <bpmn:sequenceFlow id="SequenceFlow_1kxnv1n" sourceRef="IntermediateThrowEvent_0ppv1mn" targetRef="EndEvent_0w9o8ng" />
+    </bpmn:subProcess>
+    <bpmn:sequenceFlow id="SequenceFlow_0urd70f" sourceRef="SubProcess_003i1wn" targetRef="SubProcess_0z7pqrc" />
+    <bpmn:sequenceFlow id="SequenceFlow_18d45r2" sourceRef="SubProcess_003i1wn" targetRef="SubProcess_1vox2fm" />
+    <bpmn:sequenceFlow id="SequenceFlow_1lvmnzt" sourceRef="SubProcess_003i1wn" targetRef="SubProcess_1nxh3nk" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_1">
+      <bpmndi:BPMNShape id="SubProcess_0z7pqrc_di" bpmnElement="SubProcess_0z7pqrc" isExpanded="true">
+        <dc:Bounds x="158" y="-274" width="380" height="293" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_0y3qocg_di" bpmnElement="IntermediateThrowEvent_0y3qocg">
+        <dc:Bounds x="226" y="-71" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="207" y="-26" width="75" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_06uerma_di" bpmnElement="StartEvent_06uerma">
+        <dc:Bounds x="226" y="-198" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="204" y="-244" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_0omwrdp_di" bpmnElement="SequenceFlow_0omwrdp">
+        <di:waypoint x="244" y="-162" />
+        <di:waypoint x="244" y="-71" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_1aqnusk_di" bpmnElement="IntermediateThrowEvent_1aqnusk">
+        <dc:Bounds x="307" y="-198" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="293" y="-220" width="64" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_1gsb6y6_di" bpmnElement="SequenceFlow_1gsb6y6">
+        <di:waypoint x="262" y="-53" />
+        <di:waypoint x="285" y="-53" />
+        <di:waypoint x="285" y="-180" />
+        <di:waypoint x="307" y="-180" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_0jqkmbb_di" bpmnElement="IntermediateThrowEvent_0jqkmbb">
+        <dc:Bounds x="307" y="-71" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="289" y="-28" width="72" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_0ba1g32_di" bpmnElement="SequenceFlow_0ba1g32">
+        <di:waypoint x="325" y="-162" />
+        <di:waypoint x="325" y="-71" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_0g8jagu_di" bpmnElement="IntermediateThrowEvent_0g8jagu">
+        <dc:Bounds x="392" y="-198" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="376" y="-218" width="67" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_1kbg34m_di" bpmnElement="SequenceFlow_1kbg34m">
+        <di:waypoint x="343" y="-53" />
+        <di:waypoint x="368" y="-53" />
+        <di:waypoint x="368" y="-180" />
+        <di:waypoint x="392" y="-180" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_1v6diup_di" bpmnElement="IntermediateThrowEvent_1v6diup">
+        <dc:Bounds x="392" y="-71" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="385" y="-28" width="51" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_1d5wr7n_di" bpmnElement="SequenceFlow_1d5wr7n">
+        <di:waypoint x="410" y="-162" />
+        <di:waypoint x="410" y="-71" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="EndEvent_1si4vk8_di" bpmnElement="EndEvent_1si4vk8">
+        <dc:Bounds x="464" y="-198" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="462" y="-154" width="57" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_0l4bff2_di" bpmnElement="SequenceFlow_0l4bff2">
+        <di:waypoint x="428" y="-53" />
+        <di:waypoint x="446" y="-53" />
+        <di:waypoint x="446" y="-180" />
+        <di:waypoint x="464" y="-180" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="SubProcess_1vox2fm_di" bpmnElement="SubProcess_1vox2fm" isExpanded="true">
+        <dc:Bounds x="114" y="50" width="468" height="213" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_118f43t_di" bpmnElement="StartEvent_118f43t">
+        <dc:Bounds x="146" y="151" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="132" y="90" width="63" height="53" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubProcess_0h4f1v2_di" bpmnElement="SubProcess_0h4f1v2" isExpanded="true">
+        <dc:Bounds x="221" y="103" width="199" height="131" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_1p4qi6s_di" bpmnElement="SequenceFlow_1p4qi6s">
+        <di:waypoint x="182" y="169" />
+        <di:waypoint x="221" y="169" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_1gjprfe_di" bpmnElement="IntermediateThrowEvent_1gjprfe">
+        <dc:Bounds x="342" y="142" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="320" y="185" width="81" height="53" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_09emzly_di" bpmnElement="SequenceFlow_09emzly">
+        <di:waypoint x="277" y="160" />
+        <di:waypoint x="342" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_16roajq_di" bpmnElement="StartEvent_0set2bm">
+        <dc:Bounds x="241" y="142" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="231" y="185" width="58" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="TextAnnotation_04s3sts_di" bpmnElement="TextAnnotation_04s3sts">
+        <dc:Bounds x="462" y="71" width="100" height="70" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Association_1pw72r1_di" bpmnElement="Association_1pw72r1">
+        <di:waypoint x="420" y="136" />
+        <di:waypoint x="462" y="122" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="EndEvent_0liwtzf_di" bpmnElement="EndEvent_0liwtzf">
+        <dc:Bounds x="459" y="151" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="436" y="194" width="82" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_0rls8pr_di" bpmnElement="SequenceFlow_0rls8pr">
+        <di:waypoint x="420" y="169" />
+        <di:waypoint x="459" y="169" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="SubProcess_1nxh3nk_di" bpmnElement="SubProcess_1nxh3nk" isExpanded="true">
+        <dc:Bounds x="138" y="284" width="419" height="316" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_0l3hmxf_di" bpmnElement="StartEvent_0l3hmxf">
+        <dc:Bounds x="181" y="366" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="159" y="305" width="80" height="53" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_0h7nqya_di" bpmnElement="EndEvent_0h7nqya">
+        <dc:Bounds x="477" y="341" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="454" y="384" width="82" height="53" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_13zqryo_di" bpmnElement="Task_13zqryo">
+        <dc:Bounds x="349" y="319" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SubProcess_0brvgq2_di" bpmnElement="SubProcess_0brvgq2" isExpanded="true">
+        <dc:Bounds x="189" y="455" width="334" height="120" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_05xfi9i_di" bpmnElement="SequenceFlow_05xfi9i">
+        <di:waypoint x="199" y="402" />
+        <di:waypoint x="199" y="455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_01t8cjj_di" bpmnElement="IntermediateThrowEvent_01t8cjj">
+        <dc:Bounds x="214" y="475" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="197" y="518" width="72" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_0kuy86e_di" bpmnElement="IntermediateThrowEvent_0kuy86e">
+        <dc:Bounds x="331" y="475" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="311" y="518" width="76" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_1wxxary_di" bpmnElement="SequenceFlow_1wxxary">
+        <di:waypoint x="250" y="493" />
+        <di:waypoint x="331" y="493" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_07tr02j_di" bpmnElement="IntermediateThrowEvent_07tr02j">
+        <dc:Bounds x="448" y="475" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="424" y="518" width="85" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_1kpvmtl_di" bpmnElement="SequenceFlow_1kpvmtl">
+        <di:waypoint x="367" y="493" />
+        <di:waypoint x="448" y="493" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_08jwjmk_di" bpmnElement="IntermediateThrowEvent_08jwjmk">
+        <dc:Bounds x="275" y="341" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="251" y="309" width="83" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_1odg4c0_di" bpmnElement="SequenceFlow_1odg4c0">
+        <di:waypoint x="311" y="359" />
+        <di:waypoint x="349" y="359" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SequenceFlow_1rtfyit_di" bpmnElement="SequenceFlow_1rtfyit">
+        <di:waypoint x="449" y="359" />
+        <di:waypoint x="477" y="359" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SequenceFlow_0y93jhx_di" bpmnElement="SequenceFlow_0y93jhx">
+        <di:waypoint x="356" y="455" />
+        <di:waypoint x="356" y="416" />
+        <di:waypoint x="293" y="416" />
+        <di:waypoint x="293" y="377" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="SubProcess_003i1wn_di" bpmnElement="SubProcess_003i1wn" isExpanded="true">
+        <dc:Bounds x="-315" y="-83" width="325" height="448" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_0n4ow8g_di" bpmnElement="IntermediateThrowEvent_0n4ow8g">
+        <dc:Bounds x="-189" y="162" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-282" y="160" width="82" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_1cmdrjz_di" bpmnElement="IntermediateThrowEvent_1cmdrjz">
+        <dc:Bounds x="-189" y="97" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-284" y="95" width="82" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_1pdyawc_di" bpmnElement="IntermediateThrowEvent_1pdyawc">
+        <dc:Bounds x="-189" y="38" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-277" y="42" width="73" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_1pvbxq8_di" bpmnElement="StartEvent_1pvbxq8">
+        <dc:Bounds x="-189" y="-23" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="10" y="-160.5" width="52" height="53" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_0w9o8ng_di" bpmnElement="EndEvent_0w9o8ng">
+        <dc:Bounds x="-189" y="299" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="IntermediateThrowEvent_0ppv1mn_di" bpmnElement="IntermediateThrowEvent_0ppv1mn">
+        <dc:Bounds x="-189" y="226" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="-277" y="224" width="73" height="40" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="SequenceFlow_171shbg_di" bpmnElement="SequenceFlow_171shbg">
+        <di:waypoint x="-171" y="198" />
+        <di:waypoint x="-171" y="226" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SequenceFlow_0pqdxj9_di" bpmnElement="SequenceFlow_0pqdxj9">
+        <di:waypoint x="-171" y="133" />
+        <di:waypoint x="-171" y="162" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SequenceFlow_1ormzc8_di" bpmnElement="SequenceFlow_1ormzc8">
+        <di:waypoint x="-171" y="74" />
+        <di:waypoint x="-171" y="97" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SequenceFlow_142v0rf_di" bpmnElement="SequenceFlow_142v0rf">
+        <di:waypoint x="-171" y="13" />
+        <di:waypoint x="-171" y="38" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SequenceFlow_1kxnv1n_di" bpmnElement="SequenceFlow_1kxnv1n">
+        <di:waypoint x="-171" y="262" />
+        <di:waypoint x="-171" y="299" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SequenceFlow_0urd70f_di" bpmnElement="SequenceFlow_0urd70f">
+        <di:waypoint x="-152" y="-83" />
+        <di:waypoint x="-152" y="-127" />
+        <di:waypoint x="158" y="-127" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SequenceFlow_18d45r2_di" bpmnElement="SequenceFlow_18d45r2">
+        <di:waypoint x="10" y="141" />
+        <di:waypoint x="114" y="141" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SequenceFlow_1lvmnzt_di" bpmnElement="SequenceFlow_1lvmnzt">
+        <di:waypoint x="-152" y="365" />
+        <di:waypoint x="-152" y="442" />
+        <di:waypoint x="138" y="442" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

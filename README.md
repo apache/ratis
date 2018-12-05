@@ -60,6 +60,8 @@ For example `ratis-examples/src/main/bin/client.sh arithmetic get --name b --pee
 
 PS: the peer is a id, ipaddress pair seperated by ':', for eg. n0:172.26.32.224:6000
 
+### Pre-Setup Vagrant Pseudo Cluster
+One can see the interactions of a three server Ratis cluster with a load-generator running against it by using the `run_all_tests.sh` script found in [dev-support/vagrant/]. See the [dev-support/vagrant/README.md] for more on dependencies and what is setup. This will allow one to try a fully setup three server Ratis cluster on a single VM image, preventing resource contention with your development host and allowing failure injection too.
 
 # Reference
 [1] _Diego Ongaro and John Ousterhout. 2014. In search of an understandable consensus algorithm. In Proceedings of the 2014 USENIX conference on USENIX Annual Technical Conference (USENIX ATC'14), Garth Gibson and Nickolai Zeldovich (Eds.). USENIX Association, Berkeley, CA, USA, 305-320._
