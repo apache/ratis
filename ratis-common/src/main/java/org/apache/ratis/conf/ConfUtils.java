@@ -94,6 +94,15 @@ public interface ConfUtils {
     };
   }
 
+  static BiConsumer<String, TimeDuration> requirePositive() {
+    return (key, value) -> {
+      if (value.getDuration() <= 0) {
+        throw new IllegalArgumentException(
+            key + " = " + value + " is non-positive.");
+      }
+    };
+  }
+
   static BiFunction<String, Long, Integer> requireInt() {
     return (key, value) -> {
       try {

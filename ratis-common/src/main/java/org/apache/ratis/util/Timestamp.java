@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -28,6 +28,16 @@ public class Timestamp implements Comparable<Timestamp> {
   private static final long NANOSECONDS_PER_MILLISECOND = 1000000;
 
   private static final long START_TIME = System.nanoTime();
+
+  /** @return a {@link Timestamp} for the given nanos. */
+  public static Timestamp valueOf(long nanos) {
+    return new Timestamp(nanos);
+  }
+
+  /** @return a long in nanos for the current time. */
+  public static long currentTimeNanos() {
+    return System.nanoTime();
+  }
 
   /** @return the latest timestamp. */
   public static Timestamp latest(Timestamp a, Timestamp b) {

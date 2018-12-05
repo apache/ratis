@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -25,8 +25,8 @@ public class NotReplicatedException extends RaftException {
   private final long logIndex;
 
   public NotReplicatedException(long callId, ReplicationLevel requiredReplication, long logIndex) {
-    super("Request with call Id " + callId + " is committed with log index " + logIndex
-        + " but not yet replicated to " + requiredReplication);
+    super("Request with call Id " + callId + " and log index " + logIndex
+        + " is not yet replicated to " + requiredReplication);
     this.callId = callId;
     this.requiredReplication = requiredReplication;
     this.logIndex = logIndex;

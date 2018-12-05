@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -77,6 +77,29 @@ public interface RaftServerConfigKeys {
   static void setLeaderElectionTimeout(RaftProperties properties, TimeDuration leaderElectionTimeout) {
     setTimeDuration(properties::setTimeDuration, LEADER_ELECTION_TIMEOUT_KEY, leaderElectionTimeout);
 
+  }
+
+  String WATCH_TIMEOUT_DENOMINATION_KEY = PREFIX + ".watch.timeout.denomination";
+  TimeDuration WATCH_TIMEOUT_DENOMINATION_DEFAULT = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+  static TimeDuration watchTimeoutDenomination(RaftProperties properties) {
+    return getTimeDuration(properties.getTimeDuration(WATCH_TIMEOUT_DENOMINATION_DEFAULT.getUnit()),
+        WATCH_TIMEOUT_DENOMINATION_KEY, WATCH_TIMEOUT_DENOMINATION_DEFAULT, getDefaultLog(), requirePositive());
+  }
+  static void setWatchTimeoutDenomination(RaftProperties properties, TimeDuration watchTimeout) {
+    setTimeDuration(properties::setTimeDuration, WATCH_TIMEOUT_DENOMINATION_KEY, watchTimeout);
+  }
+
+  /**
+   * Timeout for watch requests.
+   */
+  String WATCH_TIMEOUT_KEY = PREFIX + ".watch.timeout";
+  TimeDuration WATCH_TIMEOUT_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
+  static TimeDuration watchTimeout(RaftProperties properties) {
+    return getTimeDuration(properties.getTimeDuration(WATCH_TIMEOUT_DEFAULT.getUnit()),
+        WATCH_TIMEOUT_KEY, WATCH_TIMEOUT_DEFAULT, getDefaultLog(), requirePositive());
+  }
+  static void setWatchTimeout(RaftProperties properties, TimeDuration watchTimeout) {
+    setTimeDuration(properties::setTimeDuration, WATCH_TIMEOUT_KEY, watchTimeout);
   }
 
   interface Log {

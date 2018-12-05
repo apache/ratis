@@ -27,6 +27,7 @@ import java.nio.ByteBuffer;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 public class StringUtils {
@@ -144,6 +145,24 @@ public class StringUtils {
       final StringBuilder b = new StringBuilder("{");
       map.entrySet().stream().forEach(e -> b.append("\n  ").append(e.getKey()).append(" -> ").append(e.getValue()));
       return b.append("\n}").toString();
+    }
+  }
+
+  public static String completableFuture2String(CompletableFuture<?> future, boolean includeDetails) {
+    if (!future.isDone()) {
+      return "NOT_DONE";
+    } else if (future.isCancelled()) {
+      return "CANCELLED";
+    } else if (future.isCompletedExceptionally()) {
+      if (!includeDetails) {
+        return "EXCEPTION";
+      }
+      return future.thenApply(Objects::toString).exceptionally(Throwable::toString).join();
+    } else {
+      if (!includeDetails) {
+        return "COMPLETED";
+      }
+      return "" + future.join();
     }
   }
 }

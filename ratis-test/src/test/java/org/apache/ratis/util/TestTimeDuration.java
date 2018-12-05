@@ -19,6 +19,7 @@ package org.apache.ratis.util;
 
 import org.junit.Test;
 
+import java.sql.Time;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -31,7 +32,7 @@ import static org.junit.Assert.assertNotNull;
 
 public class TestTimeDuration {
   @Test(timeout = 1000)
-  public void testTimeDuration() throws Exception {
+  public void testTimeDuration() {
     Arrays.asList(TimeUnit.values())
         .forEach(a -> assertNotNull(Abbreviation.valueOf(a.name())));
     assertEquals(TimeUnit.values().length, Abbreviation.values().length);
@@ -80,5 +81,20 @@ public class TestTimeDuration {
     assertEquals(24, parse("1 d", TimeUnit.HOURS));
     assertEquals(240, parse("10 day", TimeUnit.HOURS));
     assertEquals(2400, parse("100 days", TimeUnit.HOURS));
+  }
+
+  @Test(timeout = 1000)
+  public void testRoundUp() {
+    final long nanosPerSecond = 1_000_000_000L;
+    final TimeDuration oneSecond = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+    assertEquals(-nanosPerSecond, oneSecond.roundUp(-nanosPerSecond - 1));
+    assertEquals(-nanosPerSecond, oneSecond.roundUp(-nanosPerSecond));
+    assertEquals(0, oneSecond.roundUp(-nanosPerSecond + 1));
+    assertEquals(0, oneSecond.roundUp(-1));
+    assertEquals(0, oneSecond.roundUp(0));
+    assertEquals(nanosPerSecond, oneSecond.roundUp(1));
+    assertEquals(nanosPerSecond, oneSecond.roundUp(nanosPerSecond - 1));
+    assertEquals(nanosPerSecond, oneSecond.roundUp(nanosPerSecond));
+    assertEquals(2*nanosPerSecond, oneSecond.roundUp(nanosPerSecond + 1));
   }
 }

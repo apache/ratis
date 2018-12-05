@@ -126,6 +126,29 @@ public class TimeDuration implements Comparable<TimeDuration> {
     return Math.toIntExact(toLong(targetUnit));
   }
 
+  public TimeDuration to(TimeUnit targetUnit) {
+    return valueOf(toLong(targetUnit), targetUnit);
+  }
+
+  /** Round up to the given nanos to nearest multiple (in nanoseconds) of this {@link TimeDuration}. */
+  public long roundUp(long nanos) {
+    if (duration <= 0) {
+      throw new ArithmeticException(
+          "Rounding up to a non-positive " + getClass().getSimpleName() + " (=" + this + ")");
+    }
+
+    final long divisor = unit.toNanos(duration);
+    if (nanos == 0 || divisor == 1) {
+      return nanos;
+    }
+
+    long remainder = nanos % divisor; // In Java, the sign of remainder is the same as the dividend.
+    if (remainder > 0) {
+      remainder -= divisor;
+    }
+    return nanos - remainder;
+  }
+
   /**
    * Apply the given operator to the duration value of this object.
    *

@@ -86,6 +86,12 @@ public class RaftClientReply extends RaftClientMessage {
         request.getCallId(), true, message, null, 0L, commitInfos);
   }
 
+  public RaftClientReply(RaftClientRequest request, NotReplicatedException nre,
+      Collection<CommitInfoProto> commitInfos) {
+    this(request.getClientId(), request.getServerId(), request.getRaftGroupId(),
+        request.getCallId(), false, request.getMessage(), nre, nre.getLogIndex(), commitInfos);
+  }
+
   public RaftClientReply(RaftClientReply reply, NotReplicatedException nre) {
     this(reply.getClientId(), reply.getServerId(), reply.getRaftGroupId(),
         reply.getCallId(), false, reply.getMessage(), nre, reply.getLogIndex(), reply.getCommitInfos());

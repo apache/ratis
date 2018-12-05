@@ -556,7 +556,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
     return role.getLeaderState()
-        .map(ls -> ls.addWatchReqeust(request).thenApply(v -> new RaftClientReply(request, getCommitInfos())))
+        .map(ls -> ls.addWatchReqeust(request))
         .orElseGet(() -> CompletableFuture.completedFuture(
             new RaftClientReply(request, generateNotLeaderException(), getCommitInfos())));
   }

@@ -35,6 +35,7 @@ import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -199,7 +200,7 @@ public class LeaderState {
     this.currentTerm = state.getCurrentTerm();
     processor = new EventProcessor();
     this.pendingRequests = new PendingRequests(server.getId());
-    this.watchRequests = new WatchRequests(server);
+    this.watchRequests = new WatchRequests(server.getId(), properties);
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
@@ -299,9 +300,18 @@ public class LeaderState {
     return pendingRequests.add(request, entry);
   }
 
-  CompletableFuture<Void> addWatchReqeust(RaftClientRequest request) {
+  CompletableFuture<RaftClientReply> addWatchReqeust(RaftClientRequest request) {
     LOG.debug("{}: addWatchRequest {}", server.getId(), request);
-    return watchRequests.add(request.getType().getWatch());
+    return watchRequests.add(request)
+        .thenApply(v -> new RaftClientReply(request, server.getCommitInfos()))
+        .exceptionally(e -> {
+          e = JavaUtils.unwrapCompletionException(e);
+          if (e instanceof NotReplicatedException) {
+            return new RaftClientReply(request, (NotReplicatedException)e, server.getCommitInfos());
+          } else {
+            throw new CompletionException(e);
+          }
+        });
   }
 
   void commitIndexChanged() {
