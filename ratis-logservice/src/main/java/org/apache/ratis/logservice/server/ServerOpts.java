@@ -38,7 +38,7 @@ public class ServerOpts {
   }
 
   @Parameter(names = {"-h", "--hostname"}, description = "Hostname")
-  private String host;
+  private String host = "localhost";
 
   @Parameter(names = {"-p", "--port"}, description = "Port number")
   private int port = -1;

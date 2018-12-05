@@ -178,6 +178,15 @@
       <artifactId>ratis-netty</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
+    <!-- CLI dependencies -->
+    <dependency>
+      <groupId>com.beust</groupId>
+      <artifactId>jcommander</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jline</groupId>
+      <artifactId>jline</artifactId>
+    </dependency>
     <!-- Third-party dependencies -->
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -241,10 +250,5 @@
       <artifactId>mockito-all</artifactId>
       <scope>test</scope>
     </dependency>
-      <dependency>
-          <groupId>com.beust</groupId>
-          <artifactId>jcommander</artifactId>
-          <version>1.72</version>
-      </dependency>
   </dependencies>
 </project>
