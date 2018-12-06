@@ -24,9 +24,9 @@ import java.util.concurrent.TimeUnit;
  *
  * This class takes care the possibility of numerical overflow.
  *
- * The objects of this class are immutable.
+ * This is a value-based class.
  */
-public class Timestamp implements Comparable<Timestamp> {
+public final class Timestamp implements Comparable<Timestamp> {
   private static final long NANOSECONDS_PER_MILLISECOND = 1000000;
 
   private static final long START_TIME = System.nanoTime();
@@ -55,11 +55,6 @@ public class Timestamp implements Comparable<Timestamp> {
 
   private Timestamp(long nanos) {
     this.nanos = nanos;
-  }
-
-  /** Construct a timestamp with the current time. */
-  public Timestamp() {
-    this(System.nanoTime());
   }
 
   /**
@@ -103,7 +98,24 @@ public class Timestamp implements Comparable<Timestamp> {
   }
 
   @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    } else if (!(obj instanceof Timestamp)) {
+      return false;
+    }
+    final Timestamp that = (Timestamp)obj;
+    return this.nanos == that.nanos;
+  }
+
+  @Override
+  public int hashCode() {
+    return Long.hashCode(nanos);
+  }
+
+  @Override
   public String toString() {
-    return (nanos - START_TIME)/NANOSECONDS_PER_MILLISECOND + "ms";
+    final long ms = (nanos - START_TIME)/NANOSECONDS_PER_MILLISECOND;
+    return (ms/1000) + "." + (ms%1000) + TimeDuration.Abbreviation.SECONDS.getDefault();
   }
 }

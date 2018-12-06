@@ -146,7 +146,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
         Assert.assertEquals(messages.length, asyncReplyCount.get());
       }
     }
-    Thread.sleep(cluster.getTimeoutMax().toInt(TimeUnit.MILLISECONDS) + 100);
+    Thread.sleep(cluster.getTimeoutMax().toIntExact(TimeUnit.MILLISECONDS) + 100);
     LOG.info(cluster.printAllLogs());
     killAndRestartFollower.join();
     killAndRestartLeader.join();

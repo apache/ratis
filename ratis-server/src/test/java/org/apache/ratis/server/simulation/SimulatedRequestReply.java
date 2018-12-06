@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -31,13 +31,12 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
-    REPLY extends RaftRpcMessage> {
-  public static final String SIMULATE_LATENCY_KEY
+class SimulatedRequestReply<REQUEST extends RaftRpcMessage, REPLY extends RaftRpcMessage> {
+  static final String SIMULATE_LATENCY_KEY
       = SimulatedRequestReply.class.getName() + ".simulateLatencyMs";
-  public static final int SIMULATE_LATENCY_DEFAULT
-      = RaftServerConfigKeys.Rpc.TIMEOUT_MIN_DEFAULT.toInt(TimeUnit.MILLISECONDS);
-  public static final long TIMEOUT = 3000L;
+  static final int SIMULATE_LATENCY_DEFAULT
+      = RaftServerConfigKeys.Rpc.TIMEOUT_MIN_DEFAULT.toIntExact(TimeUnit.MILLISECONDS);
+  static final long TIMEOUT = 3000L;
 
   private static class ReplyOrException<REPLY> {
     private final REPLY reply;
@@ -68,7 +67,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage,
     REPLY request(REQUEST request) throws InterruptedException, IOException {
       requestQueue.put(request);
       synchronized (this) {
-        final Timestamp startTime = new Timestamp();
+        final Timestamp startTime = Timestamp.currentTime();
         while (startTime.elapsedTimeMs() < TIMEOUT &&
             !replyMap.containsKey(request)) {
           this.wait(TIMEOUT); // no need to be precise here

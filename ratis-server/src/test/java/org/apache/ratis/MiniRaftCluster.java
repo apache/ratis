@@ -276,7 +276,7 @@ public abstract class MiniRaftCluster implements Closeable {
   /** @deprecated use {@link #getTimeoutMax()}. */
   @Deprecated
   public int getMaxTimeout() {
-    return RaftServerConfigKeys.Rpc.timeoutMax(properties).toInt(TimeUnit.MILLISECONDS);
+    return RaftServerConfigKeys.Rpc.timeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
   }
 
   public TimeDuration getTimeoutMax() {
@@ -718,7 +718,7 @@ public abstract class MiniRaftCluster implements Closeable {
     // vote, all non-leader servers can grant the vote.
     // Disable the target leader server RPC so that it can request a vote.
     blockQueueAndSetDelay(leaderId,
-        RaftServerConfigKeys.Rpc.TIMEOUT_MIN_DEFAULT.toInt(TimeUnit.MILLISECONDS));
+        RaftServerConfigKeys.Rpc.TIMEOUT_MIN_DEFAULT.toIntExact(TimeUnit.MILLISECONDS));
 
     // Reopen queues so that the vote can make progress.
     blockQueueAndSetDelay(leaderId, 0);

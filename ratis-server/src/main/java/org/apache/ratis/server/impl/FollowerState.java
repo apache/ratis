@@ -51,7 +51,7 @@ class FollowerState extends Daemon {
 
   private final RaftServerImpl server;
 
-  private volatile Timestamp lastRpcTime = new Timestamp();
+  private volatile Timestamp lastRpcTime = Timestamp.currentTime();
   private volatile boolean monitorRunning = true;
   private final AtomicInteger outstandingOp = new AtomicInteger();
 
@@ -60,7 +60,7 @@ class FollowerState extends Daemon {
   }
 
   void updateLastRpcTime(UpdateType type) {
-    lastRpcTime = new Timestamp();
+    lastRpcTime = Timestamp.currentTime();
 
     final int n = type.update(outstandingOp);
     if (LOG.isTraceEnabled()) {

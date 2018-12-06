@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -193,7 +193,7 @@ class LeaderElection extends Daemon {
 
   private ResultAndTerm waitForResults(final long electionTerm,
       final int submitted) throws InterruptedException {
-    final Timestamp timeout = new Timestamp().addTimeMs(server.getRandomTimeoutMs());
+    final Timestamp timeout = Timestamp.currentTime().addTimeMs(server.getRandomTimeoutMs());
     final List<RequestVoteReplyProto> responses = new ArrayList<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;

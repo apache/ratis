@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -50,12 +50,12 @@ class RoleInfo {
 
   RoleInfo(RaftPeerId id) {
     this.id = id;
-    this.transitionTime = new AtomicReference<>(new Timestamp());
+    this.transitionTime = new AtomicReference<>(Timestamp.currentTime());
   }
 
   void transitionRole(RaftPeerRole newRole) {
     this.role = newRole;
-    this.transitionTime.set(new Timestamp());
+    this.transitionTime.set(Timestamp.currentTime());
   }
 
   long getRoleElapsedTimeMs() {

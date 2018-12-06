@@ -26,12 +26,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.LongUnaryOperator;
 
 /**
- * Time duration is represented together with a {@link TimeUnit}.
+ * Time duration is represented by a long together with a {@link TimeUnit}.
  *
- * This class is immutable.
+ * This is a value-based class.
  */
-public class TimeDuration implements Comparable<TimeDuration> {
+public final class TimeDuration implements Comparable<TimeDuration> {
 
+  /** Abbreviations of {@link TimeUnit}. */
   public enum Abbreviation {
     NANOSECONDS("ns", "nanos"),
     MICROSECONDS("us", "μs", "micros"),
@@ -56,30 +57,37 @@ public class TimeDuration implements Comparable<TimeDuration> {
       this.symbols = Collections.unmodifiableList(all);
     }
 
+    /** @return the corresponding {@link TimeUnit}. */
     public TimeUnit unit() {
       return unit;
     }
 
+    /** @return the default abbreviation. */
     String getDefault() {
       return symbols.get(0);
     }
 
+    /** @return the entire abbreviation list for this unit. */
     public List<String> getSymbols() {
       return symbols;
     }
 
+    /** @return the corresponding {@link Abbreviation}. */
     public static Abbreviation valueOf(TimeUnit unit) {
       return valueOf(unit.name());
     }
   }
 
+  /** The same as valueOf(timeString, targetUnit).toLong(targetUnit). */
   public static long parse(String timeString, TimeUnit targetUnit) {
     return valueOf(timeString, targetUnit).toLong(targetUnit);
   }
 
   /**
    * Parse the given time duration string.
-   * If there is no unit specified, use the default unit.
+   * If no unit is specified, use the default unit.
+   *
+   * @return a {@link TimeDuration} in the target unit.
    */
   public static TimeDuration valueOf(String timeString, TimeUnit defaultUnit) {
     final String lower = Objects.requireNonNull(timeString, "timeString = null").trim();
@@ -98,6 +106,7 @@ public class TimeDuration implements Comparable<TimeDuration> {
     return valueOf(Long.parseLong(lower), defaultUnit);
   }
 
+  /** @return a {@link TimeDuration} representing the given duration and unit. */
   public static TimeDuration valueOf(long duration, TimeUnit unit) {
     return new TimeDuration(duration, unit);
   }
@@ -110,10 +119,12 @@ public class TimeDuration implements Comparable<TimeDuration> {
     this.unit = Objects.requireNonNull(unit, "unit = null");
   }
 
+  /** @return the duration value. */
   public long getDuration() {
     return duration;
   }
 
+  /** @return the {@link TimeUnit}. */
   public TimeUnit getUnit() {
     return unit;
   }
@@ -136,7 +147,7 @@ public class TimeDuration implements Comparable<TimeDuration> {
    * @return the value in the target unit.
    * @throws ArithmeticException if it overflows.
    */
-  public int toInt(TimeUnit targetUnit) {
+  public int toIntExact(TimeUnit targetUnit) {
     return Math.toIntExact(toLong(targetUnit));
   }
 
@@ -153,13 +164,13 @@ public class TimeDuration implements Comparable<TimeDuration> {
   }
 
   /** Round up to the given nanos to nearest multiple (in nanoseconds) of this {@link TimeDuration}. */
-  public long roundUp(long nanos) {
+  public long roundUpNanos(long nanos) {
     if (duration <= 0) {
       throw new ArithmeticException(
           "Rounding up to a non-positive " + getClass().getSimpleName() + " (=" + this + ")");
     }
 
-    final long divisor = unit.toNanos(duration);
+    final long divisor = toLong(TimeUnit.NANOSECONDS);
     if (nanos == 0 || divisor == 1) {
       return nanos;
     }
@@ -180,10 +191,12 @@ public class TimeDuration implements Comparable<TimeDuration> {
     return valueOf(operator.applyAsLong(duration), unit);
   }
 
+  /** @return Is this {@link TimeDuration} negative? */
   public boolean isNegative() {
     return duration < 0;
   }
 
+  /** Performs a {@link TimeUnit#sleep(long)} using this {@link TimeDuration}. */
   public void sleep() throws InterruptedException {
     unit.sleep(duration);
   }
@@ -193,10 +206,14 @@ public class TimeDuration implements Comparable<TimeDuration> {
     if (this.unit.compareTo(that.unit) > 0) {
       return that.compareTo(this);
     }
-    // this.unit <= that.unit
-    final long thisDurationInThatUnit = that.unit.convert(this.duration, this.unit);
+    if (this.unit == that.unit) {
+      return Long.compare(this.duration, that.duration);
+    }
+    // this.unit < that.unit
+    final long thisDurationInThatUnit = this.toLong(that.unit);
     if (thisDurationInThatUnit == that.duration) {
-      final long thatDurationInThisUnit = this.unit.convert(that.duration, that.unit);
+      // check for overflow
+      final long thatDurationInThisUnit = that.toLong(this.unit);
       return Long.compare(this.duration, thatDurationInThisUnit);
     } else {
       return Long.compare(thisDurationInThatUnit, that.duration);
@@ -204,7 +221,23 @@ public class TimeDuration implements Comparable<TimeDuration> {
   }
 
   @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    } else if (!(obj instanceof TimeDuration)) {
+      return false;
+    }
+    final TimeDuration that = (TimeDuration)obj;
+    return this.compareTo(that) == 0;
+  }
+
+  @Override
+  public int hashCode() {
+    return Long.hashCode(toLong(TimeUnit.NANOSECONDS));
+  }
+
+  @Override
   public String toString() {
-    return duration + " " + Abbreviation.valueOf(unit).getDefault();
+    return duration + Abbreviation.valueOf(unit).getDefault();
   }
 }

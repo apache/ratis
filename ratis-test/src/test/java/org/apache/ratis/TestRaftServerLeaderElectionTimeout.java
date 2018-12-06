@@ -77,7 +77,7 @@ public class TestRaftServerLeaderElectionTimeout extends BaseTest {
   public void testLeaderElectionDetection() throws Exception {
     RaftTestUtil.waitForLeader(cluster);
     long leaderElectionTimeout = RaftServerConfigKeys.
-        leaderElectionTimeout(cluster.getProperties()).toInt(TimeUnit.MILLISECONDS);
+        leaderElectionTimeout(cluster.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
 
     RaftServerImpl healthyFollower = cluster.getFollowers().get(1);
     RaftServerImpl failedFollower = cluster.getFollowers().get(0);

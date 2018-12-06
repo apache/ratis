@@ -85,7 +85,7 @@ class WatchRequests {
 
     PendingWatch add(RaftClientRequest request) {
       final long currentTime = Timestamp.currentTimeNanos();
-      final long roundUp = watchTimeoutDenominationNanos.roundUp(currentTime);
+      final long roundUp = watchTimeoutDenominationNanos.roundUpNanos(currentTime);
       final PendingWatch pending = new PendingWatch(request.getType().getWatch(), Timestamp.valueOf(roundUp));
 
       synchronized (this) {

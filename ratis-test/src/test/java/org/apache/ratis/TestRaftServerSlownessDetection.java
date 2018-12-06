@@ -81,7 +81,7 @@ public class TestRaftServerSlownessDetection extends BaseTest {
   public void testSlownessDetection() throws Exception {
     RaftTestUtil.waitForLeader(cluster);
     long slownessTimeout = RaftServerConfigKeys.Rpc
-        .slownessTimeout(cluster.getProperties()).toInt(TimeUnit.MILLISECONDS);
+        .slownessTimeout(cluster.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
     RaftServerImpl failedFollower = cluster.getFollowers().get(0);
 
     // fail the node and wait for the callback to be triggered

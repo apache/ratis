@@ -89,15 +89,15 @@ public class TestTimeDuration {
   public void testRoundUp() {
     final long nanosPerSecond = 1_000_000_000L;
     final TimeDuration oneSecond = TimeDuration.valueOf(1, TimeUnit.SECONDS);
-    assertEquals(-nanosPerSecond, oneSecond.roundUp(-nanosPerSecond - 1));
-    assertEquals(-nanosPerSecond, oneSecond.roundUp(-nanosPerSecond));
-    assertEquals(0, oneSecond.roundUp(-nanosPerSecond + 1));
-    assertEquals(0, oneSecond.roundUp(-1));
-    assertEquals(0, oneSecond.roundUp(0));
-    assertEquals(nanosPerSecond, oneSecond.roundUp(1));
-    assertEquals(nanosPerSecond, oneSecond.roundUp(nanosPerSecond - 1));
-    assertEquals(nanosPerSecond, oneSecond.roundUp(nanosPerSecond));
-    assertEquals(2*nanosPerSecond, oneSecond.roundUp(nanosPerSecond + 1));
+    assertEquals(-nanosPerSecond, oneSecond.roundUpNanos(-nanosPerSecond - 1));
+    assertEquals(-nanosPerSecond, oneSecond.roundUpNanos(-nanosPerSecond));
+    assertEquals(0, oneSecond.roundUpNanos(-nanosPerSecond + 1));
+    assertEquals(0, oneSecond.roundUpNanos(-1));
+    assertEquals(0, oneSecond.roundUpNanos(0));
+    assertEquals(nanosPerSecond, oneSecond.roundUpNanos(1));
+    assertEquals(nanosPerSecond, oneSecond.roundUpNanos(nanosPerSecond - 1));
+    assertEquals(nanosPerSecond, oneSecond.roundUpNanos(nanosPerSecond));
+    assertEquals(2*nanosPerSecond, oneSecond.roundUpNanos(nanosPerSecond + 1));
   }
 
   @Test(timeout = 1000)

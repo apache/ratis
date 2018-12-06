@@ -204,7 +204,7 @@ public class LeaderState {
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
-    final Timestamp t = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
+    final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     placeHolderIndex = raftLog.getNextIndex();
 
     senders = new SenderList(others.stream().map(
@@ -362,7 +362,7 @@ public class LeaderState {
    * RpcSender list.
    */
   void addSenders(Collection<RaftPeer> newMembers) {
-    final Timestamp t = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
+    final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final long nextIndex = raftLog.getNextIndex();
 
     senders.addAll(newMembers.stream().map(peer -> {
@@ -459,8 +459,8 @@ public class LeaderState {
   private BootStrapProgress checkProgress(FollowerInfo follower,
       long committed) {
     Preconditions.assertTrue(!follower.isAttendingVote());
-    final Timestamp progressTime = new Timestamp().addTimeMs(-server.getMaxTimeoutMs());
-    final Timestamp timeoutTime = new Timestamp().addTimeMs(-3*server.getMaxTimeoutMs());
+    final Timestamp progressTime = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
+    final Timestamp timeoutTime = Timestamp.currentTime().addTimeMs(-3*server.getMaxTimeoutMs());
     if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
       LOG.debug("{} detects a follower {} timeout for bootstrapping," +
               " timeoutTime: {}", server.getId(), follower, timeoutTime);

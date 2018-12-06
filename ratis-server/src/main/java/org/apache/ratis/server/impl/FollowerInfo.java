@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -114,7 +114,7 @@ public class FollowerInfo {
 
   /** Update lastRpcResponseTime to the current time. */
   public void updateLastRpcResponseTime() {
-    lastRpcResponseTime.set(new Timestamp());
+    lastRpcResponseTime.set(Timestamp.currentTime());
   }
 
   public Timestamp getLastRpcResponseTime() {
@@ -123,7 +123,7 @@ public class FollowerInfo {
 
   /** Update lastRpcSendTime to the current time. */
   public void updateLastRpcSendTime() {
-    lastRpcSendTime.set(new Timestamp());
+    lastRpcSendTime.set(Timestamp.currentTime());
   }
 
   public Timestamp getLastRpcTime() {
