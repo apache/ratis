@@ -28,6 +28,14 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public interface CollectionUtils {
+  static <T> T min(T left, T right, Comparator<T> comparator) {
+    return comparator.compare(left, right) < 0? left: right;
+  }
+
+  static <T extends Comparable<T>> T min(T left, T right) {
+    return min(left, right, Comparator.naturalOrder());
+  }
+
   /**
    *  @return the next element in the iteration right after the given element;
    *          if the given element is not in the iteration, return the first one

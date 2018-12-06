@@ -118,16 +118,38 @@ public class TimeDuration implements Comparable<TimeDuration> {
     return unit;
   }
 
+  /**
+   * Convert this {@link TimeDuration} to a long in the target unit.
+   * Note that the returned value may be truncated or saturated; see {@link TimeUnit#convert(long, TimeUnit)}.*
+   *
+   * @return the value in the target unit.
+   */
   public long toLong(TimeUnit targetUnit) {
     return targetUnit.convert(duration, unit);
   }
 
+  /**
+   * The same as Math.toIntExact(toLong(targetUnit));
+   * Similar to {@link #toLong(TimeUnit)}, the returned value may be truncated.
+   * However, the returned value is never saturated.  The method throws {@link ArithmeticException} if it overflows.
+   *
+   * @return the value in the target unit.
+   * @throws ArithmeticException if it overflows.
+   */
   public int toInt(TimeUnit targetUnit) {
     return Math.toIntExact(toLong(targetUnit));
   }
 
+  /** @return the {@link TimeDuration} in the target unit. */
   public TimeDuration to(TimeUnit targetUnit) {
-    return valueOf(toLong(targetUnit), targetUnit);
+    return this.unit == targetUnit? this: valueOf(toLong(targetUnit), targetUnit);
+  }
+
+  /** @return (this - that) in the minimum unit among them. */
+  public TimeDuration minus(TimeDuration that) {
+    Objects.requireNonNull(that, "that == null");
+    final TimeUnit minUnit = CollectionUtils.min(this.unit, that.unit);
+    return valueOf(this.toLong(minUnit) - that.toLong(minUnit), minUnit);
   }
 
   /** Round up to the given nanos to nearest multiple (in nanoseconds) of this {@link TimeDuration}. */

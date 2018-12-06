@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,7 +19,6 @@ package org.apache.ratis.util;
 
 import org.junit.Test;
 
-import java.sql.Time;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -32,12 +31,12 @@ import static org.junit.Assert.assertNotNull;
 
 public class TestTimeDuration {
   @Test(timeout = 1000)
-  public void testTimeDuration() {
+  public void testAbbreviation() {
     Arrays.asList(TimeUnit.values())
         .forEach(a -> assertNotNull(Abbreviation.valueOf(a.name())));
     assertEquals(TimeUnit.values().length, Abbreviation.values().length);
 
-    final List<String> allSymbols = Arrays.asList(Abbreviation.values()).stream()
+    final List<String> allSymbols = Arrays.stream(Abbreviation.values())
         .map(Abbreviation::getSymbols)
         .flatMap(List::stream)
         .collect(Collectors.toList());
@@ -45,7 +44,10 @@ public class TestTimeDuration {
         allSymbols.stream()
             .map(s -> "0" + s)
             .forEach(s -> assertEquals(s, 0L, parse(s, unit))));
+  }
 
+  @Test(timeout = 1000)
+  public void testParse() {
     assertEquals(1L, parse("1000000 ns", TimeUnit.MILLISECONDS));
     assertEquals(10L, parse("10000000 nanos", TimeUnit.MILLISECONDS));
     assertEquals(100L, parse("100000000 nanosecond", TimeUnit.MILLISECONDS));
@@ -96,5 +98,60 @@ public class TestTimeDuration {
     assertEquals(nanosPerSecond, oneSecond.roundUp(nanosPerSecond - 1));
     assertEquals(nanosPerSecond, oneSecond.roundUp(nanosPerSecond));
     assertEquals(2*nanosPerSecond, oneSecond.roundUp(nanosPerSecond + 1));
+  }
+
+  @Test(timeout = 1000)
+  public void testTo() {
+    final TimeDuration oneSecond = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+    assertTo(1000, oneSecond, TimeUnit.MILLISECONDS);
+    final TimeDuration nanos = assertTo(1_000_000_000, oneSecond, TimeUnit.NANOSECONDS);
+    assertTo(1000, nanos, TimeUnit.MILLISECONDS);
+
+    assertTo(0, oneSecond, TimeUnit.MINUTES);
+    assertTo(0, nanos, TimeUnit.MINUTES);
+
+    final TimeDuration millis = TimeDuration.valueOf(1_999, TimeUnit.MILLISECONDS);
+    assertTo(1, millis, TimeUnit.SECONDS);
+    assertTo(0, millis, TimeUnit.MINUTES);
+  }
+
+  static TimeDuration assertTo(long expected, TimeDuration timeDuration, TimeUnit toUnit) {
+    final TimeDuration computed = timeDuration.to(toUnit);
+    assertEquals(expected, computed.getDuration());
+    assertEquals(toUnit, computed.getUnit());
+    return computed;
+  }
+
+  @Test(timeout = 1000)
+  public void testMinus() {
+    final TimeDuration oneSecond = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+    final TimeDuration tenSecond = TimeDuration.valueOf(10, TimeUnit.SECONDS);
+    {
+      final TimeDuration d = oneSecond.minus(oneSecond);
+      assertEquals(0, d.getDuration());
+      assertEquals(TimeUnit.SECONDS, d.getUnit());
+    }
+    {
+      final TimeDuration d = tenSecond.minus(oneSecond);
+      assertEquals(9, d.getDuration());
+      assertEquals(TimeUnit.SECONDS, d.getUnit());
+    }
+    {
+      final TimeDuration d = oneSecond.minus(tenSecond);
+      assertEquals(-9, d.getDuration());
+      assertEquals(TimeUnit.SECONDS, d.getUnit());
+    }
+
+    final TimeDuration oneMS = TimeDuration.valueOf(1, TimeUnit.MILLISECONDS);
+    {
+      final TimeDuration d = oneSecond.minus(oneMS);
+      assertEquals(999, d.getDuration());
+      assertEquals(TimeUnit.MILLISECONDS, d.getUnit());
+    }
+    {
+      final TimeDuration d = oneMS.minus(oneSecond);
+      assertEquals(-999, d.getDuration());
+      assertEquals(TimeUnit.MILLISECONDS, d.getUnit());
+    }
   }
 }

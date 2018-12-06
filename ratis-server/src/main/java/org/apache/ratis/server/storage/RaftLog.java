@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -31,6 +31,7 @@ import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.OpenCloseState;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +40,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 
@@ -412,18 +414,25 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       this.future = future;
     }
 
+    public long getIndex() {
+      return logEntry.getIndex();
+    }
+
     public int getSerializedSize() {
       return ServerProtoUtils.getSerializedSize(logEntry);
     }
 
-    public LogEntryProto getEntry() throws RaftLogIOException {
+    public LogEntryProto getEntry(TimeDuration timeout) throws RaftLogIOException, TimeoutException {
       LogEntryProto entryProto;
       if (future == null) {
         return logEntry;
       }
 
       try {
-        entryProto = future.thenApply(data -> ServerProtoUtils.addStateMachineData(data, logEntry)).join();
+        entryProto = future.thenApply(data -> ServerProtoUtils.addStateMachineData(data, logEntry))
+            .get(timeout.getDuration(), timeout.getUnit());
+      } catch (TimeoutException t) {
+        throw t;
       } catch (Throwable t) {
         final String err = selfId + ": Failed readStateMachineData for " +
             ServerProtoUtils.toLogEntryString(logEntry);
@@ -439,6 +448,11 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
         throw new RaftLogIOException(err);
       }
       return entryProto;
+    }
+
+    @Override
+    public String toString() {
+      return ServerProtoUtils.toLogEntryString(logEntry);
     }
   }
 }

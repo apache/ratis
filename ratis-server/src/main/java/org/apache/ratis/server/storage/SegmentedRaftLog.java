@@ -111,7 +111,7 @@ public class SegmentedRaftLog extends RaftLog {
   SegmentedRaftLog(RaftPeerId selfId, RaftServerImpl server,
       StateMachine stateMachine, Runnable submitUpdateCommitEvent,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
-    super(selfId, lastIndexInSnapshot, RaftServerConfigKeys.Log.Appender.bufferCapacity(properties).getSizeInt());
+    super(selfId, lastIndexInSnapshot, RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt());
     this.server = Optional.ofNullable(server);
     this.storage = storage;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();

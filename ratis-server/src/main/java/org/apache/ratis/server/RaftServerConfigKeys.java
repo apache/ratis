@@ -227,23 +227,25 @@ public interface RaftServerConfigKeys {
     interface Appender {
       String PREFIX = Log.PREFIX + ".appender";
 
-      String BUFFER_CAPACITY_KEY = PREFIX + ".buffer.capacity";
-      SizeInBytes BUFFER_CAPACITY_DEFAULT =SizeInBytes.valueOf("4MB");
-      static SizeInBytes bufferCapacity(RaftProperties properties) {
-        return getSizeInBytes(properties::getSizeInBytes,
-            BUFFER_CAPACITY_KEY, BUFFER_CAPACITY_DEFAULT, getDefaultLog());
+      String BUFFER_ELEMENT_LIMIT_KEY = PREFIX + ".buffer.element-limit";
+      /** 0 means no limit. */
+      int BUFFER_ELEMENT_LIMIT_DEFAULT = 0;
+      static int bufferElementLimit(RaftProperties properties) {
+        return getInt(properties::getInt,
+            BUFFER_ELEMENT_LIMIT_KEY, BUFFER_ELEMENT_LIMIT_DEFAULT, getDefaultLog(), requireMin(0));
       }
-      static void setBufferCapacity(RaftProperties properties, SizeInBytes bufferCapacity) {
-        setSizeInBytes(properties::set, BUFFER_CAPACITY_KEY, bufferCapacity);
+      static void setBufferElementLimit(RaftProperties properties, int bufferElementLimit) {
+        setInt(properties::setInt, BUFFER_ELEMENT_LIMIT_KEY, bufferElementLimit);
       }
 
-      String BATCH_ENABLED_KEY = PREFIX + ".batch.enabled";
-      boolean BATCH_ENABLED_DEFAULT = false;
-      static boolean batchEnabled(RaftProperties properties) {
-        return getBoolean(properties::getBoolean, BATCH_ENABLED_KEY, BATCH_ENABLED_DEFAULT, getDefaultLog());
+      String BUFFER_BYTE_LIMIT_KEY = PREFIX + ".buffer.byte-limit";
+      SizeInBytes BUFFER_BYTE_LIMIT_DEFAULT = SizeInBytes.valueOf("4MB");
+      static SizeInBytes bufferByteLimit(RaftProperties properties) {
+        return getSizeInBytes(properties::getSizeInBytes,
+            BUFFER_BYTE_LIMIT_KEY, BUFFER_BYTE_LIMIT_DEFAULT, getDefaultLog());
       }
-      static void setBatchEnabled(RaftProperties properties, boolean batchEnabled) {
-        setBoolean(properties::setBoolean, BATCH_ENABLED_KEY, batchEnabled);
+      static void setBufferByteLimit(RaftProperties properties, SizeInBytes bufferByteLimit) {
+        setSizeInBytes(properties::set, BUFFER_BYTE_LIMIT_KEY, bufferByteLimit);
       }
 
       String SNAPSHOT_CHUNK_SIZE_MAX_KEY = PREFIX + ".snapshot.chunk.size.max";

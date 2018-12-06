@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.util;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * Use {@link System#nanoTime()} as timestamps.
  *
@@ -37,6 +39,11 @@ public class Timestamp implements Comparable<Timestamp> {
   /** @return a long in nanos for the current time. */
   public static long currentTimeNanos() {
     return System.nanoTime();
+  }
+
+  /** @return a {@link Timestamp} for the current time. */
+  public static Timestamp currentTime() {
+    return valueOf(currentTimeNanos());
   }
 
   /** @return the latest timestamp. */
@@ -66,12 +73,20 @@ public class Timestamp implements Comparable<Timestamp> {
 
   /**
    * @return the elapsed time in milliseconds.
-   *         If the timestamp is a future time,
-   *         this method returns a negative value.
+   *         If the timestamp is a future time, the returned value is negative.
    */
   public long elapsedTimeMs() {
     final long d = System.nanoTime() - nanos;
     return d / NANOSECONDS_PER_MILLISECOND;
+  }
+
+  /**
+   * @return the elapsed time in nanoseconds.
+   *         If the timestamp is a future time, the returned value is negative.
+   */
+  public TimeDuration elapsedTime() {
+    final long d = System.nanoTime() - nanos;
+    return TimeDuration.valueOf(d, TimeUnit.NANOSECONDS);
   }
 
   /**

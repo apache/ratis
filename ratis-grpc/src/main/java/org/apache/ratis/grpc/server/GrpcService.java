@@ -67,7 +67,7 @@ public class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient
     this(server, server::getId,
         GrpcConfigKeys.Server.port(server.getProperties()),
         GrpcConfigKeys.messageSizeMax(server.getProperties(), LOG::info),
-        RaftServerConfigKeys.Log.Appender.bufferCapacity(server.getProperties()),
+        RaftServerConfigKeys.Log.Appender.bufferByteLimit(server.getProperties()),
         GrpcConfigKeys.flowControlWindow(server.getProperties(), LOG::info),
         RaftServerConfigKeys.Rpc.requestTimeout(server.getProperties()));
   }
@@ -78,7 +78,7 @@ public class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient
         p -> new GrpcServerProtocolClient(p, flowControlWindow.getSizeInt(), requestTimeoutDuration)));
     if (appenderBufferSize.getSize() > grpcMessageSizeMax.getSize()) {
       throw new IllegalArgumentException("Illegal configuration: "
-          + RaftServerConfigKeys.Log.Appender.BUFFER_CAPACITY_KEY + " = " + appenderBufferSize
+          + RaftServerConfigKeys.Log.Appender.BUFFER_BYTE_LIMIT_KEY + " = " + appenderBufferSize
           + " > " + GrpcConfigKeys.MESSAGE_SIZE_MAX_KEY + " = " + grpcMessageSizeMax);
     }
 

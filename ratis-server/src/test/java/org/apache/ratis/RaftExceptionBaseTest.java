@@ -55,7 +55,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
   public void setup() throws IOException {
     final RaftProperties prop = getProperties();
     RaftServerConfigKeys.Log.Appender
-        .setBufferCapacity(prop, SizeInBytes.valueOf("4KB"));
+        .setBufferByteLimit(prop, SizeInBytes.valueOf("4KB"));
     cluster = newCluster(NUM_PEERS);
     cluster.start();
   }

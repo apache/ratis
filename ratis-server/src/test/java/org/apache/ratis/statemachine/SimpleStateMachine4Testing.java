@@ -154,7 +154,9 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     Preconditions.assertNull(previous, "previous");
     final String s = entry.getStateMachineLogEntry().getLogData().toStringUtf8();
     dataMap.put(s, entry);
-    LOG.info("{}: put {}, {} -> {}", getId(), entry.getIndex(), s, ServerProtoUtils.toLogEntryString(entry));
+    LOG.info("{}: put {}, {} -> {}", getId(), entry.getIndex(),
+        s.length() <= 10? s: s.substring(0, 10) + "...",
+        ServerProtoUtils.toLogEntryString(entry));
   }
 
   @Override

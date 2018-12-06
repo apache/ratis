@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -58,9 +58,8 @@ public class LogAppender {
   private final LeaderState leaderState;
   protected final RaftLog raftLog;
   protected final FollowerInfo follower;
-  private final int maxBufferSize;
-  private final boolean batchSending;
-  private final LogEntryBuffer buffer;
+
+  private final DataQueue<EntryWithData> buffer;
   private final int snapshotChunkMaxSize;
   protected final long halfMinTimeoutMs;
 
@@ -74,12 +73,12 @@ public class LogAppender {
     this.raftLog = server.getState().getLog();
 
     final RaftProperties properties = server.getProxy().getProperties();
-    this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferCapacity(properties).getSizeInt();
-    this.batchSending = RaftServerConfigKeys.Log.Appender.batchEnabled(properties);
     this.snapshotChunkMaxSize = RaftServerConfigKeys.Log.Appender.snapshotChunkSizeMax(properties).getSizeInt();
     this.halfMinTimeoutMs = server.getMinTimeoutMs() / 2;
 
-    this.buffer = new LogEntryBuffer();
+    final SizeInBytes bufferByteLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
+    final int bufferElementLimit = RaftServerConfigKeys.Log.Appender.bufferElementLimit(properties);
+    this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
     this.lifeCycle = new LifeCycle(this);
   }
 
@@ -133,51 +132,6 @@ public class LogAppender {
     return getFollower().getPeer().getId();
   }
 
-  /**
-   * A buffer for log entries with size limitation.
-   */
-  private class LogEntryBuffer {
-    private final List<EntryWithData> buf = new ArrayList<>();
-    private int totalSize = 0;
-
-    /**
-     * Adds a log entry to the Log entry buffer.
-     * Checks if enough space is available before adding the entry to the buffer.
-     * @return true if the entry is added successfully;
-     *         otherwise, the entry is not added, return false.
-     */
-    boolean addEntry(EntryWithData entry) {
-      final int entrySize = entry.getSerializedSize();
-      if (totalSize + entrySize <= maxBufferSize) {
-        buf.add(entry);
-        totalSize += entrySize;
-        return true;
-      }
-      return false;
-    }
-
-    boolean isEmpty() {
-      return buf.isEmpty();
-    }
-
-    AppendEntriesRequestProto getAppendRequest(TermIndex previous, long callId) throws RaftLogIOException {
-      final List<LogEntryProto> protos = new ArrayList<>();
-      // Wait for all the log entry futures to complete and then create a list of LogEntryProtos.
-      for (EntryWithData bufEntry : buf) {
-        protos.add(bufEntry.getEntry());
-      }
-      final AppendEntriesRequestProto request = leaderState.newAppendEntriesRequestProto(
-          getFollowerId(), previous, protos, !follower.isAttendingVote(), callId);
-      buf.clear();
-      totalSize = 0;
-      return request;
-    }
-
-    int getPendingEntryNum() {
-      return buf.size();
-    }
-  }
-
   private TermIndex getPrevious() {
     TermIndex previous = raftLog.getTermIndex(follower.getNextIndex() - 1);
     if (previous == null) {
@@ -194,28 +148,29 @@ public class LogAppender {
 
   protected AppendEntriesRequestProto createRequest(long callId) throws RaftLogIOException {
     final TermIndex previous = getPrevious();
+    final long heartbeatRemainingMs = getHeartbeatRemainingTime();
+    if (heartbeatRemainingMs <= 0L) {
+      return leaderState.newAppendEntriesRequestProto(
+          getFollowerId(), previous, Collections.emptyList(), !follower.isAttendingVote(), callId);
+    }
+
+    Preconditions.assertTrue(buffer.isEmpty(), () -> "buffer has " + buffer.getNumElements() + " elements.");
+
     final long leaderNext = raftLog.getNextIndex();
-    long next = follower.getNextIndex() + buffer.getPendingEntryNum();
-    final boolean toSend;
-
-    if (leaderNext == next && !buffer.isEmpty()) {
-      // no new entries, then send out the entries in the buffer
-      toSend = true;
-    } else if (leaderNext > next) {
-      boolean hasSpace = true;
-      for(; hasSpace && leaderNext > next;) {
-        hasSpace = buffer.addEntry(raftLog.getEntryWithData(next++));
+    for (long next = follower.getNextIndex(); leaderNext > next; ) {
+      if (!buffer.offer(raftLog.getEntryWithData(next++))) {
+        break;
       }
-      // buffer is full or batch sending is disabled, send out a request
-      toSend = !hasSpace || !batchSending;
-    } else {
-      toSend = false;
+    }
+    if (buffer.isEmpty()) {
+      return null;
     }
 
-    if (toSend || shouldHeartbeat()) {
-      return buffer.getAppendRequest(previous, callId);
-    }
-    return null;
+    final List<LogEntryProto> protos = buffer.pollList(heartbeatRemainingMs, EntryWithData::getEntry,
+        (entry, time, exception) -> LOG.warn(this + ": Failed get " + entry + " in " + time, exception));
+    buffer.clear();
+    return leaderState.newAppendEntriesRequestProto(
+        getFollowerId(), previous, protos, !follower.isAttendingVote(), callId);
   }
 
   /** Send an appendEntries RPC; retry indefinitely. */
@@ -442,8 +397,7 @@ public class LogAppender {
           }
         }
       }
-      if (isAppenderRunning() && !shouldAppendEntries(
-          follower.getNextIndex() + buffer.getPendingEntryNum())) {
+      if (isAppenderRunning() && !shouldAppendEntries(follower.getNextIndex())) {
         final long waitTime = getHeartbeatRemainingTime();
         if (waitTime > 0) {
           synchronized (this) {
