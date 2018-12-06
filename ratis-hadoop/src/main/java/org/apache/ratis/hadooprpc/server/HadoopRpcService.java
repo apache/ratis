@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -24,6 +24,14 @@ import org.apache.ratis.hadooprpc.HadoopConfigKeys;
 import org.apache.ratis.hadooprpc.Proxy;
 import org.apache.ratis.hadooprpc.client.CombinedClientProtocolPB;
 import org.apache.ratis.hadooprpc.client.CombinedClientProtocolServerSideTranslatorPB;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
+import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
+import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.proto.hadoop.HadoopProtos.CombinedClientProtocolService;
+import org.apache.ratis.proto.hadoop.HadoopProtos.RaftServerProtocolService;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
@@ -33,13 +41,10 @@ import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.thirdparty.com.google.protobuf.BlockingService;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
-import org.apache.ratis.proto.RaftProtos.*;
-import org.apache.ratis.proto.hadoop.HadoopProtos.CombinedClientProtocolService;
-import org.apache.ratis.proto.hadoop.HadoopProtos.RaftServerProtocolService;
-import org.apache.ratis.util.CheckedFunction;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.function.CheckedFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

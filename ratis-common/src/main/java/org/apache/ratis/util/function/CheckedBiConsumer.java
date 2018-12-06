@@ -15,22 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.util;
+package org.apache.ratis.util.function;
 
-/** Runnable with a throws-clause. */
+/** BiConsumer with a throws-clause. */
 @FunctionalInterface
-public interface CheckedRunnable<THROWABLE extends Throwable> {
+public interface CheckedBiConsumer<LEFT, RIGHT, THROWABLE extends Throwable> {
   /**
-   * The same as {@link Runnable#run()}
+   * The same as {@link java.util.function.BiConsumer#accept(Object, Object)}
    * except that this method is declared with a throws-clause.
    */
-  void run() throws THROWABLE;
-
-  static <THROWABLE extends Throwable> CheckedSupplier<?, THROWABLE> asCheckedSupplier(
-      CheckedRunnable<THROWABLE> runnable) {
-    return () -> {
-      runnable.run();
-      return null;
-    };
-  }
+  void accept(LEFT left, RIGHT right) throws THROWABLE;
 }

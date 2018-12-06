@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,7 +19,10 @@ package org.apache.ratis;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.conf.ConfUtils;
-import org.apache.ratis.util.*;
+import org.apache.ratis.util.FileUtils;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.rules.TestName;

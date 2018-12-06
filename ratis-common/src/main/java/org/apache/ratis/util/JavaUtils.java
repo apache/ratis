@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedRunnable;
+import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

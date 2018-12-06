@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,16 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.util;
+package org.apache.ratis.util.function;
 
-import java.util.function.Function;
-
-/** Function with a throws-clause. */
+/** Runnable with a throws-clause. */
 @FunctionalInterface
-public interface CheckedFunction<INPUT, OUTPUT, THROWABLE extends Throwable> {
+public interface CheckedRunnable<THROWABLE extends Throwable> {
   /**
-   * The same as {@link Function#apply(Object)}
+   * The same as {@link Runnable#run()}
    * except that this method is declared with a throws-clause.
    */
-  OUTPUT apply(INPUT input) throws THROWABLE;
+  void run() throws THROWABLE;
+
+  static <THROWABLE extends Throwable> CheckedSupplier<?, THROWABLE> asCheckedSupplier(
+      CheckedRunnable<THROWABLE> runnable) {
+    return () -> {
+      runnable.run();
+      return null;
+    };
+  }
 }

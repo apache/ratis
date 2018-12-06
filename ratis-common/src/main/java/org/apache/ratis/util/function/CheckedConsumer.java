@@ -15,16 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.util;
+package org.apache.ratis.util.function;
 
-import java.util.function.Supplier;
-
-/** Function with a throws-clause. */
+/** Consumer with a throws-clause. */
 @FunctionalInterface
-public interface CheckedSupplier<OUTPUT, THROWABLE extends Throwable> {
+public interface CheckedConsumer<INPUT, THROWABLE extends Throwable> {
   /**
-   * The same as {@link Supplier#get()}
+   * The same as {@link java.util.function.Consumer#accept(Object)}
    * except that this method is declared with a throws-clause.
    */
-  OUTPUT get() throws THROWABLE;
+  void accept(INPUT input) throws THROWABLE;
+
+  /** @return a {@link CheckedFunction} with {@link Void} return type. */
+  static <INPUT, THROWABLE extends Throwable> CheckedFunction<INPUT, Void, THROWABLE> asCheckedFunction(
+      CheckedConsumer<INPUT, THROWABLE> consumer) {
+    return input -> {
+      consumer.accept(input);
+      return null;
+    };
+  }
 }

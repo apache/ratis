@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.util.CheckedFunction;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.function.CheckedFunction;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

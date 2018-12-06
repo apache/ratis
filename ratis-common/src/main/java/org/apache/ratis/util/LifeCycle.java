@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,6 +17,10 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedRunnable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -24,9 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The life cycle of a machine.

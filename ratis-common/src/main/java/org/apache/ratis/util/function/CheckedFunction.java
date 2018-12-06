@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,23 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.util;
+package org.apache.ratis.util.function;
 
-/** Consumer with a throws-clause. */
+/** Function with a throws-clause. */
 @FunctionalInterface
-public interface CheckedConsumer<INPUT, THROWABLE extends Throwable> {
+public interface CheckedFunction<INPUT, OUTPUT, THROWABLE extends Throwable> {
   /**
-   * The same as {@link java.util.function.Consumer#accept(Object)}
+   * The same as {@link java.util.function.Function#apply(Object)}
    * except that this method is declared with a throws-clause.
    */
-  void accept(INPUT input) throws THROWABLE;
-
-  /** @return a {@link CheckedFunction} with {@link Void} return type. */
-  static <INPUT, THROWABLE extends Throwable> CheckedFunction<INPUT, Void, THROWABLE> asCheckedFunction(
-      CheckedConsumer<INPUT, THROWABLE> consumer) {
-    return input -> {
-      consumer.accept(input);
-      return null;
-    };
-  }
+  OUTPUT apply(INPUT input) throws THROWABLE;
 }

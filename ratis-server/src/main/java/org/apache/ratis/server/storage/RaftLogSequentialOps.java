@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,9 +21,9 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.CheckedSupplier;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.StringUtils;
+import org.apache.ratis.util.function.CheckedSupplier;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

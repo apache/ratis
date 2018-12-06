@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,12 +17,12 @@
  */
 package org.apache.ratis.server.storage;
 
-import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.util.CheckedConsumer;
+import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PureJavaCrc32C;
+import org.apache.ratis.util.function.CheckedConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,16 +19,23 @@ package org.apache.ratis.examples.filestore;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.ExamplesProtos.DeleteReplyProto;
+import org.apache.ratis.proto.ExamplesProtos.DeleteRequestProto;
+import org.apache.ratis.proto.ExamplesProtos.FileStoreRequestProto;
+import org.apache.ratis.proto.ExamplesProtos.ReadReplyProto;
+import org.apache.ratis.proto.ExamplesProtos.ReadRequestProto;
+import org.apache.ratis.proto.ExamplesProtos.WriteReplyProto;
+import org.apache.ratis.proto.ExamplesProtos.WriteRequestHeaderProto;
+import org.apache.ratis.proto.ExamplesProtos.WriteRequestProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.proto.ExamplesProtos.*;
-import org.apache.ratis.util.CheckedFunction;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.function.CheckedFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
