@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -39,8 +39,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -51,6 +49,8 @@ import java.util.function.Supplier;
  */
 class RaftLogWorker implements Runnable {
   static final Logger LOG = LoggerFactory.getLogger(RaftLogWorker.class);
+
+  static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
 
   static class StateMachineDataPolicy {
     private final boolean sync;
@@ -89,7 +89,7 @@ class RaftLogWorker implements Runnable {
   /**
    * The task queue accessed by rpc handler threads and the io worker thread.
    */
-  private final BlockingQueue<Task> queue;
+  private final DataBlockingQueue<Task> queue;
   private volatile boolean running = true;
   private final Thread workerThread;
 
@@ -126,7 +126,11 @@ class RaftLogWorker implements Runnable {
     this.stateMachine = stateMachine;
 
     this.storage = storage;
-    this.queue = new ArrayBlockingQueue<>(RaftServerConfigKeys.Log.queueSize(properties));
+
+    final SizeInBytes queueByteLimit = RaftServerConfigKeys.Log.queueByteLimit(properties);
+    final int queueElementLimit = RaftServerConfigKeys.Log.queueElementLimit(properties);
+    this.queue = new DataBlockingQueue<>(name, queueByteLimit, queueElementLimit, Task::getSerializedSize);
+
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
     this.bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
@@ -186,10 +190,9 @@ class RaftLogWorker implements Runnable {
   private Task addIOTask(Task task) {
     LOG.debug("{} adds IO task {}", name, task);
     try {
-      if (!queue.offer(task, 1, TimeUnit.SECONDS)) {
+      for(; !queue.offer(task, ONE_SECOND); ) {
         Preconditions.assertTrue(isAlive(),
             "the worker thread is not alive");
-        queue.put(task);
       }
     } catch (Throwable t) {
       if (t instanceof InterruptedException && !running) {
@@ -210,7 +213,7 @@ class RaftLogWorker implements Runnable {
   public void run() {
     while (running) {
       try {
-        Task task = queue.poll(1, TimeUnit.SECONDS);
+        Task task = queue.poll(ONE_SECOND);
         if (task != null) {
           try {
             task.execute();
@@ -231,7 +234,7 @@ class RaftLogWorker implements Runnable {
               Thread.currentThread().getName());
         }
         LOG.info(Thread.currentThread().getName()
-            + " was interrupted, exiting. There are " + queue.size()
+            + " was interrupted, exiting. There are " + queue.getNumElements()
             + " tasks remaining in the queue.");
         Thread.currentThread().interrupt();
         return;
@@ -333,6 +336,11 @@ class RaftLogWorker implements Runnable {
       }
       this.combined = stateMachineFuture == null? super.getFuture()
           : super.getFuture().thenCombine(stateMachineFuture, (index, stateMachineResult) -> index);
+    }
+
+    @Override
+    int getSerializedSize() {
+      return ServerProtoUtils.getSerializedSize(entry);
     }
 
     @Override

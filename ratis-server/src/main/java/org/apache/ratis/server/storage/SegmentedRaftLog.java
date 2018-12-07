@@ -88,6 +88,10 @@ public class SegmentedRaftLog extends RaftLog {
 
     abstract long getEndIndex();
 
+    int getSerializedSize() {
+      return 0;
+    }
+
     @Override
     public String toString() {
       return getClass().getSimpleName() + ":" + getEndIndex();

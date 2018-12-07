@@ -114,13 +114,24 @@ public interface RaftServerConfigKeys {
       setBoolean(properties::setBoolean, USE_MEMORY_KEY, useMemory);
     }
 
-    String QUEUE_SIZE_KEY = PREFIX + ".queue.size";
-    int QUEUE_SIZE_DEFAULT = 4096;
-    static int queueSize(RaftProperties properties) {
-      return getInt(properties::getInt, QUEUE_SIZE_KEY, QUEUE_SIZE_DEFAULT, getDefaultLog(), requireMin(1));
+    String QUEUE_ELEMENT_LIMIT_KEY = PREFIX + ".queue.element-limit";
+    int QUEUE_ELEMENT_LIMIT_DEFAULT = 4096;
+    static int queueElementLimit(RaftProperties properties) {
+      return getInt(properties::getInt, QUEUE_ELEMENT_LIMIT_KEY, QUEUE_ELEMENT_LIMIT_DEFAULT, getDefaultLog(),
+          requireMin(1));
     }
-    static void setQueueSize(RaftProperties properties, int queueSize) {
-      setInt(properties::setInt, QUEUE_SIZE_KEY, queueSize, requireMin(1));
+    static void setElementLimit(RaftProperties properties, int queueSize) {
+      setInt(properties::setInt, QUEUE_ELEMENT_LIMIT_KEY, queueSize, requireMin(1));
+    }
+
+    String QUEUE_BYTE_LIMIT_KEY = PREFIX + ".queue.byte-limit";
+    SizeInBytes QUEUE_BYTE_LIMIT_DEFAULT = SizeInBytes.valueOf("64MB");
+    static SizeInBytes queueByteLimit(RaftProperties properties) {
+      return getSizeInBytes(properties::getSizeInBytes,
+          QUEUE_BYTE_LIMIT_KEY, QUEUE_BYTE_LIMIT_DEFAULT, getDefaultLog());
+    }
+    static void setByteLimit(RaftProperties properties, int queueSize) {
+      setInt(properties::setInt, QUEUE_BYTE_LIMIT_KEY, queueSize, requireMin(1));
     }
 
     String SEGMENT_SIZE_MAX_KEY = PREFIX + ".segment.size.max";

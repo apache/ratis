@@ -61,6 +61,14 @@ public class DataQueue<E> {
     this.q = new ArrayDeque<>(elementLimit);
   }
 
+  public int getElementLimit() {
+    return elementLimit;
+  }
+
+  public int getByteLimit() {
+    return byteLimit;
+  }
+
   public int getNumBytes() {
     return numBytes;
   }
@@ -136,7 +144,9 @@ public class DataQueue<E> {
   /** Poll out the head element from this queue. */
   public E poll() {
     final E polled = q.poll();
-    numBytes -= getNumBytes.applyAsInt(polled);
+    if (polled != null) {
+      numBytes -= getNumBytes.applyAsInt(polled);
+    }
     return polled;
   }
 }
