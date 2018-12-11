@@ -25,6 +25,7 @@ import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.AlreadyClosedException;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
@@ -32,6 +33,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.RaftRetryFailureException;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.retry.RetryPolicies.RetryLimited;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -42,6 +44,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferExce
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -52,6 +55,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -95,31 +99,89 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     }
   }
 
-  @Test
-  public void testRequestAsyncWithRetryPolicy() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::runTestRequestAsyncWithRetryPolicy);
+  static void assertRaftRetryFailureException(RaftRetryFailureException rfe, RetryPolicy retryPolicy, String name) {
+    Assert.assertNotNull(name + " does not have RaftRetryFailureException", rfe);
+    Assert.assertTrue(name + ": unexpected error message, rfe=" + rfe + ", retryPolicy=" + retryPolicy,
+        rfe.getMessage().contains(retryPolicy.toString()));
   }
 
-  void runTestRequestAsyncWithRetryPolicy(CLUSTER cluster) throws Exception {
-    final RetryPolicy retryPolicy = RetryPolicies.retryUpToMaximumCountWithFixedSleep(
-        3, TimeDuration.valueOf(1, TimeUnit.SECONDS));
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+  @Test
+  public void testRequestAsyncWithRetryFailure() throws Exception {
+    runWithNewCluster(1, false, cluster -> runTestRequestAsyncWithRetryFailure(false, cluster));
+  }
 
-    try(final RaftClient writeClient = cluster.createClient(leader.getId(), retryPolicy)) {
-      // blockStartTransaction of the leader so that no transaction can be committed MAJORITY
-      LOG.info("block leader {}", leader.getId());
-      SimpleStateMachine4Testing.get(leader).blockStartTransaction();
-      final SimpleMessage[] messages = SimpleMessage.create(2);
-      final RaftClientReply reply = writeClient.sendAsync(messages[0]).get();
-      RaftRetryFailureException rfe = reply.getRetryFailureException();
-      Assert.assertNotNull(rfe);
-      Assert.assertTrue(rfe.getMessage().contains(retryPolicy.toString()));
+  @Test
+  public void testRequestAsyncWithRetryFailureAfterInitialMessages() throws Exception {
+    runWithNewCluster(1, true, cluster -> runTestRequestAsyncWithRetryFailure(true, cluster));
+  }
 
-      // unblock leader so that the next transaction can be committed.
-      SimpleStateMachine4Testing.get(leader).unblockStartTransaction();
-      // make sure the the next request succeeds. This will ensure the first
-      // request completed
-      writeClient.sendAsync(messages[1]).get();
+  void runTestRequestAsyncWithRetryFailure(boolean initialMessages, CLUSTER cluster) throws Exception {
+    final RetryLimited retryPolicy = RetryPolicies.retryUpToMaximumCountWithFixedSleep(10, HUNDRED_MILLIS);
+
+    try(final RaftClient client = cluster.createClient(null, retryPolicy)) {
+      RaftPeerId leader = null;
+      if (initialMessages) {
+        // cluster is already started, send a few success messages
+        leader = RaftTestUtil.waitForLeader(cluster).getId();
+        final SimpleMessage[] messages = SimpleMessage.create(10, "initial-");
+        final List<CompletableFuture<RaftClientReply>> replies = new ArrayList<>();
+        for (int i = 0; i < messages.length; i++) {
+          replies.add(client.sendAsync(messages[i]));
+        }
+        for (int i = 0; i < messages.length; i++) {
+          RaftTestUtil.assertSuccessReply(replies.get(i));
+        }
+
+        // kill the only server
+        cluster.killServer(leader);
+      }
+
+      // now, either the cluster is not yet started or the server is killed.
+      final List<CompletableFuture<RaftClientReply>> replies = new ArrayList<>();
+      {
+        final SimpleMessage[] messages = SimpleMessage.create(10);
+        int i = 0;
+        // send half of the calls without starting the cluster
+        for (; i < messages.length/2; i++) {
+          replies.add(client.sendAsync(messages[i]));
+        }
+
+        // sleep most of the retry time
+        retryPolicy.getSleepTime().apply(t -> t * (retryPolicy.getMaxAttempts() - 1)).sleep();
+
+        // send another half of the calls without starting the cluster
+        for (; i < messages.length; i++) {
+          replies.add(client.sendAsync(messages[i]));
+        }
+        Assert.assertEquals(messages.length, replies.size());
+      }
+
+      // sleep again so that the first half calls will fail retries.
+      // the second half still have retry time remaining.
+      retryPolicy.getSleepTime().apply(t -> t*2).sleep();
+
+      if (leader != null) {
+        cluster.restartServer(leader, false);
+      } else {
+        cluster.start();
+      }
+
+      // all the calls should fail for ordering guarantee
+      for(int i = 0; i < replies.size(); i++) {
+        final CheckedRunnable<Exception> getReply = replies.get(i)::get;
+        final String name = "retry-failure-" + i;
+        if (i == 0) {
+          final Throwable t = testFailureCase(name, getReply,
+              ExecutionException.class, RaftRetryFailureException.class);
+          assertRaftRetryFailureException((RaftRetryFailureException) t.getCause(), retryPolicy, name);
+        } else {
+          testFailureCase(name, getReply,
+              ExecutionException.class, AlreadyClosedException.class, RaftRetryFailureException.class);
+        }
+      }
+
+      testFailureCaseAsync("last-request", () -> client.sendAsync(new SimpleMessage("last")),
+          AlreadyClosedException.class, RaftRetryFailureException.class);
     }
   }
 

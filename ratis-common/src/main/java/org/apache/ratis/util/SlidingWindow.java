@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.protocol.AlreadyClosedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +43,9 @@ public interface SlidingWindow {
     void setReply(REPLY reply);
 
     boolean hasReply();
+
+    default void fail(Exception e) {
+    }
   }
 
   /** A seqNum-to-request map, sorted by seqNum. */
@@ -169,6 +173,8 @@ public interface SlidingWindow {
     private long firstSeqNum = -1;
     /** Is the first request replied? */
     private boolean firstReplied;
+    /** The exception, if there is any. */
+    private Exception exception;
 
     public Client(Object name) {
       this.requests = new RequestMap<REQUEST, REPLY>(name) {
@@ -206,6 +212,12 @@ public interface SlidingWindow {
 
       final long seqNum = nextSeqNum++;
       final REQUEST r = requestConstructor.apply(seqNum);
+
+      if (exception != null) {
+        alreadyClosed(r, exception);
+        return r;
+      }
+
       requests.putNewRequest(r);
 
       final boolean submitted = sendOrDelayRequest(r, sendMethod);
@@ -301,6 +313,33 @@ public interface SlidingWindow {
       firstSeqNum = -1;
       firstReplied = false;
       LOG.debug("After resetFirstSeqNum: {}", this);
+    }
+
+    /** Fail all requests starting from the given seqNum. */
+    public synchronized void fail(final long startingSeqNum, Exception e) {
+      exception = e;
+
+      boolean handled = false;
+      for(long i = startingSeqNum; i <= requests.lastSeqNum(); i++) {
+        final REQUEST request = requests.getNonRepliedRequest(i, "fail");
+        if (request != null) {
+          if (request.getSeqNum() == startingSeqNum) {
+            request.fail(e);
+          } else {
+            alreadyClosed(request, e);
+          }
+          handled = true;
+        }
+      }
+
+      if (handled) {
+        removeRepliedFromHead();
+      }
+    }
+
+    private void alreadyClosed(REQUEST request, Exception e) {
+      request.fail(new AlreadyClosedException(SlidingWindow.class.getSimpleName() + "$" + getClass().getSimpleName()
+          + " " + requests.getName() + " is closed.", e));
     }
   }
 

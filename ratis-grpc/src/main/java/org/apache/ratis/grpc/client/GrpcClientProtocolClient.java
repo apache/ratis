@@ -35,6 +35,7 @@ import org.apache.ratis.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolService
 import org.apache.ratis.proto.grpc.RaftClientProtocolServiceGrpc;
 import org.apache.ratis.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceBlockingStub;
 import org.apache.ratis.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceStub;
+import org.apache.ratis.protocol.AlreadyClosedException;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -201,7 +202,7 @@ public class GrpcClientProtocolClient implements Closeable {
     CompletableFuture<RaftClientReply> onNext(RaftClientRequest request) {
       final Map<Long, CompletableFuture<RaftClientReply>> map = replies.get();
       if (map == null) {
-        return JavaUtils.completeExceptionally(new IOException("Already closed."));
+        return JavaUtils.completeExceptionally(new AlreadyClosedException(getName() + " is closed."));
       }
       final CompletableFuture<RaftClientReply> f = new CompletableFuture<>();
       CollectionUtils.putNew(request.getCallId(), f, map,

@@ -23,6 +23,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
@@ -51,6 +52,8 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
@@ -423,5 +426,14 @@ public interface RaftTestUtil {
       }
     }
     return null;
+  }
+
+  static void assertSuccessReply(CompletableFuture<RaftClientReply> reply) throws Exception {
+    assertSuccessReply(reply.get(10, TimeUnit.SECONDS));
+  }
+
+  static void assertSuccessReply(RaftClientReply reply) {
+    Assert.assertNotNull("reply == null", reply);
+    Assert.assertTrue("reply is not success: " + reply, reply.isSuccess());
   }
 }

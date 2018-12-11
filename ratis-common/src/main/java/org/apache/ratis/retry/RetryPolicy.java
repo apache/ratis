@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -25,6 +25,7 @@ import java.util.concurrent.TimeUnit;
  * Policy abstract for retrying.
  */
 public interface RetryPolicy {
+  TimeDuration ZERO_MILLIS = TimeDuration.valueOf(0, TimeUnit.MILLISECONDS);
 
   /**
    * Determines whether it is supposed to retry the connection if the operation
@@ -39,6 +40,6 @@ public interface RetryPolicy {
    * Returns the time duration for sleep in between the retries.
    */
   default TimeDuration getSleepTime() {
-    return TimeDuration.valueOf(0, TimeUnit.MILLISECONDS);
+    return ZERO_MILLIS;
   }
 }

@@ -17,16 +17,18 @@
  */
 package org.apache.ratis.util.function;
 
-import org.apache.ratis.util.TimeDuration;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
-import java.util.concurrent.TimeoutException;
-
-/** Function with a timeout and a throws-clause. */
-@FunctionalInterface
-public interface CheckedFunctionWithTimeout<INPUT, OUTPUT, THROWABLE extends Throwable> {
+public interface FunctionUtils {
   /**
-   * The same as {@link CheckedFunction#apply(Object)}
-   * except that this method has a timeout parameter and throws {@link TimeoutException}.
+   * Convert the given consumer to a function with any output type
+   * such that the returned function always returns null.
    */
-  OUTPUT apply(INPUT input, TimeDuration timeout) throws TimeoutException, THROWABLE;
+  static <INPUT, OUTPUT> Function<INPUT, OUTPUT> consumerAsNullFunction(Consumer<INPUT> consumer) {
+    return input -> {
+      consumer.accept(input);
+      return null;
+    };
+  }
 }
