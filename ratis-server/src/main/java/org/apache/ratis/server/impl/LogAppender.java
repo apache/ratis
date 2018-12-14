@@ -88,9 +88,11 @@ public class LogAppender {
         follower.getPeer().getId() + ")";
   }
 
-  public void startAppender() {
-    lifeCycle.transition(STARTING);
-    daemon.start();
+  void startAppender() {
+    // The life cycle state could be already closed due to server shutdown.
+    if (lifeCycle.compareAndTransition(NEW, STARTING)) {
+      daemon.start();
+    }
   }
 
   private void runAppender() {

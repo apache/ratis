@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -25,8 +25,6 @@ import org.apache.ratis.server.impl.LeaderElectionTests;
 import org.apache.ratis.util.LogUtils;
 import org.junit.Test;
 
-import java.io.IOException;
-
 public class TestLeaderElectionWithHadoopRpc
     extends LeaderElectionTests<MiniRaftClusterWithHadoopRpc>
     implements MiniRaftClusterWithHadoopRpc.Factory.Get {
@@ -35,7 +33,7 @@ public class TestLeaderElectionWithHadoopRpc
   }
 
   @Override
-  public MiniRaftClusterWithHadoopRpc newCluster(int numPeers) throws IOException {
+  public MiniRaftClusterWithHadoopRpc newCluster(int numPeers) {
     final Configuration conf = new Configuration();
     HadoopConfigKeys.Ipc.setHandlers(conf, 20);
     conf.setInt(CommonConfigurationKeys.IPC_CLIENT_CONNECT_MAX_RETRIES_KEY, 0);

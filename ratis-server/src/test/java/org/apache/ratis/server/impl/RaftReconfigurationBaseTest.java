@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -55,7 +55,6 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   private static final DelayLocalExecutionInjection logSyncDelay =
@@ -337,11 +336,15 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       // bootstrapping the 2 new peers since they have not started yet
       Assert.assertFalse(cluster.getLeader().getRaftConf().isTransitional());
 
-      // only the first empty entry got committed
-      final long committedIndex = cluster.getLeader().getState().getLog()
-          .getLastCommittedIndex();
-      Assert.assertTrue("committedIndex is " + committedIndex,
-          committedIndex <= 1);
+      // only (0) the first conf entry, (1) the 1st setConf entry and (2) a metadata entry
+      {
+        final RaftLog leaderLog = cluster.getLeader().getState().getLog();
+        for(LogEntryProto e : RaftTestUtil.getLogEntryProtos(leaderLog)) {
+          LOG.info("{}", ServerProtoUtils.toLogEntryString(e));
+        }
+        final long commitIndex = leaderLog.getLastCommittedIndex();
+        Assert.assertTrue("commitIndex = " + commitIndex + " > 2", commitIndex <= 2);
+      }
 
       final RaftPeerId killed = RaftTestUtil.waitAndKillLeader(cluster);
       Assert.assertEquals(leaderId, killed);

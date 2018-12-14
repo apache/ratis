@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
@@ -83,28 +84,30 @@ public class TestRaftWithGrpc
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
 
-      final long index = cluster.getLeader().getState().getLog().getNextIndex();
-      TermIndex[] leaderEntries = cluster.getLeader().getState().getLog().getEntries(0, Integer.MAX_VALUE);
+      final RaftLog leaderLog = cluster.getLeader().getState().getLog();
       // The entries have been appended in the followers
       // although the append entry timed out at the leader
-
-      final TimeDuration sleepTime = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
       cluster.getServerAliveStream().filter(impl -> !impl.isLeader()).forEach(raftServer ->
           JavaUtils.runAsUnchecked(() -> JavaUtils.attempt(() -> {
-        Assert.assertEquals(raftServer.getState().getLog().getNextIndex(), index);
-        TermIndex[] serverEntries = raftServer.getState().getLog().getEntries(0, Integer.MAX_VALUE);
+        final long leaderNextIndex = leaderLog.getNextIndex();
+        final TermIndex[] leaderEntries = leaderLog.getEntries(0, Long.MAX_VALUE);
+
+        final RaftLog followerLog = raftServer.getState().getLog();
+        Assert.assertEquals(leaderNextIndex, followerLog.getNextIndex());
+        final TermIndex[] serverEntries = followerLog.getEntries(0, Long.MAX_VALUE);
         Assert.assertArrayEquals(serverEntries, leaderEntries);
-      }, 10, sleepTime, "assertRaftLog-" + raftServer.getId(), LOG)));
+      }, 10, HUNDRED_MILLIS, "assertRaftLog-" + raftServer.getId(), LOG)));
 
       // Wait for heartbeats from leader to be received by followers
       Thread.sleep(500);
       RaftServerTestUtil.getLogAppenders(cluster.getLeader()).forEach(logAppender ->
-        JavaUtils.runAsUnchecked(() -> JavaUtils.attempt(() -> {
+          JavaUtils.runAsUnchecked(() -> JavaUtils.attempt(() -> {
+        final long leaderNextIndex = leaderLog.getNextIndex();
         // FollowerInfo in the leader state should have updated next and match index.
         final long followerMatchIndex = logAppender.getFollower().getMatchIndex();
-        Assert.assertTrue(followerMatchIndex >= index - 1);
+        Assert.assertTrue(followerMatchIndex >= leaderNextIndex - 1);
         Assert.assertEquals(followerMatchIndex + 1, logAppender.getFollower().getNextIndex());
-      }, 10, sleepTime, "assertRaftLog-" + logAppender.getFollower(), LOG)));
+      }, 10, HUNDRED_MILLIS, "assertRaftLog-" + logAppender.getFollower(), LOG)));
     }
   }
 }

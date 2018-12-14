@@ -179,7 +179,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     }
 
     SimpleMessage[] messages = SimpleMessage.create(1);
-    RaftTestUtil.sendMessageInNewThread(cluster, messages);
+    RaftTestUtil.sendMessageInNewThread(cluster, leaderId, messages);
 
     Thread.sleep(cluster.getMaxTimeout() + 100);
     RaftLog followerLog = followerToSendLog.getState().getLog();
@@ -219,7 +219,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     }
 
     SimpleMessage[] messages = SimpleMessage.create(1);
-    RaftTestUtil.sendMessageInNewThread(cluster, messages);
+    RaftTestUtil.sendMessageInNewThread(cluster, leaderId, messages);
 
     Thread.sleep(cluster.getMaxTimeout() + 100);
     RaftTestUtil.logEntriesContains(followerToCommit.getState().getLog(), messages);

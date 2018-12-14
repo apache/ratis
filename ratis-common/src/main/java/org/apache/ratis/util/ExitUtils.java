@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,65 +18,112 @@
 package org.apache.ratis.util;
 
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Facilitates hooking process termination for tests and debugging. */
-public class ExitUtils {
-  public static class ExitException extends RuntimeException {
+public interface ExitUtils {
+  class ExitException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
-    public final int status;
+    private final int status;
 
-    public ExitException(int status, String message, Throwable throwable) {
+    ExitException(int status, String message, Throwable throwable) {
       super(message, throwable);
       this.status = status;
     }
+
+    public int getStatus() {
+      return status;
+    }
   }
 
-  private static volatile boolean systemExitDisabled = false;
-  private static volatile ExitException firstExitException;
+  class States {
+    private static final Logger LOG = LoggerFactory.getLogger(ExitUtils.class);
+    private static final States INSTANCE = new States();
+
+    private volatile boolean systemExitDisabled = false;
+    private volatile boolean terminateOnUncaughtException = true;
+    private final AtomicReference<ExitException> firstExitException = new AtomicReference<>();
+
+    private States() {
+      Thread.setDefaultUncaughtExceptionHandler((thread, exception) -> {
+        if (terminateOnUncaughtException) {
+          terminate(-1, thread + " has thrown an uncaught exception", exception, false, LOG);
+        }
+      });
+    }
+
+    private void setTerminateOnUncaughtException(boolean terminateOnUncaughtException) {
+      this.terminateOnUncaughtException = terminateOnUncaughtException;
+    }
+
+    private void disableSystemExit() {
+      systemExitDisabled = true;
+    }
+
+    private boolean isSystemExitDisabled() {
+      return systemExitDisabled;
+    }
+
+    private ExitException getFirstExitException() {
+      return firstExitException.get();
+    }
+
+    private boolean setFirstExitException(ExitException e) {
+      Objects.requireNonNull(e, "e == null");
+      return firstExitException.compareAndSet(null, e);
+    }
+
+    private boolean clearFirstExitException() {
+      return firstExitException.getAndSet(null) != null;
+    }
+  }
 
   /**
    * @return the first {@link ExitException} thrown, or null if none thrown yet.
    */
-  public static ExitException getFirstExitException() {
-    return firstExitException;
+  static ExitException getFirstExitException() {
+    return States.INSTANCE.getFirstExitException();
   }
 
   /**
-   * Reset the tracking of process termination.
-   * This is useful when some tests expect an exit but the others do not.
+   * Clear all previous terminate(..) calls, if there are any.
+   *
+   * @return true if the state is changed.
    */
-  public static void resetFirstExitException() {
-    firstExitException = null;
+  static boolean clear() {
+    return States.INSTANCE.clearFirstExitException();
   }
 
-  /** @return true if {@link #terminate(int, String, Throwable, Logger)} has been invoked. */
-  public static boolean isTerminated() {
-    // Either this member is set or System.exit is actually invoked.
-    return firstExitException != null;
+  /** @return true if one of the terminate(..) methods has been invoked. */
+  static boolean isTerminated() {
+    return getFirstExitException() != null;
   }
 
-  public static void assertNotTerminated() {
+  /** @throws AssertionError if {@link #isTerminated()} == true. */
+  static void assertNotTerminated() {
     if (ExitUtils.isTerminated()) {
       throw new AssertionError("Unexpected exited.", getFirstExitException());
     }
   }
 
-  /** Disable the use of {@link System#exit(int)} for testing. */
-  public static void disableSystemExit() {
-    systemExitDisabled = true;
+  /** Disable the use of {@link System#exit(int)}. */
+  static void disableSystemExit() {
+    States.INSTANCE.disableSystemExit();
   }
 
   /**
-   * Terminate the current process. Note that terminate is the *only* method
-   * that should be used to terminate the daemon processes.
+   *
    *
    * @param status Exit status
    * @param message message used to create the {@code ExitException}
-   * @throws ExitException if System.exit is disabled for test purposes
+   * @param throwExitException decide if this method should throw {@link ExitException}
+   * @throws ExitException if throwExitException == true and System.exit is disabled.
    */
-  public static void terminate(
-      int status, String message, Throwable throwable, Logger log)
+  static void terminate(int status, String message, Throwable throwable, boolean throwExitException, Logger log)
       throws ExitException {
     if (log != null) {
       final String s = "Terminating with exit status " + status + ": " + message;
@@ -87,18 +134,28 @@ public class ExitUtils {
       }
     }
 
-    if (!systemExitDisabled) {
+    if (!States.INSTANCE.isSystemExitDisabled()) {
       System.exit(status);
     }
 
     final ExitException ee = new ExitException(status, message, throwable);
-    if (firstExitException == null) {
-      firstExitException = ee;
+
+    States.INSTANCE.setFirstExitException(ee);
+
+    if (throwExitException) {
+      throw ee;
     }
-    throw ee;
   }
 
-  public static void terminate(int status, String message, Logger log) {
+  static void terminate(int status, String message, Throwable throwable, Logger log) {
+    terminate(status, message, throwable, true, log);
+  }
+
+  static void terminate(int status, String message, Logger log) {
     terminate(status, message, null, log);
+  }
+
+  static void setTerminateOnUncaughtException(boolean terminateOnUncaughtException) {
+    States.INSTANCE.setTerminateOnUncaughtException(terminateOnUncaughtException);
   }
 }

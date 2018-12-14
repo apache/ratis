@@ -64,12 +64,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -90,7 +92,7 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public static abstract class Factory<CLUSTER extends MiniRaftCluster> {
     public interface Get<CLUSTER extends MiniRaftCluster> {
-      Supplier<RaftProperties> properties = JavaUtils.memoize(() -> new RaftProperties());
+      Supplier<RaftProperties> properties = JavaUtils.memoize(RaftProperties::new);
 
       Factory<CLUSTER> getFactory();
 
@@ -98,7 +100,7 @@ public abstract class MiniRaftCluster implements Closeable {
         return properties.get();
       }
 
-      default CLUSTER newCluster(int numPeers) throws IOException {
+      default CLUSTER newCluster(int numPeers) {
         return getFactory().newCluster(numPeers, getProperties());
       }
 
@@ -117,10 +119,45 @@ public abstract class MiniRaftCluster implements Closeable {
           }
           testCase.accept(cluster);
         } catch(Throwable t) {
-          LOG.error("Failed " + caller + ": " + cluster.printServers(), t);
+          LOG.info(cluster.printServers());
+          LOG.error("Failed " + caller, t);
           throw t;
         } finally {
           cluster.shutdown();
+        }
+      }
+
+      default void runWithSameCluster(int numServers, CheckedConsumer<CLUSTER, Exception> testCase) throws Exception {
+        final StackTraceElement caller = JavaUtils.getCallerStackTraceElement();
+        LOG.info("Running " + caller.getMethodName());
+        CLUSTER cluster = null;
+        try {
+          cluster = getFactory().reuseCluster(numServers, getProperties());
+          testCase.accept(cluster);
+        } catch(Throwable t) {
+          if (cluster != null) {
+            LOG.info(cluster.printServers());
+          }
+          LOG.error("Failed " + caller, t);
+          throw t;
+        }
+      }
+    }
+
+    private final AtomicReference<CLUSTER> reusableCluster = new AtomicReference<>();
+
+    private CLUSTER reuseCluster(int numServers, RaftProperties prop) throws IOException {
+      for(;;) {
+        final CLUSTER cluster = reusableCluster.get();
+        if (cluster != null) {
+          return cluster;
+        }
+
+        final CLUSTER newCluster = newCluster(numServers, prop);
+        if (reusableCluster.compareAndSet(null, newCluster)) {
+          newCluster.start();
+          Runtime.getRuntime().addShutdownHook(new Thread(newCluster::shutdown));
+          return newCluster;
         }
       }
     }
@@ -203,9 +240,8 @@ public abstract class MiniRaftCluster implements Closeable {
   protected final Map<RaftPeerId, RaftPeer> peers = new ConcurrentHashMap<>();
 
   private volatile StateMachine.Registry stateMachineRegistry = null;
-  private volatile TimeDuration retryInterval;
 
-  private final Timer timer;
+  private final AtomicReference<Timer> timer = new AtomicReference<>();
 
   protected MiniRaftCluster(String[] ids, RaftProperties properties, Parameters parameters) {
     this.group = initRaftGroup(Arrays.asList(ids));
@@ -213,8 +249,6 @@ public abstract class MiniRaftCluster implements Closeable {
     this.properties = new RaftProperties(properties);
     this.parameters = parameters;
 
-    this.timer = JavaUtils.runRepeatedly(() -> LOG.info("TIMED-PRINT: " + printServers()),
-        10, 10, TimeUnit.SECONDS);
     ExitUtils.disableSystemExit();
   }
 
@@ -253,6 +287,9 @@ public abstract class MiniRaftCluster implements Closeable {
 
     initServers();
     startServers(servers.values());
+
+    this.timer.updateAndGet(t -> t != null? t
+        : JavaUtils.runRepeatedly(() -> LOG.info("TIMED-PRINT: " + printServers()), 10, 10, TimeUnit.SECONDS));
   }
 
   /**
@@ -686,6 +723,9 @@ public abstract class MiniRaftCluster implements Closeable {
     LOG.info("************************************************************** ");
     LOG.info(printServers());
 
+    // TODO: classes like RaftLog may throw uncaught exception during shutdown (e.g. write after close)
+    ExitUtils.setTerminateOnUncaughtException(false);
+
     final ExecutorService executor = Executors.newFixedThreadPool(servers.size(), Daemon::new);
     getServers().forEach(proxy -> executor.submit(proxy::close));
     try {
@@ -696,7 +736,7 @@ public abstract class MiniRaftCluster implements Closeable {
       LOG.warn("shutdown interrupted", e);
     }
 
-    timer.cancel();
+    Optional.ofNullable(timer.get()).ifPresent(Timer::cancel);
     ExitUtils.assertNotTerminated();
     LOG.info(getClass().getSimpleName() + " shutdown completed");
   }

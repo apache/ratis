@@ -19,11 +19,13 @@ package org.apache.ratis;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.conf.ConfUtils;
+import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.rules.TestName;
@@ -43,10 +45,18 @@ public abstract class BaseTest {
   public final Logger LOG = LoggerFactory.getLogger(getClass());
 
   public static final TimeDuration HUNDRED_MILLIS = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
+  public static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
 
   {
     LogUtils.setLogLevel(ConfUtils.LOG, Level.WARN);
     LogUtils.setLogLevel(FileUtils.LOG, Level.TRACE);
+
+    ExitUtils.disableSystemExit();
+  }
+
+  @After
+  public void assertNotTerminated() {
+    ExitUtils.assertNotTerminated();
   }
 
   @Rule

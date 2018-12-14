@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -36,6 +36,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -188,27 +189,29 @@ public interface RaftTestUtil {
     }
   }
 
-  static void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage... expectedMessages) {
-    final TermIndex[] termIndices = log.getEntries(1, Long.MAX_VALUE);
-    final List<LogEntryProto> entries = new ArrayList<>(expectedMessages.length);
-    for (TermIndex ti : termIndices) {
-      final LogEntryProto e;
+  static Iterable<LogEntryProto> getLogEntryProtos(RaftLog log) {
+    return CollectionUtils.as(log.getEntries(0, Long.MAX_VALUE), ti -> {
       try {
-        e = log.get(ti.getIndex());
+        return log.get(ti.getIndex());
       } catch (IOException exception) {
         throw new AssertionError("Failed to get log at " + ti, exception);
       }
+    });
+  }
 
+  static void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage... expectedMessages) {
+    final List<LogEntryProto> entries = new ArrayList<>(expectedMessages.length);
+    for(LogEntryProto e : getLogEntryProtos(log)) {
+      final String s = ServerProtoUtils.toString(e);
       if (e.hasStateMachineLogEntry()) {
-        LOG.info(ServerProtoUtils.toString(e) + ", " + e.getStateMachineLogEntry().toString().trim().replace("\n", ", "));
+        LOG.info(s + ", " + e.getStateMachineLogEntry().toString().trim().replace("\n", ", "));
         entries.add(e);
       } else if (e.hasConfigurationEntry()) {
-        LOG.info("Found ConfigurationEntry at {}, ignoring it.", ti);
+        LOG.info("Found {}, ignoring it.", s);
       } else if (e.hasMetadataEntry()) {
-        LOG.info("Found MetadataEntry at {}, ignoring it.", ti);
+        LOG.info("Found {}, ignoring it.", s);
       } else {
-        throw new AssertionError("Unexpected LogEntryBodyCase " + e.getLogEntryBodyCase() + " at " + ti
-            + ": " + ServerProtoUtils.toString(e));
+        throw new AssertionError("Unexpected LogEntryBodyCase " + e.getLogEntryBodyCase() + " at " + s);
       }
     }
 
@@ -384,8 +387,7 @@ public interface RaftTestUtil {
     Thread.sleep(3 * maxTimeout);
   }
 
-  static void sendMessageInNewThread(MiniRaftCluster cluster, SimpleMessage... messages) {
-    RaftPeerId leaderId = cluster.getLeader().getId();
+  static void sendMessageInNewThread(MiniRaftCluster cluster, RaftPeerId leaderId, SimpleMessage... messages) {
     new Thread(() -> {
       try (final RaftClient client = cluster.createClient(leaderId)) {
         for (SimpleMessage mssg: messages) {

@@ -487,6 +487,7 @@ public class TestSegmentedRaftLog extends BaseTest {
         Objects.requireNonNull(exitException, "exitException == null");
         Assert.assertEquals(TimeoutIOException.class, exitException.getCause().getClass());
       }, 3*numRetries, syncTimeout, "RaftLogWorker should catch TimeoutIOException and exit", LOG);
+      ExitUtils.clear();
     }
   }
 
