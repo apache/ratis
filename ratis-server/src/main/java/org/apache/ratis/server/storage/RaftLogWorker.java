@@ -310,9 +310,9 @@ class RaftLogWorker implements Runnable {
     return addIOTask(new WriteLog(entry));
   }
 
-  Task truncate(TruncationSegments ts) {
-    LOG.info("{}: Truncating segments {}", name, ts);
-    return addIOTask(new TruncateLog(ts));
+  Task truncate(TruncationSegments ts, long index) {
+    LOG.info("{}: Truncating segments {}, start index {}", name, ts, index);
+    return addIOTask(new TruncateLog(ts, index));
   }
 
   private class WriteLog extends Task {
@@ -447,15 +447,23 @@ class RaftLogWorker implements Runnable {
 
   private class TruncateLog extends Task {
     private final TruncationSegments segments;
+    private final long truncateIndex;
 
-    TruncateLog(TruncationSegments ts) {
+    TruncateLog(TruncationSegments ts, long index) {
       this.segments = ts;
+      this.truncateIndex = index;
+
     }
 
     @Override
     void execute() throws IOException {
       IOUtils.cleanup(null, out);
       out = null;
+      CompletableFuture<Void> stateMachineFuture = null;
+      if (stateMachine != null) {
+        stateMachineFuture = stateMachine.truncateStateMachineData(truncateIndex);
+      }
+
       if (segments.toTruncate != null) {
         File fileToTruncate = segments.toTruncate.isOpen ?
             storage.getStorageDir().getOpenLogFile(
@@ -498,6 +506,9 @@ class RaftLogWorker implements Runnable {
         if (segments.toTruncate == null) {
           lastWrittenIndex = minStart - 1;
         }
+      }
+      if (stateMachineFuture != null) {
+        IOUtils.getFromFuture(stateMachineFuture, () -> this + "-truncateStateMachineData");
       }
       updateFlushedIndex();
     }

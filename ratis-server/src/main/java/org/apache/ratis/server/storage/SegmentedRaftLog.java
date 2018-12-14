@@ -259,7 +259,7 @@ public class SegmentedRaftLog extends RaftLog {
     try(AutoCloseableLock writeLock = writeLock()) {
       RaftLogCache.TruncationSegments ts = cache.truncate(index);
       if (ts != null) {
-        Task task = fileLogWorker.truncate(ts);
+        Task task = fileLogWorker.truncate(ts, index);
         return task.getFuture();
       }
     }

@@ -230,4 +230,16 @@ public interface StateMachine extends Closeable {
   default CompletableFuture<Void> flushStateMachineData(long index) {
     return CompletableFuture.completedFuture(null);
   }
+
+  /**
+   * Truncates asynchronously the associated state machine data starting from the given log
+   * index from the state machine. It will be a no op if the corresponding log entry does not
+   * have associated stateMachineData.
+   * @param index log Index starting from which the stateMachineData will be truncated.
+   * @return a combined future for the remove task for all the log entries starting from
+   *         given logIndex, null otherwise
+   */
+  default CompletableFuture<Void> truncateStateMachineData(long index) {
+    return CompletableFuture.completedFuture(null);
+  }
 }
