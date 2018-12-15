@@ -17,7 +17,9 @@
  */
 package org.apache.ratis.grpc.server;
 
+import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
+import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyChannelBuilder;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -26,6 +28,7 @@ import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceBlockingStub;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceStub;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.TimeDuration;
 
 import java.io.Closeable;
@@ -41,11 +44,28 @@ public class GrpcServerProtocolClient implements Closeable {
   private final RaftServerProtocolServiceStub asyncStub;
 
   public GrpcServerProtocolClient(RaftPeer target, int flowControlWindow,
-      TimeDuration requestTimeoutDuration) {
-    channel = NettyChannelBuilder.forTarget(target.getAddress())
-        .negotiationType(NegotiationType.PLAINTEXT)
-        .flowControlWindow(flowControlWindow)
-        .build();
+      TimeDuration requestTimeoutDuration, GrpcTlsConfig tlsConfig) {
+    NettyChannelBuilder channelBuilder =
+        NettyChannelBuilder.forTarget(target.getAddress());
+
+    if (tlsConfig!= null) {
+      SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
+      if (tlsConfig.getTrustStore() != null) {
+        sslContextBuilder.trustManager(tlsConfig.getTrustStore());
+      }
+      if (tlsConfig.getMtlsEnabled()) {
+        sslContextBuilder.keyManager(tlsConfig.getCertChain(),
+            tlsConfig.getPrivateKey());
+      }
+      try {
+        channelBuilder.useTransportSecurity().sslContext(sslContextBuilder.build());
+      } catch (Exception ex) {
+        throw new IllegalArgumentException("Failed to build SslContext, tlsConfig=" + tlsConfig, ex);
+      }
+    } else {
+      channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
+    }
+    channel = channelBuilder.flowControlWindow(flowControlWindow).build();
     blockingStub = RaftServerProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftServerProtocolServiceGrpc.newStub(channel);
     this.requestTimeoutDuration = requestTimeoutDuration;

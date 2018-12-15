@@ -91,7 +91,7 @@ public class TestRaftStream extends BaseTest {
     RaftServerImpl leader = waitForLeader(cluster);
 
     try (GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
-        cluster.getGroup(), leader.getId())) {
+        cluster.getGroup(), leader.getId(), null)) {
       for (int i = 0; i < numRequests; i++) { // generate requests
         out.write(toBytes(i));
       }
@@ -129,7 +129,7 @@ public class TestRaftStream extends BaseTest {
 
     RaftServerImpl leader = waitForLeader(cluster);
     GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
-        cluster.getGroup(), leader.getId());
+        cluster.getGroup(), leader.getId(), null);
 
     int[] lengths = new int[]{1, 500, 1023, 1024, 1025, 2048, 3000, 3072};
     ByteValue[] values = new ByteValue[lengths.length];
@@ -208,7 +208,7 @@ public class TestRaftStream extends BaseTest {
     RaftServerImpl leader = waitForLeader(cluster);
 
     GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
-        cluster.getGroup(), leader.getId());
+        cluster.getGroup(), leader.getId(), null);
 
     byte[] b1 = new byte[ByteValue.BUFFERSIZE / 2];
     Arrays.fill(b1, (byte) 1);
@@ -274,7 +274,7 @@ public class TestRaftStream extends BaseTest {
       LOG.info("Writer thread starts");
       int count = 0;
       try (GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
-          cluster.getGroup(), leader.getId())) {
+          cluster.getGroup(), leader.getId(), null)) {
         while (running.get()) {
           out.write(toBytes(count++));
           Thread.sleep(10);

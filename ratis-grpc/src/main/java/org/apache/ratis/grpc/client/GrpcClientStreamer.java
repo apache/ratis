@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.client;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -85,7 +86,7 @@ public class GrpcClientStreamer implements Closeable {
   private final RaftGroupId groupId;
 
   GrpcClientStreamer(RaftProperties prop, RaftGroup group,
-      RaftPeerId leaderId, ClientId clientId) {
+      RaftPeerId leaderId, ClientId clientId, GrpcTlsConfig tlsConfig) {
     this.clientId = clientId;
     maxPendingNum = GrpcConfigKeys.OutputStream.outstandingAppendsMax(prop);
     maxMessageSize = GrpcConfigKeys.messageSizeMax(prop, LOG::debug);
@@ -97,8 +98,8 @@ public class GrpcClientStreamer implements Closeable {
     this.peers = group.getPeers().stream().collect(
         Collectors.toMap(RaftPeer::getId, Function.identity()));
     proxyMap = new PeerProxyMap<>(clientId.toString(),
-        raftPeer -> new GrpcClientProtocolProxy(clientId, raftPeer, ResponseHandler::new,
-            prop));
+        raftPeer -> new GrpcClientProtocolProxy(clientId, raftPeer,
+            ResponseHandler::new, prop, tlsConfig));
     proxyMap.addPeers(group.getPeers());
     refreshLeaderProxy(leaderId, null);
 

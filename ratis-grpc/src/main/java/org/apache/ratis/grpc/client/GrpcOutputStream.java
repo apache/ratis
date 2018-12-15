@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.client;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -39,12 +40,12 @@ public class GrpcOutputStream extends OutputStream {
   private boolean closed = false;
 
   public GrpcOutputStream(RaftProperties prop, ClientId clientId,
-      RaftGroup group, RaftPeerId leaderId) {
+      RaftGroup group, RaftPeerId leaderId, GrpcTlsConfig tlsConfig) {
     final int bufferSize = GrpcConfigKeys.OutputStream.bufferSize(prop).getSizeInt();
     buf = new byte[bufferSize];
     count = 0;
     this.clientId = clientId;
-    streamer = new GrpcClientStreamer(prop, group, leaderId, clientId);
+    streamer = new GrpcClientStreamer(prop, group, leaderId, clientId, tlsConfig);
   }
 
   @Override

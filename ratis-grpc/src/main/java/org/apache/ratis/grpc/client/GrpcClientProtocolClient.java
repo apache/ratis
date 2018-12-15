@@ -21,6 +21,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
@@ -30,6 +31,8 @@ import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
+import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.proto.grpc.AdminProtocolServiceGrpc;
 import org.apache.ratis.proto.grpc.AdminProtocolServiceGrpc.AdminProtocolServiceBlockingStub;
 import org.apache.ratis.proto.grpc.RaftClientProtocolServiceGrpc;
@@ -81,15 +84,34 @@ public class GrpcClientProtocolClient implements Closeable {
 
   private final AtomicReference<AsyncStreamObservers> appendStreamObservers = new AtomicReference<>();
 
-  public GrpcClientProtocolClient(ClientId id, RaftPeer target, RaftProperties properties) {
+  public GrpcClientProtocolClient(ClientId id, RaftPeer target,
+                                  RaftProperties properties,
+                                  GrpcTlsConfig tlsConf) {
     this.name = JavaUtils.memoize(() -> id + "->" + target.getId());
     this.target = target;
-
     final SizeInBytes flowControlWindow = GrpcConfigKeys.flowControlWindow(properties, LOG::debug);
     final SizeInBytes maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug);
-    channel = NettyChannelBuilder.forTarget(target.getAddress())
-        .negotiationType(NegotiationType.PLAINTEXT)
-        .flowControlWindow(flowControlWindow.getSizeInt())
+    NettyChannelBuilder channelBuilder =
+        NettyChannelBuilder.forTarget(target.getAddress());
+
+    if (tlsConf!= null) {
+      SslContextBuilder sslContextBuilder = GrpcSslContexts.forClient();
+      if (tlsConf.getTrustStore() != null) {
+        sslContextBuilder.trustManager(tlsConf.getTrustStore());
+      }
+      if (tlsConf.getMtlsEnabled()) {
+        sslContextBuilder.keyManager(tlsConf.getCertChain(),
+            tlsConf.getPrivateKey());
+      }
+      try {
+        channelBuilder.useTransportSecurity().sslContext(sslContextBuilder.build());
+      } catch (Exception ex) {
+        throw new RuntimeException(ex);
+      }
+    } else {
+      channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
+    }
+    channel = channelBuilder.flowControlWindow(flowControlWindow.getSizeInt())
         .maxInboundMessageSize(maxMessageSize.getSizeInt())
         .build();
     blockingStub = RaftClientProtocolServiceGrpc.newBlockingStub(channel);

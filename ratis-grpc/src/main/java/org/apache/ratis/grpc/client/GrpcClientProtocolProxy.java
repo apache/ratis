@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc.client;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
@@ -35,8 +36,8 @@ public class GrpcClientProtocolProxy implements Closeable {
 
   public GrpcClientProtocolProxy(ClientId clientId, RaftPeer target,
       Function<RaftPeer, CloseableStreamObserver> responseHandlerCreation,
-      RaftProperties properties) {
-    proxy = new GrpcClientProtocolClient(clientId, target, properties);
+      RaftProperties properties, GrpcTlsConfig tlsConfig) {
+    proxy = new GrpcClientProtocolClient(clientId, target, properties, tlsConfig);
     this.responseHandlerCreation = responseHandlerCreation;
   }
 

@@ -21,6 +21,7 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.impl.RaftClientRpcWithProxy;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
@@ -46,11 +47,18 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
 
   private final ClientId clientId;
   private final int maxMessageSize;
+  private final GrpcTlsConfig tlsConfig;
 
-  public GrpcClientRpc(ClientId clientId, RaftProperties properties) {
-    super(new PeerProxyMap<>(clientId.toString(), p -> new GrpcClientProtocolClient(clientId, p, properties)));
+  public GrpcClientRpc(ClientId clientId, RaftProperties properties, GrpcTlsConfig tlsConfig) {
+    super(new PeerProxyMap<>(clientId.toString(),
+        p -> new GrpcClientProtocolClient(clientId, p, properties, tlsConfig)));
     this.clientId = clientId;
     this.maxMessageSize = GrpcConfigKeys.messageSizeMax(properties, LOG::debug).getSizeInt();
+    this.tlsConfig = tlsConfig;
+  }
+
+  public GrpcClientRpc(ClientId clientId, RaftProperties properties) {
+    this(clientId, properties, null);
   }
 
   @Override

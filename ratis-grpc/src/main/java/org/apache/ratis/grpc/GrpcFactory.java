@@ -29,7 +29,25 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.*;
 
 public class GrpcFactory implements ServerFactory, ClientFactory {
-  public GrpcFactory(Parameters parameters) {}
+  private final GrpcTlsConfig tlsConfig;
+
+  public static Parameters newRaftParameters(GrpcTlsConfig conf) {
+    final Parameters p = new Parameters();
+    GrpcConfigKeys.TLS.setConf(p, conf);
+    return p;
+  }
+
+  public GrpcFactory(Parameters parameters) {
+    this(GrpcConfigKeys.TLS.getConf(parameters));
+  }
+
+  public GrpcFactory(GrpcTlsConfig tlsConfig) {
+    this.tlsConfig = tlsConfig;
+  }
+
+  public GrpcTlsConfig getTlsConfig() {
+    return tlsConfig;
+  }
 
   @Override
   public SupportedRpcType getRpcType() {
@@ -46,11 +64,12 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   public GrpcService newRaftServerRpc(RaftServer server) {
     return GrpcService.newBuilder()
         .setServer(server)
+        .setTlsConfig(tlsConfig)
         .build();
   }
 
   @Override
   public GrpcClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties) {
-    return new GrpcClientRpc(clientId, properties);
+    return new GrpcClientRpc(clientId, properties, getTlsConfig());
   }
 }
