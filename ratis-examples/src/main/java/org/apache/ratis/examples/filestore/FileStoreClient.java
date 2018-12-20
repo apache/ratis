@@ -155,6 +155,7 @@ public class FileStoreClient implements Closeable {
     final WriteRequestHeaderProto.Builder header = WriteRequestHeaderProto.newBuilder()
         .setPath(ProtoUtils.toByteString(path))
         .setOffset(offset)
+        .setLength(data.position())
         .setClose(close);
 
     final WriteRequestProto.Builder write = WriteRequestProto.newBuilder()

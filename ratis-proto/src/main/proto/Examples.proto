@@ -39,6 +39,7 @@ message WriteRequestHeaderProto {
   bytes path = 1;
   bool close = 2; // close the file after write?
   uint64 offset = 3;
+  uint64 length = 4;
 }
 
 message WriteRequestProto {
