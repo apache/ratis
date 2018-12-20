@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.examples.arithmetic.cli;
+package org.apache.ratis.examples.common;
 
 import com.beust.jcommander.Parameter;
 import org.apache.ratis.protocol.RaftPeer;

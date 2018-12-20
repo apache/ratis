@@ -15,20 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.examples.arithmetic;
+package org.apache.ratis.examples.common;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import org.apache.log4j.Level;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.examples.arithmetic.cli.Assign;
-import org.apache.ratis.examples.arithmetic.cli.Get;
-import org.apache.ratis.examples.arithmetic.cli.SubCommandBase;
-import org.apache.ratis.examples.arithmetic.cli.Server;
+import org.apache.ratis.examples.arithmetic.cli.Arithmetic;
+import org.apache.ratis.examples.filestore.cli.FileStore;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.util.LogUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,24 +34,32 @@ import java.util.Optional;
  */
 public class Runner {
 
-  private static List<SubCommandBase> commands = new ArrayList<>();
-
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
   public static void main(String[] args) throws Exception {
-    initializeCommands();
+    if (args.length == 0) {
+      System.err.println("No command type specified: ");
+      return;
+    }
+    List<SubCommandBase> commands = initializeCommands(args[0]);
     Runner runner = new Runner();
-    Server server = new Server();
+
+    if (commands == null) {
+      System.err.println("Wrong command type: " + args[0]);
+      return;
+    }
+    String[] newArgs = new String[args.length - 1];
+    System.arraycopy(args, 1, newArgs, 0, args.length - 1);
 
     JCommander.Builder builder = JCommander.newBuilder().addObject(runner);
     commands.forEach(command -> builder
         .addCommand(command.getClass().getSimpleName().toLowerCase(), command));
     JCommander jc = builder.build();
     try {
-      jc.parse(args);
+      jc.parse(newArgs);
       Optional<SubCommandBase> selectedCommand = commands.stream().filter(
           command -> command.getClass().getSimpleName().toLowerCase()
               .equals(jc.getParsedCommand())).findFirst();
@@ -70,10 +75,13 @@ public class Runner {
 
   }
 
-  private static void initializeCommands() {
-    commands.add(new Server());
-    commands.add(new Assign());
-    commands.add(new Get());
+  private static List<SubCommandBase> initializeCommands(String command) {
+    if (command.equals(FileStore.class.getSimpleName().toLowerCase())) {
+      return FileStore.getSubCommands();
+    } else if (command.equals(Arithmetic.class.getSimpleName().toLowerCase())) {
+      return Arithmetic.getSubCommands();
+    }
+    return null;
   }
 
 }

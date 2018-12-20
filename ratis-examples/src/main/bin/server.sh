@@ -16,9 +16,5 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/common.sh
-if [ -z "$1" ]; then
-   echo "Usage: server.sh <nodeid>"
-   exit -1
-fi
-java -jar $ARTIFACT server --storage /tmp/ratis-arithmentic-$1 --id $1 --peers n0:localhost:6000,n1:localhost:6001,n2:localhost:6002
+java -jar $ARTIFACT "$@"
 

@@ -19,5 +19,5 @@ source $DIR/common.sh
 
 subcommand=$1
 shift
-java -jar $ARTIFACT $subcommand --peers n0:localhost:6000,n1:localhost:6001,n2:localhost:6002 "$@"
+java -jar $ARTIFACT $subcommand "$@"
 

@@ -15,13 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.examples.arithmetic.cli;
+package org.apache.ratis.examples.filestore.cli;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
+import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.examples.arithmetic.ArithmeticStateMachine;
 import org.apache.ratis.examples.common.SubCommandBase;
+import org.apache.ratis.examples.filestore.FileStoreCommon;
+import org.apache.ratis.examples.filestore.FileStoreStateMachine;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -42,15 +44,13 @@ import java.util.concurrent.TimeUnit;
 /**
  * Class to start a ratis arithmetic example server.
  */
-@Parameters(commandDescription = "Start an arithmetic server")
+@Parameters(commandDescription = "Start an filestore server")
 public class Server extends SubCommandBase {
 
-  @Parameter(names = {"--id",
-      "-i"}, description = "Raft id of this server", required = true)
+  @Parameter(names = {"--id", "-i"}, description = "Raft id of this server", required = true)
   private String id;
 
-  @Parameter(names = {"--storage",
-      "-s"}, description = "Storage dir", required = true)
+  @Parameter(names = {"--storage", "-s"}, description = "Storage dir", required = true)
   private File storageDir;
 
 
@@ -64,7 +64,9 @@ public class Server extends SubCommandBase {
     GrpcConfigKeys.Server.setPort(properties, port);
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
     RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(storageDir));
-    StateMachine stateMachine = new ArithmeticStateMachine();
+    ConfUtils.setFile(properties::setFile, FileStoreCommon.STATEMACHINE_DIR_KEY,
+        storageDir);
+    StateMachine stateMachine = new FileStoreStateMachine(properties);
 
     final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(raftGroupId)), peers);
     RaftServer raftServer = RaftServer.newBuilder()

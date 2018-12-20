@@ -54,6 +54,11 @@
       <groupId>org.apache.ratis</groupId>
     </dependency>
     <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.5</version>
+    </dependency>
+    <dependency>
       <artifactId>ratis-server</artifactId>
       <groupId>org.apache.ratis</groupId>
       <scope>test</scope>
@@ -145,7 +150,7 @@
               <transformers>
                 <transformer
                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>org.apache.ratis.examples.arithmetic.Runner
+                  <mainClass>org.apache.ratis.examples.common.Runner
                   </mainClass>
                 </transformer>
               </transformers>
