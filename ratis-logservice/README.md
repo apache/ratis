@@ -43,7 +43,21 @@ and the Metadata quorum will choose three of them to form a RAFT quorum to "host
 
 Note: the `q` option here references to the Metadata quorum, not the worker quorum as is the case for the Metadata daemons.
 
-Launch client:
+Then, the LogService interactive shell can be used to interact with the software:
+```bash
+$ mvn exec:java -Dexec.mainClass=org.apache.ratis.logservice.shell.LogServiceShell -Dexec.args="-q localhost:9991,localhost:9992,localhost:9993"
+```
+
+## Docker
+
+Similarly, a full quorum can be started by building a docker container and then start the docker-compose cluster:
+```bash
+$ cd ratis-logservice && mvn package assembly:single -DskipTests
+$ docker build -t ratis-logservice --build-arg BINARY=target/ratis-logservice-0.4.0-SNAPSHOT-bin.tar.gz --build-arg VERSION=0.4.0-SNAPSHOT .
+$ docker-compose up
+```
+
+Then, a client container can be launched to connect to the cluster:
 ```bash
 $ mvn exec:java -Dexec.mainClass=org.apache.ratis.logservice.shell.LogServiceShell -Dexec.args="-q localhost:9990,localhost:9991,localhost:9992"
 ```
