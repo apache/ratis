@@ -1,0 +1,59 @@
+version: '3'
+
+# We already have a default network using the bridge adapter, so we don't need to redefine it.
+
+services:
+  master_1:
+    image: ratis-logservice:latest
+    command: "java -cp 'conf:lib/*' org.apache.ratis.logservice.server.MetadataServer -h master1.logservice.ratis.org -p 9999 -d /tmp/logservice-metadata -q master1.logservice.ratis.org:9999,master2.logservice.ratis.org:9999,master3.logservice.ratis.org:9999"
+    ports:
+     - 9999
+    networks:
+      default:
+        aliases:
+          - master1.logservice.ratis.org
+  master_2:
+    image: ratis-logservice:latest
+    command: "java -cp 'conf:lib/*' org.apache.ratis.logservice.server.MetadataServer -h master2.logservice.ratis.org -p 9999 -d /tmp/logservice-metadata -q master1.logservice.ratis.org:9999,master2.logservice.ratis.org:9999,master3.logservice.ratis.org:9999"
+    ports:
+     - 9999
+    networks:
+      default:
+        aliases:
+          - master2.logservice.ratis.org
+  master_3:
+    image: ratis-logservice:latest
+    command: "java -cp 'conf:lib/*' org.apache.ratis.logservice.server.MetadataServer -h master3.logservice.ratis.org -p 9999 -d /tmp/logservice-metadata -q master1.logservice.ratis.org:9999,master2.logservice.ratis.org:9999,master3.logservice.ratis.org:9999"
+    ports:
+     - 9999
+    networks:
+      default:
+        aliases:
+          - master3.logservice.ratis.org
+  worker_1:
+    image: ratis-logservice:latest
+    command: "java -cp 'conf:lib/*' org.apache.ratis.logservice.server.LogServer -p 9999 -h worker1.logservice.ratis.org -d /tmp/logservice-worker -q master1.logservice.ratis.org:9999,master2.logservice.ratis.org:9999,master3.logservice.ratis.org:9999"
+    ports:
+      - 9999
+    networks:
+      default:
+        aliases:
+          - worker1.logservice.ratis.org
+  worker_2:
+    image: ratis-logservice:latest
+    command: "java -cp 'conf:lib/*' org.apache.ratis.logservice.server.LogServer -p 9999 -h worker2.logservice.ratis.org -d /tmp/logservice-worker -q master1.logservice.ratis.org:9999,master2.logservice.ratis.org:9999,master3.logservice.ratis.org:9999"
+    ports:
+      - 9999
+    networks:
+      default:
+        aliases:
+          - worker2.logservice.ratis.org
+  worker_3:
+    image: ratis-logservice:latest
+    command: "java -cp 'conf:lib/*' org.apache.ratis.logservice.server.LogServer -p 9999 -h worker3.logservice.ratis.org -d /tmp/logservice-worker -q master1.logservice.ratis.org:9999,master2.logservice.ratis.org:9999,master3.logservice.ratis.org:9999"
+    ports:
+      - 9999
+    networks:
+      default:
+        aliases:
+          - worker3.logservice.ratis.org

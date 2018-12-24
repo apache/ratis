@@ -13,4 +13,20 @@
       </includes>
     </dependencySet>
   </dependencySets>
+  <fileSets>
+    <fileSet>
+      <includes>
+        <include>README.md</include>
+      </includes>
+    </fileSet>
+    <fileSet>
+      <!-- Source directory, keeps 'src/test/resources' out of 'conf/' -->
+      <directory>src/test/resources</directory>
+      <!-- Destination directory -->
+      <outputDirectory>conf</outputDirectory>
+      <includes>
+        <include>log4j.properties</include>
+      </includes>
+    </fileSet>
+  </fileSets>
 </assembly>
