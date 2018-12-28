@@ -35,11 +35,11 @@ For example `ratis-examples/src/main/bin/server.sh filestore server --id n0 --st
 
 ### Client
 
-To spawn the FileStoreStateMachine client, use `bin/client.sh filestore loadgen --value <file_size> --files <num_files> --peers <id:ip_address,...>`
+To spawn the FileStoreStateMachine client, use `bin/client.sh filestore loadgen --size <file_size> --numFiles <num_files> --peers <id:ip_address,...>`
 
 Where, file_size is the size of the file to be generated in bytes, num_files is the number of files to be generated.
 
-For example `ratis-examples/src/main/bin/client.sh filestore loadgen --value 1048576 --files 1000 --peers n0:172.26.32.224:6000,n1:172.26.32.225:6001,n2:172.26.32.226:6002`
+For example `ratis-examples/src/main/bin/client.sh filestore loadgen --size 1048576 --numFiles 1000 --peers n0:172.26.32.224:6000,n1:172.26.32.225:6001,n2:172.26.32.226:6002`
 
 ## Arithmetic
 
