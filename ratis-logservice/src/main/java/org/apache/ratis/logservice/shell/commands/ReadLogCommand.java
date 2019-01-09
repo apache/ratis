@@ -47,17 +47,17 @@ public class ReadLogCommand implements Command {
       long firstId = stream.getStartRecordId();
       long lastId = stream.getLastRecordId();
       StringBuilder sb = new StringBuilder();
-      int i = 0;
       List<ByteBuffer> records = reader.readBulk((int) (lastId - firstId));
       for (ByteBuffer record : records) {
         if (sb.length() > 0) {
           sb.append(", ");
         }
-        sb.append(i).append(":");
+        sb.append("\"");
         if (record != null) {
           String strData = new String(record.array(), record.arrayOffset(), record.remaining(), StandardCharsets.UTF_8);
           sb.append(strData);
         }
+        sb.append("\"");
       }
       sb.insert(0, "[");
       sb.append("]");
