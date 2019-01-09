@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.ratis.BaseTest;
@@ -101,10 +102,19 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
       long startId = logStream.getStartRecordId();
       LOG.info("start id {}", startId);
 
-      reader.seek(lastId + 1);
+      reader.seek(startId);
       // Read records back
-      List<ByteBuffer> data = reader.readBulk(1);
-      assertEquals(1, data.size());
+      List<ByteBuffer> data = reader.readBulk(records.size());
+      assertEquals(records.size(), data.size());
+
+      // Make sure we got the same 10 records that we wrote.
+      Iterator<ByteBuffer> expectedIter = records.iterator();
+      Iterator<ByteBuffer> actualIter = data.iterator();
+      while (expectedIter.hasNext() && actualIter.hasNext()) {
+        ByteBuffer expected = expectedIter.next();
+        ByteBuffer actual = actualIter.next();
+        assertEquals(expected, actual);
+      }
     }
   }
 

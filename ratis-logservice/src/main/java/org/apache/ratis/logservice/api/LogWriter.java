@@ -42,12 +42,7 @@ public interface LogWriter extends AutoCloseable {
    * @param records Records to append
    * @return The largest recordId assigned to the records written
    */
-  default long write(List<ByteBuffer> records) throws IOException {
-    for (ByteBuffer record : records) {
-      write(record);
-    }
-    return records.size();
-  }
+  long write(List<ByteBuffer> records) throws IOException;
 
   /**
    * Guarantees that all previous data appended by {@link #write(ByteBuffer)} are persisted
