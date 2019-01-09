@@ -112,6 +112,17 @@ message GetLogLengthReplyProto {
 	LogServiceException exception = 2;
 }
 
+// Get the size of a log (in bytes) request
+message GetLogSizeRequestProto {
+    LogNameProto logName = 1;
+}
+
+// Get the size of a log (in bytes) reply
+message GetLogSizeReplyProto {
+    uint64 size = 1;
+    LogServiceException exception = 2;
+}
+
 message GetLogStartIndexRequestProto {
 	LogNameProto logName  = 1;
 }
@@ -142,6 +153,7 @@ message LogServiceRequestProto {
 	AppendLogEntryRequestProto appendRequest = 6;
 	SyncLogRequestProto          syncRequest = 7;
 	GetLogLastCommittedIndexRequestProto lastIndexQuery = 8;
+	GetLogSizeRequestProto sizeRequest = 9;
   }
 }
 

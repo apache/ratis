@@ -32,6 +32,7 @@ import org.apache.ratis.logservice.api.LogWriter;
 import org.apache.ratis.logservice.api.RecordListener;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogLastCommittedIndexReplyProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogLengthReplyProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogSizeReplyProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogStartIndexReplyProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceException;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
@@ -102,16 +103,30 @@ public class LogStreamImpl implements LogStream {
 
   @Override
   public long getSize() throws IOException{
-      RaftClientReply reply = raftClient
-          .sendReadOnly(Message.valueOf(LogServiceProtoUtil
-              .toGetLengthRequestProto(name).toByteString()));
-      GetLogLengthReplyProto proto =
-          GetLogLengthReplyProto.parseFrom(reply.getMessage().getContent());
-      if (proto.hasException()) {
-        LogServiceException e = proto.getException();
-        throw new IOException(e.getErrorMsg());
-      }
-      return proto.getLength();
+    RaftClientReply reply = raftClient
+        .sendReadOnly(Message.valueOf(LogServiceProtoUtil
+            .toGetSizeRequestProto(name).toByteString()));
+    GetLogSizeReplyProto proto =
+        GetLogSizeReplyProto.parseFrom(reply.getMessage().getContent());
+    if (proto.hasException()) {
+      LogServiceException e = proto.getException();
+      throw new IOException(e.getErrorMsg());
+    }
+    return proto.getSize();
+  }
+
+  @Override
+  public long getLength() throws IOException {
+    RaftClientReply reply = raftClient
+        .sendReadOnly(Message.valueOf(LogServiceProtoUtil
+            .toGetLengthRequestProto(name).toByteString()));
+    GetLogLengthReplyProto proto =
+        GetLogLengthReplyProto.parseFrom(reply.getMessage().getContent());
+    if (proto.hasException()) {
+      LogServiceException e = proto.getException();
+      throw new IOException(e.getErrorMsg());
+    }
+    return proto.getLength();
   }
 
   @Override

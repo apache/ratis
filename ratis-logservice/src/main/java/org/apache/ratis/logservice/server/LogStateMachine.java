@@ -62,11 +62,10 @@ public class LogStateMachine extends BaseStateMachine {
   }
 
   /*
-   *  State is a pair log's length and state (closed/open);
+   *  State is a log's length, size, and state (closed/open);
    */
-
+  private long size;
   private long length;
-
   private State state = State.OPEN;
 
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
@@ -92,6 +91,7 @@ public class LogStateMachine extends BaseStateMachine {
    */
   void reset() {
     this.length = 0;
+    this.size = 0;
     setLastAppliedTermIndex(null);
   }
 
@@ -132,6 +132,7 @@ public class LogStateMachine extends BaseStateMachine {
         final ObjectOutputStream out = new ObjectOutputStream(
         new BufferedOutputStream(new FileOutputStream(snapshotFile)))) {
       out.writeLong(length);
+      out.writeLong(size);
       out.writeObject(state);
     } catch(IOException ioe) {
       LOG.warn("Failed to write snapshot file \"" + snapshotFile
@@ -165,6 +166,7 @@ public class LogStateMachine extends BaseStateMachine {
       }
       setLastAppliedTermIndex(last);
       this.length = in.readLong();
+      this.size = in.readLong();
       this.state = (State) in.readObject();
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
@@ -190,14 +192,16 @@ public class LogStateMachine extends BaseStateMachine {
 
         case READNEXTQUERY:
           return processReadRequest(logServiceRequestProto);
-        case LENGTHQUERY:
-          return processGetLengthRequest(logServiceRequestProto);
+        case SIZEREQUEST:
+          return processGetSizeRequest(logServiceRequestProto);
         case STARTINDEXQUERY:
           return processGetStartIndexRequest(logServiceRequestProto);
         case GETSTATE:
           return processGetStateRequest(logServiceRequestProto);
         case LASTINDEXQUERY:
           return processGetLastCommittedIndexRequest(logServiceRequestProto);
+        case LENGTHQUERY:
+          return processGetLengthRequest(logServiceRequestProto);
         default:
           // TODO
           throw new RuntimeException(
@@ -246,6 +250,14 @@ public class LogStateMachine extends BaseStateMachine {
    * @param msg message
    * @return reply message
    */
+  private CompletableFuture<Message> processGetSizeRequest(LogServiceRequestProto proto) {
+    GetLogSizeRequestProto msgProto = proto.getSizeRequest();
+    Throwable t = verifyState(State.OPEN);
+    LOG.debug("QUERY: {}, RESULT: {}", msgProto, this.size);
+    return CompletableFuture.completedFuture(Message
+      .valueOf(LogServiceProtoUtil.toGetLogSizeReplyProto(this.size, t).toByteString()));
+  }
+
   private CompletableFuture<Message> processGetLengthRequest(LogServiceRequestProto proto) {
     GetLogLengthRequestProto msgProto = proto.getLengthQuery();
     Throwable t = verifyState(State.OPEN);
@@ -253,7 +265,6 @@ public class LogStateMachine extends BaseStateMachine {
     return CompletableFuture.completedFuture(Message
       .valueOf(LogServiceProtoUtil.toGetLogLengthReplyProto(this.length, t).toByteString()));
   }
-
   /**
    * Process read log entries request
    * @param msg message
@@ -311,15 +322,16 @@ public class LogStateMachine extends BaseStateMachine {
     final LogEntryProto entry = trx.getLogEntry();
     AppendLogEntryRequestProto proto = logProto.getAppendRequest();
     final long index = entry.getIndex();
-    long total = 0;
+    long newSize = 0;
     Throwable t = verifyState(State.OPEN);
     if (t == null) {
       try (final AutoCloseableLock writeLock = writeLock()) {
           List<byte[]> entries = LogServiceProtoUtil.toListByteArray(proto.getDataList());
           for (byte[] bb : entries) {
-            total += bb.length;
+            newSize += bb.length;
           }
-          this.length += total;
+          this.size += newSize;
+          this.length += entries.size();
           // TODO do we need this for other write request (close, sync)
           updateLastAppliedTermIndex(entry.getTerm(), index);
       }
