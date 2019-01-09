@@ -52,6 +52,12 @@ public interface LogStream extends AutoCloseable{
   long getSize() throws IOException;
 
   /**
+   * Returns the number of records in this log.
+   * @throws IOException
+   */
+  long getLength() throws IOException;
+
+  /**
    * Creates a reader to read this LogStream.
    *
    * @return A synchronous reader

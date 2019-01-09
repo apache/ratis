@@ -76,6 +76,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
       assertEquals("log1", logStream.getName().getName());
       assertEquals(State.OPEN, logStream.getState());
       assertEquals(0, logStream.getSize());
+      assertEquals(0, logStream.getLength());
 
       LogReader reader = logStream.createReader();
       LogWriter writer = logStream.createWriter();
@@ -88,10 +89,9 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
       List<ByteBuffer> records = TestUtils.getRandomData(100, 10);
       long id = writer.write(records);
       LOG.info("id {}", id);
-      // Check log size
-      long size = logStream.getSize();
-      assertEquals(10 * 100, size);
-      LOG.info("size {}", size);
+      // Check log size and length
+      assertEquals(10 * 100, logStream.getSize());
+      assertEquals(10, logStream.getLength());
 
       // Check last record id
       long lastId2 = logStream.getLastRecordId();
@@ -100,7 +100,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
       // Check first record id
       long startId = logStream.getStartRecordId();
       LOG.info("start id {}", startId);
-      //
+
       reader.seek(lastId + 1);
       // Read records back
       List<ByteBuffer> data = reader.readBulk(1);

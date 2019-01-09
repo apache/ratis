@@ -75,6 +75,14 @@ public class LogServiceProtoUtil {
     return builder.build();
   }
 
+  public static LogServiceRequestProto toGetSizeRequestProto(LogName name) {
+    LogNameProto logNameProto =
+        LogNameProto.newBuilder().setName(name.getName()).build();
+    GetLogSizeRequestProto getLogSize = GetLogSizeRequestProto.newBuilder()
+        .setLogName(logNameProto).build();
+    return LogServiceRequestProto.newBuilder().setSizeRequest(getLogSize).build();
+  }
+
   public static LogServiceRequestProto toGetLengthRequestProto(LogName name) {
     LogNameProto logNameProto =
         LogNameProto.newBuilder().setName(name.getName()).build();
@@ -161,6 +169,16 @@ public class LogServiceProtoUtil {
       builder.setException(toLogException(t));
     } else {
       builder.setLength(length);
+    }
+    return builder.build();
+  }
+
+  public static GetLogSizeReplyProto toGetLogSizeReplyProto(long size, Throwable t) {
+    GetLogSizeReplyProto.Builder builder = GetLogSizeReplyProto.newBuilder();
+    if (t != null) {
+      builder.setException(toLogException(t));
+    } else {
+      builder.setSize(size);
     }
     return builder.build();
   }
