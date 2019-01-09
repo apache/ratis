@@ -36,7 +36,9 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
 
@@ -95,8 +97,7 @@ public class TestMetaServer {
         }
 //        assert(stream.getSize() > 0); //TODO: Doesn't work
         LogReader reader = stream.createReader();
-        ByteBuffer res = reader.readNext(); //TODO: first is conf log entry
-        res = reader.readNext();
+        ByteBuffer res = reader.readNext();
         assert(res.array().length > 0);
     }
 

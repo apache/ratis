@@ -145,7 +145,12 @@ public class LogServiceProtoUtil {
     AppendLogEntryRequestProto.Builder builder = AppendLogEntryRequestProto.newBuilder();
     builder.setLogName(logNameProto);
     for (int i=0; i < entries.size(); i++) {
-      builder.addData(ByteString.copyFrom(entries.get(i)));
+      ByteBuffer currentBuf = entries.get(i);
+      // Save the current position
+      int pos = currentBuf.position();
+      builder.addData(ByteString.copyFrom(currentBuf));
+      // Reset it after we're done reading the bytes
+      currentBuf.position(pos);
     }
     return LogServiceRequestProto.newBuilder().setAppendRequest(builder.build()).build();
   }

@@ -18,9 +18,12 @@
 package org.apache.ratis.logservice;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.ratis.BaseTest;
@@ -101,15 +104,69 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
       long startId = logStream.getStartRecordId();
       LOG.info("start id {}", startId);
 
-      reader.seek(lastId + 1);
+      reader.seek(startId);
       // Read records back
-      List<ByteBuffer> data = reader.readBulk(1);
-      assertEquals(1, data.size());
+      List<ByteBuffer> data = reader.readBulk(records.size());
+      assertEquals(records.size(), data.size());
+
+      // Make sure we got the same 10 records that we wrote.
+      Iterator<ByteBuffer> expectedIter = records.iterator();
+      Iterator<ByteBuffer> actualIter = data.iterator();
+      while (expectedIter.hasNext() && actualIter.hasNext()) {
+        ByteBuffer expected = expectedIter.next();
+        ByteBuffer actual = actualIter.next();
+        assertEquals(expected, actual);
+      }
+    }
+  }
+
+  @Test
+  public void testSeeking() throws Exception {
+    final RaftClient raftClient =
+        RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
+            .build();
+    final LogName logName = LogName.of("log1");
+    final int numRecords = 100;
+    // TODO need API to circumvent metadata service for testing
+    try (LogStream logStream = new LogStreamImpl(logName, raftClient)) {
+      try (LogWriter writer = logStream.createWriter()) {
+        LOG.info("Writing {} records", numRecords);
+        // Write records 0 through 99 (inclusive)
+        for (int i = 0; i < numRecords; i++) {
+          writer.write(ByteBuffer.wrap(Integer.toString(i).getBytes(StandardCharsets.UTF_8)));
+        }
+      }
+
+      LOG.debug("Seek and read'ing records");
+      try (LogReader reader = logStream.createReader()) {
+        for (int i = 9; i < numRecords; i += 10) {
+          LOG.info("Seeking to {}", i);
+          reader.seek(i);
+          LOG.info("Reading one record");
+          ByteBuffer bb = reader.readNext();
+          assertEquals(i, fromBytes(bb));
+        }
+
+        assertTrue("We're expecting at least two records were written", numRecords > 1);
+        for (int i = numRecords - 2; i >= 0; i -= 6) {
+          LOG.info("Seeking to {}", i);
+          reader.seek(i);
+          LOG.info("Reading one record");
+          ByteBuffer bb = reader.readNext();
+          assertEquals(i, fromBytes(bb));
+        }
+      }
     }
   }
 
   @After
   public void tearDown() {
     cluster.shutdown();
+  }
+
+  private int fromBytes(ByteBuffer bb) {
+    byte[] bytes = new byte[bb.remaining()];
+    System.arraycopy(bb.array(), bb.arrayOffset(), bytes, 0, bb.remaining());
+    return Integer.parseInt(new String(bytes, StandardCharsets.UTF_8));
   }
 }

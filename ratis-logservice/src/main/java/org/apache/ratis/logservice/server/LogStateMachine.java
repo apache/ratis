@@ -31,7 +31,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import org.apache.ratis.logservice.api.LogName;
-import org.apache.ratis.logservice.proto.LogServiceProtos.*;
+import org.apache.ratis.logservice.proto.LogServiceProtos.AppendLogEntryRequestProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.CloseLogReplyProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.CloseLogRequestProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogLengthRequestProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogSizeRequestProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.GetStateRequestProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto.RequestCase;
+import org.apache.ratis.logservice.proto.LogServiceProtos.ReadLogRequestProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -50,6 +58,8 @@ import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,8 +74,13 @@ public class LogStateMachine extends BaseStateMachine {
   /*
    *  State is a log's length, size, and state (closed/open);
    */
-  private long size;
   private long length;
+
+  /**
+   * The size (number of bytes) of the log records. Does not include Ratis storage overhead
+   */
+  private long dataRecordsSize;
+
   private State state = State.OPEN;
 
   private final SimpleStateMachineStorage storage = new SimpleStateMachineStorage();
@@ -91,7 +106,7 @@ public class LogStateMachine extends BaseStateMachine {
    */
   void reset() {
     this.length = 0;
-    this.size = 0;
+    this.dataRecordsSize = 0;
     setLastAppliedTermIndex(null);
   }
 
@@ -132,7 +147,7 @@ public class LogStateMachine extends BaseStateMachine {
         final ObjectOutputStream out = new ObjectOutputStream(
         new BufferedOutputStream(new FileOutputStream(snapshotFile)))) {
       out.writeLong(length);
-      out.writeLong(size);
+      out.writeLong(dataRecordsSize);
       out.writeObject(state);
     } catch(IOException ioe) {
       LOG.warn("Failed to write snapshot file \"" + snapshotFile
@@ -166,7 +181,7 @@ public class LogStateMachine extends BaseStateMachine {
       }
       setLastAppliedTermIndex(last);
       this.length = in.readLong();
-      this.size = in.readLong();
+      this.dataRecordsSize = in.readLong();
       this.state = (State) in.readObject();
     } catch (ClassNotFoundException e) {
       throw new IllegalStateException(e);
@@ -187,6 +202,9 @@ public class LogStateMachine extends BaseStateMachine {
       checkInitialization();
       LogServiceRequestProto logServiceRequestProto =
           LogServiceRequestProto.parseFrom(request.getContent());
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("Processing LogService query: {}", TextFormat.shortDebugString(logServiceRequestProto));
+      }
 
       switch (logServiceRequestProto.getRequestCase()) {
 
@@ -253,9 +271,9 @@ public class LogStateMachine extends BaseStateMachine {
   private CompletableFuture<Message> processGetSizeRequest(LogServiceRequestProto proto) {
     GetLogSizeRequestProto msgProto = proto.getSizeRequest();
     Throwable t = verifyState(State.OPEN);
-    LOG.debug("QUERY: {}, RESULT: {}", msgProto, this.size);
+    LOG.debug("QUERY: {}, RESULT: {}", msgProto, this.dataRecordsSize);
     return CompletableFuture.completedFuture(Message
-      .valueOf(LogServiceProtoUtil.toGetLogSizeReplyProto(this.size, t).toByteString()));
+      .valueOf(LogServiceProtoUtil.toGetLogSizeReplyProto(this.dataRecordsSize, t).toByteString()));
   }
 
   private CompletableFuture<Message> processGetLengthRequest(LogServiceRequestProto proto) {
@@ -274,23 +292,85 @@ public class LogStateMachine extends BaseStateMachine {
 
     ReadLogRequestProto msgProto = proto.getReadNextQuery();
     long startRecordId = msgProto.getStartRecordId();
-    int num = msgProto.getNumRecords();
+    int numRecordsToRead = msgProto.getNumRecords();
     Throwable t = verifyState(State.OPEN);
     List<byte[]> list = new ArrayList<byte[]>();
     LOG.info("Start Index: {}", startRecordId);
-    LOG.info("Total to read: {}", num);
+    LOG.info("Total to read: {}", numRecordsToRead);
+    long raftLogIndex = log.getStartIndex();
     if (t == null) {
-      for (long index = startRecordId; index < startRecordId + num; index++) {
+      // Seek to first entry
+      long logServiceIndex = 0;
+      while (logServiceIndex < startRecordId) {
+        try {
+          LogEntryProto entry = log.get(raftLogIndex);
+          // Skip "meta" entries
+          if (entry == null || entry.hasConfigurationEntry()) {
+            raftLogIndex++;
+            continue;
+          }
+
+          LogServiceRequestProto logServiceProto =
+              LogServiceRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
+          // TODO is it possible to get LogService messages that aren't appends?
+          if (RequestCase.APPENDREQUEST != logServiceProto.getRequestCase()) {
+            raftLogIndex++;
+            continue;
+          }
+
+          AppendLogEntryRequestProto append = logServiceProto.getAppendRequest();
+          int numRecordsInAppend = append.getDataCount();
+          if (logServiceIndex + numRecordsInAppend > startRecordId) {
+            // The starting record is within this raft log entry.
+            break;
+          }
+          // We didn't find the log record, increment the logService record counter
+          logServiceIndex += numRecordsInAppend;
+          // And increment the raft log index
+          raftLogIndex++;
+        } catch (RaftLogIOException e) {
+          t = e;
+          list = null;
+          break;
+        } catch (InvalidProtocolBufferException e) {
+          LOG.error("Failed to read LogService protobuf from Raft log", e);
+          t = e;
+          list = null;
+          break;
+        }
+      }
+    }
+    LOG.debug("Starting to read {} logservice records starting at raft log index {}", numRecordsToRead, raftLogIndex);
+    if (t == null) {
+      // Make sure we don't read off the end of the Raft log
+      for (long index = raftLogIndex; index < log.getLastCommittedIndex(); index++) {
         try {
           LogEntryProto entry = log.get(index);
-          LOG.info("Index: {} Entry: {}", index, entry);
+          LOG.trace("Index: {} Entry: {}", index, entry);
           if (entry == null || entry.hasConfigurationEntry()) {
             continue;
           }
-          //TODO: how to distinguish log records from
-          // DML commands logged by the service?
-          list.add(entry.getStateMachineLogEntry().getLogData().toByteArray());
+
+          LogServiceRequestProto logServiceProto =
+              LogServiceRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
+          // TODO is it possible to get LogService messages that aren't appends?
+          if (RequestCase.APPENDREQUEST != logServiceProto.getRequestCase()) {
+            continue;
+          }
+
+          AppendLogEntryRequestProto append = logServiceProto.getAppendRequest();
+          for (int i = 0; i < append.getDataCount() && list.size() < numRecordsToRead; i++) {
+            list.add(append.getData(i).toByteArray());
+          }
+          if (list.size() == numRecordsToRead) {
+            break;
+          }
         } catch (RaftLogIOException e) {
+          t = e;
+          list = null;
+          break;
+        } catch (InvalidProtocolBufferException e) {
+          LOG.error("Failed to read LogService protobuf from Raft log", e);
           t = e;
           list = null;
           break;
@@ -330,7 +410,7 @@ public class LogStateMachine extends BaseStateMachine {
           for (byte[] bb : entries) {
             newSize += bb.length;
           }
-          this.size += newSize;
+          this.dataRecordsSize += newSize;
           this.length += entries.size();
           // TODO do we need this for other write request (close, sync)
           updateLastAppliedTermIndex(entry.getTerm(), index);
@@ -342,9 +422,9 @@ public class LogStateMachine extends BaseStateMachine {
         CompletableFuture.completedFuture(
           Message.valueOf(LogServiceProtoUtil.toAppendLogReplyProto(ids, t).toByteString()));
     final RaftProtos.RaftPeerRole role = trx.getServerRole();
-    LOG.debug("{}:{}-{}: {} new length {}", role, getId(), index, proto, length);
+    LOG.debug("{}:{}-{}: {} new length {}", role, getId(), index, proto, dataRecordsSize);
     if (LOG.isTraceEnabled()) {
-      LOG.trace("{}-{}: variables={}", getId(), index, length);
+      LOG.trace("{}-{}: variables={}", getId(), index, dataRecordsSize);
     }
     return f;
   }
