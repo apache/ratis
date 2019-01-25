@@ -21,14 +21,16 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftGroup;
-import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
-import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 
 /** Client utilities for internal use. */
-public class ClientImplUtils {
+public final class ClientImplUtils {
+  private ClientImplUtils() {
+
+  }
+
   public static RaftClient newRaftClient(ClientId clientId, RaftGroup group,
       RaftPeerId leaderId, RaftClientRpc clientRpc, RaftProperties properties,
       RetryPolicy retryPolicy) {
