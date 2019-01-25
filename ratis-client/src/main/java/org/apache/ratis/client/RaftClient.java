@@ -140,8 +140,8 @@ public interface RaftClient extends Closeable {
     }
 
     /** Set servers. */
-    public Builder setRaftGroup(RaftGroup group) {
-      this.group = group;
+    public Builder setRaftGroup(RaftGroup grp) {
+      this.group = grp;
       return this;
     }
 

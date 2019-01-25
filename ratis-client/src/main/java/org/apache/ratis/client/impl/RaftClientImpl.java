@@ -42,10 +42,10 @@ import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.
 
 /** A client who sends requests to a raft service. */
 final class RaftClientImpl implements RaftClient {
-  private static final AtomicLong callIdCounter = new AtomicLong();
+  private static final AtomicLong CALL_ID_COUNTER = new AtomicLong();
 
   private static long nextCallId() {
-    return callIdCounter.getAndIncrement() & Long.MAX_VALUE;
+    return CALL_ID_COUNTER.getAndIncrement() & Long.MAX_VALUE;
   }
 
   static class PendingAsyncRequest implements SlidingWindow.Request<RaftClientReply> {
@@ -244,12 +244,13 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientReply groupRemove(RaftGroupId groupId, boolean deleteDirectory, RaftPeerId server) throws IOException {
+  public RaftClientReply groupRemove(RaftGroupId grpId, boolean deleteDirectory, RaftPeerId server)
+      throws IOException {
     Objects.requireNonNull(groupId, "groupId == null");
     Objects.requireNonNull(server, "server == null");
 
     final long callId = nextCallId();
-    return sendRequest(GroupManagementRequest.newRemove(clientId, server, callId, groupId, deleteDirectory));
+    return sendRequest(GroupManagementRequest.newRemove(clientId, server, callId, grpId, deleteDirectory));
   }
 
   @Override
@@ -449,7 +450,7 @@ final class RaftClientImpl implements RaftClient {
   }
 
   long getCallId() {
-    return callIdCounter.get();
+    return CALL_ID_COUNTER.get();
   }
 
   @Override
