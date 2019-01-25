@@ -56,8 +56,6 @@
     <property name="fileExtensions" value="java, properties, xml"/>
 
     <module name="SuppressWarningsFilter"/>
-    <module name="SuppressionCommentFilter"/>
-    <module name="SuppressWithNearbyCommentFilter"/>
 
     <!-- Checks that a package-info.java file exists for each package.     -->
     <!-- See http://checkstyle.sf.net/config_javadoc.html#JavadocPackage -->
@@ -97,6 +95,8 @@
 
     <module name="TreeWalker">
         <module name="SuppressWarningsHolder"/>
+        <module name="SuppressionCommentFilter"/>
+        <module name="SuppressWithNearbyCommentFilter"/>
 
         <!-- Checks for Javadoc comments.                     -->
         <!-- See http://checkstyle.sf.net/config_javadoc.html -->
