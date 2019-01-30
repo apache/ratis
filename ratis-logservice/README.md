@@ -83,3 +83,5 @@ $ docker run --rm --network ratis-logservice_default -it ratis-logservice java -
 ```
 
 Take care that the correct network is provided to the LogServiceShell command.
+
+test.test.test
