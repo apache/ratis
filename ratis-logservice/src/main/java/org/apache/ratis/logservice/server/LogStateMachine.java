@@ -59,6 +59,7 @@ import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -201,6 +202,9 @@ public class LogStateMachine extends BaseStateMachine {
       checkInitialization();
       LogServiceRequestProto logServiceRequestProto =
           LogServiceRequestProto.parseFrom(request.getContent());
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("Processing LogService query: {}", TextFormat.shortDebugString(logServiceRequestProto));
+      }
 
       switch (logServiceRequestProto.getRequestCase()) {
 
@@ -302,6 +306,7 @@ public class LogStateMachine extends BaseStateMachine {
           LogEntryProto entry = log.get(raftLogIndex);
           // Skip "meta" entries
           if (entry == null || entry.hasConfigurationEntry()) {
+            raftLogIndex++;
             continue;
           }
 
@@ -309,6 +314,7 @@ public class LogStateMachine extends BaseStateMachine {
               LogServiceRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
           // TODO is it possible to get LogService messages that aren't appends?
           if (RequestCase.APPENDREQUEST != logServiceProto.getRequestCase()) {
+            raftLogIndex++;
             continue;
           }
 
@@ -340,7 +346,7 @@ public class LogStateMachine extends BaseStateMachine {
       for (long index = raftLogIndex; index < log.getLastCommittedIndex(); index++) {
         try {
           LogEntryProto entry = log.get(index);
-          LOG.info("Index: {} Entry: {}", index, entry);
+          LOG.trace("Index: {} Entry: {}", index, entry);
           if (entry == null || entry.hasConfigurationEntry()) {
             continue;
           }
