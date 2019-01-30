@@ -30,8 +30,7 @@ import java.util.*;
  */
 public class ConfigurationManager {
   private final RaftConfiguration initialConf;
-  private final NavigableMap<Long, RaftConfiguration> configurations =
-      new TreeMap<>();
+  private final NavigableMap<Long, RaftConfiguration> configurations = new TreeMap<>();
   /**
    * The current raft configuration. If configurations is not empty, should be
    * the last entry of the map. Otherwise is initialConf.
@@ -49,13 +48,10 @@ public class ConfigurationManager {
       Preconditions.assertTrue(found.equals(conf));
       return;
     }
-    if (!configurations.isEmpty()) {
-      final Map.Entry<Long, RaftConfiguration> lastEntry = configurations.lastEntry();
-      Preconditions.assertTrue(lastEntry.getKey() < logIndex,
-          () -> "lastEntry = " + lastEntry + ", lastEntry.index >= logIndex = " + logIndex);
-    }
     configurations.put(logIndex, conf);
-    this.currentConf = conf;
+    if (logIndex == configurations.lastEntry().getKey()) {
+      currentConf = conf;
+    }
   }
 
   synchronized RaftConfiguration getCurrent() {

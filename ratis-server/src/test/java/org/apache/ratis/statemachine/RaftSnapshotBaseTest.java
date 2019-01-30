@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -135,7 +135,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     // wait for the snapshot to be done
     final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
     JavaUtils.attempt(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
-        10, 1000, "snapshotFile.exist", LOG);
+        10, ONE_SECOND, "snapshotFile.exist", LOG);
 
     // restart the peer and check if it can correctly load snapshot
     cluster.restart(false);
@@ -163,11 +163,11 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   @Test
   public void testBasicInstallSnapshot() throws Exception {
     final List<LogPathAndIndex> logs;
+    int i = 0;
     try {
       RaftTestUtil.waitForLeader(cluster);
       final RaftPeerId leaderId = cluster.getLeader().getId();
 
-      int i = 0;
       try(final RaftClient client = cluster.createClient(leaderId)) {
         for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
           RaftClientReply reply = client.send(new SimpleMessage("m" + i));
@@ -202,7 +202,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
       // generate some more traffic
       try(final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
-        Assert.assertTrue(client.send(new SimpleMessage("test")).isSuccess());
+        Assert.assertTrue(client.send(new SimpleMessage("m" + i)).isSuccess());
       }
 
       // add two more peers
@@ -212,6 +212,10 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       cluster.setConfiguration(change.allPeersInNewConf);
 
       RaftServerTestUtil.waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
+
+      // restart the peer and check if it can correctly handle conf change
+      cluster.restartServer(cluster.getLeader().getId(), false);
+      assertLeaderContent(cluster);
     } finally {
       cluster.shutdown();
     }
