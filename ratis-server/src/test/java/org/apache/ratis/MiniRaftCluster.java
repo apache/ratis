@@ -317,12 +317,6 @@ public abstract class MiniRaftCluster implements Closeable {
     start();
   }
 
-  /** @deprecated use {@link #getTimeoutMax()}. */
-  @Deprecated
-  public int getMaxTimeout() {
-    return RaftServerConfigKeys.Rpc.timeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
-  }
-
   public TimeDuration getTimeoutMax() {
     return RaftServerConfigKeys.Rpc.timeoutMax(properties);
   }

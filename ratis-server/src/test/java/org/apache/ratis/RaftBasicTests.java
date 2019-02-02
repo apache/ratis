@@ -181,7 +181,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     SimpleMessage[] messages = SimpleMessage.create(1);
     RaftTestUtil.sendMessageInNewThread(cluster, leaderId, messages);
 
-    Thread.sleep(cluster.getMaxTimeout() + 100);
+    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
     RaftLog followerLog = followerToSendLog.getState().getLog();
     Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, messages));
 
@@ -194,7 +194,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       cluster.restartServer(follower.getId(), false );
     }
 
-    Thread.sleep(cluster.getMaxTimeout() * 5);
+    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) * 5);
     // confirm the server with log is elected as new leader.
     final RaftPeerId newLeaderId = waitForLeader(cluster).getId();
     Assert.assertEquals(followerToSendLog.getId(), newLeaderId);
@@ -221,7 +221,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     SimpleMessage[] messages = SimpleMessage.create(1);
     RaftTestUtil.sendMessageInNewThread(cluster, leaderId, messages);
 
-    Thread.sleep(cluster.getMaxTimeout() + 100);
+    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
     RaftTestUtil.logEntriesContains(followerToCommit.getState().getLog(), messages);
 
     cluster.killServer(leaderId);
@@ -232,7 +232,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       cluster.restartServer(follower.getId(), false );
     }
     waitForLeader(cluster);
-    Thread.sleep(cluster.getMaxTimeout() + 100);
+    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
 
     final Predicate<LogEntryProto> predicate = l -> l.getTerm() != 1;
     cluster.getServerAliveStream()

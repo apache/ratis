@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.simulation;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.ConfUtils;
@@ -109,7 +110,7 @@ public class MiniRaftClusterWithSimulatedRpc extends MiniRaftCluster {
         .map(s -> serverRequestReply.getQueue(s.getId().toString()))
         .forEach(q -> q.delayTakeRequestTo.set(delayMs));
 
-    final long sleepMs = 3 * getMaxTimeout() / 2;
+    final long sleepMs = 3 * getTimeoutMax().toLong(TimeUnit.MILLISECONDS) / 2;
     Thread.sleep(sleepMs);
   }
 

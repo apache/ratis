@@ -67,6 +67,6 @@ public class MiniRaftClusterWithGrpc extends MiniRaftCluster.RpcBase {
   protected void blockQueueAndSetDelay(String leaderId, int delayMs)
       throws InterruptedException {
     RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequestInjection,
-        leaderId, delayMs, getMaxTimeout());
+        leaderId, delayMs, getTimeoutMax());
   }
 }

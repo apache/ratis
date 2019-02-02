@@ -94,7 +94,7 @@ public class MiniRaftClusterWithHadoopRpc extends MiniRaftCluster.RpcBase {
   public void blockQueueAndSetDelay(String leaderId, int delayMs)
       throws InterruptedException {
     RaftTestUtil.blockQueueAndSetDelay(getServers(), sendServerRequest,
-        leaderId, delayMs, getMaxTimeout());
+        leaderId, delayMs, getTimeoutMax());
   }
 
   @Override

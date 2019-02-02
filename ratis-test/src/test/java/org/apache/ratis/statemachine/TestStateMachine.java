@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.statemachine;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
@@ -149,7 +150,7 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
     }
 
     // TODO: there eshould be a better way to ensure all data is replicated and applied
-    Thread.sleep(cluster.getMaxTimeout() + 100);
+    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
 
     for (RaftServerImpl raftServer : cluster.iterateServerImpls()) {
       final SMTransactionContext sm = SMTransactionContext.get(raftServer);

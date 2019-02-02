@@ -363,7 +363,7 @@ public interface RaftTestUtil {
   static <SERVER extends RaftServer> void blockQueueAndSetDelay(
       Collection<SERVER> servers,
       DelayLocalExecutionInjection injection, String leaderId, int delayMs,
-      long maxTimeout) throws InterruptedException {
+      TimeDuration maxTimeout) throws InterruptedException {
     // block reqeusts sent to leader if delayMs > 0
     final boolean block = delayMs > 0;
     LOG.debug("{} requests sent to leader {} and set {}ms delay for the others",
@@ -384,7 +384,7 @@ public interface RaftTestUtil {
           }
         });
 
-    Thread.sleep(3 * maxTimeout);
+    Thread.sleep(3 * maxTimeout.toLong(TimeUnit.MILLISECONDS));
   }
 
   static void sendMessageInNewThread(MiniRaftCluster cluster, RaftPeerId leaderId, SimpleMessage... messages) {
