@@ -25,18 +25,15 @@
   <formats>
     <format>tar.gz</format>
   </formats>
-  <moduleSets>
-    <moduleSet>
-      <useAllReactorProjects>true</useAllReactorProjects>
+  <dependencySets>
+    <dependencySet>
       <includes>
         <include>org.apache.ratis:ratis-examples</include>
       </includes>
-      <binaries>
-        <outputDirectory>examples/lib</outputDirectory>
-        <includeDependencies>false</includeDependencies>
-        <unpack>false</unpack>
-      </binaries>
-    </moduleSet>
+      <outputDirectory>examples/lib</outputDirectory>
+    </dependencySet>
+  </dependencySets>
+  <moduleSets>
     <moduleSet>
       <useAllReactorProjects>true</useAllReactorProjects>
       <includes>
@@ -92,6 +89,14 @@
       <outputDirectory>dev-support</outputDirectory>
       <fileMode>0644</fileMode>
       <directoryMode>0755</directoryMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-examples/src/main/resources</directory>
+      <outputDirectory>examples/conf</outputDirectory>
+      <includes>
+        <include>log4j.properties</include>
+      </includes>
+      <fileMode>644</fileMode>
     </fileSet>
   </fileSets>
 </assembly>

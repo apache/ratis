@@ -15,9 +15,21 @@
 # limitations under the License.
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+USAGE="client.sh <example> <command>"
+
+if [ "$#" -lt 2 ]; then
+  echo "$USAGE"
+  exit 1
+fi
+
 source $DIR/common.sh
 
-subcommand=$1
+# One of the examples, e.g. "filestore" or "arithmetic"
+example="$1"
 shift
-java -jar $ARTIFACT $subcommand "$@"
 
+subcommand="$1"
+shift
+
+java ${LOGGER_OPTS} -jar $ARTIFACT "$example" "$subcommand" $QUORUM_OPTS "$@"

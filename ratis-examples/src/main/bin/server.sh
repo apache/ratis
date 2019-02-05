@@ -16,5 +16,5 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/common.sh
-java -jar $ARTIFACT "$@"
 
+java ${LOGGER_OPTS} -jar $ARTIFACT "$@"
