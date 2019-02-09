@@ -27,6 +27,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -38,7 +41,6 @@ import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogLengthRequestPro
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogSizeRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetStateRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto;
-import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto.RequestCase;
 import org.apache.ratis.logservice.proto.LogServiceProtos.ReadLogRequestProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
 import org.apache.ratis.proto.RaftProtos;
@@ -51,14 +53,12 @@ import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
-import org.apache.ratis.server.storage.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
-import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.com.google.protobuf.TextFormat;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.slf4j.Logger;
@@ -289,92 +289,29 @@ public class LogStateMachine extends BaseStateMachine {
    * @return reply message
    */
   private CompletableFuture<Message> processReadRequest(LogServiceRequestProto proto) {
-
     ReadLogRequestProto msgProto = proto.getReadNextQuery();
+    // Get the recordId the user wants to start reading at
     long startRecordId = msgProto.getStartRecordId();
+    // And the number of records they want to read
     int numRecordsToRead = msgProto.getNumRecords();
     Throwable t = verifyState(State.OPEN);
-    List<byte[]> list = new ArrayList<byte[]>();
-    LOG.info("Start Index: {}", startRecordId);
-    LOG.info("Total to read: {}", numRecordsToRead);
-    long raftLogIndex = log.getStartIndex();
+    List<byte[]> list = null;
+
     if (t == null) {
-      // Seek to first entry
-      long logServiceIndex = 0;
-      while (logServiceIndex < startRecordId) {
-        try {
-          LogEntryProto entry = log.get(raftLogIndex);
-          // Skip "meta" entries
-          if (entry == null || entry.hasConfigurationEntry()) {
-            raftLogIndex++;
-            continue;
-          }
-
-          LogServiceRequestProto logServiceProto =
-              LogServiceRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
-          // TODO is it possible to get LogService messages that aren't appends?
-          if (RequestCase.APPENDREQUEST != logServiceProto.getRequestCase()) {
-            raftLogIndex++;
-            continue;
-          }
-
-          AppendLogEntryRequestProto append = logServiceProto.getAppendRequest();
-          int numRecordsInAppend = append.getDataCount();
-          if (logServiceIndex + numRecordsInAppend > startRecordId) {
-            // The starting record is within this raft log entry.
+      LogServiceRaftLogReader reader = new LogServiceRaftLogReader(log);
+      list = new ArrayList<byte[]>();
+      try {
+        reader.seek(startRecordId);
+        for (int i = 0; i < numRecordsToRead; i++) {
+          if (!reader.hasNext()) {
             break;
           }
-          // We didn't find the log record, increment the logService record counter
-          logServiceIndex += numRecordsInAppend;
-          // And increment the raft log index
-          raftLogIndex++;
-        } catch (RaftLogIOException e) {
-          t = e;
-          list = null;
-          break;
-        } catch (InvalidProtocolBufferException e) {
-          LOG.error("Failed to read LogService protobuf from Raft log", e);
-          t = e;
-          list = null;
-          break;
+          list.add(reader.next().toByteArray());
         }
-      }
-    }
-    LOG.debug("Starting to read {} logservice records starting at raft log index {}", numRecordsToRead, raftLogIndex);
-    if (t == null) {
-      // Make sure we don't read off the end of the Raft log
-      for (long index = raftLogIndex; index < log.getLastCommittedIndex(); index++) {
-        try {
-          LogEntryProto entry = log.get(index);
-          LOG.trace("Index: {} Entry: {}", index, entry);
-          if (entry == null || entry.hasConfigurationEntry()) {
-            continue;
-          }
-
-          LogServiceRequestProto logServiceProto =
-              LogServiceRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
-          // TODO is it possible to get LogService messages that aren't appends?
-          if (RequestCase.APPENDREQUEST != logServiceProto.getRequestCase()) {
-            continue;
-          }
-
-          AppendLogEntryRequestProto append = logServiceProto.getAppendRequest();
-          for (int i = 0; i < append.getDataCount() && list.size() < numRecordsToRead; i++) {
-            list.add(append.getData(i).toByteArray());
-          }
-          if (list.size() == numRecordsToRead) {
-            break;
-          }
-        } catch (RaftLogIOException e) {
-          t = e;
-          list = null;
-          break;
-        } catch (InvalidProtocolBufferException e) {
-          LOG.error("Failed to read LogService protobuf from Raft log", e);
-          t = e;
-          list = null;
-          break;
-        }
+      } catch (Exception e) {
+        LOG.error("Failed to execute ReadNextQuery", e);
+        t = e;
+        list = null;
       }
     }
     return CompletableFuture.completedFuture(
@@ -404,20 +341,20 @@ public class LogStateMachine extends BaseStateMachine {
     final long index = entry.getIndex();
     long newSize = 0;
     Throwable t = verifyState(State.OPEN);
+    final List<Long> ids = new ArrayList<Long>();
     if (t == null) {
       try (final AutoCloseableLock writeLock = writeLock()) {
           List<byte[]> entries = LogServiceProtoUtil.toListByteArray(proto.getDataList());
           for (byte[] bb : entries) {
+            ids.add(this.length);
             newSize += bb.length;
+            this.length++;
           }
           this.dataRecordsSize += newSize;
-          this.length += entries.size();
           // TODO do we need this for other write request (close, sync)
           updateLastAppliedTermIndex(entry.getTerm(), index);
       }
     }
-    List<Long> ids = new ArrayList<Long>();
-    ids.add(index);
     final CompletableFuture<Message> f =
         CompletableFuture.completedFuture(
           Message.valueOf(LogServiceProtoUtil.toAppendLogReplyProto(ids, t).toByteString()));

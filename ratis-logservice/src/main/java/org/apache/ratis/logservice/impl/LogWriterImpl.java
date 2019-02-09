@@ -20,6 +20,7 @@ package org.apache.ratis.logservice.impl;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -59,13 +60,12 @@ public class LogWriterImpl implements LogWriter {
 
   @Override
   public long write(ByteBuffer data) throws IOException {
-    List<ByteBuffer> list = new ArrayList<ByteBuffer>();
-    list.add(data);
-     return write(list);
+    // One record to write is always one recordId returned
+    return write(Collections.singletonList(data)).get(0);
   }
 
   @Override
-  public long write(List<ByteBuffer> list) throws IOException {
+  public List<Long> write(List<ByteBuffer> list) throws IOException {
     try {
       RaftClientReply reply = raftClient.send(
           Message.valueOf(LogServiceProtoUtil.toAppendBBEntryLogRequestProto(parent.getName(), list).toByteString()));
@@ -76,7 +76,7 @@ public class LogWriterImpl implements LogWriter {
       }
       List<Long> ids = proto.getRecordIdList();
       // The above call Always returns one id (regardless of a batch size)
-      return ids.get(0);
+      return ids;
     } catch (Exception e) {
       throw new IOException(e);
     }

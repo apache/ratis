@@ -23,6 +23,9 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import java.util.Iterator;
 import java.util.List;
 
@@ -90,8 +93,8 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
 
       // Add some records
       List<ByteBuffer> records = TestUtils.getRandomData(100, 10);
-      long id = writer.write(records);
-      LOG.info("id {}", id);
+      List<Long> ids = writer.write(records);
+      LOG.info("ids {}", ids);
       // Check log size and length
       assertEquals(10 * 100, logStream.getSize());
       assertEquals(10, logStream.getLength());
@@ -121,6 +124,47 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
+  public void testReadAllRecords() throws Exception {
+    final RaftClient raftClient =
+        RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
+            .build();
+    final LogName logName = LogName.of("log1");
+    final int numRecords = 25;
+    // TODO need API to circumvent metadata service for testing
+    try (LogStream logStream = new LogStreamImpl(logName, raftClient)) {
+      try (LogWriter writer = logStream.createWriter()) {
+        LOG.info("Writing {} records", numRecords);
+        // Write records 0 through 99 (inclusive)
+        for (int i = 0; i < numRecords; i++) {
+          writer.write(toBytes(i));
+        }
+      }
+
+      try (LogReader reader = logStream.createReader()) {
+        reader.seek(0);
+        for (int i = 0; i < numRecords; i++) {
+          assertEquals(i, fromBytes(reader.readNext()));
+        }
+
+        reader.seek(0);
+        List<ByteBuffer> records = reader.readBulk(numRecords);
+        assertEquals(numRecords, records.size());
+        for (int i = 0; i < numRecords; i++) {
+          ByteBuffer record = records.get(i);
+          assertEquals(i, fromBytes(record));
+        }
+
+        reader.seek(0);
+        ByteBuffer[] arr = new ByteBuffer[numRecords];
+        reader.readBulk(arr);
+        for (int i = 0; i < numRecords; i++) {
+          assertEquals(i, fromBytes(arr[i]));
+        }
+      }
+    }
+  }
+
+  @Test
   public void testSeeking() throws Exception {
     final RaftClient raftClient =
         RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
@@ -133,7 +177,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
         LOG.info("Writing {} records", numRecords);
         // Write records 0 through 99 (inclusive)
         for (int i = 0; i < numRecords; i++) {
-          writer.write(ByteBuffer.wrap(Integer.toString(i).getBytes(StandardCharsets.UTF_8)));
+          writer.write(toBytes(i));
         }
       }
 
@@ -143,8 +187,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
           LOG.info("Seeking to {}", i);
           reader.seek(i);
           LOG.info("Reading one record");
-          ByteBuffer bb = reader.readNext();
-          assertEquals(i, fromBytes(bb));
+          assertEquals(i, fromBytes(reader.readNext()));
         }
 
         assertTrue("We're expecting at least two records were written", numRecords > 1);
@@ -152,8 +195,50 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
           LOG.info("Seeking to {}", i);
           reader.seek(i);
           LOG.info("Reading one record");
-          ByteBuffer bb = reader.readNext();
-          assertEquals(i, fromBytes(bb));
+          assertEquals(i, fromBytes(reader.readNext()));
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testSeekFromWrite() throws Exception {
+    final RaftClient raftClient =
+        RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
+            .build();
+    final LogName logName = LogName.of("log1");
+    final int numRecords = 10;
+    try (LogStream logStream = new LogStreamImpl(logName, raftClient)) {
+      final List<Long> recordIds;
+      try (LogWriter writer = logStream.createWriter()) {
+        LOG.info("Writing {} records", numRecords);
+        List<ByteBuffer> records = new ArrayList<>(numRecords * 2);
+        // Write records 0 through 10 (inclusive) as one batch
+        for (int i = 0; i < numRecords; i++) {
+          records.add(toBytes(i));
+        }
+        recordIds = new ArrayList<>(writer.write(records));
+        // Then, write another 10 records, individually.
+        for (int i = numRecords; i < numRecords*2; i++) {
+          recordIds.add(writer.write(toBytes(i)));
+        }
+      }
+
+      // We should have numRecords recordIds
+      assertEquals(numRecords * 2, recordIds.size());
+      // We should have monotonically increasing recordIds because we're the only one
+      // writing to this log.
+      assertEquals(LongStream.range(0, numRecords * 2).boxed().collect(Collectors.toList()),
+          recordIds);
+
+      try (LogReader reader = logStream.createReader()) {
+        int i = 0;
+        // We should be able to seek to the recordId given for each record
+        // we wrote and read it back.
+        for (long recordId : recordIds) {
+          reader.seek(recordId);
+          int readValue = fromBytes(reader.readNext());
+          assertEquals("Seeked to " + recordId + " but got " + readValue, i++, readValue);
         }
       }
     }
@@ -162,6 +247,10 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
   @After
   public void tearDown() {
     cluster.shutdown();
+  }
+
+  private ByteBuffer toBytes(int i) {
+    return ByteBuffer.wrap(Integer.toString(i).getBytes(StandardCharsets.UTF_8));
   }
 
   private int fromBytes(ByteBuffer bb) {
