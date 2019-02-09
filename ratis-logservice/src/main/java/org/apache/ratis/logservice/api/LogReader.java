@@ -71,10 +71,10 @@ public interface LogReader extends AutoCloseable {
    * Each provided buffer must be capable of holding one complete record from the Log. If the provided buffer is
    * too small, an exception will be thrown.
    *
-   * @param buffers A non-empty list of non-null ByteBuffers.
+   * @param buffers A non-empty array of non-null ByteBuffers.
    * @return The number of records returns, equivalent to the number of filled buffers.
    */
-  int readBulk(List<ByteBuffer> buffers) throws IOException;
+  int readBulk(ByteBuffer[] buffers) throws IOException;
 
   /**
    * Returns the current position of this Reader. The position is a {@code recordId}.

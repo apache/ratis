@@ -149,13 +149,13 @@ public class LogReaderImpl implements LogReader {
   }
 
   @Override
-  public int readBulk(List<ByteBuffer> buffers) throws IOException {
+  public int readBulk(ByteBuffer[] buffers) throws IOException {
     Preconditions.checkNotNull(buffers, "list of buffers is NULL" );
-    Preconditions.checkArgument(buffers.size() > 0, "list of buffers is empty");
+    Preconditions.checkArgument(buffers.length > 0, "list of buffers is empty");
 
     try {
       RaftClientReply reply = raftClient.sendReadOnly(Message.valueOf(LogServiceProtoUtil
-          .toReadLogRequestProto(parent.getName(), currentRecordId, buffers.size()).toByteString()));
+          .toReadLogRequestProto(parent.getName(), currentRecordId, buffers.length).toByteString()));
       ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
       if (proto.hasException()) {
         LogServiceException e = proto.getException();
@@ -165,7 +165,7 @@ public class LogReaderImpl implements LogReader {
       int n = proto.getLogRecordCount();
       currentRecordId += n;
       for (int i = 0; i < n; i++) {
-        buffers.get(i).put(proto.getLogRecord(i).toByteArray());
+        buffers[i] = ByteBuffer.wrap(proto.getLogRecord(i).toByteArray());
       }
       return n;
     } catch (Exception e) {
