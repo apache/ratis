@@ -184,6 +184,17 @@ public interface StateMachine extends Closeable {
   TransactionContext applyTransactionSerial(TransactionContext trx);
 
   /**
+   * Called to notify state machine about indexes which are processed
+   * internally by Raft Server, this currently happens when conf entries are
+   * processed in raft Server. This keep state machine to keep a track of index
+   * updates.
+   * @param index index which is being updated
+   */
+  default void notifyIndexUpdate(long index) {
+
+  }
+
+  /**
    * Apply a committed log entry to the state machine. This method can be called concurrently with
    * the other calls, and there is no guarantee that the calls will be ordered according to the
    * log commit order.
