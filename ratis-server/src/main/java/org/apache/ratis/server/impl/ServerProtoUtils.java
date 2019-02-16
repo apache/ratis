@@ -41,23 +41,23 @@ import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
 /** Server proto utilities for internal use. */
 public interface ServerProtoUtils {
-  public static TermIndex toTermIndex(TermIndexProto p) {
+  static TermIndex toTermIndex(TermIndexProto p) {
     return p == null? null: TermIndex.newTermIndex(p.getTerm(), p.getIndex());
   }
 
-  public static TermIndexProto toTermIndexProto(TermIndex ti) {
+  static TermIndexProto toTermIndexProto(TermIndex ti) {
     return ti == null? null: TermIndexProto.newBuilder()
         .setTerm(ti.getTerm())
         .setIndex(ti.getIndex())
         .build();
   }
 
-  public static TermIndex toTermIndex(LogEntryProto entry) {
+  static TermIndex toTermIndex(LogEntryProto entry) {
     return entry == null ? null :
         TermIndex.newTermIndex(entry.getTerm(), entry.getIndex());
   }
 
-  public static String toTermIndexString(LogEntryProto entry) {
+  static String toTermIndexString(LogEntryProto entry) {
     return TermIndex.toString(entry.getTerm(), entry.getIndex());
   }
 
@@ -79,7 +79,7 @@ public interface ServerProtoUtils {
     return toTermIndexString(entry) + ", " + entry.getLogEntryBodyCase() + s;
   }
 
-  public static String toString(LogEntryProto... entries) {
+  static String toString(LogEntryProto... entries) {
     return entries == null? "null"
         : entries.length == 0 ? "[]"
         : entries.length == 1? toLogEntryString(entries[0])
@@ -87,7 +87,7 @@ public interface ServerProtoUtils {
             .collect(Collectors.toList());
   }
 
-  public static String toString(AppendEntriesReplyProto reply) {
+  static String toString(AppendEntriesReplyProto reply) {
     return toString(reply.getServerReply()) + "," + reply.getResult()
         + ",nextIndex:" + reply.getNextIndex() + ",term:" + reply.getTerm()
         + ",followerCommit:" + reply.getFollowerCommit();
@@ -234,7 +234,7 @@ public interface ServerProtoUtils {
         requestorId.toByteString(), replyId.toByteString(), groupId, DEFAULT_CALLID, success);
   }
 
-  public static RequestVoteReplyProto toRequestVoteReplyProto(
+  static RequestVoteReplyProto toRequestVoteReplyProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
       boolean success, long term, boolean shouldShutdown) {
     return RequestVoteReplyProto.newBuilder()
@@ -250,7 +250,7 @@ public interface ServerProtoUtils {
         requestorId.toByteString(), replyId.toByteString(), groupId, DEFAULT_CALLID, DEFAULT_SEQNUM);
   }
 
-  public static RequestVoteRequestProto toRequestVoteRequestProto(
+  static RequestVoteRequestProto toRequestVoteRequestProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, long term, TermIndex lastEntry) {
     final RequestVoteRequestProto.Builder b = RequestVoteRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId, groupId))
@@ -261,7 +261,7 @@ public interface ServerProtoUtils {
     return b.build();
   }
 
-  public static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
+  static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
       long term, int requestIndex, InstallSnapshotResult result) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
@@ -272,7 +272,7 @@ public interface ServerProtoUtils {
     return builder.build();
   }
 
-  public static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
+  static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, String requestId, int requestIndex,
       long term, TermIndex lastTermIndex, List<FileChunkProto> chunks,
       long totalSize, boolean done) {
@@ -288,7 +288,7 @@ public interface ServerProtoUtils {
         .setDone(done).build();
   }
 
-  public static AppendEntriesReplyProto toAppendEntriesReplyProto(
+  static AppendEntriesReplyProto toAppendEntriesReplyProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, long term,
       long followerCommit, long nextIndex, AppendResult result, long callId) {
     RaftRpcReplyProto.Builder rpcReply = toRaftRpcReplyProtoBuilder(
@@ -302,7 +302,7 @@ public interface ServerProtoUtils {
         .setResult(result).build();
   }
 
-  public static AppendEntriesRequestProto toAppendEntriesRequestProto(
+  static AppendEntriesRequestProto toAppendEntriesRequestProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, long leaderTerm,
       List<LogEntryProto> entries, long leaderCommit, boolean initializing,
       TermIndex previous, Collection<CommitInfoProto> commitInfos, long callId) {

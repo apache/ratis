@@ -27,9 +27,9 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 public interface NetUtils {
-  public static final Logger LOG = LoggerFactory.getLogger(NetUtils.class);
+  Logger LOG = LoggerFactory.getLogger(NetUtils.class);
 
-  public static abstract class StaticResolution {
+  abstract class StaticResolution {
     /** Host -> resolved name */
     private static final Map<String, String> hostToResolved = new ConcurrentHashMap<>();
 
@@ -45,7 +45,7 @@ public interface NetUtils {
   }
 
   /** The same as createSocketAddr(target, -1). */
-  public static InetSocketAddress createSocketAddr(String target) {
+  static InetSocketAddress createSocketAddr(String target) {
     return createSocketAddr(target, -1);
   }
 
@@ -93,7 +93,7 @@ public interface NetUtils {
    * @param port the port number
    * @return InetSocketAddress
    */
-  public static InetSocketAddress createSocketAddrForHost(String host, int port) {
+  static InetSocketAddress createSocketAddrForHost(String host, int port) {
     String staticHost = StaticResolution.get(host);
     String resolveHost = (staticHost != null) ? staticHost : host;
 
@@ -112,7 +112,7 @@ public interface NetUtils {
     return addr;
   }
 
-  public static InetSocketAddress createLocalServerAddress() {
+  static InetSocketAddress createLocalServerAddress() {
     try(final ServerSocket s = new ServerSocket()) {
       s.setReuseAddress(true);
       s.bind(null);
