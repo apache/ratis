@@ -81,6 +81,27 @@ public interface GrpcConfigKeys {
     }
   }
 
+  interface Client {
+
+    Logger LOG = LoggerFactory.getLogger(Server.class);
+
+    static Consumer<String> getDefaultLog() {
+      return LOG::info;
+    }
+
+    String PREFIX = GrpcConfigKeys.PREFIX + ".client";
+
+    String INTECTEPTOR_CLASS = PREFIX + ".interceptor";
+
+    static void setInterceptor(RaftProperties properties, String className) {
+      set(properties::set, INTECTEPTOR_CLASS, className);
+    }
+
+    static String getInterceptor(RaftProperties properties) {
+      return get(properties::get, INTECTEPTOR_CLASS, "", getDefaultLog());
+    }
+  }
+
   interface Server {
     Logger LOG = LoggerFactory.getLogger(Server.class);
     static Consumer<String> getDefaultLog() {
@@ -107,6 +128,16 @@ public interface GrpcConfigKeys {
     }
     static void setLeaderOutstandingAppendsMax(RaftProperties properties, int maxAppend) {
       setInt(properties::setInt, LEADER_OUTSTANDING_APPENDS_MAX_KEY, maxAppend);
+    }
+
+    String INTECTEPTOR_CLASS = PREFIX + ".interceptor";
+
+    static void setInterceptor(RaftProperties properties, String className) {
+      set(properties::set, INTECTEPTOR_CLASS, className);
+    }
+
+    static String getInterceptor(RaftProperties properties) {
+      return get(properties::get, INTECTEPTOR_CLASS, "", getDefaultLog());
     }
   }
 

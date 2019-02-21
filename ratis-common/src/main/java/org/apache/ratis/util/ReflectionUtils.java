@@ -20,17 +20,29 @@
 
 package org.apache.ratis.util;
 
-
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reflection related utility methods.
  */
 public interface ReflectionUtils {
+
+  Logger LOG = LoggerFactory.getLogger(ReflectionUtils.class);
+
   final class Constructors {
     private Constructors() {}
 
@@ -156,6 +168,22 @@ public interface ReflectionUtils {
    */
   static <T> T newInstance(Class<T> clazz) {
     return newInstance(clazz, Classes.EMPTY_ARRAY);
+  }
+
+  /**
+   * Create an object for the given class using its default constructor.
+   *
+   * @return empty if clazzName null, empty or can not be initialized
+   */
+  static <T> Optional<T> newInstance(String clazzName) {
+      Class<T> clazz = (Class<T>) getClassByNameOrNull(clazzName);
+      if (clazz == null) {
+        LOG.error("Class {} can't be initialized", clazzName);
+        return Optional.empty();
+      }
+
+      T t = newInstance(clazz, Classes.EMPTY_ARRAY);
+      return Optional.of(t);
   }
 
   /**
