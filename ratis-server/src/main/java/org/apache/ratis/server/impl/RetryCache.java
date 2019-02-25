@@ -20,7 +20,6 @@ package org.apache.ratis.server.impl;
 import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -35,7 +34,6 @@ import org.slf4j.LoggerFactory;
 
 public class RetryCache implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(RetryCache.class);
-  private static final int MIN_CAPACITY = 128;
 
   static class CacheKey {
     private final ClientId clientId;
@@ -153,14 +151,12 @@ public class RetryCache implements Closeable {
   private final Cache<CacheKey, CacheEntry> cache;
 
   /**
-   * @param capacity the capacity of the cache
    * @param expirationTime time for an entry to expire in milliseconds
    */
-  RetryCache(int capacity, TimeDuration expirationTime) {
-    capacity = Math.max(capacity, MIN_CAPACITY);
-    cache = CacheBuilder.newBuilder().maximumSize(capacity)
-        .expireAfterWrite(expirationTime.toLong(TimeUnit.MILLISECONDS),
-            TimeUnit.MILLISECONDS).build();
+  RetryCache(TimeDuration expirationTime) {
+    cache = CacheBuilder.newBuilder()
+        .expireAfterWrite(expirationTime.getDuration(), expirationTime.getUnit())
+        .build();
   }
 
   CacheEntry getOrCreateEntry(ClientId clientId, long callId) {

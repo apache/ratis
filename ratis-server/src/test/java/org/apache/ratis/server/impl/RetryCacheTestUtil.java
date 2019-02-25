@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 public class RetryCacheTestUtil {
   public static RetryCache createRetryCache(){
-    return new RetryCache(5000, TimeDuration.valueOf(60, TimeUnit.SECONDS));
+    return new RetryCache(TimeDuration.valueOf(60, TimeUnit.SECONDS));
   }
 
   public static void createEntry(RetryCache cache, LogEntryProto logEntry){

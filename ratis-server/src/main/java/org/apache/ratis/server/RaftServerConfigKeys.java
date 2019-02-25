@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.server;
 
-import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
@@ -356,17 +355,6 @@ public interface RaftServerConfigKeys {
   /** server retry cache related */
   interface RetryCache {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".retrycache";
-
-    String CAPACITY_KEY = PREFIX + ".capacity";
-    int CAPACITY_DEFAULT = 4096;
-    static int capacity(RaftProperties properties) {
-      return ConfUtils.getInt(properties::getInt, CAPACITY_KEY, CAPACITY_DEFAULT, getDefaultLog(),
-          ConfUtils.requireMin(0));
-    }
-
-    static void setCapacity(RaftProperties properties, int capacity) {
-      setInt(properties::setInt, CAPACITY_KEY, capacity);
-    }
 
     String EXPIRY_TIME_KEY = PREFIX + ".expirytime";
     TimeDuration EXPIRY_TIME_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);

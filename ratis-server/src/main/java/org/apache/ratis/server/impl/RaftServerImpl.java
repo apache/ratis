@@ -107,9 +107,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   private RetryCache initRetryCache(RaftProperties prop) {
-    final int capacity = RaftServerConfigKeys.RetryCache.capacity(prop);
     final TimeDuration expireTime = RaftServerConfigKeys.RetryCache.expiryTime(prop);
-    return new RetryCache(capacity, expireTime);
+    return new RetryCache(expireTime);
   }
 
   LogAppender newLogAppender(
