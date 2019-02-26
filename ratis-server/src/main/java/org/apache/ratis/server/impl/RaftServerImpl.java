@@ -21,7 +21,6 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
@@ -37,26 +36,14 @@ import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.management.ObjectName;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
-import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
-import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
-import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
-import static org.apache.ratis.util.LifeCycle.State.CLOSED;
-import static org.apache.ratis.util.LifeCycle.State.CLOSING;
-import static org.apache.ratis.util.LifeCycle.State.NEW;
-import static org.apache.ratis.util.LifeCycle.State.RUNNING;
-import static org.apache.ratis.util.LifeCycle.State.STARTING;
+import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.*;
+import static org.apache.ratis.util.LifeCycle.State.*;
 
 public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
@@ -103,7 +90,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     this.state = new ServerState(id, group, properties, this, stateMachine);
     this.retryCache = initRetryCache(properties);
 
-    this.jmxAdapter = new RaftServerJmxAdapter();
+    this.jmxAdapter = new RaftServerJmxAdapter(this, new JmxRegister());
   }
 
   private RetryCache initRetryCache(RaftProperties prop) {
@@ -176,19 +163,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       startInitializing();
     }
 
-    registerMBean(getId(), getGroupId(), jmxAdapter, jmxAdapter);
+    jmxAdapter.registerMBean();
     state.start();
     return true;
   }
 
-  static boolean registerMBean(
-      RaftPeerId id, RaftGroupId groupdId, RaftServerMXBean mBean, JmxRegister jmx) {
-    final String prefix = "Ratis:service=RaftServer,group=" + groupdId + ",id=";
-    final String registered = jmx.register(mBean, Arrays.asList(
-        () -> prefix + id,
-        () -> prefix + ObjectName.quote(id.toString())));
-    return registered != null;
-  }
 
   /**
    * The peer belongs to the current configuration, should start as a follower
@@ -1138,39 +1117,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             logEntry.getIndex(), getCommitInfos());
         cacheEntry.failWithReply(reply);
       }
-    }
-  }
-
-  private class RaftServerJmxAdapter extends JmxRegister implements RaftServerMXBean {
-    @Override
-    public String getId() {
-      return getState().getSelfId().toString();
-    }
-
-    @Override
-    public String getLeaderId() {
-      return getState().getLeaderId().toString();
-    }
-
-    @Override
-    public long getCurrentTerm() {
-      return getState().getCurrentTerm();
-    }
-
-    @Override
-    public String getGroupId() {
-      return RaftServerImpl.this.getGroupId().toString();
-    }
-
-    @Override
-    public String getRole() {
-      return role.toString();
-    }
-
-    @Override
-    public List<String> getFollowers() {
-      return role.getLeaderState().map(LeaderState::getFollowers).orElse(Collections.emptyList())
-          .stream().map(RaftPeer::toString).collect(Collectors.toList());
     }
   }
 }
