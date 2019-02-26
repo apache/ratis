@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Set;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class TestRaftServerJmx extends BaseTest {
   @Test(timeout = 30000)
@@ -98,7 +100,15 @@ public class TestRaftServerJmx extends BaseTest {
     };
     final RaftPeerId id = RaftPeerId.valueOf(name);
     final RaftGroupId groupId = RaftGroupId.randomId();
-    final boolean succeeded = RaftServerImpl.registerMBean(id, groupId, mBean, jmx);
+
+    RaftServerImpl raftServer = mock(RaftServerImpl.class);
+    ServerState serverState = mock(ServerState.class);
+    when(raftServer.getState()).thenReturn(serverState);
+    when(raftServer.getRole()).thenReturn(new RoleInfo(id));
+    when(raftServer.getGroupId()).thenReturn(groupId);
+
+    RaftServerJmxAdapter raftServerJmxAdapter = new RaftServerJmxAdapter(raftServer, jmx);
+    final boolean succeeded = raftServerJmxAdapter.registerMBean();
     Assert.assertEquals(expectToSucceed, succeeded);
   }
 
