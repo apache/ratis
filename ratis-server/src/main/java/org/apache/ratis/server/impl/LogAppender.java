@@ -420,7 +420,7 @@ public class LogAppender {
           if (nextIndex < oldNextIndex) {
             throw new IllegalStateException("nextIndex=" + nextIndex
                 + " < oldNextIndex=" + oldNextIndex
-                + ", reply=" + ProtoUtils.toString(reply));
+                + ", reply=" + ServerProtoUtils.toString(reply));
           }
 
           if (nextIndex > oldNextIndex) {

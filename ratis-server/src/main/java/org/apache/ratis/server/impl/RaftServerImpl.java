@@ -885,7 +885,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             leaderId, getId(), groupId, currentTerm, followerCommit, nextIndex, NOT_LEADER, callId);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
-              getId(), leaderId, leaderTerm, state, ProtoUtils.toString(reply));
+              getId(), leaderId, leaderTerm, state, ServerProtoUtils.toString(reply));
         }
         return CompletableFuture.completedFuture(reply);
       }

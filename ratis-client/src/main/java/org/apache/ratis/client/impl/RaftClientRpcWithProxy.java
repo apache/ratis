@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -43,8 +43,8 @@ public abstract class RaftClientRpcWithProxy<PROXY extends Closeable>
   }
 
   @Override
-  public void handleException(RaftPeerId serverId, Exception e, boolean reconnect) {
-    getProxies().handleException(serverId, e, reconnect);
+  public boolean handleException(RaftPeerId serverId, Throwable t, boolean reconnect) {
+    return getProxies().handleException(serverId, t, reconnect);
   }
 
   @Override

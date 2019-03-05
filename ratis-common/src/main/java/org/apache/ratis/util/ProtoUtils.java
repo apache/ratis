@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupIdProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupProto;
@@ -33,7 +32,6 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
 
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Collection;
 import java.util.Iterator;
@@ -54,14 +52,7 @@ public interface ProtoUtils {
   }
 
   static Object toObject(ByteString bytes) {
-    try(final ObjectInputStream in = new ObjectInputStream(bytes.newInput())) {
-      return in.readObject();
-    } catch (IOException e) {
-      throw new IllegalStateException(
-          "Unexpected IOException when reading an object from a ByteString.", e);
-    } catch (ClassNotFoundException e) {
-      throw new IllegalStateException(e);
-    }
+    return IOUtils.readObject(bytes.newInput(), Object.class);
   }
 
   static ByteString toByteString(String string) {
@@ -166,10 +157,5 @@ public interface ProtoUtils {
   }
   static String toString(RequestVoteReplyProto proto) {
     return toString(proto.getServerReply()) + "-t" + proto.getTerm();
-  }
-  static String toString(AppendEntriesReplyProto proto) {
-    return toString(proto.getServerReply()) + "-t" + proto.getTerm()
-        + ", nextIndex=" + proto.getNextIndex()
-        + ", result: " + proto.getResult();
   }
 }

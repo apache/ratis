@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,7 +21,6 @@ import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 
 class SimulatedClientRpc
     extends SimulatedRequestReply<RaftClientRequest, RaftClientReply>
@@ -32,11 +31,6 @@ class SimulatedClientRpc
 
   @Override
   public void addServers(Iterable<RaftPeer> servers) {
-    // do nothing
-  }
-
-  @Override
-  public void handleException(RaftPeerId serverId, Exception e, boolean reconnect) {
     // do nothing
   }
 

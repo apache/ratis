@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -39,6 +39,12 @@ public interface RaftClientRpc extends Closeable {
   /** Add the information of the given raft servers */
   void addServers(Iterable<RaftPeer> servers);
 
-  /** Handle the given exception.  For example, try reconnecting. */
-  void handleException(RaftPeerId serverId, Exception e, boolean reconnect);
+  /**
+   * Handle the given throwable.  For example, try reconnecting.
+   *
+   * @return true if the given throwable is handled; otherwise, the call is an no-op, return false.
+   */
+  default boolean handleException(RaftPeerId serverId, Throwable t, boolean reconnect) {
+    return false;
+  }
 }

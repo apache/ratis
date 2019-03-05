@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.protocol.AlreadyClosedException;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.function.CheckedFunction;
@@ -54,7 +55,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
           if (proxy == null) {
             final LifeCycle.State current = lifeCycle.getCurrentState();
             if (current.isOneOf(LifeCycle.State.CLOSING, LifeCycle.State.CLOSED)) {
-              throw new IOException(name + " is already " + current);
+              throw new AlreadyClosedException(name + " is already " + current);
             }
             lifeCycle.startAndTransition(
                 () -> proxy = createProxy.apply(peer), IOException.class);
@@ -126,10 +127,13 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     }
   }
 
-  public void handleException(RaftPeerId serverId, Exception e, boolean reconnect) {
+  /** @return true if the given throwable is handled; otherwise, the call is an no-op, return false. */
+  public boolean handleException(RaftPeerId serverId, Throwable e, boolean reconnect) {
     if (reconnect || IOUtils.shouldReconnect(e)) {
       resetProxy(serverId);
+      return true;
     }
+    return false;
   }
 
   public PROXY createProxyImpl(RaftPeer peer) throws IOException {
