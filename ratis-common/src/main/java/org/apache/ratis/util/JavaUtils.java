@@ -75,7 +75,7 @@ public interface JavaUtils {
   }
 
   static <T extends Throwable> void runAsUnchecked(CheckedRunnable<T> runnable) {
-    runAsUnchecked(runnable::run, RuntimeException::new);
+    runAsUnchecked(runnable, RuntimeException::new);
   }
 
   static <THROWABLE extends Throwable> void runAsUnchecked(
@@ -131,15 +131,6 @@ public interface JavaUtils {
 
   static ThreadGroup getRootThreadGroup() {
     return ROOT_THREAD_GROUP.get();
-  }
-
-  /** @deprecated use {@link #attempt(CheckedSupplier, int, TimeDuration, String, Logger)} */
-  @Deprecated
-  static <RETURN, THROWABLE extends Throwable> RETURN attempt(
-      CheckedSupplier<RETURN, THROWABLE> supplier,
-      int numAttempts, long sleepMs, String name, Logger log)
-      throws THROWABLE, InterruptedException {
-    return attempt(supplier, numAttempts, TimeDuration.valueOf(sleepMs, TimeUnit.MILLISECONDS), name, log);
   }
 
   /** Attempt to get a return value from the given supplier multiple times. */

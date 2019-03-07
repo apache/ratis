@@ -32,6 +32,7 @@ import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mockito.internal.util.reflection.Whitebox;
@@ -518,6 +519,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       clientThread.start();
 
       // find ConfigurationEntry
+      final TimeDuration sleepTime = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);
       final long confIndex = JavaUtils.attempt(() -> {
         final long last = log.getLastEntryTermIndex().getIndex();
         for (long i = last; i >= 1; i--) {
@@ -526,11 +528,11 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
           }
         }
         throw new Exception("ConfigurationEntry not found: last=" + last);
-      }, 10, 500, "confIndex", LOG);
+      }, 10, sleepTime, "confIndex", LOG);
 
       // wait till the old leader persist the new conf
       JavaUtils.attempt(() -> log.getLatestFlushedIndex() >= confIndex,
-          10, 500L, "FLUSH", LOG);
+          10, sleepTime, "FLUSH", LOG);
       final long committed = log.getLastCommittedIndex();
       Assert.assertTrue(committed < confIndex);
 

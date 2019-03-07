@@ -188,7 +188,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
     for(RaftServerImpl impl : cluster.iterateServerImpls()) {
       final File openLogFile = JavaUtils.attempt(() -> getOpenLogFile(impl),
-          10, 100, impl.getId() + "-getOpenLogFile", LOG);
+          10, HUNDRED_MILLIS, impl.getId() + "-getOpenLogFile", LOG);
       for(int i = 0; i < SegmentedRaftLogFormat.getHeaderLength(); i++) {
         assertCorruptedLogHeader(impl.getId(), openLogFile, i, cluster, LOG);
         Assert.assertTrue(getOpenLogFiles(impl).isEmpty());

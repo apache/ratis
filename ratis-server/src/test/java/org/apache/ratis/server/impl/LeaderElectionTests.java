@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -33,6 +33,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -69,7 +70,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
     RaftPeerId leader = RaftTestUtil.waitForLeader(cluster).getId();
     for(int i = 0; i < 10; i++) {
-      leader = RaftTestUtil.changeLeader(cluster, leader);
+      leader = RaftTestUtil.changeLeader(cluster, leader, IllegalStateException::new);
       ExitUtils.assertNotTerminated();
     }
     RaftStorageTestUtils.setRaftLogWorkerLogLevel(Level.INFO);
@@ -129,17 +130,10 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     final RaftServerProxy lastServer = i.next();
     lastServer.start();
     final RaftPeerId lastServerLeaderId = JavaUtils.attempt(
-        () -> getLeader(lastServer.getImpls().iterator().next().getState()),
-        10, 1000, "getLeaderId", LOG);
+        () -> Optional.ofNullable(lastServer.getImpls().iterator().next().getState().getLeaderId())
+            .orElseThrow(() -> new IllegalStateException("No leader yet")),
+        10, ONE_SECOND, "getLeaderId", LOG);
     LOG.info(cluster.printServers());
     Assert.assertEquals(leader.getId(), lastServerLeaderId);
-  }
-
-  static RaftPeerId getLeader(ServerState state) {
-    final RaftPeerId leader = state.getLeaderId();
-    if (leader == null) {
-      throw new IllegalStateException("No leader yet");
-    }
-    return leader;
   }
 }

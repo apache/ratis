@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -25,8 +25,10 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.TimeDuration;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /** Server utilities for internal use. */
 public class ServerImplUtils {
@@ -43,12 +45,13 @@ public class ServerImplUtils {
   private static RaftServerProxy newRaftServer(
       RaftPeerId id, StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters)
       throws IOException {
+    final TimeDuration sleepTime = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);
     final RaftServerProxy proxy;
     try {
       // attempt multiple times to avoid temporary bind exception
       proxy = JavaUtils.attempt(
           () -> new RaftServerProxy(id, stateMachineRegistry, properties, parameters),
-          5, 500L, "new RaftServerProxy", RaftServerProxy.LOG);
+          5, sleepTime, "new RaftServerProxy", RaftServerProxy.LOG);
     } catch (InterruptedException e) {
       throw IOUtils.toInterruptedIOException(
           "Interrupted when creating RaftServer " + id, e);

@@ -60,7 +60,7 @@ public abstract class BaseTest {
   }
 
   @Rule
-  public final Timeout globalTimeout = new Timeout(getGlobalTimeoutSeconds() * 1000);
+  public final Timeout globalTimeout = new Timeout(getGlobalTimeoutSeconds(), TimeUnit.SECONDS );
 
   @Rule
   public final TestName testName = new TestName();

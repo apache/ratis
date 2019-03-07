@@ -38,10 +38,10 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
+import org.junit.AssumptionViolatedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,6 +59,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 
@@ -345,16 +346,23 @@ public interface RaftTestUtil {
   }
 
   static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader)
-      throws InterruptedException {
+      throws Exception {
+    return changeLeader(cluster, oldLeader, AssumptionViolatedException::new);
+  }
+
+  static RaftPeerId changeLeader(MiniRaftCluster cluster, RaftPeerId oldLeader, Function<String, Exception> constructor)
+      throws Exception {
+    final String name = JavaUtils.getCallerStackTraceElement().getMethodName() + "-changeLeader";
     cluster.setBlockRequestsFrom(oldLeader.toString(), true);
     try {
       return JavaUtils.attempt(() -> {
         final RaftPeerId newLeader = waitForLeader(cluster).getId();
-        Preconditions.assertTrue(!newLeader.equals(oldLeader),
-            () -> "Failed to change leader: newLeader=" + newLeader + " equals oldLeader=" + oldLeader);
+        if (newLeader.equals(oldLeader)) {
+          throw constructor.apply("Failed to change leader: newLeader == oldLeader == " + oldLeader);
+        }
         LOG.info("Changed leader from " + oldLeader + " to " + newLeader);
         return newLeader;
-      }, 10, 100L, "changeLeader", LOG);
+      }, 20, BaseTest.HUNDRED_MILLIS, name, LOG);
     } finally {
       cluster.setBlockRequestsFrom(oldLeader.toString(), false);
     }

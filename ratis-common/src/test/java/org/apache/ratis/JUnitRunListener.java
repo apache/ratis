@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -22,34 +22,36 @@ import org.junit.internal.runners.statements.FailOnTimeout;
 import org.junit.runner.notification.Failure;
 import org.junit.runner.notification.RunListener;
 import org.junit.runners.model.Statement;
+import org.junit.runners.model.TestTimedOutException;
 
 import java.io.PrintStream;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A {@link RunListener} to dump all threads after a test timeout failure.
  */
 public class JUnitRunListener extends RunListener {
   private static final Throwable TIMEOUT_EXCEPTION = getTimeoutException();
-  private static final String TIMEOUT_EXCEPTION_PREFIX = getTimeoutExceptionPrefix(TIMEOUT_EXCEPTION);
+  private static final String TIMEOUT_EXCEPTION_PREFIX;
 
   private static Throwable getTimeoutException() {
-    final FailOnTimeout f = new FailOnTimeout(new Statement() {
+    final FailOnTimeout f = FailOnTimeout.builder().withTimeout(1, TimeUnit.NANOSECONDS).build(new Statement() {
       @Override
       public void evaluate() throws InterruptedException {
         Thread.sleep(1000);
       }
-    }, 1);
+    });
     try {
       f.evaluate();
     } catch(Throwable throwable) {
       return throwable;
     }
-    return null;
+    throw new IllegalStateException("Failed to getTimeoutException");
   }
 
-  private static String getTimeoutExceptionPrefix(Throwable timeoutException) {
-    final String message = timeoutException.getMessage();
-    return message.substring(0, message.indexOf('1'));
+  static {
+    final String message = JUnitRunListener.TIMEOUT_EXCEPTION.getMessage();
+    TIMEOUT_EXCEPTION_PREFIX = message.substring(0, message.indexOf('1'));
   }
 
   private final PrintStream out = System.out;
@@ -81,9 +83,9 @@ public class JUnitRunListener extends RunListener {
 
   public static void main(String[] args) {
     final JUnitRunListener listener = new JUnitRunListener();
-    listener.out.println("TIMEOUT_EXCEPTION_PREFIX = " + TIMEOUT_EXCEPTION_PREFIX);
+    listener.out.println("TIMEOUT_EXCEPTION_PREFIX = '" + TIMEOUT_EXCEPTION_PREFIX + "'");
     TIMEOUT_EXCEPTION.printStackTrace(listener.out);
 
-    listener.testFailure(new Failure(null, new Exception(TIMEOUT_EXCEPTION_PREFIX + "999 milliseconds")));
+    listener.testFailure(new Failure(null, new TestTimedOutException(999, TimeUnit.MILLISECONDS)));
   }
 }
