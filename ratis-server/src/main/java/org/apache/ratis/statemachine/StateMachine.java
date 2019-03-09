@@ -188,9 +188,10 @@ public interface StateMachine extends Closeable {
    * internally by Raft Server, this currently happens when conf entries are
    * processed in raft Server. This keep state machine to keep a track of index
    * updates.
+   * @param term term of the current log entry
    * @param index index which is being updated
    */
-  default void notifyIndexUpdate(long index) {
+  default void notifyIndexUpdate(long term, long index) {
 
   }
 

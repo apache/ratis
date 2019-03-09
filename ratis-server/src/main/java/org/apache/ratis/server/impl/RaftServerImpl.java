@@ -1093,7 +1093,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) {
     final StateMachine stateMachine = getStateMachine();
     if (!next.hasStateMachineLogEntry()) {
-      stateMachine.notifyIndexUpdate(next.getIndex());
+      stateMachine.notifyIndexUpdate(next.getTerm(), next.getIndex());
     }
     if (next.hasConfigurationEntry()) {
       // the reply should have already been set. only need to record
