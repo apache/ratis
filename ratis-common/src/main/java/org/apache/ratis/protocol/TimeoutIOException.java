@@ -25,6 +25,10 @@ import java.io.IOException;
 public class TimeoutIOException extends IOException {
   static final long serialVersionUID = 1L;
 
+  public TimeoutIOException(String message) {
+    super(message);
+  }
+
   public TimeoutIOException(String message, Throwable throwable) {
     super(message, throwable);
   }

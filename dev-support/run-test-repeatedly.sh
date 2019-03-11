@@ -27,6 +27,8 @@ TEST_NAME=`echo ${TEST_PATTERN} | cut -d# -f 1`
 MVN="mvn"
 set -ex
 
+mvn clean
+
 for i in `seq 1 99`;
 do
   OUTDIR=${TEST_NAME}.${i}
@@ -35,7 +37,7 @@ do
   echo
   echo Running ${OUTDIR}
   echo
-  time ${MVN} test -DskipShade -Dtest=${TEST_PATTERN} 2>&1 | tee ${OUTF}
+  time ${MVN} test -Dtest=${TEST_PATTERN} 2>&1 | tee ${OUTF}
 
   find */target/surefire-reports/ -name \*${TEST_NAME}\* | xargs -I{} cp {} ${OUTDIR}
 

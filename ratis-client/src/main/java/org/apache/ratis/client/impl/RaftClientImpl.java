@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.LongFunction;
@@ -44,24 +45,39 @@ import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.
 final class RaftClientImpl implements RaftClient {
   private static final AtomicLong CALL_ID_COUNTER = new AtomicLong();
 
-  private static long nextCallId() {
+  static long nextCallId() {
     return CALL_ID_COUNTER.getAndIncrement() & Long.MAX_VALUE;
   }
 
-  static class PendingAsyncRequest implements SlidingWindow.Request<RaftClientReply> {
-    private final long seqNum;
-    private final LongFunction<RaftClientRequest> requestConstructor;
+  static class PendingClientRequest {
+    private final Supplier<RaftClientRequest> requestConstructor;
     private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
-    private volatile int attemptCount;
+    private final AtomicInteger attemptCount = new AtomicInteger();
 
-    PendingAsyncRequest(long seqNum, LongFunction<RaftClientRequest> requestConstructor) {
-      this.seqNum = seqNum;
+    PendingClientRequest(Supplier<RaftClientRequest> requestConstructor) {
       this.requestConstructor = requestConstructor;
     }
 
     RaftClientRequest newRequest() {
-      attemptCount++;
-      return requestConstructor.apply(seqNum);
+      attemptCount.incrementAndGet();
+      return requestConstructor.get();
+    }
+
+    CompletableFuture<RaftClientReply> getReplyFuture() {
+      return replyFuture;
+    }
+
+    int getAttemptCount() {
+      return attemptCount.get();
+    }
+  }
+
+  static class PendingAsyncRequest extends PendingClientRequest implements SlidingWindow.Request<RaftClientReply> {
+    private final long seqNum;
+
+    PendingAsyncRequest(long seqNum, LongFunction<RaftClientRequest> requestConstructor) {
+      super(() -> requestConstructor.apply(seqNum));
+      this.seqNum = seqNum;
     }
 
     @Override
@@ -71,25 +87,17 @@ final class RaftClientImpl implements RaftClient {
 
     @Override
     public boolean hasReply() {
-      return replyFuture.isDone();
+      return getReplyFuture().isDone();
     }
 
     @Override
     public void setReply(RaftClientReply reply) {
-      replyFuture.complete(reply);
+      getReplyFuture().complete(reply);
     }
 
     @Override
     public void fail(Exception e) {
-      replyFuture.completeExceptionally(e);
-    }
-
-    CompletableFuture<RaftClientReply> getReplyFuture() {
-      return replyFuture;
-    }
-
-    int getAttemptCount() {
-      return attemptCount;
+      getReplyFuture().completeExceptionally(e);
     }
 
     @Override
@@ -133,6 +141,14 @@ final class RaftClientImpl implements RaftClient {
     return clientId;
   }
 
+  RetryPolicy getRetryPolicy() {
+    return retryPolicy;
+  }
+
+  TimeoutScheduler getScheduler() {
+    return scheduler;
+  }
+
   private SlidingWindow.Client<PendingAsyncRequest, RaftClientReply> getSlidingWindow(RaftClientRequest request) {
     return getSlidingWindow(request.is(STALEREAD)? request.getServerId(): null);
   }
@@ -159,7 +175,7 @@ final class RaftClientImpl implements RaftClient {
 
   @Override
   public CompletableFuture<RaftClientReply> sendWatchAsync(long index, ReplicationLevel replication) {
-    return sendAsync(RaftClientRequest.watchRequestType(index, replication), null, null);
+    return UnorderedAsync.send(RaftClientRequest.watchRequestType(index, replication), this);
   }
 
   private CompletableFuture<RaftClientReply> sendAsync(
@@ -183,7 +199,7 @@ final class RaftClientImpl implements RaftClient {
     ).whenComplete((r, e) -> asyncRequestSemaphore.release());
   }
 
-  private RaftClientRequest newRaftClientRequest(
+  RaftClientRequest newRaftClientRequest(
       RaftPeerId server, long callId, long seq, Message message, RaftClientRequest.Type type) {
     return new RaftClientRequest(clientId, server != null? server: leaderId, groupId,
         callId, seq, message, type);
@@ -288,10 +304,10 @@ final class RaftClientImpl implements RaftClient {
         return;
       }
       if (reply == null) {
-        LOG.debug("schedule attempt #{} with policy {} for {}", pending.getAttemptCount(), retryPolicy, request);
+        LOG.debug("schedule* attempt #{} with policy {} for {}", pending.getAttemptCount(), retryPolicy, request);
         scheduler.onTimeout(retryPolicy.getSleepTime(),
             () -> getSlidingWindow(request).retry(pending, this::sendRequestWithRetryAsync),
-            LOG, () -> "Failed to retry " + request);
+            LOG, () -> "Failed* to retry " + request);
       } else {
         f.complete(reply);
       }
@@ -323,7 +339,7 @@ final class RaftClientImpl implements RaftClient {
     LOG.debug("{}: send* {}", clientId, request);
     return clientRpc.sendRequestAsync(request).thenApply(reply -> {
       LOG.debug("{}: receive* {}", clientId, reply);
-      reply = handleNotLeaderException(request, reply);
+      reply = handleNotLeaderException(request, reply, true);
       if (reply != null) {
         getSlidingWindow(request).receiveReply(
             request.getSeqNum(), reply, this::sendRequestWithRetryAsync);
@@ -333,16 +349,16 @@ final class RaftClientImpl implements RaftClient {
       return reply;
     }).exceptionally(e -> {
       if (LOG.isTraceEnabled()) {
-        LOG.trace(clientId + ": Failed " + request, e);
+        LOG.trace(clientId + ": Failed* " + request, e);
       } else {
-        LOG.debug("{}: Failed {} with {}", clientId, request, e);
+        LOG.debug("{}: Failed* {} with {}", clientId, request, e);
       }
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof IOException && !(e instanceof GroupMismatchException)) {
         if (!retryPolicy.shouldRetry(attemptCount)) {
           handleAsyncRetryFailure(request, attemptCount);
         } else {
-          handleIOException(request, (IOException) e, null);
+          handleIOException(request, (IOException) e, null, true);
         }
         return null;
       }
@@ -350,9 +366,14 @@ final class RaftClientImpl implements RaftClient {
     });
   }
 
-  private void handleAsyncRetryFailure(RaftClientRequest request, int attemptCount) {
-    final RaftRetryFailureException rfe = new RaftRetryFailureException(
+  static RaftRetryFailureException newRaftRetryFailureException(
+      RaftClientRequest request, int attemptCount, RetryPolicy retryPolicy) {
+    return new RaftRetryFailureException(
         "Failed " + request + " for " + (attemptCount-1) + " attempts with " + retryPolicy);
+  }
+
+  private void handleAsyncRetryFailure(RaftClientRequest request, int attemptCount) {
+    final RaftRetryFailureException rfe = newRaftRetryFailureException(request, attemptCount, retryPolicy);
     getSlidingWindow(request).fail(request.getSeqNum(), rfe);
   }
 
@@ -365,10 +386,10 @@ final class RaftClientImpl implements RaftClient {
     } catch (GroupMismatchException gme) {
       throw gme;
     } catch (IOException ioe) {
-      handleIOException(request, ioe, null);
+      handleIOException(request, ioe, null, false);
     }
     LOG.debug("{}: receive {}", clientId, reply);
-    reply = handleNotLeaderException(request, reply);
+    reply = handleNotLeaderException(request, reply, false);
     reply = handleStateMachineException(reply, Function.identity());
     return reply;
   }
@@ -388,7 +409,8 @@ final class RaftClientImpl implements RaftClient {
    * @return null if the reply is null or it has {@link NotLeaderException};
    *         otherwise return the same reply.
    */
-  private RaftClientReply handleNotLeaderException(RaftClientRequest request, RaftClientReply reply) {
+  RaftClientReply handleNotLeaderException(RaftClientRequest request, RaftClientReply reply,
+      boolean resetSlidingWindow) {
     if (reply == null) {
       return null;
     }
@@ -396,10 +418,15 @@ final class RaftClientImpl implements RaftClient {
     if (nle == null) {
       return reply;
     }
+    return handleNotLeaderException(request, nle, resetSlidingWindow);
+  }
+
+  RaftClientReply handleNotLeaderException(RaftClientRequest request, NotLeaderException nle,
+      boolean resetSlidingWindow) {
     refreshPeers(Arrays.asList(nle.getPeers()));
     final RaftPeerId newLeader = nle.getSuggestedLeader() == null ? null
         : nle.getSuggestedLeader().getId();
-    handleIOException(request, nle, newLeader);
+    handleIOException(request, nle, newLeader, resetSlidingWindow);
     return null;
   }
 
@@ -412,25 +439,29 @@ final class RaftClientImpl implements RaftClient {
     }
   }
 
-  private void handleIOException(RaftClientRequest request, IOException ioe,
-      RaftPeerId newLeader) {
+  void handleIOException(RaftClientRequest request, IOException ioe,
+      RaftPeerId newLeader, boolean resetSlidingWindow) {
     LOG.debug("{}: suggested new leader: {}. Failed {} with {}",
         clientId, newLeader, request, ioe);
     if (LOG.isTraceEnabled()) {
       LOG.trace("Stack trace", new Throwable("TRACE"));
     }
 
-    getSlidingWindow(request).resetFirstSeqNum();
+    if (resetSlidingWindow) {
+      getSlidingWindow(request).resetFirstSeqNum();
+    }
     if (ioe instanceof LeaderNotReadyException) {
       return;
     }
 
     final RaftPeerId oldLeader = request.getServerId();
-    final boolean stillLeader = oldLeader.equals(leaderId);
+    final RaftPeerId curLeader = request.getServerId();
+    final boolean stillLeader = oldLeader.equals(curLeader);
     if (newLeader == null && stillLeader) {
       newLeader = CollectionUtils.random(oldLeader,
           CollectionUtils.as(peers, RaftPeer::getId));
     }
+    LOG.debug("{}: oldLeader={},  curLeader={}, newLeader{}", clientId, oldLeader, curLeader, newLeader);
 
     final boolean changeLeader = newLeader != null && stillLeader;
     if (changeLeader) {

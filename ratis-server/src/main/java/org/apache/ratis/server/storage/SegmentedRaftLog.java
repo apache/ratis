@@ -413,4 +413,16 @@ public class SegmentedRaftLog extends RaftLog {
   RaftLogCache getRaftLogCache() {
     return cache;
   }
+
+  @Override
+  public String toString() {
+    try(AutoCloseableLock readLock = readLock()) {
+      if (isOpened()) {
+        return super.toString() + ",f" + getLatestFlushedIndex()
+            + ",i" + Optional.ofNullable(getLastEntryTermIndex()).map(TermIndex::getIndex).orElse(0L);
+      } else {
+        return super.toString();
+      }
+    }
+  }
 }

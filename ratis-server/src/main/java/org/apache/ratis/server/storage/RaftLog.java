@@ -88,6 +88,10 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     state.assertOpen();
   }
 
+  public boolean isOpened() {
+    return state.isOpened();
+  }
+
   /**
    * Update the last committed index.
    * @param majorityIndex the index that has achieved majority.
@@ -352,7 +356,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   @Override
   public String toString() {
-    return getName() + ":" + state;
+    return getName() + ":" + state + ":c" + getLastCommittedIndex();
   }
 
   public static class Metadata {

@@ -308,6 +308,8 @@ public class LeaderState {
           e = JavaUtils.unwrapCompletionException(e);
           if (e instanceof NotReplicatedException) {
             return new RaftClientReply(request, (NotReplicatedException)e, server.getCommitInfos());
+          } else if (e instanceof NotLeaderException) {
+            return new RaftClientReply(request, (NotLeaderException)e, server.getCommitInfos());
           } else {
             throw new CompletionException(e);
           }

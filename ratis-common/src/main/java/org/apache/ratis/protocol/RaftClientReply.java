@@ -92,11 +92,6 @@ public class RaftClientReply extends RaftClientMessage {
         request.getCallId(), false, request.getMessage(), nre, nre.getLogIndex(), commitInfos);
   }
 
-  public RaftClientReply(RaftClientReply reply, NotReplicatedException nre) {
-    this(reply.getClientId(), reply.getServerId(), reply.getRaftGroupId(),
-        reply.getCallId(), false, reply.getMessage(), nre, reply.getLogIndex(), reply.getCommitInfos());
-  }
-
   /**
    * Get the commit information for the entire group.
    * The commit information may be unavailable for exception reply.

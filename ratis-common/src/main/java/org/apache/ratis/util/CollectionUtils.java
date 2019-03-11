@@ -62,7 +62,6 @@ public interface CollectionUtils {
   static <T> T random(final T given, Iterable<T> iteration) {
     Objects.requireNonNull(given, "given == null");
     Objects.requireNonNull(iteration, "iteration == null");
-    Preconditions.assertTrue(iteration.iterator().hasNext(), "iteration is empty");
 
     final List<T> list = StreamSupport.stream(iteration.spliterator(), false)
         .filter(e -> !given.equals(e))
@@ -92,10 +91,11 @@ public interface CollectionUtils {
     return as(Arrays.asList(array), converter);
   }
 
-  static <K, V> void putNew(K key, V value, Map<K, V> map, Supplier<String> name) {
+  static <K, V> V putNew(K key, V value, Map<K, V> map, Supplier<String> name) {
     final V returned = map.put(key, value);
     Preconditions.assertTrue(returned == null,
         () -> "Entry already exists for key " + key + " in map " + name.get());
+    return value;
   }
 
   static <K, V> void replaceExisting(K key, V oldValue, V newValue, Map<K, V> map, Supplier<String> name) {

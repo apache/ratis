@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -24,6 +24,7 @@ import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupListRequestProto;
@@ -57,10 +58,6 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
     this.tlsConfig = tlsConfig;
   }
 
-  public GrpcClientRpc(ClientId clientId, RaftProperties properties) {
-    this(clientId, properties, null);
-  }
-
   @Override
   public CompletableFuture<RaftClientReply> sendRequestAsync(
       RaftClientRequest request) {
@@ -71,6 +68,19 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
       return proxy.getAppendStreamObservers().onNext(request);
     } catch (IOException e) {
       return JavaUtils.completeExceptionally(e);
+    }
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> sendRequestAsyncUnordered(RaftClientRequest request) {
+    final RaftPeerId serverId = request.getServerId();
+    try {
+      final GrpcClientProtocolClient proxy = getProxies().getProxy(serverId);
+      // Reuse the same grpc stream for all async calls.
+      return proxy.getUnorderedAsyncStreamObservers().onNext(request);
+    } catch (Throwable t) {
+      LOG.error(clientId + ": XXX Failed " + request, t);
+      return JavaUtils.completeExceptionally(t);
     }
   }
 
@@ -148,5 +158,21 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
           + " exceeds maximum:" + maxMessageSize);
     }
     return proto;
+  }
+
+  @Override
+  public boolean handleException(RaftPeerId serverId, Throwable e, boolean reconnect) {
+    final Throwable cause = e.getCause();
+    if (e instanceof IOException && cause instanceof StatusRuntimeException) {
+      if (!((StatusRuntimeException) cause).getStatus().isOk()) {
+        reconnect = true;
+      }
+    } else if (e instanceof IllegalArgumentException) {
+      if (e.getMessage().contains("null frame before EOS")) {
+        reconnect = true;
+      }
+    }
+    LOG.debug("{}->{}: reconnect? {}, e={}, cause={}", clientId, serverId, reconnect, e, cause);
+    return super.handleException(serverId, e, reconnect);
   }
 }

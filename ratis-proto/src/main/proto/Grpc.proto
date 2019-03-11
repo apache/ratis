@@ -31,6 +31,10 @@ service RaftClientProtocolService {
   // A client-to-server stream RPC to append data
   rpc append(stream ratis.common.RaftClientRequestProto)
       returns (stream ratis.common.RaftClientReplyProto) {}
+
+  // A client-to-server stream RPC for unordered async requested
+  rpc unordered(stream ratis.common.RaftClientRequestProto)
+      returns (stream ratis.common.RaftClientReplyProto) {}
 }
 
 service RaftServerProtocolService {

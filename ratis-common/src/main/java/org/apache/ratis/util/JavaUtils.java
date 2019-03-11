@@ -27,8 +27,8 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Collection;
 import java.util.Date;
-import java.util.List;
 import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -72,6 +72,11 @@ public interface JavaUtils {
   static StackTraceElement getCallerStackTraceElement() {
     final StackTraceElement[] trace = Thread.currentThread().getStackTrace();
     return trace[3];
+  }
+
+  static StackTraceElement getCurrentStackTraceElement() {
+    final StackTraceElement[] trace = Thread.currentThread().getStackTrace();
+    return trace[2];
   }
 
   static <T extends Throwable> void runAsUnchecked(CheckedRunnable<T> runnable) {
@@ -238,7 +243,7 @@ public interface JavaUtils {
     return t instanceof CompletionException && t.getCause() != null? t.getCause(): t;
   }
 
-  static <T> CompletableFuture<Void> allOf(List<CompletableFuture<T>> futures) {
+  static <T> CompletableFuture<Void> allOf(Collection<CompletableFuture<T>> futures) {
     return CompletableFuture.allOf(futures.toArray(EMPTY_COMPLETABLE_FUTURE_ARRAY));
   }
 

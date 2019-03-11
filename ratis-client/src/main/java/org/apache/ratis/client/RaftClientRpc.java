@@ -21,6 +21,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.JavaUtils;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -31,6 +32,12 @@ public interface RaftClientRpc extends Closeable {
   /** Async call to send a request. */
   default CompletableFuture<RaftClientReply> sendRequestAsync(RaftClientRequest request) {
     throw new UnsupportedOperationException(getClass() + " does not support this method.");
+  }
+
+  /** Async call to send a request. */
+  default CompletableFuture<RaftClientReply> sendRequestAsyncUnordered(RaftClientRequest request) {
+    throw new UnsupportedOperationException(getClass() + " does not support "
+        + JavaUtils.getCurrentStackTraceElement().getMethodName());
   }
 
   /** Send a request. */

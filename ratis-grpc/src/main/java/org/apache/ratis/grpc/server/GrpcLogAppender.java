@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -180,7 +180,7 @@ public class GrpcLogAppender extends LogAppender {
   private void timeoutAppendRequest(AppendEntriesRequestProto request) {
     AppendEntriesRequestProto pendingRequest = pendingRequests.remove(request.getServerRequest().getCallId());
     if (pendingRequest != null) {
-      LOG.warn( "{}: appendEntries Timeout, request={}", this, ProtoUtils.toString(pendingRequest.getServerRequest()));
+      LOG.warn( "{}: appendEntries Timeout, request={}", this, ServerProtoUtils.toString(pendingRequest));
     }
   }
 
@@ -258,8 +258,8 @@ public class GrpcLogAppender extends LogAppender {
 
     @Override
     public void onCompleted() {
-      LOG.info("{} stops appending log entries to follower {}", server.getId(),
-          follower);
+      LOG.info("{}: follower {} response Completed", server.getId(), follower);
+      resetClient(null);
     }
   }
 

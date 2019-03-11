@@ -121,9 +121,11 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     LOG.debug("{}: reset proxy for {}", name, id );
     synchronized (resetLock) {
       final PeerAndProxy pp = peers.remove(id);
-      final RaftPeer peer = pp.getPeer();
-      pp.close();
-      computeIfAbsent(peer);
+      if (pp != null) {
+        final RaftPeer peer = pp.getPeer();
+        pp.close();
+        computeIfAbsent(peer);
+      }
     }
   }
 

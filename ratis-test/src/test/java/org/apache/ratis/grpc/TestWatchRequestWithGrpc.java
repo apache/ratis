@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,9 +17,21 @@
  */
 package org.apache.ratis.grpc;
 
+import org.apache.log4j.Level;
 import org.apache.ratis.WatchRequestTests;
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.impl.UnorderedAsync;
+import org.apache.ratis.grpc.client.GrpcClientProtocolService;
+import org.apache.ratis.grpc.client.GrpcClientRpc;
+import org.apache.ratis.util.LogUtils;
 
 public class TestWatchRequestWithGrpc
     extends WatchRequestTests<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
+  {
+    LogUtils.setLogLevel(GrpcClientProtocolService.LOG, Level.ALL);
+    LogUtils.setLogLevel(GrpcClientRpc.LOG, Level.ALL);
+    LogUtils.setLogLevel(UnorderedAsync.LOG, Level.ALL);
+    LogUtils.setLogLevel(RaftClient.LOG, Level.ALL);
+  }
 }

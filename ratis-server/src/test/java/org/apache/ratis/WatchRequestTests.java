@@ -72,23 +72,13 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
   static class TestParameters {
     final int numMessages;
     final RaftClient writeClient;
-    final RaftClient watchMajorityClient;
-    final RaftClient watchAllClient;
-    final RaftClient watchMajorityCommittedClient;
-    final RaftClient watchAllCommittedClient;
     final MiniRaftCluster cluster;
     final Logger log;
 
     TestParameters(int numMessages, RaftClient writeClient,
-        RaftClient watchMajorityClient, RaftClient watchAllClient,
-        RaftClient watchMajorityCommittedClient, RaftClient watchAllCommittedClient,
         MiniRaftCluster cluster, Logger log) {
       this.numMessages = numMessages;
       this.writeClient = writeClient;
-      this.watchMajorityClient = watchMajorityClient;
-      this.watchAllClient = watchAllClient;
-      this.watchMajorityCommittedClient = watchMajorityCommittedClient;
-      this.watchAllCommittedClient = watchAllCommittedClient;
       this.cluster = cluster;
       this.log = log;
     }
@@ -106,10 +96,10 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
           final long logIndex = reply.getLogIndex();
           log.info("SEND_WATCH: message={}, logIndex={}", message, logIndex);
           watchFuture.complete(new WatchReplies(logIndex,
-              watchMajorityClient.sendWatchAsync(logIndex, ReplicationLevel.MAJORITY),
-              watchAllClient.sendWatchAsync(logIndex, ReplicationLevel.ALL),
-              watchMajorityCommittedClient.sendWatchAsync(logIndex, ReplicationLevel.MAJORITY_COMMITTED),
-              watchAllCommittedClient.sendWatchAsync(logIndex, ReplicationLevel.ALL_COMMITTED),
+              writeClient.sendWatchAsync(logIndex, ReplicationLevel.MAJORITY),
+              writeClient.sendWatchAsync(logIndex, ReplicationLevel.ALL),
+              writeClient.sendWatchAsync(logIndex, ReplicationLevel.MAJORITY_COMMITTED),
+              writeClient.sendWatchAsync(logIndex, ReplicationLevel.ALL_COMMITTED),
               log));
         });
       }
@@ -121,18 +111,13 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     }
   }
 
-  static void runTest(CheckedConsumer<TestParameters, Exception> testCase, MiniRaftCluster cluster, Logger LOG) throws Exception {
-    try(final RaftClient writeClient = cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId());
-        final RaftClient watchMajorityClient = cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId());
-        final RaftClient watchAllClient = cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId());
-        final RaftClient watchMajorityCommittedClient = cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId());
-        final RaftClient watchAllCommittedClient = cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId())) {
+  static void runTest(CheckedConsumer<TestParameters, Exception> testCase, MiniRaftCluster cluster, Logger LOG)
+      throws Exception {
+    try(final RaftClient client = cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId())) {
       final int[] numMessages = {1, 10, 100};
       for(int i = 0; i < 5; i++) {
         final int n = numMessages[ThreadLocalRandom.current().nextInt(numMessages.length)];
-        final TestParameters p = new TestParameters(
-            n, writeClient, watchMajorityClient, watchAllClient,
-            watchMajorityCommittedClient, watchAllCommittedClient, cluster, LOG);
+        final TestParameters p = new TestParameters(n, client, cluster, LOG);
         LOG.info("{}) {}, {}", i, p, cluster.printServers());
         testCase.accept(p);
       }
@@ -159,26 +144,30 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     }
 
     RaftClientReply getMajority() throws Exception {
-      final RaftClientReply reply = majority.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      log.info("watchMajorityReply({}) = {}", logIndex, reply);
-      return reply;
+      return get(majority, "majority");
     }
 
     RaftClientReply getMajorityCommitted() throws Exception {
-      final RaftClientReply reply = majorityCommitted.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      log.info("watchMajorityCommittedReply({}) = {}", logIndex, reply);
-      return reply;
+      return get(majorityCommitted, "majorityCommitted");
     }
 
     RaftClientReply getAll() throws Exception {
-      final RaftClientReply reply = all.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      log.info("watchAllReply({}) = {}", logIndex, reply);
-      return reply;
+      return get(all, "all");
     }
 
     RaftClientReply getAllCommitted() throws Exception {
-      final RaftClientReply reply = allCommitted.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
-      log.info("watchAllCommittedReply({}) = {}", logIndex, reply);
+      return get(allCommitted, "allCommitted");
+    }
+
+    RaftClientReply get(CompletableFuture<RaftClientReply> f, String name) throws Exception {
+      final RaftClientReply reply;
+      try {
+        reply = f.get(GET_TIMEOUT_SECOND, TimeUnit.SECONDS);
+      } catch (Exception e) {
+        log.error("Failed to get {}({})", name, logIndex);
+        throw e;
+      }
+      log.info("{}-Watch({}) returns {}", name, logIndex, reply);
       return reply;
     }
   }
@@ -324,11 +313,10 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     Assert.assertEquals(numMessages, replies.size());
     Assert.assertEquals(numMessages, watches.size());
 
-    // since only one follower is blocked, requests can be committed MAJORITY but neither ALL nor ALL_COMMITTED.
+    // since only one follower is blocked commit, requests can be committed MAJORITY and ALL but not ALL_COMMITTED.
     checkMajority(replies, watches, LOG);
 
     TimeUnit.SECONDS.sleep(1);
-    assertNotDone(watches.stream().map(CompletableFuture::join).map(w -> w.all));
     assertNotDone(watches.stream().map(CompletableFuture::join).map(w -> w.allCommitted));
 
     // Now change leader

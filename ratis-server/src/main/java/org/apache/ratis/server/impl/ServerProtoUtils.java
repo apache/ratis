@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -61,6 +61,10 @@ public interface ServerProtoUtils {
     return TermIndex.toString(entry.getTerm(), entry.getIndex());
   }
 
+  static String toTermIndexString(TermIndexProto proto) {
+    return TermIndex.toString(proto.getTerm(), proto.getIndex());
+  }
+
   static String toLogEntryString(LogEntryProto entry) {
     if (entry == null) {
       return null;
@@ -86,7 +90,17 @@ public interface ServerProtoUtils {
         : "" + Arrays.stream(entries).map(ServerProtoUtils::toLogEntryString)
             .collect(Collectors.toList());
   }
-
+  static String toShortString(List<LogEntryProto> entries) {
+    return entries.size() == 0? "<empty>"
+        : "size=" + entries.size() + ", first=" + toLogEntryString(entries.get(0));
+  }
+  static String toString(AppendEntriesRequestProto proto) {
+    return ProtoUtils.toString(proto.getServerRequest()) + "-t" + proto.getLeaderTerm()
+        + ", previous=" + toTermIndexString(proto.getPreviousLog())
+        + ", leaderCommit=" + proto.getLeaderCommit()
+        + ", initializing? " + proto.getInitializing()
+        + ", entries: " + toShortString(proto.getEntriesList());
+  }
   static String toString(AppendEntriesReplyProto reply) {
     return toString(reply.getServerReply()) + "," + reply.getResult()
         + ",nextIndex:" + reply.getNextIndex() + ",term:" + reply.getTerm()
