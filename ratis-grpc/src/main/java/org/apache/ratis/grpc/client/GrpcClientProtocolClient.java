@@ -299,7 +299,7 @@ public class GrpcClientProtocolClient implements Closeable {
         return f;
       }
 
-      LOG.info("schedule " + requestTimeoutDuration + " timeout check for " + request);
+      LOG.debug("schedule " + requestTimeoutDuration + " timeout check for " + request);
       scheduler.onTimeout(requestTimeoutDuration, () -> timeoutCheck(request), LOG,
           () -> "Timeout check failed for client request: " + request);
       return f;
