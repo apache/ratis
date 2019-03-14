@@ -37,7 +37,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
 /** Server proto utilities for internal use. */
 public interface ServerProtoUtils {
@@ -261,7 +260,7 @@ public interface ServerProtoUtils {
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId) {
     return ClientProtoUtils.toRaftRpcRequestProtoBuilder(
-        requestorId.toByteString(), replyId.toByteString(), groupId, DEFAULT_CALLID, DEFAULT_SEQNUM);
+        requestorId.toByteString(), replyId.toByteString(), groupId, DEFAULT_CALLID, null);
   }
 
   static RequestVoteRequestProto toRequestVoteRequestProto(

@@ -31,15 +31,29 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.function.Supplier;
 
 /** Send unordered asynchronous requests to a raft service. */
 public interface UnorderedAsync {
   Logger LOG = LoggerFactory.getLogger(UnorderedAsync.class);
 
+  class PendingUnorderedRequest extends PendingClientRequest {
+    private final Supplier<RaftClientRequest> requestConstructor;
+
+    PendingUnorderedRequest(Supplier<RaftClientRequest> requestConstructor) {
+      this.requestConstructor = requestConstructor;
+    }
+
+    @Override
+    RaftClientRequest newRequestImpl() {
+      return requestConstructor.get();
+    }
+  }
+
   static CompletableFuture<RaftClientReply> send(RaftClientRequest.Type type, RaftClientImpl client) {
     final long callId = RaftClientImpl.nextCallId();
-    final PendingClientRequest pending = new PendingClientRequest(
-        () -> client.newRaftClientRequest(null, callId, -1L, null, type));
+    final PendingClientRequest pending = new PendingUnorderedRequest(
+        () -> client.newRaftClientRequest(null, callId, null, type, null));
     sendRequestWithRetry(pending, client);
     return pending.getReplyFuture()
         .thenApply(reply -> RaftClientImpl.handleStateMachineException(reply, CompletionException::new));

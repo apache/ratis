@@ -68,9 +68,8 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
     final RaftClient client = cluster.createClient(leaderId);
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
-    final long seqNum = 111;
     RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, seqNum, new SimpleMessage("message"));
+        callId, new SimpleMessage("message"));
     assertReply(rpc.sendRequest(r), client, callId);
 
     // retry with the same callId
@@ -130,9 +129,8 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
     final RaftClient client = cluster.createClient(leaderId);
     RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
-    final long seqNum = 111;
     RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, seqNum, new SimpleMessage("message"));
+        callId, new SimpleMessage("message"));
     assertReply(rpc.sendRequest(r), client, callId);
     long oldLastApplied = cluster.getLeader().getState().getLastAppliedIndex();
 
@@ -151,7 +149,7 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
     Assert.assertNotEquals(leaderId, newLeaderId);
     // same clientId and callId in the request
     r = cluster.newRaftClientRequest(client.getId(), newLeaderId,
-        callId, seqNum, new SimpleMessage("message"));
+        callId, new SimpleMessage("message"));
     rpc.addServers(Arrays.asList(change.newPeers));
     for (int i = 0; i < 10; i++) {
       try {

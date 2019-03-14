@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -22,8 +22,7 @@ package org.apache.ratis.protocol;
  * the server itself.
  */
 public class GroupInfoRequest extends RaftClientRequest {
-  public GroupInfoRequest(ClientId clientId, RaftPeerId serverId,
-                                  RaftGroupId groupId, long callId) {
-    super(clientId, serverId, groupId, callId, 0L, null, RaftClientRequest.readRequestType());
+  public GroupInfoRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId) {
+    super(clientId, serverId, groupId, callId, readRequestType());
   }
 }

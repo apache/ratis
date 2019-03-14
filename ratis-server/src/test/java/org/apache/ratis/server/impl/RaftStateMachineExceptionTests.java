@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -107,9 +107,8 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
     final RaftClient client = cluster.createClient(leaderId);
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
-    final long seqNum = 111;
     final SimpleMessage message = new SimpleMessage("message");
-    final RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId, callId, seqNum, message);
+    final RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId, callId, message);
     RaftClientReply reply = rpc.sendRequest(r);
     Assert.assertFalse(reply.isSuccess());
     Assert.assertNotNull(reply.getStateMachineException());
@@ -156,9 +155,8 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
     final RaftClient client = cluster.createClient(leaderId);
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
-    final long seqNum = 111;
     RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, seqNum, new RaftTestUtil.SimpleMessage("message"));
+        callId, new RaftTestUtil.SimpleMessage("message"));
     RaftClientReply reply = rpc.sendRequest(r);
     Objects.requireNonNull(reply.getStateMachineException());
 
@@ -174,7 +172,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
     leaderId = leader.getId();
     // retry
     r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, seqNum, new RaftTestUtil.SimpleMessage("message"));
+        callId, new RaftTestUtil.SimpleMessage("message"));
     reply = rpc.sendRequest(r);
     Objects.requireNonNull(reply.getStateMachineException());
 

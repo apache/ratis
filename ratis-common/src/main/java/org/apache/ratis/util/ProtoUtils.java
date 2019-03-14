@@ -24,6 +24,7 @@ import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
@@ -135,6 +136,14 @@ public interface ProtoUtils {
 
   static String toString(Collection<CommitInfoProto> protos) {
     return protos.stream().map(ProtoUtils::toString).collect(Collectors.toList()).toString();
+  }
+
+  static SlidingWindowEntry toSlidingWindowEntry(long seqNum, boolean isFirst) {
+    return SlidingWindowEntry.newBuilder().setSeqNum(seqNum).setIsFirst(isFirst).build();
+  }
+
+  static String toString(SlidingWindowEntry proto) {
+    return proto.getSeqNum() + (proto.getIsFirst()? "*": "");
   }
 
   static IOException toIOException(ServiceException se) {

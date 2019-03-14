@@ -44,7 +44,7 @@ import java.util.function.Supplier;
 public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientProtocolService.class);
 
-  private static class PendingAppend implements SlidingWindow.Request<RaftClientReply> {
+  private static class PendingAppend implements SlidingWindow.ServerSideRequest<RaftClientReply> {
     private final RaftClientRequest request;
     private volatile RaftClientReply reply;
 
@@ -72,7 +72,12 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
 
     @Override
     public long getSeqNum() {
-      return request != null? request.getSeqNum(): Long.MAX_VALUE;
+      return request != null? request.getSlidingWindowEntry().getSeqNum(): Long.MAX_VALUE;
+    }
+
+    @Override
+    public boolean isFirstRequest() {
+      return request != null && request.getSlidingWindowEntry().getIsFirst();
     }
 
     @Override

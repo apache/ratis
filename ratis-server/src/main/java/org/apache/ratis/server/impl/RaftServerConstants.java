@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -20,7 +20,6 @@ package org.apache.ratis.server.impl;
 public interface RaftServerConstants {
   long INVALID_LOG_INDEX = -1;
   long DEFAULT_CALLID = 0;
-  long DEFAULT_SEQNUM = 0L;
 
   enum StartupOption {
     FORMAT("format"),

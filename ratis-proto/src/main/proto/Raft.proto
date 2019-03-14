@@ -94,7 +94,12 @@ message RaftRpcRequestProto {
   RaftGroupIdProto raftGroupId = 3;
   uint64 callId = 4;
 
-  uint64 seqNum = 15;
+  SlidingWindowEntry slidingWindowEntry = 15;
+}
+
+message SlidingWindowEntry {
+  uint64 seqNum = 1; // 0 for non-sliding-window requests; >= 1 for sliding-window requests
+  bool isFirst = 2;  // Is this the first request of the sliding window?
 }
 
 message RaftRpcReplyProto {

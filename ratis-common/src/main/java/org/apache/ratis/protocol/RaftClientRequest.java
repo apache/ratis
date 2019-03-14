@@ -19,6 +19,7 @@ package org.apache.ratis.protocol;
 
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ProtoUtils;
 
 import java.util.Objects;
 
@@ -152,24 +153,23 @@ public class RaftClientRequest extends RaftClientMessage {
   }
 
   private final long callId;
-  private final long seqNum;
-
   private final Message message;
   private final Type type;
 
-  public RaftClientRequest(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId, long callId) {
-    this(clientId, serverId, groupId, callId, 0L, null, WRITE_DEFAULT);
+  private final SlidingWindowEntry slidingWindowEntry;
+
+  RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
+    this(clientId, serverId, groupId, callId, null, type, null);
   }
 
   public RaftClientRequest(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
-      long callId, long seqNum, Message message, Type type) {
+      long callId, Message message, Type type, SlidingWindowEntry slidingWindowEntry) {
     super(clientId, serverId, groupId);
     this.callId = callId;
-    this.seqNum = seqNum;
     this.message = message;
     this.type = type;
+    this.slidingWindowEntry = slidingWindowEntry != null? slidingWindowEntry: SlidingWindowEntry.getDefaultInstance();
   }
 
   @Override
@@ -181,8 +181,8 @@ public class RaftClientRequest extends RaftClientMessage {
     return callId;
   }
 
-  public long getSeqNum() {
-    return seqNum;
+  public SlidingWindowEntry getSlidingWindowEntry() {
+    return slidingWindowEntry;
   }
 
   public Message getMessage() {
@@ -199,7 +199,7 @@ public class RaftClientRequest extends RaftClientMessage {
 
   @Override
   public String toString() {
-    return super.toString() + ", cid=" + callId + ", seq=" + seqNum + " "
+    return super.toString() + ", cid=" + callId + ", seq=" + ProtoUtils.toString(slidingWindowEntry)
         + type + ", " + getMessage();
   }
 }

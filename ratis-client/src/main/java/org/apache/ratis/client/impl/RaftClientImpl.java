@@ -22,6 +22,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.*;
@@ -49,18 +50,15 @@ final class RaftClientImpl implements RaftClient {
     return CALL_ID_COUNTER.getAndIncrement() & Long.MAX_VALUE;
   }
 
-  static class PendingClientRequest {
-    private final Supplier<RaftClientRequest> requestConstructor;
+  abstract static class PendingClientRequest {
     private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
     private final AtomicInteger attemptCount = new AtomicInteger();
 
-    PendingClientRequest(Supplier<RaftClientRequest> requestConstructor) {
-      this.requestConstructor = requestConstructor;
-    }
+    abstract RaftClientRequest newRequestImpl();
 
-    RaftClientRequest newRequest() {
+    final RaftClientRequest newRequest() {
       attemptCount.incrementAndGet();
-      return requestConstructor.get();
+      return newRequestImpl();
     }
 
     CompletableFuture<RaftClientReply> getReplyFuture() {
@@ -72,12 +70,25 @@ final class RaftClientImpl implements RaftClient {
     }
   }
 
-  static class PendingAsyncRequest extends PendingClientRequest implements SlidingWindow.Request<RaftClientReply> {
+  static class PendingAsyncRequest extends PendingClientRequest
+      implements SlidingWindow.ClientSideRequest<RaftClientReply> {
+    private final Function<SlidingWindowEntry, RaftClientRequest> requestConstructor;
     private final long seqNum;
+    private volatile boolean isFirst = false;
 
-    PendingAsyncRequest(long seqNum, LongFunction<RaftClientRequest> requestConstructor) {
-      super(() -> requestConstructor.apply(seqNum));
+    PendingAsyncRequest(long seqNum, Function<SlidingWindowEntry, RaftClientRequest> requestConstructor) {
       this.seqNum = seqNum;
+      this.requestConstructor = requestConstructor;
+    }
+
+    @Override
+    RaftClientRequest newRequestImpl() {
+      return requestConstructor.apply(ProtoUtils.toSlidingWindowEntry(seqNum, isFirst));
+    }
+
+    @Override
+    public void setFirstRequest() {
+      isFirst = true;
     }
 
     @Override
@@ -192,7 +203,7 @@ final class RaftClientImpl implements RaftClient {
 
     final long callId = nextCallId();
     final LongFunction<PendingAsyncRequest> constructor = seqNum -> new PendingAsyncRequest(seqNum,
-        seq -> newRaftClientRequest(server, callId, seq, message, type));
+        slidingWindowEntry -> newRaftClientRequest(server, callId, message, type, slidingWindowEntry));
     return getSlidingWindow(server).submitNewRequest(constructor, this::sendRequestWithRetryAsync
     ).getReplyFuture(
     ).thenApply(reply -> handleStateMachineException(reply, CompletionException::new)
@@ -200,9 +211,10 @@ final class RaftClientImpl implements RaftClient {
   }
 
   RaftClientRequest newRaftClientRequest(
-      RaftPeerId server, long callId, long seq, Message message, RaftClientRequest.Type type) {
+      RaftPeerId server, long callId, Message message, RaftClientRequest.Type type,
+      SlidingWindowEntry slidingWindowEntry) {
     return new RaftClientRequest(clientId, server != null? server: leaderId, groupId,
-        callId, seq, message, type);
+        callId, message, type, slidingWindowEntry);
   }
 
   @Override
@@ -233,8 +245,7 @@ final class RaftClientImpl implements RaftClient {
     }
 
     final long callId = nextCallId();
-    return sendRequestWithRetry(() -> newRaftClientRequest(
-        server, callId, 0L, message, type));
+    return sendRequestWithRetry(() -> newRaftClientRequest(server, callId, message, type, null));
   }
 
   @Override
@@ -342,7 +353,7 @@ final class RaftClientImpl implements RaftClient {
       reply = handleNotLeaderException(request, reply, true);
       if (reply != null) {
         getSlidingWindow(request).receiveReply(
-            request.getSeqNum(), reply, this::sendRequestWithRetryAsync);
+            request.getSlidingWindowEntry().getSeqNum(), reply, this::sendRequestWithRetryAsync);
       } else if (!retryPolicy.shouldRetry(attemptCount)) {
         handleAsyncRetryFailure(request, attemptCount);
       }
@@ -374,7 +385,7 @@ final class RaftClientImpl implements RaftClient {
 
   private void handleAsyncRetryFailure(RaftClientRequest request, int attemptCount) {
     final RaftRetryFailureException rfe = newRaftRetryFailureException(request, attemptCount, retryPolicy);
-    getSlidingWindow(request).fail(request.getSeqNum(), rfe);
+    getSlidingWindow(request).fail(request.getSlidingWindowEntry().getSeqNum(), rfe);
   }
 
   private RaftClientReply sendRequest(RaftClientRequest request)

@@ -43,9 +43,16 @@ public interface SlidingWindow {
     void setReply(REPLY reply);
 
     boolean hasReply();
+  }
 
-    default void fail(Exception e) {
-    }
+  interface ClientSideRequest<REPLY> extends Request<REPLY> {
+    void setFirstRequest();
+
+    void fail(Exception e);
+  }
+
+  interface ServerSideRequest<REPLY> extends Request<REPLY> {
+    boolean isFirstRequest();
   }
 
   /** A seqNum-to-request map, sorted by seqNum. */
@@ -161,14 +168,14 @@ public interface SlidingWindow {
    * Depend on the replies/exceptions, the client may retry the requests
    * to the same or a different server.
    */
-  class Client<REQUEST extends Request<REPLY>, REPLY> {
+  class Client<REQUEST extends ClientSideRequest<REPLY>, REPLY> {
     /** The requests in the sliding window. */
     private final RequestMap<REQUEST, REPLY> requests;
     /** Delayed requests. */
     private final SortedMap<Long, Long> delayedRequests = new TreeMap<>();
 
     /** The seqNum for the next new request. */
-    private long nextSeqNum = 0;
+    private long nextSeqNum = 1;
     /** The seqNum of the first request. */
     private long firstSeqNum = -1;
     /** Is the first request replied? */
@@ -240,6 +247,7 @@ public interface SlidingWindow {
         // first request is not yet submitted and this is the first request, submit it.
         LOG.debug("{}: detect firstSubmitted {} in {}", requests.getName(), request, this);
         firstSeqNum = seqNum;
+        request.setFirstRequest();
         sendMethod.accept(request);
         return true;
       }
@@ -351,7 +359,7 @@ public interface SlidingWindow {
    * (3) receive replies from the processing unit;
    * (4) send replies to the client.
    */
-  class Server<REQUEST extends Request<REPLY>, REPLY> implements Closeable {
+  class Server<REQUEST extends ServerSideRequest<REPLY>, REPLY> implements Closeable {
     /** The requests in the sliding window. */
     private final RequestMap<REQUEST, REPLY> requests;
     /** The end of requests */
@@ -373,7 +381,7 @@ public interface SlidingWindow {
     /** A request (or a retry) arrives (may be out-of-order except for the first request). */
     public synchronized void receivedRequest(REQUEST request, Consumer<REQUEST> processingMethod) {
       final long seqNum = request.getSeqNum();
-      if (nextToProcess == -1) {
+      if (nextToProcess == -1 && (request.isFirstRequest() || seqNum == 0)) {
         nextToProcess = seqNum;
         LOG.debug("{}: got seq={} (first request), set nextToProcess in {}", requests.getName(), seqNum, this);
       } else {

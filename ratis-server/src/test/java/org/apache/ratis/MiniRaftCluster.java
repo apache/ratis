@@ -79,7 +79,6 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
-import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_SEQNUM;
 
 public abstract class MiniRaftCluster implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(MiniRaftCluster.class);
@@ -679,14 +678,13 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public RaftClientRequest newRaftClientRequest(
       ClientId clientId, RaftPeerId leaderId, Message message) {
-    return newRaftClientRequest(clientId, leaderId,
-        DEFAULT_CALLID, DEFAULT_SEQNUM, message);
+    return newRaftClientRequest(clientId, leaderId, DEFAULT_CALLID, message);
   }
 
   public RaftClientRequest newRaftClientRequest(
-      ClientId clientId, RaftPeerId leaderId, long callId, long seqNum, Message message) {
+      ClientId clientId, RaftPeerId leaderId, long callId, Message message) {
     return new RaftClientRequest(clientId, leaderId, getGroupId(),
-        callId, seqNum, message, RaftClientRequest.writeRequestType());
+        callId, message, RaftClientRequest.writeRequestType(), null);
   }
 
   public SetConfigurationRequest newSetConfigurationRequest(

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -24,7 +24,7 @@ public class SetConfigurationRequest extends RaftClientRequest {
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
       RaftGroupId groupId, long callId, RaftPeer[] peers) {
-    super(clientId, serverId, groupId, callId);
+    super(clientId, serverId, groupId, callId, writeRequestType());
     this.peers = peers;
   }
 

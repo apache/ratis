@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -80,7 +80,7 @@ public class GroupManagementRequest extends RaftClientRequest {
   private final Op op;
 
   private GroupManagementRequest(ClientId clientId, RaftPeerId serverId, long callId, Op op) {
-    super(clientId, serverId, op.getGroupId(), callId);
+    super(clientId, serverId, op.getGroupId(), callId, writeRequestType());
     this.op = op;
   }
 
