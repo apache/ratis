@@ -103,7 +103,7 @@ public class BaseStateMachine implements StateMachine {
     return lastAppliedTermIndex.get();
   }
 
-  protected void setLastAppliedTermIndex(TermIndex newTI) {
+  public void setLastAppliedTermIndex(TermIndex newTI) {
     lastAppliedTermIndex.set(newTI);
   }
 

@@ -65,8 +65,10 @@ public class RaftLogIndex {
 
   public boolean updateToMax(long newIndex, Consumer<Object> log) {
     final long old = index.getAndUpdate(oldIndex -> Math.max(oldIndex, newIndex));
-    log.accept(StringUtils.stringSupplierAsObject(() -> name + ": updateToMax " + old + " -> " + newIndex));
-    return old != newIndex;
+    final boolean updated = old < newIndex;
+    log.accept(StringUtils.stringSupplierAsObject(
+        () -> name + ": updateToMax old=" + old + ", new=" + newIndex + ", updated? " + updated));
+    return updated;
   }
 
   @Override

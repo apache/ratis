@@ -200,9 +200,9 @@ public interface RaftTestUtil {
     });
   }
 
-  static void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage... expectedMessages) {
-    final List<LogEntryProto> entries = new ArrayList<>(expectedMessages.length);
-    for(LogEntryProto e : getLogEntryProtos(log)) {
+  static List<LogEntryProto> getStateMachineLogEntries(RaftLog log) {
+    final List<LogEntryProto> entries = new ArrayList<>();
+    for (LogEntryProto e : getLogEntryProtos(log)) {
       final String s = ServerProtoUtils.toString(e);
       if (e.hasStateMachineLogEntry()) {
         LOG.info(s + ", " + e.getStateMachineLogEntry().toString().trim().replace("\n", ", "));
@@ -215,7 +215,11 @@ public interface RaftTestUtil {
         throw new AssertionError("Unexpected LogEntryBodyCase " + e.getLogEntryBodyCase() + " at " + s);
       }
     }
+    return entries;
+  }
 
+  static void assertLogEntries(RaftLog log, long expectedTerm, SimpleMessage... expectedMessages) {
+    final List<LogEntryProto> entries = getStateMachineLogEntries(log);
     try {
       assertLogEntries(entries, expectedTerm, expectedMessages);
     } catch(Throwable t) {

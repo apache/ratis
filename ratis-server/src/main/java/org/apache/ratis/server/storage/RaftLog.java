@@ -242,7 +242,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       }
     });
     Optional.ofNullable(lastMetadataEntry).ifPresent(
-        e -> commitIndex.updateIncreasingly(e.getMetadataEntry().getCommitIndex(), infoIndexChange));
+        e -> commitIndex.updateToMax(e.getMetadataEntry().getCommitIndex(), infoIndexChange));
     state.open();
   }
 

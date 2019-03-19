@@ -32,6 +32,7 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.impl.ServerState;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.server.storage.SegmentedRaftLogFormat;
@@ -49,10 +50,12 @@ import org.junit.Test;
 import org.slf4j.Logger;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -219,24 +222,39 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   }
 
   void runTestRestartCommitIndex(MiniRaftCluster cluster) throws Exception {
-    final TimeDuration sleepTime = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
-    final SimpleMessage[] messages = SimpleMessage.create(10);
-    try (final RaftClient client = cluster.createClient()) {
-      for(SimpleMessage m : messages) {
-        Assert.assertTrue(client.send(m).isSuccess());
+    final SimpleMessage[] messages = SimpleMessage.create(100);
+    final List<CompletableFuture<Void>> futures = new ArrayList<>(messages.length);
+    for(int i = 0; i < messages.length; i++) {
+      final CompletableFuture<Void> f = new CompletableFuture<>();
+      futures.add(f);
+
+      final SimpleMessage m = messages[i];
+      try (final RaftClient client = cluster.createClient()) {
+        new Thread(() -> {
+          try {
+            Assert.assertTrue(client.send(m).isSuccess());
+          } catch (IOException e) {
+            throw new IllegalStateException("Failed to send " + m, e);
+          }
+          f.complete(null);
+        }).start();
       }
     }
+    JavaUtils.allOf(futures).get();
 
     final List<RaftPeerId> ids = new ArrayList<>();
-    final RaftLog leaderLog = cluster.getLeader().getState().getLog();
+    final RaftServerImpl leader = cluster.getLeader();
+    final RaftLog leaderLog = leader.getState().getLog();
     final RaftPeerId leaderId = leaderLog.getSelfId();
     ids.add(leaderId);
+
+    RaftTestUtil.getStateMachineLogEntries(leaderLog);
 
     // check that the last logged commit index is equal to the index of the last committed StateMachineLogEntry
     final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
     LOG.info("{}: leader lastIndex={}", leaderId, lastIndex);
     JavaUtils.attempt(() -> leaderLog.getLastCommittedIndex() == lastIndex,
-        10, sleepTime, "leader(commitIndex == lastIndex)", LOG);
+        10, HUNDRED_MILLIS, "leader(commitIndex == lastIndex)", LOG);
 
     final LogEntryProto lastEntry = leaderLog.get(lastIndex);
     LOG.info("{}: leader lastEntry entry[{}] = {}", leaderId, lastIndex, ServerProtoUtils.toLogEntryString(lastEntry));
@@ -245,12 +263,17 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     for(long i = lastIndex - 1; i > loggedCommitIndex; i--) {
       final LogEntryProto entry = leaderLog.get(i);
       LOG.info("{}: leader entry[{}] =  {}", leaderId, i, ServerProtoUtils.toLogEntryString(entry));
-      Assert.assertFalse(entry.hasStateMachineLogEntry());
     }
     final LogEntryProto lastCommittedEntry = leaderLog.get(loggedCommitIndex);
     LOG.info("{}: leader lastCommittedEntry = entry[{}] = {}",
         leaderId, loggedCommitIndex, ServerProtoUtils.toLogEntryString(lastCommittedEntry));
     Assert.assertTrue(lastCommittedEntry.hasStateMachineLogEntry());
+
+    final SimpleStateMachine4Testing leaderStateMachine = SimpleStateMachine4Testing.get(leader);
+    final TermIndex lastAppliedTermIndex = leaderStateMachine.getLastAppliedTermIndex();
+    LOG.info("{}: leader lastAppliedTermIndex = {}", leaderId, lastAppliedTermIndex);
+    Assert.assertEquals(lastCommittedEntry.getTerm(), lastAppliedTermIndex.getTerm());
+    Assert.assertEquals(lastCommittedEntry.getIndex(), lastAppliedTermIndex.getIndex());
 
     // check follower logs
     for(RaftServerImpl s : cluster.iterateServerImpls()) {
@@ -259,6 +282,10 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
         RaftTestUtil.assertSameLog(leaderLog, s.getState().getLog());
       }
     }
+
+    // take snapshot and truncate last (metadata) entry
+    leaderStateMachine.takeSnapshot();
+    leaderLog.truncate(lastIndex);
 
     // kill all servers
     ids.forEach(cluster::killServer);
@@ -269,9 +296,9 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       final RaftServerImpl server = cluster.getRaftServerImpl(id);
       final RaftLog raftLog = server.getState().getLog();
       JavaUtils.attempt(() -> raftLog.getLastCommittedIndex() >= loggedCommitIndex,
-          10, sleepTime, id + "(commitIndex >= loggedCommitIndex)", LOG);
+          10, HUNDRED_MILLIS, id + "(commitIndex >= loggedCommitIndex)", LOG);
       JavaUtils.attempt(() -> server.getState().getLastAppliedIndex() >= loggedCommitIndex,
-          10, sleepTime, id + "(lastAppliedIndex >= loggedCommitIndex)", LOG);
+          10, HUNDRED_MILLIS, id + "(lastAppliedIndex >= loggedCommitIndex)", LOG);
       LOG.info("{}: commitIndex={}, lastAppliedIndex={}",
           id, raftLog.getLastCommittedIndex(), server.getState().getLastAppliedIndex());
       cluster.killServer(id);
