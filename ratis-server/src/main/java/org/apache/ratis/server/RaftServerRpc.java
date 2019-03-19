@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -62,4 +62,8 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeabl
 
   /** Handle the given exception.  For example, try reconnecting. */
   void handleException(RaftPeerId serverId, Exception e, boolean reconnect);
+
+  /** The server role changes from leader to a non-leader role. */
+  default void notifyNotLeader() {
+  }
 }

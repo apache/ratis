@@ -84,7 +84,7 @@ public class GrpcClientProtocolProxy implements Closeable {
 
     RpcSession(CloseableStreamObserver responseHandler) {
       this.responseHandler = responseHandler;
-      this.requestObserver = proxy.append(responseHandler);
+      this.requestObserver = proxy.ordered(responseHandler);
     }
 
     void onError() {

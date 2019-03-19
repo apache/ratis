@@ -84,7 +84,7 @@ public class GrpcClientProtocolClient implements Closeable {
   private final RaftClientProtocolServiceStub asyncStub;
   private final AdminProtocolServiceBlockingStub adminBlockingStub;
 
-  private final AtomicReference<AsyncStreamObservers> appendStreamObservers = new AtomicReference<>();
+  private final AtomicReference<AsyncStreamObservers> orderedStreamObservers = new AtomicReference<>();
 
   private final AtomicReference<AsyncStreamObservers> unorderedStreamObservers = new AtomicReference<>();
 
@@ -128,7 +128,7 @@ public class GrpcClientProtocolClient implements Closeable {
 
   @Override
   public void close() {
-    Optional.ofNullable(appendStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
+    Optional.ofNullable(orderedStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
     Optional.ofNullable(unorderedStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
     channel.shutdownNow();
   }
@@ -169,20 +169,18 @@ public class GrpcClientProtocolClient implements Closeable {
     }
   }
 
-  StreamObserver<RaftClientRequestProto> append(
-      StreamObserver<RaftClientReplyProto> responseHandler) {
-    return asyncStub.append(responseHandler);
+  StreamObserver<RaftClientRequestProto> ordered(StreamObserver<RaftClientReplyProto> responseHandler) {
+    return asyncStub.ordered(responseHandler);
   }
 
-  StreamObserver<RaftClientRequestProto> appendWithTimeout(
-      StreamObserver<RaftClientReplyProto> responseHandler) {
+  StreamObserver<RaftClientRequestProto> orderedWithTimeout(StreamObserver<RaftClientReplyProto> responseHandler) {
     return asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
-        .append(responseHandler);
+        .unordered(responseHandler);
   }
 
-  AsyncStreamObservers getAppendStreamObservers() {
-    return appendStreamObservers.updateAndGet(
-        a -> a != null? a : new AsyncStreamObservers(appendStreamObservers, this::append));
+  AsyncStreamObservers getOrderedStreamObservers() {
+    return orderedStreamObservers.updateAndGet(
+        a -> a != null? a : new AsyncStreamObservers(orderedStreamObservers, this::ordered));
   }
 
   AsyncStreamObservers getUnorderedAsyncStreamObservers() {
@@ -329,7 +327,7 @@ public class GrpcClientProtocolClient implements Closeable {
         final CompletableFuture<RaftClientReply> f = entry.getValue();
         if (!f.isDone()) {
           f.completeExceptionally(t != null? t
-              : new IOException(getName() + ": Stream " + event
+              : new AlreadyClosedException(getName() + ": Stream " + event
                   + ": no reply for async request cid=" + entry.getKey()));
         }
       }

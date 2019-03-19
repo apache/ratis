@@ -53,6 +53,10 @@ class RoleInfo {
     this.transitionTime = new AtomicReference<>(Timestamp.currentTime());
   }
 
+  RaftPeerRole getRaftPeerRole() {
+    return role;
+  }
+
   void transitionRole(RaftPeerRole newRole) {
     this.role = newRole;
     this.transitionTime.set(Timestamp.currentTime());

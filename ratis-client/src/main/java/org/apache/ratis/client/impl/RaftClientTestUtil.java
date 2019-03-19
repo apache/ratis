@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,6 +18,10 @@
 package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeerId;
 
 /** Interface for testing raft client. */
 public interface RaftClientTestUtil {
@@ -32,5 +36,10 @@ public interface RaftClientTestUtil {
 
   static long getCallId(RaftClient client) {
     return ((RaftClientImpl) client).getCallId();
+  }
+
+  static RaftClientRequest newRaftClientRequest(RaftClient client, RaftPeerId server,
+      long callId, Message message, RaftClientRequest.Type type, SlidingWindowEntry slidingWindowEntry) {
+    return ((RaftClientImpl)client).newRaftClientRequest(server, callId, message, type, slidingWindowEntry);
   }
 }

@@ -25,6 +25,7 @@ import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
 import org.apache.ratis.proto.grpc.RaftClientProtocolServiceGrpc.RaftClientProtocolServiceImplBase;
+import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.SlidingWindow;
@@ -36,6 +37,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -44,11 +46,11 @@ import java.util.function.Supplier;
 public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcClientProtocolService.class);
 
-  private static class PendingAppend implements SlidingWindow.ServerSideRequest<RaftClientReply> {
+  private static class PendingOrderedRequest implements SlidingWindow.ServerSideRequest<RaftClientReply> {
     private final RaftClientRequest request;
     private volatile RaftClientReply reply;
 
-    PendingAppend(RaftClientRequest request) {
+    PendingOrderedRequest(RaftClientRequest request) {
       this.request = request;
     }
 
@@ -85,10 +87,33 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
       return request != null? getSeqNum() + ":" + reply: "COMPLETED";
     }
   }
-  private static final PendingAppend COMPLETED = new PendingAppend(null);
+  private static final PendingOrderedRequest COMPLETED = new PendingOrderedRequest(null);
+
+  static class OrderedStreamObservers {
+    private final Map<Integer, OrderedRequestStreamObserver> map = new ConcurrentHashMap<>();
+
+    void putNew(OrderedRequestStreamObserver so) {
+      CollectionUtils.putNew(so.getId(), so, map, () -> getClass().getSimpleName());
+    }
+
+    void removeExisting(OrderedRequestStreamObserver so) {
+      CollectionUtils.removeExisting(so.getId(), so, map, () -> getClass().getSimpleName());
+    }
+
+    void closeAllExisting() {
+      // Iteration not synchronized:
+      // Okay if an existing object is removed by another mean during the iteration since it must be already closed.
+      // Also okay if a new object is added during the iteration since this method closes only the existing objects.
+      for(OrderedRequestStreamObserver so : map.values()) {
+        so.close();
+      }
+    }
+  }
 
   private final Supplier<RaftPeerId> idSupplier;
   private final RaftClientAsynchronousProtocol protocol;
+
+  private final OrderedStreamObservers orderedStreamObservers = new OrderedStreamObservers();
 
   public GrpcClientProtocolService(Supplier<RaftPeerId> idSupplier, RaftClientAsynchronousProtocol protocol) {
     this.idSupplier = idSupplier;
@@ -108,9 +133,15 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
   }
 
   @Override
-  public StreamObserver<RaftClientRequestProto> append(
-      StreamObserver<RaftClientReplyProto> responseObserver) {
-    return new AppendRequestStreamObserver(responseObserver);
+  public StreamObserver<RaftClientRequestProto> ordered(StreamObserver<RaftClientReplyProto> responseObserver) {
+    final OrderedRequestStreamObserver so = new OrderedRequestStreamObserver(responseObserver);
+    orderedStreamObservers.putNew(so);
+    return so;
+  }
+
+  public void closeAllOrderedRequestStreamObservers() {
+    LOG.debug("{}: closeAllOrderedRequestStreamObservers", getId());
+    orderedStreamObservers.closeAllExisting();
   }
 
   @Override
@@ -121,13 +152,18 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
   private final AtomicInteger streamCount = new AtomicInteger();
 
   private abstract class RequestStreamObserver implements StreamObserver<RaftClientRequestProto> {
-    private final String name = getId() + "-" + getClass().getSimpleName() + streamCount.getAndIncrement();
+    private final int id = streamCount.getAndIncrement();
+    private final String name = getId() + "-" + getClass().getSimpleName() + id;
     private final StreamObserver<RaftClientReplyProto> responseObserver;
     private final AtomicBoolean isClosed = new AtomicBoolean();
 
     RequestStreamObserver(StreamObserver<RaftClientReplyProto> responseObserver) {
       LOG.debug("new {}", name);
       this.responseObserver = responseObserver;
+    }
+
+    int getId() {
+      return id;
     }
 
     String getName() {
@@ -139,11 +175,25 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
     }
 
     synchronized void responseCompleted() {
-      responseObserver.onCompleted();
+      try {
+        responseObserver.onCompleted();
+      } catch(Exception e) {
+        // response stream may possibly be already closed/failed so that the exception can be safely ignored.
+        if (LOG.isTraceEnabled()) {
+          LOG.trace(getName() + ": Failed onCompleted, exception is ignored", e);
+        }
+      }
     }
 
     synchronized void responseError(Throwable t) {
-      responseObserver.onError(t);
+      try {
+        responseObserver.onError(t);
+      } catch(Exception e) {
+        // response stream may possibly be already closed/failed so that the exception can be safely ignored.
+        if (LOG.isTraceEnabled()) {
+          LOG.trace(getName() + ": Failed onError, exception is ignored", e);
+        }
+      }
     }
 
 
@@ -243,15 +293,15 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
     }
   }
 
-  private class AppendRequestStreamObserver extends RequestStreamObserver {
-    private final SlidingWindow.Server<PendingAppend, RaftClientReply> slidingWindow
+  private class OrderedRequestStreamObserver extends RequestStreamObserver {
+    private final SlidingWindow.Server<PendingOrderedRequest, RaftClientReply> slidingWindow
         = new SlidingWindow.Server<>(getName(), COMPLETED);
 
-    AppendRequestStreamObserver(StreamObserver<RaftClientReplyProto> responseObserver) {
+    OrderedRequestStreamObserver(StreamObserver<RaftClientReplyProto> responseObserver) {
       super(responseObserver);
     }
 
-    void processClientRequest(PendingAppend pending) {
+    void processClientRequest(PendingOrderedRequest pending) {
       final long seq = pending.getSeqNum();
       processClientRequest(pending.getRequest(),
           reply -> slidingWindow.receiveReply(seq, reply, this::sendReply, this::processClientRequest));
@@ -259,10 +309,10 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
 
     @Override
     void processClientRequest(RaftClientRequest r) {
-      slidingWindow.receivedRequest(new PendingAppend(r), this::processClientRequest);
+      slidingWindow.receivedRequest(new PendingOrderedRequest(r), this::processClientRequest);
     }
 
-    private void sendReply(PendingAppend ready) {
+    private void sendReply(PendingOrderedRequest ready) {
       Preconditions.assertTrue(ready.hasReply());
       if (ready == COMPLETED) {
         close();
@@ -291,6 +341,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
         LOG.debug("{}: close", getName());
         responseCompleted();
         slidingWindow.close();
+        orderedStreamObservers.removeExisting(this);
       }
     }
 

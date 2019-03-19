@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -28,11 +28,11 @@ service RaftClientProtocolService {
   rpc setConfiguration(ratis.common.SetConfigurationRequestProto)
       returns(ratis.common.RaftClientReplyProto) {}
 
-  // A client-to-server stream RPC to append data
-  rpc append(stream ratis.common.RaftClientRequestProto)
+  // A client-to-server stream RPC to ordered async requests
+  rpc ordered(stream ratis.common.RaftClientRequestProto)
       returns (stream ratis.common.RaftClientReplyProto) {}
 
-  // A client-to-server stream RPC for unordered async requested
+  // A client-to-server stream RPC for unordered async requests
   rpc unordered(stream ratis.common.RaftClientRequestProto)
       returns (stream ratis.common.RaftClientReplyProto) {}
 }

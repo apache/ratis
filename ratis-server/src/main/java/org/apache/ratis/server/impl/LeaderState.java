@@ -246,6 +246,7 @@ public class LeaderState {
     } catch (IOException e) {
       LOG.warn(server.getId() + ": Caught exception in sendNotLeaderResponses", e);
     }
+    server.getServerRpc().notifyNotLeader();
   }
 
   void notifySenders() {

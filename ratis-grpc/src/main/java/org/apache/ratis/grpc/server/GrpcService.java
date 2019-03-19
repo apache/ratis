@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -81,6 +81,8 @@ public class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient
   private final Server server;
   private final Supplier<InetSocketAddress> addressSupplier;
 
+  private final GrpcClientProtocolService clientProtocolService;
+
   private GrpcService(RaftServer server, GrpcTlsConfig tlsConfig) {
     this(server, server::getId,
         GrpcConfigKeys.Server.port(server.getProperties()),
@@ -103,11 +105,13 @@ public class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient
           + " > " + GrpcConfigKeys.MESSAGE_SIZE_MAX_KEY + " = " + grpcMessageSizeMax);
     }
 
+    this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer);
+
     NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forPort(port)
         .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
         .flowControlWindow(flowControlWindow.getSizeInt())
         .addService(new GrpcServerProtocolService(idSupplier, raftServer))
-        .addService(new GrpcClientProtocolService(idSupplier, raftServer))
+        .addService(clientProtocolService)
         .addService(new GrpcAdminProtocolService(raftServer));
 
     if (tlsConfig != null) {
@@ -159,22 +163,25 @@ public class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient
   }
 
   @Override
+  public void notifyNotLeader() {
+    clientProtocolService.closeAllOrderedRequestStreamObservers();
+  }
+
+  @Override
   public InetSocketAddress getInetSocketAddress() {
     return addressSupplier.get();
   }
 
   @Override
-  public AppendEntriesReplyProto appendEntries(
-      AppendEntriesRequestProto request) throws IOException {
+  public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request) {
     throw new UnsupportedOperationException(
-        "Blocking AppendEntries call is not supported");
+        "Blocking " + JavaUtils.getCurrentStackTraceElement().getMethodName() + " call is not supported");
   }
 
   @Override
-  public InstallSnapshotReplyProto installSnapshot(
-      InstallSnapshotRequestProto request) throws IOException {
+  public InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) {
     throw new UnsupportedOperationException(
-        "Blocking InstallSnapshot call is not supported");
+        "Blocking " + JavaUtils.getCurrentStackTraceElement().getMethodName() + " call is not supported");
   }
 
   @Override

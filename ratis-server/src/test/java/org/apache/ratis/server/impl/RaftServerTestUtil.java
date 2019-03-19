@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
@@ -91,6 +92,10 @@ public class RaftServerTestUtil {
 
   public static boolean isRetryCacheEntryFailed(RetryCache.CacheEntry entry) {
     return entry.isFailed();
+  }
+
+  public static RaftPeerRole getRole(RaftServerImpl server) {
+    return server.getRole().getRaftPeerRole();
   }
 
   public static Stream<LogAppender> getLogAppenders(RaftServerImpl server) {

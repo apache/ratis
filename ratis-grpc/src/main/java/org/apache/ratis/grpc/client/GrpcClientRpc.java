@@ -65,7 +65,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
     try {
       final GrpcClientProtocolClient proxy = getProxies().getProxy(serverId);
       // Reuse the same grpc stream for all async calls.
-      return proxy.getAppendStreamObservers().onNext(request);
+      return proxy.getOrderedStreamObservers().onNext(request);
     } catch (IOException e) {
       return JavaUtils.completeExceptionally(e);
     }
@@ -113,6 +113,9 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
         throw new InterruptedIOException(
             "Interrupted while waiting for response of request " + request);
       } catch (ExecutionException e) {
+        if (LOG.isTraceEnabled()) {
+          LOG.trace(clientId + ": failed " + request, e);
+        }
         throw IOUtils.toIOException(e);
       }
     }
@@ -122,11 +125,10 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
       RaftClientRequest request, GrpcClientProtocolClient proxy) throws IOException {
     final RaftClientRequestProto requestProto =
         toRaftClientRequestProto(request);
-    final CompletableFuture<RaftClientReplyProto> replyFuture =
-        new CompletableFuture<>();
+    final CompletableFuture<RaftClientReplyProto> replyFuture = new CompletableFuture<>();
     // create a new grpc stream for each non-async call.
     final StreamObserver<RaftClientRequestProto> requestObserver =
-        proxy.appendWithTimeout(new StreamObserver<RaftClientReplyProto>() {
+        proxy.orderedWithTimeout(new StreamObserver<RaftClientReplyProto>() {
           @Override
           public void onNext(RaftClientReplyProto value) {
             replyFuture.complete(value);
@@ -141,7 +143,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
           public void onCompleted() {
             if (!replyFuture.isDone()) {
               replyFuture.completeExceptionally(
-                  new IOException(clientId + ": Stream completed but no reply for request " + request));
+                  new AlreadyClosedException(clientId + ": Stream completed but no reply for request " + request));
             }
           }
         });
