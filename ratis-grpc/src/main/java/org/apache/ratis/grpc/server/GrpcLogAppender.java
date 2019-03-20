@@ -51,6 +51,7 @@ public class GrpcLogAppender extends LogAppender {
   private final int maxPendingRequestsNum;
   private long callId = 0;
   private volatile boolean firstResponseReceived = false;
+  private final boolean installSnapshotEnabled;
 
   private final TimeDuration requestTimeoutDuration;
   private final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
@@ -67,6 +68,8 @@ public class GrpcLogAppender extends LogAppender {
         server.getProxy().getProperties());
     requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(server.getProxy().getProperties());
     pendingRequests = new ConcurrentHashMap<>();
+    installSnapshotEnabled = GrpcConfigKeys.LogAppender.installSnapshotEnabled(
+        server.getProxy().getProperties());
   }
 
   private GrpcServerProtocolClient getClient() throws IOException {
@@ -86,12 +89,18 @@ public class GrpcLogAppender extends LogAppender {
 
   @Override
   protected void runAppenderImpl() throws IOException {
+    boolean shouldAppendLog;
     for(; isAppenderRunning(); mayWait()) {
+      shouldAppendLog = true;
       if (shouldSendRequest()) {
-        SnapshotInfo snapshot = shouldInstallSnapshot();
-        if (snapshot != null) {
-          installSnapshot(snapshot);
-        } else if (!shouldWait()) {
+        if (installSnapshotEnabled) {
+          SnapshotInfo snapshot = shouldInstallSnapshot();
+          if (snapshot != null) {
+            installSnapshot(snapshot);
+            shouldAppendLog = false;
+          }
+        }
+        if (shouldAppendLog && !shouldWait()) {
           // keep appending log entries or sending heartbeats
           appendLog();
         }
