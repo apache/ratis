@@ -19,6 +19,8 @@ package org.apache.ratis.server.storage;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.function.IntConsumer;
+import java.util.stream.IntStream;
 
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
@@ -215,6 +217,49 @@ public class TestRaftLogCache {
     Assert.assertEquals(219, ts.toTruncate.newEndIndex);
     Assert.assertEquals(200, ts.toTruncate.startIndex);
     Assert.assertEquals(249, ts.toTruncate.endIndex);
+  }
+
+  @Test
+  public void testOpenSegmentPurge() {
+    int start = 0;
+    int end = 5;
+    int segmentSize = 100;
+    populatedSegment(start, end, segmentSize, false);
+
+    int sIndex = (end - start) * segmentSize;
+    populatedSegment(end, end + 1, segmentSize, true);
+
+    int purgeIndex = sIndex;
+    // open segment should never be purged
+    TruncationSegments ts = cache.purge(purgeIndex);
+    Assert.assertNull(ts.toTruncate);
+    Assert.assertEquals(end - start, ts.toDelete.length);
+    Assert.assertEquals(sIndex, cache.getStartIndex());
+  }
+
+  @Test
+  public void testCloseSegmentPurge() {
+    int start = 0;
+    int end = 5;
+    int segmentSize = 100;
+    populatedSegment(start, end, segmentSize, false);
+
+    int purgeIndex = (end - start) * segmentSize - 1;
+
+    // overlapped close segment will not purged.
+    TruncationSegments ts = cache.purge(purgeIndex);
+    Assert.assertNull(ts.toTruncate);
+    Assert.assertEquals(end - start - 1, ts.toDelete.length);
+    Assert.assertEquals(1, cache.getNumOfSegments());
+  }
+
+  private void populatedSegment(int start, int end, int segmentSize, boolean isOpen) {
+    IntStream.range(start, end).forEach(x -> {
+      int startIndex = x * segmentSize;
+      int endIndex = startIndex + segmentSize - 1;
+      LogSegment s = prepareLogSegment(startIndex, endIndex, isOpen);
+      cache.addSegment(s);
+    });
   }
 
   private void testIterator(long startIndex) throws IOException {

@@ -315,6 +315,36 @@ class RaftLogWorker implements Runnable {
     return addIOTask(new TruncateLog(ts, index));
   }
 
+  Task purge(TruncationSegments ts) {
+    return addIOTask(new PurgeLog(ts, storage));
+  }
+
+  private static final class PurgeLog extends Task {
+    private final TruncationSegments segments;
+    private final RaftStorage storage;
+
+    private PurgeLog(TruncationSegments segments, RaftStorage storage) {
+      this.segments = segments;
+      this.storage = storage;
+    }
+
+    @Override
+    void execute() throws IOException {
+      if (segments.toDelete != null) {
+        for (SegmentFileInfo fileInfo : segments.toDelete) {
+          File delFile = storage.getStorageDir()
+                  .getClosedLogFile(fileInfo.startIndex, fileInfo.endIndex);
+          FileUtils.deleteFile(delFile);
+        }
+      }
+    }
+
+    @Override
+    long getEndIndex() {
+      return 0;
+    }
+  }
+
   private class WriteLog extends Task {
     private final LogEntryProto entry;
     private final CompletableFuture<?> stateMachineFuture;

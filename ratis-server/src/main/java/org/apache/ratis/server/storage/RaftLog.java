@@ -314,6 +314,20 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   abstract CompletableFuture<Long> truncateImpl(long index);
 
+
+  /**
+   * Purge asynchronously delete the segment files which does not overlap with the given index.
+   * Open segment will not be considered for purging.
+   *
+   * @param index - is inclusive.
+   */
+  public final CompletableFuture<Long> purge(long index) {
+    return purgeImpl(index);
+  }
+
+  abstract CompletableFuture<Long> purgeImpl(long index);
+
+
   @Override
   public final CompletableFuture<Long> appendEntry(LogEntryProto entry) {
     return runner.runSequentially(() -> appendEntryImpl(entry));
