@@ -356,8 +356,8 @@ public class LogAppender {
 
     if (reply != null) {
       follower.setSnapshotIndex(snapshot.getTermIndex().getIndex());
-      LOG.info("{}: install snapshot-{} successfully on follower {}",
-          server.getId(), snapshot.getTermIndex().getIndex(), follower.getPeer());
+      LOG.info("{}:{} install snapshot-{} successfully on follower {}",
+          server.getId(), server.getGroupId(), snapshot.getTermIndex().getIndex(), follower.getPeer());
     }
     return reply;
   }
@@ -383,9 +383,9 @@ public class LogAppender {
       if (shouldSendRequest()) {
         SnapshotInfo snapshot = shouldInstallSnapshot();
         if (snapshot != null) {
-          LOG.info("{}: follower {}'s next index is {}," +
+          LOG.info("{}:{} follower {}'s next index is {}," +
               " log's start index is {}, need to install snapshot",
-              server.getId(), follower.getPeer(), follower.getNextIndex(),
+              server.getId(), server.getGroupId(), follower.getPeer(), follower.getNextIndex(),
               raftLog.getStartIndex());
 
           final InstallSnapshotReplyProto r = installSnapshot(snapshot);

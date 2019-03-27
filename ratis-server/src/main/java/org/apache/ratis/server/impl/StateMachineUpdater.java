@@ -122,7 +122,7 @@ class StateMachineUpdater implements Runnable {
 
   @Override
   public String toString() {
-    return this.getClass().getSimpleName() + "-" + raftLog.getSelfId();
+    return this.getClass().getSimpleName() + "-" + raftLog.getSelfId() + "-" + server.getGroupId();
   }
 
   @Override

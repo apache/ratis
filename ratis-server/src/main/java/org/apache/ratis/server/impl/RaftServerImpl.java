@@ -157,8 +157,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   private void setRole(RaftPeerRole newRole, Object reason) {
-    LOG.info("{} changes role from {} to {} at term {} for {}",
-        getId(), this.role, newRole, state.getCurrentTerm(), reason);
+    LOG.info("{}:{} changes role from {} to {} at term {} for {}",
+        getId(), getGroupId(), this.role, newRole, state.getCurrentTerm(), reason);
     this.role.transitionRole(newRole);
   }
 
@@ -1012,7 +1012,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
     }
     if (request.getDone()) {
-      LOG.info("{}: successfully install the whole snapshot-{}", getId(),
+      LOG.info("{}:{} successfully install the whole snapshot-{}", getId(), getGroupId(),
           lastIncludedIndex);
     }
     return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getId(), groupId,

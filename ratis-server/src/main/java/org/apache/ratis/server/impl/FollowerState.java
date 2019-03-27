@@ -97,8 +97,8 @@ class FollowerState extends Daemon {
         }
         synchronized (server) {
           if (outstandingOp.get() == 0 && lastRpcTime.elapsedTimeMs() >= electionTimeout) {
-            LOG.info("{} changes to CANDIDATE, lastRpcTime:{}, electionTimeout:{}ms",
-                server.getId(), lastRpcTime.elapsedTimeMs(), electionTimeout);
+            LOG.info("{}:{} changes to CANDIDATE, lastRpcTime:{}, electionTimeout:{}ms",
+                server.getId(), server.getGroupId(), lastRpcTime.elapsedTimeMs(), electionTimeout);
             // election timeout, should become a candidate
             server.changeToCandidate();
             break;
