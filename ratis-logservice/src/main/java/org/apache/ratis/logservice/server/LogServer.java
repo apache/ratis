@@ -79,15 +79,13 @@ public class LogServer extends BaseServer {
         RaftGroup meta = RaftGroup.valueOf(RaftGroupId.valueOf(opts.getMetaGroupId()), peers);
         raftServer = RaftServer.newBuilder()
                 .setStateMachineRegistry(new StateMachine.Registry() {
-                    private final StateMachine managementMachine = new ManagementStateMachine();
-                    private final StateMachine logMachine  = new LogStateMachine();
                     @Override
                     public StateMachine apply(RaftGroupId raftGroupId) {
                         // TODO this looks wrong. Why isn't this metaGroupId?
                         if(raftGroupId.equals(logServerGroupId)) {
-                            return managementMachine;
+                            return new ManagementStateMachine();
                         }
-                        return logMachine;
+                        return new LogStateMachine();
                     }
                 })
                 .setProperties(properties)
