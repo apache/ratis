@@ -17,15 +17,18 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
+import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
-import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.util.Daemon;
+import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,23 +37,28 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-class LeaderElection extends Daemon {
+class LeaderElection implements Runnable {
   public static final Logger LOG = LoggerFactory.getLogger(LeaderElection.class);
 
   private ResultAndTerm logAndReturn(Result result,
       List<RequestVoteReplyProto> responses,
       List<Exception> exceptions, long newTerm) {
-    LOG.info(server.getId() + ": Election " + result + "; received "
-        + responses.size() + " response(s) "
+    LOG.info(this + ": Election " + result + "; received " + responses.size() + " response(s) "
         + responses.stream().map(ProtoUtils::toString).collect(Collectors.toList())
         + " and " + exceptions.size() + " exception(s); " + server.getState());
     int i = 0;
     for(Exception e : exceptions) {
-      LOG.info("  " + i++ + ": " + e);
-      LOG.trace("TRACE", e);
+      final int j = i++;
+      LogUtils.infoOrTrace(LOG, () -> "  Exception " + j, e);
     }
     return new ResultAndTerm(result, newTerm);
   }
@@ -67,33 +75,52 @@ class LeaderElection extends Daemon {
     }
   }
 
+  static class Executor {
+    private final ExecutorCompletionService<RequestVoteReplyProto> service;
+    private final ExecutorService executor;
+
+    private final AtomicInteger count = new AtomicInteger();
+
+    Executor(Object name, int size) {
+      Preconditions.assertTrue(size > 0);
+      executor = Executors.newFixedThreadPool(size, r -> new Daemon(r, name + "-" + count.incrementAndGet()));
+      service = new ExecutorCompletionService<>(executor);
+    }
+
+    void shutdown() {
+      executor.shutdown();
+    }
+
+    void submit(Callable<RequestVoteReplyProto> task) {
+      service.submit(task);
+    }
+
+    Future<RequestVoteReplyProto> poll(TimeDuration waitTime) throws InterruptedException {
+      return service.poll(waitTime.getDuration(), waitTime.getUnit());
+    }
+  }
+
+  private static final AtomicInteger COUNT = new AtomicInteger();
+
+  private final String name;
+  private final LifeCycle lifeCycle;
+  private final Daemon daemon;
+
   private final RaftServerImpl server;
-  private ExecutorCompletionService<RequestVoteReplyProto> service;
-  private ExecutorService executor;
-  private volatile boolean running;
-  /**
-   * The Raft configuration should not change while the peer is in candidate
-   * state. If the configuration changes, another peer should be acting as a
-   * leader and this LeaderElection session should end.
-   */
-  private final RaftConfiguration conf;
-  private final Collection<RaftPeer> others;
 
   LeaderElection(RaftServerImpl server) {
+    this.name = server.getId() + ":" + server.getGroupId() + ":" + getClass().getSimpleName() + COUNT.incrementAndGet();
+    this.lifeCycle = new LifeCycle(this);
+    this.daemon = new Daemon(this);
     this.server = server;
-    conf = server.getRaftConf();
-    others = conf.getOtherPeers(server.getId());
-    this.running = true;
   }
 
-  void stopRunning() {
-    this.running = false;
+  void start() {
+    lifeCycle.startAndTransition(daemon::start);
   }
 
-  private void initExecutor() {
-    Preconditions.assertTrue(!others.isEmpty());
-    executor = Executors.newFixedThreadPool(others.size(), Daemon::new);
-    service = new ExecutorCompletionService<>(executor);
+  void shutdown() {
+    lifeCycle.checkStateAndClose();
   }
 
   @Override
@@ -103,12 +130,36 @@ class LeaderElection extends Daemon {
     } catch (InterruptedException e) {
       // the leader election thread is interrupted. The peer may already step
       // down to a follower. The leader election should skip.
-      LOG.info(server.getId() + " " + getClass().getSimpleName()
-          + " thread is interrupted gracefully; server=" + server);
-    } catch (IOException e) {
-      LOG.warn("Failed to persist votedFor/term. Exit the leader election.", e);
-      stopRunning();
+      LOG.info("{} thread is interrupted gracefully; server={}", this, server);
+    } catch(Throwable e) {
+      final LifeCycle.State state = lifeCycle.getCurrentState();
+      final String message = "Failed " + this + ", state=" + state;
+
+      if (state.isClosingOrClosed()) {
+        LogUtils.infoOrTrace(LOG, message, e);
+        LOG.info("{}: {} is safely ignored since this is already {}",
+            this, e.getClass().getSimpleName(), state);
+      } else {
+        if (!server.isAlive()) {
+          LogUtils.infoOrTrace(LOG, message, e);
+          LOG.info("{}: {} is safely ignored since the server is not alive: {}",
+              this, e.getClass().getSimpleName(), server);
+        } else {
+          LOG.error(message, e);
+        }
+        shutdown();
+      }
+    } finally {
+      lifeCycle.transition(LifeCycle.State.CLOSED);
     }
+  }
+
+  private boolean shouldRun() {
+    return lifeCycle.getCurrentState().isRunning() && server.isCandidate() && server.isAlive();
+  }
+
+  private boolean shouldRun(long electionTerm) {
+    return shouldRun() && server.getState().getCurrentTerm() == electionTerm;
   }
 
   /**
@@ -117,15 +168,16 @@ class LeaderElection extends Daemon {
    */
   private void askForVotes() throws InterruptedException, IOException {
     final ServerState state = server.getState();
-    while (running && server.isCandidate()) {
+    while (shouldRun()) {
       // one round of requestVotes
       final long electionTerm;
+      final RaftConfiguration conf;
       synchronized (server) {
         electionTerm = state.initElection();
-        server.getState().persistMetadata();
+        conf = state.getRaftConf();
+        state.persistMetadata();
       }
-      LOG.info(state.getSelfId() + ": begin an election in Term "
-          + electionTerm);
+      LOG.info("{}: begin an election at term {} for {}", this, electionTerm, conf);
 
       TermIndex lastEntry = state.getLog().getLastEntryTermIndex();
       if (lastEntry == null) {
@@ -137,24 +189,22 @@ class LeaderElection extends Daemon {
       }
 
       final ResultAndTerm r;
+      final Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
       if (others.isEmpty()) {
         r = new ResultAndTerm(Result.PASSED, electionTerm);
       } else {
+        final Executor voteExecutor = new Executor(this, others.size());
         try {
-          initExecutor();
-          int submitted = submitRequests(electionTerm, lastEntry);
-          r = waitForResults(electionTerm, submitted);
+          final int submitted = submitRequests(electionTerm, lastEntry, others, voteExecutor);
+          r = waitForResults(electionTerm, submitted, conf, voteExecutor);
         } finally {
-          if (executor != null) {
-            executor.shutdown();
-          }
+          voteExecutor.shutdown();
         }
       }
 
       synchronized (server) {
-        if (electionTerm != state.getCurrentTerm() || !running ||
-            !server.isCandidate()) {
-          return; // term already passed or no longer a candidate.
+        if (!shouldRun(electionTerm)) {
+          return; // term already passed or this should not run anymore.
         }
 
         switch (r.result) {
@@ -162,14 +212,12 @@ class LeaderElection extends Daemon {
             server.changeToLeader();
             return;
           case SHUTDOWN:
-            LOG.info("{} received shutdown response when requesting votes.",
-                server.getId());
+            LOG.info("{} received shutdown response when requesting votes.", this);
             server.getProxy().close();
             return;
           case REJECTED:
           case DISCOVERED_A_NEW_TERM:
-            final long term = r.term > server.getState().getCurrentTerm() ?
-                r.term : server.getState().getCurrentTerm();
+            final long term = Math.max(r.term, state.getCurrentTerm());
             server.changeToFollowerAndPersistMetadata(term, Result.DISCOVERED_A_NEW_TERM);
             return;
           case TIMEOUT:
@@ -179,34 +227,33 @@ class LeaderElection extends Daemon {
     }
   }
 
-  private int submitRequests(final long electionTerm, final TermIndex lastEntry) {
+  private int submitRequests(final long electionTerm, final TermIndex lastEntry,
+      Collection<RaftPeer> others, Executor voteExecutor) {
     int submitted = 0;
     for (final RaftPeer peer : others) {
       final RequestVoteRequestProto r = server.createRequestVoteRequest(
           peer.getId(), electionTerm, lastEntry);
-      service.submit(
-          () -> server.getServerRpc().requestVote(r));
+      voteExecutor.submit(() -> server.getServerRpc().requestVote(r));
       submitted++;
     }
     return submitted;
   }
 
-  private ResultAndTerm waitForResults(final long electionTerm,
-      final int submitted) throws InterruptedException {
+  private ResultAndTerm waitForResults(final long electionTerm, final int submitted,
+      RaftConfiguration conf, Executor voteExecutor) throws InterruptedException {
     final Timestamp timeout = Timestamp.currentTime().addTimeMs(server.getRandomTimeoutMs());
     final List<RequestVoteReplyProto> responses = new ArrayList<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;
     Collection<RaftPeerId> votedPeers = new ArrayList<>();
-    while (waitForNum > 0 && running && server.isCandidate()) {
-      final long waitTime = -timeout.elapsedTimeMs();
-      if (waitTime <= 0) {
+    while (waitForNum > 0 && shouldRun(electionTerm)) {
+      final TimeDuration waitTime = timeout.elapsedTime().apply(n -> -n);
+      if (waitTime.isNonPositive()) {
         return logAndReturn(Result.TIMEOUT, responses, exceptions, -1);
       }
 
       try {
-        final Future<RequestVoteReplyProto> future = service.poll(
-            waitTime, TimeUnit.MILLISECONDS);
+        final Future<RequestVoteReplyProto> future = voteExecutor.poll(waitTime);
         if (future == null) {
           continue; // poll timeout, continue to return Result.TIMEOUT
         }
@@ -227,13 +274,17 @@ class LeaderElection extends Daemon {
           }
         }
       } catch(ExecutionException e) {
-        LOG.info("{} got exception when requesting votes: {}", server.getId(), e);
-        LOG.trace("TRACE", e);
+        LogUtils.infoOrTrace(LOG, () -> this + " got exception when requesting votes", e);
         exceptions.add(e);
       }
       waitForNum--;
     }
     // received all the responses
     return logAndReturn(Result.REJECTED, responses, exceptions, -1);
+  }
+
+  @Override
+  public String toString() {
+    return name;
   }
 }

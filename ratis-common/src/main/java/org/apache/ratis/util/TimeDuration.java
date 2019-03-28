@@ -196,6 +196,11 @@ public final class TimeDuration implements Comparable<TimeDuration> {
     return duration < 0;
   }
 
+  /** @return Is this {@link TimeDuration} less than or equal to zero? */
+  public boolean isNonPositive() {
+    return duration <= 0;
+  }
+
   /** Performs a {@link TimeUnit#sleep(long)} using this {@link TimeDuration}. */
   public void sleep() throws InterruptedException {
     unit.sleep(duration);

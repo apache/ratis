@@ -18,6 +18,7 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.CheckedRunnable;
+import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,6 +78,16 @@ public class LifeCycle {
         }
       }
       return false;
+    }
+
+    /** Is this {@link State#RUNNING}? */
+    public boolean isRunning() {
+      return this == RUNNING;
+    }
+
+    /** Is this {@link State#CLOSING} or {@link State#CLOSED}? */
+    public boolean isClosingOrClosed() {
+      return this == State.CLOSING || this == State.CLOSED;
     }
 
     static void put(State key, Map<State, List<State>> map, State... values) {
@@ -197,31 +208,47 @@ public class LifeCycle {
     }
   }
 
+  /**
+   * Check the current state and, if applicable, transit to {@link State#CLOSING}.
+   * If this is already in {@link State#CLOSING} or {@link State#CLOSED},
+   * then invoking this method has no effect.
+   * In other words, this method can be safely called multiple times.
+   */
+  public State checkStateAndClose() {
+    return checkStateAndClose(() -> State.CLOSING);
+  }
 
   /**
    * Check the current state and, if applicable, run the given close method.
-   * This method can be called multiple times
+   * If this is already in {@link State#CLOSING} or {@link State#CLOSED},
+   * then invoking this method has no effect.
+   * In other words, this method can be safely called multiple times
    * while the given close method will only be executed at most once.
    */
-  public <T extends Throwable> void checkStateAndClose(
-      CheckedRunnable<T> closeImpl) throws T {
+  public <T extends Throwable> State checkStateAndClose(CheckedRunnable<T> closeMethod) throws T {
+    return checkStateAndClose(() -> {
+      try {
+        closeMethod.run();
+      } finally {
+        transition(State.CLOSED);
+      }
+      return State.CLOSED;
+    });
+  }
+
+  private <T extends Throwable> State checkStateAndClose(CheckedSupplier<State, T> closeMethod) throws T {
     if (compareAndTransition(State.NEW, State.CLOSED)) {
-      return;
+      return State.CLOSED;
     }
 
     for(;;) {
       final State c = getCurrentState();
       if (c.isOneOf(State.CLOSING, State.CLOSED)) {
-        return; //already closing or closed.
+        return c; //already closing or closed.
       }
 
       if (compareAndTransition(c, State.CLOSING)) {
-        try {
-          closeImpl.run();
-        } finally {
-          transition(State.CLOSED);
-        }
-        return;
+        return closeMethod.get();
       }
 
       // lifecycle state is changed, retry.

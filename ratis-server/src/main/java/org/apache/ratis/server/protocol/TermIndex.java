@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -30,6 +30,11 @@ public interface TermIndex extends Comparable<TermIndex> {
 
   /** @return the index. */
   long getIndex();
+
+  /** A term number is valid iff it is greater than zero. */
+  static boolean isValidTerm(int term) {
+    return term > 0;
+  }
 
   /** Create a new {@link TermIndex} instance. */
   static TermIndex newTermIndex(long term, long index) {

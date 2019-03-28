@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -29,7 +29,12 @@ public class Daemon extends Thread {
 
   /** Construct a daemon thread with the given runnable. */
   public Daemon(Runnable runnable) {
+    this(runnable, runnable.toString());
+  }
+
+  /** Construct a daemon thread with the given runnable. */
+  public Daemon(Runnable runnable, String name) {
     super(runnable);
-    this.setName(runnable.toString());
+    this.setName(name);
   }
 }
