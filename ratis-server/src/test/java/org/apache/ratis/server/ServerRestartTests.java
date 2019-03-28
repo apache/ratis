@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -34,6 +34,7 @@ import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.impl.ServerState;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftLog;
+import org.apache.ratis.server.storage.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.server.storage.SegmentedRaftLogFormat;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
@@ -107,7 +108,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     // make sure the restarted follower can catchup
     final ServerState followerState = cluster.getRaftServerImpl(followerId).getState();
     JavaUtils.attempt(() -> followerState.getLastAppliedIndex() >= leaderLastIndex,
-        10, 500, "follower catchup", LOG);
+        10, ONE_SECOND, "follower catchup", LOG);
 
     // make sure the restarted peer's log segments is correct
     final RaftServerImpl follower = cluster.restartServer(followerId, false);
@@ -250,30 +251,21 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
 
     RaftTestUtil.getStateMachineLogEntries(leaderLog);
 
-    // check that the last logged commit index is equal to the index of the last committed StateMachineLogEntry
+    // check that the last metadata entry is written to the log
+    JavaUtils.attempt(() -> assertLastLogEntry(leader), 20, HUNDRED_MILLIS, "leader last metadata entry", LOG);
+
     final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
     LOG.info("{}: leader lastIndex={}", leaderId, lastIndex);
-    JavaUtils.attempt(() -> leaderLog.getLastCommittedIndex() == lastIndex,
-        10, HUNDRED_MILLIS, "leader(commitIndex == lastIndex)", LOG);
-
     final LogEntryProto lastEntry = leaderLog.get(lastIndex);
     LOG.info("{}: leader lastEntry entry[{}] = {}", leaderId, lastIndex, ServerProtoUtils.toLogEntryString(lastEntry));
-    Assert.assertTrue(lastEntry.hasMetadataEntry());
     final long loggedCommitIndex = lastEntry.getMetadataEntry().getCommitIndex();
-    for(long i = lastIndex - 1; i > loggedCommitIndex; i--) {
-      final LogEntryProto entry = leaderLog.get(i);
-      LOG.info("{}: leader entry[{}] =  {}", leaderId, i, ServerProtoUtils.toLogEntryString(entry));
-    }
     final LogEntryProto lastCommittedEntry = leaderLog.get(loggedCommitIndex);
     LOG.info("{}: leader lastCommittedEntry = entry[{}] = {}",
         leaderId, loggedCommitIndex, ServerProtoUtils.toLogEntryString(lastCommittedEntry));
-    Assert.assertTrue(lastCommittedEntry.hasStateMachineLogEntry());
 
     final SimpleStateMachine4Testing leaderStateMachine = SimpleStateMachine4Testing.get(leader);
     final TermIndex lastAppliedTermIndex = leaderStateMachine.getLastAppliedTermIndex();
     LOG.info("{}: leader lastAppliedTermIndex = {}", leaderId, lastAppliedTermIndex);
-    Assert.assertEquals(lastCommittedEntry.getTerm(), lastAppliedTermIndex.getTerm());
-    Assert.assertEquals(lastCommittedEntry.getIndex(), lastAppliedTermIndex.getIndex());
 
     // check follower logs
     for(RaftServerImpl s : cluster.iterateServerImpls()) {
@@ -303,5 +295,21 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
           id, raftLog.getLastCommittedIndex(), server.getState().getLastAppliedIndex());
       cluster.killServer(id);
     }
+  }
+
+  static void assertLastLogEntry(RaftServerImpl server) throws RaftLogIOException {
+    final RaftLog raftLog = server.getState().getLog();
+    final long lastIndex = raftLog.getLastEntryTermIndex().getIndex();
+    final LogEntryProto lastEntry = raftLog.get(lastIndex);
+    Assert.assertTrue(lastEntry.hasMetadataEntry());
+
+    final long loggedCommitIndex = lastEntry.getMetadataEntry().getCommitIndex();
+    final LogEntryProto lastCommittedEntry = raftLog.get(loggedCommitIndex);
+    Assert.assertTrue(lastCommittedEntry.hasStateMachineLogEntry());
+
+    final SimpleStateMachine4Testing leaderStateMachine = SimpleStateMachine4Testing.get(server);
+    final TermIndex lastAppliedTermIndex = leaderStateMachine.getLastAppliedTermIndex();
+    Assert.assertEquals(lastCommittedEntry.getTerm(), lastAppliedTermIndex.getTerm());
+    Assert.assertTrue(lastCommittedEntry.getIndex() <= lastAppliedTermIndex.getIndex());
   }
 }

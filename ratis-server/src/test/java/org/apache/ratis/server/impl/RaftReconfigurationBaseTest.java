@@ -546,7 +546,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       // the old leader should have truncated the setConf from the log
       JavaUtils.attempt(() -> log.getLastCommittedIndex() >= confIndex,
-          10, 500L, "COMMIT", LOG);
+          10, ONE_SECOND, "COMMIT", LOG);
       Assert.assertTrue(log.get(confIndex).hasConfigurationEntry());
       log2 = null;
     } finally {

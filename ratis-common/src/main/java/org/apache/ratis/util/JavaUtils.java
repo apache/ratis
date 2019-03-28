@@ -180,14 +180,6 @@ public interface JavaUtils {
     attempt(CheckedRunnable.asCheckedSupplier(runnable), numAttempts, sleepTime, name, log);
   }
 
-  /** @deprecated use {@link #attempt(BooleanSupplier, int, TimeDuration, String, Logger)} */
-  @Deprecated
-  static void attempt(
-      BooleanSupplier condition, int numAttempts, long sleepMs, String name, Logger log)
-      throws InterruptedException {
-    attempt(condition, numAttempts, TimeDuration.valueOf(sleepMs, TimeUnit.MILLISECONDS), name, log);
-  }
-
   /** Attempt to wait the given condition to return true multiple times. */
   static void attempt(
       BooleanSupplier condition, int numAttempts, TimeDuration sleepTime, String name, Logger log)
