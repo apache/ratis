@@ -132,7 +132,7 @@ class RoleInfo {
     final LeaderElection election = leaderElection.getAndSet(null);
     if (election != null) {
       LOG.info("{}: shutdown {}", id, election.getClass().getSimpleName());
-      election.stopRunning();
+      election.shutdown();
       // no need to interrupt the election thread
     }
   }

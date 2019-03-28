@@ -137,4 +137,16 @@ public interface LogUtils {
       }
     }
   }
+
+  static void infoOrTrace(Logger log, String message, Throwable t) {
+    infoOrTrace(log, () -> message, t);
+  }
+
+  static void infoOrTrace(Logger log, Supplier<String> message, Throwable t) {
+    if (log.isTraceEnabled()) {
+      log.trace(message.get(), t);
+    } else {
+      log.info("{}: {}", message.get(), t);
+    }
+  }
 }

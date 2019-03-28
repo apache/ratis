@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 import static org.apache.ratis.server.impl.RaftServerImpl.LOG;
@@ -65,10 +66,12 @@ public class ServerState implements Closeable {
   private final long leaderElectionTimeoutMs;
 
   /**
-   * Latest term server has seen. initialized to 0 on first boot, increases
-   * monotonically.
+   * Latest term server has seen.
+   * Initialized to 0 on first boot, increases monotonically.
+   *
+   * @see TermIndex#isValidTerm(int)
    */
-  private volatile long currentTerm;
+  private final AtomicLong currentTerm = new AtomicLong();
   /**
    * The server ID of the leader for this term. Null means either there is
    * no leader for this term yet or this server does not know who it is yet.
@@ -116,7 +119,7 @@ public class ServerState implements Closeable {
     log = initLog(id, prop, lastApplied, this::setRaftConf);
 
     RaftLog.Metadata metadata = log.loadMetadata();
-    currentTerm = metadata.getTerm();
+    currentTerm.set(metadata.getTerm());
     votedFor = metadata.getVotedFor();
 
     stateMachineUpdater = new StateMachineUpdater(stateMachine, server, log,
@@ -203,12 +206,12 @@ public class ServerState implements Closeable {
   }
 
   public long getCurrentTerm() {
-    return currentTerm;
+    return currentTerm.get();
   }
 
   boolean updateCurrentTerm(long newTerm) {
-    if (newTerm > currentTerm) {
-      currentTerm = newTerm;
+    final long current = currentTerm.getAndUpdate(curTerm -> Math.max(curTerm, newTerm));
+    if (newTerm > current) {
       votedFor = null;
       setLeader(null, "updateCurrentTerm");
       return true;
@@ -230,11 +233,11 @@ public class ServerState implements Closeable {
   long initElection() {
     votedFor = selfId;
     setLeader(null, "initElection");
-    return ++currentTerm;
+    return currentTerm.incrementAndGet();
   }
 
   void persistMetadata() throws IOException {
-    this.log.writeMetadata(currentTerm, votedFor);
+    this.log.writeMetadata(currentTerm.get(), votedFor);
   }
 
   /**
@@ -281,7 +284,7 @@ public class ServerState implements Closeable {
   }
 
   void appendLog(TransactionContext operation) throws StateMachineException {
-    log.append(currentTerm, operation);
+    log.append(currentTerm.get(), operation);
     Objects.requireNonNull(operation.getLogEntry());
   }
 
@@ -291,9 +294,10 @@ public class ServerState implements Closeable {
    * @return true if the check passes
    */
   boolean recognizeLeader(RaftPeerId leaderId, long leaderTerm) {
-    if (leaderTerm < currentTerm) {
+    final long current = currentTerm.get();
+    if (leaderTerm < current) {
       return false;
-    } else if (leaderTerm > currentTerm || this.leaderId == null) {
+    } else if (leaderTerm > current || this.leaderId == null) {
       // If the request indicates a term that is greater than the current term
       // or no leader has been set for the current term, make sure to update
       // leader and term later
@@ -309,9 +313,10 @@ public class ServerState implements Closeable {
     if (!getRaftConf().containsInConf(candidateId)) {
       return false;
     }
-    if (candidateTerm > currentTerm) {
+    final long current = currentTerm.get();
+    if (candidateTerm > current) {
       return true;
-    } else if (candidateTerm == currentTerm) {
+    } else if (candidateTerm == current) {
       // has not voted yet or this is a retry
       return votedFor == null || votedFor.equals(candidateId);
     }
