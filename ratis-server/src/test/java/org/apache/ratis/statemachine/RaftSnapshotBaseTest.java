@@ -183,7 +183,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
       JavaUtils.attempt(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
-          10, 1000, "snapshotFile.exist", LOG);
+          10, ONE_SECOND, "snapshotFile.exist", LOG);
       logs = storageDirectory.getLogSegmentFiles();
     } finally {
       cluster.shutdown();
