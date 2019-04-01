@@ -107,7 +107,7 @@ final class RaftClientImpl implements RaftClient {
     }
 
     @Override
-    public void fail(Exception e) {
+    public void fail(Throwable e) {
       getReplyFuture().completeExceptionally(e);
     }
 
@@ -373,7 +373,8 @@ final class RaftClientImpl implements RaftClient {
         }
         return null;
       }
-      throw new CompletionException(e);
+      failAllAsyncRequests(request, e);
+      return null;
     });
   }
 
@@ -385,7 +386,11 @@ final class RaftClientImpl implements RaftClient {
 
   private void handleAsyncRetryFailure(RaftClientRequest request, int attemptCount) {
     final RaftRetryFailureException rfe = newRaftRetryFailureException(request, attemptCount, retryPolicy);
-    getSlidingWindow(request).fail(request.getSlidingWindowEntry().getSeqNum(), rfe);
+    failAllAsyncRequests(request, rfe);
+  }
+
+  private void failAllAsyncRequests(RaftClientRequest request, Throwable t) {
+    getSlidingWindow(request).fail(request.getSlidingWindowEntry().getSeqNum(), t);
   }
 
   private RaftClientReply sendRequest(RaftClientRequest request)
