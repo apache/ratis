@@ -424,12 +424,12 @@ public abstract class MiniRaftCluster implements Closeable {
    * prepare the peer list when removing some peers from the conf
    */
   public PeerChanges removePeers(int number, boolean removeLeader,
-      Collection<RaftPeer> excluded) {
+      Collection<RaftPeer> excluded) throws InterruptedException {
     Collection<RaftPeer> peers = new ArrayList<>(group.getPeers());
     List<RaftPeer> removedPeers = new ArrayList<>(number);
     if (removeLeader) {
-      final RaftPeer leader = toRaftPeer(getLeader());
-      assert !excluded.contains(leader);
+      final RaftPeer leader = toRaftPeer(RaftTestUtil.waitForLeader(this));
+      Preconditions.assertTrue(!excluded.contains(leader));
       peers.remove(leader);
       removedPeers.add(leader);
     }
@@ -443,10 +443,9 @@ public abstract class MiniRaftCluster implements Closeable {
         removed++;
       }
     }
-    RaftPeer[] p = peers.toArray(new RaftPeer[peers.size()]);
+    final RaftPeer[] p = peers.toArray(RaftPeer.emptyArray());
     group = RaftGroup.valueOf(group.getGroupId(), p);
-    return new PeerChanges(p, new RaftPeer[0],
-        removedPeers.toArray(new RaftPeer[removedPeers.size()]));
+    return new PeerChanges(p, RaftPeer.emptyArray(), removedPeers.toArray(RaftPeer.emptyArray()));
   }
 
   public void killServer(RaftPeerId id) {
