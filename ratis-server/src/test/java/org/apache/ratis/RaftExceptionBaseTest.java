@@ -30,6 +30,7 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -91,7 +92,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     final SimpleMessage message = new SimpleMessage(messageId);
     final RaftClientReply reply = rpc.sendRequest(cluster.newRaftClientRequest(ClientId.randomId(), server, message));
     Assert.assertNotNull(reply);
-    Assert.assertFalse(reply.isSuccess());
+    Assume.assumeFalse(reply.isSuccess());
     final NotLeaderException nle = reply.getNotLeaderException();
     Objects.requireNonNull(nle);
     Assert.assertEquals(expectedSuggestedLeader, nle.getSuggestedLeader().getId());

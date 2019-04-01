@@ -175,7 +175,8 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
           latch.countDown();
           client.close();
-        } catch (IOException ignored) {
+        } catch(Exception ignored) {
+          LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
         }
       });
       clientThread.start();
