@@ -48,7 +48,7 @@ public interface SlidingWindow {
   interface ClientSideRequest<REPLY> extends Request<REPLY> {
     void setFirstRequest();
 
-    void fail(Exception e);
+    void fail(Throwable e);
   }
 
   interface ServerSideRequest<REPLY> extends Request<REPLY> {
@@ -181,7 +181,7 @@ public interface SlidingWindow {
     /** Is the first request replied? */
     private boolean firstReplied;
     /** The exception, if there is any. */
-    private Exception exception;
+    private Throwable exception;
 
     public Client(Object name) {
       this.requests = new RequestMap<REQUEST, REPLY>(name) {
@@ -324,7 +324,7 @@ public interface SlidingWindow {
     }
 
     /** Fail all requests starting from the given seqNum. */
-    public synchronized void fail(final long startingSeqNum, Exception e) {
+    public synchronized void fail(final long startingSeqNum, Throwable e) {
       exception = e;
 
       boolean handled = false;
@@ -345,7 +345,7 @@ public interface SlidingWindow {
       }
     }
 
-    private void alreadyClosed(REQUEST request, Exception e) {
+    private void alreadyClosed(REQUEST request, Throwable e) {
       request.fail(new AlreadyClosedException(SlidingWindow.class.getSimpleName() + "$" + getClass().getSimpleName()
           + " " + requests.getName() + " is closed.", e));
     }
