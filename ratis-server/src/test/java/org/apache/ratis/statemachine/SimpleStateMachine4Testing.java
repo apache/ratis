@@ -375,4 +375,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LOG.info("{}: notifyExtendedNoLeader {}, {}", this, group, roleInfoProto);
     leaderElectionTimeoutInfo = roleInfoProto;
   }
+
+  protected File getSMdir() {
+    return storage.getSmDir();
+  }
 }

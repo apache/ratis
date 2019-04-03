@@ -60,7 +60,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   static final Logger LOG = LoggerFactory.getLogger(RaftSnapshotBaseTest.class);
   private static final int SNAPSHOT_TRIGGER_THRESHOLD = 10;
 
-  static List<File> getSnapshotFiles(MiniRaftCluster cluster, long startIndex, long endIndex) {
+  public static List<File> getSnapshotFiles(MiniRaftCluster cluster, long startIndex, long endIndex) {
     final RaftServerImpl leader = cluster.getLeader();
     final SimpleStateMachineStorage storage = SimpleStateMachine4Testing.get(leader).getStateMachineStorage();
     final long term = leader.getState().getCurrentTerm();
@@ -70,7 +70,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   }
 
 
-  static void assertLeaderContent(MiniRaftCluster cluster) throws Exception {
+  public static void assertLeaderContent(MiniRaftCluster cluster) throws Exception {
     final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
     final RaftLog leaderLog = leader.getState().getLog();
     final long lastIndex = leaderLog.getLastEntryTermIndex().getIndex();
@@ -147,7 +147,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     }
   }
 
-  static boolean exists(File f) {
+  public static boolean exists(File f) {
     if (f.exists()) {
       LOG.info("File exists: " + f);
       return true;

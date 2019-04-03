@@ -79,12 +79,16 @@ public class FollowerInfo {
     return nextIndex.get();
   }
 
-  public void updateNextIndex(long newNextIndex) {
+  public void increaseNextIndex(long newNextIndex) {
     nextIndex.updateIncreasingly(newNextIndex, debugIndexChange);
   }
 
   public void decreaseNextIndex(long newNextIndex) {
     nextIndex.updateUnconditionally(old -> old <= 0L? old: Math.min(old - 1, newNextIndex), infoIndexChange);
+  }
+
+  public void updateNextIndex(long newNextIndex) {
+    nextIndex.updateUnconditionally(old -> newNextIndex >= 0 ? newNextIndex : old, infoIndexChange);
   }
 
   public void setSnapshotIndex(long snapshotIndex) {

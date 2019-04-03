@@ -159,25 +159,6 @@ public interface GrpcConfigKeys {
     }
   }
 
-  interface LogAppender {
-    Logger LOG = LoggerFactory.getLogger(Server.class);
-    static Consumer<String> getDefaultLog() {
-      return LOG::info;
-    }
-
-    String PREFIX = GrpcConfigKeys.PREFIX + ".log.appender";
-
-    String INSTALL_SNAPSHOT_ENABLED_KEY = PREFIX + ".install.snapshot.enabled";
-    boolean INSTALL_SNAPSHOT_ENABLED_DEFAULT = true;
-    static boolean installSnapshotEnabled(RaftProperties properties) {
-      return getBoolean(properties::getBoolean,
-          INSTALL_SNAPSHOT_ENABLED_KEY, INSTALL_SNAPSHOT_ENABLED_DEFAULT, getDefaultLog());
-    }
-    static void setInstallSnapshotEnabled(RaftProperties properties, boolean shouldInstallSnapshot) {
-      setBoolean(properties::setBoolean, INSTALL_SNAPSHOT_ENABLED_KEY, shouldInstallSnapshot);
-    }
-  }
-
   String MESSAGE_SIZE_MAX_KEY = PREFIX + ".message.size.max";
   SizeInBytes MESSAGE_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("64MB");
   static SizeInBytes messageSizeMax(RaftProperties properties, Consumer<String> logger) {

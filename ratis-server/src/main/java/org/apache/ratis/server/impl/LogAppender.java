@@ -316,6 +316,11 @@ public class LogAppender {
     }
   }
 
+  protected InstallSnapshotRequestProto createInstallSnapshotNotificationRequest(
+      TermIndex firstLogStartTermIndex) {
+    return server.createInstallSnapshotRequest(getFollowerId(), firstLogStartTermIndex);
+  }
+
   private FileChunkProto readFileChunk(FileInfo fileInfo,
       FileInputStream in, byte[] buf, int length, long offset, int chunkIndex)
       throws IOException {
@@ -425,7 +430,7 @@ public class LogAppender {
 
           if (nextIndex > oldNextIndex) {
             follower.updateMatchIndex(nextIndex - 1);
-            follower.updateNextIndex(nextIndex);
+            follower.increaseNextIndex(nextIndex);
             submitEventOnSuccessAppend();
           }
           break;

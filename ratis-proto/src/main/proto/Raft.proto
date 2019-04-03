@@ -124,6 +124,8 @@ message FileChunkProto {
 enum InstallSnapshotResult {
   SUCCESS = 0;
   NOT_LEADER = 1;
+  IN_PROGRESS = 2;
+  ALREADY_INSTALLED = 3;
 }
 
 message RequestVoteRequestProto {
@@ -158,7 +160,8 @@ message AppendEntriesReplyProto {
   enum AppendResult {
     SUCCESS = 0;
     NOT_LEADER = 1; // the requester's term is not large enough
-    INCONSISTENCY = 2; // gap between the local log and the entries
+    INCONSISTENCY = 2; // gap between the local log and the entries or snapshot installation in progress or
+                       // overlap between local snapshot and the entries
   }
 
   RaftRpcReplyProto serverReply = 1;
@@ -178,6 +181,7 @@ message InstallSnapshotRequestProto {
   repeated FileChunkProto fileChunks = 7;
   uint64 totalSize = 8;
   bool done = 9; // whether this is the final chunk for the same req.
+  TermIndexProto firstAvailableLogIndex = 11; // first available log index to notify Follower to install snapshot
 }
 
 message InstallSnapshotReplyProto {
@@ -185,6 +189,7 @@ message InstallSnapshotReplyProto {
   uint32 requestIndex = 2;
   uint64 term = 3;
   InstallSnapshotResult result = 4;
+  uint64 snapshotIndex = 5;
 }
 
 message ClientMessageEntryProto {

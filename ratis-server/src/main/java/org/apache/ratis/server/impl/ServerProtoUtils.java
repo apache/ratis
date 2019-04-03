@@ -285,6 +285,19 @@ public interface ServerProtoUtils {
     return builder.build();
   }
 
+  static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
+      RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
+      long term, InstallSnapshotResult result, long installedSnapshotIndex) {
+    final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
+        replyId, groupId, result == InstallSnapshotResult.SUCCESS);
+    final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
+        .newBuilder().setServerReply(rb).setTerm(term).setResult(result);
+    if (installedSnapshotIndex > 0) {
+      builder.setSnapshotIndex(installedSnapshotIndex);
+    }
+    return builder.build();
+  }
+
   static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, String requestId, int requestIndex,
       long term, TermIndex lastTermIndex, List<FileChunkProto> chunks,
@@ -299,6 +312,17 @@ public interface ServerProtoUtils {
         .addAllFileChunks(chunks)
         .setTotalSize(totalSize)
         .setDone(done).build();
+  }
+
+  static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
+      RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
+      long leaderTerm, TermIndex firstAvailable) {
+    return InstallSnapshotRequestProto.newBuilder()
+        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId, groupId))
+        // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
+        .setLeaderTerm(leaderTerm)
+        .setFirstAvailableLogIndex(toTermIndexProto(firstAvailable))
+        .build();
   }
 
   static AppendEntriesReplyProto toAppendEntriesReplyProto(

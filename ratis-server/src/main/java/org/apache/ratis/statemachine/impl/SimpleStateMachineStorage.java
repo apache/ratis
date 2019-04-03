@@ -22,6 +22,7 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachineStorage;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.MD5FileUtil;
 import org.slf4j.Logger;
@@ -129,5 +130,10 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   @Override
   public SingleFileSnapshotInfo getLatestSnapshot() {
     return currentSnapshot;
+  }
+
+  @VisibleForTesting
+  public File getSmDir() {
+    return smDir;
   }
 }

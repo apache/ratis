@@ -23,7 +23,6 @@ import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
@@ -252,6 +251,19 @@ public interface StateMachine extends Closeable {
    *         given logIndex, null otherwise
    */
   default CompletableFuture<Void> truncateStateMachineData(long index) {
+    return CompletableFuture.completedFuture(null);
+  }
+
+  /**
+   * Notify the Follower's state machine that the leader has purged entries
+   * from its log and hence to catch up, the Follower state machine would have
+   * to install the latest snapshot.
+   * @param firstTermIndexInLog TermIndex of the first append entry available
+   *                           in the Leader's log.
+   * @return After the snapshot installation is complete, return the last
+   * included term index in the snapshot.
+   */
+  default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(TermIndex firstTermIndexInLog) {
     return CompletableFuture.completedFuture(null);
   }
 }

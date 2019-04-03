@@ -25,6 +25,7 @@ import org.apache.ratis.server.impl.LeaderState;
 import org.apache.ratis.server.impl.LogAppender;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
@@ -68,7 +69,7 @@ public class GrpcLogAppender extends LogAppender {
         server.getProxy().getProperties());
     requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(server.getProxy().getProperties());
     pendingRequests = new ConcurrentHashMap<>();
-    installSnapshotEnabled = GrpcConfigKeys.LogAppender.installSnapshotEnabled(
+    installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(
         server.getProxy().getProperties());
   }
 
@@ -97,6 +98,12 @@ public class GrpcLogAppender extends LogAppender {
           SnapshotInfo snapshot = shouldInstallSnapshot();
           if (snapshot != null) {
             installSnapshot(snapshot);
+            shouldAppendLog = false;
+          }
+        } else {
+          TermIndex installSnapshotNotificationTermIndex = shouldNotifyToInstallSnapshot();
+          if (installSnapshotNotificationTermIndex != null) {
+            installSnapshot(installSnapshotNotificationTermIndex);
             shouldAppendLog = false;
           }
         }
@@ -163,7 +170,7 @@ public class GrpcLogAppender extends LogAppender {
         return;
       }
       pendingRequests.put(pending.getServerRequest().getCallId(), pending);
-      updateNextIndex(pending);
+      increaseNextIndex(pending);
       if (appendLogRequestObserver == null) {
         appendLogRequestObserver = getClient().appendEntries(new AppendLogResponseHandler());
       }
@@ -193,10 +200,10 @@ public class GrpcLogAppender extends LogAppender {
     }
   }
 
-  private void updateNextIndex(AppendEntriesRequestProto request) {
+  private void increaseNextIndex(AppendEntriesRequestProto request) {
     final int count = request.getEntriesCount();
     if (count > 0) {
-      follower.updateNextIndex(request.getEntries(count - 1).getIndex() + 1);
+      follower.increaseNextIndex(request.getEntries(count - 1).getIndex() + 1);
     }
   }
 
@@ -210,8 +217,8 @@ public class GrpcLogAppender extends LogAppender {
      * 1. If the reply is success, update the follower's match index and submit
      *    an event to leaderState
      * 2. If the reply is NOT_LEADER, step down
-     * 3. If the reply is INCONSISTENCY, decrease the follower's next index
-     *    based on the response
+     * 3. If the reply is INCONSISTENCY, increase/ decrease the follower's next
+     *    index based on the response
      */
     @Override
     public void onNext(AppendEntriesReplyProto reply) {
@@ -325,7 +332,8 @@ public class GrpcLogAppender extends LogAppender {
     }
     Preconditions.assertTrue(request.hasPreviousLog());
     if (request.getPreviousLog().getIndex() >= reply.getNextIndex()) {
-      clearPendingRequests(reply.getNextIndex());
+      pendingRequests.clear();
+      follower.updateNextIndex(reply.getNextIndex());
     }
   }
 
@@ -375,6 +383,14 @@ public class GrpcLogAppender extends LogAppender {
 
       switch (reply.getResult()) {
         case SUCCESS:
+        case IN_PROGRESS:
+          removePending(reply);
+          break;
+        case ALREADY_INSTALLED:
+          long followerLatestSnapshotIndex = reply.getSnapshotIndex();
+          LOG.info("{}: Latest snapshot index on follower {} is {}.",
+              server.getId(), follower.getPeer(), followerLatestSnapshotIndex);
+          follower.setSnapshotIndex(followerLatestSnapshotIndex);
           removePending(reply);
           break;
         case NOT_LEADER:
@@ -399,12 +415,15 @@ public class GrpcLogAppender extends LogAppender {
 
     @Override
     public void onCompleted() {
-      LOG.info("{} stops sending snapshots to follower {}", server.getId(),
-          follower);
+      LOG.info("Snapshot(s) sent from {} to follower {}", server.getId(), follower);
       close();
     }
   }
 
+  /**
+   * Send installSnapshot request to Follower with a snapshot.
+   * @param snapshot the snapshot to be sent to Follower
+   */
   private void installSnapshot(SnapshotInfo snapshot) {
     LOG.info("{}: follower {}'s next index is {}," +
             " log's start index is {}, need to install snapshot",
@@ -450,5 +469,61 @@ public class GrpcLogAppender extends LogAppender {
       LOG.info("{}: install snapshot-{} successfully on follower {}",
           server.getId(), snapshot.getTermIndex().getIndex(), follower.getPeer());
     }
+  }
+
+  /**
+   * Send installSnapshot request to Follower with only a notification that a snapshot needs to be installed.
+   * @param firstAvailableLogTermIndex the first available log's index on the Leader
+   */
+  private void installSnapshot(TermIndex firstAvailableLogTermIndex) {
+    LOG.info("{}: follower {}'s next index is {}, log's start index is {}, " +
+            "need to notify follower to install snapshot",
+        server.getId(), follower.getPeer(), follower.getNextIndex(),
+        raftLog.getStartIndex());
+
+    final InstallSnapshotResponseHandler responseHandler = new InstallSnapshotResponseHandler();
+    StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver = null;
+    // prepare and enqueue the notify install snapshot request.
+    InstallSnapshotRequestProto request =
+        createInstallSnapshotNotificationRequest(firstAvailableLogTermIndex);
+    try {
+      snapshotRequestObserver = getClient().installSnapshot(responseHandler);
+      snapshotRequestObserver.onNext(request);
+      follower.updateLastRpcSendTime();
+      responseHandler.addPending(request);
+      snapshotRequestObserver.onCompleted();
+    } catch (Exception e) {
+      LOG.warn("{} failed to notify follower {} to install snapshot. " +
+          "Exception: {}", this, follower, e);
+      if (snapshotRequestObserver != null) {
+        snapshotRequestObserver.onError(e);
+      }
+      return;
+    }
+
+    synchronized (this) {
+      if (isAppenderRunning() && !responseHandler.isDone()) {
+        try {
+          wait();
+        } catch (InterruptedException ignored) {
+        }
+      }
+    }
+  }
+
+  /**
+   * Should the Leader notify the Follower to install the snapshot through
+   * its own State Machine.
+   * @return the first available log's start term index
+   */
+  protected TermIndex shouldNotifyToInstallSnapshot() {
+    if (follower.getNextIndex() < raftLog.getStartIndex()) {
+      // The Leader does not have the logs from the Follower's last log
+      // index onwards. And install snapshot is disabled. So the Follower
+      // should be notified to install the latest snapshot through its
+      // State Machine.
+      return raftLog.getTermIndex(raftLog.getStartIndex());
+    }
+    return null;
   }
 }

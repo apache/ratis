@@ -267,6 +267,16 @@ public interface RaftServerConfigKeys {
       static void setSnapshotChunkSizeMax(RaftProperties properties, SizeInBytes maxChunkSize) {
         setSizeInBytes(properties::set, SNAPSHOT_CHUNK_SIZE_MAX_KEY, maxChunkSize);
       }
+
+      String INSTALL_SNAPSHOT_ENABLED_KEY = PREFIX + ".install.snapshot.enabled";
+      boolean INSTALL_SNAPSHOT_ENABLED_DEFAULT = true;
+      static boolean installSnapshotEnabled(RaftProperties properties) {
+        return getBoolean(properties::getBoolean,
+            INSTALL_SNAPSHOT_ENABLED_KEY, INSTALL_SNAPSHOT_ENABLED_DEFAULT, getDefaultLog());
+      }
+      static void setInstallSnapshotEnabled(RaftProperties properties, boolean shouldInstallSnapshot) {
+        setBoolean(properties::setBoolean, INSTALL_SNAPSHOT_ENABLED_KEY, shouldInstallSnapshot);
+      }
     }
   }
 

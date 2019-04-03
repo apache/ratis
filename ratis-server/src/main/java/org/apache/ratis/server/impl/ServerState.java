@@ -412,12 +412,36 @@ public class ServerState implements Closeable {
         request.getTermIndex());
   }
 
+  void updateInstalledSnapshotIndex(TermIndex lastTermIndexInSnapshot) {
+    log.syncWithSnapshot(lastTermIndexInSnapshot.getIndex());
+    this.latestInstalledSnapshot = lastTermIndexInSnapshot;
+  }
+
   SnapshotInfo getLatestSnapshot() {
     return server.getStateMachine().getStateMachineStorage().getLatestSnapshot();
   }
 
   public TermIndex getLatestInstalledSnapshot() {
     return latestInstalledSnapshot;
+  }
+
+  /**
+   * The last index included in either the latestSnapshot or the
+   * latestInsalledSnapshot
+   * @return the last snapshot index
+   */
+  public long getSnapshotIndex() {
+    final long latestSnapshotIndex = getLatestSnapshot() != null ?
+        getLatestSnapshot().getIndex() : 0;
+    final long latestInstalledSnapshotIndex = latestInstalledSnapshot != null ?
+        latestInstalledSnapshot.getIndex() : 0;
+    return Math.max(latestSnapshotIndex, latestInstalledSnapshotIndex);
+  }
+
+  public long getNextIndex() {
+    final long logNextIndex = log.getNextIndex();
+    final long snapshotNextIndex = getSnapshotIndex() + 1;
+    return Math.max(logNextIndex, snapshotNextIndex);
   }
 
   public long getLastAppliedIndex() {

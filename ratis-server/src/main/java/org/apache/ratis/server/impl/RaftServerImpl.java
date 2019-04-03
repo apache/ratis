@@ -45,6 +45,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -70,6 +71,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
   private final int rpcSlownessTimeoutMs;
+  private final boolean installSnapshotEnabled;
 
   private final LifeCycle lifeCycle;
   private final ServerState state;
@@ -81,6 +83,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
 
   private final RaftServerJmxAdapter jmxAdapter;
+
+  private AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -94,12 +98,14 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toIntExact(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
     rpcSlownessTimeoutMs = RaftServerConfigKeys.Rpc.slownessTimeout(properties).toIntExact(TimeUnit.MILLISECONDS);
+    installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
     Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
     this.proxy = proxy;
 
     this.state = new ServerState(id, group, properties, this, stateMachine);
     this.retryCache = initRetryCache(properties);
+    this.inProgressInstallSnapshotRequest = new AtomicReference<>(null);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
   }
@@ -872,8 +878,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final List<CompletableFuture<Long>> futures;
 
     final long currentTerm;
-    final long nextIndex = state.getLog().getNextIndex();
     final long followerCommit = state.getLog().getLastCommittedIndex();
+    final long nextIndex = state.getNextIndex();
     final Optional<FollowerState> followerState;
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
@@ -899,22 +905,20 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
       followerState = updateLastRpcTime(FollowerState.UpdateType.APPEND_START);
 
-      // We need to check if "previous" is in the local peer. Note that it is
-      // possible that "previous" is covered by the latest snapshot: e.g.,
-      // it's possible there's no log entries outside of the latest snapshot.
-      // However, it is not possible that "previous" index is smaller than the
-      // last index included in snapshot. This is because indices <= snapshot's
-      // last index should have been committed.
-      if (previous != null && !containPrevious(previous)) {
-        final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-            leaderId, getId(), groupId, currentTerm, followerCommit, Math.min(nextIndex, previous.getIndex()),
-            INCONSISTENCY, callId);
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("{}: inconsistency entries. Leader previous:{}, Reply:{}",
-              getId(), previous, ServerProtoUtils.toString(reply));
-        }
+      // Check that the append entries are not inconsistent. There are 3
+      // scenarios which can result in inconsistency:
+      //      1. There is a snapshot installation in progress
+      //      2. There is an overlap between the snapshot index and the entries
+      //      3. There is a gap between the local log and the entries
+      // In any of these scenarios, we should retrun an INCONSISTENCY reply
+      // back to leader so that the leader can update this follower's next
+      // index.
+
+      AppendEntriesReplyProto inconsistencyReply = checkInconsistentAppendEntries(
+          leaderId, currentTerm, followerCommit, previous, nextIndex, callId, entries);
+      if (inconsistencyReply != null) {
         followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
-        return CompletableFuture.completedFuture(reply);
+        return CompletableFuture.completedFuture(inconsistencyReply);
       }
 
       state.updateConfiguration(entries);
@@ -942,6 +946,64 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     });
   }
 
+  private AppendEntriesReplyProto checkInconsistentAppendEntries(RaftPeerId leaderId, long currentTerm,
+      long followerCommit, TermIndex previous, long nextIndex, long callId, LogEntryProto... entries) {
+    long replyNextIndex = -1;
+
+    // Check if a snapshot installation through state machine is in progress.
+    if (inProgressInstallSnapshotRequest.get() != null) {
+      replyNextIndex = Math.min(nextIndex, previous.getIndex());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("{}: Cannot append entries as snapshot installation is in " +
+            "progress. Follower next index: {}", getId(), replyNextIndex);
+      }
+    }
+
+    // If a snapshot installation has happened, the new snapshot might
+    // include the log entry indices sent as part of the
+    // AppendEntriesRequestProto. Check that the first log entry proto is
+    // greater than the last index included in the latest snapshot. If not,
+    // the leader should be informed about the new snapshot index so that
+    // it can send log entries only from the next log index
+    long snapshotIndex = state.getSnapshotIndex();
+    if (snapshotIndex > 0 && entries != null && entries.length > 0
+        && entries[0].getIndex() <= snapshotIndex) {
+      replyNextIndex = snapshotIndex + 1;
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("{}: Cannot append entries as latest snapshot already has " +
+            "the append entries. Snapshot index: {}, first append entry " +
+            "index: {}.", getId(), snapshotIndex, entries[0].getIndex());
+      }
+    }
+
+    // We need to check if "previous" is in the local peer. Note that it is
+    // possible that "previous" is covered by the latest snapshot: e.g.,
+    // it's possible there's no log entries outside of the latest snapshot.
+    // However, it is not possible that "previous" index is smaller than the
+    // last index included in snapshot. This is because indices <= snapshot's
+    // last index should have been committed.
+    if (previous != null && !containPrevious(previous)) {
+      replyNextIndex = Math.min(nextIndex, previous.getIndex());
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("{}: Cannot append entries as there is a gap between " +
+            "local log and append entries. Previous is not present. " +
+            "Previous: {}, follower next index: {}", getId(), previous, replyNextIndex);
+      }
+    }
+
+    if (replyNextIndex != -1) {
+      final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
+          leaderId, getId(), groupId, currentTerm, followerCommit, replyNextIndex,
+          INCONSISTENCY, callId);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("{}: inconsistency entries. Reply:{}", getId(), ServerProtoUtils.toString(reply));
+      }
+      return reply;
+    }
+
+    return null;
+  }
+
   private boolean containPrevious(TermIndex previous) {
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: prev:{}, latestSnapshot:{}, latestInstalledSnapshot:{}",
@@ -967,6 +1029,18 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     assertLifeCycleState(STARTING, RUNNING);
     assertGroup(leaderId, leaderGroupId);
 
+    // Check if install snapshot from Leader is enabled
+    if (installSnapshotEnabled) {
+      // Leader has sent InstallSnapshot request with SnapshotInfo. Install the snapshot.
+      return checkAndInstallSnapshot(request, leaderId);
+    } else {
+      // Leader has only sent a notification to install snapshot. Inform State Machine to install snapshot.
+      return notifyStateMachineToInstallSnapshot(request, leaderId);
+    }
+  }
+
+  private InstallSnapshotReplyProto checkAndInstallSnapshot(
+      InstallSnapshotRequestProto request, RaftPeerId leaderId) throws IOException {
     final long currentTerm;
     final long leaderTerm = request.getLeaderTerm();
     final TermIndex lastTermIndex = ServerProtoUtils.toTermIndex(
@@ -1017,6 +1091,84 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         currentTerm, request.getRequestIndex(), InstallSnapshotResult.SUCCESS);
   }
 
+  private InstallSnapshotReplyProto notifyStateMachineToInstallSnapshot(
+      InstallSnapshotRequestProto request, RaftPeerId leaderId) throws IOException {
+    final long currentTerm;
+    final long leaderTerm = request.getLeaderTerm();
+    final TermIndex firstAvailableLogTermIndex = ServerProtoUtils.toTermIndex(
+        request.getFirstAvailableLogIndex());
+    final long firstAvailableLogIndex = firstAvailableLogTermIndex.getIndex();
+
+    synchronized (this) {
+      final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
+      currentTerm = state.getCurrentTerm();
+      if (!recognized) {
+        final InstallSnapshotReplyProto reply = ServerProtoUtils
+            .toInstallSnapshotReplyProto(leaderId, getId(), groupId, currentTerm,
+                request.getRequestIndex(), InstallSnapshotResult.NOT_LEADER);
+        LOG.debug("{}: do not recognize leader for installing snapshot." +
+            " Reply: {}", getId(), reply);
+        return reply;
+      }
+      changeToFollowerAndPersistMetadata(leaderTerm, "installSnapshot");
+      state.setLeader(leaderId, "installSnapshot");
+
+      updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_NOTIFICATION);
+
+      if (inProgressInstallSnapshotRequest.compareAndSet(null, firstAvailableLogTermIndex)) {
+
+        // Check if snapshot index is already at par or ahead of the first
+        // available log index of the Leader.
+        long snapshotIndex = state.getSnapshotIndex();
+        if (snapshotIndex + 1 >= firstAvailableLogIndex) {
+          // State Machine has already installed the snapshot. Return the
+          // latest snapshot index to the Leader.
+
+          inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
+          final InstallSnapshotReplyProto reply = ServerProtoUtils.toInstallSnapshotReplyProto(
+              leaderId, getId(), groupId, currentTerm,
+              InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
+          LOG.info("{}: StateMachine latest installed snapshot index: {}. Reply: {}",
+              getId(), snapshotIndex, reply);
+
+          return reply;
+        }
+
+        // This is the first installSnapshot notify request for this term and
+        // index. Notify the state machine to install the snapshot.
+        LOG.debug("{}: notifying state machine to install snapshot. Next log " +
+                "index is {} but the leader's first available log index is {}.",
+            getId(), state.getLog().getNextIndex(), firstAvailableLogIndex);
+
+        stateMachine.notifyInstallSnapshotFromLeader(firstAvailableLogTermIndex)
+            .whenComplete((reply, exception) -> {
+              if (exception != null) {
+                LOG.error(getId() + ": State Machine failed to install snapshot", exception);
+                inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
+                return;
+              }
+
+              if (reply != null) {
+                stateMachine.pause();
+                state.reloadStateMachine(reply.getIndex(), leaderTerm);
+                state.updateInstalledSnapshotIndex(reply);
+              }
+              inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
+              return;
+            });
+
+        LOG.info("{}: StateMachine notified to install snapshot, Request: {}");
+        return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getId(), groupId,
+            currentTerm, InstallSnapshotResult.SUCCESS, -1);
+      }
+
+      LOG.debug("{}: StateMachine snapshot installation is in progress. " +
+              "InProgress Request: {}", getId(), inProgressInstallSnapshotRequest.get());
+      return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getId(), groupId,
+          currentTerm, InstallSnapshotResult.IN_PROGRESS, -1);
+    }
+  }
+
   synchronized InstallSnapshotRequestProto createInstallSnapshotRequest(
       RaftPeerId targetId, String requestId, int requestIndex,
       SnapshotInfo snapshot, List<FileChunkProto> chunks, boolean done) {
@@ -1026,6 +1178,14 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return ServerProtoUtils.toInstallSnapshotRequestProto(getId(), targetId, groupId,
         requestId, requestIndex, state.getCurrentTerm(), snapshot.getTermIndex(),
         chunks, totalSize.getAsLong(), done);
+  }
+
+  synchronized InstallSnapshotRequestProto createInstallSnapshotRequest(
+      RaftPeerId targetId, TermIndex firstAvailableLogTermIndex) {
+
+    assert (firstAvailableLogTermIndex.getIndex() > 0);
+    return ServerProtoUtils.toInstallSnapshotRequestProto(getId(),
+        targetId, groupId, state.getCurrentTerm(), firstAvailableLogTermIndex);
   }
 
   synchronized RequestVoteRequestProto createRequestVoteRequest(
