@@ -96,7 +96,7 @@
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
           <!--Else will use ratis-assembly as final name.-->
-          <finalName>ratis-incubating-${project.version}</finalName>
+          <finalName>apache-ratis-incubating-${project.version}</finalName>
           <skipAssembly>false</skipAssembly>
           <appendAssemblyId>true</appendAssemblyId>
           <tarLongFileMode>gnu</tarLongFileMode>
@@ -138,61 +138,86 @@
       <groupId>org.apache.ratis</groupId>
       <artifactId>ratis-thirdparty-misc</artifactId>
     </dependency>
+
     <dependency>
       <artifactId>ratis-proto</artifactId>
       <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-common</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-common</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <type>test-jar</type>
+    </dependency>
+
+    <dependency>
+      <artifactId>ratis-client</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-client</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <type>test-jar</type>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-server</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-server</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <type>test-jar</type>
+    </dependency>
+
+    <dependency>
+      <artifactId>ratis-grpc</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-grpc</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <type>test-jar</type>
+    </dependency>
+
+    <dependency>
+      <artifactId>ratis-netty</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-netty</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <type>test-jar</type>
+    </dependency>
+
+    <dependency>
+      <artifactId>ratis-hadoop</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-hadoop</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <type>test-jar</type>
+    </dependency>
+
+    <dependency>
+      <artifactId>ratis-test</artifactId>
+      <groupId>org.apache.ratis</groupId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-test</artifactId>
+      <groupId>org.apache.ratis</groupId>
+      <type>test-jar</type>
     </dependency>
 
     <dependency>
       <artifactId>ratis-examples</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
-
     <dependency>
-      <artifactId>ratis-common</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-common</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <type>test-jar</type>
-    </dependency>
-
-    <dependency>
-      <artifactId>ratis-client</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-client</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <type>test-jar</type>
-    </dependency>
-
-    <dependency>
-      <artifactId>ratis-hadoop</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-hadoop</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <type>test-jar</type>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-grpc</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-grpc</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <type>test-jar</type>
-    </dependency>
-
-    <dependency>
-      <artifactId>ratis-netty</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-netty</artifactId>
+      <artifactId>ratis-examples</artifactId>
       <groupId>org.apache.ratis</groupId>
       <type>test-jar</type>
     </dependency>
@@ -208,11 +233,11 @@
     </dependency>
 
     <dependency>
-      <artifactId>ratis-server</artifactId>
+      <artifactId>ratis-logservice</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
     <dependency>
-      <artifactId>ratis-server</artifactId>
+      <artifactId>ratis-logservice</artifactId>
       <groupId>org.apache.ratis</groupId>
       <type>test-jar</type>
     </dependency>

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
-<assembly xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.1"
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.1 http://maven.apache.org/xsd/assembly-1.1.1.xsd">
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
   <!--
   /**
    * Licensed to the Apache Software Foundation (ASF) under one
@@ -45,9 +45,12 @@
         <include>org.apache.ratis:ratis-common</include>
         <include>org.apache.ratis:ratis-grpc</include>
         <include>org.apache.ratis:ratis-hadoop</include>
+        <include>org.apache.ratis:ratis-logservice</include>
         <include>org.apache.ratis:ratis-netty</include>
+        <include>org.apache.ratis:ratis-proto</include>
         <include>org.apache.ratis:ratis-replicated-map</include>
         <include>org.apache.ratis:ratis-server</include>
+        <include>org.apache.ratis:ratis-test</include>
       </includes>
       <binaries>
         <outputDirectory>jars</outputDirectory>
@@ -61,7 +64,7 @@
       <directory>${project.basedir}/..</directory>
       <outputDirectory>.</outputDirectory>
       <includes>
-        <include>DISCLAIMER.txt</include>
+        <include>DISCLAIMER</include>
       </includes>
       <fileMode>0644</fileMode>
     </fileSet>
@@ -82,6 +85,13 @@
         <include>*.*</include>
       </includes>
       <fileMode>755</fileMode>
+    </fileSet>
+    <!-- Include dev support tools -->
+    <fileSet>
+      <directory>${project.basedir}/../dev-support</directory>
+      <outputDirectory>dev-support</outputDirectory>
+      <fileMode>0644</fileMode>
+      <directoryMode>0755</directoryMode>
     </fileSet>
   </fileSets>
 </assembly>

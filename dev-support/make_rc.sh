@@ -45,9 +45,10 @@ mvnGet() {
 
 # Check project name
 projectname=$(mvnGet project.name)
+projectversion=$(mvnGet project.version)
 if [ "${projectname}" = "Apache Ratis" ]; then
   echo
-  echo "Prepare release artifacts for $projectname"
+  echo "Prepare release artifacts for $projectname ${projectversion}"
   echo
 else
   echo "Unexpected project name \"${projectname}\"."
@@ -76,22 +77,18 @@ mvnFun() {
   set +x
 }
 
-# clean shaded source
-mvnFun clean -Pclean-shade
-repodir=`cd ${repodir} > /dev/null; pwd`
-
-# generate source tar.gz
-mvnFun install -DskipTests assembly:single -Prelease -Dmaven.javadoc.skip=true
+# generate tar.gz
+mvnFun clean install -DskipTests assembly:single -Prelease -Dmaven.javadoc.skip=true
 
 mkdir "${archivedir}"
 archivedir=`cd ${archivedir} > /dev/null; pwd`
 
 artifactid=$(mvnGet project.artifactId)
 assemblydir="$(pwd)/${artifactid}-assembly"
-mv ${assemblydir}/target/${artifactid}-*.tar.gz "${archivedir}"
+mv ${assemblydir}/target/*${artifactid}*${projectversion}*.tar.gz "${archivedir}"
 
 echo
-echo "Generated artifacts successfully."
+echo "Successfully generated artifacts for ${projectname} ${projectversion}"
 ls -l ${archivedir}
 echo
 echo "Check the content of ${archivedir}."
@@ -100,7 +97,6 @@ echo "  cd ${archivedir}"
 echo '  for i in *.tar.gz; do echo $i; gpg --print-mds $i > $i.mds ; done'
 echo '  for i in *.tar.gz; do echo $i; gpg --print-md SHA512 $i > $i.sha512 ; done'
 echo '  for i in *.tar.gz; do echo $i; gpg --armor --output $i.asc --detach-sig $i ; done'
-echo "  rsync -av ${archivedir}/*.gz ${archivedir}/*.mds ${archivedir}/*.asc ~/repos/dist-dev/${artifactid}-VERSION/"
 echo
 echo "Check the content deployed to maven."
 echo "If good, close the repo and record links of temporary staging repo"

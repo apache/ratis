@@ -1,5 +1,7 @@
 <?xml version="1.0"?>
-<assembly xmlns="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.1 http://maven.apache.org/xsd/assembly-1.1.1.xsd">
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
 <!--
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -27,44 +29,18 @@
     <moduleSet>
       <useAllReactorProjects>true</useAllReactorProjects>
       <includes>
-        <include>org.apache.ratis:ratis-hadoop-shaded</include>
-        <include>org.apache.ratis:ratis-proto-shaded</include>
-      </includes>
-      <sources>
-        <excludeSubModuleDirectories>false</excludeSubModuleDirectories>
-        <fileSets>
-          <fileSet>
-            <includes>
-              <include>**</include>
-            </includes>
-            <excludes>
-              <!-- For shaded modules, exclude generated sources -->
-              <exclude>src/main/java/</exclude>
-              <exclude>dependency-reduced-pom.xml</exclude>
-
-              <exclude>target/</exclude>
-              <exclude>test/</exclude>
-              <exclude>.classpath</exclude>
-              <exclude>.project</exclude>
-              <exclude>.settings/</exclude>
-              <exclude>*.iml/</exclude>
-            </excludes>
-          </fileSet>
-        </fileSets>
-      </sources>
-    </moduleSet>
-    <moduleSet>
-      <useAllReactorProjects>true</useAllReactorProjects>
-      <includes>
         <include>org.apache.ratis:ratis-assembly</include>
         <include>org.apache.ratis:ratis-client</include>
         <include>org.apache.ratis:ratis-common</include>
         <include>org.apache.ratis:ratis-examples</include>
         <include>org.apache.ratis:ratis-grpc</include>
         <include>org.apache.ratis:ratis-hadoop</include>
+        <include>org.apache.ratis:ratis-logservice</include>
         <include>org.apache.ratis:ratis-netty</include>
+        <include>org.apache.ratis:ratis-proto</include>
         <include>org.apache.ratis:ratis-replicated-map</include>
         <include>org.apache.ratis:ratis-server</include>
+        <include>org.apache.ratis:ratis-test</include>
       </includes>
       <sources>
         <excludeSubModuleDirectories>false</excludeSubModuleDirectories>
@@ -100,7 +76,7 @@
       <outputDirectory>.</outputDirectory>
       <includes>
         <include>BUILDING.md</include>
-        <include>DISCLAIMER.txt</include>
+        <include>DISCLAIMER</include>
         <include>LICENSE</include>
         <include>NOTICE</include>
         <include>README.md</include>
