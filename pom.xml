@@ -134,7 +134,7 @@
 
     <!-- Maven plugin versions -->
     <maven-antrun-plugin.version>1.7</maven-antrun-plugin.version>
-    <maven-assembly-plugin.version>3.0.0</maven-assembly-plugin.version>
+    <maven-assembly-plugin.version>3.1.1</maven-assembly-plugin.version>
     <maven-bundle-plugin.version>2.5.3</maven-bundle-plugin.version>
     <maven-checkstyle-plugin.version>3.0.0</maven-checkstyle-plugin.version>
     <maven-clean-plugin.version>3.0.0</maven-clean-plugin.version>
@@ -147,7 +147,7 @@
     <maven-javadoc-plugin.version>2.10.3</maven-javadoc-plugin.version>
     <maven-pdf-plugin.version>1.2</maven-pdf-plugin.version>
     <maven-resources-plugin.version>2.6</maven-resources-plugin.version>
-    <maven-shade-plugin.version>3.1.1</maven-shade-plugin.version>
+    <maven-shade-plugin.version>3.2.1</maven-shade-plugin.version>
     <maven-site-plugin.version>3.5</maven-site-plugin.version>
     <maven-source-plugin.version>2.3</maven-source-plugin.version>
     <maven-stylus-skin.version>1.5</maven-stylus-skin.version>
@@ -306,9 +306,29 @@
       </dependency>
 
       <dependency>
+        <artifactId>ratis-test</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-test</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
         <groupId>org.apache.ratis</groupId>
         <artifactId>ratis-logservice</artifactId>
         <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-logservice</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
       </dependency>
 
       <dependency>
