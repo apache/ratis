@@ -148,10 +148,8 @@
               <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <transformers>
-                <transformer
-                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>org.apache.ratis.examples.common.Runner
-                  </mainClass>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>org.apache.ratis.examples.common.Runner</mainClass>
                 </transformer>
               </transformers>
               <filters>
@@ -171,13 +169,29 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>license-maven-plugin</artifactId>
-        <version>1.10</version>
         <configuration>
           <canUpdateCopyright>false</canUpdateCopyright>
           <roots>
             <root>${project.basedir}</root>
           </roots>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.coderplus.maven.plugins</groupId>
+        <artifactId>copy-rename-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-file</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <sourceFile>target/${project.artifactId}-${project.version}-shaded.jar</sourceFile>
+              <destinationFile>target/${project.artifactId}-${project.version}.jar</destinationFile>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

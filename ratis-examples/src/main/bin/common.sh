@@ -14,18 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-LIBDIR="$DIR/../lib"
+LIB_DIR=${SCRIPT_DIR}/../lib
 
-if [ -d "$LIBDIR" ]; then
-   ARTIFACT=`ls -1 $DIR/../lib/*.jar`
+if [[ -d "$LIB_DIR" ]]; then
+   #release directory layout
+   LIB_DIR=`cd ${LIB_DIR} > /dev/null; pwd`
+   ARTIFACT=`ls -1 ${LIB_DIR}/*.jar`
 else
-#development startup
-   ARTIFACT=`ls -1 $DIR/../../../target/ratis-examples-*.jar | grep -v test | grep -v javadoc | grep -v sources`
-   echo $ARTIFACT
-   if [ ! -f "$ARTIFACT" ]; then
-      echo "Jar file is missing. Please do a full build (mvn clean package) first."
+   #development directory layout
+   EXAMPLES_DIR=${SCRIPT_DIR}/../../../
+   if [[ -d "$EXAMPLES_DIR" ]]; then
+      EXAMPLES_DIR=`cd ${EXAMPLES_DIR} > /dev/null; pwd`
+   fi
+   JAR_PREFIX=`basename ${EXAMPLES_DIR}`
+   ARTIFACT=`ls -1 ${EXAMPLES_DIR}/target/${JAR_PREFIX}-*.jar | grep -v test | grep -v javadoc | grep -v sources | grep -v shaded`
+   if [[ ! -f "$ARTIFACT" ]]; then
+      echo "Jar file is missing. Please do a full build (mvn clean package -DskipTests) first."
       exit -1
    fi
 fi
+
+echo ${ARTIFACT}

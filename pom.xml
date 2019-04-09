@@ -142,7 +142,7 @@
     <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
     <maven-dependency-plugin.version>2.10</maven-dependency-plugin.version>
     <maven-deploy-plugin.version>2.8.1</maven-deploy-plugin.version>
-    <maven-install-plugin.version>2.5.1</maven-install-plugin.version>
+    <maven-install-plugin.version>3.0.0-M1</maven-install-plugin.version>
     <maven-jar-plugin.version>3.0.2</maven-jar-plugin.version>
     <maven-javadoc-plugin.version>2.10.3</maven-javadoc-plugin.version>
     <maven-pdf-plugin.version>1.2</maven-pdf-plugin.version>
@@ -154,6 +154,8 @@
     <maven-surefire-plugin.version>3.0.0-M1</maven-surefire-plugin.version>
 
     <protobuf-maven-plugin.version>0.5.1</protobuf-maven-plugin.version>
+    <license-maven-plugin.version>1.19</license-maven-plugin.version>
+    <copy-rename-maven-plugin.version>1.0</copy-rename-maven-plugin.version>
 
     <!--
       ! Can be removed if changing to ASF parent version 19
@@ -414,6 +416,17 @@
           <artifactId>build-helper-maven-plugin</artifactId>
           <version>${build-helper-maven-plugin.version}</version>
         </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>license-maven-plugin</artifactId>
+          <version>${license-maven-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>com.coderplus.maven.plugins</groupId>
+          <artifactId>copy-rename-maven-plugin</artifactId>
+          <version>${copy-rename-maven-plugin.version}</version>
+        </plugin>
+
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-install-plugin</artifactId>

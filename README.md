@@ -20,48 +20,8 @@ The paper introduces Raft and states its motivations in following words:
 
   Ratis aims to make raft available as a java library that can be used by any system that needs to use a replicated log. It provides pluggability for state machine implementations to manage replicated states. It also provides pluggability for Raft log, and rpc implementations to make it easy for integration with other projects. Another important goal is to support high throughput data ingest so that it can be used for more general data replication use cases.
 
-# Usage
-
-Compile the repository using `mvn clean package -DskipTests`
-
-## FileStore
-
-### Server
-To spawn the FileStoreStateMachineServer, use `bin/server.sh filestore server --id <selfid> --storage <storage_dir> --peers <id:ip_address,...>`
-
-selfid is the id of the instance being spwaned, this should be one of the ids in the peer list.
-
-For example `ratis-examples/src/main/bin/server.sh filestore server --id n0 --storage /tmp/data --peers n0:172.26.32.224:6000,n1:172.26.32.225:6001,n2:172.26.32.226:6002`
-
-### Client
-
-To spawn the FileStoreStateMachine client, use `bin/client.sh filestore loadgen --size <file_size> --numFiles <num_files> --peers <id:ip_address,...>`
-
-Where, file_size is the size of the file to be generated in bytes, num_files is the number of files to be generated.
-
-For example `ratis-examples/src/main/bin/client.sh filestore loadgen --size 1048576 --numFiles 1000 --peers n0:172.26.32.224:6000,n1:172.26.32.225:6001,n2:172.26.32.226:6002`
-
-## Arithmetic
-
-### Server
-To spawn the ArithmeticStateMachineServer, use `bin/server.sh arithmetic server --id <selfid> --storage <storage_dir> --peers <id:ip_address,...>`
-
-selfid is the id of the instance being spwaned, this should be one of the ids in the peer list.
-
-For example `ratis-examples/src/main/bin/server.sh arithmetic server --id n0 --storage /tmp/data --peers n0:172.26.32.224:6000,n1:172.26.32.225:6001,n2:172.26.32.226:6002`
-
-### Client
-
-To spawn the ArithmeticStateMachine client, use `bin/client.sh arithmetic get --name b --peers <id:ip_address,...>`
-
-Where, b is the name of the variable.
-
-For example `ratis-examples/src/main/bin/client.sh arithmetic get --name b --peers n0:172.26.32.224:6000,n1:172.26.32.225:6001,n2:172.26.32.226:6002`
-
-PS: the peer is a id, ipaddress pair seperated by ':', for eg. n0:172.26.32.224:6000
-
-### Pre-Setup Vagrant Pseudo Cluster
-One can see the interactions of a three server Ratis cluster with a load-generator running against it by using the `run_all_tests.sh` script found in [dev-support/vagrant/]. See the [dev-support/vagrant/README.md] for more on dependencies and what is setup. This will allow one to try a fully setup three server Ratis cluster on a single VM image, preventing resource contention with your development host and allowing failure injection too.
+* To build the artifacts, see [BUILDING.md](BUILDING.md).
+* To run the examples, see [ratis-examples/README.md](ratis-examples/README.md).
 
 # Reference
 [1] _Diego Ongaro and John Ousterhout. 2014. In search of an understandable consensus algorithm. In Proceedings of the 2014 USENIX conference on USENIX Annual Technical Conference (USENIX ATC'14), Garth Gibson and Nickolai Zeldovich (Eds.). USENIX Association, Berkeley, CA, USA, 305-320._
