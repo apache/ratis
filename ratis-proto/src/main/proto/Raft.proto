@@ -126,6 +126,7 @@ enum InstallSnapshotResult {
   NOT_LEADER = 1;
   IN_PROGRESS = 2;
   ALREADY_INSTALLED = 3;
+  CONF_MISMATCH = 4;
 }
 
 message RequestVoteRequestProto {
@@ -172,24 +173,38 @@ message AppendEntriesReplyProto {
 }
 
 message InstallSnapshotRequestProto {
+  message SnapshotChunkProto {
+    string requestId = 1; // an identifier for chunked-requests.
+    uint32 requestIndex = 2; // the index for this request chunk. Starts from 0.
+    RaftConfigurationProto raftConfiguration = 3;
+    TermIndexProto termIndex = 4;
+    repeated FileChunkProto fileChunks = 5;
+    uint64 totalSize = 6;
+    bool done = 7; // whether this is the final chunk for the same req.
+  }
+
+  message NotificationProto {
+    TermIndexProto firstAvailableTermIndex = 1; // first available log index to notify Follower to install snapshot.
+  }
+
   RaftRpcRequestProto serverRequest = 1;
-  string requestId = 2; // an identifier for chunked-requests.
-  uint32 requestIndex = 3; // the index for this request chunk. Starts from 0.
-  RaftConfigurationProto raftConfiguration = 4;
-  uint64 leaderTerm = 5;
-  TermIndexProto termIndex = 6;
-  repeated FileChunkProto fileChunks = 7;
-  uint64 totalSize = 8;
-  bool done = 9; // whether this is the final chunk for the same req.
-  TermIndexProto firstAvailableLogIndex = 11; // first available log index to notify Follower to install snapshot
+  uint64 leaderTerm = 2;
+
+  oneof InstallSnapshotRequestBody {
+    SnapshotChunkProto snapshotChunk = 3;
+    NotificationProto notification = 4;
+  }
 }
 
 message InstallSnapshotReplyProto {
   RaftRpcReplyProto serverReply = 1;
-  uint32 requestIndex = 2;
-  uint64 term = 3;
-  InstallSnapshotResult result = 4;
-  uint64 snapshotIndex = 5;
+  uint64 term = 2;
+  InstallSnapshotResult result = 3;
+
+  oneof InstallSnapshotReplyBody {
+    uint32 requestIndex = 4;  // index of the snapshot chunk request.
+    uint64 snapshotIndex = 5; // index of snapshot installed after notification.
+  }
 }
 
 message ClientMessageEntryProto {

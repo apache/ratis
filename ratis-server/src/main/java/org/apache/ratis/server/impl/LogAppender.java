@@ -130,7 +130,7 @@ public class LogAppender {
     return follower;
   }
 
-  RaftPeerId getFollowerId() {
+  protected RaftPeerId getFollowerId() {
     return getFollower().getPeer().getId();
   }
 

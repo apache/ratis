@@ -54,7 +54,9 @@ public class SnapshotManager {
 
   public void installSnapshot(StateMachine stateMachine,
       InstallSnapshotRequestProto request) throws IOException {
-    final long lastIncludedIndex = request.getTermIndex().getIndex();
+    final InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest =
+        request.getSnapshotChunk();
+    final long lastIncludedIndex = snapshotChunkRequest.getTermIndex().getIndex();
     final RaftStorageDirectory dir = storage.getStorageDir();
 
     File tmpDir = dir.getNewTempDir();
@@ -66,7 +68,7 @@ public class SnapshotManager {
     // TODO: Make sure that subsequent requests for the same installSnapshot are coming in order,
     // and are not lost when whole request cycle is done. Check requestId and requestIndex here
 
-    for (FileChunkProto chunk : request.getFileChunksList()) {
+    for (FileChunkProto chunk : snapshotChunkRequest.getFileChunksList()) {
       SnapshotInfo pi = stateMachine.getLatestSnapshot();
       if (pi != null && pi.getTermIndex().getIndex() >= lastIncludedIndex) {
         throw new IOException("There exists snapshot file "
@@ -124,7 +126,7 @@ public class SnapshotManager {
       }
     }
 
-    if (request.getDone()) {
+    if (snapshotChunkRequest.getDone()) {
       LOG.info("Install snapshot is done, renaming tnp dir:{} to:{}",
           tmpDir, dir.getStateMachineDir());
       dir.getStateMachineDir().delete();

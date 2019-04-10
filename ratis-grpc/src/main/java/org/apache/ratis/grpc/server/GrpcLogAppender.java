@@ -347,7 +347,7 @@ public class GrpcLogAppender extends LogAppender {
     }
 
     synchronized void addPending(InstallSnapshotRequestProto request) {
-      pending.offer(request.getRequestIndex());
+      pending.offer(request.getSnapshotChunk().getRequestIndex());
     }
 
     synchronized void removePending(InstallSnapshotReplyProto reply) {
@@ -396,6 +396,10 @@ public class GrpcLogAppender extends LogAppender {
         case NOT_LEADER:
           checkResponseTerm(reply.getTerm());
           break;
+        case CONF_MISMATCH:
+          LOG.error("{}: Configuration Mismatch ({}): Leader {} has it set to {} but follower {} has it set to {}",
+              server.getId(), RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
+              server.getId(), installSnapshotEnabled, getFollowerId(), !installSnapshotEnabled);
         case UNRECOGNIZED:
           break;
       }

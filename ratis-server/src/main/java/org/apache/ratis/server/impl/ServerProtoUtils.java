@@ -276,25 +276,35 @@ public interface ServerProtoUtils {
 
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
-      long term, int requestIndex, InstallSnapshotResult result) {
+      long currentTerm, int requestIndex, InstallSnapshotResult result) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
         replyId, groupId, result == InstallSnapshotResult.SUCCESS);
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
-        .newBuilder().setServerReply(rb).setTerm(term).setResult(result)
+        .newBuilder().setServerReply(rb).setTerm(currentTerm).setResult(result)
         .setRequestIndex(requestIndex);
     return builder.build();
   }
 
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
-      long term, InstallSnapshotResult result, long installedSnapshotIndex) {
+      long currentTerm, InstallSnapshotResult result, long installedSnapshotIndex) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
         replyId, groupId, result == InstallSnapshotResult.SUCCESS);
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
-        .newBuilder().setServerReply(rb).setTerm(term).setResult(result);
+        .newBuilder().setServerReply(rb).setTerm(currentTerm).setResult(result);
     if (installedSnapshotIndex > 0) {
       builder.setSnapshotIndex(installedSnapshotIndex);
     }
+    return builder.build();
+  }
+
+  static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
+      RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
+      InstallSnapshotResult result) {
+    final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
+        replyId, groupId, result == InstallSnapshotResult.SUCCESS);
+    final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
+        .newBuilder().setServerReply(rb).setResult(result);
     return builder.build();
   }
 
@@ -302,26 +312,33 @@ public interface ServerProtoUtils {
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, String requestId, int requestIndex,
       long term, TermIndex lastTermIndex, List<FileChunkProto> chunks,
       long totalSize, boolean done) {
+    final InstallSnapshotRequestProto.SnapshotChunkProto.Builder snapshotChunkProto =
+        InstallSnapshotRequestProto.SnapshotChunkProto.newBuilder()
+            .setRequestId(requestId)
+            .setRequestIndex(requestIndex)
+            .setTermIndex(toTermIndexProto(lastTermIndex))
+            .addAllFileChunks(chunks)
+            .setTotalSize(totalSize)
+            .setDone(done);
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId, groupId))
-        .setRequestId(requestId)
-        .setRequestIndex(requestIndex)
         // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
         .setLeaderTerm(term)
-        .setTermIndex(toTermIndexProto(lastTermIndex))
-        .addAllFileChunks(chunks)
-        .setTotalSize(totalSize)
-        .setDone(done).build();
+        .setSnapshotChunk(snapshotChunkProto)
+        .build();
   }
 
   static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
       long leaderTerm, TermIndex firstAvailable) {
+    final InstallSnapshotRequestProto.NotificationProto.Builder notificationProto =
+        InstallSnapshotRequestProto.NotificationProto.newBuilder()
+            .setFirstAvailableTermIndex(toTermIndexProto(firstAvailable));
     return InstallSnapshotRequestProto.newBuilder()
         .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId, groupId))
         // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
         .setLeaderTerm(leaderTerm)
-        .setFirstAvailableLogIndex(toTermIndexProto(firstAvailable))
+        .setNotification(notificationProto)
         .build();
   }
 

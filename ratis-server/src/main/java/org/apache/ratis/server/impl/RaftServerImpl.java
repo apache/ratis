@@ -1032,19 +1032,31 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     // Check if install snapshot from Leader is enabled
     if (installSnapshotEnabled) {
       // Leader has sent InstallSnapshot request with SnapshotInfo. Install the snapshot.
-      return checkAndInstallSnapshot(request, leaderId);
+      if (request.hasSnapshotChunk()) {
+        return checkAndInstallSnapshot(request, leaderId);
+      }
     } else {
       // Leader has only sent a notification to install snapshot. Inform State Machine to install snapshot.
-      return notifyStateMachineToInstallSnapshot(request, leaderId);
+      if (request.hasNotification()) {
+        return notifyStateMachineToInstallSnapshot(request, leaderId);
+      }
     }
+    // There is a mismatch between configurations on leader and follower.
+    final InstallSnapshotReplyProto reply = ServerProtoUtils
+        .toInstallSnapshotReplyProto(leaderId, getId(), groupId,
+            InstallSnapshotResult.CONF_MISMATCH);
+    LOG.error("{}: Configuration Mismatch ({}): Leader {} has it set to {} but follower {} has it set to {}",
+        getId(), RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
+        leaderId, request.hasSnapshotChunk(), getId(), installSnapshotEnabled);
+    return reply;
   }
 
   private InstallSnapshotReplyProto checkAndInstallSnapshot(
       InstallSnapshotRequestProto request, RaftPeerId leaderId) throws IOException {
     final long currentTerm;
     final long leaderTerm = request.getLeaderTerm();
-    final TermIndex lastTermIndex = ServerProtoUtils.toTermIndex(
-        request.getTermIndex());
+    InstallSnapshotRequestProto.SnapshotChunkProto snapshotChunkRequest = request.getSnapshotChunk();
+    final TermIndex lastTermIndex = ServerProtoUtils.toTermIndex(snapshotChunkRequest.getTermIndex());
     final long lastIncludedIndex = lastTermIndex.getIndex();
     final Optional<FollowerState> followerState;
     synchronized (this) {
@@ -1053,7 +1065,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (!recognized) {
         final InstallSnapshotReplyProto reply = ServerProtoUtils
             .toInstallSnapshotReplyProto(leaderId, getId(), groupId, currentTerm,
-                request.getRequestIndex(), InstallSnapshotResult.NOT_LEADER);
+                snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.NOT_LEADER);
         LOG.debug("{}: do not recognize leader for installing snapshot." +
             " Reply: {}", getId(), reply);
         return reply;
@@ -1076,19 +1088,19 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
         // update the committed index
         // re-load the state machine if this is the last chunk
-        if (request.getDone()) {
+        if (snapshotChunkRequest.getDone()) {
           state.reloadStateMachine(lastIncludedIndex, leaderTerm);
         }
       } finally {
         updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_COMPLETE);
       }
     }
-    if (request.getDone()) {
+    if (snapshotChunkRequest.getDone()) {
       LOG.info("{}:{} successfully install the whole snapshot-{}", getId(), getGroupId(),
           lastIncludedIndex);
     }
     return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getId(), groupId,
-        currentTerm, request.getRequestIndex(), InstallSnapshotResult.SUCCESS);
+        currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.SUCCESS);
   }
 
   private InstallSnapshotReplyProto notifyStateMachineToInstallSnapshot(
@@ -1096,7 +1108,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final long currentTerm;
     final long leaderTerm = request.getLeaderTerm();
     final TermIndex firstAvailableLogTermIndex = ServerProtoUtils.toTermIndex(
-        request.getFirstAvailableLogIndex());
+        request.getNotification().getFirstAvailableTermIndex());
     final long firstAvailableLogIndex = firstAvailableLogTermIndex.getIndex();
 
     synchronized (this) {
@@ -1105,7 +1117,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (!recognized) {
         final InstallSnapshotReplyProto reply = ServerProtoUtils
             .toInstallSnapshotReplyProto(leaderId, getId(), groupId, currentTerm,
-                request.getRequestIndex(), InstallSnapshotResult.NOT_LEADER);
+                InstallSnapshotResult.NOT_LEADER, -1);
         LOG.debug("{}: do not recognize leader for installing snapshot." +
             " Reply: {}", getId(), reply);
         return reply;
