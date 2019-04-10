@@ -41,7 +41,7 @@ public class VerificationTool {
 
     public static final Logger LOG = LoggerFactory.getLogger(LogStateMachine.class);
 
-    @Parameter(names = {"-q", "--metaQuorum"}, description = "Metadata Service Quorum")
+    @Parameter(names = {"-q", "--metaQuorum"}, description = "Metadata Service Quorum", required = true)
     private String metaQuorum;
     public static String LOG_NAME_PREFIX = "testlog";
     public static String MESSAGE_PREFIX = "message";

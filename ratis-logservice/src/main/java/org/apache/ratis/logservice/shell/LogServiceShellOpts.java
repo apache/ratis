@@ -20,6 +20,6 @@ package org.apache.ratis.logservice.shell;
 import com.beust.jcommander.Parameter;
 
 public class LogServiceShellOpts {
-  @Parameter(names = {"--meta-quorum", "-q"})
+  @Parameter(names = {"--meta-quorum", "-q"}, required = true)
   public String metaQuorum;
 }
