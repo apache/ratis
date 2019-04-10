@@ -27,9 +27,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -271,7 +268,7 @@ public class LogStateMachine extends BaseStateMachine {
   private CompletableFuture<Message> processGetSizeRequest(LogServiceRequestProto proto) {
     GetLogSizeRequestProto msgProto = proto.getSizeRequest();
     Throwable t = verifyState(State.OPEN);
-    LOG.debug("QUERY: {}, RESULT: {}", msgProto, this.dataRecordsSize);
+    LOG.trace("Size query: {}, Result: {}", msgProto, this.dataRecordsSize);
     return CompletableFuture.completedFuture(Message
       .valueOf(LogServiceProtoUtil.toGetLogSizeReplyProto(this.dataRecordsSize, t).toByteString()));
   }
@@ -279,7 +276,7 @@ public class LogStateMachine extends BaseStateMachine {
   private CompletableFuture<Message> processGetLengthRequest(LogServiceRequestProto proto) {
     GetLogLengthRequestProto msgProto = proto.getLengthQuery();
     Throwable t = verifyState(State.OPEN);
-    LOG.debug("QUERY: {}, RESULT: {}", msgProto, this.length);
+    LOG.trace("Length query: {}, Result: {}", msgProto, this.length);
     return CompletableFuture.completedFuture(Message
       .valueOf(LogServiceProtoUtil.toGetLogLengthReplyProto(this.length, t).toByteString()));
   }
@@ -359,9 +356,9 @@ public class LogStateMachine extends BaseStateMachine {
         CompletableFuture.completedFuture(
           Message.valueOf(LogServiceProtoUtil.toAppendLogReplyProto(ids, t).toByteString()));
     final RaftProtos.RaftPeerRole role = trx.getServerRole();
-    LOG.debug("{}:{}-{}: {} new length {}", role, getId(), index, proto, dataRecordsSize);
     if (LOG.isTraceEnabled()) {
-      LOG.trace("{}-{}: variables={}", getId(), index, dataRecordsSize);
+      LOG.trace("{}:{}-{}: {} new length {}", role, getId(), index,
+          TextFormat.shortDebugString(proto), dataRecordsSize);
     }
     return f;
   }

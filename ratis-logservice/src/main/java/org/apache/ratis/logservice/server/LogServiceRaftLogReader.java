@@ -56,7 +56,7 @@ public class LogServiceRaftLogReader {
    * element, but take care to check if a value is present using {@link #hasNext()} first.
    */
   public void seek(long recordId) throws RaftLogIOException, InvalidProtocolBufferException {
-    LOG.debug("Seeking to recordId={}", recordId);
+    LOG.trace("Seeking to recordId={}", recordId);
     // RaftLog starting index
     currentRaftIndex = raftLog.getStartIndex();
     currentRecordId = 0;
@@ -99,10 +99,12 @@ public class LogServiceRaftLogReader {
   private void loadNext() throws RaftLogIOException, InvalidProtocolBufferException {
     // Clear the old "current" record
     currentRecord = null;
-    LOG.debug("Loading next value: raftIndex={}, recordId={}, proto='{}', offset={}",
-        currentRaftIndex, currentRecordId,
-        currentLogEntry == null ? "null" : TextFormat.shortDebugString(currentLogEntry),
-            currentLogEntryOffset);
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("Loading next value: raftIndex={}, recordId={}, proto='{}', offset={}",
+          currentRaftIndex, currentRecordId,
+          currentLogEntry == null ? "null" : TextFormat.shortDebugString(currentLogEntry),
+              currentLogEntryOffset);
+    }
     // Continue iterating over the current entry.
     if (currentLogEntry != null) {
       assert currentLogEntryOffset != -1;
