@@ -73,13 +73,14 @@ $ mvn exec:java -Dexec.mainClass=org.apache.ratis.logservice.shell.LogServiceShe
 Similarly, a full quorum can be started by building a docker container and then start the docker-compose cluster:
 ```bash
 $ cd ratis-logservice && mvn package assembly:single -DskipTests
-$ docker build -t ratis-logservice --build-arg BINARY=target/ratis-logservice-0.4.0-SNAPSHOT-bin.tar.gz --build-arg VERSION=0.4.0-SNAPSHOT .
+$ ./build-docker.sh
 $ docker-compose up
 ```
 
 Then, a client container can be launched to connect to the cluster:
 ```bash
-$ docker run --rm --network ratis-logservice_default -it ratis-logservice java -cp "/opt/ratis-logservice/current/conf:/opt/ratis-logservice/current/lib/*" org.apache.ratis.logservice.shell.LogServiceShell -q master1.logservice.ratis.org:9999,master2.logservice.ratis.org:9999,master3.logservice.ratis.org:9999
+$ ./client-env.sh
+$ ./bin/shell -q master1.logservice.ratis.org:9999,master2.logservice.ratis.org:9999,master3.logservice.ratis.org:9999
 ```
 
 Take care that the correct network is provided to the LogServiceShell command.
