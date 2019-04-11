@@ -42,5 +42,12 @@
         <include>log4j.properties</include>
       </includes>
     </fileSet>
+    <fileSet>
+      <directory>src/assembly/bin</directory>
+      <includes>
+        <include>*</include>
+      </includes>
+      <outputDirectory>bin</outputDirectory>
+    </fileSet>
   </fileSets>
 </assembly>

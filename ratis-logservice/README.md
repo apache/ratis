@@ -83,4 +83,12 @@ $ ./client-env.sh
 $ ./bin/shell -q master1.logservice.ratis.org:9999,master2.logservice.ratis.org:9999,master3.logservice.ratis.org:9999
 ```
 
-Take care that the correct network is provided to the LogServiceShell command.
+Or, you can launch the verification tool to generate load on the cluster:
+```bash
+$ ./client-env.sh
+$ ./bin/load-test -q master1.logservice.ratis.org:9999,master2.logservice.ratis.org:9999,master3.logservice.ratis.org:9999
+```
+
+`client-env.sh` launches a Docker container that can communicate with the LogService cluster running from
+`docker-compose`. You can do this by hand, but take care that the correct network is provided when launching your
+container.
