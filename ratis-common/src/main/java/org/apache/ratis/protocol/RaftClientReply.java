@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -67,8 +67,8 @@ public class RaftClientReply extends RaftClientMessage {
       Preconditions.assertTrue(!success,
           () -> "Inconsistent parameters: success && exception != null: " + this);
       Preconditions.assertTrue(ReflectionUtils.isInstance(exception,
-          NotLeaderException.class, NotReplicatedException.class, StateMachineException.class,
-          RaftRetryFailureException.class), () -> "Unexpected exception class: " + this);
+          NotLeaderException.class, NotReplicatedException.class, StateMachineException.class),
+          () -> "Unexpected exception class: " + this);
     }
   }
 
@@ -145,8 +145,8 @@ public class RaftClientReply extends RaftClientMessage {
     return JavaUtils.cast(exception, StateMachineException.class);
   }
 
-  /** If this reply has {@link RaftRetryFailureException}, return it; otherwise return null. */
-  public RaftRetryFailureException getRetryFailureException() {
-    return JavaUtils.cast(exception, RaftRetryFailureException.class);
+  /** @return the exception, if there is any; otherwise, return null. */
+  public RaftException getException() {
+    return exception;
   }
 }

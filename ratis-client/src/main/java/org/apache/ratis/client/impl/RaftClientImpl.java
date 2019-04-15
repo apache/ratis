@@ -316,8 +316,9 @@ final class RaftClientImpl implements RaftClient {
         return;
       }
       if (reply == null) {
-        LOG.debug("schedule* attempt #{} with policy {} for {}", pending.getAttemptCount(), retryPolicy, request);
-        scheduler.onTimeout(retryPolicy.getSleepTime(),
+        final int attempt = pending.getAttemptCount();
+        LOG.debug("schedule* attempt #{} with policy {} for {}", attempt, retryPolicy, request);
+        scheduler.onTimeout(retryPolicy.getSleepTime(attempt, request),
             () -> getSlidingWindow(request).retry(pending, this::sendRequestWithRetryAsync),
             LOG, () -> "Failed* to retry " + request);
       } else {
@@ -335,11 +336,11 @@ final class RaftClientImpl implements RaftClient {
       if (reply != null) {
         return reply;
       }
-      if (!retryPolicy.shouldRetry(attemptCount)) {
+      if (!retryPolicy.shouldRetry(attemptCount, request)) {
         return null;
       }
       try {
-        retryPolicy.getSleepTime().sleep();
+        retryPolicy.getSleepTime(attemptCount, request).sleep();
       } catch (InterruptedException e) {
         throw new InterruptedIOException("retry policy=" + retryPolicy);
       }
@@ -351,12 +352,13 @@ final class RaftClientImpl implements RaftClient {
     LOG.debug("{}: send* {}", clientId, request);
     return clientRpc.sendRequestAsync(request).thenApply(reply -> {
       LOG.debug("{}: receive* {}", clientId, reply);
+      final RaftException replyException = reply != null? reply.getException(): null;
       reply = handleNotLeaderException(request, reply, true);
       if (reply != null) {
         getSlidingWindow(request).receiveReply(
             request.getSlidingWindowEntry().getSeqNum(), reply, this::sendRequestWithRetryAsync);
-      } else if (!retryPolicy.shouldRetry(attemptCount)) {
-        handleAsyncRetryFailure(request, attemptCount);
+      } else if (!retryPolicy.shouldRetry(attemptCount, request)) {
+        handleAsyncRetryFailure(request, attemptCount, replyException);
       }
       return reply;
     }).exceptionally(e -> {
@@ -367,8 +369,8 @@ final class RaftClientImpl implements RaftClient {
       }
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof IOException && !(e instanceof GroupMismatchException)) {
-        if (!retryPolicy.shouldRetry(attemptCount)) {
-          handleAsyncRetryFailure(request, attemptCount);
+        if (!retryPolicy.shouldRetry(attemptCount, request)) {
+          handleAsyncRetryFailure(request, attemptCount, e);
         } else {
           handleIOException(request, (IOException) e, null, true);
         }
@@ -379,15 +381,16 @@ final class RaftClientImpl implements RaftClient {
     });
   }
 
-  static RaftRetryFailureException newRaftRetryFailureException(
-      RaftClientRequest request, int attemptCount, RetryPolicy retryPolicy) {
+  static Throwable noMoreRetries(RaftClientRequest request, int attemptCount, RetryPolicy policy, Throwable throwable) {
+    if (attemptCount == 1 && throwable != null) {
+      return throwable;
+    }
     return new RaftRetryFailureException(
-        "Failed " + request + " for " + (attemptCount-1) + " attempts with " + retryPolicy);
+        "Failed " + request + " for " + (attemptCount-1) + " attempts with " + policy, throwable);
   }
 
-  private void handleAsyncRetryFailure(RaftClientRequest request, int attemptCount) {
-    final RaftRetryFailureException rfe = newRaftRetryFailureException(request, attemptCount, retryPolicy);
-    failAllAsyncRequests(request, rfe);
+  private void handleAsyncRetryFailure(RaftClientRequest request, int attemptCount, Throwable throwable) {
+    failAllAsyncRequests(request, noMoreRetries(request, attemptCount, retryPolicy, throwable));
   }
 
   private void failAllAsyncRequests(RaftClientRequest request, Throwable t) {
