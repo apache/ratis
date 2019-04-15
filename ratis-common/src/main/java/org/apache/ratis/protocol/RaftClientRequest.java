@@ -158,7 +158,7 @@ public class RaftClientRequest extends RaftClientMessage {
 
   private final SlidingWindowEntry slidingWindowEntry;
 
-  public RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
+  RaftClientRequest(ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, Type type) {
     this(clientId, serverId, groupId, callId, null, type, null);
   }
 

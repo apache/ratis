@@ -116,8 +116,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   }
 
   void runTestRequestAsyncWithRetryFailure(boolean initialMessages, CLUSTER cluster) throws Exception {
-    final TimeDuration sleepTime = HUNDRED_MILLIS;
-    final RetryLimited retryPolicy = RetryPolicies.retryUpToMaximumCountWithFixedSleep(10, sleepTime);
+    final RetryLimited retryPolicy = RetryPolicies.retryUpToMaximumCountWithFixedSleep(10, HUNDRED_MILLIS);
 
     try(final RaftClient client = cluster.createClient(null, retryPolicy)) {
       RaftPeerId leader = null;
@@ -148,7 +147,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
         }
 
         // sleep most of the retry time
-        sleepTime.apply(t -> t * (retryPolicy.getMaxAttempts() - 1)).sleep();
+        retryPolicy.getSleepTime().apply(t -> t * (retryPolicy.getMaxAttempts() - 1)).sleep();
 
         // send another half of the calls without starting the cluster
         for (; i < messages.length; i++) {
@@ -159,7 +158,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
       // sleep again so that the first half calls will fail retries.
       // the second half still have retry time remaining.
-      sleepTime.apply(t -> t*2).sleep();
+      retryPolicy.getSleepTime().apply(t -> t*2).sleep();
 
       if (leader != null) {
         cluster.restartServer(leader, false);

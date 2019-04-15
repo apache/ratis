@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,7 +21,8 @@ package org.apache.ratis.protocol;
  * Retry failure as per the retryPolicy defined.
  */
 public class RaftRetryFailureException extends RaftException {
-  public RaftRetryFailureException(String message, Throwable cause) {
-    super(message, cause);
+
+  public RaftRetryFailureException(String msg) {
+    super(msg);
   }
 }

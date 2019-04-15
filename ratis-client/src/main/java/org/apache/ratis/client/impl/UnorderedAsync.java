@@ -23,7 +23,6 @@ import org.apache.ratis.protocol.GroupMismatchException;
 import org.apache.ratis.protocol.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftException;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
@@ -74,16 +73,14 @@ public interface UnorderedAsync {
     client.getClientRpc().sendRequestAsyncUnordered(request).whenCompleteAsync((reply, e) -> {
       try {
         LOG.debug("{}: attempt #{} receive~ {}", clientId, attemptCount, reply);
-        final RaftException replyException = reply != null? reply.getException(): null;
         reply = client.handleNotLeaderException(request, reply, false);
         if (reply != null) {
           f.complete(reply);
           return;
         }
         final RetryPolicy retryPolicy = client.getRetryPolicy();
-        if (!retryPolicy.shouldRetry(attemptCount, request)) {
-          f.completeExceptionally(RaftClientImpl.noMoreRetries(
-              request, attemptCount, retryPolicy, replyException != null? replyException: e));
+        if (!retryPolicy.shouldRetry(attemptCount)) {
+          f.completeExceptionally(RaftClientImpl.newRaftRetryFailureException(request, attemptCount, retryPolicy));
           return;
         }
 
@@ -110,8 +107,8 @@ public interface UnorderedAsync {
         }
 
         LOG.debug("schedule retry for attempt #{}, policy={}, request={}", attemptCount, retryPolicy, request);
-        client.getScheduler().onTimeout(retryPolicy.getSleepTime(attemptCount, request),
-            () -> sendRequestWithRetry(pending, client), LOG, () -> clientId + ": Failed~ to retry " + request);
+        client.getScheduler().onTimeout(retryPolicy.getSleepTime(), () -> sendRequestWithRetry(pending, client),
+            LOG, () -> clientId + ": Failed~ to retry " + request);
       } catch (Throwable t) {
         LOG.error(clientId + ": XXX Failed " + request, t);
         f.completeExceptionally(t);
