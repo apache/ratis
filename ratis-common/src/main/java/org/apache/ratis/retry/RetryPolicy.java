@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.retry;
 
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.util.TimeDuration;
 
 import java.util.concurrent.TimeUnit;
@@ -28,18 +29,19 @@ public interface RetryPolicy {
   TimeDuration ZERO_MILLIS = TimeDuration.valueOf(0, TimeUnit.MILLISECONDS);
 
   /**
-   * Determines whether it is supposed to retry the connection if the operation
-   * fails for some reason.
+   * Determines whether it is supposed to retry after the operation has failed.
    *
-   * @param attemptCount The number of times attempted so far
-   * @return true if it has to make another attempt, otherwise, false
+   * @param attemptCount The number of times attempted so far.
+   * @param request The failed request.
+   * @return true if it has to make another attempt; otherwise, return false.
    */
-  boolean shouldRetry(int attemptCount);
+  boolean shouldRetry(int attemptCount, RaftClientRequest request);
 
   /**
-   * Returns the time duration for sleep in between the retries.
+   * @param attemptCount The number of times attempted so far.
+   * @return the {@link TimeDuration} to sleep in between the retries.
    */
-  default TimeDuration getSleepTime() {
+  default TimeDuration getSleepTime(int attemptCount, RaftClientRequest request) {
     return ZERO_MILLIS;
   }
 }
