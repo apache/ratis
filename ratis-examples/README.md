@@ -16,68 +16,103 @@
 
 #### Building and Running The Examples
 
-Compile the repository using `mvn clean package -DskipTests` under the project root directory;
+The repository can be complied using `mvn clean package -DskipTests` under the project root directory;
 see also [BUILDING.md](../BUILDING.md).
 
-All the scripts for running the examples are located in the [ratis-examples/src/main/bin](src/main/bin) directory,
+All the scripts for running the examples are located in the [ratis-examples/src/main/bin](src/main/bin) directory;
+see below for the usage.
 
 ## Example 1: FileStore
 
-**FileStore** is file service supporting *read*, *write* and *delete* operations.
+**FileStore** is a high performance file service supporting *read*, *write* and *delete* operations.
 The **FileStoreStateMachine** is implemented using the asynchronous event-driven model.
 The source code is located in
 * [ratis-examples/src/main/java/org/apache/ratis/examples/filestore/](src/main/java/org/apache/ratis/examples/filestore).
 
 
-#### Server
-To spawn a *FileStore* server, run
+#### FileStore Server
+To spawn a FileStore server, run
 * `server.sh filestore server --id <SELF_ID> --storage <STORAGE_DIR> --peers <ID:IP_ADDRESS,...>`
 
-where `<SELF_ID>`, which must be in the peer list, is the id of the instance being spawned.
+where
+* `<SELF_ID>`, which must be in the peer list, is the ID of the instance being spawned,
+* `<STORAGE_DIR>` is a local directory for storing Raft log and other data, and
+* `<ID:IP_ADDRESS,...>`, which is a comma separated list of ID and IP address pairs, specifies the list of server peers.
 
-For example `ratis-examples/src/main/bin/server.sh filestore server --id n0 --storage /tmp/data --peers n0:xx.xx.xx.xx:6000,n1:yy.yy.yy.yy:6001,n2:zz.zz.zz.zz:6002`
+Note that when multiple servers running at the same host, they must use different `<STORAGE_DIR>`.
 
-#### Client
+For example,
 
-To spawn a *FileStore* load generation client, run
+    BIN=ratis-examples/src/main/bin
+    PEERS=n0:127.0.0.1:6000,n1:127.0.0.1:6001,n2:127.0.0.1:6002
+
+    ID=n0; ${BIN}/server.sh filestore server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
+    ID=n1; ${BIN}/server.sh filestore server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
+    ID=n2; ${BIN}/server.sh filestore server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
+
+#### FileStore Client
+
+To spawn a FileStore load generation client, run
 * `client.sh filestore loadgen --size <FILE_SIZE> --numFiles <NUM_FILES> --peers <ID:IP_ADDRESS,...>`
 
-where `<FILE_SIZE>` is the size of the files to be generated in bytes,
-`<NUM_FILES>` is the number of files to be generated.
+where
+* `<FILE_SIZE>` is the size of the files to be generated in bytes, and
+* `<NUM_FILES>` is the number of files to be generated.
 
-For example `ratis-examples/src/main/bin/client.sh filestore loadgen --size 1048576 --numFiles 1000 --peers n0:xx.xx.xx.xx:6000,n1:yy.yy.yy.yy:6001,n2:zz.zz.zz.zz:6002`
+Continue the server command example,
+
+    ${BIN}/client.sh filestore loadgen --size 1048576 --numFiles 1000 --peers ${PEERS}
 
 ## Example 2: Arithmetic
 
 **Arithmetic** is an implementation of a replicated state machine.
-A *variable map* is stored in the *ArithmeticStateMachine* which supports *assign* or *get* operations.
+A *variable map* is stored in the **ArithmeticStateMachine** which supports *assign* and *get* operations.
 Clients may assign a variable to a value by specifying either the value or a formula to compute the value.
 
 In [TestArithemetic](src/test/java/org/apache/ratis/examples/arithmetic/TestArithmetic.java),
-it uses Arithmetic to solve *Pythagorean* equation and compute &pi; using Gauss–Legendre algorithm.
+it uses Arithmetic to solve Pythagorean equation and compute &pi; using Gauss–Legendre algorithm.
 
 The source code is located in
 * [ratis-examples/src/main/java/org/apache/ratis/examples/arithmetic/](src/main/java/org/apache/ratis/examples/arithmetic).
 
-#### Server
-To spawn an *Arithmetic* server, run
+#### Arithmetic Server
+To spawn an Arithmetic server, run
 * `server.sh arithmetic server --id <SELF_ID> --storage <STORAGE_DIR> --peers <ID:IP_ADDRESS,...>`
 
-where `<SELF_ID>`, which must be in the peer list, is the id of the instance being spawned.
+where
+* `<SELF_ID>`, which must be in the peer list, is the ID of the instance being spawned,
+* `<STORAGE_DIR>` is a local directory for storing Raft log and other data, and
+* `<ID:IP_ADDRESS,...>`, which is a comma separated list of ID and IP address pairs, specifies the list of server peers.
 
-For example `ratis-examples/src/main/bin/server.sh arithmetic server --id n0 --storage /tmp/data --peers n0:xx.xx.xx.xx:6000,n1:yy.yy.yy.yy:6001,n2:zz.zz.zz.zz:6002`
+Note that when multiple servers running at the same host, they must use different `<STORAGE_DIR>`.
 
-#### Client
+For example,
 
-To run an *Arithmetic* client command, run
+    BIN=ratis-examples/src/main/bin
+    PEERS=n0:127.0.0.1:6000,n1:127.0.0.1:6001,n2:127.0.0.1:6002
+
+    ID=n0; ${BIN}/server.sh arithmetic server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
+    ID=n1; ${BIN}/server.sh arithmetic server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
+    ID=n2; ${BIN}/server.sh arithmetic server --id ${ID} --storage /tmp/ratis/${ID} --peers ${PEERS}
+
+#### Arithmetic Client
+
+To run an Arithmetic client command, run
 * `client.sh arithmetic get --name <VAR> --peers <ID:IP_ADDRESS,...>`
 
 or
 * `client.sh arithmetic assign --name <VAR> --value <VALUE> --peers <ID:IP_ADDRESS,...>`
 
-where `<VAR>` is the name of the variable and `<VALUE>` is the value to be assigned.
+where
+* `<VAR>` is the name of a variable, and
+* `<VALUE>` is the value (or a formula to compute the value) to be assigned.
 
-For example `ratis-examples/src/main/bin/client.sh arithmetic get --name b --peers n0:xx.xx.xx.xx:6000,n1:yy.yy.yy.yy:6001,n2:zz.zz.zz.zz:6002`
+Continue the server command example,
+
+    ${BIN}/client.sh arithmetic assign --name a --value 3 --peers ${PEERS}
+    ${BIN}/client.sh arithmetic assign --name b --value 4 --peers ${PEERS}
+    ${BIN}/client.sh arithmetic assign --name c --value a+b --peers ${PEERS}
+    ${BIN}/client.sh arithmetic get --name c --peers ${PEERS}
 
 ## Pre-Setup Vagrant Pseudo Cluster
 One can see the interactions of a three server Ratis cluster with a load-generator running against it
