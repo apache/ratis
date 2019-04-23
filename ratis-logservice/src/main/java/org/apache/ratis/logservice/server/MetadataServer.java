@@ -20,9 +20,7 @@ package org.apache.ratis.logservice.server;
 
 import com.beust.jcommander.JCommander;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.logservice.util.LogServiceUtils;
-import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -72,12 +70,18 @@ public class MetadataServer extends BaseServer {
         if(opts.getWorkingDir() != null) {
             RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(new File(opts.getWorkingDir())));
         }
-        GrpcConfigKeys.Server.setPort(properties, opts.getPort());
-        NettyConfigKeys.Server.setPort(properties, opts.getPort());
+
+        // Set properties common to all log service state machines
+        setRaftProperties(properties);
+
         Set<RaftPeer> peers = getPeersFromQuorum(opts.getMetaQuorum());
         RaftGroupId raftMetaGroupId = RaftGroupId.valueOf(opts.getMetaGroupId());
         RaftGroup metaGroup = RaftGroup.valueOf(raftMetaGroupId, peers);
         metaStateMachine = new MetaStateMachine(raftMetaGroupId, RaftGroupId.valueOf(opts.getLogServerGroupId()));
+
+        // Make sure that we aren't setting any invalid/harmful properties
+        validateRaftProperties(properties);
+
         server = RaftServer.newBuilder()
                 .setGroup(metaGroup)
                 .setServerId(RaftPeerId.valueOf(id))

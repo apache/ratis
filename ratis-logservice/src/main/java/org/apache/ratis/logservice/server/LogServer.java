@@ -23,13 +23,13 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
-import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -38,6 +38,8 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.SizeInBytes;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +53,7 @@ public class LogServer extends BaseServer {
 
     public LogServer(ServerOpts opts) {
       super(opts);
+      LOG.debug("Log Server options: {}", opts);
     }
 
     public RaftServer getServer() {
@@ -61,13 +64,31 @@ public class LogServer extends BaseServer {
         return new Builder();
     }
 
+    @Override
+    void setRaftProperties(RaftProperties properties) {
+      super.setRaftProperties(properties);
+
+      // Increase the client timeout
+      RaftClientConfigKeys.Rpc.setRequestTimeout(properties, TimeDuration.valueOf(100, TimeUnit.SECONDS));
+
+      // Increase the segment size to avoid rolling so quickly
+      SizeInBytes segmentSize = SizeInBytes.valueOf("32MB");
+      RaftServerConfigKeys.Log.setSegmentSizeMax(properties, segmentSize);
+      RaftServerConfigKeys.Log.setPreallocatedSize(properties, segmentSize);
+
+      // TODO this seems to cause errors, not sure if pushing Ratis too hard?
+      // SizeInBytes writeBufferSize = SizeInBytes.valueOf("128KB");
+      // RaftServerConfigKeys.Log.setWriteBufferSize(properties, writeBufferSize);
+    }
+
     public void start() throws IOException {
         final ServerOpts opts = getServerOpts();
         Set<RaftPeer> peers = LogServiceUtils.getPeersFromQuorum(opts.getMetaQuorum());
         RaftProperties properties = new RaftProperties();
-        properties.set("raft.client.rpc.request.timeout", "100000");
-        GrpcConfigKeys.Server.setPort(properties, opts.getPort());
-        NettyConfigKeys.Server.setPort(properties, opts.getPort());
+
+        // Set properties for the log server state machine
+        setRaftProperties(properties);
+
         InetSocketAddress addr = new InetSocketAddress(opts.getHost(), opts.getPort());
         if(opts.getWorkingDir() != null) {
             RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(new File(opts.getWorkingDir())));
@@ -77,6 +98,10 @@ public class LogServer extends BaseServer {
         final RaftGroupId logServerGroupId = RaftGroupId.valueOf(opts.getLogServerGroupId());
         RaftGroup all = RaftGroup.valueOf(logServerGroupId, peer);
         RaftGroup meta = RaftGroup.valueOf(RaftGroupId.valueOf(opts.getMetaGroupId()), peers);
+
+        // Make sure that we aren't setting any invalid/harmful properties
+        validateRaftProperties(properties);
+
         raftServer = RaftServer.newBuilder()
                 .setStateMachineRegistry(new StateMachine.Registry() {
                     @Override
