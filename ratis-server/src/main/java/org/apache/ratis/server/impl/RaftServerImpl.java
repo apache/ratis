@@ -757,7 +757,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
           groupId, voteGranted, state.getCurrentTerm(), shouldShutdown);
       if (LOG.isDebugEnabled()) {
         LOG.debug("{} replies to vote request: {}. Peer's state: {}",
-            getId(), ProtoUtils.toString(reply), state);
+            getId(), ServerProtoUtils.toString(reply), state);
       }
     }
     return reply;

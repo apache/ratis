@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,11 +17,17 @@
  */
 package org.apache.ratis.server.impl;
 
-import java.util.*;
-
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.Preconditions;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * The peer configuration of a raft cluster.
@@ -35,7 +41,10 @@ class PeerConfiguration {
     Objects.requireNonNull(peers);
     Map<RaftPeerId, RaftPeer> map = new HashMap<>();
     for(RaftPeer p : peers) {
-      map.put(p.getId(), p);
+      final RaftPeer previous = map.putIfAbsent(p.getId(), p);
+      if (previous != null) {
+        throw new IllegalArgumentException("Found duplicated ids " + p.getId() + " in peers " + peers);
+      }
     }
     this.peers = Collections.unmodifiableMap(map);
   }

@@ -27,7 +27,6 @@ import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
@@ -36,7 +35,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
@@ -50,10 +51,10 @@ class LeaderElection implements Runnable {
   public static final Logger LOG = LoggerFactory.getLogger(LeaderElection.class);
 
   private ResultAndTerm logAndReturn(Result result,
-      List<RequestVoteReplyProto> responses,
+      Map<RaftPeerId, RequestVoteReplyProto> responses,
       List<Exception> exceptions, long newTerm) {
     LOG.info(this + ": Election " + result + "; received " + responses.size() + " response(s) "
-        + responses.stream().map(ProtoUtils::toString).collect(Collectors.toList())
+        + responses.values().stream().map(ServerProtoUtils::toString).collect(Collectors.toList())
         + " and " + exceptions.size() + " exception(s); " + server.getState());
     int i = 0;
     for(Exception e : exceptions) {
@@ -242,7 +243,7 @@ class LeaderElection implements Runnable {
   private ResultAndTerm waitForResults(final long electionTerm, final int submitted,
       RaftConfiguration conf, Executor voteExecutor) throws InterruptedException {
     final Timestamp timeout = Timestamp.currentTime().addTimeMs(server.getRandomTimeoutMs());
-    final List<RequestVoteReplyProto> responses = new ArrayList<>();
+    final Map<RaftPeerId, RequestVoteReplyProto> responses = new HashMap<>();
     final List<Exception> exceptions = new ArrayList<>();
     int waitForNum = submitted;
     Collection<RaftPeerId> votedPeers = new ArrayList<>();
@@ -259,7 +260,13 @@ class LeaderElection implements Runnable {
         }
 
         final RequestVoteReplyProto r = future.get();
-        responses.add(r);
+        final RaftPeerId replierId = RaftPeerId.valueOf(r.getServerReply().getReplyId());
+        final RequestVoteReplyProto previous = responses.putIfAbsent(replierId, r);
+        if (previous != null) {
+          LOG.warn("{} received duplicated replies from {}, the 2nd reply is ignored: 1st = {}, 2nd = {}",
+              server.getId(), replierId, ServerProtoUtils.toString(previous), ServerProtoUtils.toString(r));
+          continue;
+        }
         if (r.getShouldShutdown()) {
           return logAndReturn(Result.SHUTDOWN, responses, exceptions, -1);
         }
@@ -268,7 +275,7 @@ class LeaderElection implements Runnable {
               exceptions, r.getTerm());
         }
         if (r.getServerReply().getSuccess()) {
-          votedPeers.add(RaftPeerId.valueOf(r.getServerReply().getReplyId()));
+          votedPeers.add(replierId);
           if (conf.hasMajority(votedPeers, server.getId())) {
             return logAndReturn(Result.PASSED, responses, exceptions, -1);
           }

@@ -106,6 +106,10 @@ public interface ServerProtoUtils {
         + ",followerCommit:" + reply.getFollowerCommit();
   }
 
+  static String toString(RequestVoteReplyProto proto) {
+    return toString(proto.getServerReply()) + "-t" + proto.getTerm();
+  }
+
   static String toString(RaftRpcReplyProto reply) {
     return reply.getRequestorId().toStringUtf8() + "->"
         + reply.getReplyId().toStringUtf8() + "," + reply.getSuccess();

@@ -23,7 +23,6 @@ import org.apache.ratis.proto.RaftProtos.RaftGroupProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
-import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -163,8 +162,5 @@ public interface ProtoUtils {
     return proto.getRequestorId().toStringUtf8() + "<-" + proto.getReplyId().toStringUtf8()
         + "#" + proto.getCallId() + ":"
         + (proto.getSuccess()? "OK": "FAIL");
-  }
-  static String toString(RequestVoteReplyProto proto) {
-    return toString(proto.getServerReply()) + "-t" + proto.getTerm();
   }
 }
