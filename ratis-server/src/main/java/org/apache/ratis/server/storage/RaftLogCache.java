@@ -18,6 +18,7 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -26,7 +27,6 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
 import org.apache.ratis.server.storage.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AutoCloseableReadWriteLock;
 import org.apache.ratis.util.JavaUtils;
@@ -238,6 +238,31 @@ class RaftLogCache {
       }
     }
 
+    TruncationSegments purge(long index) {
+      try (AutoCloseableLock writeLock = writeLock()) {
+        int segmentIndex = binarySearch(index);
+        List<SegmentFileInfo> list = new ArrayList<>();
+
+        if (segmentIndex == -segments.size() - 1) {
+          for (LogSegment ls : segments) {
+            list.add(new SegmentFileInfo(ls.getStartIndex(), ls.getEndIndex(), false, 0, 0));
+          }
+          segments.clear();
+        } else if (segmentIndex >= 0) {
+          // we start to purge the closedSegments which do not overlap with index.
+          for (int i = segmentIndex - 1; i >= 0; i--) {
+            LogSegment ls = segments.get(i);
+            list.add(new SegmentFileInfo(ls.getStartIndex(), ls.getEndIndex(), false, 0, 0));
+            segments.remove(i);
+          }
+        } else {
+          throw new IllegalStateException("Unexpected gap in segments: binarySearch(" + index + ") returns "
+                  + segmentIndex + ", segments=" + segments);
+        }
+        return list.isEmpty() ? null : new TruncationSegments(null, list);
+      }
+    }
+
     static SegmentFileInfo deleteOpenSegment(LogSegment openSegment, Runnable clearOpenSegment) {
       final long oldEnd = openSegment.getEndIndex();
       openSegment.clear();
@@ -430,6 +455,10 @@ class RaftLogCache {
    */
   TruncationSegments truncate(long index) {
     return closedSegments.truncate(index, openSegment, this::clearOpenSegment);
+  }
+
+  TruncationSegments purge(long index) {
+    return closedSegments.purge(index);
   }
 
   Iterator<TermIndex> iterator(long startIndex) {

@@ -362,6 +362,38 @@ public class TestSegmentedRaftLog extends BaseTest {
     }
   }
 
+  @Test
+  public void testPurgeOnOpenSegment() throws Exception {
+    int startTerm = 0;
+    int endTerm = 5;
+    int segmentSize = 200;
+    long beginIndexOfOpenSegment = segmentSize * (endTerm - startTerm - 1);
+    long expectedIndex = segmentSize * (endTerm - startTerm - 1);
+    purgeAndVerify(startTerm, endTerm, segmentSize, beginIndexOfOpenSegment, expectedIndex);
+  }
+
+  @Test
+  public void testPurgeOnClosedSegments() throws Exception {
+    int startTerm = 0;
+    int endTerm = 5;
+    int segmentSize = 200;
+    long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
+    long expectedIndex = segmentSize * (endTerm - startTerm - 2);
+    purgeAndVerify(startTerm, endTerm, segmentSize, endIndexOfClosedSegment, expectedIndex);
+  }
+
+  private void purgeAndVerify(int startTerm, int endTerm, int segmentSize, long purgeIndex, long expectedIndex) throws IOException {
+    List<SegmentRange> ranges = prepareRanges(startTerm, endTerm, segmentSize, 0);
+    List<LogEntryProto> entries = prepareLogEntries(ranges, null);
+
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
+      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
+      raftLog.purge(purgeIndex).join();
+      Assert.assertEquals(expectedIndex, raftLog.getRaftLogCache().getStartIndex());
+    }
+  }
+
   /**
    * Test append with inconsistent entries
    */

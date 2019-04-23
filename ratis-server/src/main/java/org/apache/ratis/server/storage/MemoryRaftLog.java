@@ -56,6 +56,12 @@ public class MemoryRaftLog extends RaftLog {
       }
     }
 
+    void purge(int index) {
+      if (entries.size() > index) {
+        entries.subList(0, index).clear();
+      }
+    }
+
     void add(LogEntryProto entry) {
       entries.add(entry);
     }
@@ -112,6 +118,16 @@ public class MemoryRaftLog extends RaftLog {
     try(AutoCloseableLock writeLock = writeLock()) {
       Preconditions.assertTrue(index >= 0);
       entries.truncate(Math.toIntExact(index));
+    }
+    return CompletableFuture.completedFuture(index);
+  }
+
+
+  @Override
+  CompletableFuture<Long> purgeImpl(long index) {
+    try (AutoCloseableLock writeLock = writeLock()) {
+      Preconditions.assertTrue(index >= 0);
+      entries.purge(Math.toIntExact(index));
     }
     return CompletableFuture.completedFuture(index);
   }

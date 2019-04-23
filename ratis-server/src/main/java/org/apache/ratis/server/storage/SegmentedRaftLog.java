@@ -266,6 +266,20 @@ public class SegmentedRaftLog extends RaftLog {
     return CompletableFuture.completedFuture(index);
   }
 
+
+  @Override
+  public CompletableFuture<Long> purgeImpl(long index) {
+    try (AutoCloseableLock writeLock = writeLock()) {
+      RaftLogCache.TruncationSegments ts = cache.purge(index);
+      LOG.debug("truncating segments:{}", ts);
+      if (ts != null) {
+        Task task = fileLogWorker.purge(ts);
+        return task.getFuture();
+      }
+    }
+    return CompletableFuture.completedFuture(index);
+  }
+
   @Override
   CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
     checkLogState();
