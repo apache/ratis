@@ -20,9 +20,15 @@ package org.apache.ratis.logservice.server;
 import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.logservice.util.LogServiceUtils;
+import org.apache.ratis.netty.NettyConfigKeys;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.NetUtils;
+import org.apache.ratis.util.TimeDuration;
 
 /**
  * A base class to encapsulate functionality around a long-lived Java process which runs a state machine.
@@ -37,6 +43,32 @@ public abstract class BaseServer implements Closeable {
 
   public ServerOpts getServerOpts() {
     return opts;
+  }
+
+  /**
+   * Sets common Ratis server properties for both the log and metadata state machines.
+   */
+  void setRaftProperties(RaftProperties properties) {
+    // Set the ports for the server
+    GrpcConfigKeys.Server.setPort(properties, opts.getPort());
+    NettyConfigKeys.Server.setPort(properties, opts.getPort());
+
+    // Ozone sets the leader election timeout (min) to 1second.
+    TimeDuration leaderElectionTimeoutMin = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+    RaftServerConfigKeys.Rpc.setTimeoutMin(properties, leaderElectionTimeoutMin);
+    TimeDuration leaderElectionMaxTimeout = TimeDuration.valueOf(
+        leaderElectionTimeoutMin.toLong(TimeUnit.MILLISECONDS) + 200,
+        TimeUnit.MILLISECONDS);
+    RaftServerConfigKeys.Rpc.setTimeoutMax(properties, leaderElectionMaxTimeout);
+  }
+
+  /**
+   * Validates that there are no properties set which are in conflict with the LogService.
+   */
+  void validateRaftProperties(RaftProperties properties) {
+    if (RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties)) {
+      throw new IllegalStateException("Auto triggering snapshots is disallowed by the LogService");
+    }
   }
 
   static ServerOpts buildOpts(String hostname, String metaQuorum, int port, String workingDir) {
