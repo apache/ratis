@@ -95,7 +95,10 @@ public interface UnorderedAsync {
           if (e instanceof IOException) {
             if (e instanceof NotLeaderException) {
               client.handleNotLeaderException(request, (NotLeaderException) e, false);
-            } else if (!(e instanceof GroupMismatchException)) {
+            } else if (e instanceof GroupMismatchException) {
+              f.completeExceptionally(e);
+              return;
+            } else {
               client.handleIOException(request, (IOException) e, null, false);
             }
           } else {
