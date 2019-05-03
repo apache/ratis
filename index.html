@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 
 <html>
@@ -172,7 +171,10 @@
     <div class="container">
         <div class="row header">
             <h2>Latest news</h2>
-            
+            <div class="panel-heading clearfix"><a class="pull-left" href="/post/0.3.0.html">Release 0.3.0 is available</a>
+                <small class="pull-right">2019 Apr 21</small>
+            </div>
+
             <div class="panel-heading clearfix"><a class="pull-left" href="/post/0.2.0.html">Release 0.2.0 is available</a>
                 <small class="pull-right">2018 Jul 15 </small>
             </div>
@@ -205,43 +207,36 @@
                 <tr>
                     <th>Version</th>
                     <th>Release date</th>
-                    <th>Source download</th>
-                    <th>Binary download</th>
+                    <th>Link</th>
                     <th>Announcement</th>
                 </tr>
                 </thead>
-                
                 <tr>
-		              <td>0.2.0</td>
+                    <td>0.3.0</td>
+                    <td>2019 Apr 21</td>
+                    <td><a href="http://www.apache.org/dist/incubator/ratis/0.3.0/">
+                        http://www.apache.org/dist/incubator/ratis/0.3.0/</a>
+                    </td>
+                    <td><a href="post/0.3.0.html">Announcement</a></td>
+                </tr>
+
+                <tr>
+                    <td>0.2.0</td>
                     <td>2018 Jul 15 </td>
-                    <td>
-                        <a href="https://www.apache.org/dyn/closer.cgi/incubator/ratis/0.2.0/apache-ratis-incubating-0.2.0-src.tar.gz">source</a>
-                        (<a href="https://dist.apache.org/repos/dist/release/incubator/ratis/0.2.0/apache-ratis-incubating-0.2.0-src.tar.gz.mds">checksum</a>
-                        <a href="https://dist.apache.org/repos/dist/release/incubator/ratis/0.2.0/apache-ratis-incubating-0.2.0-src.tar.gz.asc">signature</a>)
+                    <td><a href="http://www.apache.org/dist/incubator/ratis/0.2.0/">
+                        http://www.apache.org/dist/incubator/ratis/0.2.0/</a>
                     </td>
-						  
-                    <td>
-                        <a href="https://www.apache.org/dyn/closer.cgi/incubator/ratis/0.2.0/apache-ratis-incubating-0.2.0-bin.tar.gz">binary</a>
-                        (<a href="https://dist.apache.org/repos/dist/release/incubator/ratis/0.2.0/apache-ratis-incubating-0.2.0-bin.tar.gz.mds">checksum</a>
-                        <a href="https://dist.apache.org/repos/dist/release/incubator/ratis/0.2.0/apache-ratis-incubating-0.2.0-bin.tar.gz.asc">signature</a>)
-                    </td>
-						  
                     <td>
                         <a href="post/0.2.0.html">Announcement</a>
                     </td>
                 </tr>
                 
                 <tr>
-		              <td>0.1.0-alpha</td>
+                    <td>0.1.0-alpha</td>
                     <td>2017 May 2 </td>
-                    <td>
-                        <a href="https://www.apache.org/dyn/closer.cgi/incubator/ratis/0.1.0-alpha/apache-ratis-incubating-0.1.0-alpha-src.tar.gz">source</a>
-                        (<a href="https://dist.apache.org/repos/dist/release/incubator/ratis/0.1.0-alpha/apache-ratis-incubating-0.1.0-alpha-src.tar.gz.mds">checksum</a>
-                        <a href="https://dist.apache.org/repos/dist/release/incubator/ratis/0.1.0-alpha/apache-ratis-incubating-0.1.0-alpha-src.tar.gz.asc">signature</a>)
+                    <td><a href="http://www.apache.org/dist/incubator/ratis/0.1.0-alpha/">
+                        http://www.apache.org/dist/incubator/ratis/0.1.0-alpha/</a>
                     </td>
-						  
-						     <td></td>
-						  
                     <td>
                         <a href="post/0.1.0-alpha.html">Announcement</a>
                     </td>
@@ -249,7 +244,10 @@
                 
             </table>
             </p>
-				<p>Ratis is also <a href="https://search.maven.org/#search%7Cga%7C1%7Cratis">available</a> from the Maven central repository.</p>
+            <p>Release artifacts are signed with one of the keys available at:
+                <a href="http://www.apache.org/dist/incubator/ratis/KEYS">http://www.apache.org/dist/incubator/ratis/KEYS</a>
+            </p>
+            <p>Ratis is also <a href="https://search.maven.org/#search%7Cga%7C1%7Cratis">available</a> from the Maven central repository.</p>
 
         </div>
     </div>
@@ -291,19 +289,9 @@
 
 <!-- TODO: We should have the following as documentation in the github.  -->
 
-<p>The source code the examples could be found in the ratis-examples subproject.</p>
-
-<p>Arithmetic example also has some simple cli script to start it:</p>
-
-<ol>
-<li>First do a full build on the ratis source code: <code>mvn clean install -DskipTests</code></li>
-<li>Go the the bin directory of the examples: <code>cd ratis-examples/src/main/bin</code></li>
-<li>Start three Ratis server instances (with arithmetic state matchine). <code>./start-all</code> (This helper script starts 3
-Java instances in the background).</li>
-<li>Create a new variable in the state machine: <code>./client.sh assign --name a --value 3</code></li>
-<li>Assign a new variable: <code>./client.sh assign --name b --value a+5</code></li>
-<li>Get a variable from the state machine: <code>./client.sh get --name b</code></li>
-</ol>
+<p>The source code of the examples could be found in the
+    <a href="https://github.com/apache/incubator-ratis/blob/master/ratis-examples/">ratis-examples</a> sub-project.
+</p>
 
 <h3 id="maven-usage">Maven usage</h3>
 
@@ -317,19 +305,19 @@ Java instances in the background).</li>
 <p>You also need to include <em>one</em> of the transports:</p>
 
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
+   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-grpc<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
+
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
    <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-netty<span style="color:#f92672">&lt;/artifactId&gt;</span>
    <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
 
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"> <span style="color:#f92672">&lt;dependency&gt;</span>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
+   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-hadoop<span style="color:#f92672">&lt;/artifactId&gt;</span>
    <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-grpc<span style="color:#f92672">&lt;/artifactId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
-
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml">    <span style="color:#f92672">&lt;dependency&gt;</span>
-      <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
-      <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-hadoop-shaded<span style="color:#f92672">&lt;/artifactId&gt;</span>
-    <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
 
 <p>Please note that Apache Hadoop dependencies are shaded, so it&rsquo;s safe to use hadoop transport with different versions of Hadoop.</p>
 
@@ -423,7 +411,7 @@ Please write to the mailing list if you need an invite.</p>
 
 <p>Source code is part of every release, you can download the source bundles from download section and build the project according to the included instructions.</p>
 
-<p>The versioned source code history is available from the <a href="git://git.apache.org/incubator-ratis.git">Apache git</a> repository or
+<p>The versioned source code history is available from the <a href="https://gitbox.apache.org/repos/asf?p=incubator-ratis.git">Apache git</a> repository or
 from the <a href="https://github.com/apache/incubator-ratis">github mirror</a>. It is only for development and not intended for use by the general public.
 Only the source code from the released artifacts are checked by the Project Management Committee.</p>
 
@@ -439,9 +427,16 @@ Only the source code from the released artifacts are checked by the Project Mana
             <h2>Resources</h2>
             <p>Are you interested in learning more about Apache Ratis? Excellent! Here are some resources.</p>
             <ul>
-            <li>Apache Ratis - In Search of a Usable Raft Library<br/>
-            <iframe src="https://home.apache.org/~szetszwo/presentations/20171115brown_bag.pdf"
-            width="595" height="485"></iframe></li><br/>
+            <li>
+              <a href="//www.slideshare.net/TszWoNicholasSze/apache-ratis-in-search-of-a-usable-raft-library"
+                 title="Apache Ratis - In Search of a Usable Raft Library" target="_blank">
+                Apache Ratis - In Search of a Usable Raft Library</a>
+              <br />
+              <iframe src="//www.slideshare.net/slideshow/embed_code/key/3OyDeDVxSWhIcd" width="595" height="485"
+                      frameborder="0" marginwidth="0" marginheight="0" scrolling="no" style="border:1px solid #CCC;
+                      margin-bottom:5px; max-width: 100%;" allowfullscreen>
+              </iframe>
+            </li>
 
             <li> <a href="//www.slideshare.net/Hadoop_Summit/high-throughput-data-replication-over-raft" title="High throughput data replication over RAFT" target="_blank">High throughput data replication over RAFT</a> from DataWorks Summit</a> 
             <iframe src="//www.slideshare.net/slideshow/embed_code/key/40nJZyfhrysXeK" width="595" height="485" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" style="border:1px solid #CCC; border-width:1px; margin-bottom:5px; max-width: 100%;" allowfullscreen> </iframe> 
@@ -456,7 +451,7 @@ Only the source code from the released artifacts are checked by the Project Mana
     <div class="container">
 
         <div class="col-md-12 trademark">
-            <p>&copy; 2018 <a href="http://apache.org">The Apache Software Foundation</a>,
+            <p>&copy; 2019 <a href="http://apache.org">The Apache Software Foundation</a>,
                 Apache, Apache Ratis, the Apache feather logo, Apache Ratis logo, Apache Incubator logo are trademarks of The Apache Software Foundation.
             <p>
         </div>
