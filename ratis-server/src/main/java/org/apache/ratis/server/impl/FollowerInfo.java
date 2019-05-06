@@ -96,6 +96,10 @@ public class FollowerInfo {
     nextIndex.setUnconditionally(snapshotIndex + 1, infoIndexChange);
   }
 
+  public String getName() {
+    return name;
+  }
+
   @Override
   public String toString() {
     return name + "(c" + getCommitIndex() + ",m" + getMatchIndex() + ",n" + getNextIndex()
@@ -108,7 +112,7 @@ public class FollowerInfo {
     attendVote = true;
   }
 
-  public boolean isAttendingVote() {
+  boolean isAttendingVote() {
     return attendVote;
   }
 
@@ -121,7 +125,7 @@ public class FollowerInfo {
     lastRpcResponseTime.set(Timestamp.currentTime());
   }
 
-  public Timestamp getLastRpcResponseTime() {
+  Timestamp getLastRpcResponseTime() {
     return lastRpcResponseTime.get();
   }
 
@@ -130,11 +134,11 @@ public class FollowerInfo {
     lastRpcSendTime.set(Timestamp.currentTime());
   }
 
-  public Timestamp getLastRpcTime() {
+  Timestamp getLastRpcTime() {
     return Timestamp.latest(lastRpcResponseTime.get(), lastRpcSendTime.get());
   }
 
-  public boolean isSlow() {
+  boolean isSlow() {
     return lastRpcResponseTime.get().elapsedTimeMs() > rpcSlownessTimeoutMs;
   }
 }

@@ -450,8 +450,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
     RaftConfiguration conf = getRaftConf();
     Collection<RaftPeer> peers = conf.getPeers();
-    return new NotLeaderException(getId(), conf.getPeer(leaderId),
-        peers.toArray(new RaftPeer[peers.size()]));
+    return new NotLeaderException(getId(), conf.getPeer(leaderId), peers);
   }
 
   private LifeCycle.State assertLifeCycleState(LifeCycle.State... expected) throws ServerNotReadyException {
@@ -648,7 +647,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       return reply;
     }
 
-    final RaftPeer[] peersInNewConf = request.getPeersInNewConf();
+    final List<RaftPeer> peersInNewConf = request.getPeersInNewConf();
     final PendingRequest pending;
     synchronized (this) {
       reply = checkLeaderState(request, null);
@@ -672,7 +671,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
 
       // add new peers into the rpc service
-      getServerRpc().addPeers(Arrays.asList(peersInNewConf));
+      getServerRpc().addPeers(peersInNewConf);
       // add staging state into the leaderState
       pending = leaderState.startSetConfiguration(request);
     }

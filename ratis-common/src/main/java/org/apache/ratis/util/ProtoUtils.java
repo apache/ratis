@@ -73,12 +73,8 @@ public interface ProtoUtils {
     return new RaftPeer(RaftPeerId.valueOf(p.getId()), p.getAddress());
   }
 
-  static RaftPeer[] toRaftPeerArray(List<RaftPeerProto> protos) {
-    final RaftPeer[] peers = new RaftPeer[protos.size()];
-    for (int i = 0; i < peers.length; i++) {
-      peers[i] = toRaftPeer(protos.get(i));
-    }
-    return peers;
+  static List<RaftPeer> toRaftPeers(List<RaftPeerProto> protos) {
+    return protos.stream().map(ProtoUtils::toRaftPeer).collect(Collectors.toList());
   }
 
   static Iterable<RaftPeerProto> toRaftPeerProtos(
@@ -107,7 +103,7 @@ public interface ProtoUtils {
   }
 
   static RaftGroup toRaftGroup(RaftGroupProto proto) {
-    return RaftGroup.valueOf(toRaftGroupId(proto.getGroupId()), toRaftPeerArray(proto.getPeersList()));
+    return RaftGroup.valueOf(toRaftGroupId(proto.getGroupId()), toRaftPeers(proto.getPeersList()));
   }
 
   static RaftGroupProto.Builder toRaftGroupProtoBuilder(RaftGroup group) {

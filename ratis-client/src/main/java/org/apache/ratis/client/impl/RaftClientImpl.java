@@ -248,6 +248,7 @@ final class RaftClientImpl implements RaftClient {
     return sendRequestWithRetry(() -> newRaftClientRequest(server, callId, message, type, null));
   }
 
+  // TODO: change peersInNewConf to List<RaftPeer>
   @Override
   public RaftClientReply setConfiguration(RaftPeer[] peersInNewConf)
       throws IOException {
@@ -257,7 +258,7 @@ final class RaftClientImpl implements RaftClient {
     // also refresh the rpc proxies for these peers
     addServers(Arrays.stream(peersInNewConf));
     return sendRequestWithRetry(() -> new SetConfigurationRequest(
-        clientId, leaderId, groupId, callId, peersInNewConf));
+        clientId, leaderId, groupId, callId, Arrays.asList(peersInNewConf)));
   }
 
   @Override
@@ -439,7 +440,7 @@ final class RaftClientImpl implements RaftClient {
 
   RaftClientReply handleNotLeaderException(RaftClientRequest request, NotLeaderException nle,
       boolean resetSlidingWindow) {
-    refreshPeers(Arrays.asList(nle.getPeers()));
+    refreshPeers(nle.getPeers());
     final RaftPeerId newLeader = nle.getSuggestedLeader() == null ? null
         : nle.getSuggestedLeader().getId();
     handleIOException(request, nle, newLeader, resetSlidingWindow);

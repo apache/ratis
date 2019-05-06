@@ -133,8 +133,8 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
           10, ONE_SECOND, "assertNotLeaderException", LOG);
 
       final Collection<RaftPeer> peers = cluster.getPeers();
-      final RaftPeer[] peersFromReply = reply.getNotLeaderException().getPeers();
-      Assert.assertEquals(peers.size(), peersFromReply.length);
+      final Collection<RaftPeer> peersFromReply = reply.getNotLeaderException().getPeers();
+      Assert.assertEquals(peers.size(), peersFromReply.size());
       for (RaftPeer p : peersFromReply) {
         Assert.assertTrue(peers.contains(p));
       }

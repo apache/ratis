@@ -125,10 +125,10 @@ public interface ServerProtoUtils {
     Preconditions.assertTrue(entry.hasConfigurationEntry());
     final RaftConfigurationProto proto = entry.getConfigurationEntry();
     final RaftConfiguration.Builder b = RaftConfiguration.newBuilder()
-        .setConf(ProtoUtils.toRaftPeerArray(proto.getPeersList()))
+        .setConf(ProtoUtils.toRaftPeers(proto.getPeersList()))
         .setLogEntryIndex(entry.getIndex());
     if (proto.getOldPeersCount() > 0) {
-      b.setOldConf(ProtoUtils.toRaftPeerArray(proto.getOldPeersList()));
+      b.setOldConf(ProtoUtils.toRaftPeers(proto.getOldPeersList()));
     }
     return b.build();
   }

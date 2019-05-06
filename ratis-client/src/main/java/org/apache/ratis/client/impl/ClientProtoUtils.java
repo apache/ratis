@@ -23,7 +23,6 @@ import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -166,8 +165,7 @@ public interface ClientProtoUtils {
         if (suggestedLeader != null) {
           nleBuilder.setSuggestedLeader(suggestedLeader.getRaftPeerProto());
         }
-        nleBuilder.addAllPeersInConf(
-            ProtoUtils.toRaftPeerProtos(Arrays.asList(nle.getPeers())));
+        nleBuilder.addAllPeersInConf(ProtoUtils.toRaftPeerProtos(nle.getPeers()));
         b.setNotLeaderException(nleBuilder.build());
       } else if ((sme = reply.getStateMachineException()) != null) {
         StateMachineExceptionProto.Builder smeBuilder =
@@ -231,10 +229,8 @@ public interface ClientProtoUtils {
       NotLeaderExceptionProto nleProto = replyProto.getNotLeaderException();
       final RaftPeer suggestedLeader = nleProto.hasSuggestedLeader() ?
           ProtoUtils.toRaftPeer(nleProto.getSuggestedLeader()) : null;
-      final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(
-          nleProto.getPeersInConfList());
-      e = new NotLeaderException(RaftPeerId.valueOf(rp.getReplyId()),
-          suggestedLeader, peers);
+      final List<RaftPeer> peers = ProtoUtils.toRaftPeers(nleProto.getPeersInConfList());
+      e = new NotLeaderException(RaftPeerId.valueOf(rp.getReplyId()), suggestedLeader, peers);
     } else if (replyProto.getExceptionDetailsCase() == NOTREPLICATEDEXCEPTION) {
       final NotReplicatedExceptionProto nre = replyProto.getNotReplicatedException();
       e = new NotReplicatedException(nre.getCallId(), nre.getReplication(), nre.getLogIndex());
@@ -316,7 +312,7 @@ public interface ClientProtoUtils {
   static SetConfigurationRequest toSetConfigurationRequest(
       SetConfigurationRequestProto p) {
     final RaftRpcRequestProto m = p.getRpcRequest();
-    final RaftPeer[] peers = ProtoUtils.toRaftPeerArray(p.getPeersList());
+    final List<RaftPeer> peers = ProtoUtils.toRaftPeers(p.getPeersList());
     return new SetConfigurationRequest(
         ClientId.valueOf(m.getRequestorId()),
         RaftPeerId.valueOf(m.getReplyId()),
@@ -328,8 +324,7 @@ public interface ClientProtoUtils {
       SetConfigurationRequest request) {
     return SetConfigurationRequestProto.newBuilder()
         .setRpcRequest(toRaftRpcRequestProtoBuilder(request))
-        .addAllPeers(ProtoUtils.toRaftPeerProtos(
-            Arrays.asList(request.getPeersInNewConf())))
+        .addAllPeers(ProtoUtils.toRaftPeerProtos(request.getPeersInNewConf()))
         .build();
   }
 

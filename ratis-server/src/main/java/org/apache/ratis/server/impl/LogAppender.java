@@ -54,6 +54,69 @@ import static org.apache.ratis.util.LifeCycle.State.STARTING;
 public class LogAppender {
   public static final Logger LOG = LoggerFactory.getLogger(LogAppender.class);
 
+  class AppenderDaemon {
+    private final LifeCycle lifeCycle;
+    private final Daemon daemon = new Daemon(this::run);
+
+    AppenderDaemon(Object name) {
+      this.lifeCycle = new LifeCycle(name);
+    }
+
+    void start() {
+      // The life cycle state could be already closed due to server shutdown.
+      if (lifeCycle.compareAndTransition(NEW, STARTING)) {
+        daemon.start();
+      }
+    }
+
+    void run() {
+      synchronized (lifeCycle) {
+        if (!isRunning()) {
+          return;
+        }
+        lifeCycle.transition(RUNNING);
+      }
+      try {
+        runAppenderImpl();
+      } catch (InterruptedException | InterruptedIOException e) {
+        LOG.info(this + " was interrupted: " + e);
+      } catch (RaftLogIOException e) {
+        LOG.error(this + " failed RaftLog", e);
+        lifeCycle.transition(EXCEPTION);
+      } catch (IOException e) {
+        LOG.error(this + " failed IOException", e);
+        lifeCycle.transition(EXCEPTION);
+      } catch (Throwable e) {
+        LOG.error(this + " unexpected exception", e);
+        lifeCycle.transition(EXCEPTION);
+      } finally {
+        if (!lifeCycle.compareAndTransition(CLOSING, CLOSED)) {
+          lifeCycle.transitionIfNotEqual(EXCEPTION);
+        }
+        if (lifeCycle.getCurrentState() == EXCEPTION) {
+          leaderState.restartSender(LogAppender.this);
+        }
+      }
+    }
+
+    boolean isRunning() {
+      return !lifeCycle.getCurrentState().isOneOf(CLOSING, CLOSED, EXCEPTION);
+    }
+
+    void stop() {
+      synchronized (lifeCycle) {
+        if (!isRunning()) {
+          return;
+        }
+        if (lifeCycle.compareAndTransition(NEW, CLOSED)) {
+          return;
+        }
+        lifeCycle.transition(CLOSING);
+      }
+      daemon.interrupt();
+    }
+  }
+
   protected final RaftServerImpl server;
   private final LeaderState leaderState;
   protected final RaftLog raftLog;
@@ -63,8 +126,7 @@ public class LogAppender {
   private final int snapshotChunkMaxSize;
   protected final long halfMinTimeoutMs;
 
-  private final LifeCycle lifeCycle;
-  private final Daemon daemon = new Daemon(this::runAppender);
+  private final AppenderDaemon daemon;
 
   public LogAppender(RaftServerImpl server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
@@ -79,51 +141,24 @@ public class LogAppender {
     final SizeInBytes bufferByteLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
     final int bufferElementLimit = RaftServerConfigKeys.Log.Appender.bufferElementLimit(properties);
     this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
-    this.lifeCycle = new LifeCycle(this);
+    this.daemon = new AppenderDaemon(this);
   }
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + "(" + server.getId() + " -> " +
-        follower.getPeer().getId() + ")";
+    return getClass().getSimpleName() + "(" + follower.getName() + ")";
   }
 
   void startAppender() {
-    // The life cycle state could be already closed due to server shutdown.
-    if (lifeCycle.compareAndTransition(NEW, STARTING)) {
-      daemon.start();
-    }
+    daemon.start();
   }
 
-  private void runAppender() {
-    lifeCycle.transition(RUNNING);
-    try {
-      runAppenderImpl();
-    } catch (InterruptedException | InterruptedIOException e) {
-      LOG.info(this + " was interrupted: " + e);
-    } catch (IOException e) {
-      LOG.error(this + " hit IOException while loading raft log", e);
-      lifeCycle.transition(EXCEPTION);
-    } catch (Throwable e) {
-      LOG.error(this + " unexpected exception", e);
-      lifeCycle.transition(EXCEPTION);
-    } finally {
-      if (!lifeCycle.compareAndTransition(CLOSING, CLOSED)) {
-        lifeCycle.transitionIfNotEqual(EXCEPTION);
-      }
-    }
+  public boolean isAppenderRunning() {
+    return daemon.isRunning();
   }
 
-  protected boolean isAppenderRunning() {
-    return !lifeCycle.getCurrentState().isOneOf(CLOSING, CLOSED, EXCEPTION);
-  }
-
-  public void stopAppender() {
-    if (lifeCycle.compareAndTransition(NEW, CLOSED)) {
-      return;
-    }
-    lifeCycle.transition(CLOSING);
-    daemon.interrupt();
+  void stopAppender() {
+    daemon.stop();
   }
 
   public FollowerInfo getFollower() {
@@ -388,10 +423,8 @@ public class LogAppender {
       if (shouldSendRequest()) {
         SnapshotInfo snapshot = shouldInstallSnapshot();
         if (snapshot != null) {
-          LOG.info("{}:{} follower {}'s next index is {}," +
-              " log's start index is {}, need to install snapshot",
-              server.getId(), server.getGroupId(), follower.getPeer(), follower.getNextIndex(),
-              raftLog.getStartIndex());
+          LOG.info("{}:{} follower's next index is {}, log's start index is {}, will install snapshot",
+              follower.getName(), server.getGroupId(), follower.getNextIndex(), raftLog.getStartIndex());
 
           final InstallSnapshotReplyProto r = installSnapshot(snapshot);
           if (r != null && r.getResult() == InstallSnapshotResult.NOT_LEADER) {

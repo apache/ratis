@@ -74,11 +74,11 @@ public class GrpcLogAppender extends LogAppender {
   }
 
   private GrpcServerProtocolClient getClient() throws IOException {
-    return rpcService.getProxies().getProxy(follower.getPeer().getId());
+    return rpcService.getProxies().getProxy(getFollowerId());
   }
 
   private synchronized void resetClient(AppendEntriesRequestProto request) {
-    rpcService.getProxies().resetProxy(follower.getPeer().getId());
+    rpcService.getProxies().resetProxy(getFollowerId());
     appendLogRequestObserver = null;
     firstResponseReceived = false;
 
@@ -223,8 +223,8 @@ public class GrpcLogAppender extends LogAppender {
     @Override
     public void onNext(AppendEntriesReplyProto reply) {
       if (LOG.isDebugEnabled()) {
-        LOG.debug("{}<-{}: received {} reply {} ", server.getId(), follower.getPeer(),
-            (!firstResponseReceived? "the first": "a"), ServerProtoUtils.toString(reply));
+        LOG.debug("{}: received {} reply {} ", getFollower().getName(),
+            firstResponseReceived? "a": "the first", ServerProtoUtils.toString(reply));
       }
 
       try {
@@ -266,7 +266,7 @@ public class GrpcLogAppender extends LogAppender {
         LOG.info("{} is stopped", GrpcLogAppender.this);
         return;
       }
-      GrpcUtil.warn(LOG, () -> server.getId() + ": Failed appendEntries to " + follower.getPeer(), t);
+      GrpcUtil.warn(LOG, () -> getFollower().getName() + ": Failed appendEntries", t);
 
       long callId = GrpcUtil.getCallId(t);
       resetClient(pendingRequests.get(callId));
@@ -274,7 +274,7 @@ public class GrpcLogAppender extends LogAppender {
 
     @Override
     public void onCompleted() {
-      LOG.info("{}: follower {} response Completed", server.getId(), follower);
+      LOG.info("{}: follower responses appendEntries COMPLETED", getFollower().getName());
       resetClient(null);
     }
   }
@@ -284,11 +284,11 @@ public class GrpcLogAppender extends LogAppender {
     follower.decreaseNextIndex(newNextIndex);
   }
 
-  protected synchronized void onSuccess(AppendEntriesReplyProto reply) {
+  private synchronized void onSuccess(AppendEntriesReplyProto reply) {
     AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
     if (request == null) {
       // If reply comes after timeout, the reply is ignored.
-      LOG.warn("{}: Request not found, ignoring reply: {}", this, ServerProtoUtils.toString(reply));
+      LOG.warn("{}: Request not found, ignoring SUCCESS reply: {}", this, ServerProtoUtils.toString(reply));
       return;
     }
     updateCommitIndex(reply.getFollowerCommit());
@@ -327,7 +327,7 @@ public class GrpcLogAppender extends LogAppender {
     AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
     if (request == null) {
       // If reply comes after timeout, the reply is ignored.
-      LOG.warn("{}: Ignoring {}", server.getId(), reply);
+      LOG.warn("{}: Request not found, ignoring INCONSISTENCY reply: {}", this, ServerProtoUtils.toString(reply));
       return;
     }
     Preconditions.assertTrue(request.hasPreviousLog());
@@ -351,7 +351,8 @@ public class GrpcLogAppender extends LogAppender {
     }
 
     synchronized void removePending(InstallSnapshotReplyProto reply) {
-      int index = pending.poll();
+      final Integer index = pending.poll();
+      Objects.requireNonNull(index, "index == null");
       Preconditions.assertTrue(index == reply.getRequestIndex());
     }
 
@@ -370,9 +371,7 @@ public class GrpcLogAppender extends LogAppender {
 
     @Override
     public void onNext(InstallSnapshotReplyProto reply) {
-      LOG.debug("{} received {} response from {}", server.getId(),
-          (!firstResponseReceived ? "the first" : "a"),
-          follower.getPeer());
+      LOG.debug("{}: received {} response", getFollower().getName(), firstResponseReceived? "a": "the first");
 
       // update the last rpc time
       follower.updateLastRpcResponseTime();
@@ -411,15 +410,14 @@ public class GrpcLogAppender extends LogAppender {
         LOG.info("{} is stopped", GrpcLogAppender.this);
         return;
       }
-      LOG.info("{} got error when installing snapshot to {}, exception: {}",
-          server.getId(), follower.getPeer(), t);
+      LOG.info("{}: got error when installing snapshot: {}", getFollower().getName(), t);
       resetClient(null);
       close();
     }
 
     @Override
     public void onCompleted() {
-      LOG.info("Snapshot(s) sent from {} to follower {}", server.getId(), follower);
+      LOG.info("{}: follower responses installSnapshot Completed", getFollower().getName());
       close();
     }
   }
@@ -429,10 +427,8 @@ public class GrpcLogAppender extends LogAppender {
    * @param snapshot the snapshot to be sent to Follower
    */
   private void installSnapshot(SnapshotInfo snapshot) {
-    LOG.info("{}: follower {}'s next index is {}," +
-            " log's start index is {}, need to install snapshot",
-        server.getId(), follower.getPeer(), follower.getNextIndex(),
-        raftLog.getStartIndex());
+    LOG.info("{}: follower's next index is {}, log's start index is {}, will install snapshot",
+        getFollower().getName(), follower.getNextIndex(), raftLog.getStartIndex());
 
     final InstallSnapshotResponseHandler responseHandler = new InstallSnapshotResponseHandler();
     StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver = null;
@@ -451,8 +447,7 @@ public class GrpcLogAppender extends LogAppender {
       }
       snapshotRequestObserver.onCompleted();
     } catch (Exception e) {
-      LOG.warn("{} failed to install snapshot {}. Exception: {}", this,
-          snapshot.getFiles(), e);
+      LOG.warn("{}: failed to install snapshot {}: {}", this, snapshot.getFiles(), e);
       if (snapshotRequestObserver != null) {
         snapshotRequestObserver.onError(e);
       }
@@ -470,8 +465,7 @@ public class GrpcLogAppender extends LogAppender {
 
     if (responseHandler.hasAllResponse()) {
       follower.setSnapshotIndex(snapshot.getTermIndex().getIndex());
-      LOG.info("{}: install snapshot-{} successfully on follower {}",
-          server.getId(), snapshot.getTermIndex().getIndex(), follower.getPeer());
+      LOG.info("{}: install snapshot-{} successfully", getFollower().getName(), snapshot.getTermIndex().getIndex());
     }
   }
 

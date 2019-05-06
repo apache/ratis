@@ -138,12 +138,8 @@ public class LeaderState {
   static class SenderList {
     private final List<LogAppender> senders;
 
-    SenderList(LogAppender[] senders) {
-      this.senders = new CopyOnWriteArrayList<>(senders);
-    }
-
-    int size() {
-      return senders.size();
+    SenderList() {
+      this.senders = new CopyOnWriteArrayList<>();
     }
 
     Stream<LogAppender> stream() {
@@ -154,8 +150,17 @@ public class LeaderState {
       senders.forEach(action);
     }
 
-    boolean addAll(Collection<LogAppender> c) {
-      return senders.addAll(c);
+    void addAll(Collection<LogAppender> newSenders) {
+      if (newSenders.isEmpty()) {
+        return;
+      }
+
+      Preconditions.assertUnique(
+          CollectionUtils.as(senders, LogAppender::getFollowerId),
+          CollectionUtils.as(newSenders, LogAppender::getFollowerId));
+
+      final boolean changed = senders.addAll(newSenders);
+      Preconditions.assertTrue(changed);
     }
 
     boolean removeAll(Collection<LogAppender> c) {
@@ -204,13 +209,10 @@ public class LeaderState {
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
-    final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     placeHolderIndex = raftLog.getNextIndex();
 
-    senders = new SenderList(others.stream().map(
-        p -> server.newLogAppender(this, p, t, placeHolderIndex, true))
-        .toArray(LogAppender[]::new));
-
+    senders = new SenderList();
+    addSenders(others, placeHolderIndex, true);
     voterLists = divideFollowers(conf);
   }
 
@@ -271,15 +273,14 @@ public class LeaderState {
   PendingRequest startSetConfiguration(SetConfigurationRequest request) {
     Preconditions.assertTrue(running && !inStagingState());
 
-    RaftPeer[] peersInNewConf = request.getPeersInNewConf();
-    Collection<RaftPeer> peersToBootStrap = RaftConfiguration
-        .computeNewPeers(peersInNewConf, server.getRaftConf());
+    final List<RaftPeer> peersInNewConf = request.getPeersInNewConf();
+    final Collection<RaftPeer> peersToBootStrap = server.getRaftConf().filterNotContainedInConf(peersInNewConf);
 
     // add the request to the pending queue
     final PendingRequest pending = pendingRequests.addConfRequest(request);
 
     ConfigurationStagingState stagingState = new ConfigurationStagingState(
-        peersToBootStrap, new PeerConfiguration(Arrays.asList(peersInNewConf)));
+        peersToBootStrap, new PeerConfiguration(peersInNewConf));
     Collection<RaftPeer> newPeers = stagingState.getNewPeers();
     // set the staging state
     this.stagingState = stagingState;
@@ -288,7 +289,7 @@ public class LeaderState {
       applyOldNewConf();
     } else {
       // update the LeaderState's sender list
-      addSenders(newPeers);
+      addAndStartSenders(newPeers);
     }
     return pending;
   }
@@ -361,24 +362,32 @@ public class LeaderState {
   }
 
   /**
-   * After receiving a setConfiguration request, the leader should update its
-   * RpcSender list.
+   * Update sender list for setConfiguration request
    */
-  void addSenders(Collection<RaftPeer> newMembers) {
-    final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
-    final long nextIndex = raftLog.getNextIndex();
+  void addAndStartSenders(Collection<RaftPeer> newPeers) {
+    addSenders(newPeers, raftLog.getNextIndex(), false).forEach(LogAppender::startAppender);
+  }
 
-    senders.addAll(newMembers.stream().map(peer -> {
-      LogAppender sender = server.newLogAppender(this, peer, t, nextIndex, false);
-      sender.startAppender();
-      return sender;
-    }).collect(Collectors.toList()));
+  Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote) {
+    final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
+    final List<LogAppender> newAppenders = newPeers.stream()
+        .map(peer -> server.newLogAppender(this, peer, t, nextIndex, attendVote))
+        .collect(Collectors.toList());
+    senders.addAll(newAppenders);
+    return newAppenders;
   }
 
   void stopAndRemoveSenders(Predicate<LogAppender> predicate) {
     final List<LogAppender> toStop = senders.stream().filter(predicate).collect(Collectors.toList());
     toStop.forEach(LogAppender::stopAppender);
     senders.removeAll(toStop);
+  }
+
+  void restartSender(LogAppender sender) {
+    final FollowerInfo follower = sender.getFollower();
+    LOG.info("{}: Restarting {} for {}", server.getId(), sender.getClass().getSimpleName(), follower.getName());
+    senders.removeAll(Collections.singleton(sender));
+    addAndStartSenders(Collections.singleton(follower.getPeer()));
   }
 
   /**

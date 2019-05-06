@@ -20,6 +20,9 @@
 
 package org.apache.ratis.util;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.function.Supplier;
 
 public interface Preconditions {
@@ -80,5 +83,19 @@ public interface Preconditions {
   static void assertNull(Object object, String name) {
     assertNull(object, () -> name + " is expected to be null but "
         + name + " = " + object + " != null, class = " + object.getClass());
+  }
+
+  static <T> void assertUnique(Iterable<T> first) {
+    assertUnique(first, Collections.emptyList());
+  }
+
+  static <T> void assertUnique(Iterable<T> original, Iterable<T> toBeAdded) {
+    final Set<T> set = new HashSet<>();
+    for(T t : original) {
+      assertTrue(set.add(t), () -> "Found duplicated element " + t + " in " + original);
+    }
+    for(T t : toBeAdded) {
+      assertTrue(set.add(t), () -> "Found duplicated element " + t + " when adding " + toBeAdded + " to " + original);
+    }
   }
 }

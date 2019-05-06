@@ -689,8 +689,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public SetConfigurationRequest newSetConfigurationRequest(
       ClientId clientId, RaftPeerId leaderId,
       RaftPeer... peers) {
-    return new SetConfigurationRequest(clientId, leaderId, getGroupId(),
-        DEFAULT_CALLID, peers);
+    return new SetConfigurationRequest(clientId, leaderId, getGroupId(), DEFAULT_CALLID, Arrays.asList(peers));
   }
 
   public void setConfiguration(RaftPeer... peers) throws IOException {

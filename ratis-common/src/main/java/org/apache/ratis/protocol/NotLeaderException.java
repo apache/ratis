@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,24 +17,29 @@
  */
 package org.apache.ratis.protocol;
 
+import org.apache.ratis.util.Preconditions;
+
+import java.util.Collection;
+import java.util.Collections;
+
 public class NotLeaderException extends RaftException {
   private final RaftPeer suggestedLeader;
   /** the client may need to update its RaftPeer list */
-  private final RaftPeer[] peers;
+  private final Collection<RaftPeer> peers;
 
-  public NotLeaderException(RaftPeerId id, RaftPeer suggestedLeader,
-      RaftPeer[] peers) {
+  public NotLeaderException(RaftPeerId id, RaftPeer suggestedLeader, Collection<RaftPeer> peers) {
     super("Server " + id + " is not the leader (" + suggestedLeader
         + "). Request must be sent to leader.");
     this.suggestedLeader = suggestedLeader;
-    this.peers = peers == null ? RaftPeer.emptyArray(): peers;
+    this.peers = peers != null? Collections.unmodifiableCollection(peers): Collections.emptyList();
+    Preconditions.assertUnique(this.peers);
   }
 
   public RaftPeer getSuggestedLeader() {
     return suggestedLeader;
   }
 
-  public RaftPeer[] getPeers() {
+  public Collection<RaftPeer> getPeers() {
     return peers;
   }
 }

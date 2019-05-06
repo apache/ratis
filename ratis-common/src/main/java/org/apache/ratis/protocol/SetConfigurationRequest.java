@@ -17,23 +17,27 @@
  */
 package org.apache.ratis.protocol;
 
-import java.util.Arrays;
+import org.apache.ratis.util.Preconditions;
+
+import java.util.Collections;
+import java.util.List;
 
 public class SetConfigurationRequest extends RaftClientRequest {
-  private final RaftPeer[] peers;
+  private final List<RaftPeer> peers;
 
   public SetConfigurationRequest(ClientId clientId, RaftPeerId serverId,
-      RaftGroupId groupId, long callId, RaftPeer[] peers) {
+      RaftGroupId groupId, long callId, List<RaftPeer> peers) {
     super(clientId, serverId, groupId, callId, writeRequestType());
-    this.peers = peers;
+    this.peers = peers != null? Collections.unmodifiableList(peers): Collections.emptyList();
+    Preconditions.assertUnique(this.peers);
   }
 
-  public RaftPeer[] getPeersInNewConf() {
+  public List<RaftPeer> getPeersInNewConf() {
     return peers;
   }
 
   @Override
   public String toString() {
-    return super.toString() + ", peers:" + Arrays.asList(getPeersInNewConf());
+    return super.toString() + ", peers:" + getPeersInNewConf();
   }
 }

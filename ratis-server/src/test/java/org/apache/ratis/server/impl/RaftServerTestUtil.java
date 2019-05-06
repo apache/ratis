@@ -47,12 +47,12 @@ public class RaftServerTestUtil {
       RaftPeer[] peers, int numOfRemovedPeers, Collection<RaftPeerId> deadPeers)
       throws Exception {
     final TimeDuration sleepTime = cluster.getTimeoutMax().apply(n -> n * (numOfRemovedPeers + 2));
-    JavaUtils.attempt(() -> waitAndCheckNewConf(cluster, peers, deadPeers),
+    JavaUtils.attempt(() -> waitAndCheckNewConf(cluster, Arrays.asList(peers), deadPeers),
         10, sleepTime, "waitAndCheckNewConf", LOG);
   }
   private static void waitAndCheckNewConf(MiniRaftCluster cluster,
-      RaftPeer[] peers, Collection<RaftPeerId> deadPeers) {
-    LOG.info("waitAndCheckNewConf: peers={}, deadPeers={}, {}", Arrays.asList(peers), deadPeers, cluster.printServers());
+      Collection<RaftPeer> peers, Collection<RaftPeerId> deadPeers) {
+    LOG.info("waitAndCheckNewConf: peers={}, deadPeers={}, {}", peers, deadPeers, cluster.printServers());
     Assert.assertNotNull(cluster.getLeader());
 
     int numIncluded = 0;
@@ -78,7 +78,7 @@ public class RaftServerTestUtil {
         Assert.assertFalse(server.getRaftConf().containsInConf(server.getId()));
       }
     }
-    Assert.assertEquals(peers.length, numIncluded + deadIncluded);
+    Assert.assertEquals(peers.size(), numIncluded + deadIncluded);
   }
 
   public static long getRetryCacheSize(RaftServerImpl server) {

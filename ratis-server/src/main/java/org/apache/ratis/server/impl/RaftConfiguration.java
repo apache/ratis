@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -23,6 +23,7 @@ import org.apache.ratis.util.Preconditions;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 /**
  * The configuration of the raft cluster.
@@ -60,10 +61,6 @@ public class RaftConfiguration {
       return setConf(new PeerConfiguration(peers));
     }
 
-    public Builder setConf(RaftPeer[] peers) {
-      return setConf(Arrays.asList(peers));
-    }
-
     Builder setConf(RaftConfiguration transitionalConf) {
       Objects.requireNonNull(transitionalConf);
       Preconditions.assertTrue(transitionalConf.isTransitional());
@@ -83,10 +80,6 @@ public class RaftConfiguration {
 
     public Builder setOldConf(Iterable<RaftPeer> oldPeers) {
       return setOldConf(new PeerConfiguration(oldPeers));
-    }
-
-    public Builder setOldConf(RaftPeer[] oldPeers) {
-      return setOldConf(Arrays.asList(oldPeers));
     }
 
     Builder setOldConf(RaftConfiguration stableConf) {
@@ -218,8 +211,8 @@ public class RaftConfiguration {
     return logEntryIndex + ": " + conf + ", old=" + oldConf;
   }
 
-  boolean hasNoChange(RaftPeer[] newMembers) {
-    if (!isStable() || conf.size() != newMembers.length) {
+  boolean hasNoChange(Collection<RaftPeer> newMembers) {
+    if (!isStable() || conf.size() != newMembers.size()) {
       return false;
     }
     for (RaftPeer peer : newMembers) {
@@ -234,15 +227,9 @@ public class RaftConfiguration {
     return logEntryIndex;
   }
 
-  static Collection<RaftPeer> computeNewPeers(RaftPeer[] newMembers,
-      RaftConfiguration old) {
-    List<RaftPeer> peers = new ArrayList<>();
-    for (RaftPeer p : newMembers) {
-      if (!old.containsInConf(p.getId())) {
-        peers.add(p);
-      }
-    }
-    return peers;
+  /** @return the peers which are not contained in conf. */
+  Collection<RaftPeer> filterNotContainedInConf(List<RaftPeer> peers) {
+    return peers.stream().filter(p -> !containsInConf(p.getId())).collect(Collectors.toList());
   }
 
   RaftPeer getRandomPeer(RaftPeerId exclusiveId) {

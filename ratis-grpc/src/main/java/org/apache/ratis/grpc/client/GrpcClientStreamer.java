@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -376,11 +376,11 @@ public class GrpcClientStreamer implements Closeable {
     }
   }
 
-  private void refreshPeers(RaftPeer[] newPeers) {
-    if (newPeers != null && newPeers.length > 0) {
+  private void refreshPeers(Collection<RaftPeer> newPeers) {
+    if (newPeers != null && newPeers.size() > 0) {
       // we only add new peers, we do not remove any peer even if it no longer
       // belongs to the current raft conf
-      Arrays.stream(newPeers).forEach(peer -> {
+      newPeers.forEach(peer -> {
         peers.putIfAbsent(peer.getId(), peer);
         proxyMap.computeIfAbsent(peer);
       });
