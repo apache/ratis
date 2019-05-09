@@ -393,11 +393,12 @@ public interface SlidingWindow {
 
     private void processRequestsFromHead(Consumer<REQUEST> processingMethod) {
       for(REQUEST r : requests) {
-        if (r.getSeqNum() != nextToProcess) {
+        if (r.getSeqNum() > nextToProcess) {
           return;
+        } else if (r.getSeqNum() == nextToProcess) {
+          processingMethod.accept(r);
+          nextToProcess++;
         }
-        processingMethod.accept(r);
-        nextToProcess++;
       }
     }
 

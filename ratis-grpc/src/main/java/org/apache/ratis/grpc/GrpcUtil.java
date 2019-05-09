@@ -19,6 +19,7 @@ package org.apache.ratis.grpc;
 
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.ServerNotReadyException;
+import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.grpc.Metadata;
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
@@ -76,6 +77,11 @@ public interface GrpcUtil {
   }
 
   static IOException tryUnwrapException(StatusRuntimeException se) {
+    final Status status = se.getStatus();
+    if (status != null && status.getCode() == Status.Code.DEADLINE_EXCEEDED) {
+      return new TimeoutIOException(status.getDescription(), se);
+    }
+
     final Metadata trailers = se.getTrailers();
     if (trailers == null) {
       return null;
@@ -90,7 +96,6 @@ public interface GrpcUtil {
       }
     }
 
-    final Status status = se.getStatus();
     if (status != null) {
       final String className = trailers.get(EXCEPTION_TYPE_KEY);
       if (className != null) {

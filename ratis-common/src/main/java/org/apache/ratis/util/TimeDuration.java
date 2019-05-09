@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.LongUnaryOperator;
 
 /**
@@ -203,7 +204,24 @@ public final class TimeDuration implements Comparable<TimeDuration> {
 
   /** Performs a {@link TimeUnit#sleep(long)} using this {@link TimeDuration}. */
   public void sleep() throws InterruptedException {
-    unit.sleep(duration);
+    sleep(null);
+  }
+
+  public void sleep(Consumer<Object> log) throws InterruptedException {
+    if (log != null) {
+      log.accept(StringUtils.stringSupplierAsObject(() -> "Start sleeping " + this));
+    }
+    try {
+      unit.sleep(duration);
+      if (log != null) {
+        log.accept(StringUtils.stringSupplierAsObject(() -> "Completed sleeping " + this));
+      }
+    } catch(InterruptedException ie) {
+      if (log != null) {
+        log.accept(StringUtils.stringSupplierAsObject(() -> "Interrupted sleeping " + this));
+      }
+      throw ie;
+    }
   }
 
   @Override

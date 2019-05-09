@@ -22,6 +22,7 @@ import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.WatchRequestTypeProto;
 import org.apache.ratis.protocol.NotReplicatedException;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
@@ -73,36 +74,47 @@ class WatchRequests {
     private final ReplicationLevel replication;
     private final SortedMap<PendingWatch, PendingWatch> q = new TreeMap<>(
         Comparator.comparingLong(PendingWatch::getIndex).thenComparing(PendingWatch::getCreationTime));
+    private final ResourceSemaphore resource;
     private volatile long index; //Invariant: q.isEmpty() or index < any element q
 
-    WatchQueue(ReplicationLevel replication) {
+    WatchQueue(ReplicationLevel replication, int elementLimit) {
       this.replication = replication;
+      this.resource = new ResourceSemaphore(elementLimit);
     }
 
     long getIndex() {
       return index;
     }
 
-    PendingWatch add(RaftClientRequest request) {
+    CompletableFuture<Void> add(RaftClientRequest request) {
       final long currentTime = Timestamp.currentTimeNanos();
       final long roundUp = watchTimeoutDenominationNanos.roundUpNanos(currentTime);
       final PendingWatch pending = new PendingWatch(request.getType().getWatch(), Timestamp.valueOf(roundUp));
 
+      final PendingWatch computed;
       synchronized (this) {
-        if (pending.getIndex() > getIndex()) { // compare again synchronized
-          final PendingWatch previous = q.putIfAbsent(pending, pending);
-          if (previous != null) {
-            return previous;
-          }
-        } else {
+        if (pending.getIndex() <= getIndex()) { // compare again synchronized
+          // watch condition already satisfied
           return null;
         }
+        computed = q.compute(pending, (key, old) -> old != null? old: resource.tryAcquire()? pending: null);
       }
 
+      if (computed == null) {
+        // failed to acquire
+        return JavaUtils.completeExceptionally(new ResourceUnavailableException(
+            "Failed to acquire a pending watch request in " + name + " for " + request));
+      }
+      if (computed != pending) {
+        // already exists in q
+        return computed.getFuture();
+      }
+
+      // newly added to q
       final TimeDuration timeout = watchTimeoutNanos.apply(duration -> duration + roundUp - currentTime);
       scheduler.onTimeout(timeout, () -> handleTimeout(request, pending),
           LOG, () -> name + ": Failed to timeout " + request);
-      return pending;
+      return pending.getFuture();
     }
 
     void handleTimeout(RaftClientRequest request, PendingWatch pending) {
@@ -119,6 +131,7 @@ class WatchRequests {
         return false;
       }
       Preconditions.assertTrue(removed == pending);
+      resource.release();
       return true;
     }
 
@@ -146,6 +159,7 @@ class WatchRequests {
         pending.getFuture().completeExceptionally(e);
       }
       q.clear();
+      resource.close();
     }
   }
 
@@ -159,24 +173,25 @@ class WatchRequests {
   WatchRequests(Object name, RaftProperties properties) {
     this.name = name + "-" + getClass().getSimpleName();
 
-    final TimeDuration watchTimeout = RaftServerConfigKeys.watchTimeout(properties);
+    final TimeDuration watchTimeout = RaftServerConfigKeys.Watch.timeout(properties);
     this.watchTimeoutNanos = watchTimeout.to(TimeUnit.NANOSECONDS);
-    final TimeDuration watchTimeoutDenomination = RaftServerConfigKeys.watchTimeoutDenomination(properties);
+    final TimeDuration watchTimeoutDenomination = RaftServerConfigKeys.Watch.timeoutDenomination(properties);
     this.watchTimeoutDenominationNanos = watchTimeoutDenomination.to(TimeUnit.NANOSECONDS);
     Preconditions.assertTrue(watchTimeoutNanos.getDuration() % watchTimeoutDenominationNanos.getDuration() == 0L,
         () -> "watchTimeout (=" + watchTimeout + ") is not a multiple of watchTimeoutDenomination (="
             + watchTimeoutDenomination + ").");
 
-    Arrays.stream(ReplicationLevel.values()).forEach(r -> queues.put(r, new WatchQueue(r)));
+    final int elementLimit = RaftServerConfigKeys.Watch.elementLimit(properties);
+    Arrays.stream(ReplicationLevel.values()).forEach(r -> queues.put(r, new WatchQueue(r, elementLimit)));
   }
 
   CompletableFuture<Void> add(RaftClientRequest request) {
     final WatchRequestTypeProto watch = request.getType().getWatch();
     final WatchQueue queue = queues.get(watch.getReplication());
     if (watch.getIndex() > queue.getIndex()) { // compare without synchronization
-      final PendingWatch pending = queue.add(request);
-      if (pending != null) {
-        return pending.getFuture();
+      final CompletableFuture<Void> future = queue.add(request);
+      if (future != null) {
+        return future;
       }
     }
     return CompletableFuture.completedFuture(null);

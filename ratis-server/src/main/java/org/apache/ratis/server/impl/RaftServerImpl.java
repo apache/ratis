@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
@@ -485,6 +486,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
       // append the message to its local log
       final LeaderState leaderState = role.getLeaderStateNonNull();
+      final PendingRequests.Permit permit = leaderState.tryAcquirePendingRequest();
+      if (permit == null) {
+        return JavaUtils.completeExceptionally(new ResourceUnavailableException(
+            "Failed to acquire a pending write request in " + getId() + " for " + request));
+      }
       try {
         state.appendLog(context);
       } catch (StateMachineException e) {
@@ -493,14 +499,18 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         RaftClientReply exceptionReply = new RaftClientReply(request, e, getCommitInfos());
         cacheEntry.failWithReply(exceptionReply);
         // leader will step down here
-        if (isLeader() && leaderState != null) {
+        if (isLeader()) {
           leaderState.submitStepDownEvent();
         }
         return CompletableFuture.completedFuture(exceptionReply);
       }
 
       // put the request into the pending queue
-      pending = leaderState.addPendingRequest(request, context);
+      pending = leaderState.addPendingRequest(permit, request, context);
+      if (pending == null) {
+        return JavaUtils.completeExceptionally(new ResourceUnavailableException(
+            "Failed to add a pending write request in " + getId() + " for " + request));
+      }
       leaderState.notifySenders();
     }
     return pending.getFuture();

@@ -55,8 +55,10 @@ import java.util.EnumMap;
 import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -90,6 +92,36 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   private volatile boolean running = true;
 
+  public static class Collecting {
+    public enum Type {
+      APPLY_TRANSACTION
+    }
+
+    private final EnumMap<Type, BlockingQueue<Runnable>> map = new EnumMap<>(Type.class);
+
+    BlockingQueue<Runnable> get(Type type) {
+      return map.get(type);
+    }
+
+    public BlockingQueue<Runnable> enable(Type type) {
+      final BlockingQueue<Runnable> q = new LinkedBlockingQueue<>();
+      final BlockingQueue<Runnable> previous = map.put(type, q);
+      Preconditions.assertNull(previous, "previous");
+      return q;
+    }
+
+    <T> CompletableFuture<T> collect(Type type, T value) {
+      final BlockingQueue<Runnable> q = get(type);
+      if (q == null) {
+        return CompletableFuture.completedFuture(value);
+      }
+
+      final CompletableFuture<T> future = new CompletableFuture<>();
+      final boolean offered = q.offer(() -> future.complete(value));
+      Preconditions.assertTrue(offered);
+      return future;
+    }
+  }
 
   static class Blocking {
     enum Type {
@@ -122,6 +154,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   private final Blocking blocking = new Blocking();
+  private final Collecting collecting = new Collecting();
   private long endIndexLastCkpt = RaftServerConstants.INVALID_LOG_INDEX;
   private volatile RoleInfoProto slownessInfo = null;
   private volatile RoleInfoProto leaderElectionTimeoutInfo = null;
@@ -139,6 +172,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
         }
       }
     });
+  }
+
+  public Collecting collecting() {
+    return collecting;
   }
 
   public RoleInfoProto getSlownessInfo() {
@@ -193,8 +230,9 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
     put(entry);
     updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
-    return CompletableFuture.completedFuture(
-        new SimpleMessage(entry.getIndex() + " OK"));
+
+    final SimpleMessage m = new SimpleMessage(entry.getIndex() + " OK");
+    return collecting.collect(Collecting.Type.APPLY_TRANSACTION, m);
   }
 
   @Override

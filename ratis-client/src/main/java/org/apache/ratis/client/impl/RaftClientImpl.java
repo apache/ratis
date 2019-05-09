@@ -327,18 +327,24 @@ final class RaftClientImpl implements RaftClient {
     }).exceptionally(FunctionUtils.consumerAsNullFunction(f::completeExceptionally));
   }
 
-  private RaftClientReply sendRequestWithRetry(
-      Supplier<RaftClientRequest> supplier)
-      throws InterruptedIOException, StateMachineException, GroupMismatchException {
-    for(int attemptCount = 0;; attemptCount++) {
+  private RaftClientReply sendRequestWithRetry(Supplier<RaftClientRequest> supplier) throws IOException {
+    for(int attemptCount = 1;; attemptCount++) {
       final RaftClientRequest request = supplier.get();
-      final RaftClientReply reply = sendRequest(request);
-      if (reply != null) {
-        return reply;
+      IOException ioe = null;
+      try {
+        final RaftClientReply reply = sendRequest(request);
+        if (reply != null) {
+          return reply;
+        }
+      } catch (GroupMismatchException | StateMachineException e) {
+        throw e;
+      } catch (IOException e) {
+        ioe = e;
       }
       if (!retryPolicy.shouldRetry(attemptCount, request)) {
-        return null;
+        throw (IOException)noMoreRetries(request, attemptCount, retryPolicy, ioe);
       }
+
       try {
         retryPolicy.getSleepTime(attemptCount, request).sleep();
       } catch (InterruptedException e) {
@@ -385,8 +391,7 @@ final class RaftClientImpl implements RaftClient {
     if (attemptCount == 1 && throwable != null) {
       return throwable;
     }
-    return new RaftRetryFailureException(
-        "Failed " + request + " for " + (attemptCount-1) + " attempts with " + policy, throwable);
+    return new RaftRetryFailureException(request, attemptCount, policy, throwable);
   }
 
   private void handleAsyncRetryFailure(RaftClientRequest request, int attemptCount, Throwable throwable) {
@@ -397,16 +402,16 @@ final class RaftClientImpl implements RaftClient {
     getSlidingWindow(request).fail(request.getSlidingWindowEntry().getSeqNum(), t);
   }
 
-  private RaftClientReply sendRequest(RaftClientRequest request)
-      throws StateMachineException, GroupMismatchException {
+  private RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
     LOG.debug("{}: send {}", clientId, request);
-    RaftClientReply reply = null;
+    RaftClientReply reply;
     try {
       reply = clientRpc.sendRequest(request);
     } catch (GroupMismatchException gme) {
       throw gme;
     } catch (IOException ioe) {
       handleIOException(request, ioe, null, false);
+      throw ioe;
     }
     LOG.debug("{}: receive {}", clientId, reply);
     reply = handleNotLeaderException(request, reply, false);

@@ -15,16 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.grpc;
 
-import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.RequestLimitAsyncBaseTest;
 
-/**
- * Retry failure as per the {@link RetryPolicy} defined.
- */
-public class RaftRetryFailureException extends RaftException {
-  public RaftRetryFailureException(
-      RaftClientRequest request, int attemptCount, RetryPolicy retryPolicy, Throwable cause) {
-    super("Failed " + request + " for " + attemptCount + " attempts with " + retryPolicy, cause);
-  }
+public class TestRequestLimitAsyncWithGrpc
+    extends RequestLimitAsyncBaseTest<MiniRaftClusterWithGrpc>
+    implements MiniRaftClusterWithGrpc.FactoryGet {
 }

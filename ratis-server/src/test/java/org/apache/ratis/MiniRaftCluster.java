@@ -99,6 +99,12 @@ public abstract class MiniRaftCluster implements Closeable {
         return properties.get();
       }
 
+      default RaftProperties setStateMachine(Class<? extends StateMachine> stateMachineClass) {
+        final RaftProperties p = getProperties();
+        p.setClass(STATEMACHINE_CLASS_KEY, stateMachineClass, StateMachine.class);
+        return p;
+      }
+
       default CLUSTER newCluster(int numPeers) {
         return getFactory().newCluster(numPeers, getProperties());
       }
@@ -638,35 +644,20 @@ public abstract class MiniRaftCluster implements Closeable {
     return createClient(null, g);
   }
 
-  public RaftClient createClientWithLeader() {
-    return createClient(getLeader().getId(), group);
-  }
-
-  public RaftClient createClientWithFollower() {
-    return createClient(getFollowers().get(0).getId(), group);
-  }
-
   public RaftClient createClient(RaftPeerId leaderId) {
     return createClient(leaderId, group);
   }
 
   public RaftClient createClient(RaftPeerId leaderId, RetryPolicy retryPolicy) {
-    return createClient(leaderId, group, null, retryPolicy);
+    return createClient(leaderId, group, retryPolicy);
   }
 
   public RaftClient createClient(RaftPeerId leaderId, RaftGroup group) {
-    return createClient(leaderId, group, null, getDefaultRetryPolicy());
+    return createClient(leaderId, group, getDefaultRetryPolicy());
   }
 
-  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group,
-      ClientId clientId) {
-    return createClient(leaderId, group, clientId, getDefaultRetryPolicy());
-  }
-
-  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group,
-      ClientId clientId, RetryPolicy retryPolicy) {
+  public RaftClient createClient(RaftPeerId leaderId, RaftGroup group, RetryPolicy retryPolicy) {
     RaftClient.Builder builder = RaftClient.newBuilder()
-        .setClientId(clientId)
         .setRaftGroup(group)
         .setLeaderId(leaderId)
         .setProperties(properties)

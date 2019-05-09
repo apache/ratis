@@ -204,7 +204,7 @@ public class LeaderState {
     this.raftLog = state.getLog();
     this.currentTerm = state.getCurrentTerm();
     processor = new EventProcessor();
-    this.pendingRequests = new PendingRequests(server.getId());
+    this.pendingRequests = new PendingRequests(server.getId(), properties);
     this.watchRequests = new WatchRequests(server.getId(), properties);
 
     final RaftConfiguration conf = server.getRaftConf();
@@ -294,12 +294,16 @@ public class LeaderState {
     return pending;
   }
 
-  PendingRequest addPendingRequest(RaftClientRequest request, TransactionContext entry) {
+  PendingRequests.Permit tryAcquirePendingRequest() {
+    return pendingRequests.tryAcquire();
+  }
+
+  PendingRequest addPendingRequest(PendingRequests.Permit permit, RaftClientRequest request, TransactionContext entry) {
     if (LOG.isDebugEnabled()) {
       LOG.debug("{}: addPendingRequest at {}, entry=", server.getId(), request,
           ServerProtoUtils.toLogEntryString(entry.getLogEntry()));
     }
-    return pendingRequests.add(request, entry);
+    return pendingRequests.add(permit, request, entry);
   }
 
   CompletableFuture<RaftClientReply> addWatchReqeust(RaftClientRequest request) {

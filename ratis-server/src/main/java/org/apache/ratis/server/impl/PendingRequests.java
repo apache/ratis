@@ -17,35 +17,79 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
-import org.apache.ratis.protocol.*;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.protocol.NotLeaderException;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftException;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.ResourceSemaphore;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 class PendingRequests {
   public static final Logger LOG = LoggerFactory.getLogger(PendingRequests.class);
+
+  static class Permit {}
 
   private static class RequestMap {
     private final Object name;
     private final ConcurrentMap<Long, PendingRequest> map = new ConcurrentHashMap<>();
 
-    RequestMap(Object name) {
+    /** Permits to put new requests, always synchronized. */
+    private final Map<Permit, Permit> permits = new HashMap<>();
+    /** Track and limit the number of requests. */
+    private final ResourceSemaphore resource;
+
+    RequestMap(Object name, int capacity) {
       this.name = name;
+      this.resource = new ResourceSemaphore(capacity);
     }
 
-    void put(long index, PendingRequest p) {
+    Permit tryAcquire() {
+      final boolean acquired = resource.tryAcquire();
+      LOG.trace("tryAcquire? {}", acquired);
+      if (!acquired) {
+        return null;
+      }
+      return putPermit();
+    }
+
+    private synchronized Permit putPermit() {
+      if (resource.isClosed()) {
+        return null;
+      }
+      final Permit permit = new Permit();
+      permits.put(permit, permit);
+      return permit;
+    }
+
+    synchronized PendingRequest put(Permit permit, long index, PendingRequest p) {
       LOG.debug("{}: PendingRequests.put {} -> {}", name, index, p);
+      final Permit removed = permits.remove(permit);
+      if (removed == null) {
+        return null;
+      }
+      Preconditions.assertTrue(removed == permit);
       final PendingRequest previous = map.put(index, p);
       Preconditions.assertTrue(previous == null);
+      return p;
     }
 
     PendingRequest get(long index) {
@@ -57,17 +101,32 @@ class PendingRequests {
     PendingRequest remove(long index) {
       final PendingRequest r = map.remove(index);
       LOG.debug("{}: PendingRequests.remove {} returns {}", name, index, r);
+      if (r == null) {
+        return null;
+      }
+      resource.release();
+      LOG.trace("release");
       return r;
     }
 
     Collection<TransactionContext> setNotLeaderException(NotLeaderException nle, Collection<CommitInfoProto> commitInfos) {
+      synchronized (this) {
+        resource.close();
+        permits.clear();
+      }
+
       LOG.debug("{}: PendingRequests.setNotLeaderException", name);
-      try {
-        return map.values().stream()
-            .map(p -> p.setNotLeaderException(nle, commitInfos))
-            .collect(Collectors.toList());
-      } finally {
-        map.clear();
+      final List<TransactionContext> transactions = new ArrayList<>(map.size());
+      for(;;) {
+        final Iterator<Long> i = map.keySet().iterator();
+        if (!i.hasNext()) { // the map is empty
+          return transactions;
+        }
+
+        final PendingRequest pending = map.remove(i.next());
+        if (pending != null) {
+          transactions.add(pending.setNotLeaderException(nle, commitInfos));
+        }
       }
     }
   }
@@ -76,19 +135,22 @@ class PendingRequests {
   private final String name;
   private final RequestMap pendingRequests;
 
-  PendingRequests(RaftPeerId id) {
+  PendingRequests(RaftPeerId id, RaftProperties properties) {
     this.name = id + "-" + getClass().getSimpleName();
-    this.pendingRequests = new RequestMap(id);
+    this.pendingRequests = new RequestMap(id, RaftServerConfigKeys.Write.elementLimit(properties));
   }
 
-  PendingRequest add(RaftClientRequest request, TransactionContext entry) {
+  Permit tryAcquire() {
+    return pendingRequests.tryAcquire();
+  }
+
+  PendingRequest add(Permit permit, RaftClientRequest request, TransactionContext entry) {
     // externally synced for now
     Preconditions.assertTrue(request.is(RaftClientRequestProto.TypeCase.WRITE));
     final long index = entry.getLogEntry().getIndex();
     LOG.debug("{}: addPendingRequest at index={}, request={}", name, index, request);
     final PendingRequest pending = new PendingRequest(index, request, entry);
-    pendingRequests.put(index, pending);
-    return pending;
+    return pendingRequests.put(permit, index, pending);
   }
 
   PendingRequest addConfRequest(SetConfigurationRequest request) {

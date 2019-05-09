@@ -331,14 +331,14 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testWatchRequestTimeout() throws Exception {
     final RaftProperties p = getProperties();
-    RaftServerConfigKeys.setWatchTimeout(p, TimeDuration.valueOf(500, TimeUnit.MILLISECONDS));
-    RaftServerConfigKeys.setWatchTimeoutDenomination(p, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS));
+    RaftServerConfigKeys.Watch.setTimeout(p, TimeDuration.valueOf(500, TimeUnit.MILLISECONDS));
+    RaftServerConfigKeys.Watch.setTimeoutDenomination(p, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS));
     try {
       runWithNewCluster(NUM_SERVERS,
           cluster -> runTest(WatchRequestTests::runTestWatchRequestTimeout, cluster, LOG));
     } finally {
-      RaftServerConfigKeys.setWatchTimeout(p, RaftServerConfigKeys.WATCH_TIMEOUT_DEFAULT);
-      RaftServerConfigKeys.setWatchTimeoutDenomination(p, RaftServerConfigKeys.WATCH_TIMEOUT_DENOMINATION_DEFAULT);
+      RaftServerConfigKeys.Watch.setTimeout(p, RaftServerConfigKeys.Watch.TIMEOUT_DEFAULT);
+      RaftServerConfigKeys.Watch.setTimeoutDenomination(p, RaftServerConfigKeys.Watch.TIMEOUT_DENOMINATION_DEFAULT);
     }
   }
 
@@ -347,8 +347,9 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     final MiniRaftCluster cluster = p.cluster;
     final int numMessages = p.numMessages;
 
-    final TimeDuration watchTimeout = RaftServerConfigKeys.watchTimeout(cluster.getProperties());
-    final TimeDuration watchTimeoutDenomination = RaftServerConfigKeys.watchTimeoutDenomination(cluster.getProperties());
+    final RaftProperties properties = cluster.getProperties();
+    final TimeDuration watchTimeout = RaftServerConfigKeys.Watch.timeout(properties);
+    final TimeDuration watchTimeoutDenomination = RaftServerConfigKeys.Watch.timeoutDenomination(properties);
 
     // blockStartTransaction of the leader so that no transaction can be committed MAJORITY
     final RaftServerImpl leader = cluster.getLeader();

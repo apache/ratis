@@ -42,6 +42,9 @@ public class RaftServerTestUtil {
   public static void setWatchRequestsLogLevel(Level level) {
     LogUtils.setLogLevel(WatchRequests.LOG, level);
   }
+  public static void setPendingRequestsLogLevel(Level level) {
+    LogUtils.setLogLevel(PendingRequests.LOG, level);
+  }
 
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,
       RaftPeer[] peers, int numOfRemovedPeers, Collection<RaftPeerId> deadPeers)

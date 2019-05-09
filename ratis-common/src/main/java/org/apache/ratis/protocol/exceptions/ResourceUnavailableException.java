@@ -15,16 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.protocol.RaftException;
 
 /**
- * Retry failure as per the {@link RetryPolicy} defined.
+ * A particular resource is unavailable.
  */
-public class RaftRetryFailureException extends RaftException {
-  public RaftRetryFailureException(
-      RaftClientRequest request, int attemptCount, RetryPolicy retryPolicy, Throwable cause) {
-    super("Failed " + request + " for " + attemptCount + " attempts with " + retryPolicy, cause);
+public class ResourceUnavailableException extends RaftException {
+  public ResourceUnavailableException(String message) {
+    super(message);
   }
 }

@@ -78,27 +78,52 @@ public interface RaftServerConfigKeys {
 
   }
 
-  String WATCH_TIMEOUT_DENOMINATION_KEY = PREFIX + ".watch.timeout.denomination";
-  TimeDuration WATCH_TIMEOUT_DENOMINATION_DEFAULT = TimeDuration.valueOf(1, TimeUnit.SECONDS);
-  static TimeDuration watchTimeoutDenomination(RaftProperties properties) {
-    return getTimeDuration(properties.getTimeDuration(WATCH_TIMEOUT_DENOMINATION_DEFAULT.getUnit()),
-        WATCH_TIMEOUT_DENOMINATION_KEY, WATCH_TIMEOUT_DENOMINATION_DEFAULT, getDefaultLog(), requirePositive());
-  }
-  static void setWatchTimeoutDenomination(RaftProperties properties, TimeDuration watchTimeout) {
-    setTimeDuration(properties::setTimeDuration, WATCH_TIMEOUT_DENOMINATION_KEY, watchTimeout);
+  interface Write {
+    String PREFIX = RaftServerConfigKeys.PREFIX + ".write";
+
+    String ELEMENT_LIMIT_KEY = PREFIX + ".element-limit";
+    int ELEMENT_LIMIT_DEFAULT = 4096;
+
+    static int elementLimit(RaftProperties properties) {
+      return getInt(properties::getInt, ELEMENT_LIMIT_KEY, ELEMENT_LIMIT_DEFAULT, getDefaultLog(), requireMin(1));
+    }
+    static void setElementLimit(RaftProperties properties, int limit) {
+      setInt(properties::setInt, ELEMENT_LIMIT_KEY, limit, requireMin(1));
+    }
   }
 
-  /**
-   * Timeout for watch requests.
-   */
-  String WATCH_TIMEOUT_KEY = PREFIX + ".watch.timeout";
-  TimeDuration WATCH_TIMEOUT_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
-  static TimeDuration watchTimeout(RaftProperties properties) {
-    return getTimeDuration(properties.getTimeDuration(WATCH_TIMEOUT_DEFAULT.getUnit()),
-        WATCH_TIMEOUT_KEY, WATCH_TIMEOUT_DEFAULT, getDefaultLog(), requirePositive());
-  }
-  static void setWatchTimeout(RaftProperties properties, TimeDuration watchTimeout) {
-    setTimeDuration(properties::setTimeDuration, WATCH_TIMEOUT_KEY, watchTimeout);
+  interface Watch {
+    String PREFIX = RaftServerConfigKeys.PREFIX + ".watch";
+
+    String ELEMENT_LIMIT_KEY = PREFIX + ".element-limit";
+    int ELEMENT_LIMIT_DEFAULT = 65536;
+    static int elementLimit(RaftProperties properties) {
+      return getInt(properties::getInt, ELEMENT_LIMIT_KEY, ELEMENT_LIMIT_DEFAULT, getDefaultLog(), requireMin(1));
+    }
+    static void setElementLimit(RaftProperties properties, int limit) {
+      setInt(properties::setInt, ELEMENT_LIMIT_KEY, limit, requireMin(1));
+    }
+
+    String TIMEOUT_DENOMINATION_KEY = PREFIX + ".timeout.denomination";
+    TimeDuration TIMEOUT_DENOMINATION_DEFAULT = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+    static TimeDuration timeoutDenomination(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(TIMEOUT_DENOMINATION_DEFAULT.getUnit()),
+          TIMEOUT_DENOMINATION_KEY, TIMEOUT_DENOMINATION_DEFAULT, getDefaultLog(), requirePositive());
+    }
+    static void setTimeoutDenomination(RaftProperties properties, TimeDuration watchTimeout) {
+      setTimeDuration(properties::setTimeDuration, TIMEOUT_DENOMINATION_KEY, watchTimeout);
+    }
+
+    /** Timeout for watch requests. */
+    String TIMEOUT_KEY = PREFIX + ".timeout";
+    TimeDuration TIMEOUT_DEFAULT = TimeDuration.valueOf(10, TimeUnit.SECONDS);
+    static TimeDuration timeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(TIMEOUT_DEFAULT.getUnit()),
+          TIMEOUT_KEY, TIMEOUT_DEFAULT, getDefaultLog(), requirePositive());
+    }
+    static void setTimeout(RaftProperties properties, TimeDuration watchTimeout) {
+      setTimeDuration(properties::setTimeDuration, TIMEOUT_KEY, watchTimeout);
+    }
   }
 
   interface Log {
@@ -119,7 +144,7 @@ public interface RaftServerConfigKeys {
       return getInt(properties::getInt, QUEUE_ELEMENT_LIMIT_KEY, QUEUE_ELEMENT_LIMIT_DEFAULT, getDefaultLog(),
           requireMin(1));
     }
-    static void setElementLimit(RaftProperties properties, int queueSize) {
+    static void setQueueElementLimit(RaftProperties properties, int queueSize) {
       setInt(properties::setInt, QUEUE_ELEMENT_LIMIT_KEY, queueSize, requireMin(1));
     }
 
@@ -129,7 +154,7 @@ public interface RaftServerConfigKeys {
       return getSizeInBytes(properties::getSizeInBytes,
           QUEUE_BYTE_LIMIT_KEY, QUEUE_BYTE_LIMIT_DEFAULT, getDefaultLog());
     }
-    static void setByteLimit(RaftProperties properties, int queueSize) {
+    static void setQueueByteLimit(RaftProperties properties, int queueSize) {
       setInt(properties::setInt, QUEUE_BYTE_LIMIT_KEY, queueSize, requireMin(1));
     }
 

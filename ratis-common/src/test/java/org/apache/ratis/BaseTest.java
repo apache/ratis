@@ -37,6 +37,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -46,6 +47,7 @@ public abstract class BaseTest {
 
   public static final TimeDuration HUNDRED_MILLIS = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
   public static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+  public static final TimeDuration FIVE_SECONDS = TimeDuration.valueOf(5, TimeUnit.SECONDS);
 
   {
     LogUtils.setLogLevel(ConfUtils.LOG, Level.WARN);
@@ -117,6 +119,9 @@ public abstract class BaseTest {
       String description, CheckedRunnable<?> testCode,
       Class<? extends Throwable> expectedThrowableClass, Logger log,
       Class<? extends Throwable>... expectedCauseClasses) {
+    if (log != null) {
+      log.info("run '{}'", description);
+    }
     try {
       testCode.run();
     } catch (Throwable t) {
@@ -139,6 +144,9 @@ public abstract class BaseTest {
       String description, Supplier<CompletableFuture<?>> testCode,
       Class<? extends Throwable> expectedThrowableClass, Logger log,
       Class<? extends Throwable>... expectedCauseClasses) {
+    if (log != null) {
+      log.info("run '{}'", description);
+    }
     try {
       testCode.get().join();
     } catch (Throwable t) {
@@ -154,5 +162,9 @@ public abstract class BaseTest {
       String description, Supplier<CompletableFuture<?>> testCode, Class<? extends Throwable> expectedThrowableClass,
       Class<? extends Throwable>... expectedCauseClasses) {
     return testFailureCaseAsync(description, testCode, expectedThrowableClass, LOG, expectedCauseClasses);
+  }
+
+  static <T> T getWithDefaultTimeout(Future<T> future) throws Exception {
+    return future.get(FIVE_SECONDS.getDuration(), FIVE_SECONDS.getUnit());
   }
 }
