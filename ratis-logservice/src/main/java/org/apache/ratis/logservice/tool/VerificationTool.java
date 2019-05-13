@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -51,14 +52,16 @@ public class VerificationTool {
     private int numLogs = 10;
     @Parameter(names = {"-nr", "--numRecords"}, description = "Number of records per log")
     private int numRecords = 1000;
-    @Parameter(names = {"-w", "--write"}, description = "Write to the logs")
+    @Parameter(names = {"-w", "--write"}, description = "Write to the logs", arity = 1)
     private boolean write = true;
-    @Parameter(names = {"-r", "--read"}, description = "Read the logs")
+    @Parameter(names = {"-r", "--read"}, description = "Read the logs", arity = 1)
     private boolean read = true;
     @Parameter(names = {"-l", "--logFrequency"}, description = "Print update every N operations")
     private int logFrequency = 50;
     @Parameter(names = {"-h", "--help"}, description = "Help", help = true)
     private boolean help = false;
+    @Parameter(names = {"-s", "--size"}, description = "Size in bytes of each value")
+    private int recordSize = -1;
 
     public static final String LOG_NAME_PREFIX = "testlog";
     public static final String MESSAGE_PREFIX = "message";
@@ -95,7 +98,7 @@ public class VerificationTool {
                 LOG.info("Deleting {}", logName);
                 client.deleteLog(logName);
               }
-              BulkWriter writer = new BulkWriter(getLogName(i), client, tool.numRecords, tool.logFrequency);
+              BulkWriter writer = new BulkWriter(getLogName(i), client, tool.numRecords, tool.logFrequency, tool.recordSize);
               futures.add(executor.submit(writer));
           }
           waitForCompletion(futures);
@@ -105,7 +108,7 @@ public class VerificationTool {
           LOG.info("Executing parallel reads");
           futures = new ArrayList<Future<?>>(tool.numLogs);
           for (int i = 0; i < tool.numLogs; i++) {
-              BulkReader reader = new BulkReader(getLogName(i), client, tool.numRecords, tool.logFrequency);
+              BulkReader reader = new BulkReader(getLogName(i), client, tool.numRecords, tool.logFrequency, tool.recordSize);
               futures.add(executor.submit(reader));
           }
           waitForCompletion(futures);
@@ -134,22 +137,85 @@ public class VerificationTool {
     }
 
     static abstract class Operation implements Runnable {
+      static final byte DIVIDER_BYTE = '_';
       final LogName logName;
       final LogServiceClient client;
       final int numRecords;
       final int logFreq;
+      final int valueSize;
 
-      Operation(LogName logName, LogServiceClient client, int numRecords, int logFreq) {
+      Operation(LogName logName, LogServiceClient client, int numRecords, int logFreq, int valueSize) {
         this.logName = logName;
         this.client = client;
         this.numRecords = numRecords;
         this.logFreq = logFreq;
+        this.valueSize = valueSize;
+      }
+
+      ByteBuffer createValue(String prefix) {
+        if (valueSize == -1) {
+          return ByteBuffer.wrap(prefix.getBytes(StandardCharsets.UTF_8));
+        }
+        byte[] value = new byte[valueSize];
+        byte[] prefixBytes = prefix.getBytes(StandardCharsets.UTF_8);
+        // Write as much of the prefix as possible
+        if (prefixBytes.length > valueSize) {
+          System.arraycopy(prefixBytes, 0, value, 0, valueSize);
+          return ByteBuffer.wrap(value);
+        }
+
+        // Write the full prefix
+        System.arraycopy(prefixBytes, 0, value, 0, prefixBytes.length);
+        int bytesWritten = prefixBytes.length;
+
+        // Write the divider (but only if we can write the whole thing)
+        if (bytesWritten + 1 > valueSize) {
+          return ByteBuffer.wrap(value);
+        }
+
+        value[bytesWritten] = DIVIDER_BYTE;
+        bytesWritten += 1;
+
+        // Generate random data to pad the value
+        int bytesToGenerate = valueSize - bytesWritten;
+        Random r = new Random();
+        byte[] suffix = new byte[bytesToGenerate];
+        r.nextBytes(suffix);
+        System.arraycopy(suffix, 0, value, bytesWritten, suffix.length);
+
+        return ByteBuffer.wrap(value);
+      }
+
+      String parseValue(ByteBuffer buff) {
+        if (!buff.hasArray()) {
+          throw new IllegalArgumentException("Require a ByteBuffer with a backing array");
+        }
+        if (valueSize == -1) {
+          return new String(buff.array(), buff.arrayOffset(), buff.remaining(), StandardCharsets.UTF_8);
+        }
+        int length = buff.limit() - buff.arrayOffset();
+        byte[] value = new byte[length];
+        System.arraycopy(buff.array(), buff.arrayOffset(), value, 0, length);
+
+        int dividerOffset = -1;
+        for (int i = 0; i < value.length; i++) {
+          if (value[i] == DIVIDER_BYTE) {
+            dividerOffset = i;
+            break;
+          }
+        }
+        // We didn't have enough space to write the divider, return all of the bytes
+        if (dividerOffset < 0) {
+          return new String(value, StandardCharsets.UTF_8);
+        }
+
+        return new String(value, 0, dividerOffset, StandardCharsets.UTF_8);
       }
     }
 
     static class BulkWriter extends Operation {
-        BulkWriter(LogName logName, LogServiceClient client, int numRecords, int logFreq) {
-            super(logName, client, numRecords, logFreq);
+        BulkWriter(LogName logName, LogServiceClient client, int numRecords, int logFreq, int valueSize) {
+            super(logName, client, numRecords, logFreq, valueSize);
         }
 
         public void run() {
@@ -162,7 +228,7 @@ public class VerificationTool {
                     if (i % logFreq == 0) {
                       LOG.info(logName + " Writing " + message);
                     }
-                    writer.write(ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8)));
+                    writer.write(createValue(message));
                 }
                 writer.close();
                 LOG.info("{} log entries written to log {} successfully.", numRecords, logName);
@@ -173,8 +239,8 @@ public class VerificationTool {
     }
 
     static class BulkReader extends Operation {
-        BulkReader(LogName logName, LogServiceClient client, int numRecords, int logFreq) {
-          super(logName, client, numRecords, logFreq);
+        BulkReader(LogName logName, LogServiceClient client, int numRecords, int logFreq, int valueSize) {
+          super(logName, client, numRecords, logFreq, valueSize);
       }
 
         public void run() {
@@ -189,8 +255,7 @@ public class VerificationTool {
                 }
                 for (int i = 0; i < size; i++) {
                     ByteBuffer buffer = reader.readNext();
-                    String message = new String(buffer.array(), buffer.arrayOffset(),
-                            buffer.remaining(), StandardCharsets.UTF_8);
+                    String message = parseValue(buffer);
                     if (i % logFreq == 0) {
                       LOG.info(logName + " Read " + message);
                     }
