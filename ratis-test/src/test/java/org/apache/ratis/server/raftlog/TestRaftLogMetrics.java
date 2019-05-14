@@ -23,10 +23,10 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.metrics.RatisMetricsRegistry;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
+import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.JavaUtils;
@@ -99,20 +99,21 @@ public class TestRaftLogMetrics extends BaseTest
   }
 
   static void assertFlushCount(RaftServerImpl server) throws Exception {
-      final String flushTimeMetric = SegmentedRaftLogTestUtils.getLogFlushTimeMetric(server.getId());
-      Timer tm = RatisMetricsRegistry.getRegistry().getTimers().get(flushTimeMetric);
-      Assert.assertNotNull(tm);
+    final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getId());
+    Timer tm = (Timer) RatisMetrics.getMetricRegistryForLogWorker(server.getId().toString())
+        .get("flush-time");
+    Assert.assertNotNull(tm);
 
-      final MetricsStateMachine stateMachine = MetricsStateMachine.get(server);
-      final int expectedFlush = stateMachine.getFlushCount();
+    final MetricsStateMachine stateMachine = MetricsStateMachine.get(server);
+    final int expectedFlush = stateMachine.getFlushCount();
 
-      Assert.assertEquals(expectedFlush, tm.getCount());
-      Assert.assertTrue(tm.getMeanRate() > 0);
+    Assert.assertEquals(expectedFlush, tm.getCount());
+    Assert.assertTrue(tm.getMeanRate() > 0);
 
-      // Test jmx
-      ObjectName oname = new ObjectName("metrics", "name", flushTimeMetric);
-      Assert.assertEquals(expectedFlush,
-          ((Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count"))
-              .intValue());
+    // Test jmx
+    ObjectName oname = new ObjectName("RatisCore", "name", flushTimeMetric);
+    Assert.assertEquals(expectedFlush,
+        ((Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count"))
+            .intValue());
   }
 }

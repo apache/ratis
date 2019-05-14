@@ -32,6 +32,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.logservice.api.LogInfo;
@@ -39,6 +41,7 @@ import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.common.LogAlreadyExistException;
 import org.apache.ratis.logservice.common.LogNotFoundException;
 import org.apache.ratis.logservice.common.NoEnoughWorkersException;
+import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.ArchiveLogReplyProto;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.ArchiveLogRequestProto;
@@ -50,6 +53,7 @@ import org.apache.ratis.logservice.proto.MetaServiceProtos.LogServiceUnregisterL
 import org.apache.ratis.logservice.proto.MetaServiceProtos.MetaSMRequestProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
 import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
+import org.apache.ratis.metrics.impl.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
@@ -100,6 +104,7 @@ public class MetaStateMachine extends BaseStateMachine {
 
     private RaftGroupId metadataGroupId;
     private RaftGroupId logServerGroupId;
+    private RatisMetricRegistry metricRegistry;
 
     public MetaStateMachine(RaftGroupId metadataGroupId, RaftGroupId logServerGroupId) {
       this.metadataGroupId = metadataGroupId;
@@ -109,6 +114,8 @@ public class MetaStateMachine extends BaseStateMachine {
     @Override
     public void initialize(RaftServer server, RaftGroupId groupId, RaftStorage storage) throws IOException {
         this.raftServer = server;
+        this.metricRegistry = LogServiceMetricsRegistry
+            .createMetricRegistryForLogServiceMetaData(getClass().getSimpleName());
         super.initialize(server, groupId, storage);
     }
 
@@ -172,27 +179,31 @@ public class MetaStateMachine extends BaseStateMachine {
 
     @Override
     public CompletableFuture<Message> query(Message request) {
-        if (currentGroup == null) {
-            try {
-                List<RaftGroup> x = StreamSupport.stream(raftServer.getGroups().spliterator(), false)
-                    .filter(group -> group.getGroupId().equals(metadataGroupId))
-                    .collect(Collectors.toList());
-                if (x.size() == 1) {
-                    currentGroup = x.get(0);
+        Timer.Context timerContext = null;
+        MetaServiceProtos.MetaServiceRequestProto.TypeCase type = null;
+        try {
+            if (currentGroup == null) {
+                try {
+                    List<RaftGroup> x =
+                        StreamSupport.stream(raftServer.getGroups().spliterator(), false)
+                            .filter(group -> group.getGroupId().equals(metadataGroupId)).collect(Collectors.toList());
+                    if (x.size() == 1) {
+                        currentGroup = x.get(0);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-            } catch (IOException e) {
+            }
+            RaftProperties properties = new RaftProperties();
+            MetaServiceProtos.MetaServiceRequestProto req = null;
+            try {
+                req = MetaServiceProtos.MetaServiceRequestProto.parseFrom(request.getContent());
+            } catch (InvalidProtocolBufferException e) {
                 e.printStackTrace();
             }
-        }
-        RaftProperties properties = new RaftProperties();
-        MetaServiceProtos.MetaServiceRequestProto req = null;
-        try {
-            req =  MetaServiceProtos.MetaServiceRequestProto.parseFrom(request.getContent());
-        } catch (InvalidProtocolBufferException e) {
-            e.printStackTrace();
-        }
-        MetaServiceProtos.MetaServiceRequestProto.TypeCase type = req.getTypeCase();
-        switch (type) {
+            type = req.getTypeCase();
+            timerContext = metricRegistry.timer(type.name()).time();
+            switch (type) {
 
             case CREATELOG:
                 return processCreateLogRequest(req);
@@ -204,10 +215,15 @@ public class MetaStateMachine extends BaseStateMachine {
                 return processArchiveLog(req);
             case DELETELOG:
                 return processDeleteLog(req);
-                default:
+            default:
+            }
+            CompletableFuture<Message> reply = super.query(request);
+            return reply;
+        }finally{
+            if (timerContext != null) {
+                timerContext.stop();
+            }
         }
-        CompletableFuture<Message> reply = super.query(request);
-        return reply;
     }
 
 

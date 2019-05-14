@@ -17,15 +17,18 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Metric;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.metrics.RatisMetricsRegistry;
+import org.apache.ratis.metrics.impl.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.SegmentFileInfo;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
@@ -52,6 +55,7 @@ class SegmentedRaftLogWorker implements Runnable {
   static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogWorker.class);
 
   static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+  private final RatisMetricRegistry metricRegistry;
 
   static class StateMachineDataPolicy {
     private final boolean sync;
@@ -98,7 +102,7 @@ class SegmentedRaftLogWorker implements Runnable {
   private volatile SegmentedRaftLogOutputStream out;
   private final Runnable submitUpdateCommitEvent;
   private final StateMachine stateMachine;
-  private final Supplier<Timer> logFlushTimer;
+  private final Timer logFlushTimer;
 
   /**
    * The number of entries that have been written into the SegmentedRaftLogOutputStream but
@@ -125,12 +129,23 @@ class SegmentedRaftLogWorker implements Runnable {
 
     this.submitUpdateCommitEvent = submitUpdateCommitEvent;
     this.stateMachine = stateMachine;
-
+    this.metricRegistry = RatisMetrics.createMetricRegistryForLogWorker(selfId.toString());
     this.storage = storage;
-
     final SizeInBytes queueByteLimit = RaftServerConfigKeys.Log.queueByteLimit(properties);
     final int queueElementLimit = RaftServerConfigKeys.Log.queueElementLimit(properties);
-    this.queue = new DataBlockingQueue<>(name, queueByteLimit, queueElementLimit, Task::getSerializedSize);
+    this.queue =
+        new DataBlockingQueue<>(name, queueByteLimit, queueElementLimit, Task::getSerializedSize);
+
+    metricRegistry.gauge("dataQueueSize", new MetricRegistry.MetricSupplier() {
+      @Override public Metric newMetric() {
+        return new Gauge<Integer>() {
+          @Override public Integer getValue() {
+            //q.size() is O(1) operation
+            return queue.size();
+          }
+        };
+      }
+    });
 
     this.segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
@@ -142,8 +157,7 @@ class SegmentedRaftLogWorker implements Runnable {
     this.workerThread = new Thread(this, name);
 
     // Server Id can be null in unit tests
-    this.logFlushTimer = JavaUtils.memoize(() -> RatisMetricsRegistry.getRegistry()
-        .timer(MetricRegistry.name(SegmentedRaftLogWorker.class, selfId.toString(), "flush-time")));
+    this.logFlushTimer = metricRegistry.timer("flush-time");
   }
 
   void start(long latestIndex, File openSegmentFile) throws IOException {
@@ -262,7 +276,7 @@ class SegmentedRaftLogWorker implements Runnable {
   private void flushWrites() throws IOException {
     if (out != null) {
       LOG.debug("{}: flush {}", name, out);
-      final Timer.Context timerContext = logFlushTimer.get().time();
+      final Timer.Context timerContext = logFlushTimer.time();
       try {
         final CompletableFuture<Void> f = stateMachine != null ?
             stateMachine.flushStateMachineData(lastWrittenIndex) :

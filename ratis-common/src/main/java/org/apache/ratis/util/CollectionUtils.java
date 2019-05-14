@@ -18,6 +18,7 @@
 package org.apache.ratis.util;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -105,5 +106,25 @@ public interface CollectionUtils {
     final boolean removed = map.remove(key, value);
     Preconditions.assertTrue(removed,
         () -> "Entry not found for key " + key + " in map " + name.get());
+  }
+
+  public static <K, V> V computeIfAbsent(ConcurrentMap<K, V> map, K key, Supplier<V> supplier,
+      Runnable actionIfAbsent) {
+    V v = map.get(key);
+    if (v != null) {
+      return v;
+    }
+    V newValue = supplier.get();
+    v = map.putIfAbsent(key, newValue);
+    if (v != null) {
+      return v;
+    }
+    actionIfAbsent.run();
+    return newValue;
+  }
+
+  public static <K, V> V computeIfAbsent(ConcurrentMap<K, V> map, K key, Supplier<V> supplier) {
+    return computeIfAbsent(map, key, supplier, () -> {
+    });
   }
 }

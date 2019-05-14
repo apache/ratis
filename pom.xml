@@ -56,6 +56,7 @@
     <module>ratis-examples</module>
     <module>ratis-replicated-map</module>
     <module>ratis-logservice</module>
+    <module>ratis-metrics</module>
   </modules>
 
   <pluginRepositories>
@@ -235,7 +236,18 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
-
+      <dependency>
+       <artifactId>ratis-metrics</artifactId>
+       <groupId>org.apache.ratis</groupId>
+       <version>${project.version}</version>
+      </dependency>
+      <dependency>
+       <artifactId>ratis-metrics</artifactId>
+       <groupId>org.apache.ratis</groupId>
+       <version>${project.version}</version>
+       <type>test-jar</type>
+       <scope>test</scope>
+      </dependency>
       <dependency>
         <artifactId>ratis-grpc</artifactId>
         <groupId>org.apache.ratis</groupId>
@@ -248,7 +260,6 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
-
       <dependency>
         <artifactId>ratis-hadoop</artifactId>
         <groupId>org.apache.ratis</groupId>

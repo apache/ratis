@@ -53,7 +53,8 @@ public class DataQueue<E> {
 
   private int numBytes = 0;
 
-  public DataQueue(Object name, SizeInBytes byteLimit, int elementLimit, ToIntFunction<E> getNumBytes) {
+  public DataQueue(Object name, SizeInBytes byteLimit, int elementLimit,
+      ToIntFunction<E> getNumBytes) {
     this.name = name != null? name: this;
     this.byteLimit = byteLimit.getSizeInt();
     this.elementLimit = elementLimit;
@@ -148,5 +149,9 @@ public class DataQueue<E> {
       numBytes -= getNumBytes.applyAsInt(polled);
     }
     return polled;
+  }
+
+  public int size(){
+    return q.size();
   }
 }

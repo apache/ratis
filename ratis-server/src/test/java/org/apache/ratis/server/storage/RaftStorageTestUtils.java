@@ -17,7 +17,9 @@
  */
 package org.apache.ratis.server.storage;
 
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -26,6 +28,11 @@ import org.apache.ratis.util.AutoCloseableLock;
 import java.util.function.Consumer;
 
 public interface RaftStorageTestUtils {
+
+  static String getLogFlushTimeMetric(RaftPeerId serverId) {
+    return serverId + "." + RatisMetrics.RATIS_LOG_WORKER_METRICS_CONTEXT + ".flush-time";
+  }
+
   static void printLog(RaftLog log, Consumer<String> println) {
     if (log == null) {
       println.accept("log == null");
