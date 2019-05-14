@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -28,6 +29,8 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.Iterator;
 import java.util.List;
+
+import javax.management.ObjectName;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
@@ -40,6 +43,7 @@ import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.api.LogWriter;
 import org.apache.ratis.logservice.impl.LogStreamImpl;
+import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
 import org.apache.ratis.logservice.server.LogStateMachine;
 import org.apache.ratis.logservice.util.TestUtils;
 import org.apache.ratis.statemachine.StateMachine;
@@ -64,6 +68,46 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
   static final int NUM_PEERS = 3;
   CLUSTER cluster;
 
+  class MetricLogStream extends LogStreamImpl{
+    Long startRecordIdCount = 0l;
+    Long getStateCount = 0l;
+    Long getLastRecordIdCount = 0l;
+    Long getLengthCount = 0l;
+    Long getSizeCount = 0l;
+
+    public MetricLogStream(LogName name, RaftClient raftClient) {
+      super(name, raftClient);
+    }
+
+    @Override public long getStartRecordId() throws IOException {
+      startRecordIdCount++;
+      return super.getStartRecordId();
+    }
+
+    @Override public State getState() {
+      getStateCount++;
+      return super.getState();
+    }
+
+    @Override public long getLastRecordId() throws IOException {
+      getLastRecordIdCount++;
+      return super.getLastRecordId();
+    }
+
+    @Override public long getLength() throws IOException {
+      getLengthCount++;
+      return super.getLength();
+    }
+
+    @Override public long getSize() throws IOException {
+      getSizeCount++;
+      return super.getSize();
+    }
+
+    @Override public LogName getName() {
+      return super.getName();
+    }
+  }
   @Before
   public void setUpCluster() throws IOException, InterruptedException {
     cluster = newCluster(NUM_PEERS);
@@ -78,11 +122,12 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
             .build();
     LogName logName = LogName.of("log1");
     // TODO need API to circumvent metadata service for testing
-    try (LogStream logStream = new LogStreamImpl(logName, raftClient)) {
+    try (LogStream logStream = new MetricLogStream(logName, raftClient)) {
       assertEquals("log1", logStream.getName().getName());
       assertEquals(State.OPEN, logStream.getState());
       assertEquals(0, logStream.getSize());
       assertEquals(0, logStream.getLength());
+      testJMXMetrics(logStream);
 
       LogReader reader = logStream.createReader();
       LogWriter writer = logStream.createWriter();
@@ -120,6 +165,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
         ByteBuffer actual = actualIter.next();
         assertEquals(expected, actual);
       }
+      testJMXMetrics(logStream);
     }
   }
 
@@ -131,7 +177,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
     final LogName logName = LogName.of("log1");
     final int numRecords = 25;
     // TODO need API to circumvent metadata service for testing
-    try (LogStream logStream = new LogStreamImpl(logName, raftClient)) {
+    try (LogStream logStream = new MetricLogStream(logName, raftClient)) {
       try (LogWriter writer = logStream.createWriter()) {
         LOG.info("Writing {} records", numRecords);
         // Write records 0 through 99 (inclusive)
@@ -172,7 +218,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
     final LogName logName = LogName.of("log1");
     final int numRecords = 100;
     // TODO need API to circumvent metadata service for testing
-    try (LogStream logStream = new LogStreamImpl(logName, raftClient)) {
+    try (LogStream logStream = new MetricLogStream(logName, raftClient)) {
       try (LogWriter writer = logStream.createWriter()) {
         LOG.info("Writing {} records", numRecords);
         // Write records 0 through 99 (inclusive)
@@ -208,7 +254,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
             .build();
     final LogName logName = LogName.of("log1");
     final int numRecords = 10;
-    try (LogStream logStream = new LogStreamImpl(logName, raftClient)) {
+    try (LogStream logStream = new MetricLogStream(logName, raftClient)) {
       final List<Long> recordIds;
       try (LogWriter writer = logStream.createWriter()) {
         LOG.info("Writing {} records", numRecords);
@@ -257,5 +303,19 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
     byte[] bytes = new byte[bb.remaining()];
     System.arraycopy(bb.array(), bb.arrayOffset(), bytes, 0, bb.remaining());
     return Integer.parseInt(new String(bytes, StandardCharsets.UTF_8));
+  }
+
+  private void testJMXMetrics(LogStream logStream) throws Exception {
+    assertEquals(((MetricLogStream) logStream).getLengthCount,
+        getJMXCount(cluster.getGroup().getGroupId().toString(), "lengthQueryTime"));
+    assertEquals(((MetricLogStream) logStream).getSizeCount,
+        getJMXCount(cluster.getGroup().getGroupId().toString(), "sizeRequestTime"));
+
+  }
+
+  private Long getJMXCount(String groupId, String metricName) throws Exception {
+    ObjectName oname = new ObjectName(LogServiceMetricsRegistry.JMX_DOMAIN, "name",
+        groupId + "." + LogServiceMetricsRegistry.RATIS_LOG_SERVICE_METRICS_CONTEXT + "." + metricName);
+    return (Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count");
   }
 }

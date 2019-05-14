@@ -30,7 +30,8 @@ public class TestDataBlockingQueue {
 
   final SizeInBytes byteLimit = SizeInBytes.valueOf(100);
   final int elementLimit = 10;
-  final DataBlockingQueue<Integer> q = new DataBlockingQueue<>(null, byteLimit, elementLimit, Integer::intValue);
+  final DataBlockingQueue<Integer> q =
+      new DataBlockingQueue<>(null, byteLimit, elementLimit, Integer::intValue);
 
   final TimeDuration slow = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
   final TimeDuration fast = TimeDuration.valueOf(10, TimeUnit.MILLISECONDS);

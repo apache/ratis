@@ -241,6 +241,10 @@
       <groupId>org.apache.ratis</groupId>
       <type>test-jar</type>
     </dependency>
+    <dependency>
+      <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-metrics</artifactId>
+    </dependency>
   </dependencies>
 
   <profiles>

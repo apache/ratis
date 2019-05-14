@@ -30,7 +30,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.apache.ratis.logservice.api.LogName;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
+import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
 import org.apache.ratis.logservice.proto.LogServiceProtos.AppendLogEntryRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.CloseLogReplyProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.CloseLogRequestProto;
@@ -40,6 +42,7 @@ import org.apache.ratis.logservice.proto.LogServiceProtos.GetStateRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.ReadLogRequestProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
+import org.apache.ratis.metrics.impl.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.Message;
@@ -63,6 +66,16 @@ import org.slf4j.LoggerFactory;
 
 public class LogStateMachine extends BaseStateMachine {
   public static final Logger LOG = LoggerFactory.getLogger(LogStateMachine.class);
+  private RatisMetricRegistry metricRegistry;
+  private Timer sizeRequestTimer;
+  private Timer readNextQueryTimer;
+  private Timer getStateTimer;
+  private Timer lastIndexQueryTimer;
+  private Timer lengthQueryTimer;
+  private Timer startIndexTimer;
+  private Timer appendRequestTimer;
+  private Timer syncRequesTimer;
+  private Timer getCloseLogTimer;
 
   public static enum State {
     OPEN, CLOSED
@@ -114,6 +127,18 @@ public class LogStateMachine extends BaseStateMachine {
     this.storage.init(raftStorage);
     this.proxy = (RaftServerProxy) server;
     this.groupId = groupId;
+    //TODO: using groupId for metric now but better to tag it with LogName
+    this.metricRegistry =
+        LogServiceMetricsRegistry.createMetricRegistryForLogService(groupId.toString());
+    this.readNextQueryTimer = metricRegistry.timer("readNextQueryTime");
+    this.startIndexTimer= metricRegistry.timer("startIndexTime");
+    this.sizeRequestTimer = metricRegistry.timer("sizeRequestTime");
+    this.getStateTimer = metricRegistry.timer("getStateTime");
+    this.lastIndexQueryTimer = metricRegistry.timer("lastIndexQueryTime");
+    this.lengthQueryTimer = metricRegistry.timer("lengthQueryTime");
+    this.syncRequesTimer = metricRegistry.timer("syncRequesTime");
+    this.appendRequestTimer = metricRegistry.timer("appendRequestTime");
+    this.getCloseLogTimer = metricRegistry.timer("getCloseLogTime");
     loadSnapshot(storage.getLatestSnapshot());
   }
 
@@ -206,17 +231,41 @@ public class LogStateMachine extends BaseStateMachine {
       switch (logServiceRequestProto.getRequestCase()) {
 
         case READNEXTQUERY:
-          return processReadRequest(logServiceRequestProto);
+          return recordTime(readNextQueryTimer, new Task(){
+            @Override public CompletableFuture<Message> run() {
+              return processReadRequest(logServiceRequestProto);
+            }
+          });
         case SIZEREQUEST:
-          return processGetSizeRequest(logServiceRequestProto);
+          return recordTime(sizeRequestTimer, new Task(){
+            @Override public CompletableFuture<Message> run() {
+              return processGetSizeRequest(logServiceRequestProto);
+            }
+          });
         case STARTINDEXQUERY:
-          return processGetStartIndexRequest(logServiceRequestProto);
+          return recordTime(startIndexTimer, new Task(){
+            @Override public CompletableFuture<Message> run() {
+              return processGetStartIndexRequest(logServiceRequestProto);
+            }
+          });
         case GETSTATE:
-          return processGetStateRequest(logServiceRequestProto);
+          return recordTime(getStateTimer, new Task(){
+            @Override public CompletableFuture<Message> run() {
+              return processGetStateRequest(logServiceRequestProto);
+            }
+          });
         case LASTINDEXQUERY:
-          return processGetLastCommittedIndexRequest(logServiceRequestProto);
+          return recordTime(lastIndexQueryTimer, new Task(){
+            @Override public CompletableFuture<Message> run() {
+              return processGetLastCommittedIndexRequest(logServiceRequestProto);
+            }
+          });
         case LENGTHQUERY:
-          return processGetLengthRequest(logServiceRequestProto);
+          return recordTime(lengthQueryTimer, new Task(){
+            @Override public CompletableFuture<Message> run() {
+              return processGetLengthRequest(logServiceRequestProto);
+            }
+          });
         default:
           // TODO
           throw new RuntimeException(
@@ -232,7 +281,7 @@ public class LogStateMachine extends BaseStateMachine {
 
   /**
    * Process get start index request
-   * @param msg message
+   * @param proto message
    * @return reply message
    */
   private CompletableFuture<Message>
@@ -247,7 +296,7 @@ public class LogStateMachine extends BaseStateMachine {
 
   /**
    * Process get last committed record index
-   * @param msg message
+   * @param proto message
    * @return reply message
    */
   private CompletableFuture<Message>
@@ -262,7 +311,7 @@ public class LogStateMachine extends BaseStateMachine {
 
   /**
    * Process get length request
-   * @param msg message
+   * @param proto message
    * @return reply message
    */
   private CompletableFuture<Message> processGetSizeRequest(LogServiceRequestProto proto) {
@@ -282,7 +331,7 @@ public class LogStateMachine extends BaseStateMachine {
   }
   /**
    * Process read log entries request
-   * @param msg message
+   * @param proto message
    * @return reply message
    */
   private CompletableFuture<Message> processReadRequest(LogServiceRequestProto proto) {
@@ -377,11 +426,20 @@ public class LogStateMachine extends BaseStateMachine {
           LogServiceRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
       switch (logServiceRequestProto.getRequestCase()) {
         case CLOSELOG:
-          return processCloseLog(logServiceRequestProto);
+          return recordTime(getCloseLogTimer, new Task(){
+            @Override public CompletableFuture<Message> run() {
+              return processCloseLog(logServiceRequestProto);
+            }});
         case APPENDREQUEST:
-          return processAppendRequest(trx, logServiceRequestProto);
+          return recordTime(appendRequestTimer, new Task(){
+              @Override public CompletableFuture<Message> run() {
+                return processAppendRequest(trx, logServiceRequestProto);
+              }});
         case SYNCREQUEST:
-          return processSyncRequest(trx, logServiceRequestProto);
+          return recordTime(syncRequesTimer, new Task(){
+            @Override public CompletableFuture<Message> run() {
+              return processSyncRequest(trx, logServiceRequestProto);
+            }});
         default:
           //TODO
           return null;
@@ -396,7 +454,6 @@ public class LogStateMachine extends BaseStateMachine {
 
   private CompletableFuture<Message> processCloseLog(LogServiceRequestProto logServiceRequestProto) {
     CloseLogRequestProto closeLog = logServiceRequestProto.getCloseLog();
-    LogName logName = LogServiceProtoUtil.toLogName(closeLog.getLogName());
     // Need to check whether the file is opened if opened close it.
     // TODO need to handle exceptions while operating with files.
     return CompletableFuture.completedFuture(Message
@@ -408,7 +465,6 @@ public class LogStateMachine extends BaseStateMachine {
   private CompletableFuture<Message> processGetStateRequest(
       LogServiceRequestProto logServiceRequestProto) {
     GetStateRequestProto getState = logServiceRequestProto.getGetState();
-    LogName logName = LogServiceProtoUtil.toLogName(getState.getLogName());
     return CompletableFuture.completedFuture(Message.valueOf(LogServiceProtoUtil
         .toGetStateReplyProto(state == State.OPEN).toByteString()));
   }

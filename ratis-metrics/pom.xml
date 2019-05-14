@@ -20,46 +20,18 @@
     <version>0.4.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>ratis-server</artifactId>
-  <name>Apache Ratis Server</name>
+  <artifactId>ratis-metrics</artifactId>
+  <name>Apache Ratis Metrics</name>
 
   <dependencies>
-    <dependency>
-      <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-thirdparty-misc</artifactId>
-    </dependency>
     <dependency>
       <artifactId>ratis-proto</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
-
-    <dependency>
-      <artifactId>ratis-common</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-common</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <scope>test</scope>
-      <type>test-jar</type>
-    </dependency>
-
-    <dependency>
-      <artifactId>ratis-client</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
-    <dependency>
-      <artifactId>ratis-client</artifactId>
-      <groupId>org.apache.ratis</groupId>
-      <scope>test</scope>
-      <type>test-jar</type>
-    </dependency>
-
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
-
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
@@ -71,14 +43,18 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-metrics</artifactId>
+      <artifactId>ratis-common</artifactId>
+       <groupId>org.apache.ratis</groupId>
     </dependency>
     <dependency>
+      <groupId>io.dropwizard.metrics</groupId>
+      <artifactId>metrics-core</artifactId>
+    </dependency>
+    <dependency>
+      <artifactId>ratis-common</artifactId>
       <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-metrics</artifactId>
-      <type>test-jar</type>
       <scope>test</scope>
+      <type>test-jar</type>
     </dependency>
   </dependencies>
 </project>

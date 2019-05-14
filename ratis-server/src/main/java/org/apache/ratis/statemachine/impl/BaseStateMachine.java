@@ -18,6 +18,7 @@
 
 package org.apache.ratis.statemachine.impl;
 
+import com.codahale.metrics.Timer;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -197,4 +198,19 @@ public class BaseStateMachine implements StateMachine {
     return getClass().getSimpleName() + ":"
         + (!server.isDone()? "uninitialized": getId() + ":" + groupId);
   }
+
+
+  protected CompletableFuture<Message> recordTime(Timer timer, Task task) {
+    final Timer.Context timerContext = timer.time();
+    try {
+      return task.run();
+    } finally {
+      timerContext.stop();
+    }
+  }
+
+  protected interface Task {
+    CompletableFuture<Message> run();
+  }
+
 }

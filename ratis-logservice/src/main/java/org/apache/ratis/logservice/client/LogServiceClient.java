@@ -166,7 +166,7 @@ public class LogServiceClient implements AutoCloseable {
     }
 
     /**
-     * Moves the {@link LogStream} identified by the {@code name} from {@link State.OPEN} to {@link State.CLOSED}.
+     * Moves the {@link LogStream} identified by the {@code name} from {@link State#OPEN} to {@link State#CLOSED}.
      * If the log is not {@link State#OPEN}, this method returns an error.
      *
      * @param name The name of the log to close
