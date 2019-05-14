@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static org.apache.ratis.server.impl.RaftServerImpl.LOG;
@@ -87,7 +88,7 @@ public class ServerState implements Closeable {
    * snapshot. Once we successfully install a snapshot, the SM may not pick it up immediately.
    * Further, this will not get updated when SM does snapshots itself.
    */
-  private volatile TermIndex latestInstalledSnapshot;
+  private final AtomicReference<TermIndex> latestInstalledSnapshot = new AtomicReference<>();
 
   ServerState(RaftPeerId id, RaftGroup group, RaftProperties prop,
               RaftServerImpl server, StateMachine stateMachine)
@@ -407,35 +408,31 @@ public class ServerState implements Closeable {
     StateMachine sm = server.getStateMachine();
     sm.pause(); // pause the SM to prepare for install snapshot
     snapshotManager.installSnapshot(sm, request);
-    log.syncWithSnapshot(request.getSnapshotChunk().getTermIndex().getIndex());
-    this.latestInstalledSnapshot = ServerProtoUtils.toTermIndex(
-        request.getSnapshotChunk().getTermIndex());
+    updateInstalledSnapshotIndex(ServerProtoUtils.toTermIndex(request.getSnapshotChunk().getTermIndex()));
   }
 
   void updateInstalledSnapshotIndex(TermIndex lastTermIndexInSnapshot) {
     log.syncWithSnapshot(lastTermIndexInSnapshot.getIndex());
-    this.latestInstalledSnapshot = lastTermIndexInSnapshot;
+    latestInstalledSnapshot.set(lastTermIndexInSnapshot);
   }
 
   SnapshotInfo getLatestSnapshot() {
-    return server.getStateMachine().getStateMachineStorage().getLatestSnapshot();
+    return server.getStateMachine().getLatestSnapshot();
   }
 
-  public TermIndex getLatestInstalledSnapshot() {
-    return latestInstalledSnapshot;
+  public long getLatestInstalledSnapshotIndex() {
+    final TermIndex ti = latestInstalledSnapshot.get();
+    return ti != null? ti.getIndex(): 0L;
   }
 
   /**
-   * The last index included in either the latestSnapshot or the
-   * latestInsalledSnapshot
+   * The last index included in either the latestSnapshot or the latestInstalledSnapshot
    * @return the last snapshot index
    */
-  public long getSnapshotIndex() {
-    final long latestSnapshotIndex = getLatestSnapshot() != null ?
-        getLatestSnapshot().getIndex() : 0;
-    final long latestInstalledSnapshotIndex = latestInstalledSnapshot != null ?
-        latestInstalledSnapshot.getIndex() : 0;
-    return Math.max(latestSnapshotIndex, latestInstalledSnapshotIndex);
+  long getSnapshotIndex() {
+    final SnapshotInfo s = getLatestSnapshot();
+    final long latestSnapshotIndex = s != null ? s.getIndex() : 0;
+    return Math.max(latestSnapshotIndex, getLatestInstalledSnapshotIndex());
   }
 
   public long getNextIndex() {
@@ -446,5 +443,17 @@ public class ServerState implements Closeable {
 
   public long getLastAppliedIndex() {
     return stateMachineUpdater.getLastAppliedIndex();
+  }
+
+  boolean containsTermIndex(TermIndex ti) {
+    Objects.requireNonNull(ti, "ti == null");
+
+    if (Optional.ofNullable(latestInstalledSnapshot.get()).filter(ti::equals).isPresent()) {
+      return true;
+    }
+    if (Optional.ofNullable(getLatestSnapshot()).map(SnapshotInfo::getTermIndex).filter(ti::equals).isPresent()) {
+      return true;
+    }
+    return log.contains(ti);
   }
 }

@@ -888,14 +888,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     final long currentTerm;
     final long followerCommit = state.getLog().getLastCommittedIndex();
-    final long nextIndex = state.getNextIndex();
     final Optional<FollowerState> followerState;
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-            leaderId, getId(), groupId, currentTerm, followerCommit, nextIndex, NOT_LEADER, callId);
+            leaderId, getId(), groupId, currentTerm, followerCommit, state.getNextIndex(), NOT_LEADER, callId);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
               getId(), leaderId, leaderTerm, state, ServerProtoUtils.toString(reply));
@@ -919,12 +918,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       //      1. There is a snapshot installation in progress
       //      2. There is an overlap between the snapshot index and the entries
       //      3. There is a gap between the local log and the entries
-      // In any of these scenarios, we should retrun an INCONSISTENCY reply
-      // back to leader so that the leader can update this follower's next
-      // index.
+      // In any of these scenarios, we should return an INCONSISTENCY reply
+      // back to leader so that the leader can update this follower's next index.
 
       AppendEntriesReplyProto inconsistencyReply = checkInconsistentAppendEntries(
-          leaderId, currentTerm, followerCommit, previous, nextIndex, callId, entries);
+          leaderId, currentTerm, followerCommit, previous, callId, entries);
       if (inconsistencyReply != null) {
         followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
         return CompletableFuture.completedFuture(inconsistencyReply);
@@ -956,73 +954,46 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   private AppendEntriesReplyProto checkInconsistentAppendEntries(RaftPeerId leaderId, long currentTerm,
-      long followerCommit, TermIndex previous, long nextIndex, long callId, LogEntryProto... entries) {
-    long replyNextIndex = -1;
-
-    // Check if a snapshot installation through state machine is in progress.
-    if (inProgressInstallSnapshotRequest.get() != null) {
-      replyNextIndex = Math.min(nextIndex, previous.getIndex());
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: Cannot append entries as snapshot installation is in " +
-            "progress. Follower next index: {}", getId(), replyNextIndex);
-      }
+      long followerCommit, TermIndex previous, long callId, LogEntryProto... entries) {
+    final long replyNextIndex = checkInconsistentAppendEntries(previous, entries);
+    if (replyNextIndex == -1) {
+      return null;
     }
 
-    // If a snapshot installation has happened, the new snapshot might
-    // include the log entry indices sent as part of the
-    // AppendEntriesRequestProto. Check that the first log entry proto is
-    // greater than the last index included in the latest snapshot. If not,
-    // the leader should be informed about the new snapshot index so that
-    // it can send log entries only from the next log index
-    long snapshotIndex = state.getSnapshotIndex();
-    if (snapshotIndex > 0 && entries != null && entries.length > 0
-        && entries[0].getIndex() <= snapshotIndex) {
-      replyNextIndex = snapshotIndex + 1;
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: Cannot append entries as latest snapshot already has " +
-            "the append entries. Snapshot index: {}, first append entry " +
-            "index: {}.", getId(), snapshotIndex, entries[0].getIndex());
-      }
-    }
-
-    // We need to check if "previous" is in the local peer. Note that it is
-    // possible that "previous" is covered by the latest snapshot: e.g.,
-    // it's possible there's no log entries outside of the latest snapshot.
-    // However, it is not possible that "previous" index is smaller than the
-    // last index included in snapshot. This is because indices <= snapshot's
-    // last index should have been committed.
-    if (previous != null && !containPrevious(previous)) {
-      replyNextIndex = Math.min(nextIndex, previous.getIndex());
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: Cannot append entries as there is a gap between " +
-            "local log and append entries. Previous is not present. " +
-            "Previous: {}, follower next index: {}", getId(), previous, replyNextIndex);
-      }
-    }
-
-    if (replyNextIndex != -1) {
-      final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-          leaderId, getId(), groupId, currentTerm, followerCommit, replyNextIndex,
-          INCONSISTENCY, callId);
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: inconsistency entries. Reply:{}", getId(), ServerProtoUtils.toString(reply));
-      }
-      return reply;
-    }
-
-    return null;
+    final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
+        leaderId, getId(), groupId, currentTerm, followerCommit, replyNextIndex, INCONSISTENCY, callId);
+    LOG.info("{}: inconsistency entries. Reply:{}", getId(), ServerProtoUtils.toString(reply));
+    return reply;
   }
 
-  private boolean containPrevious(TermIndex previous) {
-    if (LOG.isTraceEnabled()) {
-      LOG.trace("{}: prev:{}, latestSnapshot:{}, latestInstalledSnapshot:{}",
-          getId(), previous, state.getLatestSnapshot(), state.getLatestInstalledSnapshot());
+  private long checkInconsistentAppendEntries(TermIndex previous, LogEntryProto... entries) {
+    // Check if a snapshot installation through state machine is in progress.
+    final TermIndex installSnapshot = inProgressInstallSnapshotRequest.get();
+    if (installSnapshot != null) {
+      LOG.info("{}: Failed appendEntries as snapshot ({}) installation is in progress", getId(), installSnapshot);
+      return installSnapshot.getIndex();
     }
-    return state.getLog().contains(previous)
-        ||  (state.getLatestSnapshot() != null
-             && state.getLatestSnapshot().getTermIndex().equals(previous))
-        || (state.getLatestInstalledSnapshot() != null)
-             && state.getLatestInstalledSnapshot().equals(previous);
+
+    // Check that the first log entry is greater than the snapshot index in the latest snapshot.
+    // If not, reply to the leader the new next index.
+    if (entries != null && entries.length > 0) {
+      final long firstEntryIndex = entries[0].getIndex();
+      final long snapshotIndex = state.getSnapshotIndex();
+      if (snapshotIndex > 0 && snapshotIndex >= firstEntryIndex) {
+        LOG.info("{}: Failed appendEntries as latest snapshot ({}) already has the append entries (first index: {})",
+            getId(), snapshotIndex, firstEntryIndex);
+        return snapshotIndex + 1;
+      }
+    }
+
+    // Check if "previous" is contained in current state.
+    if (previous != null && !state.containsTermIndex(previous)) {
+      final long replyNextIndex = Math.min(state.getNextIndex(), previous.getIndex());
+      LOG.info("{}: Failed appendEntries as previous log entry ({}) is not found", getId(), previous);
+      return replyNextIndex;
+    }
+
+    return -1;
   }
 
   @Override

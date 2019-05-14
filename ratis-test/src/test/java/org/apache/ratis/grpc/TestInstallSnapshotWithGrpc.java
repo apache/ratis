@@ -175,7 +175,7 @@ public class TestInstallSnapshotWithGrpc {
       for (RaftServerImpl follower : cluster.getFollowers()) {
         follower.getState().getStorage().getStorageDir().getStateMachineDir();
         Assert.assertEquals(leaderSnapshotInfo.getIndex(),
-            follower.getState().getLatestInstalledSnapshot().getIndex());
+            follower.getState().getLatestInstalledSnapshotIndex());
       }
 
       // restart the peer and check if it can correctly handle conf change

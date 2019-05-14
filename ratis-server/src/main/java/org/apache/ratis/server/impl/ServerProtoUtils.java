@@ -94,6 +94,9 @@ public interface ServerProtoUtils {
         : "size=" + entries.size() + ", first=" + toLogEntryString(entries.get(0));
   }
   static String toString(AppendEntriesRequestProto proto) {
+    if (proto == null) {
+      return null;
+    }
     return ProtoUtils.toString(proto.getServerRequest()) + "-t" + proto.getLeaderTerm()
         + ", previous=" + toTermIndexString(proto.getPreviousLog())
         + ", leaderCommit=" + proto.getLeaderCommit()
@@ -101,18 +104,19 @@ public interface ServerProtoUtils {
         + ", entries: " + toShortString(proto.getEntriesList());
   }
   static String toString(AppendEntriesReplyProto reply) {
-    return toString(reply.getServerReply()) + "," + reply.getResult()
+    if (reply == null) {
+      return null;
+    }
+    return ProtoUtils.toString(reply.getServerReply()) + "," + reply.getResult()
         + ",nextIndex:" + reply.getNextIndex() + ",term:" + reply.getTerm()
         + ",followerCommit:" + reply.getFollowerCommit();
   }
 
   static String toString(RequestVoteReplyProto proto) {
-    return toString(proto.getServerReply()) + "-t" + proto.getTerm();
-  }
-
-  static String toString(RaftRpcReplyProto reply) {
-    return reply.getRequestorId().toStringUtf8() + "->"
-        + reply.getReplyId().toStringUtf8() + "," + reply.getSuccess();
+    if (proto == null) {
+      return null;
+    }
+    return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm();
   }
 
   static RaftConfigurationProto.Builder toRaftConfigurationProto(RaftConfiguration conf) {

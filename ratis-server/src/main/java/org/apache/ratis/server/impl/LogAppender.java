@@ -170,17 +170,16 @@ public class LogAppender {
   }
 
   private TermIndex getPrevious() {
-    TermIndex previous = raftLog.getTermIndex(follower.getNextIndex() - 1);
-    if (previous == null) {
-      // if previous is null, nextIndex must be equal to the log start
-      // index (otherwise we will install snapshot).
-      Preconditions.assertTrue(follower.getNextIndex() == raftLog.getStartIndex(),
-          "%s: follower's next index %s, local log start index %s",
-          this, follower.getNextIndex(), raftLog.getStartIndex());
-      SnapshotInfo snapshot = server.getState().getLatestSnapshot();
-      previous = snapshot == null ? null : snapshot.getTermIndex();
+    final long nextIndex = follower.getNextIndex();
+    final TermIndex previous = raftLog.getTermIndex(nextIndex - 1);
+    if (previous != null) {
+      return previous;
     }
-    return previous;
+    final long logStartIndex = raftLog.getStartIndex();
+    Preconditions.assertTrue(nextIndex == logStartIndex,
+        "%s: follower's nextIndex = %s != logStartIndex = %s", this, nextIndex, logStartIndex);
+    final SnapshotInfo snapshot = server.getState().getLatestSnapshot();
+    return snapshot == null ? null : snapshot.getTermIndex();
   }
 
   protected AppendEntriesRequestProto createRequest(long callId) throws RaftLogIOException {
@@ -525,12 +524,14 @@ public class LogAppender {
     return halfMinTimeoutMs - follower.getLastRpcTime().elapsedTimeMs();
   }
 
-  protected void checkResponseTerm(long responseTerm) {
+  protected boolean checkResponseTerm(long responseTerm) {
     synchronized (server) {
       if (isAppenderRunning() && follower.isAttendingVote()
           && responseTerm > leaderState.getCurrentTerm()) {
         leaderState.submitStepDownEvent(responseTerm);
+        return true;
       }
     }
+    return false;
   }
 }

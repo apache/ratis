@@ -62,8 +62,8 @@ public class FollowerInfo {
     return matchIndex.get();
   }
 
-  public void updateMatchIndex(long newMatchIndex) {
-    matchIndex.updateIncreasingly(newMatchIndex, debugIndexChange);
+  public boolean updateMatchIndex(long newMatchIndex) {
+    return matchIndex.updateToMax(newMatchIndex, debugIndexChange);
   }
 
   /** @return the commit index acked by the follower. */

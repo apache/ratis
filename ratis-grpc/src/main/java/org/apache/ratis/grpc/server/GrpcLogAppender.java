@@ -84,8 +84,9 @@ public class GrpcLogAppender extends LogAppender {
 
     // clear the pending requests queue and reset the next index of follower
     final long nextIndex = request != null && request.hasPreviousLog()?
-        request.getPreviousLog().getIndex() + 1: raftLog.getStartIndex();
-    clearPendingRequests(nextIndex);
+        request.getPreviousLog().getIndex() + 1: follower.getMatchIndex() + 1;
+    pendingRequests.clear();
+    follower.decreaseNextIndex(nextIndex);
   }
 
   @Override
@@ -222,37 +223,51 @@ public class GrpcLogAppender extends LogAppender {
      */
     @Override
     public void onNext(AppendEntriesReplyProto reply) {
+      final AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
       if (LOG.isDebugEnabled()) {
-        LOG.debug("{}: received {} reply {} ", getFollower().getName(),
-            firstResponseReceived? "a": "the first", ServerProtoUtils.toString(reply));
+        LOG.debug("{}: received {} reply {}, request={}",
+            follower.getName(), firstResponseReceived? "a": "the first",
+            ServerProtoUtils.toString(reply), ServerProtoUtils.toString(request));
       }
 
       try {
-        onNextImpl(reply);
+        onNextImpl(request, reply);
       } catch(Throwable t) {
-        LOG.error("Failed onNext " + reply, t);
+        LOG.error("Failed onNext request=" + ServerProtoUtils.toString(request)
+            + ", reply=" + ServerProtoUtils.toString(reply), t);
       }
     }
 
-    private void onNextImpl(AppendEntriesReplyProto reply) {
+    private void onNextImpl(AppendEntriesRequestProto request, AppendEntriesReplyProto reply) {
       // update the last rpc time
       follower.updateLastRpcResponseTime();
 
       if (!firstResponseReceived) {
         firstResponseReceived = true;
       }
+      if (request == null) {
+        // The request is already handled (probably timeout), ignore the reply.
+        LOG.warn("{}: Request not found, ignoring reply: {}", this, ServerProtoUtils.toString(reply));
+        return;
+      }
+
       switch (reply.getResult()) {
         case SUCCESS:
-          onSuccess(reply);
+          updateCommitIndex(reply.getFollowerCommit());
+          if (checkAndUpdateMatchIndex(request)) {
+            submitEventOnSuccessAppend();
+          }
           break;
         case NOT_LEADER:
-          onNotLeader(reply);
+          if (checkResponseTerm(reply.getTerm())) {
+            return;
+          }
           break;
         case INCONSISTENCY:
-          onInconsistency(reply);
+          checkAndUpdateNextIndex(request, reply.getNextIndex());
           break;
         default:
-          break;
+          throw new IllegalStateException("Unexpected reply result: " + reply.getResult());
       }
       notifyAppend();
     }
@@ -269,7 +284,7 @@ public class GrpcLogAppender extends LogAppender {
       GrpcUtil.warn(LOG, () -> getFollower().getName() + ": Failed appendEntries", t);
 
       long callId = GrpcUtil.getCallId(t);
-      resetClient(pendingRequests.get(callId));
+      resetClient(pendingRequests.remove(callId));
     }
 
     @Override
@@ -279,61 +294,19 @@ public class GrpcLogAppender extends LogAppender {
     }
   }
 
-  private void clearPendingRequests(long newNextIndex) {
-    pendingRequests.clear();
-    follower.decreaseNextIndex(newNextIndex);
+  private boolean checkAndUpdateMatchIndex(AppendEntriesRequestProto request) {
+    final int n = request.getEntriesCount();
+    final long newMatchIndex = n == 0? request.getPreviousLog().getIndex(): request.getEntries(n - 1).getIndex();
+    return follower.updateMatchIndex(newMatchIndex);
   }
 
-  private synchronized void onSuccess(AppendEntriesReplyProto reply) {
-    AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
-    if (request == null) {
-      // If reply comes after timeout, the reply is ignored.
-      LOG.warn("{}: Request not found, ignoring SUCCESS reply: {}", this, ServerProtoUtils.toString(reply));
-      return;
-    }
-    updateCommitIndex(reply.getFollowerCommit());
-
-    final long replyNextIndex = reply.getNextIndex();
-    final long lastIndex = replyNextIndex - 1;
-    final boolean updateMatchIndex;
-
-    if (request.getEntriesCount() == 0) {
-      Preconditions.assertTrue(!request.hasPreviousLog() ||
-              lastIndex == request.getPreviousLog().getIndex(),
-          "reply's next index is %s, request's previous is %s",
-          replyNextIndex, request.getPreviousLog());
-      updateMatchIndex = request.hasPreviousLog() && follower.getMatchIndex() < lastIndex;
-    } else {
-      // check if the reply and the pending request is consistent
-      final long lastEntryIndex = request
-          .getEntries(request.getEntriesCount() - 1).getIndex();
-      Preconditions.assertTrue(lastIndex == lastEntryIndex,
-          "reply's next index is %s, request's last entry index is %s",
-          replyNextIndex, lastEntryIndex);
-      updateMatchIndex = true;
-    }
-    if (updateMatchIndex) {
-      follower.updateMatchIndex(lastIndex);
-      submitEventOnSuccessAppend();
-    }
-  }
-
-  private void onNotLeader(AppendEntriesReplyProto reply) {
-    checkResponseTerm(reply.getTerm());
-    // the running loop will end and the connection will onComplete
-  }
-
-  private synchronized void onInconsistency(AppendEntriesReplyProto reply) {
-    AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
-    if (request == null) {
-      // If reply comes after timeout, the reply is ignored.
-      LOG.warn("{}: Request not found, ignoring INCONSISTENCY reply: {}", this, ServerProtoUtils.toString(reply));
-      return;
-    }
+  private void checkAndUpdateNextIndex(AppendEntriesRequestProto request, long replyNextIndex) {
     Preconditions.assertTrue(request.hasPreviousLog());
-    if (request.getPreviousLog().getIndex() >= reply.getNextIndex()) {
-      pendingRequests.clear();
-      follower.updateNextIndex(reply.getNextIndex());
+    if (request.getPreviousLog().getIndex() >= replyNextIndex) {
+      synchronized (this) {
+        pendingRequests.clear();
+        follower.updateNextIndex(replyNextIndex);
+      }
     }
   }
 
@@ -514,7 +487,7 @@ public class GrpcLogAppender extends LogAppender {
    * its own State Machine.
    * @return the first available log's start term index
    */
-  protected TermIndex shouldNotifyToInstallSnapshot() {
+  private TermIndex shouldNotifyToInstallSnapshot() {
     if (follower.getNextIndex() < raftLog.getStartIndex()) {
       // The Leader does not have the logs from the Follower's last log
       // index onwards. And install snapshot is disabled. So the Follower

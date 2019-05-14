@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -123,11 +124,8 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
    * by the leader.
    */
   public boolean contains(TermIndex ti) {
-    if (ti == null) {
-      return false;
-    }
-    TermIndex local = getTermIndex(ti.getIndex());
-    return ti.equals(local);
+    Objects.requireNonNull(ti, "ti == null");
+    return ti.equals(getTermIndex(ti.getIndex()));
   }
 
   /**

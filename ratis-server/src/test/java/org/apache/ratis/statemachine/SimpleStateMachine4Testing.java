@@ -292,8 +292,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           snapshot == null ? null : snapshot.getFile());
       return RaftServerConstants.INVALID_LOG_INDEX;
     } else {
-      LOG.info("Loading snapshot with t:{}, i:{}, file:{}", snapshot.getTerm(),
-          snapshot.getIndex(), snapshot.getFile().getPath());
+      LOG.info("Loading snapshot {}", snapshot);
       final long endIndex = snapshot.getIndex();
       try (LogInputStream in = new LogInputStream(
           snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
