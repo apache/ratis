@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -24,8 +24,9 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
-import org.apache.ratis.server.storage.LogSegment.LogRecord;
+import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
+import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.AutoCloseableReadWriteLock;
@@ -45,8 +46,8 @@ import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX
  * caches all the segments in the memory. The cache is not thread-safe and
  * requires external lock protection.
  */
-class RaftLogCache {
-  public static final Logger LOG = LoggerFactory.getLogger(RaftLogCache.class);
+class SegmentedRaftLogCache {
+  public static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogCache.class);
 
   static class SegmentFileInfo {
     final long startIndex; // start index of the segment
@@ -281,7 +282,7 @@ class RaftLogCache {
   private final int maxCachedSegments;
   private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
 
-  RaftLogCache(RaftPeerId selfId, RaftStorage storage, RaftProperties properties) {
+  SegmentedRaftLogCache(RaftPeerId selfId, RaftStorage storage, RaftProperties properties) {
     this.name = selfId + "-" + getClass().getSimpleName();
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;

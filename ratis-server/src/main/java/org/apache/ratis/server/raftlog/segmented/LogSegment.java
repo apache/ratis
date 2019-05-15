@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,11 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLogIOException;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheLoader;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
@@ -110,7 +112,7 @@ class LogSegment implements Comparable<Long> {
   private static int readSegmentFile(File file, long start, long end,
       boolean isOpen, Consumer<LogEntryProto> entryConsumer) throws IOException {
     int count = 0;
-    try (LogInputStream in = new LogInputStream(file, start, end, isOpen)) {
+    try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, start, end, isOpen)) {
       for(LogEntryProto prev = null, next; (next = in.nextEntry()) != null; prev = next) {
         if (prev != null) {
           Preconditions.assertTrue(next.getIndex() == prev.getIndex() + 1,

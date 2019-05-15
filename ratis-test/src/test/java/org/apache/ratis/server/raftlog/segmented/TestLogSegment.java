@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
@@ -23,7 +23,9 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.impl.ServerProtoUtils;
-import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
+import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecordWithEntry;
+import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
@@ -47,19 +49,19 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
-import static org.apache.ratis.server.storage.LogSegment.getEntrySize;
+import static org.apache.ratis.server.raftlog.segmented.LogSegment.getEntrySize;
 
 /**
  * Test basic functionality of {@link LogSegment}
  */
-public class TestRaftLogSegment extends BaseTest {
+public class TestLogSegment extends BaseTest {
   private File storageDir;
   private long segmentMaxSize;
   private long preallocatedSize;
   private int bufferSize;
 
   @Before
-  public void setup() throws Exception {
+  public void setup() {
     RaftProperties properties = new RaftProperties();
     storageDir = getTestDir();
     RaftServerConfigKeys.setStorageDirs(properties,  Collections.singletonList(storageDir));
@@ -89,7 +91,7 @@ public class TestRaftLogSegment extends BaseTest {
         storage.getStorageDir().getClosedLogFile(startIndex, startIndex + numEntries - 1);
 
     final LogEntryProto[] entries = new LogEntryProto[numEntries];
-    try (LogOutputStream out = new LogOutputStream(file, false,
+    try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
         segmentMaxSize, preallocatedSize, bufferSize)) {
       for (int i = 0; i < entries.length; i++) {
         SimpleOperation op = new SimpleOperation("m" + i);
@@ -283,12 +285,10 @@ public class TestRaftLogSegment extends BaseTest {
     // make sure preallocation is correct with different max/pre-allocated size
     for (int max : maxSizes) {
       for (int a : preallocated) {
-        try (LogOutputStream ignored =
-                 new LogOutputStream(file, false, max, a, bufferSize)) {
+        try(SegmentedRaftLogOutputStream ignored = new SegmentedRaftLogOutputStream(file, false, max, a, bufferSize)) {
           Assert.assertEquals("max=" + max + ", a=" + a, file.length(), Math.min(max, a));
         }
-        try (LogInputStream in =
-                 new LogInputStream(file, 0, INVALID_LOG_INDEX, true)) {
+        try(SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, 0, INVALID_LOG_INDEX, true)) {
           LogEntryProto entry = in.nextEntry();
           Assert.assertNull(entry);
         }
@@ -299,7 +299,7 @@ public class TestRaftLogSegment extends BaseTest {
     final byte[] content = new byte[1024 * 2];
     Arrays.fill(content, (byte) 1);
     final long size;
-    try (LogOutputStream out = new LogOutputStream(file, false,
+    try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
         1024, 1024, bufferSize)) {
       SimpleOperation op = new SimpleOperation(new String(content));
       LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), 0, 0);
@@ -308,7 +308,7 @@ public class TestRaftLogSegment extends BaseTest {
     }
     Assert.assertEquals(file.length(),
         size + SegmentedRaftLogFormat.getHeaderLength());
-    try (LogInputStream in = new LogInputStream(file, 0,
+    try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, 0,
         INVALID_LOG_INDEX, true)) {
       LogEntryProto entry = in.nextEntry();
       Assert.assertArrayEquals(content,
@@ -334,7 +334,7 @@ public class TestRaftLogSegment extends BaseTest {
 
     long totalSize = SegmentedRaftLogFormat.getHeaderLength();
     long preallocated = 16 * 1024;
-    try (LogOutputStream out = new LogOutputStream(file, false,
+    try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
         max.getSize(), 16 * 1024, 10 * 1024)) {
       Assert.assertEquals(preallocated, file.length());
       while (totalSize + entrySize < max.getSize()) {

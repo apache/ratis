@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
@@ -34,8 +34,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.zip.Checksum;
 
-public class LogOutputStream implements Closeable {
-  private static final Logger LOG = LoggerFactory.getLogger(LogOutputStream.class);
+public class SegmentedRaftLogOutputStream implements Closeable {
+  private static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogOutputStream.class);
 
   private static final ByteBuffer fill;
   private static final int BUFFER_SIZE = 1024 * 1024; // 1 MB
@@ -56,7 +56,7 @@ public class LogOutputStream implements Closeable {
   private final long preallocatedSize;
   private long preallocatedPos;
 
-  public LogOutputStream(File file, boolean append, long segmentMaxSize,
+  public SegmentedRaftLogOutputStream(File file, boolean append, long segmentMaxSize,
       long preallocatedSize, int bufferSize)
       throws IOException {
     this.file = file;

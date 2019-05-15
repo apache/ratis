@@ -19,7 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.storage.RaftLogIndex;
+import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

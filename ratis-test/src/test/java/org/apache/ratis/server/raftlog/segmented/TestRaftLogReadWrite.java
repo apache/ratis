@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
@@ -25,6 +25,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.FileUtils;
@@ -43,7 +44,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Test basic functionality of LogReader, LogInputStream, and LogOutputStream.
+ * Test basic functionality of LogReader, SegmentedRaftLogInputStream, and SegmentedRaftLogOutputStream.
  */
 public class TestRaftLogReadWrite extends BaseTest {
   private File storageDir;
@@ -74,8 +75,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   private LogEntryProto[] readLog(File file, long startIndex, long endIndex,
       boolean isOpen) throws IOException {
     List<LogEntryProto> list = new ArrayList<>();
-    try (LogInputStream in =
-             new LogInputStream(file, startIndex, endIndex, isOpen)) {
+    try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, startIndex, endIndex, isOpen)) {
       LogEntryProto entry;
       while ((entry = in.nextEntry()) != null) {
         list.add(entry);
@@ -84,7 +84,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     return list.toArray(new LogEntryProto[list.size()]);
   }
 
-  private long writeMessages(LogEntryProto[] entries, LogOutputStream out)
+  private long writeMessages(LogEntryProto[] entries, SegmentedRaftLogOutputStream out)
       throws IOException {
     long size = 0;
     for (int i = 0; i < entries.length; i++) {
@@ -107,9 +107,8 @@ public class TestRaftLogReadWrite extends BaseTest {
     long size = SegmentedRaftLogFormat.getHeaderLength();
 
     final LogEntryProto[] entries = new LogEntryProto[100];
-    try (LogOutputStream out =
-             new LogOutputStream(openSegment, false, segmentMaxSize,
-                 preallocatedSize, bufferSize)) {
+    try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
+        segmentMaxSize, preallocatedSize, bufferSize)) {
       size += writeMessages(entries, out);
     } finally {
       storage.close();
@@ -127,9 +126,8 @@ public class TestRaftLogReadWrite extends BaseTest {
     final RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
     LogEntryProto[] entries = new LogEntryProto[200];
-    try (LogOutputStream out =
-             new LogOutputStream(openSegment, false, segmentMaxSize,
-                 preallocatedSize, bufferSize)) {
+    try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
+        segmentMaxSize, preallocatedSize, bufferSize)) {
       for (int i = 0; i < 100; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
         entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
@@ -137,9 +135,8 @@ public class TestRaftLogReadWrite extends BaseTest {
       }
     }
 
-    try (LogOutputStream out =
-             new LogOutputStream(openSegment, true, segmentMaxSize,
-                 preallocatedSize, bufferSize)) {
+    try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, true,
+        segmentMaxSize, preallocatedSize, bufferSize)) {
       for (int i = 100; i < 200; i++) {
         SimpleOperation m = new SimpleOperation("m" + i);
         entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), 0, i);
@@ -165,7 +162,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     long size = SegmentedRaftLogFormat.getHeaderLength();
 
     LogEntryProto[] entries = new LogEntryProto[100];
-    LogOutputStream out = new LogOutputStream(openSegment, false,
+    final SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
         segmentMaxSize, preallocatedSize, bufferSize);
     size += writeMessages(entries, out);
     out.flush();
@@ -194,7 +191,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
 
     LogEntryProto[] entries = new LogEntryProto[10];
-    LogOutputStream out = new LogOutputStream(openSegment, false,
+    final SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
         16 * 1024 * 1024, 4 * 1024 * 1024, bufferSize);
     for (int i = 0; i < 10; i++) {
       SimpleOperation m = new SimpleOperation("m" + i);
@@ -213,7 +210,7 @@ public class TestRaftLogReadWrite extends BaseTest {
     }
 
     List<LogEntryProto> list = new ArrayList<>();
-    try (LogInputStream in = new LogInputStream(openSegment, 0,
+    try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(openSegment, 0,
         RaftServerConstants.INVALID_LOG_INDEX, true)) {
       LogEntryProto entry;
       while ((entry = in.nextEntry()) != null) {
@@ -241,9 +238,8 @@ public class TestRaftLogReadWrite extends BaseTest {
   public void testReadWithEntryCorruption() throws IOException {
     RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     File openSegment = storage.getStorageDir().getOpenLogFile(0);
-    try (LogOutputStream out =
-             new LogOutputStream(openSegment, false, segmentMaxSize,
-                 preallocatedSize, bufferSize)) {
+    try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(openSegment, false,
+        segmentMaxSize, preallocatedSize, bufferSize)) {
       for (int i = 0; i < 100; i++) {
         LogEntryProto entry = ServerProtoUtils.toLogEntryProto(
             new SimpleOperation("m" + i).getLogEntryContent(), 0, i);

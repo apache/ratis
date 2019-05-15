@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,8 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ratis.server;
+package org.apache.ratis.server.raftlog;
 
 import com.codahale.metrics.Timer;
 import org.apache.log4j.Level;
@@ -27,7 +26,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.metrics.RatisMetricsRegistry;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
-import org.apache.ratis.server.storage.RaftStorageTestUtils;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.JavaUtils;
@@ -95,12 +94,12 @@ public class TestRaftLogMetrics extends BaseTest
 
     // For followers, flush can be lagged behind.  Attempt multiple times.
     for(RaftServerImpl f : cluster.getFollowers()) {
-      JavaUtils.attempt(() -> assertFlushCount(f), 10, 100, f.getId() + "-assertFlushCount", null);
+      JavaUtils.attempt(() -> assertFlushCount(f), 10, HUNDRED_MILLIS, f.getId() + "-assertFlushCount", null);
     }
   }
 
   static void assertFlushCount(RaftServerImpl server) throws Exception {
-      final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getId());
+      final String flushTimeMetric = SegmentedRaftLogTestUtils.getLogFlushTimeMetric(server.getId());
       Timer tm = RatisMetricsRegistry.getRegistry().getTimers().get(flushTimeMetric);
       Assert.assertNotNull(tm);
 

@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
@@ -28,9 +28,10 @@ import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.impl.ServerState;
-import org.apache.ratis.server.storage.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
-import org.apache.ratis.server.storage.RaftLogCache.LogSegmentList;
-import org.apache.ratis.server.storage.TestSegmentedRaftLog.SegmentRange;
+import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.LogSegmentList;
+import org.apache.ratis.server.raftlog.segmented.TestSegmentedRaftLog.SegmentRange;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.SizeInBytes;

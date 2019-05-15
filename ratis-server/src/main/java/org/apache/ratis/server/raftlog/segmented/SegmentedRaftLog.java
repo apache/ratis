@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -23,9 +23,12 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.LogSegment.LogRecord;
-import org.apache.ratis.server.storage.LogSegment.LogRecordWithEntry;
-import org.apache.ratis.server.storage.RaftLogCache.TruncateIndices;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.RaftLogIOException;
+import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
+import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecordWithEntry;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncateIndices;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
@@ -72,7 +75,7 @@ public class SegmentedRaftLog extends RaftLog {
   /**
    * I/O task definitions.
    */
-  static abstract class Task {
+  abstract static class Task {
     private final CompletableFuture<Long> future = new CompletableFuture<>();
 
     CompletableFuture<Long> getFuture() {
@@ -100,8 +103,8 @@ public class SegmentedRaftLog extends RaftLog {
 
   private final Optional<RaftServerImpl> server;
   private final RaftStorage storage;
-  private final RaftLogCache cache;
-  private final RaftLogWorker fileLogWorker;
+  private final SegmentedRaftLogCache cache;
+  private final SegmentedRaftLogWorker fileLogWorker;
   private final long segmentMaxSize;
   private final boolean stateMachineCachingEnabled;
 
@@ -119,8 +122,8 @@ public class SegmentedRaftLog extends RaftLog {
     this.server = Optional.ofNullable(server);
     this.storage = storage;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
-    cache = new RaftLogCache(selfId, storage, properties);
-    this.fileLogWorker = new RaftLogWorker(selfId, stateMachine, submitUpdateCommitEvent, storage, properties);
+    this.cache = new SegmentedRaftLogCache(selfId, storage, properties);
+    this.fileLogWorker = new SegmentedRaftLogWorker(selfId, stateMachine, submitUpdateCommitEvent, storage, properties);
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties);
   }
 
@@ -249,15 +252,11 @@ public class SegmentedRaftLog extends RaftLog {
     }
   }
 
-  /**
-   * The method, along with {@link #appendEntry} and
-   * {@link #append(LogEntryProto...)} need protection of RaftServer's lock.
-   */
   @Override
-  CompletableFuture<Long> truncateImpl(long index) {
+  protected CompletableFuture<Long> truncateImpl(long index) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
-      RaftLogCache.TruncationSegments ts = cache.truncate(index);
+      SegmentedRaftLogCache.TruncationSegments ts = cache.truncate(index);
       if (ts != null) {
         Task task = fileLogWorker.truncate(ts, index);
         return task.getFuture();
@@ -268,9 +267,9 @@ public class SegmentedRaftLog extends RaftLog {
 
 
   @Override
-  public CompletableFuture<Long> purgeImpl(long index) {
+  protected CompletableFuture<Long> purgeImpl(long index) {
     try (AutoCloseableLock writeLock = writeLock()) {
-      RaftLogCache.TruncationSegments ts = cache.purge(index);
+      SegmentedRaftLogCache.TruncationSegments ts = cache.purge(index);
       LOG.debug("truncating segments:{}", ts);
       if (ts != null) {
         Task task = fileLogWorker.purge(ts);
@@ -281,7 +280,7 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
+  protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
     checkLogState();
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: appendEntry {}", getSelfId(),
@@ -383,11 +382,6 @@ public class SegmentedRaftLog extends RaftLog {
     return fileLogWorker.getFlushedIndex();
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * This operation is protected by the RaftServer's lock
-   */
   @Override
   public void writeMetadata(long term, RaftPeerId votedFor) throws IOException {
     storage.getMetaFile().set(term, votedFor != null ? votedFor.toString() : null);
@@ -424,7 +418,7 @@ public class SegmentedRaftLog extends RaftLog {
     storage.close();
   }
 
-  RaftLogCache getRaftLogCache() {
+  SegmentedRaftLogCache getRaftLogCache() {
     return cache;
   }
 

@@ -21,6 +21,9 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.memory.MemoryRaftLog;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog;
 import org.apache.ratis.server.storage.*;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -198,7 +201,7 @@ public class ServerState implements Closeable {
     return log;
   }
 
-  public RaftConfiguration getRaftConf() {
+  RaftConfiguration getRaftConf() {
     return configurationManager.getCurrent();
   }
 

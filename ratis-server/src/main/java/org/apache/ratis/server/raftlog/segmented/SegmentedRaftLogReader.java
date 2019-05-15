@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.protocol.ChecksumException;
@@ -33,20 +33,20 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.util.zip.Checksum;
 
-public class LogReader implements Closeable {
-  static final Logger LOG = LoggerFactory.getLogger(LogReader.class);
+class SegmentedRaftLogReader implements Closeable {
+  static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogReader.class);
   /**
    * InputStream wrapper that keeps track of the current stream position.
    *
    * This stream also allows us to set a limit on how many bytes we can read
    * without getting an exception.
    */
-  public static class LimitedInputStream extends FilterInputStream {
+  static class LimitedInputStream extends FilterInputStream {
     private long curPos = 0;
     private long markPos = -1;
     private long limitPos = Long.MAX_VALUE;
 
-    public LimitedInputStream(InputStream is) {
+    LimitedInputStream(InputStream is) {
       super(is);
     }
 
@@ -131,7 +131,7 @@ public class LogReader implements Closeable {
   private byte[] temp = new byte[4096];
   private final Checksum checksum;
 
-  LogReader(File file) throws FileNotFoundException {
+  SegmentedRaftLogReader(File file) throws FileNotFoundException {
     this.file = file;
     this.limiter = new LimitedInputStream(
         new BufferedInputStream(new FileInputStream(file)));

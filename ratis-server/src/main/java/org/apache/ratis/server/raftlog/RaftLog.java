@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -292,7 +292,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   /**
    * Validate the term and index of entry w.r.t RaftLog
    */
-  void validateLogEntry(LogEntryProto entry) {
+  protected void validateLogEntry(LogEntryProto entry) {
     if (entry.hasMetadataEntry()) {
       return;
     }
@@ -310,8 +310,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     return runner.runSequentially(() -> truncateImpl(index));
   }
 
-  abstract CompletableFuture<Long> truncateImpl(long index);
-
+  protected abstract CompletableFuture<Long> truncateImpl(long index);
 
   /**
    * Purge asynchronously delete the segment files which does not overlap with the given index.
@@ -323,7 +322,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     return purgeImpl(index);
   }
 
-  abstract CompletableFuture<Long> purgeImpl(long index);
+  protected abstract CompletableFuture<Long> purgeImpl(long index);
 
 
   @Override
@@ -331,14 +330,14 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     return runner.runSequentially(() -> appendEntryImpl(entry));
   }
 
-  abstract CompletableFuture<Long> appendEntryImpl(LogEntryProto entry);
+  protected abstract CompletableFuture<Long> appendEntryImpl(LogEntryProto entry);
 
   @Override
   public final List<CompletableFuture<Long>> append(LogEntryProto... entries) {
     return runner.runSequentially(() -> appendImpl(entries));
   }
 
-  abstract List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries);
+  protected abstract List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries);
 
   /**
    * @return the index of the latest entry that has been flushed to the local
@@ -422,10 +421,10 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
    * Holds proto entry along with future which contains read state machine data
    */
   public class EntryWithData {
-    private LogEntryProto logEntry;
-    private CompletableFuture<ByteString> future;
+    private final LogEntryProto logEntry;
+    private final CompletableFuture<ByteString> future;
 
-    EntryWithData(LogEntryProto logEntry, CompletableFuture<ByteString> future) {
+    public EntryWithData(LogEntryProto logEntry, CompletableFuture<ByteString> future) {
       this.logEntry = logEntry;
       this.future = future;
     }

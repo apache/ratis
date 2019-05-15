@@ -23,7 +23,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.storage.RaftStorageTestUtils;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -63,7 +63,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testChangeLeader() throws Exception {
-    RaftStorageTestUtils.setRaftLogWorkerLogLevel(Level.TRACE);
+    SegmentedRaftLogTestUtils.setRaftLogWorkerLogLevel(Level.TRACE);
     LOG.info("Running testChangeLeader");
     final MiniRaftCluster cluster = newCluster(3);
     cluster.start();
@@ -73,7 +73,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       leader = RaftTestUtil.changeLeader(cluster, leader, IllegalStateException::new);
       ExitUtils.assertNotTerminated();
     }
-    RaftStorageTestUtils.setRaftLogWorkerLogLevel(Level.INFO);
+    SegmentedRaftLogTestUtils.setRaftLogWorkerLogLevel(Level.INFO);
     cluster.shutdown();
   }
 

@@ -33,8 +33,8 @@ import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.LogInputStream;
-import org.apache.ratis.server.storage.LogOutputStream;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogInputStream;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogOutputStream;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
@@ -248,7 +248,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
         termIndex.getIndex());
     LOG.debug("Taking a snapshot with t:{}, i:{}, file:{}", termIndex.getTerm(),
         termIndex.getIndex(), snapshotFile);
-    try (LogOutputStream out = new LogOutputStream(snapshotFile, false,
+    try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(snapshotFile, false,
         segmentMaxSize, preallocatedSize, bufferSize)) {
       for (final LogEntryProto entry : indexMap.values()) {
         if (entry.getIndex() > endIndex) {
@@ -294,7 +294,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     } else {
       LOG.info("Loading snapshot {}", snapshot);
       final long endIndex = snapshot.getIndex();
-      try (LogInputStream in = new LogInputStream(
+      try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(
           snapshot.getFile().getPath().toFile(), 0, endIndex, false)) {
         LogEntryProto entry;
         while ((entry = in.nextEntry()) != null) {

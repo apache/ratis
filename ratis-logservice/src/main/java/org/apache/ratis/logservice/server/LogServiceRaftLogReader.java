@@ -25,8 +25,8 @@ import org.apache.ratis.logservice.proto.LogServiceProtos.AppendLogEntryRequestP
 import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto.RequestCase;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.server.storage.RaftLog;
-import org.apache.ratis.server.storage.RaftLogIOException;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.com.google.protobuf.TextFormat;

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,13 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.memory;
 
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Preconditions;
 
@@ -113,7 +114,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  CompletableFuture<Long> truncateImpl(long index) {
+  protected CompletableFuture<Long> truncateImpl(long index) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       Preconditions.assertTrue(index >= 0);
@@ -124,7 +125,7 @@ public class MemoryRaftLog extends RaftLog {
 
 
   @Override
-  CompletableFuture<Long> purgeImpl(long index) {
+  protected CompletableFuture<Long> purgeImpl(long index) {
     try (AutoCloseableLock writeLock = writeLock()) {
       Preconditions.assertTrue(index >= 0);
       entries.purge(Math.toIntExact(index));
@@ -141,7 +142,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
+  protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
     checkLogState();
     try(AutoCloseableLock writeLock = writeLock()) {
       validateLogEntry(entry);

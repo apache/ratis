@@ -165,14 +165,6 @@ public interface JavaUtils {
     throw new IllegalStateException("BUG: this line should be unreachable.");
   }
 
-  /** @deprecated use {@link #attempt(CheckedRunnable, int, TimeDuration, String, Logger)} */
-  @Deprecated
-  static <THROWABLE extends Throwable> void attempt(
-      CheckedRunnable<THROWABLE> op, int numAttempts, long sleepMs, String name, Logger log)
-      throws THROWABLE, InterruptedException {
-    attempt(op, numAttempts, TimeDuration.valueOf(sleepMs, TimeUnit.MILLISECONDS), name, log);
-  }
-
   /** Attempt to run the given op multiple times. */
   static <THROWABLE extends Throwable> void attempt(
       CheckedRunnable<THROWABLE> runnable, int numAttempts, TimeDuration sleepTime, String name, Logger log)

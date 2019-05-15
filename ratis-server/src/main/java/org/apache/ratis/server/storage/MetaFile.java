@@ -31,7 +31,7 @@ import java.util.Properties;
  * a single <code>long</code> value. The file is updated atomically
  * and durably (i.e fsynced).
  */
-class MetaFile {
+public class MetaFile {
   private static final Logger LOG = LoggerFactory.getLogger(MetaFile.class);
   private static final String TERM_KEY = "term";
   private static final String VOTEDFOR_KEY = "votedFor";
@@ -53,7 +53,7 @@ class MetaFile {
     return this.file.exists();
   }
 
-  long getTerm() throws IOException {
+  public long getTerm() throws IOException {
     if (!loaded) {
       readFile();
       loaded = true;
@@ -61,7 +61,7 @@ class MetaFile {
     return term;
   }
 
-  String getVotedFor() throws IOException {
+  public String getVotedFor() throws IOException {
     if (!loaded) {
       readFile();
       loaded = true;
@@ -69,7 +69,7 @@ class MetaFile {
     return votedFor;
   }
 
-  void set(long newTerm, String newVotedFor) throws IOException {
+  public void set(long newTerm, String newVotedFor) throws IOException {
     newVotedFor = newVotedFor == null ? EMPTY_VOTEFOR : newVotedFor;
     if (!loaded || (newTerm != term || !newVotedFor.equals(votedFor))) {
       writeFile(newTerm, newVotedFor);

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,31 +15,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.function.IntConsumer;
 import java.util.stream.IntStream;
 
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-public class TestRaftLogCache {
+public class TestSegmentedRaftLogCache {
   private static final RaftProperties prop = new RaftProperties();
 
-  private RaftLogCache cache;
+  private SegmentedRaftLogCache cache;
 
   @Before
   public void setup() {
-    cache = new RaftLogCache(null, null, prop);
+    cache = new SegmentedRaftLogCache(null, null, prop);
   }
 
   private LogSegment prepareLogSegment(long start, long end, boolean isOpen) {

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -153,7 +153,7 @@ public class RaftStorageDirectory {
     return new File(getCurrentDir(), META_FILE_NAME + CONF_EXTENSION);
   }
 
-  File getOpenLogFile(long startIndex) {
+  public File getOpenLogFile(long startIndex) {
     return new File(getCurrentDir(), getOpenLogFileName(startIndex));
   }
 
@@ -161,7 +161,7 @@ public class RaftStorageDirectory {
     return LOG_FILE_PREFIX + "_" + LOG_FILE_INPROGRESS + "_" + startIndex;
   }
 
-  File getClosedLogFile(long startIndex, long endIndex) {
+  public File getClosedLogFile(long startIndex, long endIndex) {
     return new File(getCurrentDir(), getClosedLogFileName(startIndex, endIndex));
   }
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
@@ -32,8 +32,8 @@ import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LogInputStream implements Closeable {
-  static final Logger LOG = LoggerFactory.getLogger(LogInputStream.class);
+public class SegmentedRaftLogInputStream implements Closeable {
+  static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogInputStream.class);
 
   static class LogValidation {
     private final long validLength;
@@ -64,10 +64,9 @@ public class LogInputStream implements Closeable {
   private final long endIndex;
   private final boolean isOpen;
   private final OpenCloseState state;
-  private LogReader reader;
+  private SegmentedRaftLogReader reader;
 
-  public LogInputStream(File log, long startIndex, long endIndex,
-      boolean isOpen) {
+  public SegmentedRaftLogInputStream(File log, long startIndex, long endIndex, boolean isOpen) {
     if (isOpen) {
       Preconditions.assertTrue(endIndex == INVALID_LOG_INDEX);
     } else {
@@ -84,7 +83,7 @@ public class LogInputStream implements Closeable {
   private void init() throws IOException {
     state.open();
     try {
-      final LogReader r = new LogReader(logFile);
+      final SegmentedRaftLogReader r = new SegmentedRaftLogReader(logFile);
       if (r.verifyHeader()) {
         reader = r;
       }
@@ -159,7 +158,7 @@ public class LogInputStream implements Closeable {
   @Override
   public void close() throws IOException {
     if (state.close()) {
-      Optional.ofNullable(reader).ifPresent(LogReader::close);
+      Optional.ofNullable(reader).ifPresent(SegmentedRaftLogReader::close);
     }
   }
 
@@ -183,9 +182,9 @@ public class LogInputStream implements Closeable {
    */
   static LogValidation scanEditLog(File file, long maxTxIdToScan)
       throws IOException {
-    LogInputStream in;
+    SegmentedRaftLogInputStream in;
     try {
-      in = new LogInputStream(file, INVALID_LOG_INDEX, INVALID_LOG_INDEX, false);
+      in = new SegmentedRaftLogInputStream(file, INVALID_LOG_INDEX, INVALID_LOG_INDEX, false);
       // read the header, initialize the inputstream
       in.init();
     } catch (EOFException e) {
@@ -212,7 +211,7 @@ public class LogInputStream implements Closeable {
    *                       portion beyond this index is potentially being
    *                       updated.
    */
-  static LogValidation scanEditLog(LogInputStream in, long maxIndexToScan) {
+  static LogValidation scanEditLog(SegmentedRaftLogInputStream in, long maxIndexToScan) {
     long lastPos = 0;
     long end = INVALID_LOG_INDEX;
     long numValid = 0;

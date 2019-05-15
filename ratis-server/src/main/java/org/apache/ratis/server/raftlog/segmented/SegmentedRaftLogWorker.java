@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
@@ -26,9 +26,10 @@ import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
-import org.apache.ratis.server.storage.RaftLogCache.SegmentFileInfo;
-import org.apache.ratis.server.storage.RaftLogCache.TruncationSegments;
-import org.apache.ratis.server.storage.SegmentedRaftLog.Task;
+import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.SegmentFileInfo;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLog.Task;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.*;
@@ -47,8 +48,8 @@ import java.util.function.Supplier;
  * This class takes the responsibility of all the raft log related I/O ops for a
  * raft peer.
  */
-class RaftLogWorker implements Runnable {
-  static final Logger LOG = LoggerFactory.getLogger(RaftLogWorker.class);
+class SegmentedRaftLogWorker implements Runnable {
+  static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogWorker.class);
 
   static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
 
@@ -94,13 +95,13 @@ class RaftLogWorker implements Runnable {
   private final Thread workerThread;
 
   private final RaftStorage storage;
-  private volatile LogOutputStream out;
+  private volatile SegmentedRaftLogOutputStream out;
   private final Runnable submitUpdateCommitEvent;
   private final StateMachine stateMachine;
   private final Supplier<Timer> logFlushTimer;
 
   /**
-   * The number of entries that have been written into the LogOutputStream but
+   * The number of entries that have been written into the SegmentedRaftLogOutputStream but
    * has not been flushed.
    */
   private int pendingFlushNum = 0;
@@ -117,7 +118,7 @@ class RaftLogWorker implements Runnable {
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
-  RaftLogWorker(RaftPeerId selfId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
+  SegmentedRaftLogWorker(RaftPeerId selfId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
       RaftStorage storage, RaftProperties properties) {
     this.name = selfId + "-" + getClass().getSimpleName();
     LOG.info("new {} for {}", name, storage);
@@ -142,7 +143,7 @@ class RaftLogWorker implements Runnable {
 
     // Server Id can be null in unit tests
     this.logFlushTimer = JavaUtils.memoize(() -> RatisMetricsRegistry.getRegistry()
-        .timer(MetricRegistry.name(RaftLogWorker.class, selfId.toString(), "flush-time")));
+        .timer(MetricRegistry.name(SegmentedRaftLogWorker.class, selfId.toString(), "flush-time")));
   }
 
   void start(long latestIndex, File openSegmentFile) throws IOException {
@@ -151,7 +152,7 @@ class RaftLogWorker implements Runnable {
     flushedIndex = latestIndex;
     if (openSegmentFile != null) {
       Preconditions.assertTrue(openSegmentFile.exists());
-      out = new LogOutputStream(openSegmentFile, true, segmentMaxSize,
+      out = new SegmentedRaftLogOutputStream(openSegmentFile, true, segmentMaxSize,
           preallocatedSize, bufferSize);
     }
     workerThread.start();
@@ -197,7 +198,7 @@ class RaftLogWorker implements Runnable {
     } catch (Throwable t) {
       if (t instanceof InterruptedException && !running) {
         LOG.info("Got InterruptedException when adding task " + task
-            + ". The RaftLogWorker already stopped.");
+            + ". The SegmentedRaftLogWorker already stopped.");
       } else {
         ExitUtils.terminate(2, "Failed to add IO task " + task, t, LOG);
       }
@@ -462,7 +463,7 @@ class RaftLogWorker implements Runnable {
       Preconditions.assertTrue(!openFile.exists(), "open file %s exists for %s",
           openFile, name);
       Preconditions.assertTrue(out == null && pendingFlushNum == 0);
-      out = new LogOutputStream(openFile, false, segmentMaxSize,
+      out = new SegmentedRaftLogOutputStream(openFile, false, segmentMaxSize,
           preallocatedSize, bufferSize);
       Preconditions.assertTrue(openFile.exists(), "Failed to create file %s for %s",
           openFile.getAbsolutePath(), name);

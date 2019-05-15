@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
@@ -31,6 +31,8 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
@@ -64,8 +66,8 @@ import static org.mockito.Mockito.when;
 
 public class TestSegmentedRaftLog extends BaseTest {
   static {
-    LogUtils.setLogLevel(RaftLogWorker.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(RaftLogCache.LOG, Level.TRACE);
+    LogUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.DEBUG);
+    LogUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.TRACE);
     LogUtils.setLogLevel(SegmentedRaftLog.LOG, Level.TRACE);
   }
 
@@ -122,7 +124,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
       final int size = (int) (range.end - range.start + 1);
       LogEntryProto[] entries = new LogEntryProto[size];
-      try (LogOutputStream out = new LogOutputStream(file, false,
+      try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
           segmentMaxSize, preallocatedSize, bufferSize)) {
         for (int i = 0; i < size; i++) {
           SimpleOperation m = new SimpleOperation("m" + (i + range.start));
@@ -451,7 +453,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       Assert.assertEquals(newEntries.get(newEntries.size() - 1).getIndex(),
           raftLog.getLatestFlushedIndex());
 
-      RaftLogCache cache = raftLog.getRaftLogCache();
+      SegmentedRaftLogCache cache = raftLog.getRaftLogCache();
       Assert.assertEquals(5, cache.getNumOfSegments());
     }
   }
@@ -512,13 +514,13 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, sm, null, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
-      raftLog.appendEntry(entry);  // RaftLogWorker should catch TimeoutIOException
+      raftLog.appendEntry(entry);  // SegmentedRaftLogWorker should catch TimeoutIOException
 
       JavaUtils.attempt(() -> {
         final ExitUtils.ExitException exitException = ExitUtils.getFirstExitException();
         Objects.requireNonNull(exitException, "exitException == null");
         Assert.assertEquals(TimeoutIOException.class, exitException.getCause().getClass());
-      }, 3*numRetries, syncTimeout, "RaftLogWorker should catch TimeoutIOException and exit", LOG);
+      }, 3*numRetries, syncTimeout, "SegmentedRaftLogWorker should catch TimeoutIOException and exit", LOG);
       ExitUtils.clear();
     }
   }
@@ -538,7 +540,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
   void assertIndicesMultipleAttempts(RaftLog raftLog, long expectedFlushIndex, long expectedNextIndex) throws Exception {
     JavaUtils.attempt(() -> assertIndices(raftLog, expectedFlushIndex, expectedNextIndex),
-        10, 100, "assertIndices", LOG);
+        10, HUNDRED_MILLIS, "assertIndices", LOG);
   }
 
   @Test
