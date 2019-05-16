@@ -71,6 +71,13 @@ public class RaftLogIndex {
     return updated;
   }
 
+  public long incrementAndGet(Consumer<Object> log) {
+    final long newIndex = index.incrementAndGet();
+    log.accept(StringUtils.stringSupplierAsObject(
+        () -> name + ": incrementAndGet " + (newIndex-1) + " -> " + newIndex));
+    return newIndex;
+  }
+
   @Override
   public String toString() {
     return name + ":" + index;

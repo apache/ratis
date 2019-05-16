@@ -319,6 +319,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
    * @param index - is inclusive.
    */
   public final CompletableFuture<Long> purge(long index) {
+    LOG.info("{}: purge {}", getName(), index);
     return purgeImpl(index);
   }
 

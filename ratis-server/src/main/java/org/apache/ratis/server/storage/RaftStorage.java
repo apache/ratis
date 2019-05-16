@@ -22,8 +22,6 @@ import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
-import org.apache.ratis.statemachine.SnapshotInfo;
-import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +40,6 @@ public class RaftStorage implements Closeable {
   private final RaftStorageDirectory storageDir;
   private final StorageState state;
   private volatile MetaFile metaFile;
-  private StateMachineStorage stateMachineStorage;
 
   public RaftStorage(File dir, RaftServerConstants.StartupOption option)
       throws IOException {
@@ -140,23 +137,8 @@ public class RaftStorage implements Closeable {
     }
   }
 
-  public SnapshotInfo getLatestSnapshot() throws IOException {
-    return getStateMachineStorage().getLatestSnapshot();
-  }
-
-  /**
-   * Called by the state machine after it has initialized the StateMachineStorage.
-   */
-  public void setStateMachineStorage(StateMachineStorage smStorage) {
-    this.stateMachineStorage = smStorage;
-  }
-
-  public StateMachineStorage getStateMachineStorage() {
-    return stateMachineStorage;
-  }
-
   @Override
   public String toString() {
-    return getStorageDir() + "";
+    return getClass().getSimpleName() + ":" + getStorageDir();
   }
 }

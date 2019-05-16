@@ -197,12 +197,6 @@ public class MemoryRaftLog extends RaftLog {
     }
   }
 
-  @Override
-  public String toString() {
-    return "last=" + getLastEntryTermIndex() + ", committed="
-        + ServerProtoUtils.toString(get(getLastCommittedIndex()));
-  }
-
   public String getEntryString() {
     return "entries=" + entries;
   }
