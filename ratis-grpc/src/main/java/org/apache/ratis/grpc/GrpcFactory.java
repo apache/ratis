@@ -27,8 +27,28 @@ import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.*;
+import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.function.Consumer;
 
 public class GrpcFactory implements ServerFactory, ClientFactory {
+
+  public static final Logger LOG = LoggerFactory.getLogger(GrpcFactory.class);
+
+  private void checkPooledByteBufAllocatorUseCacheForAllThreads(Consumer<String> log) {
+    final String name = "useCacheForAllThreads";
+    final String key = "org.apache.ratis.thirdparty.io.netty.allocator." + name;
+    final boolean value = PooledByteBufAllocator.defaultUseCacheForAllThreads();
+    if (value) {
+      log.accept("PERFORMANCE WARNING: " + name + " is " + value
+          + " that may cause Netty to create a lot garbage objects and, as a result, trigger GC.\n"
+          + "\tIt is recommended to disable " + name + " by setting -D" + key
+          + "=" + !value + " in command line.");
+    }
+  }
+
   private final GrpcTlsConfig tlsConfig;
 
   public static Parameters newRaftParameters(GrpcTlsConfig conf) {
@@ -62,6 +82,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
 
   @Override
   public GrpcService newRaftServerRpc(RaftServer server) {
+    checkPooledByteBufAllocatorUseCacheForAllThreads(LOG::info);
     return GrpcService.newBuilder()
         .setServer(server)
         .setTlsConfig(tlsConfig)
@@ -70,6 +91,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
 
   @Override
   public GrpcClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties) {
+    checkPooledByteBufAllocatorUseCacheForAllThreads(LOG::debug);
     return new GrpcClientRpc(clientId, properties, getTlsConfig());
   }
 }
