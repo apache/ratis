@@ -264,7 +264,7 @@ public class GrpcLogAppender extends LogAppender {
           }
           break;
         case INCONSISTENCY:
-          checkAndUpdateNextIndex(request, reply.getNextIndex());
+          updateNextIndex(reply.getNextIndex());
           break;
         default:
           throw new IllegalStateException("Unexpected reply result: " + reply.getResult());
@@ -300,14 +300,9 @@ public class GrpcLogAppender extends LogAppender {
     return follower.updateMatchIndex(newMatchIndex);
   }
 
-  private void checkAndUpdateNextIndex(AppendEntriesRequestProto request, long replyNextIndex) {
-    Preconditions.assertTrue(request.hasPreviousLog());
-    if (request.getPreviousLog().getIndex() >= replyNextIndex) {
-      synchronized (this) {
-        pendingRequests.clear();
-        follower.updateNextIndex(replyNextIndex);
-      }
-    }
+  private synchronized void updateNextIndex(long replyNextIndex) {
+    pendingRequests.clear();
+    follower.updateNextIndex(replyNextIndex);
   }
 
   private class InstallSnapshotResponseHandler

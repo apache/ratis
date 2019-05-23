@@ -376,14 +376,14 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       CompletableFuture<RaftClientReply> replyFuture = client.sendAsync(new SimpleMessage("abc"));
       Thread.sleep(waitTime);
       // replyFuture should not be completed until append request is unblocked.
-      Assert.assertTrue(!replyFuture.isDone());
+      Assert.assertFalse(replyFuture.isDone());
       // unblock append request.
       cluster.getServerAliveStream()
           .filter(impl -> !impl.isLeader())
           .map(SimpleStateMachine4Testing::get)
           .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
 
-      replyFuture.get();
+      Assert.assertTrue(replyFuture.get().isSuccess());
       Assert.assertTrue(System.currentTimeMillis() - time > waitTime);
     }
 
