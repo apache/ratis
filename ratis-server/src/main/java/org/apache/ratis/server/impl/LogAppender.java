@@ -169,23 +169,33 @@ public class LogAppender {
     return getFollower().getPeer().getId();
   }
 
-  private TermIndex getPrevious() {
-    final long nextIndex = follower.getNextIndex();
-    final TermIndex previous = raftLog.getTermIndex(nextIndex - 1);
+  private TermIndex getPrevious(long nextIndex) {
+    if (nextIndex == RaftLog.LEAST_VALID_LOG_INDEX) {
+      return null;
+    }
+
+    final long previousIndex = nextIndex - 1;
+    final TermIndex previous = raftLog.getTermIndex(previousIndex);
     if (previous != null) {
       return previous;
     }
-    final long logStartIndex = raftLog.getStartIndex();
-    Preconditions.assertTrue(nextIndex == logStartIndex,
-        "%s: follower's nextIndex = %s != logStartIndex = %s", this, nextIndex, logStartIndex);
+
     final SnapshotInfo snapshot = server.getState().getLatestSnapshot();
-    return snapshot == null ? null : snapshot.getTermIndex();
+    if (snapshot != null) {
+      final TermIndex snapshotTermIndex = snapshot.getTermIndex();
+      if (snapshotTermIndex.getIndex() == previousIndex) {
+        return snapshotTermIndex;
+      }
+    }
+
+    return null;
   }
 
   protected AppendEntriesRequestProto createRequest(long callId) throws RaftLogIOException {
-    final TermIndex previous = getPrevious();
+    final TermIndex previous = getPrevious(follower.getNextIndex());
     final long heartbeatRemainingMs = getHeartbeatRemainingTime();
     if (heartbeatRemainingMs <= 0L) {
+      // heartbeat
       return leaderState.newAppendEntriesRequestProto(
           getFollowerId(), previous, Collections.emptyList(), !follower.isAttendingVote(), callId);
     }
@@ -193,7 +203,9 @@ public class LogAppender {
     Preconditions.assertTrue(buffer.isEmpty(), () -> "buffer has " + buffer.getNumElements() + " elements.");
 
     final long leaderNext = raftLog.getNextIndex();
-    for (long next = follower.getNextIndex(); leaderNext > next; ) {
+    final long followerNext = follower.getNextIndex();
+    final long halfMs = heartbeatRemainingMs/2;
+    for (long next = followerNext; leaderNext > next && getHeartbeatRemainingTime() - halfMs > 0; ) {
       if (!buffer.offer(raftLog.getEntryWithData(next++))) {
         break;
       }
@@ -202,11 +214,28 @@ public class LogAppender {
       return null;
     }
 
-    final List<LogEntryProto> protos = buffer.pollList(heartbeatRemainingMs, EntryWithData::getEntry,
-        (entry, time, exception) -> LOG.warn(this + ": Failed get " + entry + " in " + time, exception));
+    final List<LogEntryProto> protos = buffer.pollList(getHeartbeatRemainingTime(), EntryWithData::getEntry,
+        (entry, time, exception) -> LOG.warn("{}: Failed to get {} in {}: {}",
+            follower.getName(), entry, time, exception));
     buffer.clear();
+    assertProtos(protos, followerNext, previous);
     return leaderState.newAppendEntriesRequestProto(
         getFollowerId(), previous, protos, !follower.isAttendingVote(), callId);
+  }
+
+  private void assertProtos(List<LogEntryProto> protos, long nextIndex, TermIndex previous) {
+    if (protos.isEmpty()) {
+      return;
+    }
+    final long firstIndex = protos.get(0).getIndex();
+    Preconditions.assertTrue(firstIndex == nextIndex,
+        () -> follower.getName() + ": firstIndex = " + firstIndex + " != nextIndex = " + nextIndex);
+    if (firstIndex > RaftLog.LEAST_VALID_LOG_INDEX) {
+      Objects.requireNonNull(previous,
+          () -> follower.getName() + ": Previous TermIndex not found for firstIndex = " + firstIndex);
+      Preconditions.assertTrue(previous.getIndex() == firstIndex - 1,
+          () -> follower.getName() + ": Previous = " + previous + " but firstIndex = " + firstIndex);
+    }
   }
 
   /** Send an appendEntries RPC; retry indefinitely. */

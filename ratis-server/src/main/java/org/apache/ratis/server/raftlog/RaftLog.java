@@ -60,6 +60,9 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", getSelfId(), s);
   private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", getSelfId(), s);
 
+  /** The least valid log index, i.e. the index used when writing to an empty log. */
+  public static final long LEAST_VALID_LOG_INDEX = 0L;
+
   /**
    * The largest committed index. Note the last committed log may be included
    * in the latest snapshot file.
