@@ -260,10 +260,15 @@ public interface StateMachine extends Closeable {
    * to install the latest snapshot.
    * @param firstTermIndexInLog TermIndex of the first append entry available
    *                           in the Leader's log.
+   * @param group raft group information
+   * @param roleInfoProto information about the current node role and
+   *                            rpc delay information
    * @return After the snapshot installation is complete, return the last
    * included term index in the snapshot.
    */
-  default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(TermIndex firstTermIndexInLog) {
+  default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
+      RaftGroup group, RoleInfoProto roleInfoProto,
+      TermIndex firstTermIndexInLog) {
     return CompletableFuture.completedFuture(null);
   }
 }
