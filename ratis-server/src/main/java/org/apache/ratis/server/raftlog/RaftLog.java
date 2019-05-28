@@ -17,9 +17,11 @@
  */
 package org.apache.ratis.server.raftlog;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.StateMachineException;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LogAppender;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
@@ -68,6 +70,9 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
    * in the latest snapshot file.
    */
   private final RaftLogIndex commitIndex;
+  private final RaftLogIndex purgeIndex;
+  private final int purgeGap;
+
   private final RaftPeerId selfId;
   private final int maxBufferSize;
 
@@ -77,10 +82,13 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   private volatile LogEntryProto lastMetadataEntry = null;
 
-  public RaftLog(RaftPeerId selfId, long commitIndex, int maxBufferSize) {
+  protected RaftLog(RaftPeerId selfId, long commitIndex, RaftProperties properties) {
     this.selfId = selfId;
     this.commitIndex = new RaftLogIndex("commitIndex", commitIndex);
-    this.maxBufferSize = maxBufferSize;
+    this.purgeIndex = new RaftLogIndex("purgeIndex", LEAST_VALID_LOG_INDEX - 1);
+    this.purgeGap = RaftServerConfigKeys.Log.purgeGap(properties);
+
+    this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
     this.state = new OpenCloseState(getName());
   }
 
@@ -245,6 +253,11 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     Optional.ofNullable(lastMetadataEntry).ifPresent(
         e -> commitIndex.updateToMax(e.getMetadataEntry().getCommitIndex(), infoIndexChange));
     state.open();
+
+    final long startIndex = getStartIndex();
+    if (startIndex > LEAST_VALID_LOG_INDEX) {
+      purgeIndex.updateIncreasingly(startIndex - 1, infoIndexChange);
+    }
   }
 
   protected void openImpl(long lastIndexInSnapshot, Consumer<LogEntryProto> consumer) throws IOException {
@@ -316,18 +329,29 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   protected abstract CompletableFuture<Long> truncateImpl(long index);
 
   /**
-   * Purge asynchronously delete the segment files which does not overlap with the given index.
-   * Open segment will not be considered for purging.
+   * Purge asynchronously the log transactions.
+   * The implementation may choose to purge an index other than the suggested index.
    *
-   * @param index - is inclusive.
+   * @param suggestedIndex the suggested index (inclusive) to be purged.
+   * @return the future of the actual purged log index.
    */
-  public final CompletableFuture<Long> purge(long index) {
-    LOG.info("{}: purge {}", getName(), index);
-    return purgeImpl(index);
+  public final CompletableFuture<Long> purge(long suggestedIndex) {
+    final long lastPurge = purgeIndex.get();
+    if (suggestedIndex - lastPurge < purgeGap) {
+      return CompletableFuture.completedFuture(lastPurge);
+    }
+    LOG.info("{}: purge {}", getName(), suggestedIndex);
+    return purgeImpl(suggestedIndex).whenComplete((purged, e) -> {
+      if (purged != null) {
+        purgeIndex.updateToMax(purged, infoIndexChange);
+      }
+      if (e != null) {
+        LOG.warn(getName() + ": Failed to purge " + suggestedIndex, e);
+      }
+    });
   }
 
   protected abstract CompletableFuture<Long> purgeImpl(long index);
-
 
   @Override
   public final CompletableFuture<Long> appendEntry(LogEntryProto entry) {

@@ -49,15 +49,20 @@ import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX
 class SegmentedRaftLogCache {
   public static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogCache.class);
 
-  static class SegmentFileInfo {
+  static final class SegmentFileInfo {
+    static SegmentFileInfo newClosedSegmentFileInfo(LogSegment ls) {
+      Objects.requireNonNull(ls, "ls == null");
+      Preconditions.assertTrue(!ls.isOpen(), ls + " is OPEN");
+      return new SegmentFileInfo(ls.getStartIndex(), ls.getEndIndex(), ls.isOpen(), 0, 0);
+    }
+
     final long startIndex; // start index of the segment
     final long endIndex; // original end index
     final boolean isOpen;
     final long targetLength; // position for truncation
     final long newEndIndex; // new end index after the truncation
 
-    SegmentFileInfo(long start, long end, boolean isOpen, long targetLength,
-        long newEndIndex) {
+    private SegmentFileInfo(long start, long end, boolean isOpen, long targetLength, long newEndIndex) {
       this.startIndex = start;
       this.endIndex = end;
       this.isOpen = isOpen;
@@ -82,6 +87,17 @@ class SegmentedRaftLogCache {
       this.toDelete = toDelete == null ? null :
           toDelete.toArray(new SegmentFileInfo[toDelete.size()]);
       this.toTruncate = toTruncate;
+    }
+
+    long maxEndIndex() {
+      long max = Long.MIN_VALUE;
+      if (toTruncate != null) {
+        max = toTruncate.endIndex;
+      }
+      for(SegmentFileInfo d : toDelete) {
+        max = Math.max(max, d.endIndex);
+      }
+      return max;
     }
 
     @Override
@@ -246,15 +262,13 @@ class SegmentedRaftLogCache {
 
         if (segmentIndex == -segments.size() - 1) {
           for (LogSegment ls : segments) {
-            list.add(new SegmentFileInfo(ls.getStartIndex(), ls.getEndIndex(), false, 0, 0));
+            list.add(SegmentFileInfo.newClosedSegmentFileInfo(ls));
           }
           segments.clear();
         } else if (segmentIndex >= 0) {
           // we start to purge the closedSegments which do not overlap with index.
           for (int i = segmentIndex - 1; i >= 0; i--) {
-            LogSegment ls = segments.get(i);
-            list.add(new SegmentFileInfo(ls.getStartIndex(), ls.getEndIndex(), false, 0, 0));
-            segments.remove(i);
+            list.add(SegmentFileInfo.newClosedSegmentFileInfo(segments.remove(i)));
           }
         } else {
           throw new IllegalStateException("Unexpected gap in segments: binarySearch(" + index + ") returns "

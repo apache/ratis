@@ -118,7 +118,7 @@ public class SegmentedRaftLog extends RaftLog {
   SegmentedRaftLog(RaftPeerId selfId, RaftServerImpl server,
       StateMachine stateMachine, Runnable submitUpdateCommitEvent,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
-    super(selfId, lastIndexInSnapshot, RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt());
+    super(selfId, lastIndexInSnapshot, properties);
     this.server = Optional.ofNullable(server);
     this.storage = storage;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
@@ -270,7 +270,7 @@ public class SegmentedRaftLog extends RaftLog {
   protected CompletableFuture<Long> purgeImpl(long index) {
     try (AutoCloseableLock writeLock = writeLock()) {
       SegmentedRaftLogCache.TruncationSegments ts = cache.purge(index);
-      LOG.debug("truncating segments:{}", ts);
+      LOG.debug("purging segments:{}", ts);
       if (ts != null) {
         Task task = fileLogWorker.purge(ts);
         return task.getFuture();

@@ -158,6 +158,15 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, QUEUE_BYTE_LIMIT_KEY, queueSize, requireMin(1));
     }
 
+    String PURGE_GAP_KEY = PREFIX + ".purge.gap";
+    int PURGE_GAP_DEFAULT = 1024;
+    static int purgeGap(RaftProperties properties) {
+      return getInt(properties::getInt, PURGE_GAP_KEY, PURGE_GAP_DEFAULT, getDefaultLog(), requireMin(1));
+    }
+    static void setPurgeGap(RaftProperties properties, int purgeGap) {
+      setInt(properties::setInt, PURGE_GAP_KEY, purgeGap, requireMin(1));
+    }
+
     String SEGMENT_SIZE_MAX_KEY = PREFIX + ".segment.size.max";
     SizeInBytes SEGMENT_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("8MB");
     static SizeInBytes segmentSizeMax(RaftProperties properties) {

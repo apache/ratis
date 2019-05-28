@@ -371,7 +371,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     int segmentSize = 200;
     long beginIndexOfOpenSegment = segmentSize * (endTerm - startTerm - 1);
     long expectedIndex = segmentSize * (endTerm - startTerm - 1);
-    purgeAndVerify(startTerm, endTerm, segmentSize, beginIndexOfOpenSegment, expectedIndex);
+    purgeAndVerify(startTerm, endTerm, segmentSize, 1, beginIndexOfOpenSegment, expectedIndex);
   }
 
   @Test
@@ -381,17 +381,31 @@ public class TestSegmentedRaftLog extends BaseTest {
     int segmentSize = 200;
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
     long expectedIndex = segmentSize * (endTerm - startTerm - 2);
-    purgeAndVerify(startTerm, endTerm, segmentSize, endIndexOfClosedSegment, expectedIndex);
+    purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
   }
 
-  private void purgeAndVerify(int startTerm, int endTerm, int segmentSize, long purgeIndex, long expectedIndex) throws IOException {
+  @Test
+  public void testPurgeOnClosedSegmentsWithPurgeGap() throws Exception {
+    int startTerm = 0;
+    int endTerm = 5;
+    int segmentSize = 200;
+    long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
+    long expectedIndex = RaftLog.LEAST_VALID_LOG_INDEX;
+    purgeAndVerify(startTerm, endTerm, segmentSize, 1000, endIndexOfClosedSegment, expectedIndex);
+  }
+
+  private void purgeAndVerify(int startTerm, int endTerm, int segmentSize, int purgeGap, long purgeIndex, long expectedIndex) throws Exception {
     List<SegmentRange> ranges = prepareRanges(startTerm, endTerm, segmentSize, 0);
     List<LogEntryProto> entries = prepareLogEntries(ranges, null);
 
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
+    final RaftProperties p = new RaftProperties();
+    RaftServerConfigKeys.Log.setPurgeGap(p, purgeGap);
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1, p)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
       entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
-      raftLog.purge(purgeIndex).join();
+      final CompletableFuture<Long> f = raftLog.purge(purgeIndex);
+      final Long purged = f.get();
+      LOG.info("purgeIndex = {}, purged = {}", purgeIndex, purged);
       Assert.assertEquals(expectedIndex, raftLog.getRaftLogCache().getStartIndex());
     }
   }

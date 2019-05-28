@@ -120,7 +120,7 @@ class SegmentedRaftLogWorker implements Runnable {
 
   SegmentedRaftLogWorker(RaftPeerId selfId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
       RaftStorage storage, RaftProperties properties) {
-    this.name = selfId + "-" + getClass().getSimpleName();
+    this.name = selfId + "-" + getClass().getSimpleName() + ":" + storage.getStorageDir();
     LOG.info("new {} for {}", name, storage);
 
     this.submitUpdateCommitEvent = submitUpdateCommitEvent;
@@ -342,7 +342,7 @@ class SegmentedRaftLogWorker implements Runnable {
 
     @Override
     long getEndIndex() {
-      return 0;
+      return segments.maxEndIndex();
     }
   }
 

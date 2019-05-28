@@ -18,7 +18,9 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -38,6 +40,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.LongStream;
 
 /**
  * This class tracks the log entries that have been committed in a quorum and
@@ -221,6 +224,13 @@ class StateMachineUpdater implements Runnable {
     final long i;
     try {
       i = stateMachine.takeSnapshot();
+
+      final long appliedIndex = getLastAppliedIndex();
+      if (i > appliedIndex) {
+        throw new StateMachineException(
+            "Bug in StateMachine: snapshot index = " + i + " > appliedIndex = " + appliedIndex
+            + "; StateMachine class=" +  stateMachine.getClass().getName() + ", stateMachine=" + stateMachine);
+      }
     } catch (IOException e) {
       LOG.error(name + ": Failed to take snapshot", e);
       return;
@@ -229,7 +239,10 @@ class StateMachineUpdater implements Runnable {
     if (i >= 0) {
       LOG.info("{}: Took a snapshot at index {}", name, i);
       snapshotIndex.updateIncreasingly(i, infoIndexChange);
-      raftLog.purge(i);
+
+      final LongStream commitIndexStream = server.getCommitInfos().stream().mapToLong(CommitInfoProto::getCommitIndex);
+      final long purgeIndex = LongStream.concat(LongStream.of(i), commitIndexStream).min().orElse(i);
+      raftLog.purge(purgeIndex);
     }
   }
 

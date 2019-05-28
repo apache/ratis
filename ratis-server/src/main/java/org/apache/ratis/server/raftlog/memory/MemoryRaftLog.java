@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server.raftlog.memory;
 
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
@@ -71,8 +72,8 @@ public class MemoryRaftLog extends RaftLog {
   private final EntryList entries = new EntryList();
   private final AtomicReference<Metadata> metadata = new AtomicReference<>(new Metadata(null, 0));
 
-  public MemoryRaftLog(RaftPeerId selfId, long commitIndex, int maxBufferSize) {
-    super(selfId, commitIndex, maxBufferSize);
+  public MemoryRaftLog(RaftPeerId selfId, long commitIndex, RaftProperties properties) {
+    super(selfId, commitIndex, properties);
   }
 
   @Override
