@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.server;
 
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.protocol.RaftPeer;
@@ -64,6 +65,6 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeabl
   void handleException(RaftPeerId serverId, Exception e, boolean reconnect);
 
   /** The server role changes from leader to a non-leader role. */
-  default void notifyNotLeader() {
+  default void notifyNotLeader(RaftGroupId groupId) {
   }
 }

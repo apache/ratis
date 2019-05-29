@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -108,12 +109,17 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
       CollectionUtils.removeExisting(so.getId(), so, map, () -> getClass().getSimpleName());
     }
 
-    void closeAllExisting() {
+    void closeAllExisting(RaftGroupId groupId) {
       // Iteration not synchronized:
       // Okay if an existing object is removed by another mean during the iteration since it must be already closed.
       // Also okay if a new object is added during the iteration since this method closes only the existing objects.
-      for(OrderedRequestStreamObserver so : map.values()) {
-        so.close(true);
+      for(Iterator<Map.Entry<Integer, OrderedRequestStreamObserver>> i = map.entrySet().iterator(); i.hasNext(); ) {
+        final OrderedRequestStreamObserver so = i.next().getValue();
+        final RaftGroupId gid = so.getGroupId();
+        if (gid == null || gid.equals(groupId)) {
+          so.close(true);
+          i.remove();
+        }
       }
     }
   }
@@ -147,9 +153,9 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
     return so;
   }
 
-  public void closeAllOrderedRequestStreamObservers() {
+  public void closeAllOrderedRequestStreamObservers(RaftGroupId groupId) {
     LOG.debug("{}: closeAllOrderedRequestStreamObservers", getId());
-    orderedStreamObservers.closeAllExisting();
+    orderedStreamObservers.closeAllExisting(groupId);
   }
 
   @Override
@@ -304,9 +310,15 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
   private class OrderedRequestStreamObserver extends RequestStreamObserver {
     private final SlidingWindow.Server<PendingOrderedRequest, RaftClientReply> slidingWindow
         = new SlidingWindow.Server<>(getName(), COMPLETED);
+    /** The {@link RaftGroupId} for this observer. */
+    private final AtomicReference<RaftGroupId> groupId = new AtomicReference<>();
 
     OrderedRequestStreamObserver(StreamObserver<RaftClientReplyProto> responseObserver) {
       super(responseObserver);
+    }
+
+    RaftGroupId getGroupId() {
+      return groupId.get();
     }
 
     void processClientRequest(PendingOrderedRequest pending) {
@@ -317,7 +329,20 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
 
     @Override
     void processClientRequest(RaftClientRequest r) {
-      slidingWindow.receivedRequest(new PendingOrderedRequest(r), this::processClientRequest);
+      final RaftGroupId requestGroupId = r.getRaftGroupId();
+      // use the group id in the first request as the group id of this observer
+      final RaftGroupId updated = groupId.updateAndGet(g -> g != null ? g: requestGroupId);
+      final PendingOrderedRequest pending = new PendingOrderedRequest(r);
+
+      if (!requestGroupId.equals(updated)) {
+        final GroupMismatchException exception = new GroupMismatchException(getId()
+            + ": The group (" + requestGroupId + ") of " + r.getClientId()
+            + " does not match the group (" + updated + ") of the " + getClass().getSimpleName());
+        responseError(exception, () -> "processClientRequest (Group mismatched) for " + r);
+        return;
+      }
+
+      slidingWindow.receivedRequest(pending, this::processClientRequest);
     }
 
     private void sendReply(PendingOrderedRequest ready) {

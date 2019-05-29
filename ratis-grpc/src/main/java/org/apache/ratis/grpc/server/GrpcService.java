@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.client.GrpcClientProtocolService;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
@@ -163,8 +164,8 @@ public class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient
   }
 
   @Override
-  public void notifyNotLeader() {
-    clientProtocolService.closeAllOrderedRequestStreamObservers();
+  public void notifyNotLeader(RaftGroupId groupId) {
+    clientProtocolService.closeAllOrderedRequestStreamObservers(groupId);
   }
 
   @Override
