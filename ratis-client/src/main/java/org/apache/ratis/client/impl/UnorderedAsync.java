@@ -75,15 +75,15 @@ public interface UnorderedAsync {
       try {
         LOG.debug("{}: attempt #{} receive~ {}", clientId, attemptCount, reply);
         final RaftException replyException = reply != null? reply.getException(): null;
-        reply = client.handleNotLeaderException(request, reply, false);
+        reply = client.handleNotLeaderException(request, reply, null);
         if (reply != null) {
           f.complete(reply);
           return;
         }
         final RetryPolicy retryPolicy = client.getRetryPolicy();
         if (!retryPolicy.shouldRetry(attemptCount, request)) {
-          f.completeExceptionally(RaftClientImpl.noMoreRetries(
-              request, attemptCount, retryPolicy, replyException != null? replyException: e));
+          f.completeExceptionally(
+              client.noMoreRetries(request, attemptCount, replyException != null? replyException: e));
           return;
         }
 
@@ -97,12 +97,12 @@ public interface UnorderedAsync {
 
           if (e instanceof IOException) {
             if (e instanceof NotLeaderException) {
-              client.handleNotLeaderException(request, (NotLeaderException) e, false);
+              client.handleNotLeaderException(request, (NotLeaderException) e, null);
             } else if (e instanceof GroupMismatchException) {
               f.completeExceptionally(e);
               return;
             } else {
-              client.handleIOException(request, (IOException) e, null, false);
+              client.handleIOException(request, (IOException) e);
             }
           } else {
             if (!client.getClientRpc().handleException(request.getServerId(), e, false)) {
