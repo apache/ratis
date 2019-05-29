@@ -37,18 +37,22 @@ import java.util.function.LongFunction;
 public interface SlidingWindow {
   Logger LOG = LoggerFactory.getLogger(SlidingWindow.class);
 
+  static String getName(Class<?> clazz, Object name) {
+    return SlidingWindow.class.getSimpleName() +  "$" + clazz.getSimpleName() + ":" + name;
+  }
+
   interface Request<REPLY> {
     long getSeqNum();
 
     void setReply(REPLY reply);
 
     boolean hasReply();
+
+    void fail(Throwable e);
   }
 
   interface ClientSideRequest<REPLY> extends Request<REPLY> {
     void setFirstRequest();
-
-    void fail(Throwable e);
   }
 
   interface ServerSideRequest<REPLY> extends Request<REPLY> {
@@ -65,7 +69,7 @@ public interface SlidingWindow {
     RequestMap(Object name) {
       this.name = name;
       if (LOG_REPEATEDLY && LOG.isDebugEnabled()) {
-        JavaUtils.runRepeatedly(() -> log(), 5, 10, TimeUnit.SECONDS);
+        JavaUtils.runRepeatedly(this::log, 5, 10, TimeUnit.SECONDS);
       }
     }
 
@@ -73,8 +77,12 @@ public interface SlidingWindow {
       return name;
     }
 
-    boolean isEmpty() {
+    synchronized boolean isEmpty() {
       return requests.isEmpty();
+    }
+
+    private synchronized REQUEST get(long seqNum) {
+      return requests.get(seqNum);
     }
 
     /**
@@ -86,7 +94,7 @@ public interface SlidingWindow {
      * (2) it does not has reply.
      */
     REQUEST getNonRepliedRequest(long seqNum, String op) {
-      final REQUEST request = requests.get(seqNum);
+      final REQUEST request = get(seqNum);
       if (request == null) {
         LOG.debug("{}: {}, seq={} not found in {}", getName(), op, seqNum, this);
         return null;
@@ -98,11 +106,11 @@ public interface SlidingWindow {
       return request;
     }
 
-    long firstSeqNum() {
+    synchronized long firstSeqNum() {
       return requests.firstKey();
     }
 
-    long lastSeqNum() {
+    synchronized long lastSeqNum() {
       return requests.lastKey();
     }
 
@@ -112,7 +120,7 @@ public interface SlidingWindow {
       return requests.values().iterator();
     }
 
-    void putNewRequest(REQUEST request) {
+    synchronized void putNewRequest(REQUEST request) {
       final long seqNum = request.getSeqNum();
       CollectionUtils.putNew(seqNum, request, requests, () -> getName() + ":requests");
     }
@@ -123,8 +131,8 @@ public interface SlidingWindow {
      *
      * @return true iff this method does set the reply for the request.
      */
-    boolean setReply(long seqNum, REPLY reply, String op) {
-      final REQUEST request = getNonRepliedRequest(seqNum, op);
+    boolean setReply(long seqNum, REPLY reply) {
+      final REQUEST request = getNonRepliedRequest(seqNum, "setReply");
       if (request == null) {
         LOG.debug("{}: DUPLICATED reply {} for seq={} in {}", getName(), reply, seqNum, this);
         return false;
@@ -133,6 +141,24 @@ public interface SlidingWindow {
       LOG.debug("{}: set reply {} for seq={} in {}", getName(), reply, seqNum, this);
       request.setReply(reply);
       return true;
+    }
+
+    synchronized void endOfRequests(long nextToProcess, REQUEST end, Consumer<REQUEST> replyMethod) {
+      final REQUEST nextToProcessRequest = requests.get(nextToProcess);
+      Preconditions.assertNull(nextToProcessRequest,
+          () -> "nextToProcessRequest = " + nextToProcessRequest + " != null, nextToProcess = " + nextToProcess);
+
+      final SortedMap<Long, REQUEST> tail = requests.tailMap(nextToProcess);
+      for (REQUEST r : tail.values()) {
+        final AlreadyClosedException e = new AlreadyClosedException(
+            getName() + " is closing: seq = " + r.getSeqNum() + " > nextToProcess = " + nextToProcess
+                + " will NEVER be processed; request = " + r);
+        r.fail(e);
+        replyMethod.accept(r);
+      }
+      tail.clear();
+
+      putNewRequest(end);
     }
 
     synchronized void clear() {
@@ -148,7 +174,7 @@ public interface SlidingWindow {
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
       return getName() + ": requests" + asString(requests);
     }
 
@@ -184,7 +210,7 @@ public interface SlidingWindow {
     private Throwable exception;
 
     public Client(Object name) {
-      this.requests = new RequestMap<REQUEST, REPLY>(name) {
+      this.requests = new RequestMap<REQUEST, REPLY>(getName(getClass(), name)) {
         @Override
         synchronized void log() {
           LOG.debug(toString());
@@ -284,7 +310,7 @@ public interface SlidingWindow {
      */
     public synchronized void receiveReply(
         long seqNum, REPLY reply, Consumer<REQUEST> sendMethod) {
-      if (!requests.setReply(seqNum, reply, "receiveReply")) {
+      if (!requests.setReply(seqNum, reply)) {
         return; // request already replied
       }
       if (seqNum == firstSeqNum) {
@@ -346,8 +372,7 @@ public interface SlidingWindow {
     }
 
     private void alreadyClosed(REQUEST request, Throwable e) {
-      request.fail(new AlreadyClosedException(SlidingWindow.class.getSimpleName() + "$" + getClass().getSimpleName()
-          + " " + requests.getName() + " is closed.", e));
+      request.fail(new AlreadyClosedException(requests.getName() + " is closed.", e));
     }
   }
 
@@ -368,7 +393,7 @@ public interface SlidingWindow {
     private long nextToProcess = -1;
 
     public Server(Object name, REQUEST end) {
-      this.requests = new RequestMap<>(name);
+      this.requests = new RequestMap<>(getName(getClass(), name));
       this.end = end;
       Preconditions.assertTrue(end.getSeqNum() == Long.MAX_VALUE);
     }
@@ -404,20 +429,16 @@ public interface SlidingWindow {
 
     /**
      * Receives a reply for the given seqNum (may out-of-order) from the processor.
-     * It may trigger sending replies to client or processing more requests.
+     * It may trigger sending replies to client.
      */
-    public synchronized void receiveReply(
-        long seqNum, REPLY reply, Consumer<REQUEST> replyMethod, Consumer<REQUEST> processingMethod) {
-      if (!requests.setReply(seqNum, reply, "receiveReply")) {
+    public synchronized void receiveReply(long seqNum, REPLY reply, Consumer<REQUEST> replyMethod) {
+      if (!requests.setReply(seqNum, reply)) {
         return; // request already replied
       }
       sendRepliesFromHead(replyMethod);
-      processRequestsFromHead(processingMethod);
     }
 
-    private void sendRepliesFromHead(
-        Consumer<REQUEST> replyMethod
-    ) {
+    private void sendRepliesFromHead(Consumer<REQUEST> replyMethod) {
       for(final Iterator<REQUEST> i = requests.iterator(); i.hasNext(); i.remove()) {
         final REQUEST r = i.next();
         if (!r.hasReply()) {
@@ -434,14 +455,14 @@ public interface SlidingWindow {
      * Signal the end of requests.
      * @return true if no more outstanding requests.
      */
-    public synchronized boolean endOfRequests() {
+    public synchronized boolean endOfRequests(Consumer<REQUEST> replyMethod) {
       if (requests.isEmpty()) {
         return true;
-      } else {
-        LOG.debug("{}: put end-of-request in {}", requests.getName(), this);
-        requests.putNewRequest(end);
-        return false;
       }
+
+      LOG.debug("{}: put end-of-request in {}", requests.getName(), this);
+      requests.endOfRequests(nextToProcess, end, replyMethod);
+      return false;
     }
 
     @Override

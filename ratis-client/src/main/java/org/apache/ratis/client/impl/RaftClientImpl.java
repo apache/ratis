@@ -206,7 +206,7 @@ final class RaftClientImpl implements RaftClient {
         slidingWindowEntry -> newRaftClientRequest(server, callId, message, type, slidingWindowEntry));
     return getSlidingWindow(server).submitNewRequest(constructor, this::sendRequestWithRetryAsync
     ).getReplyFuture(
-    ).thenApply(reply -> handleStateMachineException(reply, CompletionException::new)
+    ).thenApply(reply -> handleRaftException(reply, CompletionException::new)
     ).whenComplete((r, e) -> asyncRequestSemaphore.release());
   }
 
@@ -415,16 +415,16 @@ final class RaftClientImpl implements RaftClient {
     }
     LOG.debug("{}: receive {}", clientId, reply);
     reply = handleNotLeaderException(request, reply, false);
-    reply = handleStateMachineException(reply, Function.identity());
+    reply = handleRaftException(reply, Function.identity());
     return reply;
   }
 
-  static <E extends Throwable> RaftClientReply handleStateMachineException(
-      RaftClientReply reply, Function<StateMachineException, E> converter) throws E {
+  static <E extends Throwable> RaftClientReply handleRaftException(
+      RaftClientReply reply, Function<RaftException, E> converter) throws E {
     if (reply != null) {
-      final StateMachineException sme = reply.getStateMachineException();
-      if (sme != null) {
-        throw converter.apply(sme);
+      final RaftException e = reply.getException();
+      if (e != null) {
+        throw converter.apply(e);
       }
     }
     return reply;

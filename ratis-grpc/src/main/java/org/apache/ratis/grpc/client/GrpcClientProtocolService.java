@@ -40,6 +40,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -48,24 +49,31 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
 
   private static class PendingOrderedRequest implements SlidingWindow.ServerSideRequest<RaftClientReply> {
     private final RaftClientRequest request;
-    private volatile RaftClientReply reply;
+    private final AtomicReference<RaftClientReply> reply = new AtomicReference<>();
 
     PendingOrderedRequest(RaftClientRequest request) {
       this.request = request;
     }
 
     @Override
-    public boolean hasReply() {
-      return reply != null || this == COMPLETED;
+    public void fail(Throwable t) {
+      Preconditions.assertTrue(t instanceof RaftException, () -> "Requires RaftException but " + t);
+      setReply(new RaftClientReply(request, (RaftException) t, null));
     }
 
     @Override
-    public void setReply(RaftClientReply reply) {
-      this.reply = reply;
+    public boolean hasReply() {
+      return getReply() != null || this == COMPLETED;
+    }
+
+    @Override
+    public void setReply(RaftClientReply r) {
+      final boolean set = reply.compareAndSet(null, r);
+      Preconditions.assertTrue(set, () -> "Reply is already set: request=" + request + ", reply=" + reply);
     }
 
     RaftClientReply getReply() {
-      return reply;
+      return reply.get();
     }
 
     RaftClientRequest getRequest() {
@@ -105,7 +113,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
       // Okay if an existing object is removed by another mean during the iteration since it must be already closed.
       // Also okay if a new object is added during the iteration since this method closes only the existing objects.
       for(OrderedRequestStreamObserver so : map.values()) {
-        so.close();
+        so.close(true);
       }
     }
   }
@@ -304,7 +312,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
     void processClientRequest(PendingOrderedRequest pending) {
       final long seq = pending.getSeqNum();
       processClientRequest(pending.getRequest(),
-          reply -> slidingWindow.receiveReply(seq, reply, this::sendReply, this::processClientRequest));
+          reply -> slidingWindow.receiveReply(seq, reply, this::sendReply));
     }
 
     @Override
@@ -315,7 +323,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
     private void sendReply(PendingOrderedRequest ready) {
       Preconditions.assertTrue(ready.hasReply());
       if (ready == COMPLETED) {
-        close();
+        close(true);
       } else {
         LOG.debug("{}: sendReply seq={}, {}", getName(), ready.getSeqNum(), ready.getReply());
         responseNext(ClientProtoUtils.toRaftClientReplyProto(ready.getReply()));
@@ -326,20 +334,22 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
     public void onError(Throwable t) {
       // for now we just log a msg
       GrpcUtil.warn(LOG, () -> getName() + ": onError", t);
-      slidingWindow.close();
+      close(false);
     }
 
     @Override
     public void onCompleted() {
-      if (slidingWindow.endOfRequests()) {
-        close();
+      if (slidingWindow.endOfRequests(this::sendReply)) {
+        close(true);
       }
     }
 
-    private void close() {
+    private void close(boolean complete) {
       if (setClose()) {
         LOG.debug("{}: close", getName());
-        responseCompleted();
+        if (complete) {
+          responseCompleted();
+        }
         slidingWindow.close();
         orderedStreamObservers.removeExisting(this);
       }
@@ -348,7 +358,7 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
     @Override
     boolean responseError(Throwable t, Supplier<String> message) {
       if (super.responseError(t, message)) {
-        slidingWindow.close();
+        close(false);
         return true;
       }
       return false;

@@ -57,7 +57,7 @@ public interface UnorderedAsync {
         () -> client.newRaftClientRequest(null, callId, null, type, null));
     sendRequestWithRetry(pending, client);
     return pending.getReplyFuture()
-        .thenApply(reply -> RaftClientImpl.handleStateMachineException(reply, CompletionException::new));
+        .thenApply(reply -> RaftClientImpl.handleRaftException(reply, CompletionException::new));
   }
 
   static void sendRequestWithRetry(PendingClientRequest pending, RaftClientImpl client) {

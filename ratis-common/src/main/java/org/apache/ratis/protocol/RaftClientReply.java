@@ -67,6 +67,7 @@ public class RaftClientReply extends RaftClientMessage {
       Preconditions.assertTrue(!success,
           () -> "Inconsistent parameters: success && exception != null: " + this);
       Preconditions.assertTrue(ReflectionUtils.isInstance(exception,
+          AlreadyClosedException.class,
           NotLeaderException.class, NotReplicatedException.class, StateMachineException.class),
           () -> "Unexpected exception class: " + this);
     }
@@ -128,6 +129,11 @@ public class RaftClientReply extends RaftClientMessage {
 
   public Message getMessage() {
     return message;
+  }
+
+  /** If this reply has {@link AlreadyClosedException}, return it; otherwise return null. */
+  public AlreadyClosedException getAlreadyClosedException() {
+    return JavaUtils.cast(exception, AlreadyClosedException.class);
   }
 
   /** If this reply has {@link NotLeaderException}, return it; otherwise return null. */
