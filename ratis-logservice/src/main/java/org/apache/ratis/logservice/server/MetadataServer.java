@@ -20,6 +20,8 @@ package org.apache.ratis.logservice.server;
 
 import com.beust.jcommander.JCommander;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.logservice.api.LogServiceConfiguration;
+import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
@@ -68,7 +70,14 @@ public class MetadataServer extends BaseServer {
         this.lifeCycle = new LifeCycle(this.id);
         RaftProperties properties = new RaftProperties();
         if(opts.getWorkingDir() != null) {
-            RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(new File(opts.getWorkingDir())));
+            RaftServerConfigKeys.setStorageDirs(properties,
+              Collections.singletonList(new File(opts.getWorkingDir())));
+        } else {
+          String path = getConfig().get(Constants.META_SERVER_WORKDIR_KEY);
+          if (path != null) {
+            RaftServerConfigKeys.setStorageDirs(properties,
+              Collections.singletonList(new File(path)));
+          }
         }
 
         // Set properties common to all log service state machines
@@ -103,6 +112,9 @@ public class MetadataServer extends BaseServer {
                 .addObject(opts)
                 .build()
                 .parse(args);
+        // Add config from log service configuration file
+        LogServiceConfiguration config = LogServiceConfiguration.create();
+        opts = config.addMetaServerOpts(opts);
 
         try (MetadataServer master = new MetadataServer(opts)) {
           master.start();

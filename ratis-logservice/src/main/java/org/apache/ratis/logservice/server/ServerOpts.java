@@ -38,7 +38,7 @@ public class ServerOpts {
   }
 
   @Parameter(names = {"-h", "--hostname"}, description = "Hostname")
-  private String host = "localhost";
+  private String host = null;
 
   @Parameter(names = {"-p", "--port"}, description = "Port number")
   private int port = -1;
@@ -47,7 +47,7 @@ public class ServerOpts {
   private String workingDir = null;
 
   @Parameter(names = {"-q", "--metaQuorum"}, description = "Metadata Service Quorum")
-  private String metaQuorum;
+  private String metaQuorum = null;
 
   @Parameter(names = {"--metadataServerGroupId"}, description = "UUID corresponding to the RAFT metadata servers group",
       converter = UUIDConverter.class)
@@ -65,12 +65,20 @@ public class ServerOpts {
     this.host = host;
   }
 
+  public boolean isHostSet() {
+    return this.host != null;
+  }
+
   public int getPort() {
     return port;
   }
 
   public void setPort(int port) {
     this.port = port;
+  }
+
+  public boolean isPortSet() {
+    return this.port != -1;
   }
 
   public String getWorkingDir() {
@@ -81,12 +89,20 @@ public class ServerOpts {
     this.workingDir = workingDir;
   }
 
+  public boolean isWorkingDirSet() {
+    return this.workingDir != null;
+  }
+
   public String getMetaQuorum() {
     return metaQuorum;
   }
 
   public void setMetaQuorum(String metaQuorum) {
     this.metaQuorum = metaQuorum;
+  }
+
+  public boolean isMetaQuorumSet() {
+    return this.metaQuorum != null;
   }
 
   public UUID getMetaGroupId() {
@@ -97,12 +113,21 @@ public class ServerOpts {
     this.metaGroupId = metaGroupId;
   }
 
+  public boolean isMetaServerGroupIdSet() {
+    return this.metaGroupId != null && !this.metaGroupId.equals(Constants.META_GROUP_UUID);
+  }
+
   public UUID getLogServerGroupId() {
     return logServerGroupId;
   }
 
   public void setLogServerGroupId(UUID logServerGroupId) {
     this.logServerGroupId = logServerGroupId;
+  }
+
+  public boolean isLogServerGroupIdSet() {
+    return this.logServerGroupId != null &&
+        !this.logServerGroupId.equals(Constants.SERVERS_GROUP_UUID);
   }
 
   @Override

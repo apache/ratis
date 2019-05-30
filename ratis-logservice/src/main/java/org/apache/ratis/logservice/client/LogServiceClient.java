@@ -57,7 +57,7 @@ public class LogServiceClient implements AutoCloseable {
      * @param metaQuorum
      */
     public LogServiceClient(String metaQuorum) {
-        this(metaQuorum, new LogServiceConfiguration());
+        this(metaQuorum, LogServiceConfiguration.create());
     }
 
     /**

@@ -19,17 +19,17 @@ package org.apache.ratis.logservice.impl;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogWriter;
+import org.apache.ratis.logservice.proto.LogServiceProtos.AppendLogEntryReplyProto;
+import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceException;
+import org.apache.ratis.logservice.proto.LogServiceProtos.SyncLogReplyProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
-import org.apache.ratis.logservice.proto.LogServiceProtos.*;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.slf4j.Logger;

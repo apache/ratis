@@ -199,6 +199,11 @@ public class RaftProperties {
     addResourceObject(new Resource(name));
   }
 
+
+  public void addResource(URL path) {
+    addResourceObject(new Resource(path));
+  }
+
   /**
    * Add a configuration resource.
    *

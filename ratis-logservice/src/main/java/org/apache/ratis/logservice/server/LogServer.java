@@ -28,6 +28,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.logservice.api.LogServiceConfiguration;
+import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
 import org.apache.ratis.protocol.ClientId;
@@ -69,12 +71,17 @@ public class LogServer extends BaseServer {
       super.setRaftProperties(properties);
 
       // Increase the client timeout
-      RaftClientConfigKeys.Rpc.setRequestTimeout(properties, TimeDuration.valueOf(100, TimeUnit.SECONDS));
+      long rpcTimeout = getConfig().getLong(Constants.LOG_SERVICE_RPC_TIMEOUT_KEY,
+        Constants.DEFAULT_RPC_TIMEOUT);
+      RaftClientConfigKeys.Rpc.setRequestTimeout(properties,
+        TimeDuration.valueOf(rpcTimeout, TimeUnit.MILLISECONDS));
 
       // Increase the segment size to avoid rolling so quickly
-      SizeInBytes segmentSize = SizeInBytes.valueOf("32MB");
-      RaftServerConfigKeys.Log.setSegmentSizeMax(properties, segmentSize);
-      RaftServerConfigKeys.Log.setPreallocatedSize(properties, segmentSize);
+      long segmentSize = getConfig().getLong(Constants.RATIS_RAFT_SEGMENT_SIZE_KEY,
+        Constants.DEFAULT_RATIS_RAFT_SEGMENT_SIZE);
+      SizeInBytes segmentSizeBytes = SizeInBytes.valueOf(segmentSize);
+      RaftServerConfigKeys.Log.setSegmentSizeMax(properties, segmentSizeBytes);
+      RaftServerConfigKeys.Log.setPreallocatedSize(properties, segmentSizeBytes);
 
       // TODO this seems to cause errors, not sure if pushing Ratis too hard?
       // SizeInBytes writeBufferSize = SizeInBytes.valueOf("128KB");
@@ -133,6 +140,9 @@ public class LogServer extends BaseServer {
                 .addObject(opts)
                 .build()
                 .parse(args);
+        // Add config from log service configuration file
+        LogServiceConfiguration config = LogServiceConfiguration.create();
+        opts = config.addLogServerOpts(opts);
 
         try (LogServer worker = new LogServer(opts)) {
           worker.start();

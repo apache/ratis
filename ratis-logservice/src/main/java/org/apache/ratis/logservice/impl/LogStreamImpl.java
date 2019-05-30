@@ -74,7 +74,7 @@ public class LogStreamImpl implements LogStream {
   public LogStreamImpl(LogName name, RaftClient raftClient) {
     this.raftClient = raftClient;
     this.name = name;
-    this.config = new LogServiceConfiguration();
+    this.config = LogServiceConfiguration.create();
     init();
   }
 

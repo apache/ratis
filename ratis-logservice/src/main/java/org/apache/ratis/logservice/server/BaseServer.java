@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.logservice.api.LogServiceConfiguration;
+import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -36,15 +38,20 @@ import org.apache.ratis.util.TimeDuration;
 public abstract class BaseServer implements Closeable {
 
   private final ServerOpts opts;
+  private final LogServiceConfiguration config;
 
   public BaseServer(ServerOpts opts) {
     this.opts = Objects.requireNonNull(opts);
+    this.config = LogServiceConfiguration.create();
   }
 
   public ServerOpts getServerOpts() {
     return opts;
   }
 
+  public LogServiceConfiguration getConfig() {
+    return config;
+  }
   /**
    * Sets common Ratis server properties for both the log and metadata state machines.
    */
@@ -54,12 +61,26 @@ public abstract class BaseServer implements Closeable {
     NettyConfigKeys.Server.setPort(properties, opts.getPort());
 
     // Ozone sets the leader election timeout (min) to 1second.
-    TimeDuration leaderElectionTimeoutMin = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+    long leaderElectionTimeoutMinVal = getLeaderElectionTimeoutMin();
+    TimeDuration leaderElectionTimeoutMin = TimeDuration.valueOf(leaderElectionTimeoutMinVal,
+      TimeUnit.MILLISECONDS);
     RaftServerConfigKeys.Rpc.setTimeoutMin(properties, leaderElectionTimeoutMin);
+    long leaderElectionTimeoutMaxVal = getLeaderElectionTimeoutMax();
+
     TimeDuration leaderElectionMaxTimeout = TimeDuration.valueOf(
-        leaderElectionTimeoutMin.toLong(TimeUnit.MILLISECONDS) + 200,
+      leaderElectionTimeoutMaxVal,
         TimeUnit.MILLISECONDS);
     RaftServerConfigKeys.Rpc.setTimeoutMax(properties, leaderElectionMaxTimeout);
+  }
+
+  private long getLeaderElectionTimeoutMin() {
+    return config.getLong(Constants.LOG_SERVICE_LEADER_ELECTION_TIMEOUT_MIN_KEY,
+        Constants.DEFAULT_LOG_SERVICE_LEADER_ELECTION_TIMEOUT_MIN);
+  }
+
+  private long getLeaderElectionTimeoutMax() {
+    return config.getLong(Constants.LOG_SERVICE_LEADER_ELECTION_TIMEOUT_MAX_KEY,
+        Constants.DEFAULT_LOG_SERVICE_LEADER_ELECTION_TIMEOUT_MAX);
   }
 
   /**
@@ -90,14 +111,14 @@ public abstract class BaseServer implements Closeable {
     public abstract T build();
 
     public Builder<T> validate() {
-      if (opts.getPort() == -1) {
+      if (!opts.isPortSet()) {
         InetSocketAddress addr = NetUtils.createLocalServerAddress();
         opts.setPort(addr.getPort());
       }
-      if (opts.getHost() == null) {
+      if (!opts.isHostSet()) {
         opts.setHost(LogServiceUtils.getHostName());
       }
-      if (opts.getWorkingDir() == null) {
+      if (!opts.isWorkingDirSet()) {
         throw new IllegalArgumentException("Working directory was not specified");
       }
       return this;

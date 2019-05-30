@@ -17,72 +17,180 @@
  */
 package org.apache.ratis.logservice.api;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
+import java.net.URL;
+import java.util.UUID;
+
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.logservice.common.Constants;
+import org.apache.ratis.logservice.server.MetadataServer;
+import org.apache.ratis.logservice.server.ServerOpts;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
  * An encapsulation of configuration for a LogService.
+ * The base configuration is defined in logservice.xml file,
+ * which is expected to reside in a class path.
  */
-public class LogServiceConfiguration {
+public final class LogServiceConfiguration extends RaftProperties {
+  private static final Logger LOG = LoggerFactory.getLogger(MetadataServer.class);
+  public static final String RESOURCE_NAME = "logservice.xml";
 
-  private ConcurrentHashMap<String, String> configMap =
-      new ConcurrentHashMap<String, String>();
 
   /**
-   * Ctor
+   * Creates default log service configuration object
+   * @return configuration object
    */
-  public LogServiceConfiguration() {
+  public static LogServiceConfiguration create() {
+    return new LogServiceConfiguration();
   }
 
   /**
-   * Fetches the value for the given key from the configuration. If there is no entry for
-   * the given key, {@code null} is returned.
-   *
-   * @param key The configuration key
+   * Creates log service configuration object
+   * with a custom configuration file (found on classpath)
+   * @param resourceName name of configuration file
+   * @return configuration object
    */
-  public String get(String key) {
-    return configMap.get(key);
+  public static LogServiceConfiguration create(String resourceName) {
+    return new LogServiceConfiguration(resourceName);
   }
 
   /**
-   * Sets the given key and value into this configuration. The configuration key may
-   * not be null. A null value removes the key from the configuration.
-   *
-   * @param key Configuration key, must be non-null
-   * @param value Configuration value
+   * Creates log service configuration object
+   * with a custom configuration URL
+   * @param resourcePath path of configuration file
+   * @return configuration object
    */
-  public void set(String key, String value) {
-    configMap.put(key,  value);
+  public static LogServiceConfiguration create(URL resourcePath) {
+    return new LogServiceConfiguration(resourcePath);
+  }
+
+  private LogServiceConfiguration() {
+    super();
+    addResource(RESOURCE_NAME);
+  }
+
+  private LogServiceConfiguration(String resourceName) {
+    super();
+    addResource(resourceName);
+  }
+
+  private LogServiceConfiguration(URL resourcePath) {
+    super();
+    addResource(resourcePath);
   }
 
   /**
-   * Removes any entry with the given key from the configuration. If there is no entry
-   * for the given key, this method returns without error. The provided key must be
-   * non-null.
-   *
-   * @param key The configuration key, must be non-null
-   * @return value
+   * Adds configuration options from logservice.xml
+   * for LogServer
+   * @param opts server options
+   * @return server options
    */
-  public String remove(String key) {
-    return configMap.remove(key);
-  }
-
-  /**
-   * Sets the collection of key-value pairs into the configuration. This is functionally
-   * equivalent to calling {@link #set(String, String)} numerous time.
-   */
-  public void setMany(Iterable<Entry<String,String>> entries) {
-    for (Entry<String, String> entry: entries ) {
-      configMap.put(entry.getKey(), entry.getValue());
+  public ServerOpts addLogServerOpts(ServerOpts opts) {
+    if (!opts.isHostSet()) {
+      String val = get(Constants.LOG_SERVER_HOSTNAME_KEY, "localhost");
+      if (val != null) {
+        opts.setHost(val);
+      }
     }
+
+    if (!opts.isPortSet()) {
+      String val = get(Constants.LOG_SERVER_PORT_KEY);
+      if (val != null) {
+        try {
+          opts.setPort(Integer.parseInt(val));
+        } catch (Exception e) {
+          LOG.warn("Config value {} for {} is invaild", val, Constants.LOG_SERVER_PORT_KEY);
+        }
+      }
+    }
+
+    if (!opts.isWorkingDirSet()) {
+      String val = get(Constants.LOG_SERVER_WORKDIR_KEY);
+      if (val != null) {
+        opts.setWorkingDir(val);
+      }
+    }
+
+    if (!opts.isMetaQuorumSet()) {
+      String val = get(Constants.LOG_SERVICE_METAQUORUM_KEY);
+      if (val != null) {
+        opts.setMetaQuorum(val);
+      }
+    }
+
+    if (!opts.isLogServerGroupIdSet()) {
+      String val = get(Constants.LOG_SERVICE_LOG_SERVER_GROUPID_KEY);
+      if (val != null) {
+        try {
+          opts.setLogServerGroupId(UUID.fromString(val));
+        } catch (IllegalArgumentException e) {
+          LOG.warn("Config value {} for {} is invaild", val,
+            Constants.LOG_SERVICE_LOG_SERVER_GROUPID_KEY);
+        }
+      } else {
+        opts.setLogServerGroupId(Constants.SERVERS_GROUP_UUID);
+      }
+    }
+    return opts;
   }
 
+
   /**
-   * Returns an immutable view over the configuration as a {@code Map}.
+   * Adds configuration options from logservice.xml
+   * for MetadataServer
+   * @param opts server options
+   * @return server options
    */
-  public Map<String,String> asMap() {
-    return Collections.unmodifiableMap(configMap);
+  public ServerOpts addMetaServerOpts (ServerOpts opts) {
+    if (!opts.isHostSet()) {
+      String val = get(Constants.META_SERVER_HOSTNAME_KEY);
+      if (val != null) {
+        opts.setHost(val);
+      }
+    }
+
+    if (!opts.isPortSet()) {
+      String val = get(Constants.META_SERVER_PORT_KEY);
+      if (val != null) {
+        try {
+          opts.setPort(Integer.parseInt(val));
+        } catch (Exception e) {
+          LOG.warn("Config value {} for {} is invaild", val,
+            Constants.META_SERVER_PORT_KEY);
+        }
+      }
+    }
+
+    if (!opts.isWorkingDirSet()) {
+      String val = get(Constants.META_SERVER_WORKDIR_KEY);
+      if (val != null) {
+        opts.setWorkingDir(val);
+      }
+    }
+
+    if (!opts.isMetaQuorumSet()) {
+      String val = get(Constants.LOG_SERVICE_METAQUORUM_KEY);
+      if (val != null) {
+        opts.setMetaQuorum(val);
+      }
+    }
+
+    if (!opts.isMetaServerGroupIdSet()) {
+      String val = get(Constants.LOG_SERVICE_META_SERVER_GROUPID_KEY);
+      if (val != null) {
+        try {
+          opts.setMetaGroupId(UUID.fromString(val));
+        } catch (IllegalArgumentException e) {
+          LOG.warn("Config value {} for {} is invaild", val,
+            Constants.LOG_SERVICE_META_SERVER_GROUPID_KEY);
+        }
+      } else {
+        opts.setMetaGroupId(Constants.META_GROUP_UUID);
+      }
+    }
+    return opts;
   }
+
 }

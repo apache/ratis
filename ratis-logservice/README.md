@@ -92,3 +92,8 @@ $ ./bin/load-test -q master1.logservice.ratis.org:9999,master2.logservice.ratis.
 `client-env.sh` launches a Docker container that can communicate with the LogService cluster running from
 `docker-compose`. You can do this by hand, but take care that the correct network is provided when launching your
 container.
+
+## Service configuration
+
+The log service loads configuration values from a file named logservice.xml. The service looks up this file in an application class path.
+All service configuration options are described in logservice-example.xml file.
