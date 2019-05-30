@@ -359,7 +359,7 @@ final class RaftClientImpl implements RaftClient {
       newLeader = CollectionUtils.random(oldLeader,
           CollectionUtils.as(peers, RaftPeer::getId));
     }
-    LOG.debug("{}: oldLeader={},  curLeader={}, newLeader{}", clientId, oldLeader, curLeader, newLeader);
+    LOG.debug("{}: oldLeader={},  curLeader={}, newLeader={}", clientId, oldLeader, curLeader, newLeader);
 
     final boolean changeLeader = newLeader != null && stillLeader;
     if (changeLeader) {

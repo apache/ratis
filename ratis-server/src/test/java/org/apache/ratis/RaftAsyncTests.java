@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -402,24 +403,23 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
     final RaftServerImpl leader = waitForLeader(cluster);
     // Order peers before leaders to try
-    List<RaftPeerId> peers = cluster.getPeers().stream().filter(
-        p -> !p.getId().equals(leader.getId()))
+    List<RaftPeerId> peers = cluster.getPeers().stream()
+        .filter(p -> !p.getId().equals(leader.getId()))
         .map(RaftPeer::getId).collect(Collectors.toList());
 
     Assert.assertNotNull(peers);
-    List<RaftPeerId> peersToTest = new ArrayList<>(peers);
-    peersToTest.add(leader.getId());
-
+    Assert.assertEquals(2, peers.size());
+    Iterator<RaftPeerId> i = peers.listIterator();
     RetryPolicy unlimitedRetry =
         RetryPolicies.retryUpToMaximumCountWithFixedSleep(10, TimeDuration.valueOf(60, TimeUnit.SECONDS));
 
-    for (RaftPeerId peerId : peersToTest) {
-      try (final RaftClient client = cluster.createClient(peerId, cluster.getGroup(), unlimitedRetry)) {
-        client.sendAsync(new SimpleMessage("abc")).get();
-      }
-
+    RaftPeerId first = i.next();
+    RaftPeerId second = i.next();
+    try (final RaftClient client = cluster.createClient(first, cluster.getGroup(), unlimitedRetry)) {
+      client.sendAsync(new SimpleMessage("abc")).get();
+    } finally {
+      cluster.shutdown();
     }
-    cluster.shutdown();
   }
 
 }
