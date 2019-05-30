@@ -51,6 +51,10 @@ public interface RetryPolicies {
     return new RetryLimited(maxAttempts, sleepTime);
   }
 
+  static RetryLimited retryUpToMaximumCountWithNoSleep(int maxAttempts) {
+    return new RetryLimited(maxAttempts, RetryPolicy.ZERO_MILLIS);
+  }
+
   class Constants {
     private static final RetryForeverNoSleep RETRY_FOREVER_NO_SLEEP = new RetryForeverNoSleep();
     private static final NoRetry NO_RETRY = new NoRetry();
@@ -131,7 +135,7 @@ public interface RetryPolicies {
 
     @Override
     public TimeDuration getSleepTime(int attemptCount, RaftClientRequest request) {
-      return shouldRetry(attemptCount, request)? sleepTime: ZERO_MILLIS;
+      return shouldRetry(attemptCount, request) ? sleepTime: ZERO_MILLIS;
     }
 
     public int getMaxAttempts() {
