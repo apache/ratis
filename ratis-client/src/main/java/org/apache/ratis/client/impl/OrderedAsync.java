@@ -17,6 +17,16 @@
  */
 package org.apache.ratis.client.impl;
 
+import java.io.IOException;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Semaphore;
+import java.util.function.Function;
+import java.util.function.LongFunction;
+
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.conf.RaftProperties;
@@ -36,19 +46,8 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SlidingWindow;
-import org.apache.ratis.util.function.FunctionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Semaphore;
-import java.util.function.Function;
-import java.util.function.LongFunction;
 
 /** Send ordered asynchronous requests to a raft service. */
 class OrderedAsync {
@@ -173,7 +172,8 @@ class OrderedAsync {
     }).exceptionally(e -> {
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof NotLeaderException) {
-        scheduleWithTimeout(pending, request, RetryPolicies.retryUpToMaximumCountWithNoSleep(pending.getAttemptCount()));
+        scheduleWithTimeout(pending, request,
+            RetryPolicies.retryUpToMaximumCountWithNoSleep(pending.getAttemptCount()));
         return null;
       }
       f.completeExceptionally(e);
