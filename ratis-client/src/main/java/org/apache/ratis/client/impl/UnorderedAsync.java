@@ -99,7 +99,8 @@ public interface UnorderedAsync {
           if (e instanceof IOException) {
             if (e instanceof NotLeaderException) {
               client.handleNotLeaderException(request, (NotLeaderException) e, null);
-              retryPolicy = RetryPolicies.retryUpToMaximumCountWithNoSleep(pending.getAttemptCount());
+              retryPolicy = ((NotLeaderException) e).getSuggestedLeader() != null ?
+                  RetryPolicies.retryUpToMaximumCountWithNoSleep(pending.getAttemptCount()) : retryPolicy;
             } else if (e instanceof GroupMismatchException) {
               f.completeExceptionally(e);
               return;

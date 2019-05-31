@@ -172,8 +172,9 @@ class OrderedAsync {
     }).exceptionally(e -> {
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof NotLeaderException) {
-        scheduleWithTimeout(pending, request,
-            RetryPolicies.retryUpToMaximumCountWithNoSleep(pending.getAttemptCount()));
+        RetryPolicy noLeaderRetry = ((NotLeaderException) e).getSuggestedLeader() != null ?
+            RetryPolicies.retryUpToMaximumCountWithNoSleep(pending.getAttemptCount()) : retryPolicy;
+        scheduleWithTimeout(pending, request, noLeaderRetry);
         return null;
       }
       f.completeExceptionally(e);
