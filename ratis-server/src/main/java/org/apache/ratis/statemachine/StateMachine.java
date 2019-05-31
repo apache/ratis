@@ -215,7 +215,6 @@ public interface StateMachine extends Closeable {
    * Notify the Leader's state machine that one of the followers is slow
    * this notification is based on "raft.server.rpc.slowness.timeout"
    *
-   * @param group raft group information
    * @param roleInfoProto information about the current node role and rpc delay information
    */
   default void notifySlowness(RoleInfoProto roleInfoProto) {
@@ -226,7 +225,6 @@ public interface StateMachine extends Closeable {
    * Notify the Leader's state machine that a leader has not been elected for a long time
    * this notification is based on "raft.server.leader.election.timeout"
    *
-   * @param group raft group information
    * @param roleInfoProto information about the current node role and rpc delay information
    */
   default void notifyExtendedNoLeader(RoleInfoProto roleInfoProto) {
@@ -260,7 +258,6 @@ public interface StateMachine extends Closeable {
    * to install the latest snapshot.
    * @param firstTermIndexInLog TermIndex of the first append entry available
    *                           in the Leader's log.
-   * @param group raft group information
    * @param roleInfoProto information about the current node role and
    *                            rpc delay information
    * @return After the snapshot installation is complete, return the last
