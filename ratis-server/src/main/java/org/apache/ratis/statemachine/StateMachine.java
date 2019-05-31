@@ -218,7 +218,7 @@ public interface StateMachine extends Closeable {
    * @param group raft group information
    * @param roleInfoProto information about the current node role and rpc delay information
    */
-  default void notifySlowness(RaftGroup group, RoleInfoProto roleInfoProto) {
+  default void notifySlowness(RoleInfoProto roleInfoProto) {
 
   }
 
@@ -229,7 +229,7 @@ public interface StateMachine extends Closeable {
    * @param group raft group information
    * @param roleInfoProto information about the current node role and rpc delay information
    */
-  default void notifyExtendedNoLeader(RaftGroup group, RoleInfoProto roleInfoProto) {
+  default void notifyExtendedNoLeader(RoleInfoProto roleInfoProto) {
 
   }
 
@@ -267,8 +267,7 @@ public interface StateMachine extends Closeable {
    * included term index in the snapshot.
    */
   default CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
-      RaftGroup group, RoleInfoProto roleInfoProto,
-      TermIndex firstTermIndexInLog) {
+      RoleInfoProto roleInfoProto, TermIndex firstTermIndexInLog) {
     return CompletableFuture.completedFuture(null);
   }
 }

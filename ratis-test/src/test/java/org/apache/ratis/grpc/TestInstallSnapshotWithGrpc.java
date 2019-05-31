@@ -96,7 +96,7 @@ public class TestInstallSnapshotWithGrpc {
       SimpleStateMachine4Testing {
     @Override
     public CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
-        RaftGroup group, RaftProtos.RoleInfoProto roleInfoProto,
+        RaftProtos.RoleInfoProto roleInfoProto,
         TermIndex termIndex) {
       try {
         Path leaderSnapshotFile = leaderSnapshotInfo.getFile().getPath();
