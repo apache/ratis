@@ -52,7 +52,7 @@
     <div class="container">
         <div class="row feature-list">
             <h2>Features</h2>
-            <div class="col-md-4 col-sm-4 feature-item">
+            <div class="col-md-6 col-sm-6 feature-item">
                 <span class="glyphicon glyphicon-transfer" aria-hidden="true"></span>
                 <i class="fa fa-5x fa-fw m-y-3 text-info fa-child"></i>
                 <h4>Pluggable transport</h4>
@@ -64,27 +64,34 @@
                 </p>
                 <p></p>
             </div>
-            <div class="col-md-4 col-sm-4 feature-item">
+            <div class="col-md-6 col-sm-6 feature-item">
                 <span class="glyphicon glyphicon-log-in" aria-hidden="true"></span>
                 <h4>Pluggable state machine</h4>
                 <p>
                     Ratis supports a log and state machine. State machine typically contains the data that you want to make highly avialable. Ratis makes it easy to use your own state machine.
                 </p>
             </div>
-            <div class="col-md-4 col-sm-4 feature-item">
-                <span class="glyphicon glyphicon-tasks" aria-hidden="true"></span>
-                <h4>Pluggable raft log</h4>
-                <p>RAFT log is also pluggable, users can provide their own log implementation. The default
-                    implementation
-                    stores log in local files.</p>
-                <p>
-                    Application can define the polices of how to write data and where it should be written easily.
-                </p>
-            </div>
 
 
         </div><!-- /.feature-list -->
-
+        <div class="row feature-list">
+          <div class="col-md-6 col-sm-6 feature-item">
+              <span class="glyphicon glyphicon-tasks" aria-hidden="true"></span>
+              <h4>Pluggable raft log</h4>
+              <p>RAFT log is also pluggable, users can provide their own log implementation. The default
+                  implementation
+                  stores log in local files.</p>
+              <p>
+                  Application can define the polices of how to write data and where it should be written easily.
+              </p>
+          </div>
+          <div class="col-md-6 col-sm-6 feature-item">
+            <span class="glyphicon glyphicon-hdd" aria-hidden="true"></span>
+            <h4>Log Service</h4>
+            <p>Ratis provides a log service recipe provides StateMachines to implement a distributed log service with a focused client API. For more information,
+              please read the <a href="logservice">LogService documentation</a>.</p>
+          </div>
+        </div>
 
     </div><!-- /.container -->
 </div><!-- /.feature-list-group -->
