@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.util.Daemon;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,10 +89,14 @@ class FollowerState extends Daemon {
 
   @Override
   public  void run() {
+    long sleepDeviationThresholdMs = server.getSleepDeviationThresholdMs();
     while (monitorRunning && server.isFollower()) {
       final long electionTimeout = server.getRandomTimeoutMs();
       try {
-        Thread.sleep(electionTimeout);
+        if (!JavaUtils.sleep(electionTimeout, sleepDeviationThresholdMs)) {
+          continue;
+        }
+
         if (!monitorRunning || !server.isFollower()) {
           LOG.info("{} heartbeat monitor quit", server.getId());
           break;

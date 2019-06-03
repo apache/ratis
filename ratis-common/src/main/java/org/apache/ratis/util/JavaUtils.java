@@ -241,4 +241,17 @@ public interface JavaUtils {
       throw new CompletionException(t);
     }
   }
+
+  static boolean sleep(long sleepMs, long thresholdMs) throws InterruptedException {
+    final Timestamp t = Timestamp.currentTime();
+    Thread.sleep(sleepMs);
+    final long elapsedMs = t.elapsedTimeMs();
+    if (elapsedMs - sleepMs > thresholdMs) {
+      LOG.warn("Unexpected long sleep: sleep({}ms) actually took {}ms which is over the threshold {}ms",
+          sleepMs, elapsedMs, thresholdMs);
+      return false;
+    }
+    return true;
+  }
+
 }

@@ -72,6 +72,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final int minTimeoutMs;
   private final int maxTimeoutMs;
   private final int rpcSlownessTimeoutMs;
+  private final int sleepDeviationThresholdMs;
   private final boolean installSnapshotEnabled;
 
   private final LifeCycle lifeCycle;
@@ -99,6 +100,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     minTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMin(properties).toIntExact(TimeUnit.MILLISECONDS);
     maxTimeoutMs = RaftServerConfigKeys.Rpc.timeoutMax(properties).toIntExact(TimeUnit.MILLISECONDS);
     rpcSlownessTimeoutMs = RaftServerConfigKeys.Rpc.slownessTimeout(properties).toIntExact(TimeUnit.MILLISECONDS);
+    sleepDeviationThresholdMs = RaftServerConfigKeys.sleepDeviationThreshold(properties);
     installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(properties);
     Preconditions.assertTrue(maxTimeoutMs > minTimeoutMs,
         "max timeout: %s, min timeout: %s", maxTimeoutMs, minTimeoutMs);
@@ -138,6 +140,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   int getRandomTimeoutMs() {
     return minTimeoutMs + ThreadLocalRandom.current().nextInt(
         maxTimeoutMs - minTimeoutMs + 1);
+  }
+
+  int getSleepDeviationThresholdMs() {
+    return sleepDeviationThresholdMs;
   }
 
   public RaftGroupId getGroupId() {

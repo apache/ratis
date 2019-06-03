@@ -48,6 +48,16 @@ public interface RaftServerConfigKeys {
     setFiles(properties::setFiles, STORAGE_DIR_KEY, storageDir);
   }
 
+  String SLEEP_DEVIATION_THRESHOLD = PREFIX + ".sleep.deviation.threshold";
+  int SLEEP_DEVIATION_THRESHOLD_DEFAULT = 300;
+  static int sleepDeviationThreshold(RaftProperties properties) {
+    return getInt(properties::getInt, SLEEP_DEVIATION_THRESHOLD,
+        SLEEP_DEVIATION_THRESHOLD_DEFAULT, getDefaultLog());
+  }
+  static void setSleepDeviationThreshold(RaftProperties properties, int thresholdMs) {
+    setInt(properties::setInt, SLEEP_DEVIATION_THRESHOLD, thresholdMs);
+  }
+
   /**
    * When bootstrapping a new peer, If the gap between the match index of the
    * peer and the leader's latest committed index is less than this gap, we
@@ -75,7 +85,6 @@ public interface RaftServerConfigKeys {
   }
   static void setLeaderElectionTimeout(RaftProperties properties, TimeDuration leaderElectionTimeout) {
     setTimeDuration(properties::setTimeDuration, LEADER_ELECTION_TIMEOUT_KEY, leaderElectionTimeout);
-
   }
 
   interface Write {
