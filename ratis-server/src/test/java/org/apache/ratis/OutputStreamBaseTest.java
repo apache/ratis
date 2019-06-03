@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,62 +15,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc;
+package org.apache.ratis;
 
-import org.apache.log4j.Level;
-import org.apache.ratis.BaseTest;
-import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.grpc.client.GrpcClientStreamer;
-import org.apache.ratis.grpc.client.GrpcOutputStream;
-import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.client.impl.RaftOutputStream;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
-import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.*;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.junit.Assert.fail;
 
-@Ignore
-public class TestRaftStream extends BaseTest {
-  static {
-    LogUtils.setLogLevel(GrpcClientStreamer.LOG, Level.ALL);
-  }
-
-  private static final RaftProperties prop = new RaftProperties();
+public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
+    extends BaseTest
+    implements MiniRaftCluster.Factory.Get<CLUSTER> {
   private static final int NUM_SERVERS = 3;
   private static final byte[] BYTES = new byte[4];
 
-  private MiniRaftClusterWithGrpc cluster;
-
-  @After
-  public void tearDown() {
-    if (cluster != null) {
-      cluster.shutdown();
-    }
+  public OutputStream newOutputStream(CLUSTER cluster, int bufferSize) {
+    return new RaftOutputStream(cluster::createClient, SizeInBytes.valueOf(bufferSize));
   }
 
-  private byte[] toBytes(int i) {
-    return toBytes(i, BYTES);
-  }
-  private byte[] toBytes(int i, byte[] b) {
+  private static byte[] toBytes(int i) {
+    final byte[] b = BYTES;
     b[0] = (byte) ((i >>> 24) & 0xFF);
     b[1] = (byte) ((i >>> 16) & 0xFF);
     b[2] = (byte) ((i >>> 8) & 0xFF);
@@ -80,25 +69,20 @@ public class TestRaftStream extends BaseTest {
 
   @Test
   public void testSimpleWrite() throws Exception {
-    final int numRequests = 500;
-    LOG.info("Running testSimpleWrite, numRequests=" + numRequests);
+    runWithNewCluster(NUM_SERVERS, this::runTestSimpleWrite);
+  }
 
-    // default 64K is too large for a test
-    GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(4));
-    cluster = MiniRaftClusterWithGrpc.FACTORY.newCluster(NUM_SERVERS, prop);
-
-    cluster.start();
-    RaftServerImpl leader = waitForLeader(cluster);
-
-    try (GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
-        cluster.getGroup(), leader.getId(), null)) {
+  private void runTestSimpleWrite(CLUSTER cluster) throws Exception {
+    final int numRequests = 5000;
+    final int bufferSize = 4;
+    try (OutputStream out = newOutputStream(cluster, bufferSize)) {
       for (int i = 0; i < numRequests; i++) { // generate requests
         out.write(toBytes(i));
       }
     }
 
     // check the leader's raft log
-    final RaftLog raftLog = leader.getState().getLog();
+    final RaftLog raftLog = cluster.getLeader().getState().getLog();
     final AtomicInteger i = new AtomicInteger();
     checkLog(raftLog, numRequests, () -> toBytes(i.getAndIncrement()));
   }
@@ -106,30 +90,36 @@ public class TestRaftStream extends BaseTest {
   private void checkLog(RaftLog raftLog, long expectedCommittedIndex,
       Supplier<byte[]> s) throws IOException {
     long committedIndex = raftLog.getLastCommittedIndex();
-    Assert.assertEquals(expectedCommittedIndex, committedIndex);
+    Assert.assertTrue(committedIndex >= expectedCommittedIndex);
     // check the log content
-    TermIndex[] entries = raftLog.getEntries(1, expectedCommittedIndex + 1);
+    TermIndex[] entries = raftLog.getEntries(0, Long.MAX_VALUE);
+    int count = 0;
     for (TermIndex entry : entries) {
-      RaftProtos.LogEntryProto log  = raftLog.get(entry.getIndex());
+      LogEntryProto log  = raftLog.get(entry.getIndex());
+      if (!log.hasStateMachineLogEntry()) {
+        continue;
+      }
       byte[] logData = log.getStateMachineLogEntry().getLogData().toByteArray();
       byte[] expected = s.get();
-      LOG.info("log " + entry + " " + log.getLogEntryBodyCase() + " " + StringUtils.bytes2HexString(logData));
-      Assert.assertEquals(expected.length, logData.length);
-      Assert.assertArrayEquals(expected, logData);
+      final String message = "log " + entry + " " + log.getLogEntryBodyCase()
+          + " " + StringUtils.bytes2HexString(logData)
+          + ", expected=" + StringUtils.bytes2HexString(expected);
+      LOG.info(message);
+      Assert.assertArrayEquals(message, expected, logData);
+      count++;
     }
+    Assert.assertEquals(expectedCommittedIndex, count);
   }
 
   @Test
   public void testWriteAndFlush() throws Exception {
-    LOG.info("Running testWriteAndFlush");
+    runWithNewCluster(NUM_SERVERS, this::runTestWriteAndFlush);
+  }
 
-    GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(ByteValue.BUFFERSIZE));
-    cluster = MiniRaftClusterWithGrpc.FACTORY.newCluster(NUM_SERVERS, prop);
-    cluster.start();
-
+  private void runTestWriteAndFlush(CLUSTER cluster) throws Exception {
+    final int bufferSize = ByteValue.BUFFERSIZE;
     RaftServerImpl leader = waitForLeader(cluster);
-    GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
-        cluster.getGroup(), leader.getId(), null);
+    OutputStream out = newOutputStream(cluster, bufferSize);
 
     int[] lengths = new int[]{1, 500, 1023, 1024, 1025, 2048, 3000, 3072};
     ByteValue[] values = new ByteValue[lengths.length];
@@ -145,8 +135,7 @@ public class TestRaftStream extends BaseTest {
       out.flush();
 
       // make sure after the flush the data has been committed
-      Assert.assertEquals(expectedTxs.size(),
-          leader.getState().getLastAppliedIndex());
+      assertRaftLog(expectedTxs.size(), leader);
     }
     out.close();
 
@@ -160,6 +149,18 @@ public class TestRaftStream extends BaseTest {
     final AtomicInteger index = new AtomicInteger(0);
     checkLog(leader.getState().getLog(), expectedTxs.size(),
         () -> expectedTxs.get(index.getAndIncrement()));
+  }
+
+  private RaftLog assertRaftLog(int expectedEntries, RaftServerImpl server) throws Exception {
+    final RaftLog raftLog = server.getState().getLog();
+    final EnumMap<LogEntryBodyCase, AtomicLong> counts = RaftTestUtil.countEntries(raftLog);
+    Assert.assertEquals(expectedEntries, counts.get(LogEntryBodyCase.STATEMACHINELOGENTRY).get());
+
+    final LogEntryProto last = RaftTestUtil.getLastEntry(LogEntryBodyCase.STATEMACHINELOGENTRY, raftLog);
+    Assert.assertNotNull(last);
+    Assert.assertTrue(raftLog.getLastCommittedIndex() >= last.getIndex());
+    Assert.assertTrue(server.getState().getLastAppliedIndex() >= last.getIndex());
+    return raftLog;
   }
 
   private static class ByteValue {
@@ -200,15 +201,14 @@ public class TestRaftStream extends BaseTest {
 
   @Test
   public void testWriteWithOffset() throws Exception {
-    LOG.info("Running testWriteWithOffset");
-    GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(ByteValue.BUFFERSIZE));
+    runWithNewCluster(NUM_SERVERS, this::runTestWriteWithOffset);
+  }
 
-    cluster = MiniRaftClusterWithGrpc.FACTORY.newCluster(NUM_SERVERS, prop);
-    cluster.start();
+  private void runTestWriteWithOffset(CLUSTER cluster) throws Exception {
+    final int bufferSize = ByteValue.BUFFERSIZE;
     RaftServerImpl leader = waitForLeader(cluster);
 
-    GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
-        cluster.getGroup(), leader.getId(), null);
+    final OutputStream out = newOutputStream(cluster, bufferSize);
 
     byte[] b1 = new byte[ByteValue.BUFFERSIZE / 2];
     Arrays.fill(b1, (byte) 1);
@@ -237,18 +237,21 @@ public class TestRaftStream extends BaseTest {
     }
     out.close();
 
-    final RaftLog log = leader.getState().getLog();
     // 0.5 + 1 + 2.5 + 4 = 8
-    Assert.assertEquals(8, leader.getState().getLastAppliedIndex());
-    Assert.assertEquals(8, log.getLastCommittedIndex());
-    TermIndex[] entries = log.getEntries(1, 9);
-    byte[] actual = new byte[ByteValue.BUFFERSIZE * 8];
+    final int expectedEntries = 8;
+    final RaftLog raftLog = assertRaftLog(expectedEntries, leader);
+
+    final TermIndex[] entries = raftLog.getEntries(1, Long.MAX_VALUE);
+    final byte[] actual = new byte[ByteValue.BUFFERSIZE * expectedEntries];
     totalSize = 0;
-    for (TermIndex e : entries) {
-      byte[] eValue = log.get(e.getIndex()).getStateMachineLogEntry().getLogData().toByteArray();
-      Assert.assertEquals(ByteValue.BUFFERSIZE, eValue.length);
-      System.arraycopy(eValue, 0, actual, totalSize, eValue.length);
-      totalSize += eValue.length;
+    for (TermIndex ti : entries) {
+      final LogEntryProto e = raftLog.get(ti.getIndex());
+      if (e.hasStateMachineLogEntry()) {
+        final byte[] eValue = e.getStateMachineLogEntry().getLogData().toByteArray();
+        Assert.assertEquals(ByteValue.BUFFERSIZE, eValue.length);
+        System.arraycopy(eValue, 0, actual, totalSize, eValue.length);
+        totalSize += eValue.length;
+      }
     }
     Assert.assertArrayEquals(expected, actual);
   }
@@ -258,11 +261,11 @@ public class TestRaftStream extends BaseTest {
    */
   @Test
   public void testKillLeader() throws Exception {
-    LOG.info("Running testChangeLeader");
+    runWithNewCluster(NUM_SERVERS, this::runTestKillLeader);
+  }
 
-    GrpcConfigKeys.OutputStream.setBufferSize(prop, SizeInBytes.valueOf(4));
-    cluster = MiniRaftClusterWithGrpc.FACTORY.newCluster(NUM_SERVERS, prop);
-    cluster.start();
+  private void runTestKillLeader(CLUSTER cluster) throws Exception {
+    final int bufferSize = 4;
     final RaftServerImpl leader = waitForLeader(cluster);
 
     final AtomicBoolean running  = new AtomicBoolean(true);
@@ -273,8 +276,7 @@ public class TestRaftStream extends BaseTest {
     new Thread(() -> {
       LOG.info("Writer thread starts");
       int count = 0;
-      try (GrpcOutputStream out = new GrpcOutputStream(prop, ClientId.randomId(),
-          cluster.getGroup(), leader.getId(), null)) {
+      try (OutputStream out = newOutputStream(cluster, bufferSize)) {
         while (running.get()) {
           out.write(toBytes(count++));
           Thread.sleep(10);

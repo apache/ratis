@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -102,7 +102,7 @@ public class GrpcOutputStream extends OutputStream {
 
   @Override
   public String toString() {
-    return "GrpcOutputStream-" + clientId;
+    return getClass().getSimpleName() + "-" + clientId;
   }
 
   private void checkClosed() throws IOException {
