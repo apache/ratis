@@ -16,18 +16,53 @@
 
 This is the source code of the website of Apache Ratis.
 
+## Hugo Installation
+
 To render it you need hugo static site generator (https://gohugo.io/getting-started/installing) which is available for the most popular platforms as a single binary.
 
-To render the final website use the following command:
+On OSX, this can be installed via HomeBrew: `brew install hugo`. For other operating system, please refer to the
+aforementioned Hugo documentation for installation steps.
+
+## Building
+
+To render the final website, use the provided `build.sh` script. This script will generate the website in the directory
+`public/` and also perform a license check on the source files (prior to commit).
 
 ```
-hugo -d /destination/dir
+hugo
 ```
 
-To develop the site use
+To iteratively develop the website, you can use the `serve` command to start a local webserver with your content changes
+rendered in realtime:
 
 ```
 hugo serve
 ```
 
-which starts an internal server where you can always check the final rendered version.
+## Publishing website changes
+
+Committers must ensure that the state of the `asf-site-source` and `asf-site` branches are in sync at all times.
+Committers must never manually edit content in the `asf-site` branch.
+
+Content pushed to the `asf-site` branch is automatically published to the public website:
+https://ratis.incubator.apache.org
+
+There is (presently) no automation to automatically keep these branches in sync, but a general guide is to do the following.
+These steps use two checkouts of the Git repo, one for `asf-site` and another for `asf-site-source`. Beware that these steps
+are destructive to any local modifications:
+
+First time only!
+```bash
+$ git clone https://github.com/apache/incubator-ratis ratis-site.git
+$ cp -r ratis-site.git ratis-site-source.git
+$ pushd ratis-site.git && git checkout -t origin/asf-site && popd
+$ pushd ratis-site-source.git && git checkout -t origin/asf-site-source && popd
+```
+
+To modify the website:
+```bash
+$ pushd ratis-site.git && git pull && popd
+$ pushd ratis-site-source.git && git pull
+$ # hack hack hack
+$ ./build.sh ../ratis-site.git
+```

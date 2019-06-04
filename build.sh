@@ -17,17 +17,51 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 set -e
 mkdir -p build
-if [ ! -d "$DIR/build/apache-rat-0.12" ]; then
-   wget http://xenia.sote.hu/ftp/mirrors/www.apache.org/creadur/apache-rat-0.12/apache-rat-0.12-bin.tar.gz -O $DIR/build/apache-rat.tar.gz
-	cd $DIR/build
-	tar zvxf apache-rat.tar.gz
-	cd -
+rat_version="0.13"
+filename="apache-rat-${rat_version}-bin.tar.gz"
+artifact="creadur/apache-rat-${rat_version}/${filename}"
+if [ ! -f "$DIR/build/${filename}" ]; then
+  echo "RAT installation missing, download to build/"
+  curl -L --fail -o "${DIR}/build/${filename}" "https://www.apache.org/dyn/closer.lua?filename=${artifact}&action=download"
+  curl -L --fail -o "${DIR}/build/${filename}.sha512" "https://dist.apache.org/repos/dist/release/${artifact}.sha512"
 fi
-java -jar $DIR/build/apache-rat-0.12/apache-rat-0.12.jar $DIR -e public -e apache-rat-0.12 -e .git -e .gitignore
 
+if [ ! -d "$DIR/build/apache-rat-${rat_version}" ]; then
+  echo "Unpacked RAT installation missing, validating download RAT release using checksum"
+  pushd ${DIR}/build >/dev/null
+  gpg --print-md SHA512 ${filename} | diff ${filename}.sha512 -
+  if [[ $? -ne 0 ]]; then
+    echo "Failed to validate checksum of ${filename}"
+    # Cleanup before exiting to avoid this stuff hanging around that is untrusted
+    rm ${DIR}/build/${filename}
+    rm ${DIR}/build/${filename}.sha512
+    exit 2
+  fi
+  popd >/dev/null
+  # Only now is it safe to extract this
+  tar zxf build/${filename} -C build/
+fi
+
+echo "Running RAT license check"
+output=$(java -jar $DIR/build/apache-rat-${rat_version}/apache-rat-${rat_version}.jar -d $DIR -E rat-excludes.txt)
+if [[ ! $(echo "$output" | grep '0 Unknown Licenses') ]]; then
+  echo 'RAT check appears to have failed, inspect its output:'
+  echo "$output"
+  exit 1
+else
+  echo "RAT check appears to have passed"
+fi
+
+if [[ $# -ne 1 ]]; then
+  echo "Usage: ./build.sh <website_output>"
+  exit 3
+fi
+
+BUILD_OUTPUT_DIR="$1"
 HUGO_EXEC=$(which hugo)
 if [ "$?" -ne 0 ]; then
       echo "Please install hugo and put it to the path"
 		exit 1
 fi
-$HUGO_EXEC
+echo -e "\nBuilding website to ${BUILD_OUTPUT_DIR}"
+$HUGO_EXEC -d ${BUILD_OUTPUT_DIR}
