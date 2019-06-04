@@ -47,11 +47,20 @@ public interface RaftClientRpc extends Closeable {
   void addServers(Iterable<RaftPeer> servers);
 
   /**
-   * Handle the given throwable.  For example, try reconnecting.
+   * Handle the given throwable. For example, try reconnecting.
    *
    * @return true if the given throwable is handled; otherwise, the call is an no-op, return false.
    */
   default boolean handleException(RaftPeerId serverId, Throwable t, boolean reconnect) {
+    return false;
+  }
+
+  /**
+   * Determine if the given throwable should be handled. For example, try reconnecting.
+   *
+   * @return true if the given throwable should be handled; otherwise, return false.
+   */
+  default boolean shouldReconnect(Throwable t) {
     return false;
   }
 }

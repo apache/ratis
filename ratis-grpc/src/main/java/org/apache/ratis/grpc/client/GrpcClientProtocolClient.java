@@ -180,12 +180,12 @@ public class GrpcClientProtocolClient implements Closeable {
 
   AsyncStreamObservers getOrderedStreamObservers() {
     return orderedStreamObservers.updateAndGet(
-        a -> a != null? a : new AsyncStreamObservers(orderedStreamObservers, this::ordered));
+        a -> a != null? a : new AsyncStreamObservers(this::ordered));
   }
 
   AsyncStreamObservers getUnorderedAsyncStreamObservers() {
     return unorderedStreamObservers.updateAndGet(
-        a -> a != null? a : new AsyncStreamObservers(unorderedStreamObservers, asyncStub::unordered));
+        a -> a != null? a : new AsyncStreamObservers(asyncStub::unordered));
   }
 
   public RaftPeer getTarget() {
@@ -275,12 +275,9 @@ public class GrpcClientProtocolClient implements Closeable {
       }
     };
     private final RequestStreamer requestStreamer;
-    private final AtomicReference<AsyncStreamObservers> ref;
 
-    AsyncStreamObservers(AtomicReference<AsyncStreamObservers> ref,
-        Function<StreamObserver<RaftClientReplyProto>, StreamObserver<RaftClientRequestProto>> f) {
+    AsyncStreamObservers(Function<StreamObserver<RaftClientReplyProto>, StreamObserver<RaftClientRequestProto>> f) {
       this.requestStreamer = new RequestStreamer(f.apply(replyStreamObserver));
-      this.ref = ref;
     }
 
     CompletableFuture<RaftClientReply> onNext(RaftClientRequest request) {
@@ -290,7 +287,7 @@ public class GrpcClientProtocolClient implements Closeable {
       }
       try {
         if (!requestStreamer.onNext(ClientProtoUtils.toRaftClientRequestProto(request))) {
-          throw new AlreadyClosedException(getName() + ": the stream is closed.");
+          return JavaUtils.completeExceptionally(new AlreadyClosedException(getName() + ": the stream is closed."));
         }
       } catch(Throwable t) {
         handleReplyFuture(request.getCallId(), future -> future.completeExceptionally(t));
@@ -317,8 +314,6 @@ public class GrpcClientProtocolClient implements Closeable {
     }
 
     private void completeReplyExceptionally(Throwable t, String event) {
-      ref.compareAndSet(this, null);
-
       final Map<Long, CompletableFuture<RaftClientReply>> map = replies.getAndSetNull();
       if (map == null) {
         return;

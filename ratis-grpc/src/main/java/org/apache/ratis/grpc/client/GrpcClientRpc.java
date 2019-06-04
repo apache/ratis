@@ -163,18 +163,13 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
   }
 
   @Override
-  public boolean handleException(RaftPeerId serverId, Throwable e, boolean reconnect) {
+  public boolean shouldReconnect(Throwable e) {
     final Throwable cause = e.getCause();
     if (e instanceof IOException && cause instanceof StatusRuntimeException) {
-      if (!((StatusRuntimeException) cause).getStatus().isOk()) {
-        reconnect = true;
-      }
+      return !((StatusRuntimeException) cause).getStatus().isOk();
     } else if (e instanceof IllegalArgumentException) {
-      if (e.getMessage().contains("null frame before EOS")) {
-        reconnect = true;
-      }
+      return e.getMessage().contains("null frame before EOS");
     }
-    LOG.debug("{}->{}: reconnect? {}, e={}, cause={}", clientId, serverId, reconnect, e, cause);
-    return super.handleException(serverId, e, reconnect);
+    return false;
   }
 }

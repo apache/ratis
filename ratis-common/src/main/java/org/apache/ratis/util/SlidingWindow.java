@@ -25,6 +25,7 @@ import java.io.Closeable;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -64,7 +65,7 @@ public interface SlidingWindow {
     static boolean LOG_REPEATEDLY = false;
     private final Object name;
     /** Request map: seqNum -> request */
-    private final SortedMap<Long, REQUEST> requests = new TreeMap<>();
+    private final SortedMap<Long, REQUEST> requests = new ConcurrentSkipListMap<>();
 
     RequestMap(Object name) {
       this.name = name;
@@ -77,11 +78,11 @@ public interface SlidingWindow {
       return name;
     }
 
-    synchronized boolean isEmpty() {
+    boolean isEmpty() {
       return requests.isEmpty();
     }
 
-    private synchronized REQUEST get(long seqNum) {
+    private REQUEST get(long seqNum) {
       return requests.get(seqNum);
     }
 
@@ -106,11 +107,11 @@ public interface SlidingWindow {
       return request;
     }
 
-    synchronized long firstSeqNum() {
+    long firstSeqNum() {
       return requests.firstKey();
     }
 
-    synchronized long lastSeqNum() {
+    long lastSeqNum() {
       return requests.lastKey();
     }
 
@@ -120,7 +121,7 @@ public interface SlidingWindow {
       return requests.values().iterator();
     }
 
-    synchronized void putNewRequest(REQUEST request) {
+    void putNewRequest(REQUEST request) {
       final long seqNum = request.getSeqNum();
       CollectionUtils.putNew(seqNum, request, requests, () -> getName() + ":requests");
     }
@@ -143,7 +144,7 @@ public interface SlidingWindow {
       return true;
     }
 
-    synchronized void endOfRequests(long nextToProcess, REQUEST end, Consumer<REQUEST> replyMethod) {
+    void endOfRequests(long nextToProcess, REQUEST end, Consumer<REQUEST> replyMethod) {
       final REQUEST nextToProcessRequest = requests.get(nextToProcess);
       Preconditions.assertNull(nextToProcessRequest,
           () -> "nextToProcessRequest = " + nextToProcessRequest + " != null, nextToProcess = " + nextToProcess);
@@ -161,12 +162,12 @@ public interface SlidingWindow {
       putNewRequest(end);
     }
 
-    synchronized void clear() {
+    void clear() {
       LOG.debug("close {}", this);
       requests.clear();
     }
 
-    synchronized void log() {
+    void log() {
       LOG.debug(this.toString());
       for(REQUEST r : requests.values()) {
         LOG.debug("  {}: hasReply? {}", r.getSeqNum(), r.hasReply());
@@ -174,7 +175,7 @@ public interface SlidingWindow {
     }
 
     @Override
-    public synchronized String toString() {
+    public String toString() {
       return getName() + ": requests" + asString(requests);
     }
 
@@ -373,6 +374,10 @@ public interface SlidingWindow {
 
     private void alreadyClosed(REQUEST request, Throwable e) {
       request.fail(new AlreadyClosedException(requests.getName() + " is closed.", e));
+    }
+
+    public boolean isFirst(long seqNum) {
+      return seqNum == (firstSeqNum != -1 ? firstSeqNum : requests.firstSeqNum());
     }
   }
 

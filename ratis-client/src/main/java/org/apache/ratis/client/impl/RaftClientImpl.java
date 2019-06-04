@@ -26,6 +26,7 @@ import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -41,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -83,6 +85,7 @@ final class RaftClientImpl implements RaftClient {
   private volatile RaftPeerId leaderId;
 
   private final TimeoutScheduler scheduler;
+  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
   private final Supplier<OrderedAsync> orderedAsync;
 
@@ -353,20 +356,33 @@ final class RaftClientImpl implements RaftClient {
     }
 
     final RaftPeerId oldLeader = request.getServerId();
-    final RaftPeerId curLeader = request.getServerId();
+    final RaftPeerId curLeader = leaderId;
     final boolean stillLeader = oldLeader.equals(curLeader);
     if (newLeader == null && stillLeader) {
       newLeader = CollectionUtils.random(oldLeader,
           CollectionUtils.as(peers, RaftPeer::getId));
     }
-    LOG.debug("{}: oldLeader={},  curLeader={}, newLeader{}", clientId, oldLeader, curLeader, newLeader);
+    LOG.debug("{}: oldLeader={},  curLeader={}, newLeader={}", clientId, oldLeader, curLeader, newLeader);
 
     final boolean changeLeader = newLeader != null && stillLeader;
-    if (changeLeader) {
-      LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);
-      this.leaderId = newLeader;
+    final boolean reconnect = changeLeader || clientRpc.shouldReconnect(ioe);
+    if (reconnect) {
+      try(AutoCloseableLock writeLock = writeLock()) {
+        if (changeLeader && oldLeader.equals(leaderId)) {
+          LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);
+          this.leaderId = newLeader;
+        }
+        clientRpc.handleException(oldLeader, ioe, reconnect);
+      }
     }
-    clientRpc.handleException(oldLeader, ioe, changeLeader);
+  }
+
+  AutoCloseableLock readLock() {
+    return AutoCloseableLock.acquire(lock.readLock());
+  }
+
+  private AutoCloseableLock writeLock() {
+    return AutoCloseableLock.acquire(lock.writeLock());
   }
 
   void assertScheduler(int numThreads) {

@@ -159,6 +159,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
       // send one more request which should timeout.
       final RaftClientRequest requestTimeout = newRaftClientRequest(client, leader.getId(), seqNum.incrementAndGet());
+      rpc.handleException(leader.getId(), new Exception(), true);
       final CompletableFuture<RaftClientReply> f = rpc.sendRequestAsync(requestTimeout);
       testFailureCase("request should timeout", f::get,
           ExecutionException.class, TimeoutIOException.class);

@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftException;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -57,6 +58,7 @@ class OrderedAsync {
     private final Function<SlidingWindowEntry, RaftClientRequest> requestConstructor;
     private final long seqNum;
     private volatile boolean isFirst = false;
+    private volatile RaftClientRequest request;
 
     PendingOrderedRequest(long seqNum, Function<SlidingWindowEntry, RaftClientRequest> requestConstructor) {
       this.seqNum = seqNum;
@@ -65,7 +67,12 @@ class OrderedAsync {
 
     @Override
     RaftClientRequest newRequestImpl() {
-      return requestConstructor.apply(ProtoUtils.toSlidingWindowEntry(seqNum, isFirst));
+      request = requestConstructor.apply(ProtoUtils.toSlidingWindowEntry(seqNum, isFirst));
+      return request;
+    }
+
+    RaftClientRequest getRequest() {
+      return request;
     }
 
     @Override
@@ -158,13 +165,13 @@ class OrderedAsync {
       return;
     }
 
-    final RaftClientRequest request = pending.newRequest();
-    sendRequest(request, pending.getAttemptCount()).thenAccept(reply -> {
+    sendRequest(pending).thenAccept(reply -> {
       if (f.isDone()) {
         return;
       }
       if (reply == null) {
         final int attempt = pending.getAttemptCount();
+        RaftClientRequest request = pending.getRequest();
         LOG.debug("schedule* attempt #{} with policy {} for {}", attempt, retryPolicy, request);
         client.getScheduler().onTimeout(retryPolicy.getSleepTime(attempt, request),
             () -> getSlidingWindow(request).retry(pending, this::sendRequestWithRetry),
@@ -175,10 +182,20 @@ class OrderedAsync {
     }).exceptionally(FunctionUtils.consumerAsNullFunction(f::completeExceptionally));
   }
 
-  private CompletableFuture<RaftClientReply> sendRequest(RaftClientRequest request, int attemptCount) {
+  private CompletableFuture<RaftClientReply> sendRequest(PendingOrderedRequest pending) {
     final RetryPolicy retryPolicy = client.getRetryPolicy();
-    LOG.debug("{}: send* {}", client.getId(), request);
-    return client.getClientRpc().sendRequestAsync(request).thenApply(reply -> {
+    final CompletableFuture<RaftClientReply> f;
+    final RaftClientRequest request;
+    try(AutoCloseableLock readLock = client.readLock()) {
+      if (getSlidingWindow((RaftPeerId) null).isFirst(pending.getSeqNum())) {
+        pending.setFirstRequest();
+      }
+      request = pending.newRequest();
+      LOG.debug("{}: send* {}", client.getId(), request);
+      f = client.getClientRpc().sendRequestAsync(request);
+    }
+    int attemptCount = pending.getAttemptCount();
+    return f.thenApply(reply -> {
       LOG.debug("{}: receive* {}", client.getId(), reply);
       final RaftException replyException = reply != null? reply.getException(): null;
       reply = client.handleNotLeaderException(request, reply, this::resetSlidingWindow);
