@@ -39,7 +39,7 @@ public class RaftClientReply extends RaftClientMessage {
    * 1. NotLeaderException if the server is not leader
    * 2. StateMachineException if the server's state machine returns an exception
    */
-  private RaftException exception;
+  private final RaftException exception;
   private final Message message;
 
   /**
