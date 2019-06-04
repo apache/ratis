@@ -173,7 +173,7 @@ class OrderedAsync {
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof NotLeaderException) {
         RetryPolicy noLeaderRetry = ((NotLeaderException) e).getSuggestedLeader() != null ?
-            RetryPolicies.retryUpToMaximumCountWithNoSleep(pending.getAttemptCount()) : retryPolicy;
+            RetryPolicies.retryForeverNoSleep() : retryPolicy;
         scheduleWithTimeout(pending, request, noLeaderRetry);
         return null;
       }

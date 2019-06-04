@@ -50,11 +50,7 @@ public interface RetryPolicies {
   static RetryLimited retryUpToMaximumCountWithFixedSleep(int maxAttempts, TimeDuration sleepTime) {
     return new RetryLimited(maxAttempts, sleepTime);
   }
-
-  static RetryLimited retryUpToMaximumCountWithNoSleep(int maxAttempts) {
-    return new RetryLimited(maxAttempts, RetryPolicy.ZERO_MILLIS);
-  }
-
+  
   class Constants {
     private static final RetryForeverNoSleep RETRY_FOREVER_NO_SLEEP = new RetryForeverNoSleep();
     private static final NoRetry NO_RETRY = new NoRetry();
