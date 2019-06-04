@@ -1,7 +1,7 @@
 
 build
+.idea
 
 ### Hugo ###
 hugo.exe
 /public/
-

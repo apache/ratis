@@ -124,37 +124,28 @@
                 <tr>
                     <th>Version</th>
                     <th>Release date</th>
-                    <th>Source download</th>
-                    <th>Binary download</th>
+                    <th>Link</th>
                     <th>Announcement</th>
                 </tr>
                 </thead>
-                {{range first 5 (where .Site.Pages ".Params.type" "release")}}
+                {{range first 4 (where .Site.Pages ".Params.type" "release")}}
                 <tr>
-		              <td>{{.BaseFileName }}</td>
+                    <td>{{.File.BaseFileName }}</td>
                     <td>{{dateFormat "2006 Jan 2 " .Date}}</td>
-                    <td>
-                        <a href="https://www.apache.org/dyn/closer.cgi/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-src.tar.gz">source</a>
-                        (<a href="https://dist.apache.org/repos/dist/release/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-src.tar.gz.mds">checksum</a>
-                        <a href="https://dist.apache.org/repos/dist/release/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-src.tar.gz.asc">signature</a>)
+                    <td><a href="https://www.apache.org/dist/incubator/ratis/{{.File.BaseFileName }}/">
+                        https://www.apache.org/dist/incubator/ratis/{{.File.BaseFileName }}/</a>
                     </td>
-						  {{ if .Params.sourceonly  }}
-						     <td></td>
-						  {{else}}
-                    <td>
-                        <a href="https://www.apache.org/dyn/closer.cgi/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-bin.tar.gz">binary</a>
-                        (<a href="https://dist.apache.org/repos/dist/release/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-bin.tar.gz.mds">checksum</a>
-                        <a href="https://dist.apache.org/repos/dist/release/incubator/ratis/{{.BaseFileName }}/apache-ratis-incubating-{{.BaseFileName }}-bin.tar.gz.asc">signature</a>)
-                    </td>
-						  {{end}}
-                    <td>
-                        <a href="post/{{.BaseFileName }}.html">Announcement</a>
-                    </td>
+                    <td><a href="post/{{.File.BaseFileName }}.html">Announcement</a></td>
                 </tr>
                 {{end}}
             </table>
             </p>
-				<p>Ratis is also <a href="https://search.maven.org/#search%7Cga%7C1%7Cratis">available</a> from the Maven central repository.</p>
+
+            <p>Release artifacts are signed with one of the keys available at:
+                <a herf="https://www.apache.org/dist/incubator/ratis/KEYS">https://www.apache.org/dist/incubator/ratis/KEYS</a>
+            </p>
+
+            <p>Ratis is also <a href="https://search.maven.org/#search%7Cga%7C1%7Cratis">available</a> from the Maven central repository.</p>
 
         </div>
     </div>
@@ -203,9 +194,16 @@
             <h2>Resources</h2>
             <p>Are you interested in learning more about Apache Ratis? Excellent! Here are some resources.</p>
             <ul>
-            <li>Apache Ratis - In Search of a Usable Raft Library<br/>
-            <iframe src="https://home.apache.org/~szetszwo/presentations/20171115brown_bag.pdf"
-            width="595" height="485"></iframe></li><br/>
+            <li>
+              <a href="//www.slideshare.net/TszWoNicholasSze/apache-ratis-in-search-of-a-usable-raft-library"
+                 title="Apache Ratis - In Search of a Usable Raft Library" target="_blank">
+                Apache Ratis - In Search of a Usable Raft Library</a>
+              <br />
+              <iframe src="//www.slideshare.net/slideshow/embed_code/key/3OyDeDVxSWhIcd" width="595" height="485"
+                      frameborder="0" marginwidth="0" marginheight="0" scrolling="no" style="border:1px solid #CCC;
+                      margin-bottom:5px; max-width: 100%;" allowfullscreen>
+              </iframe>
+            </li>
 
             <li> <a href="//www.slideshare.net/Hadoop_Summit/high-throughput-data-replication-over-raft" title="High throughput data replication over RAFT" target="_blank">High throughput data replication over RAFT</a> from DataWorks Summit</a> 
             <iframe src="//www.slideshare.net/slideshow/embed_code/key/40nJZyfhrysXeK" width="595" height="485" frameborder="0" marginwidth="0" marginheight="0" scrolling="no" style="border:1px solid #CCC; border-width:1px; margin-bottom:5px; max-width: 100%;" allowfullscreen> </iframe> 

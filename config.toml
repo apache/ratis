@@ -11,9 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License. See accompanying LICENSE file.
 #
-baseurl = "/"
+baseURL = "https://ratis.incubator.apache.org/"
 title = "Apache Ratis"
-copyright = "&copy; 2017 Apache Software Foundation"
 enableEmoji = true
 footnotereturnlinkcontents = "<sup>^</sup>"
 uglyurls = true
@@ -24,31 +23,15 @@ uglyurls = true
   url = "releases.html"
   weight = 1
 
-
 [[menu.main]]
   name = "Documentation"
   identifier = "documentation"
   weight = 2
 
 [[menu.main]]
-   name = "Latest"
-   parent = "documentation"
-   url = "http://hadoop.apache.org/docs/current/"
-
-[[menu.main]]
-   name = "Stable"
-   parent = "documentation"
-   url = "http://hadoop.apache.org/docs/stable/"
-
-
-
-
-[[menu.main]]
    name = "Community"
    identifier = "community"
    weight = 3
-
-
 
 [[menu.main]]
    name = "Development"
@@ -56,19 +39,9 @@ uglyurls = true
    weight = 4
 
 [[menu.main]]
-  name = "How to Contribute"
-  url = "https://wiki.apache.org/hadoop/HowToContribute"
-  parent = "development"
-
-[[menu.main]]
    name = "Help"
    identifier = "help"
    weight = 5
-
-[[menu.main]]
-   name = "Buy Stuff"
-   url = "http://www.cafepress.com/hadoop"
-   parent = "help"
 
 [[menu.main]]
    name = "Sponsorshop"

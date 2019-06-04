@@ -26,17 +26,9 @@ To demonstrate how to use Ratis from the code, Please look at the following exam
  * [FileStore example](https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/filestore): This is an example of using Ratis for reading and writing files.
 
 <!-- TODO: We should have the following as documentation in the github.  -->
-The source code the examples could be found in the ratis-examples subproject.
 
-Arithmetic example also has some simple cli script to start it:
-
-1. First do a full build on the ratis source code: ```mvn clean install -DskipTests```
-2. Go the the bin directory of the examples: ```cd ratis-examples/src/main/bin```
-3. Start three Ratis server instances (with arithmetic state matchine). ```./start-all``` (This helper script starts 3 
-  Java instances in the background).
-4. Create a new variable in the state machine: ``` ./client.sh assign --name a --value 3```
-5. Assign a new variable: ```./client.sh assign --name b --value a+5```
-6. Get a variable from the state machine: ```./client.sh get --name b```
+The source code of the examples could be found in the
+[ratis-examples](https://github.com/apache/incubator-ratis/blob/master/ratis-examples/) sub-project.
 
 ### Maven usage
 
@@ -55,23 +47,23 @@ You also need to include *one* of the transports:
 
 {{< highlight xml>}}
 <dependency>
-   <artifactId>ratis-netty</artifactId>
+   <artifactId>ratis-grpc</artifactId>
    <groupId>org.apache.ratis</groupId>
 </dependency>
 {{< /highlight >}}
 
 {{< highlight xml>}}
  <dependency>
+   <artifactId>ratis-netty</artifactId>
    <groupId>org.apache.ratis</groupId>
-   <artifactId>ratis-grpc</artifactId>
 </dependency>
 {{< /highlight >}}
 
 {{< highlight xml>}}
-    <dependency>
-      <groupId>org.apache.ratis</groupId>
-      <artifactId>ratis-hadoop-shaded</artifactId>
-    </dependency>
+<dependency>
+   <artifactId>ratis-hadoop</artifactId>
+   <groupId>org.apache.ratis</groupId>
+</dependency>
 {{< /highlight >}}
 
 Please note that Apache Hadoop dependencies are shaded, so it's safe to use hadoop transport with different versions of Hadoop.
