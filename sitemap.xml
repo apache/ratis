@@ -3,6 +3,11 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
+    <loc>https://ratis.incubator.apache.org/post/0.3.0.html</loc>
+    <lastmod>2019-04-21T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
     <loc>https://ratis.incubator.apache.org/post/0.2.0.html</loc>
     <lastmod>2018-07-15T00:00:00+00:00</lastmod>
   </url>
@@ -14,7 +19,7 @@
   
   <url>
     <loc>https://ratis.incubator.apache.org/</loc>
-    <lastmod>2018-07-15T00:00:00+00:00</lastmod>
+    <lastmod>2019-04-21T00:00:00+00:00</lastmod>
     <priority>0</priority>
   </url>
   
@@ -33,7 +38,7 @@
   
   <url>
     <loc>https://ratis.incubator.apache.org/post.html</loc>
-    <lastmod>2018-07-15T00:00:00+00:00</lastmod>
+    <lastmod>2019-04-21T00:00:00+00:00</lastmod>
     <priority>0</priority>
   </url>
   

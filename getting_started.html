@@ -31,10 +31,13 @@
     <div class="container">
         <ul class="breadcrumb col-md-6">
             <li>
-                <img class="asf-logo" src="asf_feather.png"/>
-                <a  href="https://www.apache.org">Apache Software Foundation</span></a>
+                <img class="asf-logo" src="asf_feather.png" alt="ASF feather"/>
+                <a  href="https://www.apache.org">Apache Software Foundation</a>
             </li>
-            <li><img class="asf-logo" src="logo-white.png"/><a href="https://ratis.incubator.apache.org/">Apache Ratis&trade;</a></li>
+            <li>
+                <img class="asf-logo" src="logo-white.png" alt="Ratis logo"/>
+                <a href="https://ratis.incubator.apache.org/">Apache Ratis&trade;</a>
+            </li>
         </ul>
         <div class="col-md-6">
             <ul class="pull-right breadcrumb">
@@ -120,19 +123,8 @@
 
 <!-- TODO: We should have the following as documentation in the github.  -->
 
-<p>The source code the examples could be found in the ratis-examples subproject.</p>
-
-<p>Arithmetic example also has some simple cli script to start it:</p>
-
-<ol>
-<li>First do a full build on the ratis source code: <code>mvn clean install -DskipTests</code></li>
-<li>Go the the bin directory of the examples: <code>cd ratis-examples/src/main/bin</code></li>
-<li>Start three Ratis server instances (with arithmetic state matchine). <code>./start-all</code> (This helper script starts 3
-Java instances in the background).</li>
-<li>Create a new variable in the state machine: <code>./client.sh assign --name a --value 3</code></li>
-<li>Assign a new variable: <code>./client.sh assign --name b --value a+5</code></li>
-<li>Get a variable from the state machine: <code>./client.sh get --name b</code></li>
-</ol>
+<p>The source code of the examples could be found in the
+<a href="https://github.com/apache/incubator-ratis/blob/master/ratis-examples/">ratis-examples</a> sub-project.</p>
 
 <h3 id="maven-usage">Maven usage</h3>
 
@@ -146,19 +138,19 @@ Java instances in the background).</li>
 <p>You also need to include <em>one</em> of the transports:</p>
 
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-netty<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-grpc<span style="color:#f92672">&lt;/artifactId&gt;</span>
    <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
 
 <div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"> <span style="color:#f92672">&lt;dependency&gt;</span>
+   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-netty<span style="color:#f92672">&lt;/artifactId&gt;</span>
    <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-grpc<span style="color:#f92672">&lt;/artifactId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
 
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml">    <span style="color:#f92672">&lt;dependency&gt;</span>
-      <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
-      <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-hadoop-shaded<span style="color:#f92672">&lt;/artifactId&gt;</span>
-    <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
+   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-hadoop<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
 
 <p>Please note that Apache Hadoop dependencies are shaded, so it&rsquo;s safe to use hadoop transport with different versions of Hadoop.</p>
 
@@ -168,7 +160,7 @@ Java instances in the background).</li>
     <div class="container">
 
         <div class="col-md-12 trademark">
-            <p>&copy; 2018 <a href="http://apache.org">The Apache Software Foundation</a>,
+            <p>&copy; 2019 <a href="http://apache.org">The Apache Software Foundation</a>,
                 Apache, Apache Ratis, the Apache feather logo, Apache Ratis logo, Apache Incubator logo are trademarks of The Apache Software Foundation.
             <p>
         </div>

@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 
 <html>
 
 <head>
-	<meta name="generator" content="Hugo 0.50" />
+	<meta name="generator" content="Hugo 0.54.0" />
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -31,10 +32,13 @@
     <div class="container">
         <ul class="breadcrumb col-md-6">
             <li>
-                <img class="asf-logo" src="asf_feather.png"/>
-                <a  href="https://www.apache.org">Apache Software Foundation</span></a>
+                <img class="asf-logo" src="asf_feather.png" alt="ASF feather"/>
+                <a  href="https://www.apache.org">Apache Software Foundation</a>
             </li>
-            <li><img class="asf-logo" src="logo-white.png"/><a href="https://ratis.incubator.apache.org/">Apache Ratis&trade;</a></li>
+            <li>
+                <img class="asf-logo" src="logo-white.png" alt="Ratis logo"/>
+                <a href="https://ratis.incubator.apache.org/">Apache Ratis&trade;</a>
+            </li>
         </ul>
         <div class="col-md-6">
             <ul class="pull-right breadcrumb">
@@ -171,10 +175,11 @@
     <div class="container">
         <div class="row header">
             <h2>Latest news</h2>
+            
             <div class="panel-heading clearfix"><a class="pull-left" href="/post/0.3.0.html">Release 0.3.0 is available</a>
-                <small class="pull-right">2019 Apr 21</small>
+                <small class="pull-right">2019 Apr 21 </small>
             </div>
-
+            
             <div class="panel-heading clearfix"><a class="pull-left" href="/post/0.2.0.html">Release 0.2.0 is available</a>
                 <small class="pull-right">2018 Jul 15 </small>
             </div>
@@ -211,42 +216,41 @@
                     <th>Announcement</th>
                 </tr>
                 </thead>
+                
                 <tr>
                     <td>0.3.0</td>
-                    <td>2019 Apr 21</td>
-                    <td><a href="http://www.apache.org/dist/incubator/ratis/0.3.0/">
-                        http://www.apache.org/dist/incubator/ratis/0.3.0/</a>
+                    <td>2019 Apr 21 </td>
+                    <td><a href="https://www.apache.org/dist/incubator/ratis/0.3.0/">
+                        https://www.apache.org/dist/incubator/ratis/0.3.0/</a>
                     </td>
                     <td><a href="post/0.3.0.html">Announcement</a></td>
                 </tr>
-
+                
                 <tr>
                     <td>0.2.0</td>
                     <td>2018 Jul 15 </td>
-                    <td><a href="http://www.apache.org/dist/incubator/ratis/0.2.0/">
-                        http://www.apache.org/dist/incubator/ratis/0.2.0/</a>
+                    <td><a href="https://www.apache.org/dist/incubator/ratis/0.2.0/">
+                        https://www.apache.org/dist/incubator/ratis/0.2.0/</a>
                     </td>
-                    <td>
-                        <a href="post/0.2.0.html">Announcement</a>
-                    </td>
+                    <td><a href="post/0.2.0.html">Announcement</a></td>
                 </tr>
                 
                 <tr>
                     <td>0.1.0-alpha</td>
                     <td>2017 May 2 </td>
-                    <td><a href="http://www.apache.org/dist/incubator/ratis/0.1.0-alpha/">
-                        http://www.apache.org/dist/incubator/ratis/0.1.0-alpha/</a>
+                    <td><a href="https://www.apache.org/dist/incubator/ratis/0.1.0-alpha/">
+                        https://www.apache.org/dist/incubator/ratis/0.1.0-alpha/</a>
                     </td>
-                    <td>
-                        <a href="post/0.1.0-alpha.html">Announcement</a>
-                    </td>
+                    <td><a href="post/0.1.0-alpha.html">Announcement</a></td>
                 </tr>
                 
             </table>
             </p>
+
             <p>Release artifacts are signed with one of the keys available at:
-                <a href="http://www.apache.org/dist/incubator/ratis/KEYS">http://www.apache.org/dist/incubator/ratis/KEYS</a>
+                <a herf="https://www.apache.org/dist/incubator/ratis/KEYS">https://www.apache.org/dist/incubator/ratis/KEYS</a>
             </p>
+
             <p>Ratis is also <a href="https://search.maven.org/#search%7Cga%7C1%7Cratis">available</a> from the Maven central repository.</p>
 
         </div>
@@ -290,8 +294,7 @@
 <!-- TODO: We should have the following as documentation in the github.  -->
 
 <p>The source code of the examples could be found in the
-    <a href="https://github.com/apache/incubator-ratis/blob/master/ratis-examples/">ratis-examples</a> sub-project.
-</p>
+<a href="https://github.com/apache/incubator-ratis/blob/master/ratis-examples/">ratis-examples</a> sub-project.</p>
 
 <h3 id="maven-usage">Maven usage</h3>
 
@@ -309,7 +312,7 @@
    <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
 
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"> <span style="color:#f92672">&lt;dependency&gt;</span>
    <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-netty<span style="color:#f92672">&lt;/artifactId&gt;</span>
    <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
