@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.AlreadyClosedException;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.RaftRetryFailureException;
 import org.apache.ratis.protocol.StateMachineException;
@@ -52,12 +53,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -389,5 +392,32 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
     //reset for the other tests
     RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), oldExpiryTime);
+  }
+
+  @Test(timeout = 30000)
+  public void testNoRetryWaitOnNotLeaderException() throws Exception {
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.initServers();
+    cluster.start();
+
+    final RaftServerImpl leader = waitForLeader(cluster);
+    // Order peers before leaders to try
+    List<RaftPeerId> peers = cluster.getPeers().stream()
+        .filter(p -> !p.getId().equals(leader.getId()))
+        .map(RaftPeer::getId).collect(Collectors.toList());
+
+    Assert.assertNotNull(peers);
+    Assert.assertEquals(2, peers.size());
+    Iterator<RaftPeerId> i = peers.listIterator();
+    RetryPolicy unlimitedRetry =
+        RetryPolicies.retryUpToMaximumCountWithFixedSleep(10, TimeDuration.valueOf(60, TimeUnit.SECONDS));
+
+    RaftPeerId first = i.next();
+    RaftPeerId second = i.next();
+    try (final RaftClient client = cluster.createClient(first, cluster.getGroup(), unlimitedRetry)) {
+      client.sendAsync(new SimpleMessage("abc")).get();
+    } finally {
+      cluster.shutdown();
+    }
   }
 }

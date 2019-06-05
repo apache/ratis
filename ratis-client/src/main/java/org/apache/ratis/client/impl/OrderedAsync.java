@@ -24,10 +24,12 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.GroupMismatchException;
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftException;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.IOUtils;
@@ -35,7 +37,6 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SlidingWindow;
-import org.apache.ratis.util.function.FunctionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -165,28 +166,42 @@ class OrderedAsync {
       return;
     }
 
+    RaftClientRequest request = pending.newRequestImpl();
     sendRequest(pending).thenAccept(reply -> {
       if (f.isDone()) {
         return;
       }
       if (reply == null) {
-        final int attempt = pending.getAttemptCount();
-        RaftClientRequest request = pending.getRequest();
-        LOG.debug("schedule* attempt #{} with policy {} for {}", attempt, retryPolicy, request);
-        client.getScheduler().onTimeout(retryPolicy.getSleepTime(attempt, request),
-            () -> getSlidingWindow(request).retry(pending, this::sendRequestWithRetry),
-            LOG, () -> "Failed* to retry " + request);
+        scheduleWithTimeout(pending, request, retryPolicy);
       } else {
         f.complete(reply);
       }
-    }).exceptionally(FunctionUtils.consumerAsNullFunction(f::completeExceptionally));
+    }).exceptionally(e -> {
+      e = JavaUtils.unwrapCompletionException(e);
+      if (e instanceof NotLeaderException) {
+        RetryPolicy noLeaderRetry = ((NotLeaderException) e).getSuggestedLeader() != null ?
+            RetryPolicies.retryForeverNoSleep() : retryPolicy;
+        scheduleWithTimeout(pending, request, noLeaderRetry);
+        return null;
+      }
+      f.completeExceptionally(e);
+      return null;
+    });
+  }
+
+  private void scheduleWithTimeout(PendingOrderedRequest pending, RaftClientRequest request, RetryPolicy retryPolicy) {
+    final int attempt = pending.getAttemptCount();
+    LOG.debug("schedule* attempt #{} with policy {} for {}", attempt, retryPolicy, request);
+    client.getScheduler().onTimeout(retryPolicy.getSleepTime(attempt, request),
+        () -> getSlidingWindow(request).retry(pending, this::sendRequestWithRetry),
+        LOG, () -> "Failed* to retry " + request);
   }
 
   private CompletableFuture<RaftClientReply> sendRequest(PendingOrderedRequest pending) {
     final RetryPolicy retryPolicy = client.getRetryPolicy();
     final CompletableFuture<RaftClientReply> f;
     final RaftClientRequest request;
-    try(AutoCloseableLock readLock = client.readLock()) {
+    try (AutoCloseableLock readLock = client.readLock()) {
       if (getSlidingWindow((RaftPeerId) null).isFirst(pending.getSeqNum())) {
         pending.setFirstRequest();
       }
@@ -218,6 +233,9 @@ class OrderedAsync {
           handleAsyncRetryFailure(request, attemptCount, e);
         } else {
           client.handleIOException(request, (IOException) e, null, this::resetSlidingWindow);
+        }
+        if (e instanceof NotLeaderException) {
+          throw new CompletionException(e);
         }
         return null;
       }

@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftException;
+import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
@@ -80,7 +81,7 @@ public interface UnorderedAsync {
           f.complete(reply);
           return;
         }
-        final RetryPolicy retryPolicy = client.getRetryPolicy();
+        RetryPolicy retryPolicy = client.getRetryPolicy();
         if (!retryPolicy.shouldRetry(attemptCount, request)) {
           f.completeExceptionally(
               client.noMoreRetries(request, attemptCount, replyException != null? replyException: e));
@@ -98,6 +99,8 @@ public interface UnorderedAsync {
           if (e instanceof IOException) {
             if (e instanceof NotLeaderException) {
               client.handleNotLeaderException(request, (NotLeaderException) e, null);
+              retryPolicy = ((NotLeaderException) e).getSuggestedLeader() != null ?
+                  RetryPolicies.retryForeverNoSleep() : retryPolicy;
             } else if (e instanceof GroupMismatchException) {
               f.completeExceptionally(e);
               return;

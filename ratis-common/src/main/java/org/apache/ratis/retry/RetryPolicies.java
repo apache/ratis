@@ -131,7 +131,7 @@ public interface RetryPolicies {
 
     @Override
     public TimeDuration getSleepTime(int attemptCount, RaftClientRequest request) {
-      return shouldRetry(attemptCount, request)? sleepTime: ZERO_MILLIS;
+      return shouldRetry(attemptCount, request) ? sleepTime: ZERO_MILLIS;
     }
 
     public int getMaxAttempts() {
