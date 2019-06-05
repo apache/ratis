@@ -159,6 +159,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private volatile RoleInfoProto slownessInfo = null;
   private volatile RoleInfoProto leaderElectionTimeoutInfo = null;
 
+  private RaftGroupId groupId;
+
   public SimpleStateMachine4Testing() {
     checkpointer = new Daemon(() -> {
       while (running) {
@@ -200,6 +202,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public synchronized void initialize(RaftServer server, RaftGroupId groupId,
       RaftStorage raftStorage) throws IOException {
     LOG.info("Initializing " + this);
+    this.groupId = groupId;
     lifeCycle.startAndTransition(() -> {
       super.initialize(server, groupId, raftStorage);
       storage.init(raftStorage);
@@ -402,14 +405,14 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   }
 
   @Override
-  public void notifySlowness(RaftGroup group, RoleInfoProto roleInfoProto) {
-    LOG.info("{}: notifySlowness {}, {}", this, group, roleInfoProto);
+  public void notifySlowness(RoleInfoProto roleInfoProto) {
+    LOG.info("{}: notifySlowness {}, {}", this, groupId, roleInfoProto);
     slownessInfo = roleInfoProto;
   }
 
   @Override
-  public void notifyExtendedNoLeader(RaftGroup group, RoleInfoProto roleInfoProto) {
-    LOG.info("{}: notifyExtendedNoLeader {}, {}", this, group, roleInfoProto);
+  public void notifyExtendedNoLeader(RoleInfoProto roleInfoProto) {
+    LOG.info("{}: notifyExtendedNoLeader {}, {}", this, groupId, roleInfoProto);
     leaderElectionTimeoutInfo = roleInfoProto;
   }
 

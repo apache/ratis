@@ -405,7 +405,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     role.shutdownFollowerState();
     setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
     if (state.checkForExtendedNoLeader()) {
-      stateMachine.notifyExtendedNoLeader(getGroup(), getRoleInfoProto());
+      stateMachine.notifyExtendedNoLeader(getRoleInfoProto());
     }
     // start election
     role.startLeaderElection(this);
@@ -1138,7 +1138,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
                 "index is {} but the leader's first available log index is {}.",
             getId(), state.getLog().getNextIndex(), firstAvailableLogIndex);
 
-        stateMachine.notifyInstallSnapshotFromLeader(firstAvailableLogTermIndex)
+        stateMachine.notifyInstallSnapshotFromLeader(getRoleInfoProto(), firstAvailableLogTermIndex)
             .whenComplete((reply, exception) -> {
               if (exception != null) {
                 LOG.error(getId() + ": State Machine failed to install snapshot", exception);

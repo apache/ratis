@@ -22,7 +22,9 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -93,7 +95,9 @@ public class TestInstallSnapshotWithGrpc {
   private static class StateMachineForGRpcTest extends
       SimpleStateMachine4Testing {
     @Override
-    public CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(TermIndex termIndex) {
+    public CompletableFuture<TermIndex> notifyInstallSnapshotFromLeader(
+        RaftProtos.RoleInfoProto roleInfoProto,
+        TermIndex termIndex) {
       try {
         Path leaderSnapshotFile = leaderSnapshotInfo.getFile().getPath();
         File followerSnapshotFilePath = new File(getSMdir(),
