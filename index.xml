@@ -59,6 +59,16 @@ The Ratis user mailing list is: user@ratis.</description>
     </item>
     
     <item>
+      <title>Docker Testing</title>
+      <link>https://ratis.incubator.apache.org/logservice/testing/docker.html</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.incubator.apache.org/logservice/testing/docker.html</guid>
+      <description>The Docker orchestration is comprised of the following:
+ A Docker image which has the necessary software to run the LogService A docker-compose.yml file which can launch the necessary containers for a full-fledged LogService &amp;ldquo;cluster&amp;rdquo; Scripts to build the Docker image and launch a client environment to interact with a running cluster via Compose.  Building the Docker image $ mvn clean package assembly:single -DskipTests $ cd ratis-logservice &amp;amp;&amp;amp; .</description>
+    </item>
+    
+    <item>
       <title>Getting started</title>
       <link>https://ratis.incubator.apache.org/getting_started.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
@@ -71,6 +81,27 @@ Examples To demonstrate how to use Ratis from the code, Please look at the follo
     </item>
     
     <item>
+      <title>LogService</title>
+      <link>https://ratis.incubator.apache.org/logservice/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.incubator.apache.org/logservice/</guid>
+      <description>The Ratis LogService is an distributed, log implementation built on top of Apache Ratis. The LogService is a &amp;ldquo;recipe&amp;rdquo; on top of Apache Ratis, providing a higher-level API as compared to Ratis itself. The LogService provides the ability to create named, durable, append-only data structures with the ability to perform linear reads.
+Like Ratis, the LogService is designed to be embedded into another application as a library, as opposed to a standalone daemon.</description>
+    </item>
+    
+    <item>
+      <title>LogService Testing</title>
+      <link>https://ratis.incubator.apache.org/logservice/testing/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.incubator.apache.org/logservice/testing/</guid>
+      <description>The LogService presently has two means for testing itself: Docker with Compose orchestration and VirtualBox with Vagrant orchestration.
+Docker is suitable for a quick and lightweight orchestration of a full LogService installation. Vagrant, while heavier-weight that the Docker automation, has the added benefit of being able to leverage Namazu for failure scenarios. Please find more on each using the below references.
+ Docker Vagrant  </description>
+    </item>
+    
+    <item>
       <title>Source</title>
       <link>https://ratis.incubator.apache.org/source.html</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
@@ -78,6 +109,17 @@ Examples To demonstrate how to use Ratis from the code, Please look at the follo
       <guid>https://ratis.incubator.apache.org/source.html</guid>
       <description>Source code is part of every release, you can download the source bundles from download section and build the project according to the included instructions.
 The versioned source code history is available from the Apache git repository or from the github mirror. It is only for development and not intended for use by the general public. Only the source code from the released artifacts are checked by the Project Management Committee.</description>
+    </item>
+    
+    <item>
+      <title>Vagrant Testing</title>
+      <link>https://ratis.incubator.apache.org/logservice/testing/vagrant.html</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.incubator.apache.org/logservice/testing/vagrant.html</guid>
+      <description>Please refer to the documentation for instructions to use the Vagrant automation.
+Starting from the directory dev-support/vagrant/:
+ To build all Vagrant boxes, invoke ./run_all_tests.sh build To remove any generated data, invoke ./run_all_tests.sh clean To run the tests, invoke vagrant resume ratis-servers &amp;amp;&amp;amp; vagrant ssh ratis-servers  </description>
     </item>
     
   </channel>

@@ -18,6 +18,14 @@
   </url>
   
   <url>
+    <loc>https://ratis.incubator.apache.org/logservice.html</loc>
+  </url>
+  
+  <url>
+    <loc>https://ratis.incubator.apache.org/logservice/testing.html</loc>
+  </url>
+  
+  <url>
     <loc>https://ratis.incubator.apache.org/</loc>
     <lastmod>2019-04-21T00:00:00+00:00</lastmod>
     <priority>0</priority>
@@ -33,7 +41,19 @@
   </url>
   
   <url>
+    <loc>https://ratis.incubator.apache.org/logservice/testing/docker.html</loc>
+  </url>
+  
+  <url>
     <loc>https://ratis.incubator.apache.org/getting_started.html</loc>
+  </url>
+  
+  <url>
+    <loc>https://ratis.incubator.apache.org/logservice/</loc>
+  </url>
+  
+  <url>
+    <loc>https://ratis.incubator.apache.org/logservice/testing/</loc>
   </url>
   
   <url>
@@ -49,6 +69,10 @@
   <url>
     <loc>https://ratis.incubator.apache.org/tags.html</loc>
     <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>https://ratis.incubator.apache.org/logservice/testing/vagrant.html</loc>
   </url>
   
 </urlset>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Apache Ratis</title>
+    <link>https://ratis.incubator.apache.org/logservice.html</link>
+    <description>Recent content on Apache Ratis</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    
+	<atom:link href="https://ratis.incubator.apache.org/logservice/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>LogService</title>
+      <link>https://ratis.incubator.apache.org/logservice/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.incubator.apache.org/logservice/</guid>
+      <description>The Ratis LogService is an distributed, log implementation built on top of Apache Ratis. The LogService is a &amp;ldquo;recipe&amp;rdquo; on top of Apache Ratis, providing a higher-level API as compared to Ratis itself. The LogService provides the ability to create named, durable, append-only data structures with the ability to perform linear reads.
+Like Ratis, the LogService is designed to be embedded into another application as a library, as opposed to a standalone daemon.</description>
+    </item>
+    
+  </channel>
+</rss>
