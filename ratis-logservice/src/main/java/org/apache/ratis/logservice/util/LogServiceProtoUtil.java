@@ -29,7 +29,6 @@ import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.LogServiceProtos.*;
-import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
 public class LogServiceProtoUtil {
@@ -56,11 +55,12 @@ public class LogServiceProtoUtil {
     return logStreamProto;
   }
 
-  public static LogServiceRequestProto toCloseLogRequestProto(LogName logName) {
+  public static LogServiceRequestProto toChangeStateRequestProto(LogName logName, State state) {
     LogNameProto logNameProto = LogNameProto.newBuilder().setName(logName.getName()).build();
-    CloseLogRequestProto closeLog =
-        CloseLogRequestProto.newBuilder().setLogName(logNameProto).build();
-    return LogServiceRequestProto.newBuilder().setCloseLog(closeLog).build();
+    ChangeStateLogRequestProto changeLog =
+        ChangeStateLogRequestProto.newBuilder().setLogName(logNameProto)
+            .setState(LogStreamState.valueOf(state.name())).build();
+    return LogServiceRequestProto.newBuilder().setChangeState(changeLog).build();
   }
 
   public static LogServiceRequestProto toGetStateRequestProto(LogName logName) {
@@ -70,8 +70,11 @@ public class LogServiceProtoUtil {
     return LogServiceRequestProto.newBuilder().setGetState(getState).build();
   }
 
-  public static ArchiveLogReplyProto toArchiveLogReplyProto() {
+  public static ArchiveLogReplyProto toArchiveLogReplyProto(Throwable t) {
     ArchiveLogReplyProto.Builder builder = ArchiveLogReplyProto.newBuilder();
+    if (t != null) {
+      builder.setException(toLogException(t));
+    }
     return builder.build();
   }
 
@@ -163,10 +166,9 @@ public class LogServiceProtoUtil {
     return retVal;
   }
 
-  public static GetStateReplyProto toGetStateReplyProto(boolean exists) {
-    return GetStateReplyProto.newBuilder().build();
+  public static GetStateReplyProto toGetStateReplyProto(State state) {
+    return GetStateReplyProto.newBuilder().setState(LogStreamState.valueOf(state.name())).build();
   }
-
 
   public static GetLogLengthReplyProto toGetLogLengthReplyProto(long length, Throwable t) {
     GetLogLengthReplyProto.Builder builder = GetLogLengthReplyProto.newBuilder();
@@ -265,4 +267,11 @@ public class LogServiceProtoUtil {
     return builder.build();
   }
 
+  public static LogServiceRequestProto toArchiveLogRequestProto(LogName logName, String location, long raftIndex) {
+    LogServiceProtos.LogNameProto logNameProto =
+        LogServiceProtos.LogNameProto.newBuilder().setName(logName.getName()).build();
+    ArchiveLogRequestProto archiveLog =
+        ArchiveLogRequestProto.newBuilder().setLogName(logNameProto).setLocation(location).setLastArchivedRaftIndex(raftIndex).build();
+    return LogServiceRequestProto.newBuilder().setArchiveLog(archiveLog).build();
+  }
 }

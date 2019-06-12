@@ -54,10 +54,6 @@ message GetLogRequestProto {
   LogNameProto logName = 1;
 }
 
-message ArchiveLogRequestProto {
-  LogNameProto logName = 1;
-}
-
 message DeleteLogRequestProto {
   LogNameProto logName = 1;
 }
@@ -76,10 +72,6 @@ message ListLogsReplyProto {
   repeated LogInfoProto logs = 1;
   MetaServiceExceptionProto exception = 2;
 
-}
-
-message ArchiveLogReplyProto {
-  MetaServiceExceptionProto exception = 1;
 }
 
 message DeleteLogReplyProto {
