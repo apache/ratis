@@ -29,7 +29,7 @@ import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.LogServiceProtos.*;
-import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
+import org.apache.ratis.logservice.server.ArchivalInfo;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
 public class LogServiceProtoUtil {
@@ -56,11 +56,17 @@ public class LogServiceProtoUtil {
     return logStreamProto;
   }
 
-  public static LogServiceRequestProto toCloseLogRequestProto(LogName logName) {
+  public static LogServiceRequestProto toChangeStateRequestProto(LogName logName, State state,
+      boolean force) {
     LogNameProto logNameProto = LogNameProto.newBuilder().setName(logName.getName()).build();
-    CloseLogRequestProto closeLog =
-        CloseLogRequestProto.newBuilder().setLogName(logNameProto).build();
-    return LogServiceRequestProto.newBuilder().setCloseLog(closeLog).build();
+    ChangeStateLogRequestProto changeLog =
+        ChangeStateLogRequestProto.newBuilder().setLogName(logNameProto)
+            .setState(LogStreamState.valueOf(state.name())).build();
+    return LogServiceRequestProto.newBuilder().setChangeState(changeLog).build();
+  }
+
+  public static LogServiceRequestProto toChangeStateRequestProto(LogName logName, State state) {
+    return toChangeStateRequestProto(logName, state, false);
   }
 
   public static LogServiceRequestProto toGetStateRequestProto(LogName logName) {
@@ -70,8 +76,11 @@ public class LogServiceProtoUtil {
     return LogServiceRequestProto.newBuilder().setGetState(getState).build();
   }
 
-  public static ArchiveLogReplyProto toArchiveLogReplyProto() {
+  public static ArchiveLogReplyProto toArchiveLogReplyProto(Throwable t) {
     ArchiveLogReplyProto.Builder builder = ArchiveLogReplyProto.newBuilder();
+    if (t != null) {
+      builder.setException(toLogException(t));
+    }
     return builder.build();
   }
 
@@ -163,10 +172,9 @@ public class LogServiceProtoUtil {
     return retVal;
   }
 
-  public static GetStateReplyProto toGetStateReplyProto(boolean exists) {
-    return GetStateReplyProto.newBuilder().build();
+  public static GetStateReplyProto toGetStateReplyProto(State state) {
+    return GetStateReplyProto.newBuilder().setState(LogStreamState.valueOf(state.name())).build();
   }
-
 
   public static GetLogLengthReplyProto toGetLogLengthReplyProto(long length, Throwable t) {
     GetLogLengthReplyProto.Builder builder = GetLogLengthReplyProto.newBuilder();
@@ -245,6 +253,19 @@ public class LogServiceProtoUtil {
     return builder.build();
   }
 
+  public static ArchiveLogRequestProto toExportInfoProto(ArchivalInfo info) {
+    return ArchiveLogRequestProto.newBuilder().setIsExport(true)
+        .setLastArchivedRaftIndex(info.getLastArchivedIndex())
+        .setLocation(info.getArchiveLocation()).setLogName(
+            LogServiceProtos.LogNameProto.newBuilder().setName(info.getArchiveLogName().getName())
+                .build()).setStatus(ArchivalStatus.valueOf(info.getStatus().name())).build();
+  }
+
+  public static ArchivalInfo toExportInfo(ArchiveLogRequestProto proto){
+    return new ArchivalInfo(proto.getLocation()).updateArchivalInfo(proto);
+
+  }
+
   public GetLogLengthReplyProto toGetLogLengthReplyProto(long length) {
     GetLogLengthReplyProto.Builder builder = GetLogLengthReplyProto.newBuilder();
     builder.setLength(length);
@@ -265,4 +286,26 @@ public class LogServiceProtoUtil {
     return builder.build();
   }
 
+  public static LogServiceRequestProto toExportInfoRequestProto(LogName logName){
+    LogServiceProtos.LogNameProto logNameProto =
+        LogServiceProtos.LogNameProto.newBuilder().setName(logName.getName()).build();
+    GetExportInfoRequestProto exportInfoRequestProto =
+        GetExportInfoRequestProto.newBuilder().setLogName(logNameProto).build();
+    return LogServiceRequestProto.newBuilder().setExportInfo(exportInfoRequestProto).build();
+  }
+
+  public static LogServiceRequestProto toArchiveLogRequestProto(LogName logName, String location,
+      long raftIndex, boolean isArchival, ArchivalInfo.ArchivalStatus status) {
+    LogServiceProtos.LogNameProto logNameProto =
+        LogServiceProtos.LogNameProto.newBuilder().setName(logName.getName()).build();
+    ArchiveLogRequestProto.Builder builder =
+        ArchiveLogRequestProto.newBuilder().setLogName(logNameProto)
+            .setLastArchivedRaftIndex(raftIndex).setStatus(ArchivalStatus.valueOf(status.name()));
+    builder.setIsExport(!isArchival);
+    if (location != null) {
+      builder.setLocation(location);
+    }
+    ArchiveLogRequestProto archiveLog = builder.build();
+    return LogServiceRequestProto.newBuilder().setArchiveLog(archiveLog).build();
+  }
 }

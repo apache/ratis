@@ -30,6 +30,7 @@ import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogWriter;
 import org.apache.ratis.logservice.api.RecordListener;
+import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogLastCommittedIndexReplyProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogLengthReplyProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogSizeReplyProto;
@@ -96,9 +97,12 @@ public class LogStreamImpl implements LogStream {
     return name;
   }
 
-  @Override
-  public State getState() {
-    return state;
+  @Override public State getState() throws IOException {
+    RaftClientReply reply = raftClient.sendReadOnly(
+        Message.valueOf(LogServiceProtoUtil.toGetStateRequestProto(name).toByteString()));
+    LogServiceProtos.GetStateReplyProto proto =
+        LogServiceProtos.GetStateReplyProto.parseFrom(reply.getMessage().getContent());
+    return State.valueOf(proto.getState().name());
   }
 
   @Override
@@ -130,7 +134,7 @@ public class LogStreamImpl implements LogStream {
   }
 
   @Override
-  public LogReader createReader() {
+  public LogReader createReader() throws IOException{
     return new LogReaderImpl(this);
   }
 

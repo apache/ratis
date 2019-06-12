@@ -84,7 +84,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
       return super.getStartRecordId();
     }
 
-    @Override public State getState() {
+    @Override public State getState() throws IOException {
       getStateCount++;
       return super.getState();
     }
@@ -110,7 +110,8 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
   }
   @Before
   public void setUpCluster() throws IOException, InterruptedException {
-    cluster = newCluster(NUM_PEERS);
+    RaftProperties raftProperties = getProperties();
+    cluster = getFactory().newCluster(NUM_PEERS, raftProperties);
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
   }
@@ -166,6 +167,8 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
         assertEquals(expected, actual);
       }
       testJMXMetrics(logStream);
+      assertEquals(logStream.getState(),State.OPEN);
+
     }
   }
 

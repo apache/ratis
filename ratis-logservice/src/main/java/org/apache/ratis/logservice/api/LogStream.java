@@ -31,8 +31,26 @@ public interface LogStream extends AutoCloseable{
    * An enumeration that defines the current state of a LogStream
    */
   public enum State {
+    /*
+    Log is open to receive writes/read request
+     */
     OPEN,
-    CLOSED;
+    /*
+    Log is closed and can not be written but available for read or archival or export
+     */
+    CLOSED,
+    /*
+    Log is currently archiving but still readable and can be exported to a different locations
+     */
+    ARCHIVING,
+    /*
+    Log is archiving and available for read only
+     */
+    ARCHIVED,
+    /*
+    Log is deleted so not available for read or write or any other operation
+     */
+    DELETED;
   }
 
   /**
@@ -43,7 +61,7 @@ public interface LogStream extends AutoCloseable{
   /**
    * Returns the current state of this log.
    */
-  State getState();
+  State getState() throws IOException;
 
   /**
    * Returns the size of this LogStream in bytes.
@@ -62,7 +80,7 @@ public interface LogStream extends AutoCloseable{
    *
    * @return A synchronous reader
    */
-  LogReader createReader();
+  LogReader createReader() throws IOException;
 
   /**
    * Creates a write to write to this LogStream.

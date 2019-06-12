@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  * A reader for the {@link RaftLog} which is accessed using LogService recordId's instead
  * of Raft log indexes. Not thread-safe.
  */
-public class LogServiceRaftLogReader {
+public class LogServiceRaftLogReader implements  RaftLogReader{
   private static final Logger LOG = LoggerFactory.getLogger(LogServiceRaftLogReader.class);
   private final RaftLog raftLog;
 
@@ -55,6 +55,7 @@ public class LogServiceRaftLogReader {
    * Positions this reader just before the current recordId. Use {@link #next()} to get that
    * element, but take care to check if a value is present using {@link #hasNext()} first.
    */
+  @Override
   public void seek(long recordId) throws RaftLogIOException, InvalidProtocolBufferException {
     LOG.trace("Seeking to recordId={}", recordId);
     // RaftLog starting index
@@ -75,6 +76,7 @@ public class LogServiceRaftLogReader {
   /**
    * Returns true if there is a log entry to read.
    */
+  @Override
   public boolean hasNext() throws RaftLogIOException, InvalidProtocolBufferException {
     return currentRecord != null;
   }
@@ -83,14 +85,15 @@ public class LogServiceRaftLogReader {
    * Returns the next log entry. Ensure {@link #hasNext()} returns true before
    * calling this method.
    */
-  public ByteString next() throws RaftLogIOException, InvalidProtocolBufferException {
+  @Override
+  public byte[] next() throws RaftLogIOException, InvalidProtocolBufferException {
     if (currentRecord == null) {
       throw new NoSuchElementException();
     }
     ByteString current = currentRecord;
     currentRecord = null;
     loadNext();
-    return current;
+    return current.toByteArray();
   }
 
   /**
@@ -158,5 +161,10 @@ public class LogServiceRaftLogReader {
       }
     }
     // If we make it here, we've read off the end of the RaftLog.
+  }
+
+  @Override
+  public long getCurrentRaftIndex(){
+    return currentRaftIndex;
   }
 }

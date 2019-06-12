@@ -29,7 +29,7 @@ public interface LogReader extends AutoCloseable {
   /**
    * Seeks to the position before the record at the provided {@code recordId} in the LogStream.
    *
-   * @param offset A non-negative, offset in the LogStream
+   * @param recordId A non-negative, offset in the LogStream
    * @return A future for when the operation is completed.
    */
   void seek(long recordId) throws IOException;
@@ -79,7 +79,7 @@ public interface LogReader extends AutoCloseable {
   /**
    * Returns the current position of this Reader. The position is a {@code recordId}.
    */
-  long getPosition();
+  long getPosition() throws IOException;
 
   /**
    * Overrides {@link #close()} in {@link AutoCloseable} to throw an IOException.

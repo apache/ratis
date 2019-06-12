@@ -18,6 +18,8 @@
 
 package org.apache.ratis.logservice.util;
 
+import org.apache.hadoop.fs.Path;
+import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 
@@ -50,4 +52,22 @@ public class LogServiceUtils {
         }
 
     }
+
+    public static String getArchiveLocationForLog(String location, LogName logName) {
+        return location + "/" + logName.getName();
+    }
+
+    public static String getRolledPathForArchiveWriter(Path path, long lastWrittenId) {
+        return path + "_recordId_" + lastWrittenId;
+    }
+
+    public static Integer getRecordIdFromRolledArchiveFile(Path path) {
+        String[] splits = path.getName().toString().split("_recordId_");
+        if (splits.length != 2) {
+            //currently written file, should be read last
+            return Integer.MAX_VALUE;
+        }
+        return Integer.parseInt(splits[1]);
+    }
+
 }

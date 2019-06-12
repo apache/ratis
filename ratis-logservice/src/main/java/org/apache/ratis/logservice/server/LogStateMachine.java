@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.logservice.server;
 
+import static org.apache.ratis.logservice.api.LogStream.State;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -25,29 +27,49 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
-import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.logservice.api.ArchiveLogWriter;
+import org.apache.ratis.logservice.api.LogName;
+import org.apache.ratis.logservice.common.Constants;
+import org.apache.ratis.logservice.impl.ArchiveHdfsLogReader;
+import org.apache.ratis.logservice.impl.ArchiveHdfsLogWriter;
 import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
+import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.LogServiceProtos.AppendLogEntryRequestProto;
-import org.apache.ratis.logservice.proto.LogServiceProtos.CloseLogReplyProto;
-import org.apache.ratis.logservice.proto.LogServiceProtos.CloseLogRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogLengthRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetLogSizeRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.GetStateRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.ReadLogRequestProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
+import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.logservice.server.ArchivalInfo.ArchivalStatus;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.ServerState;
@@ -66,6 +88,8 @@ import org.slf4j.LoggerFactory;
 
 public class LogStateMachine extends BaseStateMachine {
   public static final Logger LOG = LoggerFactory.getLogger(LogStateMachine.class);
+  public static final long DEFAULT_ARCHIVE_THRESHOLD_PER_FILE = 1000000;
+  private final RaftProperties properties;
   private RatisMetricRegistry metricRegistry;
   private Timer sizeRequestTimer;
   private Timer readNextQueryTimer;
@@ -75,12 +99,10 @@ public class LogStateMachine extends BaseStateMachine {
   private Timer startIndexTimer;
   private Timer appendRequestTimer;
   private Timer syncRequesTimer;
+  private Timer archiveLogRequestTimer;
   private Timer getCloseLogTimer;
-
-  public static enum State {
-    OPEN, CLOSED
-  }
-
+  private RaftClient client;
+  //Archival information
   /*
    *  State is a log's length, size, and state (closed/open);
    */
@@ -99,9 +121,18 @@ public class LogStateMachine extends BaseStateMachine {
 
   private RaftLog log;
 
-  private RaftGroupId groupId;
 
   private RaftServerProxy proxy ;
+  private ExecutorService executorService;
+  private boolean isArchivalRequest;
+  private ArchivalInfo archivalInfo;
+  private Map<String,ArchivalInfo> exportMap = new HashMap<String,ArchivalInfo>();
+  private Map<String, Future<Boolean>> archiveExportFutures = new HashMap<>();
+  private Timer archiveLogTimer;
+
+  public LogStateMachine(RaftProperties properties) {
+    this.properties = properties;
+  }
 
   private AutoCloseableLock readLock() {
     return AutoCloseableLock.acquire(lock.readLock());
@@ -126,7 +157,6 @@ public class LogStateMachine extends BaseStateMachine {
     super.initialize(server, groupId, raftStorage);
     this.storage.init(raftStorage);
     this.proxy = (RaftServerProxy) server;
-    this.groupId = groupId;
     //TODO: using groupId for metric now but better to tag it with LogName
     this.metricRegistry = LogServiceMetricsRegistry
         .createMetricRegistryForLogService(groupId.toString(), server.getId().toString());
@@ -139,7 +169,15 @@ public class LogStateMachine extends BaseStateMachine {
     this.syncRequesTimer = metricRegistry.timer("syncRequesTime");
     this.appendRequestTimer = metricRegistry.timer("appendRequestTime");
     this.getCloseLogTimer = metricRegistry.timer("getCloseLogTime");
+    //archiving request time not the actual archiving time
+    this.archiveLogRequestTimer = metricRegistry.timer("archiveLogRequestTime");
+    this.archiveLogTimer = metricRegistry.timer("archiveLogTime");
     loadSnapshot(storage.getLatestSnapshot());
+    executorService = Executors.newSingleThreadExecutor();
+    this.archivalInfo =
+        new ArchivalInfo(properties.get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY));
+
+
   }
 
   private void checkInitialization() throws IOException {
@@ -266,7 +304,14 @@ public class LogStateMachine extends BaseStateMachine {
               return processGetLengthRequest(logServiceRequestProto);
             }
           });
-        default:
+      case ARCHIVELOG:
+        return recordTime(archiveLogRequestTimer, new Task(){
+          @Override public CompletableFuture<Message> run() {
+            return processArchiveLog(logServiceRequestProto);
+          }});
+      case EXPORTINFO:
+        return processExportInfo(logServiceRequestProto);
+      default:
           // TODO
           throw new RuntimeException(
             "Wrong message type for query: " + logServiceRequestProto.getRequestCase());
@@ -277,6 +322,19 @@ public class LogStateMachine extends BaseStateMachine {
       throw new RuntimeException(e);
     }
 
+  }
+
+  private CompletableFuture<Message> processExportInfo(
+      LogServiceRequestProto logServiceRequestProto) {
+    LogServiceProtos.GetExportInfoRequestProto exportInfoRequestProto =
+        logServiceRequestProto.getExportInfo();
+    LogServiceProtos.GetExportInfoReplyProto.Builder exportBuilder =
+        LogServiceProtos.GetExportInfoReplyProto.newBuilder();
+    exportMap.values().stream().map(
+        archivalInfo -> exportBuilder.addInfo(LogServiceProtoUtil.toExportInfoProto(archivalInfo)))
+        .collect(Collectors.toList());
+
+    return CompletableFuture.completedFuture(Message.valueOf(exportBuilder.build().toByteString()));
   }
 
   /**
@@ -302,7 +360,6 @@ public class LogStateMachine extends BaseStateMachine {
   private CompletableFuture<Message>
       processGetLastCommittedIndexRequest(LogServiceRequestProto proto)
   {
-
     Throwable t = verifyState(State.OPEN);
     long lastIndex = log.getLastCommittedIndex();
     return CompletableFuture.completedFuture(Message
@@ -340,19 +397,34 @@ public class LogStateMachine extends BaseStateMachine {
     long startRecordId = msgProto.getStartRecordId();
     // And the number of records they want to read
     int numRecordsToRead = msgProto.getNumRecords();
-    Throwable t = verifyState(State.OPEN);
+    //Log must have been closed while Archiving , so we can let user only to
+    // read when the log is either OPEN or ARCHIVED
+    Throwable t = verifyState(State.OPEN, State.ARCHIVING, State.CLOSED, State.ARCHIVED);
     List<byte[]> list = null;
 
     if (t == null) {
-      LogServiceRaftLogReader reader = new LogServiceRaftLogReader(log);
-      list = new ArrayList<byte[]>();
+      RaftLogReader reader = null;
       try {
-        reader.seek(startRecordId);
-        for (int i = 0; i < numRecordsToRead; i++) {
-          if (!reader.hasNext()) {
-            break;
+        if (this.state == State.OPEN || this.state == State.CLOSED
+            || this.state == State.ARCHIVING) {
+          reader = new LogServiceRaftLogReader(log);
+        } else if (this.state == State.ARCHIVED) {
+          reader = new ArchiveHdfsLogReader(LogServiceUtils
+              .getArchiveLocationForLog(archivalInfo.getArchiveLocation(),
+                  archivalInfo.getArchiveLogName()));
+        } else {
+          //could be a race condition
+          t = verifyState(State.OPEN, State.ARCHIVED);
+        }
+        if (t == null && reader != null) {
+          list = new ArrayList<byte[]>();
+          reader.seek(startRecordId);
+          for (int i = 0; i < numRecordsToRead; i++) {
+            if (!reader.hasNext()) {
+              break;
+            }
+            list.add(reader.next());
           }
-          list.add(reader.next().toByteArray());
         }
       } catch (Exception e) {
         LOG.error("Failed to execute ReadNextQuery", e);
@@ -425,10 +497,10 @@ public class LogStateMachine extends BaseStateMachine {
       LogServiceRequestProto logServiceRequestProto =
           LogServiceRequestProto.parseFrom(entry.getStateMachineLogEntry().getLogData());
       switch (logServiceRequestProto.getRequestCase()) {
-        case CLOSELOG:
+      case CHANGESTATE:
           return recordTime(getCloseLogTimer, new Task(){
             @Override public CompletableFuture<Message> run() {
-              return processCloseLog(logServiceRequestProto);
+              return processChangeState(logServiceRequestProto);
             }});
         case APPENDREQUEST:
           return recordTime(appendRequestTimer, new Task(){
@@ -440,6 +512,8 @@ public class LogStateMachine extends BaseStateMachine {
             @Override public CompletableFuture<Message> run() {
               return processSyncRequest(trx, logServiceRequestProto);
             }});
+        case ARCHIVELOG:
+          return updateArchiveLogInfo(logServiceRequestProto);
         default:
           //TODO
           return null;
@@ -452,29 +526,256 @@ public class LogStateMachine extends BaseStateMachine {
 
 
 
-  private CompletableFuture<Message> processCloseLog(LogServiceRequestProto logServiceRequestProto) {
-    CloseLogRequestProto closeLog = logServiceRequestProto.getCloseLog();
+  private CompletableFuture<Message> processChangeState(LogServiceRequestProto logServiceRequestProto) {
+    LogServiceProtos.ChangeStateLogRequestProto changeState = logServiceRequestProto.getChangeState();
     // Need to check whether the file is opened if opened close it.
     // TODO need to handle exceptions while operating with files.
+
+    State targetState = State.valueOf(changeState.getState().name());
+    //if forced skip checking states
+    if(!changeState.getForce()) {
+      switch (targetState) {
+      case OPEN:
+        if (state != null) {
+          verifyState(State.OPEN, State.CLOSED);
+        }
+        break;
+      case CLOSED:
+        verifyState(State.OPEN);
+        break;
+      case ARCHIVED:
+        verifyState(State.ARCHIVING);
+        break;
+      case ARCHIVING:
+        verifyState(State.CLOSED);
+        break;
+      case DELETED:
+        verifyState(State.CLOSED);
+        break;
+      }
+    }
+    this.state = targetState;
     return CompletableFuture.completedFuture(Message
-      .valueOf(CloseLogReplyProto.newBuilder().build().toByteString()));
+        .valueOf(LogServiceProtos.ChangeStateReplyProto.newBuilder().build().toByteString()));
   }
-
-
 
   private CompletableFuture<Message> processGetStateRequest(
       LogServiceRequestProto logServiceRequestProto) {
     GetStateRequestProto getState = logServiceRequestProto.getGetState();
-    return CompletableFuture.completedFuture(Message.valueOf(LogServiceProtoUtil
-        .toGetStateReplyProto(state == State.OPEN).toByteString()));
+    return CompletableFuture.completedFuture(Message
+        .valueOf(LogServiceProtoUtil.toGetStateReplyProto(state).toByteString()));
   }
 
-  private Throwable verifyState(State state) {
-       if (this.state != state) {
-          return new IOException("Wrong state: " + this.state);
-        }
+  private Throwable verifyState(State... states) {
+    for (State state : states) {
+      if (this.state == state) {
         return null;
-   }
+      }
+    }
+    return new IOException("Wrong state: " + this.state);
+  }
 
+  private CompletableFuture<Message> updateArchiveLogInfo(
+      LogServiceRequestProto logServiceRequestProto) {
+    LogServiceProtos.ArchiveLogRequestProto archiveLog = logServiceRequestProto.getArchiveLog();
+    this.isArchivalRequest = !archiveLog.getIsExport();
+    Throwable t = null;
+    if(isArchivalRequest) {
+      archivalInfo.updateArchivalInfo(archiveLog);
+      t = verifyState(State.ARCHIVING);
+    }else{
+      t = verifyState(State.OPEN, State.CLOSED);
+      ArchivalInfo info = exportMap.get(archiveLog.getLocation());
+      if(info==null) {
+        info = new ArchivalInfo(archiveLog.getLocation());
+        exportMap.put(archiveLog.getLocation(),info);
+      }
+      info.updateArchivalInfo(archiveLog);
+    }
+    return CompletableFuture.completedFuture(
+        Message.valueOf(LogServiceProtoUtil.toArchiveLogReplyProto(t).toByteString()));
+  }
+
+  private CompletableFuture<Message> processArchiveLog(
+      LogServiceRequestProto logServiceRequestProto) {
+    LogServiceProtos.ArchiveLogRequestProto archiveLog = logServiceRequestProto.getArchiveLog();
+    LogName logName = LogServiceProtoUtil.toLogName(archiveLog.getLogName());
+    Throwable t = null;
+    try {
+      String loc = null;
+      this.isArchivalRequest = !archiveLog.getIsExport();
+      if (isArchivalRequest) {
+        loc = archivalInfo.getArchiveLocation();
+        archivalInfo.updateArchivalInfo(archiveLog);
+      } else {
+        loc = archiveLog.getLocation();
+        ArchivalInfo exportInfo =
+            exportMap.putIfAbsent(loc, new ArchivalInfo(loc));
+        if (exportInfo != null && exportInfo.getLastArchivedIndex() == archiveLog
+            .getLastArchivedRaftIndex()) {
+          throw new IllegalStateException("Export of " + logName + "for the given location " + loc
+              + "is already present and in " + exportInfo.getStatus());
+        }
+        exportInfo.updateArchivalInfo(archiveLog);
+      }
+      if (loc == null) {
+        throw new IllegalArgumentException(isArchivalRequest ?
+            "Location for archive is not configured" :
+            "Location for export provided is null");
+      }
+      final String location = loc;
+      long recordId = archiveLog.getLastArchivedRaftIndex();
+      if (isArchivalRequest) {
+        t = verifyState(State.CLOSED);
+      } else {
+        t = verifyState(State.OPEN, State.CLOSED);
+      }
+      if (t == null) {
+        Callable<Boolean> callable = () -> {
+          final Timer.Context timerContext = archiveLogTimer.time();
+          try {
+            startArchival(recordId, logName, location);
+            //Init ArchiveLogWriter for writing in export/archival location
+            ArchiveLogWriter writer = new ArchiveHdfsLogWriter();
+            writer.init(location, logName);
+
+            LogServiceRaftLogReader reader = new LogServiceRaftLogReader(log);
+            reader.seek(recordId);
+            long records = 0;
+            boolean isInterrupted = false;
+            while (reader.hasNext()) {
+              writer.write(ByteBuffer.wrap(reader.next()));
+              isInterrupted = Thread.currentThread().isInterrupted();
+              if (records >= DEFAULT_ARCHIVE_THRESHOLD_PER_FILE || isInterrupted) {
+                //roll writer when interuppted or no. of records threshold per file is met
+                commit(writer, logName, location);
+                if (isInterrupted) {
+                  break;
+                }
+                records = 0;
+              }
+              records++;
+            }
+            writer.close();
+            if (!isInterrupted) {
+              //It means archival is successfully completed on this leader
+              completeArchival(writer.getLastWrittenRecordId(), logName, location);
+            } else {
+              //Thread is interuppted either leader is going down or it become follower
+              try {
+                //Sleeping here before sending archival request to new leader to
+                // avoid causing problem during leader election storm
+                Thread.sleep(10000);
+              } catch (InterruptedException e) {
+              }
+              sendArchiveLogrequestToNewLeader(writer.getLastWrittenRecordId(), logName, location);
+            }
+            return true;
+          } catch (Exception e) {
+            LOG.error("Archival failed for the log:" + logName, e);
+            failArchival(recordId, logName, location);
+          } finally {
+            timerContext.stop();
+          }
+          return false;
+        };
+
+        archiveExportFutures.put(location, executorService.submit(callable));
+      }
+    }catch (Exception e){
+      LOG.warn("Exception while processing archival request for " + logName, e);
+      t = e;
+    }
+    return CompletableFuture.completedFuture(
+        Message.valueOf(LogServiceProtoUtil.toArchiveLogReplyProto(t).toByteString()));
+  }
+
+  private void failArchival(long recordId, LogName logName, String location) throws IOException {
+    updateArchivingInfo(recordId, logName, location, isArchivalRequest,
+        ArchivalStatus.FAILED);
+    if(isArchivalRequest) {
+      sendChangeStateRequest(State.CLOSED, true);
+    }
+  }
+
+  private void startArchival(long recordId, LogName logName, String location) throws IOException {
+    if (isArchivalRequest) {
+      sendChangeStateRequest(State.ARCHIVING, false);
+    }
+    updateArchivingInfo(recordId, logName, location, isArchivalRequest, ArchivalStatus.STARTED);
+  }
+
+  private void sendArchiveLogrequestToNewLeader(long recordId, LogName logName, String location)
+      throws IOException {
+    getClient().sendReadOnly(() -> LogServiceProtoUtil
+        .toArchiveLogRequestProto(logName, location, recordId, isArchivalRequest,
+            ArchivalStatus.INTERRUPTED).toByteString());
+  }
+
+  public void completeArchival(long recordId, LogName logName, String location) throws IOException {
+    if (isArchivalRequest) {
+      sendChangeStateRequest(State.ARCHIVED, false);
+    }
+    updateArchivingInfo(recordId, logName, location, isArchivalRequest, ArchivalStatus.COMPLETED);
+  }
+
+  private void commit(ArchiveLogWriter writer, LogName logName, String location)
+      throws IOException {
+    writer.rollWriter();
+    updateArchivingInfo(writer.getLastWrittenRecordId(), logName, location, isArchivalRequest,
+        ArchivalStatus.RUNNING);
+  }
+
+  private void updateArchivingInfo(long recordId, LogName logName, String location,
+      boolean isArchival, ArchivalStatus status)
+      throws IOException {
+    RaftClientReply archiveLogReply = getClient().send(() -> LogServiceProtoUtil
+        .toArchiveLogRequestProto(logName, location, recordId, isArchival, status).toByteString());
+    LogServiceProtos.ArchiveLogReplyProto message=LogServiceProtos.ArchiveLogReplyProto
+        .parseFrom(archiveLogReply.getMessage().getContent());
+    if (message.hasException()) {
+      throw new IOException(message.getException().getErrorMsg());
+    }
+  }
+
+  private void sendChangeStateRequest(State state, boolean force) throws IOException {
+      getClient().send(
+          () -> LogServiceProtoUtil.toChangeStateRequestProto(LogName.of("Dummy"), state, force)
+              .toByteString());
+  }
+
+  private RaftClient getClient() throws IOException {
+    if (client == null) {
+      try {
+        RaftServer raftServer = server.get();
+        client = RaftClient.newBuilder().setRaftGroup(getGroupFromGroupId(raftServer, groupId))
+            .setClientId(ClientId.randomId())
+            .setProperties(raftServer.getProperties()).build();
+      } catch (Exception e) {
+        throw new IOException(e);
+      }
+    }
+    return client;
+  }
+
+  private RaftGroup getGroupFromGroupId(RaftServer raftServer, RaftGroupId raftGroupId)
+      throws IOException {
+    List<RaftGroup> x = StreamSupport.stream(raftServer.getGroups().spliterator(), false)
+        .filter(group -> group.getGroupId().equals(raftGroupId)).collect(Collectors.toList());
+    if (x.size() == 1) {
+      return x.get(0);
+    } else {
+      throw new IOException(x.size() + " are group found for group id:" + raftGroupId);
+    }
+  }
+
+  @Override public void notifyNotLeader(Collection<TransactionContext> pendingEntries)
+      throws IOException {
+    for(Future<Boolean> archiveFuture:archiveExportFutures.values()) {
+      if (archiveFuture != null && !archiveFuture.isCancelled()) {
+        archiveFuture.cancel(true);
+      }
+    }
+  }
 
 }

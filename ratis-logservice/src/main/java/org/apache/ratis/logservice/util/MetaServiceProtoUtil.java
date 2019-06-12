@@ -101,15 +101,6 @@ public class MetaServiceProtoUtil {
         return MetaServiceRequestProto.newBuilder().setGetLog(getLog).build();
     }
 
-    public static MetaServiceRequestProto toArchiveLogRequestProto(LogName logName) {
-        LogServiceProtos.LogNameProto logNameProto = LogServiceProtos.LogNameProto.newBuilder()
-                .setName(logName.getName())
-                .build();
-        ArchiveLogRequestProto archiveLog =
-                ArchiveLogRequestProto.newBuilder().setLogName(logNameProto).build();
-        return MetaServiceRequestProto.newBuilder().setArchiveLog(archiveLog).build();
-    }
-
     public static MetaServiceRequestProto toDeleteLogRequestProto(LogName logName) {
         LogServiceProtos.LogNameProto logNameProto = LogServiceProtos.LogNameProto.newBuilder()
                 .setName(logName.getName())

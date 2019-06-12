@@ -80,6 +80,10 @@ public class LogServer extends BaseServer {
       long segmentSize = getConfig().getLong(Constants.RATIS_RAFT_SEGMENT_SIZE_KEY,
         Constants.DEFAULT_RATIS_RAFT_SEGMENT_SIZE);
       SizeInBytes segmentSizeBytes = SizeInBytes.valueOf(segmentSize);
+      String archiveLocation = getConfig().get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY);
+      if (archiveLocation != null) {
+        properties.set(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY, archiveLocation);
+      }
       RaftServerConfigKeys.Log.setSegmentSizeMax(properties, segmentSizeBytes);
       RaftServerConfigKeys.Log.setPreallocatedSize(properties, segmentSizeBytes);
 
@@ -117,7 +121,7 @@ public class LogServer extends BaseServer {
                         if(raftGroupId.equals(logServerGroupId)) {
                             return new ManagementStateMachine();
                         }
-                        return new LogStateMachine();
+                        return new LogStateMachine(properties);
                     }
                 })
                 .setProperties(properties)
