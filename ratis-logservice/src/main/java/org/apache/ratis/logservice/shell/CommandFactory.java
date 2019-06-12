@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
+import org.apache.ratis.logservice.shell.commands.ArchiveLogCommand;
 import org.apache.ratis.logservice.shell.commands.CreateLogCommand;
 import org.apache.ratis.logservice.shell.commands.DeleteLogCommand;
 import org.apache.ratis.logservice.shell.commands.ExitCommand;
@@ -46,6 +47,7 @@ public class CommandFactory {
     commands.put("quit", exitCommand);
     commands.put("help", new HelpCommand());
     commands.put("list", new ListLogsCommand());
+    commands.put("arhive", new ArchiveLogCommand());
 
     return Collections.unmodifiableMap(commands);
   }
