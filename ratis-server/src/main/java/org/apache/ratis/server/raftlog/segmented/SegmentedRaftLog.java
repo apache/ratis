@@ -178,8 +178,8 @@ public class SegmentedRaftLog extends RaftLog {
   @Override
   public LogEntryProto get(long index) throws RaftLogIOException {
     checkLogState();
-    LogSegment segment;
-    LogRecordWithEntry recordAndEntry;
+    final LogSegment segment;
+    final LogRecordWithEntry recordAndEntry;
     try (AutoCloseableLock readLock = readLock()) {
       segment = cache.getSegment(index);
       if (segment == null) {
@@ -203,6 +203,9 @@ public class SegmentedRaftLog extends RaftLog {
   @Override
   public EntryWithData getEntryWithData(long index) throws RaftLogIOException {
     final LogEntryProto entry = get(index);
+    if (entry == null) {
+      throw new RaftLogIOException("Log entry not found: index = " + index);
+    }
     if (!ServerProtoUtils.shouldReadStateMachineData(entry)) {
       return new EntryWithData(entry, null);
     }
