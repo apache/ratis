@@ -15,31 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.logservice.api;
+package org.apache.ratis.logservice.impl;
 
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 
-public interface ArchiveLogWriter extends LogWriter{
+import org.apache.ratis.logservice.api.LogName;
+import org.apache.ratis.logservice.api.RecordListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-  /**
-   * Initializes the writer
-   * @param file file to be written for archival
-   * @param logName
-   * @throws IOException
-   */
-  void init(String file, LogName logName) throws IOException;
+public class ExportLogStreamImpl extends  ArchiveLogStreamImpl{
+  public static final Logger LOG = LoggerFactory.getLogger(ExportLogStreamImpl.class);
 
-  /**
-   * Rolls writer after number of records written crosses threshold
-   * {@link org.apache.ratis.logservice.server.LogStateMachine#DEFAULT_ARCHIVE_THRESHOLD_PER_FILE}
-   *
-   * @throws IOException
-   */
-  void rollWriter() throws IOException;
+  public ExportLogStreamImpl(LogName name, String location) {
+    super(name, location);
+  }
 
-  /**
-   * Record Id of the last written record
-   * @return
-   */
-  long getLastWrittenRecordId();
+  @Override
+  protected void init() {
+    state = State.CLOSED;
+    listeners = Collections.synchronizedList(new ArrayList<RecordListener>());
+  }
 }

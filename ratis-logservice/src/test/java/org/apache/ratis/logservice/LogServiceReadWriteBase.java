@@ -39,9 +39,11 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogReader;
+import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.api.LogWriter;
+import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.impl.ArchiveLogStreamImpl;
 import org.apache.ratis.logservice.impl.LogStreamImpl;
 import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
@@ -59,6 +61,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   public static final Logger LOG = LoggerFactory.getLogger(LogServiceReadWriteBase.class);
+  private String archiveLocation;
 
   {
     final RaftProperties p = getProperties();
@@ -112,7 +115,10 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
   }
   @Before
   public void setUpCluster() throws IOException, InterruptedException {
-    cluster = getFactory().newCluster(NUM_PEERS, getProperties());
+    RaftProperties raftProperties = getProperties();
+    this.archiveLocation = "target/tmp/archive_1/";
+    raftProperties.set(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY,this.archiveLocation);
+    cluster = getFactory().newCluster(NUM_PEERS, raftProperties);
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
   }
@@ -175,9 +181,8 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
           .toByteString());
       assertEquals(logStream.getState(), State.CLOSED);
 
-      String archiveLocation = "target/tmp/archive/";
       raftClient.sendReadOnly(
-          () -> LogServiceProtoUtil.toArchiveLogRequestProto(logName, archiveLocation, 0)
+          () -> LogServiceProtoUtil.toArchiveLogRequestProto(logName, null, 0, true)
               .toByteString());
       int retry = 0;
       while (logStream.getState() != State.ARCHIVED && retry <= 40) {
@@ -194,7 +199,9 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
       assertEquals(records.size() - 1, data.size());
 
       //Test ArchiveLogStream
-      LogStream archiveLogStream = new ArchiveLogStreamImpl(logName, archiveLocation);
+      LogServiceConfiguration config = LogServiceConfiguration.create();
+      config.set(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY, this.archiveLocation);
+      LogStream archiveLogStream = new ArchiveLogStreamImpl(logName, config);
       reader = archiveLogStream.createReader();
       data = reader.readBulk(records.size());
       assertEquals(records.size(), data.size());

@@ -26,6 +26,7 @@ import org.apache.ratis.logservice.shell.commands.ArchiveLogCommand;
 import org.apache.ratis.logservice.shell.commands.CreateLogCommand;
 import org.apache.ratis.logservice.shell.commands.DeleteLogCommand;
 import org.apache.ratis.logservice.shell.commands.ExitCommand;
+import org.apache.ratis.logservice.shell.commands.ExportLogCommand;
 import org.apache.ratis.logservice.shell.commands.HelpCommand;
 import org.apache.ratis.logservice.shell.commands.ListLogsCommand;
 import org.apache.ratis.logservice.shell.commands.PutToLogCommand;
@@ -47,7 +48,8 @@ public class CommandFactory {
     commands.put("quit", exitCommand);
     commands.put("help", new HelpCommand());
     commands.put("list", new ListLogsCommand());
-    commands.put("arhive", new ArchiveLogCommand());
+    commands.put("archive", new ArchiveLogCommand());
+    commands.put("export", new ExportLogCommand());
 
     return Collections.unmodifiableMap(commands);
   }
