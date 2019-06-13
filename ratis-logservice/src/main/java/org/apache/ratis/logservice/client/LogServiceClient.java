@@ -27,6 +27,7 @@ import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.impl.ArchiveLogStreamImpl;
+import org.apache.ratis.logservice.impl.ExportLogStreamImpl;
 import org.apache.ratis.logservice.impl.LogStreamImpl;
 import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
@@ -109,13 +110,25 @@ public class LogServiceClient implements AutoCloseable {
     }
 
     /**
-     * Get Archive log request.
+     * Get Archive log .
      * @param logName the name of the log to get
      * @return
      * @throws IOException
      */
-    public LogStream getArchivedLog(LogName logName, String location) throws IOException {
-        return new ArchiveLogStreamImpl(logName, location, config);
+    public LogStream getArchivedLog(LogName logName) throws IOException {
+        return new ArchiveLogStreamImpl(logName, config);
+    }
+
+    /**
+     * Get exported log .
+     * @param logName the name of the log to get
+     * @param location location of the exported log
+     * @return
+     * @throws IOException
+     */
+
+    public LogStream getExportLog(LogName logName, String location) throws IOException {
+        return new ExportLogStreamImpl(logName, location);
     }
 
 
@@ -184,9 +197,25 @@ public class LogServiceClient implements AutoCloseable {
      *
      * @param logName The name of the log to archive.
      */
-    public void archiveLog(LogName logName, String location) throws IOException {
+    public void archiveLog(LogName logName) throws IOException {
+        exportLog(logName, null, 0);
+    }
+
+    /**
+     * Export the given log out of the state machine and into a provided location on the configured storage
+     * A log must be in {@link State#CLOSED} to export it.
+     * exporting of the log will happen asynchronously from the client,
+     * The call will return immediately after adding a request for archiving log
+     * to the respective quorum
+     *
+     * Client can check the status of export by calling getState() Method
+     *
+     * @param logName The name of the log to archive.
+     */
+    public void exportLog(LogName logName, String location, long recordId) throws IOException {
         RaftClientReply archiveLogReply = getRaftClient(getLogInfo(logName)).sendReadOnly(
-            () -> LogServiceProtoUtil.toArchiveLogRequestProto(logName, location, 0).toByteString());
+            () -> LogServiceProtoUtil.toArchiveLogRequestProto(logName, location, recordId,
+                location == null ? true : false).toByteString());
         LogServiceProtos.ArchiveLogReplyProto archiveMessage = LogServiceProtos.ArchiveLogReplyProto
             .parseFrom(archiveLogReply.getMessage().getContent());
         if (archiveMessage.hasException()) {

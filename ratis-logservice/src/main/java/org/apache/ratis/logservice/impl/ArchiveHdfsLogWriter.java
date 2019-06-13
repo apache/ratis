@@ -24,11 +24,11 @@ import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileAlreadyExistsException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.util.Progressable;
 import org.apache.ratis.logservice.api.ArchiveLogWriter;
+import org.apache.ratis.logservice.api.LogName;
+import org.apache.ratis.logservice.util.LogServiceUtils;
 
 public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
   private FileSystem hdfs;
@@ -38,10 +38,10 @@ public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
   private long lastRollRecordId;
 
   @Override
-  public void init(String file) throws IOException {
+  public void init(String location, LogName logName) throws IOException {
     Configuration configuration = new Configuration();
     hdfs = FileSystem.get(configuration);
-    currentPath = new Path(file);
+    currentPath = new Path(location + "/" + logName.getName());
     os = hdfs.create(currentPath,true);
   }
 

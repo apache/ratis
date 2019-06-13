@@ -23,24 +23,26 @@ import org.apache.ratis.logservice.shell.Command;
 import org.jline.reader.LineReader;
 import org.jline.terminal.Terminal;
 
-public class ArchiveLogCommand implements Command {
+public class ExportLogCommand implements Command {
 
   @Override public String getHelpMessage() {
-    return "`archive` - archive the given log at already configured location";
+    return "`export` - export the given log at given location starting from provided recordId";
   }
 
   @Override
   public void run(Terminal terminal, LineReader lineReader, LogServiceClient client, String[] args) {
-    if (args.length != 1) {
-      terminal.writer().println("ERROR - Usage: archive <name> ");
+    if (args.length != 3) {
+      terminal.writer().println("ERROR - Usage: export <name> <location> <recordId>");
       return;
     }
     String logName = args[0];
+    String location = args[1];
+    long recordId = Long.parseLong(args[2]);
     try {
-      client.archiveLog(LogName.of(logName));
-      terminal.writer().println("Archive Log request is submitted successfully!!");
+      client.exportLog(LogName.of(logName), location,recordId);
+      terminal.writer().println("Export Log request is submitted successfully!!");
     } catch (Exception e) {
-      terminal.writer().println("Failed to archive log!!");
+      terminal.writer().println("Failed to export log!!");
       e.printStackTrace(terminal.writer());
     }
   }

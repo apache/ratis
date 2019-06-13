@@ -18,6 +18,7 @@
 
 package org.apache.ratis.logservice.util;
 
+import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 
@@ -49,5 +50,9 @@ public class LogServiceUtils {
             return "localhost";
         }
 
+    }
+
+    public static String getArchiveLocationForLog(String location, LogName logName) {
+        return location + "/" + logName.getName();
     }
 }
