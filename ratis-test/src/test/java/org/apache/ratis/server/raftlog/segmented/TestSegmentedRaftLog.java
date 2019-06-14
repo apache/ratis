@@ -36,7 +36,6 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
-import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -54,14 +53,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class TestSegmentedRaftLog extends BaseTest {
@@ -509,14 +511,13 @@ public class TestSegmentedRaftLog extends BaseTest {
     }
   }
 
-  @Test
-  public void testSegmentedRaftLogStateMachineDataTimeoutIOException() throws Exception {
+  @Test(expected = TimeoutIOException.class)
+  public void testServerShutdownOnTimeoutIOException() throws Throwable {
     RaftServerConfigKeys.Log.StateMachineData.setSync(properties, true);
     final TimeDuration syncTimeout = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     RaftServerConfigKeys.Log.StateMachineData.setSyncTimeout(properties, syncTimeout);
     final int numRetries = 2;
     RaftServerConfigKeys.Log.StateMachineData.setSyncTimeoutRetry(properties, numRetries);
-    ExitUtils.disableSystemExit();
 
     final LogEntryProto entry = prepareLogEntry(0, 0, null, true);
     final StateMachine sm = new BaseStateMachine() {
@@ -526,17 +527,23 @@ public class TestSegmentedRaftLog extends BaseTest {
       }
     };
 
-    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, sm, null, storage, -1, properties)) {
+    RaftServerImpl server = mock(RaftServerImpl.class);
+    doNothing().when(server).shutdown(false);
+    Throwable ex = null; // TimeoutIOException
+    try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, server, sm, null, storage, -1, properties)) {
       raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
-      raftLog.appendEntry(entry);  // SegmentedRaftLogWorker should catch TimeoutIOException
-
-      JavaUtils.attempt(() -> {
-        final ExitUtils.ExitException exitException = ExitUtils.getFirstExitException();
-        Objects.requireNonNull(exitException, "exitException == null");
-        Assert.assertEquals(TimeoutIOException.class, exitException.getCause().getClass());
-      }, 3*numRetries, syncTimeout, "SegmentedRaftLogWorker should catch TimeoutIOException and exit", LOG);
-      ExitUtils.clear();
+      // SegmentedRaftLogWorker should catch TimeoutIOException
+      CompletableFuture<Long> f = raftLog.appendEntry(entry);
+      // Wait for async writeStateMachineData to finish
+      try {
+        f.get();
+      } catch (ExecutionException e) {
+        ex = e.getCause();
+      }
     }
+    Assert.assertNotNull(ex);
+    verify(server, times(1)).shutdown(false);
+    throw ex;
   }
 
   static Thread startAppendEntryThread(RaftLog raftLog, LogEntryProto entry) {

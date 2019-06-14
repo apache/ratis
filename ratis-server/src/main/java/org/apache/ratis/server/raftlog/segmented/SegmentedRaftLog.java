@@ -123,7 +123,8 @@ public class SegmentedRaftLog extends RaftLog {
     this.storage = storage;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.cache = new SegmentedRaftLogCache(selfId, storage, properties);
-    this.fileLogWorker = new SegmentedRaftLogWorker(selfId, stateMachine, submitUpdateCommitEvent, storage, properties);
+    this.fileLogWorker = new SegmentedRaftLogWorker(selfId, stateMachine,
+        submitUpdateCommitEvent, server, storage, properties);
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties);
   }
 

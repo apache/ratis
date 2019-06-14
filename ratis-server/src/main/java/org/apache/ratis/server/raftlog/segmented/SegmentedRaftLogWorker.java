@@ -27,6 +27,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -119,11 +120,12 @@ class SegmentedRaftLogWorker implements Runnable {
   private final long segmentMaxSize;
   private final long preallocatedSize;
   private final int bufferSize;
+  private final RaftServerImpl server;
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
   SegmentedRaftLogWorker(RaftPeerId selfId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
-      RaftStorage storage, RaftProperties properties) {
+                         RaftServerImpl server, RaftStorage storage, RaftProperties properties) {
     this.name = selfId + "-" + getClass().getSimpleName() + ":" + storage.getStorageDir();
     LOG.info("new {} for {}", name, storage);
 
@@ -131,6 +133,7 @@ class SegmentedRaftLogWorker implements Runnable {
     this.stateMachine = stateMachine;
     this.metricRegistry = RatisMetrics.createMetricRegistryForLogWorker(selfId.toString());
     this.storage = storage;
+    this.server = server;
     final SizeInBytes queueByteLimit = RaftServerConfigKeys.Log.queueByteLimit(properties);
     final int queueElementLimit = RaftServerConfigKeys.Log.queueElementLimit(properties);
     this.queue =
@@ -214,7 +217,10 @@ class SegmentedRaftLogWorker implements Runnable {
         LOG.info("Got InterruptedException when adding task " + task
             + ". The SegmentedRaftLogWorker already stopped.");
       } else {
-        ExitUtils.terminate(2, "Failed to add IO task " + task, t, LOG);
+        LOG.error("Failed to add IO task {}", task, t);
+        if (server != null) {
+          server.shutdown(false);
+        }
       }
     }
     return task;
@@ -238,6 +244,7 @@ class SegmentedRaftLogWorker implements Runnable {
                   + " which is smaller than the lastWrittenIndex."
                   + " There should be a snapshot installed.", e);
             } else {
+              task.getFuture().completeExceptionally(e);
               throw e;
             }
           }
@@ -258,11 +265,11 @@ class SegmentedRaftLogWorker implements Runnable {
           LOG.info("{} got closed and hit exception",
               Thread.currentThread().getName(), t);
         } else {
-          // TODO avoid terminating the jvm, we should
-          // 1) support multiple log directories
-          // 2) only shutdown the raft server impl
-          ExitUtils.terminate(1, Thread.currentThread().getName() + " failed.",
-              t, LOG);
+          LOG.error("{} hit exception", Thread.currentThread().getName(), t);
+          // Shutdown raft group instead of terminating jvm.
+          if (server != null) {
+            server.shutdown(false);
+          }
         }
       }
     }

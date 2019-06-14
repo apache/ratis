@@ -106,7 +106,7 @@ public interface ExitUtils {
   /** @throws AssertionError if {@link #isTerminated()} == true. */
   static void assertNotTerminated() {
     if (ExitUtils.isTerminated()) {
-      throw new AssertionError("Unexpected exited.", getFirstExitException());
+      throw new AssertionError("Unexpected exit.", getFirstExitException());
     }
   }
 

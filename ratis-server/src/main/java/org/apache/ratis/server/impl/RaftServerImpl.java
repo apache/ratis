@@ -240,7 +240,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return RaftGroup.valueOf(groupId, getRaftConf().getPeers());
   }
 
-  void shutdown(boolean deleteDirectory) {
+  public void shutdown(boolean deleteDirectory) {
     lifeCycle.checkStateAndClose(() -> {
       LOG.info("{}: shutdown {}", getId(), groupId);
       try {
