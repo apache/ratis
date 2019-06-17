@@ -64,11 +64,6 @@ public class SegmentedRaftLogOutputStream implements Closeable {
     this.segmentMaxSize = segmentMaxSize;
     this.preallocatedSize = preallocatedSize;
     RandomAccessFile rp = new RandomAccessFile(file, "rw");
-    fc = rp.getChannel();
-    fc.position(fc.size());
-    preallocatedPos = fc.size();
-    out = new BufferedWriteChannel(fc, bufferSize);
-
     try {
       fc = rp.getChannel();
       fc.position(fc.size());
@@ -143,7 +138,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   @Override
   public void close() throws IOException {
     try {
-      out.flush(false);
+      out.flush();
       if (fc != null && fc.isOpen()) {
         fc.truncate(fc.position());
       }
@@ -162,7 +157,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
     if (out == null) {
       throw new IOException("Trying to use aborted output stream");
     }
-    out.flush(true);
+    out.flush();
   }
 
   private void preallocate() throws IOException {
