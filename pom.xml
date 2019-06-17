@@ -158,6 +158,8 @@
     <license-maven-plugin.version>1.19</license-maven-plugin.version>
     <copy-rename-maven-plugin.version>1.0</copy-rename-maven-plugin.version>
 
+
+
     <!--
       ! Can be removed if changing to ASF parent version 19
     -->
@@ -193,6 +195,11 @@
     <testsThreadCount>4</testsThreadCount>
 
     <checkstyle.version>8.16</checkstyle.version>
+
+    <!--metrics-->
+    <dropwizard.version>3.2.5</dropwizard.version>
+    <dropwizard-metrics-hadoop-metrics2-reporter.version>0.1.2
+    </dropwizard-metrics-hadoop-metrics2-reporter.version>
   </properties>
 
   <dependencyManagement>
@@ -304,6 +311,11 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
+      <dependency>
+        <groupId>com.github.joshelser</groupId>
+        <artifactId>dropwizard-metrics-hadoop-metrics2-reporter</artifactId>
+        <version>${dropwizard-metrics-hadoop-metrics2-reporter.version}</version>
+      </dependency>
 
       <dependency>
         <artifactId>ratis-server</artifactId>
@@ -377,7 +389,19 @@
       <dependency>
         <groupId>io.dropwizard.metrics</groupId>
         <artifactId>metrics-core</artifactId>
-        <version>3.2.5</version>
+        <version>${dropwizard.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.dropwizard.metrics</groupId>
+        <artifactId>metrics-jvm</artifactId>
+        <version>${dropwizard.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.dropwizard.metrics</groupId>
+        <artifactId>metrics-ganglia</artifactId>
+        <version>${dropwizard.version}</version>
       </dependency>
 
       <dependency>

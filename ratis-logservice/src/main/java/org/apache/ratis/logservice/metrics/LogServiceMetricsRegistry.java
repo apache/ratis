@@ -19,20 +19,27 @@
 package org.apache.ratis.logservice.metrics;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import com.codahale.metrics.JmxReporter;
+import com.github.joshelser.dropwizard.metrics.hadoop.HadoopMetrics2Reporter;
+import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
-import org.apache.ratis.metrics.impl.RatisMetricRegistry;
+import org.apache.ratis.metrics.MetricsReporting;
+import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 
 public class LogServiceMetricsRegistry {
-  public static final String RATIS_LOG_SERVICE_METRICS_CONTEXT = "RatisLogService";
+  public static final String RATIS_LOG_SERVICE_METRICS_CONTEXT = "ratis_log_service";
+      //context needs to be small case for hadoop2metrics
   public static final String RATIS_LOG_SERVICE_METRICS_DESC = "Ratis log service metrics";
   public static final String RATIS_LOG_SERVICE_META_DATA_METRICS_CONTEXT =
-      "RatisLogServiceMetaData";
+      "ratis_log_service_metadata";
   public static final String RATIS_LOG_SERVICE_META_DATA_METRICS_DESC =
       "Ratis log service metadata metrics";
-  public static final String JMX_DOMAIN = "RatisLogService";
+  public static final String JMX_DOMAIN = "ratis_log_service";
+  static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
 
   public static RatisMetricRegistry createMetricRegistryForLogService(String logName) {
     return create(new MetricRegistryInfo(logName, RATIS_LOG_SERVICE_METRICS_DESC,
@@ -57,12 +64,10 @@ public class LogServiceMetricsRegistry {
   }
 
   private static RatisMetricRegistry create(MetricRegistryInfo info) {
-    Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
-    if (metricRegistry.isPresent()) {
-      return metricRegistry.get();
-    }
     RatisMetricRegistry registry = MetricRegistries.global().create(info);
-    JmxReporter.forRegistry(registry.getDropWizardMetricRegistry()).inDomain(JMX_DOMAIN).build().start();
+    metricsReporting
+        .startMetricsReporter(registry, JMX_DOMAIN, MetricsReporting.MetricReporterType.JMX,
+            MetricsReporting.MetricReporterType.HADOOP2);
     return registry;
   }
 

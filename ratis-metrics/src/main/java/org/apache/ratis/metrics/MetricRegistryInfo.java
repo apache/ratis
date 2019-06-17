@@ -30,19 +30,22 @@ import com.codahale.metrics.MetricRegistry;
  */
 public class MetricRegistryInfo {
 
-  protected final String metricsName;
+  protected final String metricsClassName;
   protected final String metricsDescription;
   protected final String metricsContext;
   private final String fullName;
 
-  public MetricRegistryInfo(
-      String metricsName,
-      String metricsDescription,
+  /**
+   * @param metricsClassName   className or component name this metric registry collects metric for
+   * @param metricsDescription description of the metrics collected by this registry
+   * @param metricsContext     context needs to be in small case as it is used for hadoop2metrics
+   */
+  public MetricRegistryInfo(String metricsClassName, String metricsDescription,
       String metricsContext) {
-    this.metricsName = metricsName;
+    this.metricsClassName = metricsClassName;
     this.metricsDescription = metricsDescription;
     this.metricsContext = metricsContext;
-    this.fullName = MetricRegistry.name(metricsName,metricsContext);
+    this.fullName = MetricRegistry.name(metricsClassName, metricsContext);
   }
 
   /**
@@ -63,8 +66,8 @@ public class MetricRegistryInfo {
   /**
    * Get the name of the metrics that are being exported by this registry.
    */
-  public String getMetricsName() {
-    return metricsName;
+  public String getMetricsClassName() {
+    return metricsClassName;
   }
 
   @Override
@@ -78,7 +81,7 @@ public class MetricRegistryInfo {
 
   @Override
   public int hashCode() {
-    return Objects.hash(metricsName, metricsDescription, metricsContext);
+    return Objects.hash(metricsClassName, metricsDescription, metricsContext);
   }
 
   public String getName() {

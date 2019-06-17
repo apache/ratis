@@ -57,7 +57,8 @@ import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto
 import org.apache.ratis.logservice.proto.LogServiceProtos.ReadLogRequestProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
 import org.apache.ratis.logservice.util.LogServiceUtils;
-import org.apache.ratis.metrics.impl.RatisMetricRegistry;
+import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.ClientId;

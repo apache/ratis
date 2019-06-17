@@ -19,15 +19,18 @@
 package org.apache.ratis.server.metrics;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
-import com.codahale.metrics.JmxReporter;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
-import org.apache.ratis.metrics.impl.RatisMetricRegistry;
+import org.apache.ratis.metrics.JVMMetrics;
+import org.apache.ratis.metrics.MetricsReporting;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 
 public class RatisMetrics {
-  public final static String RATIS_LOG_WORKER_METRICS_DESC = "Ratis Log worker metrics";
-  public final static String RATIS_LOG_WORKER_METRICS_CONTEXT = "RaftLogWorker";
+  public final static String RATIS_LOG_WORKER_METRICS_DESC = "Ratis metrics";
+  public final static String RATIS_LOG_WORKER_METRICS_CONTEXT = "ratis";
+  static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
 
   public static RatisMetricRegistry createMetricRegistryForLogWorker(String name) {
     return create(new MetricRegistryInfo(name, RATIS_LOG_WORKER_METRICS_DESC,
@@ -45,7 +48,14 @@ public class RatisMetrics {
       return metricRegistry.get();
     }
     RatisMetricRegistry registry = MetricRegistries.global().create(info);
-    JmxReporter.forRegistry(registry.getDropWizardMetricRegistry()).inDomain("RatisCore").build().start();
+    metricsReporting
+        .startMetricsReporter(registry, "RatisCore", MetricsReporting.MetricReporterType.JMX,
+            MetricsReporting.MetricReporterType.HADOOP2);
+    // JVM metrics
+    JVMMetrics
+        .startJVMReporting(500, TimeUnit.MILLISECONDS, MetricsReporting.MetricReporterType.JMX,
+            MetricsReporting.MetricReporterType.HADOOP2);
+
     return registry;
   }
 }

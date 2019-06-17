@@ -4,4 +4,26 @@ Copyright 2017-2018 The Apache Software Foundation
 This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
 
+--
+This product uses the dropwizard-hadoop-metrics2.
 
+Copyright 2016 Josh Elser
+
+Licensed under the Apache License v2.0
+
+--
+This product uses https://github.com/mbocek/docker-ganglia/
+
+Contributed by Michal Bocek
+
+Licensed under the Apache License v2.0
+https://github.com/mbocek/docker-ganglia/blob/master/LICENSE
+
+--
+This product uses https://github.com/graphite-project/docker-graphite-statsd
+
+Copyright (c) 2013-2016 Nathan Hopkins
+
+Licensed under the MIT License
+
+--
