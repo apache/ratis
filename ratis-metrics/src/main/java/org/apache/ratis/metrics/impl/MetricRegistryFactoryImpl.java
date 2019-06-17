@@ -18,13 +18,13 @@
  */
 package org.apache.ratis.metrics.impl;
 
-import com.codahale.metrics.MetricRegistry;
 import org.apache.ratis.metrics.MetricRegistryFactory;
 import org.apache.ratis.metrics.MetricRegistryInfo;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 
 public class MetricRegistryFactoryImpl implements MetricRegistryFactory {
   @Override
   public RatisMetricRegistry create(MetricRegistryInfo info) {
-    return new RatisMetricRegistry(info);
+    return new RatisMetricRegistryImpl(info);
   }
 }

@@ -30,27 +30,38 @@ import com.codahale.metrics.MetricRegistry;
  */
 public class MetricRegistryInfo {
 
-  protected final String metricsName;
+  protected final String prefix;
   protected final String metricsDescription;
-  protected final String metricsContext;
+  protected final String metricsComponentName;
   private final String fullName;
+  private final String applicationName;
 
-  public MetricRegistryInfo(
-      String metricsName,
-      String metricsDescription,
-      String metricsContext) {
-    this.metricsName = metricsName;
+  /**
+   * @param prefix   className or component name this metric registry collects metric for
+   * @param applicationName application Name needs to be in small case as it is used for hadoop2metrics
+   * @param metricsComponentName component name needs to be in small case as it is used for hadoop2metrics
+   * @param metricsDescription description of the metrics collected by this registry
+   *
+   */
+  public MetricRegistryInfo(String prefix, String applicationName, String metricsComponentName,
+      String metricsDescription) {
+    this.prefix = prefix;
+    this.applicationName = applicationName;
+    this.metricsComponentName = metricsComponentName;
     this.metricsDescription = metricsDescription;
-    this.metricsContext = metricsContext;
-    this.fullName = MetricRegistry.name(metricsName,metricsContext);
+    this.fullName = MetricRegistry.name(applicationName, metricsComponentName, prefix);
+  }
+
+  public String getApplicationName() {
+    return this.applicationName;
   }
 
   /**
    *
-   * @return The string context
+   * @return component name for which Metric is getting collected
    */
-  public String getMetricsContext() {
-    return metricsContext;
+  public String getMetricsComponentName() {
+    return metricsComponentName;
   }
 
   /**
@@ -61,10 +72,10 @@ public class MetricRegistryInfo {
   }
 
   /**
-   * Get the name of the metrics that are being exported by this registry.
+   * Get the unique prefix for metrics that are being exported by this registry.
    */
-  public String getMetricsName() {
-    return metricsName;
+  public String getPrefix() {
+    return prefix;
   }
 
   @Override
@@ -78,10 +89,12 @@ public class MetricRegistryInfo {
 
   @Override
   public int hashCode() {
-    return Objects.hash(metricsName, metricsDescription, metricsContext);
+    return Objects.hash(prefix, metricsDescription, metricsComponentName);
   }
 
   public String getName() {
     return fullName;
   }
+
+
 }

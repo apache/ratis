@@ -111,7 +111,7 @@ public class TestRaftLogMetrics extends BaseTest
     Assert.assertTrue(tm.getMeanRate() > 0);
 
     // Test jmx
-    ObjectName oname = new ObjectName("RatisCore", "name", flushTimeMetric);
+    ObjectName oname = new ObjectName("ratis_core", "name", flushTimeMetric);
     Assert.assertEquals(expectedFlush,
         ((Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count"))
             .intValue());

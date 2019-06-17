@@ -42,7 +42,7 @@ import org.apache.ratis.logservice.proto.LogServiceProtos.GetStateRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.LogServiceRequestProto;
 import org.apache.ratis.logservice.proto.LogServiceProtos.ReadLogRequestProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
-import org.apache.ratis.metrics.impl.RatisMetricRegistry;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.Message;
@@ -128,8 +128,8 @@ public class LogStateMachine extends BaseStateMachine {
     this.proxy = (RaftServerProxy) server;
     this.groupId = groupId;
     //TODO: using groupId for metric now but better to tag it with LogName
-    this.metricRegistry =
-        LogServiceMetricsRegistry.createMetricRegistryForLogService(groupId.toString());
+    this.metricRegistry = LogServiceMetricsRegistry
+        .createMetricRegistryForLogService(groupId.toString(), server.getId().toString());
     this.readNextQueryTimer = metricRegistry.timer("readNextQueryTime");
     this.startIndexTimer= metricRegistry.timer("startIndexTime");
     this.sizeRequestTimer = metricRegistry.timer("sizeRequestTime");

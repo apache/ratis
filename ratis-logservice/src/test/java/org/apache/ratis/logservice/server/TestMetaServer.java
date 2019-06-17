@@ -20,6 +20,7 @@ package org.apache.ratis.logservice.server;
 
 import org.apache.ratis.logservice.api.*;
 import org.apache.ratis.logservice.client.LogServiceClient;
+import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.common.LogAlreadyExistException;
 import org.apache.ratis.logservice.common.LogNotFoundException;
 import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
@@ -36,6 +37,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -44,6 +46,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
+import javax.management.InstanceNotFoundException;
 import javax.management.ObjectName;
 
 public class TestMetaServer {
@@ -202,12 +205,20 @@ public class TestMetaServer {
         assertEquals(expectedCount, getJMXCount(metricName));
     }
 
-    private Long getJMXCount(String metricName) throws Exception{
-        ObjectName oname = new ObjectName(LogServiceMetricsRegistry.JMX_DOMAIN, "name",
-            MetaStateMachine.class.getSimpleName() + "."
-                + LogServiceMetricsRegistry.RATIS_LOG_SERVICE_META_DATA_METRICS_CONTEXT + "."
-                + metricName);
-        return (Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count");
+    private Long getJMXCount(String metricName) throws Exception {
+        for (MetadataServer master : cluster.getMasters()) {
+            ObjectName oname =
+                new ObjectName(LogServiceMetricsRegistry.RATIS_LOG_SERVICE_METRICS, "name",
+                    LogServiceMetricsRegistry.getMetricRegistryForLogServiceMetaData(master.getId())
+                        .getMetricRegistryInfo().getName() + "." + metricName);
+            try {
+                return (Long) ManagementFactory.getPlatformMBeanServer()
+                    .getAttribute(oname, "Count");
+            } catch (InstanceNotFoundException e) {
+
+            }
+        }
+        throw new InstanceNotFoundException();
     }
 
     @Ignore ("Too heavy for the current implementation")

@@ -18,51 +18,50 @@
 
 package org.apache.ratis.logservice.metrics;
 
-import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
-import com.codahale.metrics.JmxReporter;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
-import org.apache.ratis.metrics.impl.RatisMetricRegistry;
+import org.apache.ratis.metrics.MetricsReporting;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 
 public class LogServiceMetricsRegistry {
-  public static final String RATIS_LOG_SERVICE_METRICS_CONTEXT = "RatisLogService";
+  public static final String RATIS_LOG_STATEMACHINE_METRICS = "log_statemachine";
+  public static final String RATIS_LOG_SERVICE_METRICS = "ratis_log_service";
   public static final String RATIS_LOG_SERVICE_METRICS_DESC = "Ratis log service metrics";
-  public static final String RATIS_LOG_SERVICE_META_DATA_METRICS_CONTEXT =
-      "RatisLogServiceMetaData";
+  public static final String RATIS_LOG_SERVICE_META_DATA_METRICS = "metadata_statemachine";
   public static final String RATIS_LOG_SERVICE_META_DATA_METRICS_DESC =
       "Ratis log service metadata metrics";
-  public static final String JMX_DOMAIN = "RatisLogService";
+  static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
 
-  public static RatisMetricRegistry createMetricRegistryForLogService(String logName) {
-    return create(new MetricRegistryInfo(logName, RATIS_LOG_SERVICE_METRICS_DESC,
-        RATIS_LOG_SERVICE_METRICS_CONTEXT));
+  public static RatisMetricRegistry createMetricRegistryForLogService(String logName,
+      String serverId) {
+    return create(new MetricRegistryInfo(logName + "." + serverId, RATIS_LOG_SERVICE_METRICS,
+        RATIS_LOG_STATEMACHINE_METRICS, RATIS_LOG_SERVICE_METRICS_DESC));
   }
 
-  public static RatisMetricRegistry getMetricRegistryForLogService(String logName) {
+  public static RatisMetricRegistry getMetricRegistryForLogService(String logName,
+      String serverId) {
     return MetricRegistries.global().get(
-        new MetricRegistryInfo(logName, RATIS_LOG_SERVICE_METRICS_DESC,
-            RATIS_LOG_SERVICE_METRICS_CONTEXT)).get();
+        new MetricRegistryInfo(logName + "." + serverId, RATIS_LOG_SERVICE_METRICS,
+            RATIS_LOG_STATEMACHINE_METRICS, RATIS_LOG_SERVICE_METRICS_DESC)).get();
   }
 
-  public static RatisMetricRegistry createMetricRegistryForLogServiceMetaData(String className) {
-    return create(new MetricRegistryInfo(className, RATIS_LOG_SERVICE_META_DATA_METRICS_DESC,
-        RATIS_LOG_SERVICE_META_DATA_METRICS_CONTEXT));
+  public static RatisMetricRegistry createMetricRegistryForLogServiceMetaData(String serverId) {
+    return create(new MetricRegistryInfo(serverId, RATIS_LOG_SERVICE_METRICS,
+        RATIS_LOG_SERVICE_META_DATA_METRICS, RATIS_LOG_SERVICE_META_DATA_METRICS_DESC));
   }
 
-  public static RatisMetricRegistry getMetricRegistryForLogServiceMetaData(String className) {
-    return MetricRegistries.global().get(
-        new MetricRegistryInfo(className, RATIS_LOG_SERVICE_META_DATA_METRICS_DESC,
-            RATIS_LOG_SERVICE_META_DATA_METRICS_CONTEXT)).get();
+  public static RatisMetricRegistry getMetricRegistryForLogServiceMetaData(String serverId) {
+    return MetricRegistries.global().get(new MetricRegistryInfo(serverId, RATIS_LOG_SERVICE_METRICS,
+        RATIS_LOG_SERVICE_META_DATA_METRICS, RATIS_LOG_SERVICE_META_DATA_METRICS_DESC)).get();
   }
 
   private static RatisMetricRegistry create(MetricRegistryInfo info) {
-    Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
-    if (metricRegistry.isPresent()) {
-      return metricRegistry.get();
-    }
     RatisMetricRegistry registry = MetricRegistries.global().create(info);
-    JmxReporter.forRegistry(registry.getDropWizardMetricRegistry()).inDomain(JMX_DOMAIN).build().start();
+    metricsReporting
+        .startMetricsReporter(registry, MetricsReporting.MetricReporterType.JMX,
+            MetricsReporting.MetricReporterType.HADOOP2);
     return registry;
   }
 

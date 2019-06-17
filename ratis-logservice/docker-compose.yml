@@ -73,3 +73,15 @@ services:
       default:
         aliases:
           - worker3.logservice.ratis.org
+  graphite:
+    image: graphiteapp/graphite-statsd 
+    ports:
+      - 8000:80
+      - 2003-2004:2003-2004
+      - 2023-2024:2023-2024
+      - 8125:8125
+      - 8126:8126
+    networks:
+      default:
+        aliases:
+          - graphite.logservice.ratis.org

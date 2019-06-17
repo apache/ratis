@@ -20,9 +20,6 @@
 
 package org.apache.ratis.metrics;
 
-import com.codahale.metrics.MetricRegistry;
-import org.apache.ratis.metrics.impl.RatisMetricRegistry;
-
 /**
  * A Factory for creating MetricRegistries. This is the main plugin point for metrics implementation
  */

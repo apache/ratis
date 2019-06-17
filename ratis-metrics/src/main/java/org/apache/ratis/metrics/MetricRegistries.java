@@ -23,9 +23,6 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
-import com.codahale.metrics.MetricRegistry;
-import org.apache.ratis.metrics.impl.RatisMetricRegistry;
-
 /**
  * MetricRegistries is collection of MetricRegistry's. MetricsRegistries implementations should do
  * ref-counting of MetricRegistry's via create() and remove() methods.

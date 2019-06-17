@@ -17,9 +17,8 @@
  */
 package org.apache.ratis.metrics.impl;
 
+import java.util.Map;
 import java.util.SortedMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
@@ -31,59 +30,66 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.MetricRegistry.MetricSupplier;
 import com.codahale.metrics.MetricSet;
 import com.codahale.metrics.Timer;
+import com.codahale.metrics.jvm.ClassLoadingGaugeSet;
+import com.codahale.metrics.jvm.GarbageCollectorMetricSet;
+import com.codahale.metrics.jvm.MemoryUsageGaugeSet;
+import com.codahale.metrics.jvm.ThreadStatesGaugeSet;
 import org.apache.ratis.metrics.MetricRegistryInfo;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 /**
  * Custom implementation of {@link MetricRegistry}.
  */
-public class RatisMetricRegistry{
+public class RatisMetricRegistryImpl implements RatisMetricRegistry {
   MetricRegistry metricRegistry = new MetricRegistry();
 
   private final MetricRegistryInfo info;
 
-  public RatisMetricRegistry(MetricRegistryInfo info) {
+  public RatisMetricRegistryImpl(MetricRegistryInfo info) {
     super();
     this.info = info;
   }
 
+  @Override
   public Timer timer(String name) {
     return metricRegistry.timer(getMetricName(name));
   }
 
+  @Override
   public Counter counter(String name) {
     return metricRegistry.counter(getMetricName(name));
   }
 
-  public Gauge gauge(String name, MetricSupplier<Gauge> supplier) {
+  @Override public Gauge gauge(String name, MetricSupplier<Gauge> supplier) {
     return metricRegistry.gauge(getMetricName(name), supplier);
   }
 
-  public Timer timer(String name, MetricSupplier<Timer> supplier) {
+  @Override public Timer timer(String name, MetricSupplier<Timer> supplier) {
     return metricRegistry.timer(getMetricName(name), supplier);
   }
 
-  public SortedMap<String, Gauge> getGauges(MetricFilter filter) {
+  @Override public SortedMap<String, Gauge> getGauges(MetricFilter filter) {
     return metricRegistry.getGauges(filter);
   }
 
-  public Counter counter(String name, MetricSupplier<Counter> supplier) {
+  @Override public Counter counter(String name, MetricSupplier<Counter> supplier) {
     return metricRegistry.counter(getMetricName(name), supplier);
   }
 
-  public Histogram histogram(String name) {
+  @Override public Histogram histogram(String name) {
     return metricRegistry.histogram(getMetricName(name));
   }
 
-   public Meter meter(String name) {
+   @Override public Meter meter(String name) {
     return metricRegistry.meter(getMetricName(name));
   }
 
-  public Meter meter(String name, MetricSupplier<Meter> supplier) {
+  @Override public Meter meter(String name, MetricSupplier<Meter> supplier) {
     return metricRegistry.meter(getMetricName(name), supplier);
   }
 
-  @VisibleForTesting
+  @Override @VisibleForTesting
   public Metric get(String shortName) {
     return metricRegistry.getMetrics().get(getMetricName(shortName));
   }
@@ -92,12 +98,26 @@ public class RatisMetricRegistry{
     return MetricRegistry.name(info.getName(), shortName);
   }
 
-  public <T extends Metric> T register(String name, T metric) throws IllegalArgumentException {
+  @Override public <T extends Metric> T register(String name, T metric) throws IllegalArgumentException {
     return metricRegistry.register(getMetricName(name), metric);
   }
 
 
-  public MetricRegistry getDropWizardMetricRegistry() {
+  @Override public MetricRegistry getDropWizardMetricRegistry() {
     return metricRegistry;
+  }
+
+  @Override public MetricRegistryInfo getMetricRegistryInfo(){
+    return this.info;
+  }
+
+  @Override public void registerAll(String prefix, MetricSet metricSet) {
+    for (Map.Entry<String, Metric> entry : metricSet.getMetrics().entrySet()) {
+      if (entry.getValue() instanceof MetricSet) {
+        registerAll(prefix + "." + entry.getKey(), (MetricSet) entry.getValue());
+      } else {
+        register(prefix + "." + entry.getKey(), entry.getValue());
+      }
+    }
   }
 }

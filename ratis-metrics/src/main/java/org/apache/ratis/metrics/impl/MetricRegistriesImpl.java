@@ -23,10 +23,10 @@ import java.util.Collections;
 import java.util.Optional;
 import java.util.Set;
 
-import com.codahale.metrics.MetricRegistry;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryFactory;
 import org.apache.ratis.metrics.MetricRegistryInfo;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 
 /**
  * Implementation of MetricRegistries that does ref-counting.
