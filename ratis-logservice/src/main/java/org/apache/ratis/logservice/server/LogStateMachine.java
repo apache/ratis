@@ -43,6 +43,7 @@ import java.util.stream.StreamSupport;
 
 import com.codahale.metrics.Timer;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.logservice.api.ArchiveLogWriter;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogServiceConfiguration;
@@ -89,7 +90,7 @@ import org.slf4j.LoggerFactory;
 public class LogStateMachine extends BaseStateMachine {
   public static final Logger LOG = LoggerFactory.getLogger(LogStateMachine.class);
   public static final long DEFAULT_ARCHIVE_THRESHOLD_PER_FILE = 1000000;
-  private final LogServiceConfiguration config;
+  private final RaftProperties properties;
   private RatisMetricRegistry metricRegistry;
   private Timer sizeRequestTimer;
   private Timer readNextQueryTimer;
@@ -131,8 +132,8 @@ public class LogStateMachine extends BaseStateMachine {
   private Future<Boolean> archiveFuture;
   private boolean isArchival;
 
-  public LogStateMachine(LogServiceConfiguration config) {
-    this.config = config;
+  public LogStateMachine(RaftProperties properties) {
+    this.properties = properties;
   }
 
   private AutoCloseableLock readLock() {
@@ -174,7 +175,7 @@ public class LogStateMachine extends BaseStateMachine {
     this.archiveLogRequestTimer = metricRegistry.timer("archiveLogRequestTime");
     loadSnapshot(storage.getLatestSnapshot());
     executorService = Executors.newSingleThreadExecutor();
-    this.archiveLocation = config.get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY);
+    this.archiveLocation = properties.get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY);
 
   }
 

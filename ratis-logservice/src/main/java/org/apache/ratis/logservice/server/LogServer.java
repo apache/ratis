@@ -121,7 +121,7 @@ public class LogServer extends BaseServer {
                         if(raftGroupId.equals(logServerGroupId)) {
                             return new ManagementStateMachine();
                         }
-                        return new LogStateMachine(getConfig());
+                        return new LogStateMachine(properties);
                     }
                 })
                 .setProperties(properties)
