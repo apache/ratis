@@ -152,7 +152,6 @@ message ArchiveLogRequestProto {
 	LogNameProto logName = 1;
 	string location = 2;
 	uint64 lastArchivedRaftIndex = 3;
-	bool isExport = 4;
 }
 
 message ArchiveLogReplyProto {

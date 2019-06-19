@@ -26,18 +26,19 @@ import org.jline.terminal.Terminal;
 public class ArchiveLogCommand implements Command {
 
   @Override public String getHelpMessage() {
-    return "`archive` - archive the given log at already configured location";
+    return "`archive` - archive the given log at given location";
   }
 
   @Override
   public void run(Terminal terminal, LineReader lineReader, LogServiceClient client, String[] args) {
     if (args.length != 1) {
-      terminal.writer().println("ERROR - Usage: archive <name> ");
+      terminal.writer().println("ERROR - Usage: archive <name> <location>");
       return;
     }
     String logName = args[0];
+    String location = args[1];
     try {
-      client.archiveLog(LogName.of(logName));
+      client.archiveLog(LogName.of(logName), location);
       terminal.writer().println("Archive Log request is submitted successfully!!");
     } catch (Exception e) {
       terminal.writer().println("Failed to archive log!!");

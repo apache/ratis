@@ -267,18 +267,11 @@ public class LogServiceProtoUtil {
     return builder.build();
   }
 
-  public static LogServiceRequestProto toArchiveLogRequestProto(LogName logName, String location,
-      long raftIndex, boolean isArchival) {
+  public static LogServiceRequestProto toArchiveLogRequestProto(LogName logName, String location, long raftIndex) {
     LogServiceProtos.LogNameProto logNameProto =
         LogServiceProtos.LogNameProto.newBuilder().setName(logName.getName()).build();
-    ArchiveLogRequestProto.Builder builder =
-        ArchiveLogRequestProto.newBuilder().setLogName(logNameProto)
-            .setLastArchivedRaftIndex(raftIndex);
-    builder.setIsExport(!isArchival);
-    if (location != null) {
-      builder.setLocation(location);
-    }
-    ArchiveLogRequestProto archiveLog = builder.build();
+    ArchiveLogRequestProto archiveLog =
+        ArchiveLogRequestProto.newBuilder().setLogName(logNameProto).setLocation(location).setLastArchivedRaftIndex(raftIndex).build();
     return LogServiceRequestProto.newBuilder().setArchiveLog(archiveLog).build();
   }
 }

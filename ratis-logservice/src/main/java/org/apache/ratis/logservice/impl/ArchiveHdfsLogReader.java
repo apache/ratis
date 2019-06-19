@@ -34,7 +34,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.ratis.logservice.api.ArchiveLogReader;
-import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.thirdparty.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

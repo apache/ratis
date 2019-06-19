@@ -40,7 +40,6 @@ public class Constants {
     public static final String LOG_SERVICE_META_SERVER_GROUPID_KEY =
         "logservice.metaserver.groupid";
     public static final String LOG_SERVICE_LOG_SERVER_GROUPID_KEY = "logservice.logserver.groupid";
-    public static final String LOG_SERVICE_ARCHIVAL_LOCATION_KEY = "logservice.logserver.archivalLocation";
     /*
      * Raft properties
      */

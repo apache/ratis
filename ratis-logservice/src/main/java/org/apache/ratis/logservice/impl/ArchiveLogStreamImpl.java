@@ -30,8 +30,6 @@ import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogWriter;
 import org.apache.ratis.logservice.api.RecordListener;
-import org.apache.ratis.logservice.common.Constants;
-import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +38,7 @@ public class ArchiveLogStreamImpl implements LogStream {
   /*
    * Directory of the archived files
    */
-  private String location;
+  private final String location;
 
   /*
    * Log stream listeners
@@ -59,21 +57,21 @@ public class ArchiveLogStreamImpl implements LogStream {
    */
   State state;
 
+  public ArchiveLogStreamImpl(LogName name, String location) {
+    this(name,location,null);
 
-  public ArchiveLogStreamImpl(LogName name, LogServiceConfiguration config) {
-    this(name, config.get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY));
+  }
+
+  public ArchiveLogStreamImpl(LogName name, String location, LogServiceConfiguration config) {
+    this.name = name;
+    this.location = location;
     if(config!=null) {
       this.config = config;
     }
     init();
   }
 
-  protected  ArchiveLogStreamImpl(LogName name, String location) {
-    this.name = name;
-    this.location = location;
-  }
-
-  protected void init() {
+  private void init() {
     state = State.ARCHIVED;
     listeners = Collections.synchronizedList(new ArrayList<RecordListener>());
   }
@@ -99,7 +97,7 @@ public class ArchiveLogStreamImpl implements LogStream {
 
   @Override
   public ArchiveLogReader createReader() throws IOException {
-    return new ArchiveHdfsLogReader(LogServiceUtils.getArchiveLocationForLog(location, name));
+    return new ArchiveHdfsLogReader(this.location);
   }
 
   @Override
