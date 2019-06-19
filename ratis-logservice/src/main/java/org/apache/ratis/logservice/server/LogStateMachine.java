@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -44,6 +45,8 @@ import com.codahale.metrics.Timer;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.logservice.api.ArchiveLogWriter;
 import org.apache.ratis.logservice.api.LogName;
+import org.apache.ratis.logservice.api.LogServiceConfiguration;
+import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.impl.ArchiveHdfsLogReader;
 import org.apache.ratis.logservice.impl.ArchiveHdfsLogWriter;
@@ -86,6 +89,7 @@ import org.slf4j.LoggerFactory;
 public class LogStateMachine extends BaseStateMachine {
   public static final Logger LOG = LoggerFactory.getLogger(LogStateMachine.class);
   public static final long DEFAULT_ARCHIVE_THRESHOLD_PER_FILE = 1000000;
+  private final LogServiceConfiguration config;
   private RatisMetricRegistry metricRegistry;
   private Timer sizeRequestTimer;
   private Timer readNextQueryTimer;
@@ -95,15 +99,13 @@ public class LogStateMachine extends BaseStateMachine {
   private Timer startIndexTimer;
   private Timer appendRequestTimer;
   private Timer syncRequesTimer;
-  private Timer archiveLogRequesTimer;
+  private Timer archiveLogRequestTimer;
   private Timer getCloseLogTimer;
   private RaftClient client;
   //Archival information
   private String archiveLocation;
   private long lastArchivedIndex;
   private LogName archiveLogName;
-
-  boolean isNoMoreLeader;
 
   /*
    *  State is a log's length, size, and state (closed/open);
@@ -128,6 +130,10 @@ public class LogStateMachine extends BaseStateMachine {
   private ExecutorService executorService;
   private Future<Boolean> archiveFuture;
   private boolean isArchival;
+
+  public LogStateMachine(LogServiceConfiguration config) {
+    this.config = config;
+  }
 
   private AutoCloseableLock readLock() {
     return AutoCloseableLock.acquire(lock.readLock());
@@ -165,10 +171,10 @@ public class LogStateMachine extends BaseStateMachine {
     this.appendRequestTimer = metricRegistry.timer("appendRequestTime");
     this.getCloseLogTimer = metricRegistry.timer("getCloseLogTime");
     //archiving request time not the actual archiving time
-    this.archiveLogRequesTimer= metricRegistry.timer("archiveLogRequestTime");
+    this.archiveLogRequestTimer = metricRegistry.timer("archiveLogRequestTime");
     loadSnapshot(storage.getLatestSnapshot());
     executorService = Executors.newSingleThreadExecutor();
-    this.archiveLocation = server.getProperties().get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY);
+    this.archiveLocation = config.get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY);
 
   }
 
@@ -297,7 +303,7 @@ public class LogStateMachine extends BaseStateMachine {
             }
           });
       case ARCHIVELOG:
-        return recordTime(archiveLogRequesTimer, new Task(){
+        return recordTime(archiveLogRequestTimer, new Task(){
           @Override public CompletableFuture<Message> run() {
             return processArchiveLog(logServiceRequestProto);
           }});
@@ -507,10 +513,30 @@ public class LogStateMachine extends BaseStateMachine {
     LogServiceProtos.ChangeStateLogRequestProto changeState = logServiceRequestProto.getChangeState();
     // Need to check whether the file is opened if opened close it.
     // TODO need to handle exceptions while operating with files.
-    Throwable t = verifyState(State.OPEN);
-    this.state= State.valueOf(changeState.getState().name());
+
+    State targetState = State.valueOf(changeState.getState().name());
+    switch (targetState) {
+    case OPEN:
+      if (state != null) {
+        verifyState(State.OPEN, State.CLOSED);
+      }
+      break;
+    case CLOSED:
+      verifyState(State.OPEN);
+      break;
+    case ARCHIVED:
+      verifyState(State.ARCHIVING);
+      break;
+    case ARCHIVING:
+      verifyState(State.CLOSED);
+      break;
+    case DELETED:
+      verifyState(State.CLOSED);
+      break;
+    }
+    this.state = targetState;
     return CompletableFuture.completedFuture(Message
-      .valueOf(LogServiceProtos.ChangeStateReplyProto.newBuilder().build().toByteString()));
+        .valueOf(LogServiceProtos.ChangeStateReplyProto.newBuilder().build().toByteString()));
   }
 
   private CompletableFuture<Message> processGetStateRequest(
@@ -551,52 +577,58 @@ public class LogStateMachine extends BaseStateMachine {
     }else{
       loc = archiveLog.getLocation();
     }
+    Throwable t = null;
     if (loc == null) {
-      throw new IllegalArgumentException(isArchival ?
+      t = new IllegalArgumentException(isArchival ?
           "Location for archive is not configured" :
           "Location for export provided is null");
+      return CompletableFuture.completedFuture(
+          Message.valueOf(LogServiceProtoUtil.toArchiveLogReplyProto(t).toByteString()));
     }
     final String location = loc;
     String archiveLocationForLog = LogServiceUtils.getArchiveLocationForLog(location, logName);
     long recordId = archiveLog.getLastArchivedRaftIndex();
-    try {
-      Throwable t = verifyState(State.CLOSED);
-      if (t == null) {
-        Callable<Boolean> callable = () -> {
-            sendChangeStateRequest(State.ARCHIVING);
-            updateArchivingInfo(recordId, logName, location, isArchival);
-            ArchiveLogWriter writer = new ArchiveHdfsLogWriter();
-            writer.init(archiveLocationForLog,logName);
-            LogServiceRaftLogReader reader = new LogServiceRaftLogReader(log);
-            reader.seek(0);
-            long records = 0;
-            while (reader.hasNext()) {
-              writer.write(ByteBuffer.wrap(reader.next()));
-              if (records >= DEFAULT_ARCHIVE_THRESHOLD_PER_FILE || isNoMoreLeader) {
-                commit(writer, logName, location);
-                if (isNoMoreLeader) {
-                  break;
-                }
-                records = 0;
-              }
-              records++;
+    t = verifyState(State.CLOSED);
+    if (t == null) {
+      Callable<Boolean> callable = () -> {
+        sendChangeStateRequest(State.ARCHIVING);
+        updateArchivingInfo(recordId, logName, location, isArchival);
+        ArchiveLogWriter writer = new ArchiveHdfsLogWriter();
+        writer.init(archiveLocationForLog, logName);
+        LogServiceRaftLogReader reader = new LogServiceRaftLogReader(log);
+        reader.seek(0);
+        long records = 0;
+        boolean isInterupted = false;
+        while (reader.hasNext()) {
+          writer.write(ByteBuffer.wrap(reader.next()));
+          isInterupted = Thread.currentThread().isInterrupted();
+          if (records >= DEFAULT_ARCHIVE_THRESHOLD_PER_FILE || isInterupted) {
+            commit(writer, logName, location);
+            if (isInterupted) {
+              break;
             }
-            writer.close();
-            if (!isNoMoreLeader) {
-              sendChangeStateRequest(State.ARCHIVED);
-            } else {
-              sendArchiveLogrequestToNewLeader(writer.getLastWrittenRecordId(), logName, location);
-            }
-            return true;
-          };
-        archiveFuture = executorService.submit(callable);
-      }
-      return CompletableFuture.completedFuture(
-          Message.valueOf(LogServiceProtoUtil.toArchiveLogReplyProto(t).toByteString()));
-    } catch (Throwable e) {
-      return CompletableFuture.completedFuture(
-          Message.valueOf(LogServiceProtoUtil.toArchiveLogReplyProto(e).toByteString()));
+            records = 0;
+          }
+          records++;
+        }
+        writer.close();
+        if (!isInterupted) {
+          sendChangeStateRequest(State.ARCHIVED);
+        } else {
+          try {
+            //Sleeping here before sending archival request to new leader to avoid causing problem
+            // during leader election storm
+            Thread.sleep(10000);
+          } catch (InterruptedException e) {
+          }
+          sendArchiveLogrequestToNewLeader(writer.getLastWrittenRecordId(), logName, location);
+        }
+        return true;
+      };
+      archiveFuture = executorService.submit(callable);
     }
+    return CompletableFuture.completedFuture(
+        Message.valueOf(LogServiceProtoUtil.toArchiveLogReplyProto(t).toByteString()));
   }
 
   private void sendArchiveLogrequestToNewLeader(long recordId, LogName logName, String location)
@@ -656,13 +688,15 @@ public class LogStateMachine extends BaseStateMachine {
     if (x.size() == 1) {
       return x.get(0);
     } else {
-      throw new GroupMismatchException(x.size() + " are group found for group id:" + raftGroupId);
+      throw new IOException(x.size() + " are group found for group id:" + raftGroupId);
     }
   }
 
   @Override public void notifyNotLeader(Collection<TransactionContext> pendingEntries)
       throws IOException {
-    isNoMoreLeader = true;
+    if (archiveFuture != null && !archiveFuture.isCancelled()) {
+      archiveFuture.cancel(true);
+    }
   }
 
 }

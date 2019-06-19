@@ -1,3 +1,6 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
 /**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -15,13 +18,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.logservice.api;
-
-import org.apache.ratis.logservice.server.RaftLogReader;
-/**
- * Archive Log Reader implementation. This class is not thread-safe
- *
- */
-public interface ArchiveLogReader extends RaftLogReader, LogReader {
-
-}
+-->
+<configuration>
+  <property>
+    <name>logservice.archival.location</name>
+    <value>target/tmp/archive_1/</value>
+    <description>Log service meta-server port number</description>
+  </property>
+</configuration>

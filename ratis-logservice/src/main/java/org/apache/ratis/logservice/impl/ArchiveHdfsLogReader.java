@@ -20,6 +20,7 @@ package org.apache.ratis.logservice.impl;
 import java.io.EOFException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,25 +40,20 @@ import org.apache.ratis.thirdparty.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Archive Log Reader implementation. This class is not thread-safe
- *
- */
-
 public class ArchiveHdfsLogReader implements ArchiveLogReader {
   public static final Logger LOG = LoggerFactory.getLogger(ArchiveHdfsLogReader.class);
   private long fileLength;
   private List<FileStatus> files;
   private FileSystem hdfs;
   private FSDataInputStream is;
-  private ByteBuffer currentRecord;
-  private int fileCounter=0;
+  private byte[] currentRecord;
+  private int fileCounter = 0;
   private int currentRecordId = -1;
 
   public ArchiveHdfsLogReader(String archiveLocation) throws IOException {
     Configuration configuration = new Configuration();
     this.hdfs = FileSystem.get(configuration);
-    Path archiveLocationPath=new Path(archiveLocation);
+    Path archiveLocationPath = new Path(archiveLocation);
     if (!hdfs.exists(archiveLocationPath)) {
       throw new FileNotFoundException(archiveLocation);
     }
@@ -92,7 +88,10 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
   }
 
   @Override public byte[] next() throws IOException {
-    return readNext().array();
+    byte[] current = currentRecord;
+    currentRecord = null;
+    loadNext();
+    return current;
   }
 
   @Override public long getCurrentRaftIndex() {
@@ -100,23 +99,23 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
   }
 
   @Override public ByteBuffer readNext() throws IOException {
-    if (currentRecord == null) {
+    byte[] current = next();
+    if (current == null) {
       throw new NoSuchElementException();
     }
-    ByteBuffer current = currentRecord;
-    currentRecord = null;
-    loadNext();
-    return current;
+    return ByteBuffer.wrap(current);
   }
 
   private int readLength() throws IOException {
     int length;
     try {
       length = is.readInt();
-    }catch (EOFException e){
-      if (files.size()==fileCounter) {
+    } catch (EOFException e) {
+      if (files.size() == fileCounter) {
+        LOG.trace("EOF and no more file to read, throwing back", e);
         throw e;
-      }else {
+      } else {
+        LOG.trace("EOF.. Opening next file: {}!!", files.get(fileCounter).getPath());
         openNextFilePath();
         length = is.readInt();
       }
@@ -126,8 +125,13 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
 
   @Override public void readNext(ByteBuffer buffer) throws IOException {
     Preconditions.checkNotNull(buffer, "buffer is NULL");
-    buffer.put(readNext().array());
+    byte[] current = next();
+    if (current == null) {
+      throw new NoSuchElementException();
+    }
+    buffer.put(current);
   }
+
 
   @Override public List<ByteBuffer> readBulk(int numRecords) throws IOException {
     Preconditions.checkArgument(numRecords > 0, "number of records must be greater than 0");
@@ -153,7 +157,7 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
     int count = 0;
     try {
       for (int i = 0; i < buffers.length; i++) {
-        buffers[i] = readNext();
+        readNext(buffers[i]);
         count++;
       }
     } catch (EOFException eof) {
@@ -174,15 +178,17 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
   }
 
   private void loadNext() throws IOException {
+    int length;
     try {
-      ByteBuffer buff = ByteBuffer.allocate(readLength());
-      is.read(buff.array());
-      currentRecordId++;
-      currentRecord = buff;
+      length = readLength();
     } catch (EOFException e) {
       currentRecord = null;
       return;
     }
+    byte[] bytes = new byte[length];
+    is.read(bytes);
+    currentRecordId++;
+    currentRecord = bytes;
   }
 
 }

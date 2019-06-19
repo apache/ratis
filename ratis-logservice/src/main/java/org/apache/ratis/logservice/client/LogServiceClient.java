@@ -230,7 +230,7 @@ public class LogServiceClient implements AutoCloseable {
      * @param name The name of the log to close
      */
     // TODO this name sucks, confusion WRT the Java Closeable interface.
-    void closeLog(LogName name) throws IOException {
+    public void closeLog(LogName name) throws IOException {
         RaftClientReply reply = getRaftClient(getLogInfo(name)).send(
             () -> LogServiceProtoUtil.toChangeStateRequestProto(name, State.CLOSED)
                 .toByteString());

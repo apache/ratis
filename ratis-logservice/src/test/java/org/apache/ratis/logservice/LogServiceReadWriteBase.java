@@ -61,7 +61,6 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   public static final Logger LOG = LoggerFactory.getLogger(LogServiceReadWriteBase.class);
-  private String archiveLocation;
 
   {
     final RaftProperties p = getProperties();
@@ -116,8 +115,6 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
   @Before
   public void setUpCluster() throws IOException, InterruptedException {
     RaftProperties raftProperties = getProperties();
-    this.archiveLocation = "target/tmp/archive_1/";
-    raftProperties.set(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY,this.archiveLocation);
     cluster = getFactory().newCluster(NUM_PEERS, raftProperties);
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
@@ -176,35 +173,6 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
       testJMXMetrics(logStream);
       assertEquals(logStream.getState(),State.OPEN);
 
-      //In absense of MetaStateMachine, calling raft directly
-      raftClient.send(() -> LogServiceProtoUtil.toChangeStateRequestProto(logName, State.CLOSED)
-          .toByteString());
-      assertEquals(logStream.getState(), State.CLOSED);
-
-      raftClient.sendReadOnly(
-          () -> LogServiceProtoUtil.toArchiveLogRequestProto(logName, null, 0, true)
-              .toByteString());
-      int retry = 0;
-      while (logStream.getState() != State.ARCHIVED && retry <= 40) {
-        Thread.sleep(1000);
-        retry++;
-      }
-      assertEquals(logStream.getState(), State.ARCHIVED);
-
-      reader = logStream.createReader();
-      data = reader.readBulk(records.size());
-      assertEquals(records.size(), data.size());
-      reader.seek(1);
-      data = reader.readBulk(records.size());
-      assertEquals(records.size() - 1, data.size());
-
-      //Test ArchiveLogStream
-      LogServiceConfiguration config = LogServiceConfiguration.create();
-      config.set(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY, this.archiveLocation);
-      LogStream archiveLogStream = new ArchiveLogStreamImpl(logName, config);
-      reader = archiveLogStream.createReader();
-      data = reader.readBulk(records.size());
-      assertEquals(records.size(), data.size());
     }
   }
 

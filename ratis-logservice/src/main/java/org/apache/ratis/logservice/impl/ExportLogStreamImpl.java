@@ -35,6 +35,5 @@ public class ExportLogStreamImpl extends  ArchiveLogStreamImpl{
   @Override
   protected void init() {
     state = State.CLOSED;
-    listeners = Collections.synchronizedList(new ArrayList<RecordListener>());
   }
 }

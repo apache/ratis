@@ -19,13 +19,17 @@
 package org.apache.ratis.logservice.server;
 
 import org.apache.ratis.logservice.api.*;
+import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.client.LogServiceClient;
 import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.common.LogAlreadyExistException;
 import org.apache.ratis.logservice.common.LogNotFoundException;
+import org.apache.ratis.logservice.impl.ArchiveLogStreamImpl;
 import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.util.LogServiceCluster;
+import org.apache.ratis.logservice.util.LogServiceProtoUtil;
+import org.apache.ratis.logservice.util.TestUtils;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.junit.AfterClass;
@@ -70,6 +74,7 @@ public class TestMetaServer {
             listCount.incrementAndGet();
             return super.listLogs();
         }
+
     };
     @BeforeClass
     public static void beforeClass() {
@@ -124,6 +129,41 @@ public class TestMetaServer {
         LogReader reader = stream.createReader();
         ByteBuffer res = reader.readNext();
         assert(res.array().length > 0);
+    }
+
+    @Test
+    public void testLogArchival() throws IOException, InterruptedException {
+        LogName logName = LogName.of("testArchivalLog");
+        LogStream logStream = client.createLog(logName);
+        LogWriter writer = logStream.createWriter();
+        List<LogInfo> listLogs = client.listLogs();
+        assert (listLogs.stream()
+            .filter(log -> log.getLogName().getName().startsWith(logName.getName())).count() == 1);
+        List<LogServer> workers = cluster.getWorkers();
+        List<ByteBuffer> records = TestUtils.getRandomData(100, 10);
+        writer.write(records);
+        client.closeLog(logName);
+        assertEquals(logStream.getState(), State.CLOSED);
+        client.archiveLog(logName);
+        int retry = 0;
+        while (logStream.getState() != State.ARCHIVED && retry <= 40) {
+            Thread.sleep(1000);
+            retry++;
+        }
+        assertEquals(logStream.getState(), State.ARCHIVED);
+        LogReader reader = logStream.createReader();
+        List<ByteBuffer> data = reader.readBulk(records.size());
+        assertEquals(records.size(), data.size());
+        reader.seek(1);
+        data = reader.readBulk(records.size());
+        assertEquals(records.size() - 1, data.size());
+
+        //Test ArchiveLogStream
+        LogServiceConfiguration config = LogServiceConfiguration.create();
+        LogStream archiveLogStream = new ArchiveLogStreamImpl(logName, config);
+        reader = archiveLogStream.createReader();
+        data = reader.readBulk(records.size());
+        assertEquals(records.size(), data.size());
     }
 
     /**

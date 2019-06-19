@@ -41,5 +41,5 @@ public interface ArchiveLogWriter extends LogWriter{
    * Record Id of the last written record
    * @return
    */
-  long getLastWrittenRecordId();
+  long getLastWrittenRecordId() throws IOException;
 }

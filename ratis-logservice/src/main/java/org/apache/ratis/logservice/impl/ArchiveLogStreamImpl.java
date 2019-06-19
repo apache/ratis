@@ -43,10 +43,6 @@ public class ArchiveLogStreamImpl implements LogStream {
   private String location;
 
   /*
-   * Log stream listeners
-   */
-  List<RecordListener> listeners;
-  /*
    * Log stream name
    */
   LogName name;
@@ -75,7 +71,6 @@ public class ArchiveLogStreamImpl implements LogStream {
 
   protected void init() {
     state = State.ARCHIVED;
-    listeners = Collections.synchronizedList(new ArrayList<RecordListener>());
   }
 
   @Override
@@ -104,7 +99,7 @@ public class ArchiveLogStreamImpl implements LogStream {
 
   @Override
   public LogWriter createWriter() {
-    throw new UnsupportedOperationException("Arhived log cannot be written");
+    throw new UnsupportedOperationException("Archived log cannot be written");
   }
 
   @Override
@@ -117,9 +112,8 @@ public class ArchiveLogStreamImpl implements LogStream {
     throw new UnsupportedOperationException("getStartRecordId()");
   }
 
-  @Override
-  public Collection<RecordListener> getRecordListeners() {
-    return listeners;
+  @Override public Collection<RecordListener> getRecordListeners() {
+    throw new UnsupportedOperationException("get record listeners");
   }
 
   @Override
@@ -131,18 +125,12 @@ public class ArchiveLogStreamImpl implements LogStream {
   public void close() throws Exception {
   }
 
-  @Override
-  public void addRecordListener(RecordListener listener) {
-    synchronized (listeners) {
-      if (!listeners.contains(listener)) {
-        listeners.add(listener);
-      }
-    }
+  @Override public void addRecordListener(RecordListener listener) {
+    throw new UnsupportedOperationException("Add record listener");
   }
 
-  @Override
-  public boolean removeRecordListener(RecordListener listener) {
-    return listeners.remove(listener);
+  @Override public boolean removeRecordListener(RecordListener listener) {
+    throw new UnsupportedOperationException("remove record listener");
   }
 
   @Override

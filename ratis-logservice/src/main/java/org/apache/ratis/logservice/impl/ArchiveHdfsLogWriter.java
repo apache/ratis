@@ -41,13 +41,17 @@ public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
   public void init(String location, LogName logName) throws IOException {
     Configuration configuration = new Configuration();
     hdfs = FileSystem.get(configuration);
-    currentPath = new Path(location + "/" + logName.getName());
+    Path loc = new Path(location);
+    if(!hdfs.exists(loc)){
+      hdfs.mkdirs(loc);
+    }
+    currentPath = new Path(loc, logName.getName());
     os = hdfs.create(currentPath,true);
   }
 
   @Override public long write(ByteBuffer data) throws IOException {
     os.writeInt(data.array().length);
-    os.write(data.array());
+    os.write(data.array(), data.arrayOffset(), data.remaining());
     currentRecordId++;
     return currentRecordId;
   }
@@ -66,26 +70,26 @@ public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
 
   @Override public void close() throws IOException {
     os.close();
-    renameIfNewData();
+    if (lastRollRecordId != currentRecordId) {
+      hdfs.rename(currentPath, new Path(currentPath + ".recordId_" + currentRecordId));
+    }
     hdfs.close();
   }
 
   @Override public void rollWriter() throws IOException {
-    //close old file
-    os.close();
-    renameIfNewData();
-    lastRollRecordId = currentRecordId;
-    //create new file
-    os = hdfs.create(currentPath, true);
+    if (lastRollRecordId != currentRecordId) {
+      //close old file
+      os.close();
+      hdfs.rename(currentPath, new Path(currentPath + ".recordId_" + currentRecordId));
+      lastRollRecordId = currentRecordId;
+      //create new file
+      os = hdfs.create(currentPath, true);
+    }
   }
 
-  @Override public long getLastWrittenRecordId() {
+  @Override public long getLastWrittenRecordId() throws IOException {
+    os.hflush();
     return currentRecordId;
   }
 
-  private void renameIfNewData() throws IOException {
-    if (lastRollRecordId != currentRecordId) {
-      hdfs.rename(currentPath, new Path(currentPath + ".recordId_" + currentRecordId));
-    }
-  }
 }
