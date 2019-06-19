@@ -35,22 +35,17 @@ message LogStreamProto {
 enum LogStreamState {
   OPEN = 0;
   CLOSED = 1;
-  ARCHIVING = 2;
-  ARCHIVED = 3;
-  DELETED = 4;
 }
 
-message ChangeStateLogRequestProto {
+message CloseLogRequestProto {
   LogNameProto logName = 1;
-  LogStreamState state = 2;
-  LogServiceException exception = 3;
 }
 
 message GetStateRequestProto {
   LogNameProto logName = 1;
 }
 
-message ChangeStateReplyProto {
+message CloseLogReplyProto {
 }
 
 message GetStateReplyProto {
@@ -148,19 +143,9 @@ message GetLogLastCommittedIndexReplyProto {
 	LogServiceException exception = 2;
 }
 
-message ArchiveLogRequestProto {
-	LogNameProto logName = 1;
-	string location = 2;
-	uint64 lastArchivedRaftIndex = 3;
-}
-
-message ArchiveLogReplyProto {
-	LogServiceException exception = 1;
-}
-
 message LogServiceRequestProto {
   oneof Request {
-    ChangeStateLogRequestProto changeState = 1;
+    CloseLogRequestProto closeLog = 1;
     GetStateRequestProto getState = 2;
     ReadLogRequestProto readNextQuery = 3;
     GetLogLengthRequestProto lengthQuery = 4;
@@ -169,7 +154,6 @@ message LogServiceRequestProto {
 	SyncLogRequestProto          syncRequest = 7;
 	GetLogLastCommittedIndexRequestProto lastIndexQuery = 8;
 	GetLogSizeRequestProto sizeRequest = 9;
-	ArchiveLogRequestProto archiveLog = 10;
   }
 }
 

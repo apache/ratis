@@ -181,14 +181,6 @@
       <artifactId>ratis-netty</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
-
-    <!-- Hadoop dependencies -->
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
-      <version>${hadoop.version}</version>
-    </dependency>
-
     <!-- CLI dependencies -->
     <dependency>
       <groupId>com.beust</groupId>
@@ -261,6 +253,5 @@
       <artifactId>mockito-all</artifactId>
       <scope>test</scope>
     </dependency>
-
   </dependencies>
 </project>

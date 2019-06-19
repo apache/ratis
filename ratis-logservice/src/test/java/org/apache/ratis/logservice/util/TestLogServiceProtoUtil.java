@@ -165,7 +165,7 @@ public class TestLogServiceProtoUtil {
   @Ignore
   public void testGetStateReply() {
     LogStream logStream = null;
-    GetStateReplyProto proto = LogServiceProtoUtil.toGetStateReplyProto(LogStream.State.OPEN);
+    GetStateReplyProto proto = LogServiceProtoUtil.toGetStateReplyProto(true);
     //TODO finish
 
   }
@@ -175,9 +175,8 @@ public class TestLogServiceProtoUtil {
   @Test
   public void testCloseLogRequest() {
     LogName name = LogName.of("test");
-    LogServiceRequestProto proto = LogServiceProtoUtil.toChangeStateRequestProto(name,
-        LogStream.State.CLOSED);
-    ChangeStateLogRequestProto request = proto.getChangeState();
+    LogServiceRequestProto proto = LogServiceProtoUtil.toCloseLogRequestProto(name);
+    CloseLogRequestProto request = proto.getCloseLog();
     assertEquals(name.getName(), request.getLogName().getName());
     //TODO finish
   }

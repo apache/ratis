@@ -26,11 +26,8 @@ import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.common.Constants;
-import org.apache.ratis.logservice.impl.ArchiveLogStreamImpl;
 import org.apache.ratis.logservice.impl.LogStreamImpl;
-import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
-import org.apache.ratis.logservice.util.LogServiceProtoUtil;
 import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
 import org.apache.ratis.protocol.*;
 
@@ -88,9 +85,8 @@ public class LogServiceClient implements AutoCloseable {
      */
     public LogStream createLog(LogName logName) throws IOException {
         RaftClientReply reply = client.sendReadOnly(
-            () -> MetaServiceProtoUtil.toCreateLogRequestProto(logName).toByteString());
-        CreateLogReplyProto message =
-            CreateLogReplyProto.parseFrom(reply.getMessage().getContent());
+                () -> MetaServiceProtoUtil.toCreateLogRequestProto(logName).toByteString());
+        CreateLogReplyProto message = CreateLogReplyProto.parseFrom(reply.getMessage().getContent());
         if (message.hasException()) {
             throw MetaServiceProtoUtil.toMetaServiceException(message.getException());
         }
@@ -105,17 +101,14 @@ public class LogServiceClient implements AutoCloseable {
      * @throws IOException
      */
     public LogStream getLog(LogName logName) throws IOException {
-        return new LogStreamImpl(logName, getRaftClient(getLogInfo(logName)), config);
-    }
-
-    /**
-     * Get Archive log request.
-     * @param logName the name of the log to get
-     * @return
-     * @throws IOException
-     */
-    public LogStream getArchivedLog(LogName logName, String location) throws IOException {
-        return new ArchiveLogStreamImpl(logName, location, config);
+        RaftClientReply reply = client.sendReadOnly
+                (() -> MetaServiceProtoUtil.toGetLogRequestProto(logName).toByteString());
+        GetLogReplyProto message = GetLogReplyProto.parseFrom(reply.getMessage().getContent());
+        if(message.hasException()) {
+            throw MetaServiceProtoUtil.toMetaServiceException(message.getException());
+        }
+        LogInfo info = MetaServiceProtoUtil.toLogInfo(message.getLog());
+        return new LogStreamImpl(logName, getRaftClient(info), config);
     }
 
 
@@ -156,42 +149,20 @@ public class LogServiceClient implements AutoCloseable {
      * @param logInfo
      * @return
      */
-    private RaftClient getRaftClient(LogInfo logInfo) throws IOException {
-
+    private RaftClient getRaftClient(LogInfo logInfo) {
         RaftProperties properties = new RaftProperties();
         return RaftClient.newBuilder().setRaftGroup(logInfo.getRaftGroup()).setProperties(properties).build();
 
     }
 
-    private LogInfo getLogInfo(LogName logName) throws IOException {
-        RaftClientReply reply = client.sendReadOnly(
-            () -> MetaServiceProtoUtil.toGetLogRequestProto(logName).toByteString());
-        GetLogReplyProto message = GetLogReplyProto.parseFrom(reply.getMessage().getContent());
-        if (message.hasException()) {
-            throw MetaServiceProtoUtil.toMetaServiceException(message.getException());
-        }
-        return MetaServiceProtoUtil.toLogInfo(message.getLog());
-    }
-
     /**
-     * Archives the given log out of the state machine and into a configurable long-term storage.
-     * A log must be in {@link State#CLOSED} to archive it.
-     * Archiving of the log will happen asynchronously from the client,
-     * The call will return immediately after adding a request for archiving log
-     * to the respective quorum
+     * Archives the given log out of the state machine and into a configurable long-term storage. A log must be
+     * in {@link State#CLOSED} to archive it.
      *
-     * Client can check the status of Archiving by calling getState() Method
-     *
-     * @param logName The name of the log to archive.
+     * @param name The name of the log to archive.
      */
-    public void archiveLog(LogName logName, String location) throws IOException {
-        RaftClientReply archiveLogReply = getRaftClient(getLogInfo(logName)).sendReadOnly(
-            () -> LogServiceProtoUtil.toArchiveLogRequestProto(logName, location, 0).toByteString());
-        LogServiceProtos.ArchiveLogReplyProto archiveMessage = LogServiceProtos.ArchiveLogReplyProto
-            .parseFrom(archiveLogReply.getMessage().getContent());
-        if (archiveMessage.hasException()) {
-            throw new IOException(archiveMessage.getException().getErrorMsg());
-        }
+    void archiveLog(LogName name) throws IOException {
+      // TODO: write me
     }
 
     /**
@@ -202,11 +173,7 @@ public class LogServiceClient implements AutoCloseable {
      */
     // TODO this name sucks, confusion WRT the Java Closeable interface.
     void closeLog(LogName name) throws IOException {
-        RaftClientReply reply = getRaftClient(getLogInfo(name)).send(
-            () -> LogServiceProtoUtil.toChangeStateRequestProto(name, State.CLOSED)
-                .toByteString());
-        LogServiceProtos.ChangeStateReplyProto message =
-            LogServiceProtos.ChangeStateReplyProto.parseFrom(reply.getMessage().getContent());
+      //TODO: write me
     }
 
     /**

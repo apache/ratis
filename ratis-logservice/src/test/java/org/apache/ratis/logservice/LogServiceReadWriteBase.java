@@ -42,11 +42,9 @@ import org.apache.ratis.logservice.api.LogReader;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.api.LogWriter;
-import org.apache.ratis.logservice.impl.ArchiveLogStreamImpl;
 import org.apache.ratis.logservice.impl.LogStreamImpl;
 import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
 import org.apache.ratis.logservice.server.LogStateMachine;
-import org.apache.ratis.logservice.util.LogServiceProtoUtil;
 import org.apache.ratis.logservice.util.TestUtils;
 import org.apache.ratis.statemachine.StateMachine;
 import org.junit.After;
@@ -86,7 +84,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
       return super.getStartRecordId();
     }
 
-    @Override public State getState() throws IOException {
+    @Override public State getState() {
       getStateCount++;
       return super.getState();
     }
@@ -112,7 +110,7 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
   }
   @Before
   public void setUpCluster() throws IOException, InterruptedException {
-    cluster = getFactory().newCluster(NUM_PEERS, getProperties());
+    cluster = newCluster(NUM_PEERS);
     cluster.start();
     RaftTestUtil.waitForLeader(cluster);
   }
@@ -168,36 +166,6 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
         assertEquals(expected, actual);
       }
       testJMXMetrics(logStream);
-      assertEquals(logStream.getState(),State.OPEN);
-
-      //In absense of MetaStateMachine, calling raft directly
-      raftClient.send(() -> LogServiceProtoUtil.toChangeStateRequestProto(logName, State.CLOSED)
-          .toByteString());
-      assertEquals(logStream.getState(), State.CLOSED);
-
-      String archiveLocation = "target/tmp/archive/";
-      raftClient.sendReadOnly(
-          () -> LogServiceProtoUtil.toArchiveLogRequestProto(logName, archiveLocation, 0)
-              .toByteString());
-      int retry = 0;
-      while (logStream.getState() != State.ARCHIVED && retry <= 40) {
-        Thread.sleep(1000);
-        retry++;
-      }
-      assertEquals(logStream.getState(), State.ARCHIVED);
-
-      reader = logStream.createReader();
-      data = reader.readBulk(records.size());
-      assertEquals(records.size(), data.size());
-      reader.seek(1);
-      data = reader.readBulk(records.size());
-      assertEquals(records.size() - 1, data.size());
-
-      //Test ArchiveLogStream
-      LogStream archiveLogStream = new ArchiveLogStreamImpl(logName, archiveLocation);
-      reader = archiveLogStream.createReader();
-      data = reader.readBulk(records.size());
-      assertEquals(records.size(), data.size());
     }
   }
 

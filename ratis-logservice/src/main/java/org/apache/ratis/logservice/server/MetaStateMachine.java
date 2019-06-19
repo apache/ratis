@@ -42,6 +42,8 @@ import org.apache.ratis.logservice.common.LogNotFoundException;
 import org.apache.ratis.logservice.common.NoEnoughWorkersException;
 import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
+import org.apache.ratis.logservice.proto.MetaServiceProtos.ArchiveLogReplyProto;
+import org.apache.ratis.logservice.proto.MetaServiceProtos.ArchiveLogRequestProto;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.CreateLogRequestProto;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.DeleteLogRequestProto;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.LogServicePingRequestProto;
@@ -209,6 +211,8 @@ public class MetaStateMachine extends BaseStateMachine {
                 return processListLogsRequest();
             case GETLOG:
                 return processGetLogRequest(req);
+            case ARCHIVELOG:
+                return processArchiveLog(req);
             case DELETELOG:
                 return processDeleteLog(req);
             default:
@@ -259,8 +263,6 @@ public class MetaStateMachine extends BaseStateMachine {
                                         .setLogname(LogServiceProtoUtil.toLogNameProto(logName)))
                         .build().toByteString());
             } catch (IOException e) {
-                LOG.error(
-                    "Exception while unregistring raft group with Metadata Service during deletion of log");
                 e.printStackTrace();
             }
         }
@@ -277,6 +279,14 @@ public class MetaStateMachine extends BaseStateMachine {
 //                .valueOf(CloseLogReplyProto.newBuilder().build().toByteString()));
 //    }
 
+    private CompletableFuture<Message>
+    processArchiveLog(MetaServiceProtos.MetaServiceRequestProto logServiceRequestProto) {
+        ArchiveLogRequestProto archiveLog = logServiceRequestProto.getArchiveLog();
+        LogName logName = LogServiceProtoUtil.toLogName(archiveLog.getLogName());
+        // Handle log archiving.
+        return CompletableFuture.completedFuture(Message
+                .valueOf(ArchiveLogReplyProto.newBuilder().build().toByteString()));
+    }
 
 //    private CompletableFuture<Message> processGetStateRequest(
 //            MetaServiceProtos.MetaServiceRequestProto logServiceRequestProto) {
@@ -335,8 +345,6 @@ public class MetaStateMachine extends BaseStateMachine {
                                             .toRaftGroupProto(raftGroup)))
                             .build().toByteString());
                 } catch (IOException e) {
-                    LOG.error(
-                        "Exception while registring raft group with Metadata Service during creation of log");
                     e.printStackTrace();
                 }
                 return CompletableFuture.completedFuture(Message.valueOf(MetaServiceProtoUtil
