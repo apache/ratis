@@ -50,6 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Objects;
@@ -73,6 +74,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   private static final String RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_KEY
       = "raft.test.simple.state.machine.take.snapshot";
   private static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
+  private boolean notifiedAsLeader;
 
   public static SimpleStateMachine4Testing get(RaftServerImpl s) {
     return (SimpleStateMachine4Testing)s.getStateMachine();
@@ -414,6 +416,19 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public void notifyExtendedNoLeader(RoleInfoProto roleInfoProto) {
     LOG.info("{}: notifyExtendedNoLeader {}, {}", this, groupId, roleInfoProto);
     leaderElectionTimeoutInfo = roleInfoProto;
+  }
+
+  @Override public void notifyNotLeader(Collection<TransactionContext> pendingEntries)
+      throws IOException {
+
+  }
+
+  @Override public void notifyLeader(long lastCommittedIndex) {
+    notifiedAsLeader = true;
+  }
+
+  public boolean isNotifiedAsLeader() {
+    return notifiedAsLeader;
   }
 
   protected File getSMdir() {

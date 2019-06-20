@@ -266,4 +266,11 @@ public interface StateMachine extends Closeable {
       RoleInfoProto roleInfoProto, TermIndex firstTermIndexInLog) {
     return CompletableFuture.completedFuture(null);
   }
+
+  /**
+   * Notify the state machine that the raft peer is a leader now.
+   */
+  default void notifyLeader(long lastCommittedIndex){
+  }
+
 }

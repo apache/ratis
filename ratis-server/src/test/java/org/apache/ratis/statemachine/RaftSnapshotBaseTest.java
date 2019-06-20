@@ -78,7 +78,9 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     Assert.assertTrue(e.hasMetadataEntry());
     Assert.assertEquals(leaderLog.getLastCommittedIndex() - 1, e.getMetadataEntry().getCommitIndex());
 
-    final LogEntryProto[] entries = SimpleStateMachine4Testing.get(leader).getContent();
+    SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(leader);
+    Assert.assertTrue("Is not notified as a leader", simpleStateMachine.isNotifiedAsLeader());
+    final LogEntryProto[] entries = simpleStateMachine.getContent();
     long message = 0;
     for (int i = 0; i < entries.length; i++) {
       LOG.info("{}) {} {}", i, message, entries[i]);
