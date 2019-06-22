@@ -232,7 +232,12 @@ class OrderedAsync {
         if (!retryPolicy.shouldRetry(attemptCount, request)) {
           handleAsyncRetryFailure(request, attemptCount, e);
         } else {
-          client.handleIOException(request, (IOException) e, null, this::resetSlidingWindow);
+          if (e instanceof NotLeaderException) {
+            NotLeaderException nle = (NotLeaderException)e;
+            client.handleNotLeaderException(request, nle, this::resetSlidingWindow);
+          } else {
+            client.handleIOException(request, (IOException) e, null, this::resetSlidingWindow);
+          }
         }
         if (e instanceof NotLeaderException) {
           throw new CompletionException(e);
