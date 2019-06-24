@@ -26,7 +26,6 @@ import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.retry.RetryPolicy;
-import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -42,7 +41,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -85,7 +83,6 @@ final class RaftClientImpl implements RaftClient {
   private volatile RaftPeerId leaderId;
 
   private final TimeoutScheduler scheduler;
-  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
   private final Supplier<OrderedAsync> orderedAsync;
 
@@ -368,23 +365,13 @@ final class RaftClientImpl implements RaftClient {
             && newLeader != null && stillLeader;
     final boolean reconnect = changeLeader || clientRpc.shouldReconnect(ioe);
     if (reconnect) {
-      try(AutoCloseableLock writeLock = writeLock()) {
-        if (changeLeader && oldLeader.equals(leaderId)) {
-          LOG.debug("{} {}: client change Leader from {} to {} ex={}", groupId,
-              clientId, oldLeader, newLeader, ioe.getClass().getName());
-          this.leaderId = newLeader;
-        }
-        clientRpc.handleException(oldLeader, ioe, reconnect);
+      if (changeLeader && oldLeader.equals(leaderId)) {
+        LOG.debug("{} {}: client change Leader from {} to {} ex={}", groupId,
+            clientId, oldLeader, newLeader, ioe.getClass().getName());
+        this.leaderId = newLeader;
       }
+      clientRpc.handleException(oldLeader, ioe, reconnect);
     }
-  }
-
-  AutoCloseableLock readLock() {
-    return AutoCloseableLock.acquire(lock.readLock());
-  }
-
-  private AutoCloseableLock writeLock() {
-    return AutoCloseableLock.acquire(lock.writeLock());
   }
 
   void assertScheduler(int numThreads) {

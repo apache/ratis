@@ -31,7 +31,6 @@ import org.apache.ratis.protocol.RaftException;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
-import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -201,14 +200,12 @@ class OrderedAsync {
     final RetryPolicy retryPolicy = client.getRetryPolicy();
     final CompletableFuture<RaftClientReply> f;
     final RaftClientRequest request;
-    try (AutoCloseableLock readLock = client.readLock()) {
-      if (getSlidingWindow((RaftPeerId) null).isFirst(pending.getSeqNum())) {
-        pending.setFirstRequest();
-      }
-      request = pending.newRequest();
-      LOG.debug("{}: send* {}", client.getId(), request);
-      f = client.getClientRpc().sendRequestAsync(request);
+    if (getSlidingWindow((RaftPeerId) null).isFirst(pending.getSeqNum())) {
+      pending.setFirstRequest();
     }
+    request = pending.newRequest();
+    LOG.debug("{}: send* {}", client.getId(), request);
+    f = client.getClientRpc().sendRequestAsync(request);
     int attemptCount = pending.getAttemptCount();
     return f.thenApply(reply -> {
       LOG.debug("{}: receive* {}", client.getId(), reply);
