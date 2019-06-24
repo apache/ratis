@@ -221,6 +221,16 @@ public interface StateMachine extends Closeable {
   }
 
   /**
+   * Notify the state machine that the pipeline has failed.
+   * This notification is triggered when a log operation throws an Exception.
+   * @param t Exception which was caught, indicates possible cause.
+   * @param failedEntry if append failed for a specific entry, null otherwise.
+   */
+  default void notifyLogFailed(Throwable t, LogEntryProto failedEntry) {
+
+  }
+
+  /**
    * Notify the Leader's state machine that a leader has not been elected for a long time
    * this notification is based on "raft.server.leader.election.timeout"
    *

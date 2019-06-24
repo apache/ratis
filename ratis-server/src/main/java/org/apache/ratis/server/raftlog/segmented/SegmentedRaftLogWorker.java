@@ -30,6 +30,7 @@ import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RatisMetrics;
+import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.SegmentFileInfo;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
@@ -232,20 +233,33 @@ class SegmentedRaftLogWorker implements Runnable {
 
   @Override
   public void run() {
+
+    // if and when a log task encounters an exception
+    RaftLogIOException logIOException = null;
+
     while (running) {
       try {
         Task task = queue.poll(ONE_SECOND);
         if (task != null) {
           try {
-            task.execute();
+            if (logIOException != null) {
+              throw logIOException;
+            } else {
+              task.execute();
+            }
           } catch (IOException e) {
             if (task.getEndIndex() < lastWrittenIndex) {
               LOG.info("Ignore IOException when handling task " + task
                   + " which is smaller than the lastWrittenIndex."
                   + " There should be a snapshot installed.", e);
             } else {
-              task.getFuture().completeExceptionally(e);
-              throw e;
+              task.failed(e);
+              if (logIOException == null) {
+                logIOException = new RaftLogIOException("Log already failed"
+                    + " at index " + task.getEndIndex()
+                    + " for task " + task, e);
+              }
+              continue;
             }
           }
           task.done();
@@ -391,6 +405,12 @@ class SegmentedRaftLogWorker implements Runnable {
     }
 
     @Override
+    void failed(IOException e) {
+      stateMachine.notifyLogFailed(e, entry);
+      super.failed(e);
+    }
+
+    @Override
     int getSerializedSize() {
       return ServerProtoUtils.getSerializedSize(entry);
     }
@@ -458,6 +478,13 @@ class SegmentedRaftLogWorker implements Runnable {
         LOG.info("{}: Deleted empty log segment {}", name, openFile);
       }
       updateFlushedIndex();
+    }
+
+    @Override
+    void failed(IOException e) {
+      // not failed for a specific log entry, but an entire segment
+      stateMachine.notifyLogFailed(e, null);
+      super.failed(e);
     }
 
     @Override

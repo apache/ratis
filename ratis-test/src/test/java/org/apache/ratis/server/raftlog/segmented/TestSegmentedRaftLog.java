@@ -36,6 +36,7 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -62,8 +63,6 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class TestSegmentedRaftLog extends BaseTest {
@@ -523,7 +522,21 @@ public class TestSegmentedRaftLog extends BaseTest {
     final StateMachine sm = new BaseStateMachine() {
       @Override
       public CompletableFuture<?> writeStateMachineData(LogEntryProto entry) {
+        lifeCycle.transition(LifeCycle.State.STARTING);
+        lifeCycle.transition(LifeCycle.State.RUNNING);
+
         return new CompletableFuture<>(); // the future never completes
+      }
+
+      @Override
+      public void notifyLogFailed(Throwable t, LogEntryProto entry) {
+        LOG.info("Test StateMachine : Ratis log failed notification received, "
+            + "as expected. Transition to PAUSED state.");
+
+        Assert.assertNotNull(entry);
+
+        lifeCycle.transition(LifeCycle.State.PAUSING);
+        lifeCycle.transition(LifeCycle.State.PAUSED);
       }
     };
 
@@ -542,7 +555,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       }
     }
     Assert.assertNotNull(ex);
-    verify(server, times(1)).shutdown(false);
+    Assert.assertSame(LifeCycle.State.PAUSED, sm.getLifeCycleState());
     throw ex;
   }
 

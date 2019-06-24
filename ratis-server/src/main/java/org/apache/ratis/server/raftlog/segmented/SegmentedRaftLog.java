@@ -83,9 +83,13 @@ public class SegmentedRaftLog extends RaftLog {
     }
 
     void done() {
+      Preconditions.assertTrue(!future.isDone());
       future.complete(getEndIndex());
     }
 
+    void failed(IOException e) {
+      this.getFuture().completeExceptionally(e);
+    }
 
     abstract void execute() throws IOException;
 
