@@ -451,8 +451,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     RaftPeerId leaderId = state.getLeaderId();
     if (leaderId == null || leaderId.equals(state.getSelfId())) {
       // No idea about who is the current leader. Or the peer is the current
-      // leader, but it is about to step down. set the suggested leader as null.
-      leaderId = null;
+      // leader, but it is about to step down
+      RaftPeer suggestedLeader = getRaftConf().getRandomPeer(state.getSelfId());
+      leaderId = suggestedLeader == null ? null : suggestedLeader.getId();
     }
     RaftConfiguration conf = getRaftConf();
     Collection<RaftPeer> peers = conf.getPeers();
