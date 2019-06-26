@@ -560,7 +560,7 @@ public class LeaderState {
   }
 
   private void updateCommit() {
-    getMajorityMin(FollowerInfo::getMatchIndex, raftLog::getLatestFlushedIndex)
+    getMajorityMin(FollowerInfo::getMatchIndex, raftLog::getFlushIndex)
         .ifPresent(m -> updateCommit(m.majority, m.min));
   }
 

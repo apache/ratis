@@ -43,7 +43,7 @@ public interface RaftStorageTestUtils {
     final long flushed, committed;
     try(AutoCloseableLock readlock = log.readLock()) {
       last = log.getLastEntryTermIndex();
-      flushed = log.getLatestFlushedIndex();
+      flushed = log.getFlushIndex();
       committed = log.getLastCommittedIndex();
     }
     final StringBuilder b = new StringBuilder();

@@ -26,11 +26,12 @@ import org.apache.ratis.metrics.impl.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RatisMetrics;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
+import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.SegmentFileInfo;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
@@ -43,10 +44,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -92,11 +96,48 @@ class SegmentedRaftLogWorker implements Runnable {
     }
   }
 
+  static class WriteLogTasks {
+    private final Queue<WriteLog> q = new LinkedList<>();
+    private volatile long index;
+
+    void offerOrCompleteFuture(WriteLog writeLog) {
+      if (writeLog.getEndIndex() <= index || !offer(writeLog)) {
+        writeLog.completeFuture();
+      }
+    }
+
+    private synchronized boolean offer(WriteLog writeLog) {
+      if (writeLog.getEndIndex() <= index) { // compare again synchronized
+        return false;
+      }
+      q.offer(writeLog);
+      return true;
+    }
+
+    synchronized void updateIndex(long i) {
+      index = i;
+
+      for(;;) {
+        final Task peeked = q.peek();
+        if (peeked == null || peeked.getEndIndex() > index) {
+          return;
+        }
+        final Task polled = q.poll();
+        Preconditions.assertTrue(polled == peeked);
+        polled.completeFuture();
+      }
+    }
+  }
+
+  private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", this, s);
+  private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", this, s);
+
   private final String name;
   /**
    * The task queue accessed by rpc handler threads and the io worker thread.
    */
   private final DataBlockingQueue<Task> queue;
+  private final WriteLogTasks writeTasks = new WriteLogTasks();
   private volatile boolean running = true;
   private final Thread workerThread;
 
@@ -114,7 +155,7 @@ class SegmentedRaftLogWorker implements Runnable {
   /** the index of the last entry that has been written */
   private long lastWrittenIndex;
   /** the largest index of the entry that has been flushed */
-  private volatile long flushedIndex;
+  private final RaftLogIndex flushIndex = new RaftLogIndex("flushIndex", 0);
 
   private final int forceSyncNum;
 
@@ -167,7 +208,7 @@ class SegmentedRaftLogWorker implements Runnable {
   void start(long latestIndex, File openSegmentFile) throws IOException {
     LOG.trace("{} start(latestIndex={}, openSegmentFile={})", name, latestIndex, openSegmentFile);
     lastWrittenIndex = latestIndex;
-    flushedIndex = latestIndex;
+    flushIndex.setUnconditionally(latestIndex, infoIndexChange);
     if (openSegmentFile != null) {
       Preconditions.assertTrue(openSegmentFile.exists());
       out = new SegmentedRaftLogOutputStream(openSegmentFile, true, segmentMaxSize,
@@ -194,7 +235,7 @@ class SegmentedRaftLogWorker implements Runnable {
   void syncWithSnapshot(long lastSnapshotIndex) {
     queue.clear();
     lastWrittenIndex = lastSnapshotIndex;
-    flushedIndex = lastSnapshotIndex;
+    flushIndex.setUnconditionally(lastSnapshotIndex, infoIndexChange);
     pendingFlushNum = 0;
   }
 
@@ -312,13 +353,18 @@ class SegmentedRaftLogWorker implements Runnable {
       } finally {
         timerContext.stop();
       }
-      updateFlushedIndex();
+      updateFlushedIndexIncreasingly();
     }
   }
 
-  private void updateFlushedIndex() {
-    LOG.debug("{}: updateFlushedIndex {} -> {}", name, flushedIndex, lastWrittenIndex);
-    flushedIndex = lastWrittenIndex;
+  private void updateFlushedIndexIncreasingly() {
+    final long i = lastWrittenIndex;
+    flushIndex.updateIncreasingly(i, traceIndexChange);
+    postUpdateFlushedIndex();
+    writeTasks.updateIndex(i);
+  }
+
+  private void postUpdateFlushedIndex() {
     pendingFlushNum = 0;
     Optional.ofNullable(submitUpdateCommitEvent).ifPresent(Runnable::run);
   }
@@ -421,6 +467,11 @@ class SegmentedRaftLogWorker implements Runnable {
     }
 
     @Override
+    void done() {
+      writeTasks.offerOrCompleteFuture(this);
+    }
+
+    @Override
     public void execute() throws IOException {
       if (stateMachineDataPolicy.isSync() && stateMachineFuture != null) {
         stateMachineDataPolicy.getFromFuture(stateMachineFuture, () -> this + "-writeStateMachineData");
@@ -477,7 +528,7 @@ class SegmentedRaftLogWorker implements Runnable {
         FileUtils.deleteFile(openFile);
         LOG.info("{}: Deleted empty log segment {}", name, openFile);
       }
-      updateFlushedIndex();
+      updateFlushedIndexIncreasingly();
     }
 
     @Override
@@ -589,7 +640,8 @@ class SegmentedRaftLogWorker implements Runnable {
       if (stateMachineFuture != null) {
         IOUtils.getFromFuture(stateMachineFuture, () -> this + "-truncateStateMachineData");
       }
-      updateFlushedIndex();
+      flushIndex.setUnconditionally(lastWrittenIndex, infoIndexChange);
+      postUpdateFlushedIndex();
     }
 
     @Override
@@ -599,7 +651,7 @@ class SegmentedRaftLogWorker implements Runnable {
       } else if (segments.toDelete.length > 0) {
         return segments.toDelete[segments.toDelete.length - 1].endIndex;
       }
-      return RaftServerConstants.INVALID_LOG_INDEX;
+      return RaftLog.INVALID_LOG_INDEX;
     }
 
     @Override
@@ -608,7 +660,7 @@ class SegmentedRaftLogWorker implements Runnable {
     }
   }
 
-  long getFlushedIndex() {
-    return flushedIndex;
+  long getFlushIndex() {
+    return flushIndex.get();
   }
 }

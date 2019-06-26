@@ -35,6 +35,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -83,8 +84,13 @@ public class SegmentedRaftLog extends RaftLog {
     }
 
     void done() {
-      Preconditions.assertTrue(!future.isDone());
-      future.complete(getEndIndex());
+      completeFuture();
+    }
+
+    final void completeFuture() {
+      final boolean completed = future.complete(getEndIndex());
+      Preconditions.assertTrue(completed,
+          () -> this + " is already " + StringUtils.completableFuture2String(future, false));
     }
 
     void failed(IOException e) {
@@ -231,7 +237,7 @@ public class SegmentedRaftLog extends RaftLog {
       // segment's cache, should block the new entry appending or new segment
       // allocation.
       final RaftServerImpl s = server.get();
-      cache.evictCache(s.getFollowerNextIndices(), fileLogWorker.getFlushedIndex(), s.getState().getLastAppliedIndex());
+      cache.evictCache(s.getFollowerNextIndices(), fileLogWorker.getFlushIndex(), s.getState().getLastAppliedIndex());
     }
   }
 
@@ -386,8 +392,8 @@ public class SegmentedRaftLog extends RaftLog {
 
 
   @Override
-  public long getLatestFlushedIndex() {
-    return fileLogWorker.getFlushedIndex();
+  public long getFlushIndex() {
+    return fileLogWorker.getFlushIndex();
   }
 
   @Override
@@ -434,7 +440,7 @@ public class SegmentedRaftLog extends RaftLog {
   public String toString() {
     try(AutoCloseableLock readLock = readLock()) {
       if (isOpened()) {
-        return super.toString() + ",f" + getLatestFlushedIndex()
+        return super.toString() + ",f" + getFlushIndex()
             + ",i" + Optional.ofNullable(getLastEntryTermIndex()).map(TermIndex::getIndex).orElse(0L);
       } else {
         return super.toString();

@@ -203,7 +203,7 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public long getLatestFlushedIndex() {
+  public long getFlushIndex() {
     return getNextIndex() - 1;
   }
 

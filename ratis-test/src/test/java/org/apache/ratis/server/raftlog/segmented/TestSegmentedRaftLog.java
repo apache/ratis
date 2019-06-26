@@ -163,7 +163,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     // create RaftLog object and load log file
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // check if log entries are loaded correctly
       for (LogEntryProto e : entries) {
         LogEntryProto entry = raftLog.get(e.getIndex());
@@ -219,21 +219,21 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // append entries to the raftlog
       entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
     }
 
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // check if the raft log is correct
       checkEntries(raftLog, entries, 0, entries.size());
     }
 
     try (SegmentedRaftLog raftLog =
         new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       TermIndex lastTermIndex  = raftLog.getLastEntryTermIndex();
       IllegalStateException ex = null;
       try {
@@ -272,14 +272,14 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // append entries to the raftlog
       entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
     }
 
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // check if the raft log is correct
       checkEntries(raftLog, entries, 0, entries.size());
       Assert.assertEquals(9, raftLog.getRaftLogCache().getNumOfSegments());
@@ -294,7 +294,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // append entries to the raftlog
       entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
     }
@@ -308,7 +308,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       throws Exception {
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // truncate the log
       raftLog.truncate(fromIndex).join();
 
@@ -318,7 +318,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // check if the raft log is correct
       if (fromIndex > 0) {
         Assert.assertEquals(entries.get((int) (fromIndex - 1)),
@@ -402,7 +402,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     final RaftProperties p = new RaftProperties();
     RaftServerConfigKeys.Log.setPurgeGap(p, purgeGap);
     try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, storage, -1, p)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
       final CompletableFuture<Long> f = raftLog.purge(purgeIndex);
       final Long purged = f.get();
@@ -426,7 +426,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     doCallRealMethod().when(server).failClientRequest(any(LogEntryProto.class));
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, server, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       entries.forEach(entry -> RetryCacheTestUtil.createEntry(retryCache, entry));
       // append entries to the raftlog
       entries.stream().map(raftLog::appendEntry).forEach(CompletableFuture::join);
@@ -442,7 +442,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, server, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       LOG.info("newEntries[0] = {}", newEntries.get(0));
       final int last = newEntries.size() - 1;
       LOG.info("newEntries[{}] = {}", last, newEntries.get(last));
@@ -454,19 +454,19 @@ public class TestSegmentedRaftLog extends BaseTest {
       Assert.assertEquals(newEntries.get(newEntries.size() - 1),
           getLastEntry(raftLog));
       Assert.assertEquals(newEntries.get(newEntries.size() - 1).getIndex(),
-          raftLog.getLatestFlushedIndex());
+          raftLog.getFlushIndex());
     }
 
     // load the raftlog again and check
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, server, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       checkEntries(raftLog, entries, 0, 650);
       checkEntries(raftLog, newEntries, 100, 100);
       Assert.assertEquals(newEntries.get(newEntries.size() - 1),
           getLastEntry(raftLog));
       Assert.assertEquals(newEntries.get(newEntries.size() - 1).getIndex(),
-          raftLog.getLatestFlushedIndex());
+          raftLog.getFlushIndex());
 
       SegmentedRaftLogCache cache = raftLog.getRaftLogCache();
       Assert.assertEquals(5, cache.getNumOfSegments());
@@ -480,7 +480,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
     final SimpleStateMachine4Testing sm = new SimpleStateMachine4Testing();
     try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, null, sm, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
 
       int next = 0;
       long flush = -1;
@@ -544,7 +544,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     doNothing().when(server).shutdown(false);
     Throwable ex = null; // TimeoutIOException
     try (SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, server, sm, null, storage, -1, properties)) {
-      raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+      raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
       // SegmentedRaftLogWorker should catch TimeoutIOException
       CompletableFuture<Long> f = raftLog.appendEntry(entry);
       // Wait for async writeStateMachineData to finish
@@ -567,7 +567,7 @@ public class TestSegmentedRaftLog extends BaseTest {
 
   void assertIndices(RaftLog raftLog, long expectedFlushIndex, long expectedNextIndex) {
     LOG.info("assert expectedFlushIndex={}", expectedFlushIndex);
-    Assert.assertEquals(expectedFlushIndex, raftLog.getLatestFlushedIndex());
+    Assert.assertEquals(expectedFlushIndex, raftLog.getFlushIndex());
     LOG.info("assert expectedNextIndex={}", expectedNextIndex);
     Assert.assertEquals(expectedNextIndex, raftLog.getNextIndex());
   }

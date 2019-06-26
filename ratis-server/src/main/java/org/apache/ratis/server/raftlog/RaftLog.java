@@ -64,6 +64,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   /** The least valid log index, i.e. the index used when writing to an empty log. */
   public static final long LEAST_VALID_LOG_INDEX = 0L;
+  public static final long INVALID_LOG_INDEX = LEAST_VALID_LOG_INDEX - 1;
 
   /**
    * The largest committed index. Note the last committed log may be included
@@ -118,7 +119,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
         // paper for details.
         final TermIndex entry = getTermIndex(majorityIndex);
         if (entry != null && entry.getTerm() == currentTerm) {
-          final long newCommitIndex = Math.min(majorityIndex, getLatestFlushedIndex());
+          final long newCommitIndex = Math.min(majorityIndex, getFlushIndex());
           if (newCommitIndex > oldCommittedIndex) {
             commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);
           }
@@ -368,10 +369,9 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   protected abstract List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries);
 
   /**
-   * @return the index of the latest entry that has been flushed to the local
-   *         storage.
+   * @return the index of the last entry that has been flushed to the local storage.
    */
-  public abstract long getLatestFlushedIndex();
+  public abstract long getFlushIndex();
 
   /**
    * Write and flush the metadata (votedFor and term) into the meta file.
