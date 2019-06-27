@@ -170,6 +170,6 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
     } else if (e instanceof IllegalArgumentException) {
       return e.getMessage().contains("null frame before EOS");
     }
-    return false;
+    return super.shouldReconnect(e);
   }
 }

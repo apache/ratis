@@ -21,6 +21,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 
 import java.io.Closeable;
@@ -61,6 +62,6 @@ public interface RaftClientRpc extends Closeable {
    * @return true if the given throwable should be handled; otherwise, return false.
    */
   default boolean shouldReconnect(Throwable t) {
-    return false;
+    return IOUtils.shouldReconnect(t);
   }
 }

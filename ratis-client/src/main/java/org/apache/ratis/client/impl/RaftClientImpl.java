@@ -361,11 +361,14 @@ final class RaftClientImpl implements RaftClient {
     }
     LOG.debug("{}: oldLeader={},  curLeader={}, newLeader={}", clientId, oldLeader, curLeader, newLeader);
 
-    final boolean changeLeader = newLeader != null && stillLeader;
+    final boolean changeLeader =
+        !(ioe instanceof AlreadyClosedException || ioe instanceof TimeoutIOException)
+            && newLeader != null && stillLeader;
     final boolean reconnect = changeLeader || clientRpc.shouldReconnect(ioe);
     if (reconnect) {
       if (changeLeader && oldLeader.equals(leaderId)) {
-        LOG.debug("{}: change Leader from {} to {}", clientId, oldLeader, newLeader);
+        LOG.debug("{} {}: client change Leader from {} to {} ex={}", groupId,
+            clientId, oldLeader, newLeader, ioe.getClass().getName());
         this.leaderId = newLeader;
       }
       clientRpc.handleException(oldLeader, ioe, reconnect);
