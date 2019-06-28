@@ -375,15 +375,19 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
         if (complete) {
           responseCompleted();
         }
-        slidingWindow.close();
-        orderedStreamObservers.removeExisting(this);
+        cleanup();
       }
+    }
+
+    private void cleanup() {
+      slidingWindow.close();
+      orderedStreamObservers.removeExisting(this);
     }
 
     @Override
     boolean responseError(Throwable t, Supplier<String> message) {
       if (super.responseError(t, message)) {
-        close(false);
+        cleanup();
         return true;
       }
       return false;
