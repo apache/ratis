@@ -31,6 +31,7 @@ import org.apache.ratis.proto.RaftProtos.GroupManagementRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
+import org.apache.ratis.protocol.LeaderNotReadyException;
 import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
@@ -255,6 +256,11 @@ public class GrpcClientProtocolClient implements Closeable {
           final NotLeaderException nle = reply.getNotLeaderException();
           if (nle != null) {
             completeReplyExceptionally(nle, NotLeaderException.class.getName());
+            return;
+          }
+          final LeaderNotReadyException lnre = reply.getLeaderNotReadyException();
+          if (lnre != null) {
+            completeReplyExceptionally(lnre, NotLeaderException.class.getName());
             return;
           }
           handleReplyFuture(callId, f -> f.complete(reply));

@@ -210,7 +210,7 @@ class OrderedAsync {
     return f.thenApply(reply -> {
       LOG.debug("{}: receive* {}", client.getId(), reply);
       final RaftException replyException = reply != null? reply.getException(): null;
-      reply = client.handleNotLeaderException(request, reply, this::resetSlidingWindow);
+      reply = client.handleLeaderException(request, reply, this::resetSlidingWindow);
       if (reply != null) {
         getSlidingWindow(request).receiveReply(
             request.getSlidingWindowEntry().getSeqNum(), reply, this::sendRequestWithRetry);

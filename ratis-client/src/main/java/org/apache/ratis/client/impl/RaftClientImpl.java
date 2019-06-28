@@ -284,7 +284,7 @@ final class RaftClientImpl implements RaftClient {
       throw ioe;
     }
     LOG.debug("{}: receive {}", clientId, reply);
-    reply = handleNotLeaderException(request, reply, null);
+    reply = handleLeaderException(request, reply, null);
     reply = handleRaftException(reply, Function.identity());
     return reply;
   }
@@ -301,12 +301,13 @@ final class RaftClientImpl implements RaftClient {
   }
 
   /**
-   * @return null if the reply is null or it has {@link NotLeaderException};
-   *         otherwise return the same reply.
+   * @return null if the reply is null or it has
+   * {@link NotLeaderException} or {@link LeaderNotReadyException}
+   * otherwise return the same reply.
    */
-  RaftClientReply handleNotLeaderException(RaftClientRequest request, RaftClientReply reply,
-      Consumer<RaftClientRequest> handler) {
-    if (reply == null) {
+  RaftClientReply handleLeaderException(RaftClientRequest request, RaftClientReply reply,
+                                        Consumer<RaftClientRequest> handler) {
+    if (reply == null || reply.getException() instanceof LeaderNotReadyException) {
       return null;
     }
     final NotLeaderException nle = reply.getNotLeaderException();

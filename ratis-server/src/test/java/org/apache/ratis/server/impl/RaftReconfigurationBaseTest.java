@@ -575,16 +575,15 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       new Thread(() -> {
         final RaftClient client = cluster.createClient(leaderId);
         final RaftClientRpc sender = client.getClientRpc();
-
         final RaftClientRequest request = cluster.newRaftClientRequest(
             client.getId(), leaderId, new SimpleMessage("test"));
         while (!success.get()) {
           try {
-            RaftClientReply reply = sender.sendRequest(request);
+            final RaftClientReply reply = sender.sendRequest(request);
             success.set(reply.isSuccess());
-          } catch (LeaderNotReadyException e) {
-            LOG.info("Hit LeaderNotReadyException", e);
-            caughtNotReady.set(true);
+            if (reply.getException() != null && reply.getException() instanceof LeaderNotReadyException) {
+              caughtNotReady.set(true);
+            }
           } catch (IOException e) {
             LOG.info("Hit other IOException", e);
           }

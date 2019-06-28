@@ -26,6 +26,8 @@ import org.apache.ratis.util.ReflectionUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto
+    .ExceptionDetailsCase.LEADERNOTREADYEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTREPLICATEDEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.STATEMACHINEEXCEPTION;
@@ -185,6 +187,13 @@ public interface ClientProtoUtils {
             .setLogIndex(nre.getLogIndex());
         b.setNotReplicatedException(nreBuilder);
       }
+
+      final LeaderNotReadyException lnre = reply.getLeaderNotReadyException();
+      if (lnre != null) {
+        LeaderNotReadyExceptionProto.Builder lnreBuilder = LeaderNotReadyExceptionProto.newBuilder()
+            .setRaftPeerId(lnre.getRaftPeerId().toByteString());
+        b.setLeaderNotReadyException(lnreBuilder);
+      }
     }
     return b.build();
   }
@@ -239,6 +248,9 @@ public interface ClientProtoUtils {
       e = wrapStateMachineException(RaftPeerId.valueOf(rp.getReplyId()),
           smeProto.getExceptionClassName(), smeProto.getErrorMsg(),
           smeProto.getStacktrace());
+    } else if (replyProto.getExceptionDetailsCase().equals(LEADERNOTREADYEXCEPTION)) {
+      LeaderNotReadyExceptionProto lnreProto = replyProto.getLeaderNotReadyException();
+      e = new LeaderNotReadyException(RaftPeerId.valueOf(lnreProto.getRaftPeerId()));
     } else {
       e = null;
     }

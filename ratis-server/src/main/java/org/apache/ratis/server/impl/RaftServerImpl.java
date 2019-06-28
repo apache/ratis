@@ -439,7 +439,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
         return cacheEntry.getReplyFuture();
       }
-      return RetryCache.failWithException(new LeaderNotReadyException(getId()), entry);
+      final RaftClientReply reply = new RaftClientReply(request,
+          new LeaderNotReadyException(getId()), getCommitInfos());
+      return RetryCache.failWithReply(reply, entry);
     }
     return null;
   }

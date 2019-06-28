@@ -24,11 +24,14 @@ package org.apache.ratis.protocol;
  * it cannot determine whether a request is just a retry.
  */
 public class LeaderNotReadyException extends RaftException {
+  private final RaftPeerId raftPeerId;
+
   public LeaderNotReadyException(RaftPeerId id) {
-    this(id + " is in LEADER state but not ready yet.");
+    super(id + " is in LEADER state but not ready yet.");
+    this.raftPeerId = id;
   }
 
-  public LeaderNotReadyException(String msg) {
-    super(msg);
+  public RaftPeerId getRaftPeerId() {
+    return raftPeerId;
   }
 }

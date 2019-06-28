@@ -269,6 +269,10 @@ message NotLeaderExceptionProto {
   repeated RaftPeerProto peersInConf = 2;
 }
 
+message LeaderNotReadyExceptionProto {
+  bytes raftPeerId = 1; // id of the peer
+}
+
 message NotReplicatedExceptionProto {
   uint64 callId = 1;
   ReplicationLevel replication = 2;
@@ -289,6 +293,7 @@ message RaftClientReplyProto {
     NotLeaderExceptionProto notLeaderException = 3;
     NotReplicatedExceptionProto notReplicatedException = 4;
     StateMachineExceptionProto stateMachineException = 5;
+    LeaderNotReadyExceptionProto leaderNotReadyException = 6;
   }
 
   uint64 logIndex = 14; // When the request is a write request and the reply is success, the log index of the transaction
