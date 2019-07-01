@@ -115,7 +115,7 @@ public class MetaStateMachine extends BaseStateMachine {
     public void initialize(RaftServer server, RaftGroupId groupId, RaftStorage storage) throws IOException {
         this.raftServer = server;
         this.metricRegistry = LogServiceMetricsRegistry
-            .createMetricRegistryForLogServiceMetaData(getClass().getSimpleName());
+            .createMetricRegistryForLogServiceMetaData(server.getId().toString());
         super.initialize(server, groupId, storage);
     }
 

@@ -26,6 +26,8 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.ganglia.GangliaReporter;
 import com.github.joshelser.dropwizard.metrics.hadoop.HadoopMetrics2Reporter;
 import info.ganglia.gmetric4j.gmetric.GMetric;
+import org.apache.hadoop.metrics2.MetricsSystem;
+import org.apache.hadoop.metrics2.impl.MetricsSystemImpl;
 import org.apache.hadoop.metrics2.lib.DefaultMetricsSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,9 @@ public class MetricsReporting {
   private long period;
   private static RatisMetricRegistry jvmRegistry;
   private GMetric ganglia;
+  static{
+    DefaultMetricsSystem.initialize("ratis");
+  }
 
   public enum MetricReporterType {
     JMX, HADOOP2, CONSOLE, GANGLIA
@@ -53,12 +58,10 @@ public class MetricsReporting {
 
   /**
    * @param registry
-   * @param jmxDomain  can be set if JMX reporter is used otherwise can be null
    * @param reporting
    * @return
    */
-  public boolean startMetricsReporter(RatisMetricRegistry registry,
-      String jmxDomain, MetricReporterType... reporting) {
+  public boolean startMetricsReporter(RatisMetricRegistry registry, MetricReporterType... reporting) {
 
     MetricRegistry dropWizardRegistry = registry.getDropWizardMetricRegistry();
     for (MetricReporterType reporter : reporting) {
@@ -72,31 +75,28 @@ public class MetricsReporting {
         case JMX:
           JmxReporter.Builder builder =
               JmxReporter.forRegistry(dropWizardRegistry);
-          if (jmxDomain != null) {
-            builder.inDomain(jmxDomain);
-          }
+          builder.inDomain(registry.getMetricRegistryInfo().getApplicationName());
           builder.build().start();
           break;
         case HADOOP2:
           MetricRegistryInfo info = registry.getMetricRegistryInfo();
           HadoopMetrics2Reporter.forRegistry(dropWizardRegistry)
-              .build(DefaultMetricsSystem.initialize(info.getMetricsContext()),
-                  // The application-level name
-                  info.getMetricsClassName(), // Component name
-                  info.getMetricsDescription(), // Component description
-                  info.getMetricsContext()).start(period, unit);
+              .build(DefaultMetricsSystem.instance(), info.getName(), info.getMetricsDescription(),
+                  info.getMetricsComponentName()).start(period, unit);
           break;
         case GANGLIA:
           if (ganglia == null) {
             throw new IllegalStateException(
-                "Please MetricReporting#configureGanglia before using this reporting..");
+                "Ganglia is not configured!! please configure it first by "
+                    + "using MetricReporting#configureGanglia..");
           }
           GangliaReporter.forRegistry(dropWizardRegistry)
               .convertRatesTo(TimeUnit.SECONDS)
               .convertDurationsTo(TimeUnit.MILLISECONDS)
               .build(ganglia);
+          break;
         default:
-          LOG.warn("Unhandled reporter " + reporter + " provided.");
+          LOG.warn("Unhandled reporter, " + reporter + " provided.");
           return false;
         }
       } catch (Exception e) {

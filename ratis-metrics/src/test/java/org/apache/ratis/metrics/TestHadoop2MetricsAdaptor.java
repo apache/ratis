@@ -25,19 +25,18 @@ import java.util.concurrent.TimeUnit;
 
 import com.codahale.metrics.Counter;
 import org.apache.hadoop.metrics2.AbstractMetric;
-import org.apache.ratis.metrics.TestHadoop2MetricsSink;
 import org.junit.Test;
 
 public class TestHadoop2MetricsAdaptor {
 
   @Test public void testMetrics() throws InterruptedException {
     MetricRegistryInfo info =
-        new MetricRegistryInfo(TestHadoop2MetricsAdaptor.class.getName(), "Ratis test metrics",
-            "ratis_test");
+        new MetricRegistryInfo(TestHadoop2MetricsAdaptor.class.getName(), "ratis_test",
+            "test","ratis test metrics");
     RatisMetricRegistry registry = MetricRegistries.global().create(info);
     MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
     metricsReporting
-        .startMetricsReporter(registry, null, MetricsReporting.MetricReporterType.HADOOP2);
+        .startMetricsReporter(registry, MetricsReporting.MetricReporterType.HADOOP2);
     Counter counter = registry.counter("test");
     counter.inc();
     counter.inc();

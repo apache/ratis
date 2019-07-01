@@ -29,17 +29,20 @@ import org.apache.ratis.metrics.RatisMetricRegistry;
 
 public class RatisMetrics {
   public final static String RATIS_LOG_WORKER_METRICS_DESC = "Ratis metrics";
-  public final static String RATIS_LOG_WORKER_METRICS_CONTEXT = "ratis";
+  public final static String RATIS_LOG_WORKER_METRICS = "ratis_log_worker";
+  public final static String RATIS_APPLICATION_NAME_METRICS = "ratis_core";
   static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
 
   public static RatisMetricRegistry createMetricRegistryForLogWorker(String name) {
-    return create(new MetricRegistryInfo(name, RATIS_LOG_WORKER_METRICS_DESC,
-        RATIS_LOG_WORKER_METRICS_CONTEXT));
+    return create(
+        new MetricRegistryInfo(name, RATIS_APPLICATION_NAME_METRICS, RATIS_LOG_WORKER_METRICS,
+            RATIS_LOG_WORKER_METRICS_DESC));
   }
 
   public static RatisMetricRegistry getMetricRegistryForLogWorker(String name) {
-    return MetricRegistries.global().get(new MetricRegistryInfo(name, RATIS_LOG_WORKER_METRICS_DESC,
-        RATIS_LOG_WORKER_METRICS_CONTEXT)).get();
+    return MetricRegistries.global().get(
+        new MetricRegistryInfo(name, RATIS_APPLICATION_NAME_METRICS, RATIS_LOG_WORKER_METRICS,
+            RATIS_LOG_WORKER_METRICS_DESC)).get();
   }
 
   private static RatisMetricRegistry create(MetricRegistryInfo info) {
@@ -49,12 +52,11 @@ public class RatisMetrics {
     }
     RatisMetricRegistry registry = MetricRegistries.global().create(info);
     metricsReporting
-        .startMetricsReporter(registry, "RatisCore", MetricsReporting.MetricReporterType.JMX,
+        .startMetricsReporter(registry, MetricsReporting.MetricReporterType.JMX,
             MetricsReporting.MetricReporterType.HADOOP2);
     // JVM metrics
     JVMMetrics
-        .startJVMReporting(500, TimeUnit.MILLISECONDS, MetricsReporting.MetricReporterType.JMX,
-            MetricsReporting.MetricReporterType.HADOOP2);
+        .startJVMReporting(1000, TimeUnit.MILLISECONDS, MetricsReporting.MetricReporterType.JMX);
 
     return registry;
   }

@@ -25,7 +25,7 @@ import com.codahale.metrics.jvm.MemoryUsageGaugeSet;
 import com.codahale.metrics.jvm.ThreadStatesGaugeSet;
 
 public class JVMMetrics {
-  static MetricRegistryInfo info = new MetricRegistryInfo("jvm", "JVM metrics", "jvm");
+  static MetricRegistryInfo info = new MetricRegistryInfo("jvm", "ratis_jvm", "jvm", "jvm metrics");
   static RatisMetricRegistry registry = MetricRegistries.global().create(info);
   static {
     registry.registerAll("gc", new GarbageCollectorMetricSet());
@@ -41,6 +41,6 @@ public class JVMMetrics {
   public static void startJVMReporting(long period, TimeUnit unit,
       MetricsReporting.MetricReporterType... reporting){
     MetricsReporting metricsReporting = new MetricsReporting(period,unit);
-    metricsReporting.startMetricsReporter(getRegistry(),"jvm",reporting);
+    metricsReporting.startMetricsReporter(getRegistry(), reporting);
   }
 }

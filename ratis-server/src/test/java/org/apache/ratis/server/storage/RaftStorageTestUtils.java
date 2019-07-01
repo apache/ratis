@@ -30,7 +30,8 @@ import java.util.function.Consumer;
 public interface RaftStorageTestUtils {
 
   static String getLogFlushTimeMetric(RaftPeerId serverId) {
-    return serverId + "." + RatisMetrics.RATIS_LOG_WORKER_METRICS_CONTEXT + ".flush-time";
+    return RatisMetrics.RATIS_APPLICATION_NAME_METRICS + "." + RatisMetrics.RATIS_LOG_WORKER_METRICS
+        + "." + serverId + ".flush-time";
   }
 
   static void printLog(RaftLog log, Consumer<String> println) {

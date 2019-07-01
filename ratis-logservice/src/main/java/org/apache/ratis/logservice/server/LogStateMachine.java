@@ -130,8 +130,8 @@ public class LogStateMachine extends BaseStateMachine {
     this.proxy = (RaftServerProxy) server;
     this.groupId = groupId;
     //TODO: using groupId for metric now but better to tag it with LogName
-    this.metricRegistry =
-        LogServiceMetricsRegistry.createMetricRegistryForLogService(groupId.toString());
+    this.metricRegistry = LogServiceMetricsRegistry
+        .createMetricRegistryForLogService(groupId.toString(), server.getId().toString());
     this.readNextQueryTimer = metricRegistry.timer("readNextQueryTime");
     this.startIndexTimer= metricRegistry.timer("startIndexTime");
     this.sizeRequestTimer = metricRegistry.timer("sizeRequestTime");

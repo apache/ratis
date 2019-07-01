@@ -24,7 +24,7 @@ import org.apache.hadoop.metrics2.MetricsSink;
 
 public class TestHadoop2MetricsSink implements MetricsSink {
 
-  public static final String RATIS_METRICS_RECORD_NAME = "ratis_test";
+  public static final String RATIS_METRICS_RECORD_NAME = "test";
   static Object lock = new Object();
   static Iterable<AbstractMetric> metrics;
 

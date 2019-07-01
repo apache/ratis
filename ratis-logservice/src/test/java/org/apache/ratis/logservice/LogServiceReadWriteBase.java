@@ -314,8 +314,10 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
   }
 
   private Long getJMXCount(String groupId, String metricName) throws Exception {
-    ObjectName oname = new ObjectName(LogServiceMetricsRegistry.JMX_DOMAIN, "name",
-        groupId + "." + LogServiceMetricsRegistry.RATIS_LOG_SERVICE_METRICS_CONTEXT + "." + metricName);
+    ObjectName oname = new ObjectName(LogServiceMetricsRegistry.RATIS_LOG_SERVICE_METRICS, "name",
+        LogServiceMetricsRegistry
+            .getMetricRegistryForLogService(groupId, cluster.getLeader().getId().toString())
+            .getMetricRegistryInfo().getName() + "." + metricName);
     return (Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count");
   }
 }
