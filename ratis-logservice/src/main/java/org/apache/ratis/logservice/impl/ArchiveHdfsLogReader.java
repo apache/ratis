@@ -95,7 +95,8 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
   }
 
   @Override public long getCurrentRaftIndex() {
-    return 0;
+    throw new UnsupportedOperationException(
+        "getCurrentRaftIndex() is not supported for archive hdfs log reader");
   }
 
   @Override public ByteBuffer readNext() throws IOException {
@@ -186,7 +187,10 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
       return;
     }
     byte[] bytes = new byte[length];
-    is.read(bytes);
+    if (is.read(bytes) != length) {
+      throw new EOFException(
+          "File seems to be corrupted, Encountered EOF before reading the complete record");
+    }
     currentRecordId++;
     currentRecord = bytes;
   }

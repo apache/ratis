@@ -470,7 +470,6 @@ public class LogStateMachine extends BaseStateMachine {
   @Override
   public void close() {
     reset();
-    //executorService.shutdown();
   }
 
   @Override
@@ -597,7 +596,7 @@ public class LogStateMachine extends BaseStateMachine {
         ArchiveLogWriter writer = new ArchiveHdfsLogWriter();
         writer.init(archiveLocationForLog, logName);
         LogServiceRaftLogReader reader = new LogServiceRaftLogReader(log);
-        reader.seek(0);
+        reader.seek(recordId);
         long records = 0;
         boolean isInterupted = false;
         while (reader.hasNext()) {

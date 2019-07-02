@@ -160,7 +160,7 @@ public class TestMetaServer {
 
         //Test ArchiveLogStream
         LogServiceConfiguration config = LogServiceConfiguration.create();
-        LogStream archiveLogStream = new ArchiveLogStreamImpl(logName, config);
+        LogStream archiveLogStream = client.getArchivedLog(logName);
         reader = archiveLogStream.createReader();
         data = reader.readBulk(records.size());
         assertEquals(records.size(), data.size());

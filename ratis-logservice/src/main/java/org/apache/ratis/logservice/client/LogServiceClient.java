@@ -213,13 +213,16 @@ public class LogServiceClient implements AutoCloseable {
      * @param logName The name of the log to archive.
      */
     public void exportLog(LogName logName, String location, long recordId) throws IOException {
-        RaftClientReply archiveLogReply = getRaftClient(getLogInfo(logName)).sendReadOnly(
-            () -> LogServiceProtoUtil.toArchiveLogRequestProto(logName, location, recordId,
-                location == null ? true : false).toByteString());
-        LogServiceProtos.ArchiveLogReplyProto archiveMessage = LogServiceProtos.ArchiveLogReplyProto
-            .parseFrom(archiveLogReply.getMessage().getContent());
-        if (archiveMessage.hasException()) {
-            throw new IOException(archiveMessage.getException().getErrorMsg());
+        try (RaftClient client = getRaftClient(getLogInfo(logName))) {
+            RaftClientReply archiveLogReply = client.sendReadOnly(() -> LogServiceProtoUtil
+                .toArchiveLogRequestProto(logName, location, recordId,
+                    location == null ? true : false).toByteString());
+            LogServiceProtos.ArchiveLogReplyProto archiveMessage =
+                LogServiceProtos.ArchiveLogReplyProto
+                    .parseFrom(archiveLogReply.getMessage().getContent());
+            if (archiveMessage.hasException()) {
+                throw new IOException(archiveMessage.getException().getErrorMsg());
+            }
         }
     }
 
@@ -231,11 +234,13 @@ public class LogServiceClient implements AutoCloseable {
      */
     // TODO this name sucks, confusion WRT the Java Closeable interface.
     public void closeLog(LogName name) throws IOException {
-        RaftClientReply reply = getRaftClient(getLogInfo(name)).send(
-            () -> LogServiceProtoUtil.toChangeStateRequestProto(name, State.CLOSED)
-                .toByteString());
-        LogServiceProtos.ChangeStateReplyProto message =
-            LogServiceProtos.ChangeStateReplyProto.parseFrom(reply.getMessage().getContent());
+        try (RaftClient client = getRaftClient(getLogInfo(name))) {
+            RaftClientReply reply = client.send(
+                () -> LogServiceProtoUtil.toChangeStateRequestProto(name, State.CLOSED)
+                    .toByteString());
+            LogServiceProtos.ChangeStateReplyProto message =
+                LogServiceProtos.ChangeStateReplyProto.parseFrom(reply.getMessage().getContent());
+        }
     }
 
     /**
