@@ -586,7 +586,6 @@ public class LogStateMachine extends BaseStateMachine {
           Message.valueOf(LogServiceProtoUtil.toArchiveLogReplyProto(t).toByteString()));
     }
     final String location = loc;
-    String archiveLocationForLog = LogServiceUtils.getArchiveLocationForLog(location, logName);
     long recordId = archiveLog.getLastArchivedRaftIndex();
     t = verifyState(State.CLOSED);
     if (t == null) {
@@ -594,7 +593,7 @@ public class LogStateMachine extends BaseStateMachine {
         sendChangeStateRequest(State.ARCHIVING);
         updateArchivingInfo(recordId, logName, location, isArchival);
         ArchiveLogWriter writer = new ArchiveHdfsLogWriter();
-        writer.init(archiveLocationForLog, logName);
+        writer.init(location, logName);
         LogServiceRaftLogReader reader = new LogServiceRaftLogReader(log);
         reader.seek(recordId);
         long records = 0;

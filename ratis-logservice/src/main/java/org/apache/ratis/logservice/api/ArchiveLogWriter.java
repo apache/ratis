@@ -23,11 +23,11 @@ public interface ArchiveLogWriter extends LogWriter{
 
   /**
    * Initializes the writer
-   * @param file file to be written for archival
+   * @param location archival location
    * @param logName
    * @throws IOException
    */
-  void init(String file, LogName logName) throws IOException;
+  void init(String location, LogName logName) throws IOException;
 
   /**
    * Rolls writer after number of records written crosses threshold

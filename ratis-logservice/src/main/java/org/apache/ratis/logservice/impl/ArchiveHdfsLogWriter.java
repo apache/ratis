@@ -31,22 +31,29 @@ import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.util.LogServiceUtils;
 
 public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
+  private final Configuration configuration;
   private FileSystem hdfs;
   private FSDataOutputStream os;
   private Path currentPath;
   private long currentRecordId;
   private long lastRollRecordId;
 
-  @Override
-  public void init(String location, LogName logName) throws IOException {
-    Configuration configuration = new Configuration();
+  public ArchiveHdfsLogWriter(Configuration conf) {
+    this.configuration = conf;
+  }
+
+  public ArchiveHdfsLogWriter() {
+    this.configuration = new Configuration();
+  }
+
+  @Override public void init(String archiveLocation, LogName logName) throws IOException {
     hdfs = FileSystem.get(configuration);
-    Path loc = new Path(location);
-    if(!hdfs.exists(loc)){
+    Path loc = new Path(LogServiceUtils.getArchiveLocationForLog(archiveLocation, logName));
+    if (!hdfs.exists(loc)) {
       hdfs.mkdirs(loc);
     }
     currentPath = new Path(loc, logName.getName());
-    os = hdfs.create(currentPath,true);
+    os = hdfs.create(currentPath, true);
   }
 
   @Override public long write(ByteBuffer data) throws IOException {
@@ -71,7 +78,7 @@ public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
   @Override public void close() throws IOException {
     os.close();
     if (lastRollRecordId != currentRecordId) {
-      hdfs.rename(currentPath, new Path(currentPath + ".recordId_" + currentRecordId));
+      hdfs.rename(currentPath, new Path(currentPath + "_recordId_" + currentRecordId));
     }
     hdfs.close();
   }
@@ -80,7 +87,7 @@ public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
     if (lastRollRecordId != currentRecordId) {
       //close old file
       os.close();
-      hdfs.rename(currentPath, new Path(currentPath + ".recordId_" + currentRecordId));
+      hdfs.rename(currentPath, new Path(currentPath + "_recordId_" + currentRecordId));
       lastRollRecordId = currentRecordId;
       //create new file
       os = hdfs.create(currentPath, true);

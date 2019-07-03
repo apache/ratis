@@ -18,6 +18,7 @@
 package org.apache.ratis.logservice.impl;
 
 import java.io.EOFException;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.Buffer;
@@ -51,7 +52,11 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
   private int currentRecordId = -1;
 
   public ArchiveHdfsLogReader(String archiveLocation) throws IOException {
-    Configuration configuration = new Configuration();
+    this(new Configuration(), archiveLocation);
+  }
+
+  public ArchiveHdfsLogReader(Configuration configuration, String archiveLocation)
+      throws IOException {
     this.hdfs = FileSystem.get(configuration);
     Path archiveLocationPath = new Path(archiveLocation);
     if (!hdfs.exists(archiveLocationPath)) {
