@@ -23,6 +23,7 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -117,6 +118,44 @@ public interface ServerProtoUtils {
       return null;
     }
     return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm();
+  }
+
+  static String toString(InstallSnapshotRequestProto proto) {
+    if (proto == null) {
+      return null;
+    }
+    final String s;
+    switch (proto.getInstallSnapshotRequestBodyCase()) {
+      case SNAPSHOTCHUNK:
+        final InstallSnapshotRequestProto.SnapshotChunkProto chunk = proto.getSnapshotChunk();
+        s = "chunk:" + chunk.getRequestId() + "," + chunk.getRequestIndex();
+        break;
+      case NOTIFICATION:
+        final InstallSnapshotRequestProto.NotificationProto notification = proto.getNotification();
+        s = "notify:" + toTermIndexString(notification.getFirstAvailableTermIndex());
+        break;
+      default:
+        throw new IllegalStateException("Unexpected body case in " + proto);
+    }
+    return ProtoUtils.toString(proto.getServerRequest()) + "-t" + proto.getLeaderTerm() + "," + s;
+  }
+
+  static String toString(InstallSnapshotReplyProto proto) {
+    if (proto == null) {
+      return null;
+    }
+    final String s;
+    switch (proto.getInstallSnapshotReplyBodyCase()) {
+      case REQUESTINDEX:
+        s = "requestIndex=" + proto.getRequestIndex();
+        break;
+      case SNAPSHOTINDEX:
+        s = "snapshotIndex=" + proto.getSnapshotIndex();
+        break;
+      default:
+        throw new IllegalStateException("Unexpected body case in " + proto);
+    }
+    return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm() + "," + s;
   }
 
   static RaftConfigurationProto.Builder toRaftConfigurationProto(RaftConfiguration conf) {
@@ -250,6 +289,11 @@ public interface ServerProtoUtils {
   }
 
   static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
+      RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success) {
+    return toRaftRpcReplyProtoBuilder(requestorId, replyId.getPeerId(), replyId.getGroupId(), success);
+  }
+
+  static RaftRpcReplyProto.Builder toRaftRpcReplyProtoBuilder(
       RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, boolean success) {
     return ClientProtoUtils.toRaftRpcReplyProtoBuilder(
         requestorId.toByteString(), replyId.toByteString(), groupId, DEFAULT_CALLID, success);
@@ -263,6 +307,11 @@ public interface ServerProtoUtils {
         .setTerm(term)
         .setShouldShutdown(shouldShutdown)
         .build();
+  }
+
+  static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
+      RaftGroupMemberId requestorId, RaftPeerId replyId) {
+    return toRaftRpcRequestProtoBuilder(requestorId.getPeerId(), replyId, requestorId.getGroupId());
   }
 
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
@@ -283,10 +332,10 @@ public interface ServerProtoUtils {
   }
 
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
-      RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
+      RaftPeerId requestorId, RaftGroupMemberId replyId,
       long currentTerm, int requestIndex, InstallSnapshotResult result) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, groupId, result == InstallSnapshotResult.SUCCESS);
+        replyId, result == InstallSnapshotResult.SUCCESS);
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setTerm(currentTerm).setResult(result)
         .setRequestIndex(requestIndex);
@@ -294,10 +343,10 @@ public interface ServerProtoUtils {
   }
 
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
-      RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
+      RaftPeerId requestorId, RaftGroupMemberId replyId,
       long currentTerm, InstallSnapshotResult result, long installedSnapshotIndex) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, groupId, result == InstallSnapshotResult.SUCCESS);
+        replyId, result == InstallSnapshotResult.SUCCESS);
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setTerm(currentTerm).setResult(result);
     if (installedSnapshotIndex > 0) {
@@ -307,17 +356,17 @@ public interface ServerProtoUtils {
   }
 
   static InstallSnapshotReplyProto toInstallSnapshotReplyProto(
-      RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
+      RaftPeerId requestorId, RaftGroupMemberId replyId,
       InstallSnapshotResult result) {
     final RaftRpcReplyProto.Builder rb = toRaftRpcReplyProtoBuilder(requestorId,
-        replyId, groupId, result == InstallSnapshotResult.SUCCESS);
+        replyId, result == InstallSnapshotResult.SUCCESS);
     final InstallSnapshotReplyProto.Builder builder = InstallSnapshotReplyProto
         .newBuilder().setServerReply(rb).setResult(result);
     return builder.build();
   }
 
   static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
-      RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId, String requestId, int requestIndex,
+      RaftGroupMemberId requestorId, RaftPeerId replyId, String requestId, int requestIndex,
       long term, TermIndex lastTermIndex, List<FileChunkProto> chunks,
       long totalSize, boolean done) {
     final InstallSnapshotRequestProto.SnapshotChunkProto.Builder snapshotChunkProto =
@@ -329,7 +378,7 @@ public interface ServerProtoUtils {
             .setTotalSize(totalSize)
             .setDone(done);
     return InstallSnapshotRequestProto.newBuilder()
-        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId, groupId))
+        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
         // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
         .setLeaderTerm(term)
         .setSnapshotChunk(snapshotChunkProto)
@@ -337,13 +386,12 @@ public interface ServerProtoUtils {
   }
 
   static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
-      RaftPeerId requestorId, RaftPeerId replyId, RaftGroupId groupId,
-      long leaderTerm, TermIndex firstAvailable) {
+      RaftGroupMemberId requestorId, RaftPeerId replyId, long leaderTerm, TermIndex firstAvailable) {
     final InstallSnapshotRequestProto.NotificationProto.Builder notificationProto =
         InstallSnapshotRequestProto.NotificationProto.newBuilder()
             .setFirstAvailableTermIndex(toTermIndexProto(firstAvailable));
     return InstallSnapshotRequestProto.newBuilder()
-        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId, groupId))
+        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
         // .setRaftConfiguration()  TODO: save and pass RaftConfiguration
         .setLeaderTerm(leaderTerm)
         .setNotification(notificationProto)
