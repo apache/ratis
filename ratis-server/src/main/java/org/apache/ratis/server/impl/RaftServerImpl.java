@@ -77,8 +77,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   private final LifeCycle lifeCycle;
   private final ServerState state;
-  private final RaftGroupId groupId;
-  private final RaftGroupMemberId memberId; // TODO: move it to ServerState; see RATIS-605
   private final Supplier<RaftPeer> peerSupplier = JavaUtils.memoize(() -> new RaftPeer(getId(), getServerRpc().getInetSocketAddress()));
   private final RoleInfo role;
 
@@ -92,8 +90,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
     LOG.info("{}: new RaftServerImpl for {} with {}", id, group, stateMachine);
-    this.groupId = group.getGroupId();
-    this.memberId = RaftGroupMemberId.valueOf(id, groupId);
     this.lifeCycle = new LifeCycle(id);
     this.stateMachine = stateMachine;
     this.role = new RoleInfo(id);
@@ -149,7 +145,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   public RaftGroupId getGroupId() {
-    return groupId;
+    return getMemberId().getGroupId();
   }
 
   public StateMachine getStateMachine() {
@@ -170,8 +166,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   private void setRole(RaftPeerRole newRole, Object reason) {
-    LOG.info("{}:{} changes role from {} to {} at term {} for {}",
-        getId(), getGroupId(), this.role, newRole, state.getCurrentTerm(), reason);
+    LOG.info("{}: changes role from {} to {} at term {} for {}",
+        getMemberId(), this.role, newRole, state.getCurrentTerm(), reason);
     this.role.transitionRole(newRole);
   }
 
@@ -179,13 +175,12 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     if (!lifeCycle.compareAndTransition(NEW, STARTING)) {
       return false;
     }
-    LOG.info("{}: start {}", getId(), groupId);
     RaftConfiguration conf = getRaftConf();
     if (conf != null && conf.contains(getId())) {
-      LOG.debug("{} starts as a follower, conf={}", getId(), conf);
+      LOG.info("{}: start as a follower, conf={}", getMemberId(), conf);
       startAsFollower();
     } else {
-      LOG.debug("{} starts with initializing state, conf={}", getId(), conf);
+      LOG.info("{}: start with initializing state, conf={}", getMemberId(), conf);
       startInitializing();
     }
 
@@ -227,11 +222,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   public RaftGroupMemberId getMemberId() {
-    return memberId;
+    return getState().getMemberId();
   }
 
   public RaftPeerId getId() {
-    return getState().getSelfId();
+    return getMemberId().getPeerId();
   }
 
   RoleInfo getRole() {
@@ -243,43 +238,43 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   RaftGroup getGroup() {
-    return RaftGroup.valueOf(groupId, getRaftConf().getPeers());
+    return RaftGroup.valueOf(getGroupId(), getRaftConf().getPeers());
   }
 
   public void shutdown(boolean deleteDirectory) {
     lifeCycle.checkStateAndClose(() -> {
-      LOG.info("{}: shutdown {}", getId(), groupId);
+      LOG.info("{}: shutdown", getMemberId());
       try {
         jmxAdapter.unregister();
       } catch (Exception ignored) {
-        LOG.warn("Failed to un-register RaftServer JMX bean for " + getId(), ignored);
+        LOG.warn("{}: Failed to un-register RaftServer JMX bean", getMemberId(), ignored);
       }
       try {
         role.shutdownFollowerState();
       } catch (Exception ignored) {
-        LOG.warn("Failed to shutdown FollowerState for " + getId(), ignored);
+        LOG.warn("{}: Failed to shutdown FollowerState", getMemberId(), ignored);
       }
       try{
         role.shutdownLeaderElection();
       } catch (Exception ignored) {
-        LOG.warn("Failed to shutdown LeaderElection for " + getId(), ignored);
+        LOG.warn("{}: Failed to shutdown LeaderElection", getMemberId(), ignored);
       }
       try{
         role.shutdownLeaderState(true);
       } catch (Exception ignored) {
-        LOG.warn("Failed to shutdown LeaderState monitor for " + getId(), ignored);
+        LOG.warn("{}: Failed to shutdown LeaderState monitor", getMemberId(), ignored);
       }
       try{
         state.close();
       } catch (Exception ignored) {
-        LOG.warn("Failed to close state for " + getId(), ignored);
+        LOG.warn("{}: Failed to close state", getMemberId(), ignored);
       }
       if (deleteDirectory) {
         final RaftStorageDirectory dir = state.getStorage().getStorageDir();
         try {
           FileUtils.deleteFully(dir.getRoot());
         } catch(Exception ignored) {
-          LOG.warn(getId() + ": Failed to remove RaftStorageDirectory " + dir, ignored);
+          LOG.warn("{}: Failed to remove RaftStorageDirectory {}", getMemberId(), dir, ignored);
         }
       }
     });
@@ -353,10 +348,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
           leader -> leader.updateFollowerCommitInfos(commitInfoCache, infos));
     } else {
       getRaftConf().getPeers().stream()
-          .filter(p -> !p.getId().equals(state.getSelfId()))
           .map(RaftPeer::getId)
+          .filter(id -> !id.equals(getId()))
           .map(commitInfoCache::get)
-          .filter(i -> i != null)
+          .filter(Objects::nonNull)
           .forEach(infos::add);
     }
     return infos;
@@ -419,8 +414,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   @Override
   public String toString() {
-    return String.format("%8s ", role) + groupId + " " + state
-        + " " + lifeCycle.getCurrentState();
+    return role + " " + state + " " + lifeCycle.getCurrentState();
   }
 
   /**
@@ -445,8 +439,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
         return cacheEntry.getReplyFuture();
       }
-      final RaftClientReply reply = new RaftClientReply(request,
-          new LeaderNotReadyException(getId()), getCommitInfos());
+      final LeaderNotReadyException lnre = new LeaderNotReadyException(getMemberId());
+      final RaftClientReply reply = new RaftClientReply(request, lnre, getCommitInfos());
       return RetryCache.failWithReply(reply, entry);
     }
     return null;
@@ -454,28 +448,29 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   NotLeaderException generateNotLeaderException() {
     if (lifeCycle.getCurrentState() != RUNNING) {
-      return new NotLeaderException(getId(), null, null);
+      return new NotLeaderException(getMemberId(), null, null);
     }
     RaftPeerId leaderId = state.getLeaderId();
-    if (leaderId == null || leaderId.equals(state.getSelfId())) {
+    if (leaderId == null || leaderId.equals(getId())) {
       // No idea about who is the current leader. Or the peer is the current
       // leader, but it is about to step down. set the suggested leader as null.
       leaderId = null;
     }
     RaftConfiguration conf = getRaftConf();
     Collection<RaftPeer> peers = conf.getPeers();
-    return new NotLeaderException(getId(), conf.getPeer(leaderId), peers);
+    return new NotLeaderException(getMemberId(), conf.getPeer(leaderId), peers);
   }
 
   private LifeCycle.State assertLifeCycleState(LifeCycle.State... expected) throws ServerNotReadyException {
-    return lifeCycle.assertCurrentState((n, c) -> new ServerNotReadyException("Server " + n
-        + " is not " + Arrays.toString(expected) + ": current state is " + c),
+    return lifeCycle.assertCurrentState((n, c) -> new ServerNotReadyException(
+        getMemberId() + " is not in " + Arrays.toString(expected) + ": current state is " + c),
         expected);
   }
 
   void assertGroup(Object requestorId, RaftGroupId requestorGroupId) throws GroupMismatchException {
+    final RaftGroupId groupId = getGroupId();
     if (!groupId.equals(requestorGroupId)) {
-      throw new GroupMismatchException(getId()
+      throw new GroupMismatchException(getMemberId()
           + ": The group (" + requestorGroupId + ") of " + requestorId
           + " does not match the group (" + groupId + ") of the server " + getId());
     }
@@ -502,7 +497,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final PendingRequests.Permit permit = leaderState.tryAcquirePendingRequest();
       if (permit == null) {
         return JavaUtils.completeExceptionally(new ResourceUnavailableException(
-            "Failed to acquire a pending write request in " + getId() + " for " + request));
+            getMemberId() + ": Failed to acquire a pending write request for " + request));
       }
       try {
         state.appendLog(context);
@@ -522,7 +517,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       pending = leaderState.addPendingRequest(permit, request, context);
       if (pending == null) {
         return JavaUtils.completeExceptionally(new ResourceUnavailableException(
-            "Failed to add a pending write request in " + getId() + " for " + request));
+            getMemberId() + ": Failed to add a pending write request for " + request));
       }
       leaderState.notifySenders();
     }
@@ -533,7 +528,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
     assertLifeCycleState(RUNNING);
-    LOG.debug("{}: receive client request({})", getId(), request);
+    LOG.debug("{}: receive client request({})", getMemberId(), request);
     if (request.is(RaftClientRequestProto.TypeCase.STALEREAD)) {
       return staleReadAsync(request);
     }
@@ -572,7 +567,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     TransactionContext context = stateMachine.startTransaction(request);
     if (context.getException() != null) {
       RaftClientReply exceptionReply = new RaftClientReply(request,
-          new StateMachineException(getId(), context.getException()), getCommitInfos());
+          new StateMachineException(getMemberId(), context.getException()), getCommitInfos());
       cacheEntry.failWithReply(exceptionReply);
       return CompletableFuture.completedFuture(exceptionReply);
     }
@@ -589,12 +584,12 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private CompletableFuture<RaftClientReply> staleReadAsync(RaftClientRequest request) {
     final long minIndex = request.getType().getStaleRead().getMinIndex();
     final long commitIndex = state.getLog().getLastCommittedIndex();
-    LOG.debug("{}: minIndex={}, commitIndex={}", getId(), minIndex, commitIndex);
+    LOG.debug("{}: minIndex={}, commitIndex={}", getMemberId(), minIndex, commitIndex);
     if (commitIndex < minIndex) {
       final StaleReadException e = new StaleReadException(
           "Unable to serve stale-read due to server commit index = " + commitIndex + " < min = " + minIndex);
       return CompletableFuture.completedFuture(
-          new RaftClientReply(request, new StateMachineException(getId(), e), getCommitInfos()));
+          new RaftClientReply(request, new StateMachineException(getMemberId(), e), getCommitInfos()));
     }
     return processQueryFuture(getStateMachine().queryStale(request.getMessage(), minIndex), request);
   }
@@ -614,17 +609,16 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   @Override
   public RaftClientReply submitClientRequest(RaftClientRequest request)
       throws IOException {
-    return waitForReply(getId(), request, submitClientRequestAsync(request));
+    return waitForReply(request, submitClientRequestAsync(request));
   }
 
-  RaftClientReply waitForReply(RaftPeerId id,
-      RaftClientRequest request, CompletableFuture<RaftClientReply> future)
+  RaftClientReply waitForReply(RaftClientRequest request, CompletableFuture<RaftClientReply> future)
       throws IOException {
-    return waitForReply(id, request, future, e -> new RaftClientReply(request, e, getCommitInfos()));
+    return waitForReply(getMemberId(), request, future, e -> new RaftClientReply(request, e, getCommitInfos()));
   }
 
   static <REPLY extends RaftClientReply> REPLY waitForReply(
-      RaftPeerId id, RaftClientRequest request, CompletableFuture<REPLY> future,
+      Object id, RaftClientRequest request, CompletableFuture<REPLY> future,
       Function<RaftException, REPLY> exceptionReply)
       throws IOException {
     try {
@@ -650,18 +644,16 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   @Override
-  public RaftClientReply setConfiguration(SetConfigurationRequest request)
-      throws IOException {
-    return waitForReply(getId(), request, setConfigurationAsync(request));
+  public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
+    return waitForReply(request, setConfigurationAsync(request));
   }
 
   /**
    * Handle a raft configuration change request from client.
    */
   @Override
-  public CompletableFuture<RaftClientReply> setConfigurationAsync(
-      SetConfigurationRequest request) throws IOException {
-    LOG.debug("{}: receive setConfiguration({})", getId(), request);
+  public CompletableFuture<RaftClientReply> setConfigurationAsync(SetConfigurationRequest request) throws IOException {
+    LOG.info("{}: receive setConfiguration {}", getMemberId(), request);
     assertLifeCycleState(RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
@@ -747,7 +739,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     CodeInjectionForTesting.execute(REQUEST_VOTE, getId(),
         candidateId, candidateTerm, candidateLastEntry);
     LOG.debug("{}: receive requestVote({}, {}, {}, {})",
-        getId(), candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
+        getMemberId(), candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
     assertLifeCycleState(RUNNING);
     assertGroup(candidateId, candidateGroupId);
 
@@ -758,7 +750,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final FollowerState fs = role.getFollowerState().orElse(null);
       if (shouldWithholdVotes(candidateTerm)) {
         LOG.info("{}-{}: Withhold vote from candidate {} with term {}. State: leader={}, term={}, lastRpcElapsed={}",
-            getId(), role, candidateId, candidateTerm, state.getLeaderId(), state.getCurrentTerm(),
+            getMemberId(), role, candidateId, candidateTerm, state.getLeaderId(), state.getCurrentTerm(),
             fs != null? fs.getLastRpcTime().elapsedTimeMs() + "ms": null);
       } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
         final boolean termUpdated = changeToFollower(candidateTerm, true, "recognizeCandidate:" + candidateId);
@@ -775,11 +767,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (!voteGranted && shouldSendShutdown(candidateId, candidateLastEntry)) {
         shouldShutdown = true;
       }
-      reply = ServerProtoUtils.toRequestVoteReplyProto(candidateId, getId(),
-          groupId, voteGranted, state.getCurrentTerm(), shouldShutdown);
+      reply = ServerProtoUtils.toRequestVoteReplyProto(candidateId, getMemberId(),
+          voteGranted, state.getCurrentTerm(), shouldShutdown);
       if (LOG.isDebugEnabled()) {
         LOG.debug("{} replies to vote request: {}. Peer's state: {}",
-            getId(), ServerProtoUtils.toString(reply), state);
+            getMemberId(), ServerProtoUtils.toString(reply), state);
       }
     }
     return reply;
@@ -841,7 +833,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       return appendEntriesAsync(requestorId, r.getLeaderTerm(), previous, r.getLeaderCommit(),
           request.getCallId(), r.getInitializing(), r.getCommitInfosList(), entries);
     } catch(Throwable t) {
-      LOG.error(getId() + ": Failed appendEntriesAsync " + r, t);
+      LOG.error("{}: Failed appendEntriesAsync {}", getMemberId(), r, t);
       throw t;
     }
   }
@@ -876,7 +868,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final LifeCycle.State currentState = assertLifeCycleState(STARTING, RUNNING);
     if (currentState == STARTING) {
       if (role.getCurrentRole() == null) {
-        throw new ServerNotReadyException("The role of Server " + getId() + " is not yet initialized.");
+        throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
       }
     }
     assertGroup(leaderId, leaderGroupId);
@@ -893,7 +885,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       List<CommitInfoProto> commitInfos, LogEntryProto... entries) {
     final boolean isHeartbeat = entries.length == 0;
     logAppendEntries(isHeartbeat,
-        () -> getId() + ": receive appendEntries(" + leaderId + ", " + leaderTerm + ", "
+        () -> getMemberId() + ": receive appendEntries(" + leaderId + ", " + leaderTerm + ", "
             + previous + ", " + leaderCommit + ", " + initializing
             + ", commits" + ProtoUtils.toString(commitInfos)
             + ", entries: " + ServerProtoUtils.toString(entries));
@@ -907,10 +899,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-            leaderId, getId(), groupId, currentTerm, followerCommit, state.getNextIndex(), NOT_LEADER, callId);
+            leaderId, getMemberId(), currentTerm, followerCommit, state.getNextIndex(), NOT_LEADER, callId);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
-              getId(), leaderId, leaderTerm, state, ServerProtoUtils.toString(reply));
+              getMemberId(), leaderId, leaderTerm, state, ServerProtoUtils.toString(reply));
         }
         return CompletableFuture.completedFuture(reply);
       }
@@ -957,11 +949,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       synchronized(this) {
         state.updateStatemachine(leaderCommit, currentTerm);
         final long n = isHeartbeat? state.getLog().getNextIndex(): entries[entries.length - 1].getIndex() + 1;
-        reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getId(), groupId, currentTerm,
+        reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getMemberId(), currentTerm,
             state.getLog().getLastCommittedIndex(), n, SUCCESS, callId);
       }
       logAppendEntries(isHeartbeat, () ->
-          getId() + ": succeeded to handle AppendEntries. Reply: " + ServerProtoUtils.toString(reply));
+          getMemberId() + ": succeeded to handle AppendEntries. Reply: " + ServerProtoUtils.toString(reply));
       return reply;
     });
   }
@@ -974,8 +966,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
 
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-        leaderId, getId(), groupId, currentTerm, followerCommit, replyNextIndex, INCONSISTENCY, callId);
-    LOG.info("{}: inconsistency entries. Reply:{}", getId(), ServerProtoUtils.toString(reply));
+        leaderId, getMemberId(), currentTerm, followerCommit, replyNextIndex, INCONSISTENCY, callId);
+    LOG.info("{}: inconsistency entries. Reply:{}", getMemberId(), ServerProtoUtils.toString(reply));
     return reply;
   }
 
@@ -983,7 +975,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     // Check if a snapshot installation through state machine is in progress.
     final TermIndex installSnapshot = inProgressInstallSnapshotRequest.get();
     if (installSnapshot != null) {
-      LOG.info("{}: Failed appendEntries as snapshot ({}) installation is in progress", getId(), installSnapshot);
+      LOG.info("{}: Failed appendEntries as snapshot ({}) installation is in progress", getMemberId(), installSnapshot);
       return installSnapshot.getIndex();
     }
 
@@ -994,7 +986,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final long snapshotIndex = state.getSnapshotIndex();
       if (snapshotIndex > 0 && snapshotIndex >= firstEntryIndex) {
         LOG.info("{}: Failed appendEntries as latest snapshot ({}) already has the append entries (first index: {})",
-            getId(), snapshotIndex, firstEntryIndex);
+            getMemberId(), snapshotIndex, firstEntryIndex);
         return snapshotIndex + 1;
       }
     }
@@ -1002,7 +994,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     // Check if "previous" is contained in current state.
     if (previous != null && !state.containsTermIndex(previous)) {
       final long replyNextIndex = Math.min(state.getNextIndex(), previous.getIndex());
-      LOG.info("{}: Failed appendEntries as previous log entry ({}) is not found", getId(), previous);
+      LOG.info("{}: Failed appendEntries as previous log entry ({}) is not found", getMemberId(), previous);
       return replyNextIndex;
     }
 
@@ -1085,7 +1077,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         Preconditions.assertTrue(
             state.getLog().getNextIndex() <= lastIncludedIndex,
             "%s log's next id is %s, last included index in snapshot is %s",
-            getId(), state.getLog().getNextIndex(), lastIncludedIndex);
+            getMemberId(), state.getLog().getNextIndex(), lastIncludedIndex);
 
         //TODO: We should only update State with installed snapshot once the request is done.
         state.installSnapshot(request);
@@ -1197,8 +1189,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   synchronized RequestVoteRequestProto createRequestVoteRequest(
       RaftPeerId targetId, long term, TermIndex lastEntry) {
-    return ServerProtoUtils.toRequestVoteRequestProto(getId(), targetId,
-        groupId, term, lastEntry);
+    return ServerProtoUtils.toRequestVoteRequestProto(getMemberId(), targetId, term, lastEntry);
   }
 
   public void submitUpdateCommitEvent() {
@@ -1219,7 +1210,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     // update the retry cache
     final ClientId clientId = ClientId.valueOf(smLog.getClientId());
     final long callId = smLog.getCallId();
-    final RaftPeerId serverId = getId();
     final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(clientId, callId);
     if (cacheEntry.isFailed()) {
       retryCache.refreshEntry(new RetryCache.CacheEntry(cacheEntry.getKey()));
@@ -1229,12 +1219,12 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return stateMachineFuture.whenComplete((reply, exception) -> {
       final RaftClientReply r;
       if (exception == null) {
-        r = new RaftClientReply(clientId, serverId, groupId, callId, true, reply, null, logIndex, getCommitInfos());
+        r = new RaftClientReply(clientId, getMemberId(), callId, true, reply, null, logIndex, getCommitInfos());
       } else {
         // the exception is coming from the state machine. wrap it into the
         // reply as a StateMachineException
-        final StateMachineException e = new StateMachineException(getId(), exception);
-        r = new RaftClientReply(clientId, serverId, groupId, callId, false, null, e, logIndex, getCommitInfos());
+        final StateMachineException e = new StateMachineException(getMemberId(), exception);
+        r = new RaftClientReply(clientId, getMemberId(), callId, false, null, e, logIndex, getCommitInfos());
       }
 
       // update pending request
@@ -1283,8 +1273,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             stateMachine.applyTransaction(trx);
         return replyPendingRequest(next, stateMachineFuture);
       } catch (Throwable e) {
-        LOG.error("{}: applyTransaction failed for index:{} proto:{}", getId(),
-            next.getIndex(), ServerProtoUtils.toString(next), e.getMessage());
+        LOG.error("{}: applyTransaction failed for index:{} proto:{}",
+            getMemberId(), next.getIndex(), ServerProtoUtils.toString(next), e);
         throw e;
       }
     }
@@ -1298,7 +1288,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final long callId = smLog.getCallId();
       final RetryCache.CacheEntry cacheEntry = getRetryCache().get(clientId, callId);
       if (cacheEntry != null) {
-        final RaftClientReply reply = new RaftClientReply(clientId, getId(), getGroupId(),
+        final RaftClientReply reply = new RaftClientReply(clientId, getMemberId(),
             callId, false, null, generateNotLeaderException(),
             logEntry.getIndex(), getCommitInfos());
         cacheEntry.failWithReply(reply);
@@ -1309,7 +1299,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private class RaftServerJmxAdapter extends JmxRegister implements RaftServerMXBean {
     @Override
     public String getId() {
-      return getState().getSelfId().toString();
+      return getMemberId().getPeerId().toString();
     }
 
     @Override

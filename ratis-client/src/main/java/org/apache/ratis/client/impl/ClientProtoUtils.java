@@ -156,7 +156,7 @@ public interface ClientProtoUtils {
       if (reply.getMessage() != null) {
         b.setMessage(toClientMessageEntryProtoBuilder(reply.getMessage()));
       }
-      ProtoUtils.addCommitInfos(reply.getCommitInfos(), i -> b.addCommitInfos(i));
+      ProtoUtils.addCommitInfos(reply.getCommitInfos(), b::addCommitInfos);
 
       final NotLeaderException nle = reply.getNotLeaderException();
       final StateMachineException sme;
@@ -191,7 +191,7 @@ public interface ClientProtoUtils {
       final LeaderNotReadyException lnre = reply.getLeaderNotReadyException();
       if (lnre != null) {
         LeaderNotReadyExceptionProto.Builder lnreBuilder = LeaderNotReadyExceptionProto.newBuilder()
-            .setRaftPeerId(lnre.getRaftPeerId().toByteString());
+            .setServerId(ProtoUtils.toRaftGroupMemberIdProtoBuilder(lnre.getServerId()));
         b.setLeaderNotReadyException(lnreBuilder);
       }
     }
@@ -224,40 +224,38 @@ public interface ClientProtoUtils {
         b.setGroup(ProtoUtils.toRaftGroupProtoBuilder(reply.getGroup()));
         b.setIsRaftStorageHealthy(reply.isRaftStorageHealthy());
         b.setRole(reply.getRoleInfoProto());
-        ProtoUtils.addCommitInfos(reply.getCommitInfos(), i -> b.addCommitInfos(i));
+        ProtoUtils.addCommitInfos(reply.getCommitInfos(), b::addCommitInfos);
       }
     }
     return b.build();
   }
 
-  static RaftClientReply toRaftClientReply(
-      RaftClientReplyProto replyProto) {
+  static RaftClientReply toRaftClientReply(RaftClientReplyProto replyProto) {
     final RaftRpcReplyProto rp = replyProto.getRpcReply();
+    final RaftGroupMemberId serverMemberId = ProtoUtils.toRaftGroupMemberId(rp.getReplyId(), rp.getRaftGroupId());
+
     final RaftException e;
     if (replyProto.getExceptionDetailsCase().equals(NOTLEADEREXCEPTION)) {
       NotLeaderExceptionProto nleProto = replyProto.getNotLeaderException();
       final RaftPeer suggestedLeader = nleProto.hasSuggestedLeader() ?
           ProtoUtils.toRaftPeer(nleProto.getSuggestedLeader()) : null;
       final List<RaftPeer> peers = ProtoUtils.toRaftPeers(nleProto.getPeersInConfList());
-      e = new NotLeaderException(RaftPeerId.valueOf(rp.getReplyId()), suggestedLeader, peers);
+      e = new NotLeaderException(serverMemberId, suggestedLeader, peers);
     } else if (replyProto.getExceptionDetailsCase() == NOTREPLICATEDEXCEPTION) {
       final NotReplicatedExceptionProto nre = replyProto.getNotReplicatedException();
       e = new NotReplicatedException(nre.getCallId(), nre.getReplication(), nre.getLogIndex());
     } else if (replyProto.getExceptionDetailsCase().equals(STATEMACHINEEXCEPTION)) {
       StateMachineExceptionProto smeProto = replyProto.getStateMachineException();
-      e = wrapStateMachineException(RaftPeerId.valueOf(rp.getReplyId()),
-          smeProto.getExceptionClassName(), smeProto.getErrorMsg(),
-          smeProto.getStacktrace());
+      e = wrapStateMachineException(serverMemberId,
+          smeProto.getExceptionClassName(), smeProto.getErrorMsg(), smeProto.getStacktrace());
     } else if (replyProto.getExceptionDetailsCase().equals(LEADERNOTREADYEXCEPTION)) {
       LeaderNotReadyExceptionProto lnreProto = replyProto.getLeaderNotReadyException();
-      e = new LeaderNotReadyException(RaftPeerId.valueOf(lnreProto.getRaftPeerId()));
+      e = new LeaderNotReadyException(ProtoUtils.toRaftGroupMemberId(lnreProto.getServerId()));
     } else {
       e = null;
     }
     ClientId clientId = ClientId.valueOf(rp.getRequestorId());
-    final RaftGroupId groupId = ProtoUtils.toRaftGroupId(rp.getRaftGroupId());
-    return new RaftClientReply(clientId, RaftPeerId.valueOf(rp.getReplyId()),
-        groupId, rp.getCallId(), rp.getSuccess(),
+    return new RaftClientReply(clientId, serverMemberId, rp.getCallId(), rp.getSuccess(),
         toMessage(replyProto.getMessage()), e,
         replyProto.getLogIndex(), replyProto.getCommitInfosList());
   }
@@ -288,8 +286,7 @@ public interface ClientProtoUtils {
   }
 
   static StateMachineException wrapStateMachineException(
-      RaftPeerId serverId, String className, String errorMsg,
-      ByteString stackTraceBytes) {
+      RaftGroupMemberId memberId, String className, String errorMsg, ByteString stackTraceBytes) {
     StateMachineException sme;
     if (className == null) {
       sme = new StateMachineException(errorMsg);
@@ -298,7 +295,7 @@ public interface ClientProtoUtils {
         Class<?> clazz = Class.forName(className);
         final Exception e = ReflectionUtils.instantiateException(
             clazz.asSubclass(Exception.class), errorMsg, null);
-        sme = new StateMachineException(serverId, e);
+        sme = new StateMachineException(memberId, e);
       } catch (Exception e) {
         sme = new StateMachineException(className + ": " + errorMsg);
       }

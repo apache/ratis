@@ -35,6 +35,11 @@ message RaftGroupProto {
   repeated RaftPeerProto peers = 2;
 }
 
+message RaftGroupMemberIdProto {
+  bytes peerId = 1;
+  RaftGroupIdProto groupId = 2;
+}
+
 message RaftConfigurationProto {
   repeated RaftPeerProto peers = 1; // the peers in the current or new conf
   repeated RaftPeerProto oldPeers = 2; // the peers in the old conf
@@ -270,7 +275,7 @@ message NotLeaderExceptionProto {
 }
 
 message LeaderNotReadyExceptionProto {
-  bytes raftPeerId = 1; // id of the peer
+  RaftGroupMemberIdProto serverId = 1; // id of the leader
 }
 
 message NotReplicatedExceptionProto {

@@ -21,6 +21,8 @@ import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -423,6 +425,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     RaftServerImpl server = mock(RaftServerImpl.class);
     RetryCache retryCache = RetryCacheTestUtil.createRetryCache();
     when(server.getRetryCache()).thenReturn(retryCache);
+    final RaftGroupMemberId id = RaftGroupMemberId.valueOf(RaftPeerId.valueOf("s0"), RaftGroupId.randomId());
+    when(server.getMemberId()).thenReturn(id);
     doCallRealMethod().when(server).failClientRequest(any(LogEntryProto.class));
     try (SegmentedRaftLog raftLog =
              new SegmentedRaftLog(peerId, server, storage, -1, properties)) {

@@ -75,14 +75,14 @@ class StateMachineUpdater implements Runnable {
   private volatile State state = State.RUNNING;
 
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
-      RaftLog raftLog, long lastAppliedIndex, RaftProperties properties) {
-    this.name = getClass().getSimpleName() + ":" + raftLog.getSelfId() + ":" + server.getGroupId();
+      ServerState serverState, long lastAppliedIndex, RaftProperties properties) {
+    this.name = serverState.getMemberId() + "-" + getClass().getSimpleName();
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);
     this.debugIndexChange = s -> LOG.debug("{}: {}", name, s);
 
     this.stateMachine = stateMachine;
     this.server = server;
-    this.raftLog = raftLog;
+    this.raftLog = serverState.getLog();
 
     this.appliedIndex = new RaftLogIndex("appliedIndex", lastAppliedIndex);
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", lastAppliedIndex);

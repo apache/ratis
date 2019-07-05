@@ -51,6 +51,13 @@ public class RaftClientReply extends RaftClientMessage {
   /** The commit information when the reply is created. */
   private final Collection<CommitInfoProto> commitInfos;
 
+  public RaftClientReply(ClientId clientId, RaftGroupMemberId serverId,
+      long callId, boolean success, Message message, RaftException exception,
+      long logIndex, Collection<CommitInfoProto> commitInfos) {
+    this(clientId, serverId.getPeerId(), serverId.getGroupId(),
+        callId, success, message, exception, logIndex, commitInfos);
+  }
+
   public RaftClientReply(
       ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
       long callId, boolean success, Message message, RaftException exception,

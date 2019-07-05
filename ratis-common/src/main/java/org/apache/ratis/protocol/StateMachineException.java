@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,6 +18,11 @@
 package org.apache.ratis.protocol;
 
 public class StateMachineException extends RaftException {
+  public StateMachineException(RaftGroupMemberId serverId, Throwable cause) {
+    this(serverId.getPeerId(), cause);
+  }
+
+  // TODO: remove this constructor in RATIS-609
   public StateMachineException(RaftPeerId serverId, Throwable cause) {
     // cause.getMessage is added to this exception message as the exception received through
     // RPC call contains similar message but Simulated RPC doesn't. Adding the message

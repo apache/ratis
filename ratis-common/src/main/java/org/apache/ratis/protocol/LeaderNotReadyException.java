@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -23,15 +23,15 @@ package org.apache.ratis.protocol;
  * log entry yet. Thus the leader cannot accept any new client requests since
  * it cannot determine whether a request is just a retry.
  */
-public class LeaderNotReadyException extends RaftException {
-  private final RaftPeerId raftPeerId;
+public class LeaderNotReadyException extends ServerNotReadyException {
+  private final RaftGroupMemberId serverId;
 
-  public LeaderNotReadyException(RaftPeerId id) {
+  public LeaderNotReadyException(RaftGroupMemberId id) {
     super(id + " is in LEADER state but not ready yet.");
-    this.raftPeerId = id;
+    this.serverId = id;
   }
 
-  public RaftPeerId getRaftPeerId() {
-    return raftPeerId;
+  public RaftGroupMemberId getServerId() {
+    return serverId;
   }
 }

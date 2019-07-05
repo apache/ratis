@@ -208,7 +208,7 @@ public class LeaderState {
     this.watchRequests = new WatchRequests(server.getId(), properties);
 
     final RaftConfiguration conf = server.getRaftConf();
-    Collection<RaftPeer> others = conf.getOtherPeers(state.getSelfId());
+    Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
     placeHolderIndex = raftLog.getNextIndex();
 
     senders = new SenderList();
@@ -360,8 +360,8 @@ public class LeaderState {
   AppendEntriesRequestProto newAppendEntriesRequestProto(RaftPeerId targetId,
       TermIndex previous, List<LogEntryProto> entries, boolean initializing,
       long callId) {
-    return ServerProtoUtils.toAppendEntriesRequestProto(server.getId(), targetId,
-        server.getGroupId(), currentTerm, entries, raftLog.getLastCommittedIndex(),
+    return ServerProtoUtils.toAppendEntriesRequestProto(server.getMemberId(), targetId,
+        currentTerm, entries, raftLog.getLastCommittedIndex(),
         initializing, previous, server.getCommitInfos(), callId);
   }
 

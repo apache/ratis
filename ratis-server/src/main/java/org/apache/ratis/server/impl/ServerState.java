@@ -54,8 +54,7 @@ import static org.apache.ratis.server.impl.RaftServerImpl.LOG;
  * Common states of a raft peer. Protected by RaftServer's lock.
  */
 public class ServerState implements Closeable {
-  private final RaftPeerId selfId;
-  private final RaftGroupId groupId;
+  private final RaftGroupMemberId memberId;
   private final RaftServerImpl server;
   /** Raft log */
   private final RaftLog log;
@@ -96,13 +95,12 @@ public class ServerState implements Closeable {
   ServerState(RaftPeerId id, RaftGroup group, RaftProperties prop,
               RaftServerImpl server, StateMachine stateMachine)
       throws IOException {
-    this.selfId = id;
-    this.groupId = group.getGroupId();
+    this.memberId = RaftGroupMemberId.valueOf(id, group.getGroupId());
     this.server = server;
     RaftConfiguration initialConf = RaftConfiguration.newBuilder()
         .setConf(group.getPeers()).build();
     configurationManager = new ConfigurationManager(initialConf);
-    LOG.info("{}:{} {}", id, groupId, configurationManager);
+    LOG.info("{}: {}", getMemberId(), configurationManager);
 
     // use full uuid string to create a subdirectory
     final File dir = chooseStorageDir(RaftServerConfigKeys.storageDirs(prop),
@@ -126,10 +124,12 @@ public class ServerState implements Closeable {
     currentTerm.set(metadata.getTerm());
     votedFor = metadata.getVotedFor();
 
-    stateMachineUpdater = new StateMachineUpdater(stateMachine, server, log,
-         lastApplied, prop);
+    stateMachineUpdater = new StateMachineUpdater(stateMachine, server, this, lastApplied, prop);
   }
 
+  RaftGroupMemberId getMemberId() {
+    return memberId;
+  }
 
   static File chooseStorageDir(List<File> volumes, String targetSubDir) throws IOException {
     final Map<File, Integer> numberOfStorageDirPerVolume = new HashMap<>();
@@ -161,7 +161,7 @@ public class ServerState implements Closeable {
     SnapshotInfo snapshot = sm.getLatestSnapshot();
 
     if (snapshot == null || snapshot.getTermIndex().getIndex() < 0) {
-      return RaftServerConstants.INVALID_LOG_INDEX;
+      return RaftLog.INVALID_LOG_INDEX;
     }
 
     // get the raft configuration from raft metafile
@@ -201,10 +201,6 @@ public class ServerState implements Closeable {
     return configurationManager.getCurrent();
   }
 
-  public RaftPeerId getSelfId() {
-    return this.selfId;
-  }
-
   public long getCurrentTerm() {
     return currentTerm.get();
   }
@@ -231,7 +227,7 @@ public class ServerState implements Closeable {
    * Become a candidate and start leader election
    */
   long initElection() {
-    votedFor = selfId;
+    votedFor = getMemberId().getPeerId();
     setLeader(null, "initElection");
     return currentTerm.incrementAndGet();
   }
@@ -260,8 +256,8 @@ public class ServerState implements Closeable {
         lastNoLeaderTime = null;
         suffix = ", leader elected after " + previous.elapsedTimeMs() + "ms";
       }
-      LOG.info("{}:{} change Leader from {} to {} at term {} for {}{}",
-          selfId, groupId, leaderId, newLeaderId, getCurrentTerm(), op, suffix);
+      LOG.info("{}: change Leader from {} to {} at term {} for {}{}",
+          getMemberId(), leaderId, newLeaderId, getCurrentTerm(), op, suffix);
       leaderId = newLeaderId;
     }
   }
@@ -276,7 +272,7 @@ public class ServerState implements Closeable {
   }
 
   void becomeLeader() {
-    setLeader(selfId, "becomeLeader");
+    setLeader(getMemberId().getPeerId(), "becomeLeader");
   }
 
   public RaftLog getLog() {
@@ -340,7 +336,7 @@ public class ServerState implements Closeable {
 
   @Override
   public String toString() {
-    return selfId + ":t" + currentTerm + ", leader=" + leaderId
+    return getMemberId() + ":t" + currentTerm + ", leader=" + leaderId
         + ", voted=" + votedFor + ", raftlog=" + log + ", conf=" + getRaftConf();
   }
 
@@ -358,9 +354,8 @@ public class ServerState implements Closeable {
   void setRaftConf(long logIndex, RaftConfiguration conf) {
     configurationManager.addConfiguration(logIndex, conf);
     server.getServerRpc().addPeers(conf.getPeers());
-    LOG.info("{}:{} set configuration {} at {}", getSelfId(), groupId, conf,
-        logIndex);
-    LOG.trace("{}: {}", getSelfId(), configurationManager);
+    LOG.info("{}: set configuration {} at {}", getMemberId(), conf, logIndex);
+    LOG.trace("{}: {}", getMemberId(), configurationManager);
   }
 
   void updateConfiguration(LogEntryProto[] entries) {
@@ -388,11 +383,9 @@ public class ServerState implements Closeable {
     try {
       stateMachineUpdater.stopAndJoin();
     } catch (InterruptedException e) {
-      LOG.warn(getSelfId() +
-          ": Interrupted when joining stateMachineUpdater", e);
+      LOG.warn("{}: Interrupted when joining stateMachineUpdater", getMemberId(), e);
     }
-    LOG.info("{}:{} closes. The last applied log index is {}",
-        getSelfId(), groupId, getLastAppliedIndex());
+    LOG.info("{}: closes. applyIndex: {}", getMemberId(), getLastAppliedIndex());
 
     log.close();
     storage.close();

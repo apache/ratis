@@ -19,6 +19,7 @@ package org.apache.ratis.util;
 
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupIdProto;
+import org.apache.ratis.proto.RaftProtos.RaftGroupMemberIdProto;
 import org.apache.ratis.proto.RaftProtos.RaftGroupProto;
 import org.apache.ratis.proto.RaftProtos.RaftPeerProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcReplyProto;
@@ -26,6 +27,7 @@ import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -110,6 +112,20 @@ public interface ProtoUtils {
     return RaftGroupProto.newBuilder()
         .setGroupId(toRaftGroupIdProtoBuilder(group.getGroupId()))
         .addAllPeers(toRaftPeerProtos(group.getPeers()));
+  }
+
+  static RaftGroupMemberId toRaftGroupMemberId(ByteString peerId, RaftGroupIdProto groupId) {
+    return RaftGroupMemberId.valueOf(RaftPeerId.valueOf(peerId), ProtoUtils.toRaftGroupId(groupId));
+  }
+
+  static RaftGroupMemberId toRaftGroupMemberId(RaftGroupMemberIdProto memberId) {
+    return toRaftGroupMemberId(memberId.getPeerId(), memberId.getGroupId());
+  }
+
+  static RaftGroupMemberIdProto.Builder toRaftGroupMemberIdProtoBuilder(RaftGroupMemberId memberId) {
+    return RaftGroupMemberIdProto.newBuilder()
+        .setPeerId(memberId.getPeerId().toByteString())
+        .setGroupId(toRaftGroupIdProtoBuilder(memberId.getGroupId()));
   }
 
   static CommitInfoProto toCommitInfoProto(RaftPeer peer, long commitIndex) {

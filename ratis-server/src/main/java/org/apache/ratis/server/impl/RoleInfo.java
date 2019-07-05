@@ -146,6 +146,6 @@ class RoleInfo {
 
   @Override
   public String toString() {
-    return "" + role;
+    return String.format("%9s", role);
   }
 }

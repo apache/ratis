@@ -27,9 +27,8 @@ public class NotLeaderException extends RaftException {
   /** the client may need to update its RaftPeer list */
   private final Collection<RaftPeer> peers;
 
-  public NotLeaderException(RaftPeerId id, RaftPeer suggestedLeader, Collection<RaftPeer> peers) {
-    super("Server " + id + " is not the leader (" + suggestedLeader
-        + "). Request must be sent to leader.");
+  public NotLeaderException(RaftGroupMemberId memberId, RaftPeer suggestedLeader, Collection<RaftPeer> peers) {
+    super("Server " + memberId + " is not the leader" + (suggestedLeader != null? " " + suggestedLeader: ""));
     this.suggestedLeader = suggestedLeader;
     this.peers = peers != null? Collections.unmodifiableCollection(peers): Collections.emptyList();
     Preconditions.assertUnique(this.peers);
