@@ -46,6 +46,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
+import javax.management.InstanceNotFoundException;
 import javax.management.ObjectName;
 
 public class TestMetaServer {
@@ -213,11 +214,11 @@ public class TestMetaServer {
             try {
                 return (Long) ManagementFactory.getPlatformMBeanServer()
                     .getAttribute(oname, "Count");
-            } catch (NoSuchElementException e) {
+            } catch (InstanceNotFoundException e) {
 
             }
         }
-        throw new NoSuchElementException();
+        throw new InstanceNotFoundException();
     }
 
     @Ignore ("Too heavy for the current implementation")
