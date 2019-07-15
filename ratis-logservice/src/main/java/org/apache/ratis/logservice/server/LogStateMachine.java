@@ -577,7 +577,7 @@ public class LogStateMachine extends BaseStateMachine {
       archivalInfo.updateArchivalInfo(archiveLog);
       t = verifyState(State.ARCHIVING);
     }else{
-      t = verifyState(State.OPEN, State.CLOSED, State.ARCHIVING);
+      t = verifyState(State.OPEN, State.CLOSED);
       ArchivalInfo info = exportMap.get(archiveLog.getLocation());
       if(info==null) {
         info = new ArchivalInfo(archiveLog.getLocation());
@@ -620,7 +620,7 @@ public class LogStateMachine extends BaseStateMachine {
       if (isArchival) {
         t = verifyState(State.CLOSED);
       } else {
-        t = verifyState(State.OPEN, State.CLOSED, State.ARCHIVING);
+        t = verifyState(State.OPEN, State.CLOSED);
       }
       if (t == null) {
         Callable<Boolean> callable = () -> {

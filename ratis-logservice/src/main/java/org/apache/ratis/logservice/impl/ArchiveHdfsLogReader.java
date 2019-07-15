@@ -50,7 +50,7 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
   private FSDataInputStream is;
   private byte[] currentRecord;
   private int fileCounter = 0;
-  private int currentRecordId = 0;
+  private int currentRecordId = -1;
 
   public ArchiveHdfsLogReader(String archiveLocation) throws IOException {
     this(new Configuration(), archiveLocation);
@@ -64,16 +64,18 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
       throw new FileNotFoundException(archiveLocation);
     }
     files = Arrays.asList(hdfs.listStatus(archiveLocationPath));
-    Collections.sort(files, new Comparator<FileStatus>() {
-      @Override public int compare(FileStatus o1, FileStatus o2) {
-        //ascending order
-        //currently written file (without _recordId_) will be sorted at the last
-        return LogServiceUtils.getRecordIdFromRolledArchiveFile(o1.getPath())
-            .compareTo(LogServiceUtils.getRecordIdFromRolledArchiveFile(o2.getPath()));
-      }
-    });
-    openNextFilePath();
-    loadNext();
+    if (files.size() > 0) {
+      Collections.sort(files, new Comparator<FileStatus>() {
+        @Override public int compare(FileStatus o1, FileStatus o2) {
+          //ascending order
+          //currently written file (without _recordId_) will be sorted at the last
+          return LogServiceUtils.getRecordIdFromRolledArchiveFile(o1.getPath())
+              .compareTo(LogServiceUtils.getRecordIdFromRolledArchiveFile(o2.getPath()));
+        }
+      });
+      openNextFilePath();
+      loadNext();
+    }
   }
 
   private Path openNextFilePath() throws IOException {
@@ -120,7 +122,7 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
     try {
       length = is.readInt();
     } catch (EOFException e) {
-      if (files.size() == fileCounter) {
+      if (files.size() <= fileCounter) {
         LOG.trace("EOF and no more file to read, throwing back", e);
         throw e;
       } else {

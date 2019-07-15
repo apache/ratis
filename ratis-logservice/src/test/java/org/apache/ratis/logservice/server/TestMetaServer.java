@@ -37,6 +37,7 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
@@ -177,13 +178,15 @@ public class TestMetaServer {
         writer.write(records);
         String location1 = "target/tmp/export_1/";
         String location2 = "target/tmp/export_2/";
+        deleteLocalDirectory(new File(location1));
+        deleteLocalDirectory(new File(location2));
         int startPosition1 = 3;
         int startPosition2 = 5;
         client.exportLog(logName, location1, startPosition1);
         client.exportLog(logName, location2, startPosition2);
         List<ArchivalInfo> infos=client.getExportStatus(logName);
         int count=0;
-        while (infos.size() != 2 && (
+        while (infos.size() > 1 && (
             infos.get(0).getStatus() != ArchivalInfo.ArchivalStatus.COMPLETED
                 || infos.get(1).getStatus() != ArchivalInfo.ArchivalStatus.COMPLETED)
             && count < 10) {
@@ -207,6 +210,17 @@ public class TestMetaServer {
         reader.close();
         writer.close();
     }
+
+    boolean deleteLocalDirectory(File dir) {
+        File[] allFiles = dir.listFiles();
+        if (allFiles != null) {
+            for (File file : allFiles) {
+                deleteLocalDirectory(file);
+            }
+        }
+        return dir.delete();
+    }
+
 
     /**
      * Test for Delete operation

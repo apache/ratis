@@ -120,8 +120,8 @@ public class TestArchiveHdfsLogReaderAndWriter {
     writer.close();
     ArchiveLogReader reader = new ArchiveHdfsLogReader(conf,
         LogServiceUtils.getArchiveLocationForLog(archiveLocation, logName));
-    reader.seek(81);
-    Assert.assertEquals(81, reader.getPosition());
+    reader.seek(80);
+    Assert.assertEquals(80, reader.getPosition());
     int count = 0;
     while (reader.next() != null) {
       count++;
