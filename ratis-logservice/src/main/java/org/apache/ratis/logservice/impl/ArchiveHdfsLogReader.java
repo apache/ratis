@@ -50,7 +50,7 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
   private FSDataInputStream is;
   private byte[] currentRecord;
   private int fileCounter = 0;
-  private int currentRecordId = -1;
+  private int currentRecordId;
 
   public ArchiveHdfsLogReader(String archiveLocation) throws IOException {
     this(new Configuration(), archiveLocation);
@@ -100,6 +100,9 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
   @Override public byte[] next() throws IOException {
     byte[] current = currentRecord;
     currentRecord = null;
+    if (current != null) {
+      currentRecordId++;
+    }
     loadNext();
     return current;
   }
@@ -201,7 +204,6 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
       throw new EOFException(
           "File seems to be corrupted, Encountered EOF before reading the complete record");
     }
-    currentRecordId++;
     currentRecord = bytes;
   }
 
