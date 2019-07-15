@@ -31,7 +31,9 @@ import org.apache.ratis.logservice.impl.ExportLogStreamImpl;
 import org.apache.ratis.logservice.impl.LogStreamImpl;
 import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
+import org.apache.ratis.logservice.server.ArchivalInfo;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
+import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
 import org.apache.ratis.protocol.*;
 
@@ -131,6 +133,21 @@ public class LogServiceClient implements AutoCloseable {
         return new ExportLogStreamImpl(logName, location);
     }
 
+    public List<ArchivalInfo> getExportStatus(LogName logName) throws IOException {
+        try (RaftClient client = getRaftClient(getLogInfo(logName))) {
+            RaftClientReply exportInfoReply = client.sendReadOnly(
+                () -> LogServiceProtoUtil.toExportInfoRequestProto(logName).toByteString());
+            LogServiceProtos.GetExportInfoReplyProto message =
+                LogServiceProtos.GetExportInfoReplyProto
+                    .parseFrom(exportInfoReply.getMessage().getContent());
+            if (message.hasException()) {
+                throw new IOException(message.getException().getErrorMsg());
+            }
+            return message.getInfoList().stream()
+                .map(infoProto -> LogServiceProtoUtil.toExportInfo(infoProto))
+                .collect(Collectors.toList());
+        }
+    }
 
     public void deleteLog(LogName logName) throws IOException {
         RaftClientReply reply = client.sendReadOnly
@@ -216,7 +233,8 @@ public class LogServiceClient implements AutoCloseable {
         try (RaftClient client = getRaftClient(getLogInfo(logName))) {
             RaftClientReply archiveLogReply = client.sendReadOnly(() -> LogServiceProtoUtil
                 .toArchiveLogRequestProto(logName, location, recordId,
-                    location == null ? true : false).toByteString());
+                    location == null ? true : false, ArchivalInfo.ArchivalStatus.SUBMITTED)
+                .toByteString());
             LogServiceProtos.ArchiveLogReplyProto archiveMessage =
                 LogServiceProtos.ArchiveLogReplyProto
                     .parseFrom(archiveLogReply.getMessage().getContent());

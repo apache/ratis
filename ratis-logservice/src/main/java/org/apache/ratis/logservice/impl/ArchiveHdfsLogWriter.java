@@ -29,6 +29,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.ratis.logservice.api.ArchiveLogWriter;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.util.LogServiceUtils;
+import org.apache.ratis.util.LogUtils;
 
 public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
   private final Configuration configuration;
@@ -56,9 +57,18 @@ public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
     os = hdfs.create(currentPath, true);
   }
 
-  @Override public long write(ByteBuffer data) throws IOException {
-    os.writeInt(data.array().length);
-    os.write(data.array(), data.arrayOffset(), data.remaining());
+  @Override public long write(ByteBuffer buffer) throws IOException {
+    if (buffer.hasArray()) {
+      int startIndex = buffer.arrayOffset();
+      int curIndex = buffer.arrayOffset() + buffer.position();
+      int endIndex = curIndex + buffer.remaining();
+      int length = endIndex - startIndex;
+      os.writeInt(length);
+      os.write(buffer.array(), startIndex, length);
+    } else {
+      throw new IllegalArgumentException(
+          "Currently array backed byte buffer is only supported for archive write !!");
+    }
     currentRecordId++;
     return currentRecordId;
   }
@@ -80,14 +90,14 @@ public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
     if (lastRollRecordId != currentRecordId) {
       hdfs.rename(currentPath, new Path(currentPath + "_recordId_" + currentRecordId));
     }
-    hdfs.close();
   }
 
   @Override public void rollWriter() throws IOException {
     if (lastRollRecordId != currentRecordId) {
       //close old file
       os.close();
-      hdfs.rename(currentPath, new Path(currentPath + "_recordId_" + currentRecordId));
+      hdfs.rename(currentPath,
+          new Path(LogServiceUtils.getRolledPathForArchiveWriter(currentPath, currentRecordId)));
       lastRollRecordId = currentRecordId;
       //create new file
       os = hdfs.create(currentPath, true);

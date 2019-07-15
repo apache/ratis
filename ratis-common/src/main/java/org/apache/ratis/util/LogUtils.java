@@ -149,4 +149,5 @@ public interface LogUtils {
       log.info("{}: {}", message.get(), t);
     }
   }
+
 }

@@ -29,6 +29,7 @@ import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.LogServiceProtos.*;
+import org.apache.ratis.logservice.server.ArchivalInfo;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 
 public class LogServiceProtoUtil {
@@ -247,6 +248,19 @@ public class LogServiceProtoUtil {
     return builder.build();
   }
 
+  public static ArchiveLogRequestProto toExportInfoProto(ArchivalInfo info) {
+    return ArchiveLogRequestProto.newBuilder().setIsExport(true)
+        .setLastArchivedRaftIndex(info.getLastArchivedIndex())
+        .setLocation(info.getArchiveLocation()).setLogName(
+            LogServiceProtos.LogNameProto.newBuilder().setName(info.getArchiveLogName().getName())
+                .build()).setStatus(ArchivalStatus.valueOf(info.getStatus().name())).build();
+  }
+
+  public static ArchivalInfo toExportInfo(ArchiveLogRequestProto proto){
+    return new ArchivalInfo(proto.getLocation()).updateArchivalInfo(proto);
+
+  }
+
   public GetLogLengthReplyProto toGetLogLengthReplyProto(long length) {
     GetLogLengthReplyProto.Builder builder = GetLogLengthReplyProto.newBuilder();
     builder.setLength(length);
@@ -267,13 +281,21 @@ public class LogServiceProtoUtil {
     return builder.build();
   }
 
+  public static LogServiceRequestProto toExportInfoRequestProto(LogName logName){
+    LogServiceProtos.LogNameProto logNameProto =
+        LogServiceProtos.LogNameProto.newBuilder().setName(logName.getName()).build();
+    GetExportInfoRequestProto exportInfoRequestProto =
+        GetExportInfoRequestProto.newBuilder().setLogName(logNameProto).build();
+    return LogServiceRequestProto.newBuilder().setExportInfo(exportInfoRequestProto).build();
+  }
+
   public static LogServiceRequestProto toArchiveLogRequestProto(LogName logName, String location,
-      long raftIndex, boolean isArchival) {
+      long raftIndex, boolean isArchival, ArchivalInfo.ArchivalStatus status) {
     LogServiceProtos.LogNameProto logNameProto =
         LogServiceProtos.LogNameProto.newBuilder().setName(logName.getName()).build();
     ArchiveLogRequestProto.Builder builder =
         ArchiveLogRequestProto.newBuilder().setLogName(logNameProto)
-            .setLastArchivedRaftIndex(raftIndex);
+            .setLastArchivedRaftIndex(raftIndex).setStatus(ArchivalStatus.valueOf(status.name()));
     builder.setIsExport(!isArchival);
     if (location != null) {
       builder.setLocation(location);

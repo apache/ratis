@@ -37,6 +37,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.ratis.logservice.api.ArchiveLogReader;
 import org.apache.ratis.logservice.api.LogName;
+import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.apache.ratis.thirdparty.com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,7 +50,7 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
   private FSDataInputStream is;
   private byte[] currentRecord;
   private int fileCounter = 0;
-  private int currentRecordId = -1;
+  private int currentRecordId = 0;
 
   public ArchiveHdfsLogReader(String archiveLocation) throws IOException {
     this(new Configuration(), archiveLocation);
@@ -66,14 +67,16 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
     Collections.sort(files, new Comparator<FileStatus>() {
       @Override public int compare(FileStatus o1, FileStatus o2) {
         //ascending order
-        return o1.getPath().getName().compareTo(o2.getPath().getName());
+        //currently written file (without _recordId_) will be sorted at the last
+        return LogServiceUtils.getRecordIdFromRolledArchiveFile(o1.getPath())
+            .compareTo(LogServiceUtils.getRecordIdFromRolledArchiveFile(o2.getPath()));
       }
     });
     openNextFilePath();
     loadNext();
   }
 
-  public Path openNextFilePath() throws IOException {
+  private Path openNextFilePath() throws IOException {
     Path filePath = files.get(fileCounter).getPath();
     this.is = this.hdfs.open(filePath);
     this.fileLength = this.hdfs.getFileStatus(filePath).getLen();
@@ -198,6 +201,11 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
     }
     currentRecordId++;
     currentRecord = bytes;
+  }
+
+  //Only for testing
+  public List<FileStatus> getFiles(){
+    return files;
   }
 
 }

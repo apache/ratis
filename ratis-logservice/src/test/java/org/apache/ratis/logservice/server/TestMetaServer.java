@@ -97,12 +97,10 @@ public class TestMetaServer {
      */
     @Test
     public void testCreateAndGetLog() throws Exception {
-
         // This should be LogServiceStream ?
         LogStream logStream1 = client.createLog(LogName.of("testCreateLog"));
         assertNotNull(logStream1);
         LogStream logStream2 = client.getLog(LogName.of("testCreateLog"));
-        testJMXCount(MetaServiceProtos.MetaServiceRequestProto.TypeCase.GETLOG.name(),1l);
         assertNotNull(logStream2);
     }
 
@@ -164,6 +162,50 @@ public class TestMetaServer {
         reader = archiveLogStream.createReader();
         data = reader.readBulk(records.size());
         assertEquals(records.size(), data.size());
+    }
+
+    @Test
+    public void testLogExport() throws IOException, InterruptedException {
+        LogName logName = LogName.of("testLogExport");
+        LogStream logStream = client.createLog(logName);
+        LogWriter writer = logStream.createWriter();
+        List<LogInfo> listLogs = client.listLogs();
+        assert (listLogs.stream()
+            .filter(log -> log.getLogName().getName().startsWith(logName.getName())).count() == 1);
+        List<LogServer> workers = cluster.getWorkers();
+        List<ByteBuffer> records = TestUtils.getRandomData(100, 10);
+        writer.write(records);
+        String location1 = "target/tmp/export_1/";
+        String location2 = "target/tmp/export_2/";
+        int startPosition1 = 3;
+        int startPosition2 = 5;
+        client.exportLog(logName, location1, startPosition1);
+        client.exportLog(logName, location2, startPosition2);
+        List<ArchivalInfo> infos=client.getExportStatus(logName);
+        int count=0;
+        while (infos.size() != 2 && (
+            infos.get(0).getStatus() != ArchivalInfo.ArchivalStatus.COMPLETED
+                || infos.get(1).getStatus() != ArchivalInfo.ArchivalStatus.COMPLETED)
+            && count < 10) {
+            infos = client.getExportStatus(logName);
+            ;
+            Thread.sleep(1000);
+            count++;
+
+        }
+
+        //Test ExportLogStream
+        LogStream exportLogStream = client.getExportLog(logName, location1);
+        LogReader reader = exportLogStream.createReader();
+        List<ByteBuffer> data = reader.readBulk(records.size());
+        assertEquals(records.size() - startPosition1, data.size());
+        reader.close();
+        exportLogStream = client.getExportLog(logName, location2);
+        reader = exportLogStream.createReader();
+        data = reader.readBulk(records.size());
+        assertEquals(records.size() - startPosition2, data.size());
+        reader.close();
+        writer.close();
     }
 
     /**
