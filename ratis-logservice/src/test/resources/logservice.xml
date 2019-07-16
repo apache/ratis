@@ -23,6 +23,6 @@
   <property>
     <name>logservice.archival.location</name>
     <value>target/tmp/archive_1/</value>
-    <description>Log service meta-server port number</description>
+    <description>Base directory where logs are archived</description>
   </property>
 </configuration>

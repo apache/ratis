@@ -22,6 +22,7 @@ import org.apache.ratis.logservice.api.ArchiveLogReader;
 import org.apache.ratis.logservice.api.ArchiveLogWriter;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.util.LogServiceUtils;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -128,5 +129,13 @@ public class TestArchiveHdfsLogReaderAndWriter {
     }
     Assert.assertEquals(20, count);
   }
+
+  @AfterClass
+  public static void tearDownAfterClass(){
+    if (cluster != null) {
+      cluster.shutdown();
+    }
+  }
+
 
 }
