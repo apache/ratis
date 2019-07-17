@@ -30,14 +30,16 @@ import org.junit.Test;
 public class TestArchiveHdfsLogReaderAndWriter {
   static MiniDFSCluster cluster;
   static Configuration conf;
+  private static String location;
 
   @BeforeClass public static void setup() throws IOException {
     conf = new Configuration();
     cluster = new MiniDFSCluster.Builder(conf).numDataNodes(3).build();
+    location = "target/tmp/archive/TestArchiveHdfsLogReaderAndWriter";
   }
 
   @Test public void testRollingWriter() throws IOException {
-    String archiveLocation = "target/tmp/archive/testRollingWriter";
+    String archiveLocation = location+"/testRollingWriter";
     LogName logName = LogName.of("testRollingWriterLogName");
     DistributedFileSystem fs = cluster.getFileSystem();
     fs.delete(new Path(archiveLocation), true);
@@ -92,14 +94,14 @@ public class TestArchiveHdfsLogReaderAndWriter {
   }
 
   @Test public void testCorruptedFileEOF() throws IOException {
-    FSDataOutputStream fos = FileSystem.get(conf).create(new Path("target/tmp/testEOF"));
+    FSDataOutputStream fos = FileSystem.get(conf).create(new Path(location,"testEOF"));
     fos.write(ByteBuffer.allocate(4).putInt(4).array());
     fos.write(new byte[4]);
     fos.write(ByteBuffer.allocate(4).putInt(4).array());
     // but data is just 2 bytes
     fos.write(new byte[2]);
     fos.close();
-    ArchiveLogReader reader = new ArchiveHdfsLogReader(conf, "target/tmp/testEOF");
+    ArchiveLogReader reader = new ArchiveHdfsLogReader(conf, location+"/testEOF");
     try {
       reader.next();
       Assert.fail();
@@ -110,7 +112,7 @@ public class TestArchiveHdfsLogReaderAndWriter {
   }
 
   @Test public void testSeek() throws IOException {
-    String archiveLocation = "target/tmp/archive/testSeek";
+    String archiveLocation = location+"/testSeek";
     LogName logName = LogName.of("testSeek");
     DistributedFileSystem fs = cluster.getFileSystem();
     fs.delete(new Path(archiveLocation), true);
@@ -131,11 +133,21 @@ public class TestArchiveHdfsLogReaderAndWriter {
   }
 
   @AfterClass
-  public static void tearDownAfterClass(){
+  public static void teardownafterclass(){
     if (cluster != null) {
       cluster.shutdown();
     }
+    deleteLocalDirectory(new File(location));
   }
 
+  static boolean deleteLocalDirectory(File dir) {
+    File[] allFiles = dir.listFiles();
+    if (allFiles != null) {
+      for (File file : allFiles) {
+        deleteLocalDirectory(file);
+      }
+    }
+    return dir.delete();
+  }
 
 }

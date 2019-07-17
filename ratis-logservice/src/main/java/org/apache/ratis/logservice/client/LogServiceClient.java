@@ -26,14 +26,13 @@ import org.apache.ratis.logservice.api.LogServiceConfiguration;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.common.Constants;
-import org.apache.ratis.logservice.impl.ArchiveLogStreamImpl;
-import org.apache.ratis.logservice.impl.ExportLogStreamImpl;
+import org.apache.ratis.logservice.impl.ArchivedLogStreamImpl;
+import org.apache.ratis.logservice.impl.ExportedLogStreamImpl;
 import org.apache.ratis.logservice.impl.LogStreamImpl;
 import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
 import org.apache.ratis.logservice.server.ArchivalInfo;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
-import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
 import org.apache.ratis.protocol.*;
 
@@ -118,7 +117,7 @@ public class LogServiceClient implements AutoCloseable {
      * @throws IOException
      */
     public LogStream getArchivedLog(LogName logName) throws IOException {
-        return new ArchiveLogStreamImpl(logName, config);
+        return new ArchivedLogStreamImpl(logName, config);
     }
 
     /**
@@ -130,7 +129,7 @@ public class LogServiceClient implements AutoCloseable {
      */
 
     public LogStream getExportLog(LogName logName, String location) throws IOException {
-        return new ExportLogStreamImpl(logName, location);
+        return new ExportedLogStreamImpl(logName, location);
     }
 
     public List<ArchivalInfo> getExportStatus(LogName logName) throws IOException {

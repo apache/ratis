@@ -18,10 +18,7 @@
 package org.apache.ratis.logservice.impl;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.logservice.api.ArchiveLogReader;
@@ -35,8 +32,8 @@ import org.apache.ratis.logservice.util.LogServiceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ArchiveLogStreamImpl implements LogStream {
-  public static final Logger LOG = LoggerFactory.getLogger(ArchiveLogStreamImpl.class);
+public class ArchivedLogStreamImpl implements LogStream {
+  public static final Logger LOG = LoggerFactory.getLogger(ArchivedLogStreamImpl.class);
   /*
    * Directory of the archived files
    */
@@ -56,7 +53,7 @@ public class ArchiveLogStreamImpl implements LogStream {
   State state;
 
 
-  public ArchiveLogStreamImpl(LogName name, LogServiceConfiguration config) {
+  public ArchivedLogStreamImpl(LogName name, LogServiceConfiguration config) {
     this(name, config.get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY));
     if(config!=null) {
       this.config = config;
@@ -64,7 +61,7 @@ public class ArchiveLogStreamImpl implements LogStream {
     init();
   }
 
-  protected  ArchiveLogStreamImpl(LogName name, String location) {
+  protected ArchivedLogStreamImpl(LogName name, String location) {
     this.name = name;
     this.location = location;
   }

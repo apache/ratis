@@ -31,7 +31,26 @@ public interface LogStream extends AutoCloseable{
    * An enumeration that defines the current state of a LogStream
    */
   public enum State {
-    OPEN, CLOSED, ARCHIVING, ARCHIVED, DELETED;
+    /*
+    Log is open to receive writes/read request
+     */
+    OPEN,
+    /*
+    Log is closed and can not be written but available for read or archival or export
+     */
+    CLOSED,
+    /*
+    Log is currently archiving but still readable and can be exported to a different locations
+     */
+    ARCHIVING,
+    /*
+    Log is archiving and available for read only
+     */
+    ARCHIVED,
+    /*
+    Log is deleted so not available for read or write or any other operation
+     */
+    DELETED;
   }
 
   /**

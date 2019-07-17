@@ -56,12 +56,17 @@ public class LogServiceProtoUtil {
     return logStreamProto;
   }
 
-  public static LogServiceRequestProto toChangeStateRequestProto(LogName logName, State state) {
+  public static LogServiceRequestProto toChangeStateRequestProto(LogName logName, State state,
+      boolean force) {
     LogNameProto logNameProto = LogNameProto.newBuilder().setName(logName.getName()).build();
     ChangeStateLogRequestProto changeLog =
         ChangeStateLogRequestProto.newBuilder().setLogName(logNameProto)
             .setState(LogStreamState.valueOf(state.name())).build();
     return LogServiceRequestProto.newBuilder().setChangeState(changeLog).build();
+  }
+
+  public static LogServiceRequestProto toChangeStateRequestProto(LogName logName, State state) {
+    return toChangeStateRequestProto(logName, state, false);
   }
 
   public static LogServiceRequestProto toGetStateRequestProto(LogName logName) {

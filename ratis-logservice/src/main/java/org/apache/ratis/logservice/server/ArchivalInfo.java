@@ -24,11 +24,40 @@ import org.apache.ratis.logservice.util.LogServiceProtoUtil;
 public class ArchivalInfo {
 
   public enum ArchivalStatus{
+    /*
+    Initial state when the archival/export request is submitted and request
+    is recorded at the leader but the single thread responsible for archiving
+    has not started processing it
+     */
     SUBMITTED,
+    /*
+    Archiving/exporting of the particular request has been started and
+    file will appear soon in archival location during this state
+     */
     STARTED,
+    /*
+    Archival is ongoing and at least one file is rolled as well
+     */
     RUNNING,
-    INTERUPPTED,
-    COMPLETED, FAILED
+    /*
+    Archiving on the current leader will get interrupted
+     when it become a follower after re-election.
+     and a request to new leader will be submitted after some delay
+     to avoid leader election storm, if a new request fails , archival
+     status will be changed to FAILED and log state back to CLOSED so that
+     user can submit request again
+     */
+    INTERRUPTED,
+    /*
+    Archival/export request is successfully completed
+     */
+    COMPLETED,
+    /*
+    Archival/export request is failed due to the error,
+    worker logs should have trace for it
+    After fixing the issue , archival request can be resubmitted
+     */
+    FAILED
   }
   private String archiveLocation;
   private LogName archiveLogName;

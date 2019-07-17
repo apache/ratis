@@ -53,6 +53,7 @@ message ChangeStateLogRequestProto {
   LogNameProto logName = 1;
   LogStreamState state = 2;
   LogServiceException exception = 3;
+  bool force = 4;
 }
 
 message GetStateRequestProto {

@@ -17,18 +17,14 @@
  */
 package org.apache.ratis.logservice.impl;
 
-import java.util.ArrayList;
-import java.util.Collections;
-
 import org.apache.ratis.logservice.api.LogName;
-import org.apache.ratis.logservice.api.RecordListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ExportLogStreamImpl extends  ArchiveLogStreamImpl{
-  public static final Logger LOG = LoggerFactory.getLogger(ExportLogStreamImpl.class);
+public class ExportedLogStreamImpl extends ArchivedLogStreamImpl {
+  public static final Logger LOG = LoggerFactory.getLogger(ExportedLogStreamImpl.class);
 
-  public ExportLogStreamImpl(LogName name, String location) {
+  public ExportedLogStreamImpl(LogName name, String location) {
     super(name, location);
   }
 
