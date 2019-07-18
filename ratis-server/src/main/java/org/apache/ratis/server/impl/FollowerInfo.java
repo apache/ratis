@@ -17,8 +17,9 @@
  */
 package org.apache.ratis.server.impl;
 
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.util.Timestamp;
 import org.slf4j.Logger;
@@ -39,12 +40,12 @@ public class FollowerInfo {
   private final AtomicReference<Timestamp> lastRpcSendTime;
   private final RaftLogIndex nextIndex;
   private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", 0L);
-  private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftServerConstants.INVALID_LOG_INDEX);
+  private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftLog.INVALID_LOG_INDEX);
   private volatile boolean attendVote;
   private final int rpcSlownessTimeoutMs;
 
 
-  FollowerInfo(RaftPeerId id, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
+  FollowerInfo(RaftGroupMemberId id, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
       boolean attendVote, int rpcSlownessTimeoutMs) {
     this.name = id + "->" + peer.getId();
     this.infoIndexChange = s -> LOG.info("{}: {}", name, s);

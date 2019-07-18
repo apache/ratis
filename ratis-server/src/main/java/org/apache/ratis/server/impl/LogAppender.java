@@ -40,7 +40,6 @@ import java.nio.file.Path;
 import java.util.*;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
-import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 import static org.apache.ratis.util.LifeCycle.State.CLOSED;
 import static org.apache.ratis.util.LifeCycle.State.CLOSING;
 import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
@@ -55,12 +54,9 @@ public class LogAppender {
   public static final Logger LOG = LoggerFactory.getLogger(LogAppender.class);
 
   class AppenderDaemon {
-    private final LifeCycle lifeCycle;
+    private final String name = LogAppender.this + "-" + getClass().getSimpleName();
+    private final LifeCycle lifeCycle = new LifeCycle(name);
     private final Daemon daemon = new Daemon(this::run);
-
-    AppenderDaemon(Object name) {
-      this.lifeCycle = new LifeCycle(name);
-    }
 
     void start() {
       // The life cycle state could be already closed due to server shutdown.
@@ -115,8 +111,14 @@ public class LogAppender {
       }
       daemon.interrupt();
     }
+
+    @Override
+    public String toString() {
+      return name;
+    }
   }
 
+  private final String name;
   protected final RaftServerImpl server;
   private final LeaderState leaderState;
   protected final RaftLog raftLog;
@@ -130,6 +132,7 @@ public class LogAppender {
 
   public LogAppender(RaftServerImpl server, LeaderState leaderState, FollowerInfo f) {
     this.follower = f;
+    this.name = follower.getName() + "-" + getClass().getSimpleName();
     this.server = server;
     this.leaderState = leaderState;
     this.raftLog = server.getState().getLog();
@@ -141,12 +144,12 @@ public class LogAppender {
     final SizeInBytes bufferByteLimit = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties);
     final int bufferElementLimit = RaftServerConfigKeys.Log.Appender.bufferElementLimit(properties);
     this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
-    this.daemon = new AppenderDaemon(this);
+    this.daemon = new AppenderDaemon();
   }
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + "(" + follower.getName() + ")";
+    return name;
   }
 
   void startAppender() {
@@ -250,11 +253,10 @@ public class LogAppender {
         }
 
         if (request == null) {
-          LOG.trace("{} need not send AppendEntries now." +
-              " Wait for more entries.", server.getId());
+          LOG.trace("{} no entries to send now, wait ...", this);
           return null;
         } else if (!isAppenderRunning()) {
-          LOG.debug("LogAppender {} has been stopped. Skip the request.", this);
+          LOG.info("{} is stopped. Skip appendEntries.", this);
           return null;
         }
 
@@ -371,7 +373,7 @@ public class LogAppender {
               } catch (IOException ignored) {
               }
             }
-            LOG.warn("Got exception when preparing InstallSnapshot request", e);
+            LOG.warn("{}: Failed to prepare installSnapshot request", LogAppender.this, e);
             throw new RuntimeException(e);
           }
         }
@@ -424,8 +426,7 @@ public class LogAppender {
 
     if (reply != null) {
       follower.setSnapshotIndex(snapshot.getTermIndex().getIndex());
-      LOG.info("{}:{} install snapshot-{} successfully on follower {}",
-          server.getId(), server.getGroupId(), snapshot.getTermIndex().getIndex(), follower.getPeer());
+      LOG.info("{}: installSnapshot {} successfully", this, snapshot);
     }
     return reply;
   }
@@ -438,7 +439,7 @@ public class LogAppender {
     if (follower.getNextIndex() < raftLog.getNextIndex()) {
       SnapshotInfo snapshot = server.getState().getLatestSnapshot();
       if (follower.getNextIndex() < logStartIndex ||
-          (logStartIndex == INVALID_LOG_INDEX && snapshot != null)) {
+          (logStartIndex == RaftLog.INVALID_LOG_INDEX && snapshot != null)) {
         return snapshot;
       }
     }
@@ -451,8 +452,8 @@ public class LogAppender {
       if (shouldSendRequest()) {
         SnapshotInfo snapshot = shouldInstallSnapshot();
         if (snapshot != null) {
-          LOG.info("{}:{} follower's next index is {}, log's start index is {}, will install snapshot",
-              follower.getName(), server.getGroupId(), follower.getNextIndex(), raftLog.getStartIndex());
+          LOG.info("{}: followerNextIndex = {} but logStartIndex = {}, send snapshot {} to follower",
+              this, follower.getNextIndex(), raftLog.getStartIndex(), snapshot);
 
           final InstallSnapshotReplyProto r = installSnapshot(snapshot);
           if (r != null && r.getResult() == InstallSnapshotResult.NOT_LEADER) {
@@ -503,8 +504,7 @@ public class LogAppender {
           follower.decreaseNextIndex(reply.getNextIndex());
           break;
         case UNRECOGNIZED:
-          LOG.warn("{} received UNRECOGNIZED AppendResult from {}",
-              server.getId(), follower.getPeer().getId());
+          LOG.warn("{}: received {}", this, reply.getResult());
           break;
       }
     }

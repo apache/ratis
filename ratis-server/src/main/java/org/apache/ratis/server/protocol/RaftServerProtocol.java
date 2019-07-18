@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -27,6 +27,7 @@ import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 
 public interface RaftServerProtocol {
+  enum Op {REQUEST_VOTE, APPEND_ENTRIES, INSTALL_SNAPSHOT}
 
   RequestVoteReplyProto requestVote(RequestVoteRequestProto request) throws IOException;
 

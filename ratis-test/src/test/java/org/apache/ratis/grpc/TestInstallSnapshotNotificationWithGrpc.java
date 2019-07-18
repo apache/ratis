@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.server.impl.RaftReconfigurationBaseTest;
+import org.apache.ratis.InstallSnapshotNotificationTests;
 
-public class TestRaftReconfigurationWithGrpc
-    extends RaftReconfigurationBaseTest<MiniRaftClusterWithGrpc>
+public class TestInstallSnapshotNotificationWithGrpc
+    extends InstallSnapshotNotificationTests<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
 }

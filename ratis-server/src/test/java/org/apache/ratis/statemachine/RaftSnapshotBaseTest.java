@@ -51,7 +51,7 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
 public abstract class RaftSnapshotBaseTest extends BaseTest {
-  static {
+  {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);

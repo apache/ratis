@@ -146,15 +146,15 @@ public interface ServerProtoUtils {
     final String s;
     switch (proto.getInstallSnapshotReplyBodyCase()) {
       case REQUESTINDEX:
-        s = "requestIndex=" + proto.getRequestIndex();
+        s = ",requestIndex=" + proto.getRequestIndex();
         break;
       case SNAPSHOTINDEX:
-        s = "snapshotIndex=" + proto.getSnapshotIndex();
+        s = ",snapshotIndex=" + proto.getSnapshotIndex();
         break;
       default:
-        throw new IllegalStateException("Unexpected body case in " + proto);
+        s = ""; // result is not SUCCESS
     }
-    return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm() + "," + s;
+    return ProtoUtils.toString(proto.getServerReply()) + "-t" + proto.getTerm() + "," + proto.getResult() + s;
   }
 
   static RaftConfigurationProto.Builder toRaftConfigurationProto(RaftConfiguration conf) {

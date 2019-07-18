@@ -300,15 +300,15 @@ public abstract class MiniRaftCluster implements Closeable {
   /**
    * start a stopped server again.
    */
-  public RaftServerImpl restartServer(RaftPeerId newId, boolean format) throws IOException {
-    return restartServer(newId, group, format);
+  public RaftServerImpl restartServer(RaftPeerId serverId, boolean format) throws IOException {
+    return restartServer(serverId, group, format);
   }
 
-  public RaftServerImpl restartServer(RaftPeerId newId, RaftGroup group, boolean format) throws IOException {
-    killServer(newId);
-    servers.remove(newId);
+  public RaftServerImpl restartServer(RaftPeerId serverId, RaftGroup group, boolean format) throws IOException {
+    killServer(serverId);
+    servers.remove(serverId);
 
-    final RaftServerProxy proxy = putNewServer(newId, group, format);
+    final RaftServerProxy proxy = putNewServer(serverId, group, format);
     proxy.start();
     return group == null? null: proxy.getImpl(group.getGroupId());
   }

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,6 +21,7 @@ import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
@@ -28,18 +29,104 @@ import org.apache.ratis.util.ProtoUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-public class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
+class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolService.class);
+
+  class PendingServerRequest<REQUEST> {
+    private final REQUEST request;
+    private final CompletableFuture<Void> future = new CompletableFuture<>();
+
+    PendingServerRequest(REQUEST request) {
+      this.request = request;
+    }
+
+    REQUEST getRequest() {
+      return request;
+    }
+
+    CompletableFuture<Void> getFuture() {
+      return future;
+    }
+  }
+
+  abstract class ServerRequestStreamObserver<REQUEST, REPLY> implements StreamObserver<REQUEST> {
+    private final RaftServer.Op op;
+    private final StreamObserver<REPLY> responseObserver;
+    private final AtomicReference<PendingServerRequest<REQUEST>> previousOnNext = new AtomicReference<>();
+    private final AtomicBoolean isClosed = new AtomicBoolean(false);
+
+    ServerRequestStreamObserver(RaftServer.Op op, StreamObserver<REPLY> responseObserver) {
+      this.op = op;
+      this.responseObserver = responseObserver;
+    }
+
+    private String getPreviousRequestString() {
+      return Optional.ofNullable(previousOnNext.get())
+          .map(PendingServerRequest::getRequest)
+          .map(this::requestToString)
+          .orElse(null);
+    }
+
+    abstract CompletableFuture<REPLY> process(REQUEST request) throws IOException;
+
+    abstract long getCallId(REQUEST request);
+
+    abstract String requestToString(REQUEST request);
+
+    abstract String replyToString(REPLY reply);
+
+    @Override
+    public void onNext(REQUEST request) {
+      final PendingServerRequest<REQUEST> current = new PendingServerRequest<>(request);
+      final PendingServerRequest<REQUEST> previous = previousOnNext.getAndSet(current);
+      final CompletableFuture<Void> previousFuture = Optional.ofNullable(previous)
+          .map(PendingServerRequest::getFuture)
+          .orElse(CompletableFuture.completedFuture(null));
+      try {
+        process(request).thenCombine(previousFuture, (reply, v) -> {
+          if (!isClosed.get()) {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("{}: reply {}", getId(), replyToString(reply));
+            }
+            responseObserver.onNext(reply);
+          }
+          current.getFuture().complete(null);
+          return null;
+        });
+      } catch (Throwable e) {
+        GrpcUtil.warn(LOG, () -> getId() + ": Failed " + op + " request " + requestToString(request), e);
+        responseObserver.onError(GrpcUtil.wrapException(e, getCallId(request)));
+        current.getFuture().completeExceptionally(e);
+      }
+    }
+
+    @Override
+    public void onCompleted() {
+      if (isClosed.compareAndSet(false, true)) {
+        LOG.info("{}: Completed {}, lastRequest: {}", getId(), op, getPreviousRequestString());
+        responseObserver.onCompleted();
+      }
+    }
+    @Override
+    public void onError(Throwable t) {
+      GrpcUtil.warn(LOG, () -> getId() + ": installSnapshot onError, lastRequest: " + getPreviousRequestString(), t);
+      if (isClosed.compareAndSet(false, true)) {
+        responseObserver.onCompleted();
+      }
+    }
+  }
 
   private final Supplier<RaftPeerId> idSupplier;
   private final RaftServer server;
 
-  public GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server) {
+  GrpcServerProtocolService(Supplier<RaftPeerId> idSupplier, RaftServer server) {
     this.idSupplier = idSupplier;
     this.server = server;
   }
@@ -64,46 +151,26 @@ public class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase
   @Override
   public StreamObserver<AppendEntriesRequestProto> appendEntries(
       StreamObserver<AppendEntriesReplyProto> responseObserver) {
-    return new StreamObserver<AppendEntriesRequestProto>() {
-      private final AtomicReference<CompletableFuture<Void>> previousOnNext =
-          new AtomicReference<>(CompletableFuture.completedFuture(null));
-      private final AtomicBoolean isClosed = new AtomicBoolean(false);
-
+    return new ServerRequestStreamObserver<AppendEntriesRequestProto, AppendEntriesReplyProto>(
+        RaftServerProtocol.Op.APPEND_ENTRIES, responseObserver) {
       @Override
-      public void onNext(AppendEntriesRequestProto request) {
-        final CompletableFuture<Void> current = new CompletableFuture<>();
-        final CompletableFuture<Void> previous = previousOnNext.getAndSet(current);
-        try {
-          server.appendEntriesAsync(request).thenCombine(previous,
-              (reply, v) -> {
-            if (!isClosed.get()) {
-              if (LOG.isDebugEnabled()) {
-                LOG.debug(server.getId() + ": reply " + ServerProtoUtils.toString(reply));
-              }
-              responseObserver.onNext(reply);
-            }
-            current.complete(null);
-            return null;
-          });
-        } catch (Throwable e) {
-          GrpcUtil.warn(LOG, () -> getId() + ": Failed appendEntries " + ProtoUtils.toString(request.getServerRequest()), e);
-          responseObserver.onError(GrpcUtil.wrapException(e, request.getServerRequest().getCallId()));
-          current.completeExceptionally(e);
-        }
+      CompletableFuture<AppendEntriesReplyProto> process(AppendEntriesRequestProto request) throws IOException {
+        return server.appendEntriesAsync(request);
       }
 
       @Override
-      public void onError(Throwable t) {
-        // for now we just log a msg
-        GrpcUtil.warn(LOG, () -> getId() + ": appendEntries onError", t);
+      long getCallId(AppendEntriesRequestProto request) {
+        return request.getServerRequest().getCallId();
       }
 
       @Override
-      public void onCompleted() {
-        if (isClosed.compareAndSet(false, true)) {
-          LOG.info("{}: appendEntries completed", getId());
-          responseObserver.onCompleted();
-        }
+      String requestToString(AppendEntriesRequestProto request) {
+        return ServerProtoUtils.toString(request);
+      }
+
+      @Override
+      String replyToString(AppendEntriesReplyProto reply) {
+        return ServerProtoUtils.toString(reply);
       }
     };
   }
@@ -111,27 +178,26 @@ public class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase
   @Override
   public StreamObserver<InstallSnapshotRequestProto> installSnapshot(
       StreamObserver<InstallSnapshotReplyProto> responseObserver) {
-    return new StreamObserver<InstallSnapshotRequestProto>() {
+    return new ServerRequestStreamObserver<InstallSnapshotRequestProto, InstallSnapshotReplyProto>(
+        RaftServerProtocol.Op.INSTALL_SNAPSHOT, responseObserver) {
       @Override
-      public void onNext(InstallSnapshotRequestProto request) {
-        try {
-          final InstallSnapshotReplyProto reply = server.installSnapshot(request);
-          responseObserver.onNext(reply);
-        } catch (Throwable e) {
-          GrpcUtil.warn(LOG, () -> getId() + ": Failed installSnapshot " + ProtoUtils.toString(request.getServerRequest()), e);
-          responseObserver.onError(GrpcUtil.wrapException(e));
-        }
+      CompletableFuture<InstallSnapshotReplyProto> process(InstallSnapshotRequestProto request) throws IOException {
+        return CompletableFuture.completedFuture(server.installSnapshot(request));
       }
 
       @Override
-      public void onError(Throwable t) {
-        GrpcUtil.warn(LOG, () -> getId() + ": installSnapshot onError", t);
+      long getCallId(InstallSnapshotRequestProto request) {
+        return request.getServerRequest().getCallId();
       }
 
       @Override
-      public void onCompleted() {
-        LOG.info("{}: installSnapshot completed", getId());
-        responseObserver.onCompleted();
+      String requestToString(InstallSnapshotRequestProto request) {
+        return ServerProtoUtils.toString(request);
+      }
+
+      @Override
+      String replyToString(InstallSnapshotReplyProto reply) {
+        return ServerProtoUtils.toString(reply);
       }
     };
   }

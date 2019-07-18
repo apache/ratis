@@ -119,7 +119,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   LogAppender newLogAppender(
       LeaderState state, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
       boolean attendVote) {
-    final FollowerInfo f = new FollowerInfo(getId(), peer, lastRpcTime, nextIndex, attendVote, rpcSlownessTimeoutMs);
+    final FollowerInfo f = new FollowerInfo(getMemberId(), peer, lastRpcTime, nextIndex, attendVote,
+        rpcSlownessTimeoutMs);
     return getProxy().getFactory().newLogAppender(this, state, f);
   }
 
@@ -1063,7 +1064,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (!recognized) {
         final InstallSnapshotReplyProto reply = ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, snapshotChunkRequest.getRequestIndex(), InstallSnapshotResult.NOT_LEADER);
-        LOG.warn("{}: Failed to recognize leader for installSnapshot chunk. Reply: {}", getMemberId(), reply);
+        LOG.warn("{}: Failed to recognize leader for installSnapshot chunk.", getMemberId());
         return reply;
       }
       changeToFollowerAndPersistMetadata(leaderTerm, "installSnapshot");
@@ -1112,7 +1113,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (!recognized) {
         final InstallSnapshotReplyProto reply = ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
             currentTerm, InstallSnapshotResult.NOT_LEADER, -1);
-        LOG.warn("{}: Failed to recognize leader for installSnapshot notification. Reply: {}", getMemberId(), reply);
+        LOG.warn("{}: Failed to recognize leader for installSnapshot notification.", getMemberId());
         return reply;
       }
       changeToFollowerAndPersistMetadata(leaderTerm, "installSnapshot");
@@ -1132,8 +1133,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
           inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
           final InstallSnapshotReplyProto reply = ServerProtoUtils.toInstallSnapshotReplyProto(
               leaderId, getMemberId(), currentTerm, InstallSnapshotResult.ALREADY_INSTALLED, snapshotIndex);
-          LOG.info("{}: StateMachine snapshotIndex: {}. Reply: {}", getMemberId(), snapshotIndex, reply);
-
+          LOG.info("{}: StateMachine snapshotIndex is {}", getMemberId(), snapshotIndex);
           return reply;
         }
 

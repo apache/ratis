@@ -211,8 +211,9 @@ public class GrpcLogAppender extends LogAppender {
   /**
    * StreamObserver for handling responses from the follower
    */
-  private class AppendLogResponseHandler
-      implements StreamObserver<AppendEntriesReplyProto> {
+  private class AppendLogResponseHandler implements StreamObserver<AppendEntriesReplyProto> {
+    private final String name = follower.getName() + "-" + getClass().getSimpleName();
+
     /**
      * After receiving a appendEntries reply, do the following:
      * 1. If the reply is success, update the follower's match index and submit
@@ -226,7 +227,7 @@ public class GrpcLogAppender extends LogAppender {
       final AppendEntriesRequestProto request = pendingRequests.remove(reply.getServerReply().getCallId());
       if (LOG.isDebugEnabled()) {
         LOG.debug("{}: received {} reply {}, request={}",
-            follower.getName(), firstResponseReceived? "a": "the first",
+            this, firstResponseReceived? "a": "the first",
             ServerProtoUtils.toString(reply), ServerProtoUtils.toString(request));
       }
 
@@ -281,7 +282,7 @@ public class GrpcLogAppender extends LogAppender {
         LOG.info("{} is stopped", GrpcLogAppender.this);
         return;
       }
-      GrpcUtil.warn(LOG, () -> getFollower().getName() + ": Failed appendEntries", t);
+      GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries", t);
 
       long callId = GrpcUtil.getCallId(t);
       resetClient(pendingRequests.remove(callId));
@@ -289,8 +290,13 @@ public class GrpcLogAppender extends LogAppender {
 
     @Override
     public void onCompleted() {
-      LOG.info("{}: follower responses appendEntries COMPLETED", getFollower().getName());
+      LOG.info("{}: follower responses appendEntries COMPLETED", this);
       resetClient(null);
+    }
+
+    @Override
+    public String toString() {
+      return name;
     }
   }
 
@@ -305,8 +311,8 @@ public class GrpcLogAppender extends LogAppender {
     follower.updateNextIndex(replyNextIndex);
   }
 
-  private class InstallSnapshotResponseHandler
-      implements StreamObserver<InstallSnapshotReplyProto> {
+  private class InstallSnapshotResponseHandler implements StreamObserver<InstallSnapshotReplyProto> {
+    private final String name = follower.getName() + "-" + getClass().getSimpleName();
     private final Queue<Integer> pending;
     private final AtomicBoolean done = new AtomicBoolean(false);
 
@@ -339,7 +345,10 @@ public class GrpcLogAppender extends LogAppender {
 
     @Override
     public void onNext(InstallSnapshotReplyProto reply) {
-      LOG.debug("{}: received {} response", getFollower().getName(), firstResponseReceived? "a": "the first");
+      if (LOG.isInfoEnabled()) {
+        LOG.info("{}: received {} reply {}", this, firstResponseReceived ? "a" : "the first",
+            ServerProtoUtils.toString(reply));
+      }
 
       // update the last rpc time
       follower.updateLastRpcResponseTime();
@@ -354,10 +363,9 @@ public class GrpcLogAppender extends LogAppender {
           removePending(reply);
           break;
         case ALREADY_INSTALLED:
-          long followerLatestSnapshotIndex = reply.getSnapshotIndex();
-          LOG.info("{}: Latest snapshot index on follower {} is {}.",
-              server.getId(), follower.getPeer(), followerLatestSnapshotIndex);
-          follower.setSnapshotIndex(followerLatestSnapshotIndex);
+          final long followerSnapshotIndex = reply.getSnapshotIndex();
+          LOG.info("{}: set follower snapshotIndex to {}.", this, followerSnapshotIndex);
+          follower.setSnapshotIndex(followerSnapshotIndex);
           removePending(reply);
           break;
         case NOT_LEADER:
@@ -365,7 +373,7 @@ public class GrpcLogAppender extends LogAppender {
           break;
         case CONF_MISMATCH:
           LOG.error("{}: Configuration Mismatch ({}): Leader {} has it set to {} but follower {} has it set to {}",
-              server.getId(), RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
+              this, RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
               server.getId(), installSnapshotEnabled, getFollowerId(), !installSnapshotEnabled);
         case UNRECOGNIZED:
           break;
@@ -375,18 +383,23 @@ public class GrpcLogAppender extends LogAppender {
     @Override
     public void onError(Throwable t) {
       if (!isAppenderRunning()) {
-        LOG.info("{} is stopped", GrpcLogAppender.this);
+        LOG.info("{} is stopped", this);
         return;
       }
-      LOG.info("{}: got error when installing snapshot: {}", getFollower().getName(), t);
+      LOG.error("{}: Failed installSnapshot: {}", this, t);
       resetClient(null);
       close();
     }
 
     @Override
     public void onCompleted() {
-      LOG.info("{}: follower responses installSnapshot Completed", getFollower().getName());
+      LOG.info("{}: follower responses installSnapshot COMPLETED", this);
       close();
+    }
+
+    @Override
+    public String toString() {
+      return name;
     }
   }
 
@@ -395,8 +408,8 @@ public class GrpcLogAppender extends LogAppender {
    * @param snapshot the snapshot to be sent to Follower
    */
   private void installSnapshot(SnapshotInfo snapshot) {
-    LOG.info("{}: follower's next index is {}, log's start index is {}, will install snapshot",
-        getFollower().getName(), follower.getNextIndex(), raftLog.getStartIndex());
+    LOG.info("{}: followerNextIndex = {} but logStartIndex = {}, send snapshot {} to follower",
+        this, follower.getNextIndex(), raftLog.getStartIndex(), snapshot);
 
     final InstallSnapshotResponseHandler responseHandler = new InstallSnapshotResponseHandler();
     StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver = null;
@@ -433,7 +446,7 @@ public class GrpcLogAppender extends LogAppender {
 
     if (responseHandler.hasAllResponse()) {
       follower.setSnapshotIndex(snapshot.getTermIndex().getIndex());
-      LOG.info("{}: install snapshot-{} successfully", getFollower().getName(), snapshot.getTermIndex().getIndex());
+      LOG.info("{}: installed snapshot {} successfully", this, snapshot);
     }
   }
 
@@ -442,16 +455,16 @@ public class GrpcLogAppender extends LogAppender {
    * @param firstAvailableLogTermIndex the first available log's index on the Leader
    */
   private void installSnapshot(TermIndex firstAvailableLogTermIndex) {
-    LOG.info("{}: follower {}'s next index is {}, log's start index is {}, " +
-            "need to notify follower to install snapshot",
-        server.getId(), follower.getPeer(), follower.getNextIndex(),
-        raftLog.getStartIndex());
+    LOG.info("{}: followerNextIndex = {} but logStartIndex = {}, notify follower to install snapshot-{}",
+        this, follower.getNextIndex(), raftLog.getStartIndex(), firstAvailableLogTermIndex);
 
     final InstallSnapshotResponseHandler responseHandler = new InstallSnapshotResponseHandler();
     StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver = null;
     // prepare and enqueue the notify install snapshot request.
-    InstallSnapshotRequestProto request =
-        createInstallSnapshotNotificationRequest(firstAvailableLogTermIndex);
+    final InstallSnapshotRequestProto request = createInstallSnapshotNotificationRequest(firstAvailableLogTermIndex);
+    if (LOG.isInfoEnabled()) {
+      LOG.info("{}: send {}", this, ServerProtoUtils.toString(request));
+    }
     try {
       snapshotRequestObserver = getClient().installSnapshot(responseHandler);
       snapshotRequestObserver.onNext(request);
@@ -459,8 +472,7 @@ public class GrpcLogAppender extends LogAppender {
       responseHandler.addPending(request);
       snapshotRequestObserver.onCompleted();
     } catch (Exception e) {
-      LOG.warn("{} failed to notify follower {} to install snapshot. " +
-          "Exception: {}", this, follower, e);
+      GrpcUtil.warn(LOG, () -> this + ": Failed to notify follower to install snapshot.", e);
       if (snapshotRequestObserver != null) {
         snapshotRequestObserver.onError(e);
       }

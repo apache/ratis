@@ -48,7 +48,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  protected static boolean failPreAppend = false;
+  private static volatile boolean failPreAppend = false;
 
   protected static class StateMachineWithException extends
       SimpleStateMachine4Testing {
