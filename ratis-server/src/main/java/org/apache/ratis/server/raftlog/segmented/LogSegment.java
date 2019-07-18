@@ -277,6 +277,7 @@ class LogSegment implements Comparable<Long> {
       final LogRecord record = new LogRecord(totalSize, entry);
       records.add(record);
       if (keepEntryInCache) {
+        hasEntryCache = true;
         entryCache.put(record.getTermIndex(), entry);
       }
       if (entry.hasConfigurationEntry()) {
@@ -304,8 +305,8 @@ class LogSegment implements Comparable<Long> {
       return entry;
     }
     try {
-      entry = cacheLoader.load(record);
       hasEntryCache = true;
+      entry = cacheLoader.load(record);
       return entry;
     } catch (Exception e) {
       throw new RaftLogIOException(e);
