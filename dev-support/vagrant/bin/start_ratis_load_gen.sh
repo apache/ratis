@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -22,8 +21,9 @@ peers=$1
 
 cd ${HOME}/incubator-ratis
 
+export QUORUM_OPTS="--peers $peers"
 # run the load generator
-./ratis-examples/src/main/bin/client.sh filestore loadgen --size 1048576 --numFiles 100 --peers $peers 2>&1 | \
+./ratis-examples/src/main/bin/client.sh filestore loadgen --size 1048576 --numFiles 100 2>&1 | \
   tee ${HOME}/loadgen.log
 
 # verify all logs checksum the same

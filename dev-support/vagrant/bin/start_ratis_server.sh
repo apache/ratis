@@ -23,5 +23,5 @@ id=$2
 peers=$3
 
 cd ${HOME}/incubator-ratis/
-java -jar `find ./ -name 'ratis-examples*-SNAPSHOT.jar'` filestore server --storage $storage --id $id --peers $peers 2>&1 | \
+./ratis-examples/src/main/bin/server.sh filestore server --storage $storage --id $id --peers $peers 2>&1 | \
   tee ${HOME}/server_${id}.log
