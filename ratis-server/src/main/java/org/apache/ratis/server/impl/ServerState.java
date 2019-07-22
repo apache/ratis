@@ -30,6 +30,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 
 import java.io.Closeable;
@@ -43,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -66,7 +66,7 @@ public class ServerState implements Closeable {
   private final RaftStorage storage;
   private final SnapshotManager snapshotManager;
   private volatile Timestamp lastNoLeaderTime;
-  private final long leaderElectionTimeoutMs;
+  private final TimeDuration noLeaderTimeout;
 
   /**
    * Latest term server has seen.
@@ -113,8 +113,7 @@ public class ServerState implements Closeable {
     // On start the leader is null, start the clock now
     leaderId = null;
     this.lastNoLeaderTime = Timestamp.currentTime();
-    this.leaderElectionTimeoutMs =
-        RaftServerConfigKeys.leaderElectionTimeout(prop).toIntExact(TimeUnit.MILLISECONDS);
+    this.noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(prop);
 
     // we cannot apply log entries to the state machine in this step, since we
     // do not know whether the local log entries have been committed.
@@ -262,8 +261,11 @@ public class ServerState implements Closeable {
     }
   }
 
-  boolean checkForExtendedNoLeader() {
-    return getLastLeaderElapsedTimeMs() > leaderElectionTimeoutMs;
+  boolean shouldNotifyExtendedNoLeader() {
+    return Optional.ofNullable(lastNoLeaderTime)
+        .map(Timestamp::elapsedTime)
+        .filter(t -> t.compareTo(noLeaderTimeout) > 0)
+        .isPresent();
   }
 
   long getLastLeaderElapsedTimeMs() {

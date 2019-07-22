@@ -73,19 +73,6 @@ public interface RaftServerConfigKeys {
     setInt(properties::setInt, STAGING_CATCHUP_GAP_KEY, stagingCatchupGap);
   }
 
-  /**
-   * Timeout for leader election after which the statemachine of the server is notified
-   * about leader election pending for a long time.
-   */
-  String LEADER_ELECTION_TIMEOUT_KEY = PREFIX + ".leader.election.timeout";
-  TimeDuration LEADER_ELECTION_TIMEOUT_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
-  static TimeDuration leaderElectionTimeout(RaftProperties properties) {
-    return getTimeDuration(properties.getTimeDuration(LEADER_ELECTION_TIMEOUT_DEFAULT.getUnit()),
-        LEADER_ELECTION_TIMEOUT_KEY, LEADER_ELECTION_TIMEOUT_DEFAULT, getDefaultLog());
-  }
-  static void setLeaderElectionTimeout(RaftProperties properties, TimeDuration leaderElectionTimeout) {
-    setTimeDuration(properties::setTimeDuration, LEADER_ELECTION_TIMEOUT_KEY, leaderElectionTimeout);
-  }
 
   interface Write {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".write";
@@ -417,6 +404,21 @@ public interface RaftServerConfigKeys {
     }
     static void setExpiryTime(RaftProperties properties, TimeDuration expiryTime) {
       setTimeDuration(properties::setTimeDuration, EXPIRY_TIME_KEY, expiryTime);
+    }
+  }
+
+  interface Notification {
+    String PREFIX = RaftServerConfigKeys.PREFIX + "." + Notification.class.getSimpleName().toLowerCase();
+
+    /** Timeout value to notify the state machine when there is no leader. */
+    String NO_LEADER_TIMEOUT_KEY = PREFIX + ".no-leader.timeout";
+    TimeDuration NO_LEADER_TIMEOUT_DEFAULT = TimeDuration.valueOf(60, TimeUnit.SECONDS);
+    static TimeDuration noLeaderTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(NO_LEADER_TIMEOUT_DEFAULT.getUnit()),
+          NO_LEADER_TIMEOUT_KEY, NO_LEADER_TIMEOUT_DEFAULT, getDefaultLog());
+    }
+    static void setNoLeaderTimeout(RaftProperties properties, TimeDuration leaderElectionTimeout) {
+      setTimeDuration(properties::setTimeDuration, NO_LEADER_TIMEOUT_KEY, leaderElectionTimeout);
     }
   }
 

@@ -406,7 +406,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     Preconditions.assertTrue(isFollower());
     role.shutdownFollowerState();
     setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
-    if (state.checkForExtendedNoLeader()) {
+    if (state.shouldNotifyExtendedNoLeader()) {
       stateMachine.notifyExtendedNoLeader(getRoleInfoProto());
     }
     // start election

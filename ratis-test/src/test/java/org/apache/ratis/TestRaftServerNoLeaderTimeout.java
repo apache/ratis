@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -39,22 +39,21 @@ import java.util.concurrent.TimeUnit;
 /**
  * Test Raft Server Leader election timeout detection and notification to state machine.
  */
-public class TestRaftServerLeaderElectionTimeout extends BaseTest {
+public class TestRaftServerNoLeaderTimeout extends BaseTest {
   static {
     LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
     LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
   }
 
-  public static final int NUM_SERVERS = 3;
+  private static final int NUM_SERVERS = 3;
 
-  protected static final RaftProperties properties = new RaftProperties();
+  private static final RaftProperties properties = new RaftProperties();
 
   private final MiniRaftClusterWithSimulatedRpc cluster = MiniRaftClusterWithSimulatedRpc
       .FACTORY.newCluster(NUM_SERVERS, getProperties());
 
-  public RaftProperties getProperties() {
-    RaftServerConfigKeys
-        .setLeaderElectionTimeout(properties, TimeDuration.valueOf(1, TimeUnit.SECONDS));
+  private static RaftProperties getProperties() {
+    RaftServerConfigKeys.Notification.setNoLeaderTimeout(properties, TimeDuration.valueOf(1, TimeUnit.SECONDS));
     properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
     return properties;
@@ -76,8 +75,7 @@ public class TestRaftServerLeaderElectionTimeout extends BaseTest {
   @Test
   public void testLeaderElectionDetection() throws Exception {
     RaftTestUtil.waitForLeader(cluster);
-    long leaderElectionTimeout = RaftServerConfigKeys.
-        leaderElectionTimeout(cluster.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
+    final TimeDuration noLeaderTimeout = RaftServerConfigKeys.Notification.noLeaderTimeout(cluster.getProperties());
 
     RaftServerImpl healthyFollower = cluster.getFollowers().get(1);
     RaftServerImpl failedFollower = cluster.getFollowers().get(0);
@@ -87,13 +85,15 @@ public class TestRaftServerLeaderElectionTimeout extends BaseTest {
     cluster.killServer(cluster.getLeader().getId());
 
     // Wait to ensure that leader election is triggered and also state machine callback is triggered
-    Thread.sleep( leaderElectionTimeout * 2);
+    noLeaderTimeout.sleep();
+    noLeaderTimeout.sleep();
 
     RaftProtos.RoleInfoProto roleInfoProto =
         SimpleStateMachine4Testing.get(healthyFollower).getLeaderElectionTimeoutInfo();
     Assert.assertNotNull(roleInfoProto);
 
     Assert.assertEquals(roleInfoProto.getRole(), RaftProtos.RaftPeerRole.CANDIDATE);
-    Assert.assertTrue(roleInfoProto.getCandidateInfo().getLastLeaderElapsedTimeMs() > leaderElectionTimeout);
+    final long noLeaderTimeoutMs = noLeaderTimeout.toLong(TimeUnit.MILLISECONDS);
+    Assert.assertTrue(roleInfoProto.getCandidateInfo().getLastLeaderElapsedTimeMs() > noLeaderTimeoutMs);
   }
 }
