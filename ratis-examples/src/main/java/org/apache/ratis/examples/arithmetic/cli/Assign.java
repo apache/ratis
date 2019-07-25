@@ -21,7 +21,11 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.arithmetic.AssignmentMessage;
-import org.apache.ratis.examples.arithmetic.expression.*;
+import org.apache.ratis.examples.arithmetic.expression.BinaryExpression;
+import org.apache.ratis.examples.arithmetic.expression.DoubleValue;
+import org.apache.ratis.examples.arithmetic.expression.Expression;
+import org.apache.ratis.examples.arithmetic.expression.UnaryExpression;
+import org.apache.ratis.examples.arithmetic.expression.Variable;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
@@ -37,12 +41,14 @@ import java.util.regex.Pattern;
 @Parameters(commandDescription = "Assign value to a variable.")
 public class Assign extends Client {
 
-  private Pattern binaryOperationPattern = Pattern.compile("([a-z1-9]*)([\\*\\-/\\+])([a-z1-9]*)");
-  private Pattern unaryOperationPattern = Pattern.compile("([√~])([a-z1-9]+)");
+  private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+|\\d*\\.\\d+");
+  private static final String VARIABLE_OR_NUMBER = String.format("(%s|%s)", NUMBER_PATTERN, Variable.PATTERN.pattern());
+  private static final Pattern BINARY_OPERATION_PATTERN = Pattern.compile(VARIABLE_OR_NUMBER + "\\s*([*+/-])\\s*" + VARIABLE_OR_NUMBER);
+  private static final Pattern UNARY_OPERATION_PATTERN = Pattern.compile("([√~-])" + VARIABLE_OR_NUMBER);
 
   @Parameter(names = {
       "--name"}, description = "Name of the variable to set", required = true)
-  private String name;
+  String name;
 
   @Parameter(names = {"--value"}, description = "Value to set", required = true)
   private String value;
@@ -56,21 +62,21 @@ public class Assign extends Client {
   }
 
   @VisibleForTesting
-  protected Expression createExpression(String val) {
-    if (val.matches("\\d*(\\.\\d*)?")) {
-      return new DoubleValue(Double.valueOf(val));
-    } else if (val.matches("[a-zA-Z]+")) {
-      return new Variable(val);
+  protected Expression createExpression(String value) {
+    if (NUMBER_PATTERN.matcher(value).matches()) {
+      return new DoubleValue(Double.valueOf(value));
+    } else if (Variable.PATTERN.matcher(value).matches()) {
+      return new Variable(value);
     }
-    Matcher binaryMatcher = this.binaryOperationPattern.matcher(val);
-    Matcher unaryMatcher = this.unaryOperationPattern.matcher(val);
+    Matcher binaryMatcher = BINARY_OPERATION_PATTERN.matcher(value);
+    Matcher unaryMatcher = UNARY_OPERATION_PATTERN.matcher(value);
 
     if (binaryMatcher.matches()) {
       return createBinaryExpression(binaryMatcher);
     } else if (unaryMatcher.matches()) {
       return createUnaryExpression(unaryMatcher);
     } else {
-      throw new IllegalArgumentException("Invalid expression " + val + " Try something like: 'a+b' or '2'");
+      throw new IllegalArgumentException("Invalid expression " + value + " Try something like: 'a+b' or '2'");
     }
   }
 
