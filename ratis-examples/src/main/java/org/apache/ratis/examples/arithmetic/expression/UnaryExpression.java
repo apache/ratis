@@ -17,20 +17,21 @@
  */
 package org.apache.ratis.examples.arithmetic.expression;
 
-import org.apache.ratis.util.Preconditions;
-
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.DoubleFunction;
 import java.util.function.UnaryOperator;
 
+import org.apache.ratis.util.Preconditions;
+
 public class UnaryExpression implements Expression {
   static final BiFunction<Op, Expression, String> PREFIX_OP_TO_STRING = (op, e) -> op + "" + e;
   static final BiFunction<Op, Expression, String> POSTFIX_OP_TO_STRING = (op, e) -> e + "" + op;
 
   public enum Op implements UnaryOperator<Expression>, DoubleFunction<Expression> {
-    NEG("~"), SQRT("√"), SQUARE("^2", POSTFIX_OP_TO_STRING);
+    NEG("~"), SQRT("√"), SQUARE("^2", POSTFIX_OP_TO_STRING),
+    MINUS("-"), ;
 
     final String symbol;
     final BiFunction<Op, Expression, String> stringFunction;
@@ -109,6 +110,7 @@ public class UnaryExpression implements Expression {
   public Double evaluate(Map<String, Double> variableMap) {
     final double value = expression.evaluate(variableMap);
     switch (op) {
+      case MINUS:
       case NEG:
         return -value;
       case SQRT:

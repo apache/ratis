@@ -17,19 +17,24 @@
  */
 package org.apache.ratis.examples.arithmetic.cli;
 
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.Parameters;
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.examples.arithmetic.AssignmentMessage;
-import org.apache.ratis.examples.arithmetic.expression.*;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.examples.arithmetic.AssignmentMessage;
+import org.apache.ratis.examples.arithmetic.expression.BinaryExpression;
+import org.apache.ratis.examples.arithmetic.expression.DoubleValue;
+import org.apache.ratis.examples.arithmetic.expression.Expression;
+import org.apache.ratis.examples.arithmetic.expression.UnaryExpression;
+import org.apache.ratis.examples.arithmetic.expression.Variable;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 
 /**
  * Subcommand to assign new value in arithmetic state machine.
@@ -37,11 +42,12 @@ import java.util.regex.Pattern;
 @Parameters(commandDescription = "Assign value to a variable.")
 public class Assign extends Client {
 
-  Pattern binaryOperationPattern = Pattern.compile("([a-z1-9]*)([\\*\\-/\\+])([a-z1-9]*)");
-  Pattern unaryOperationPattern = Pattern.compile("([√~])([a-z1-9]+)");
+  private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+|\\d*\\.\\d+");
+  private static final String VARIABLE_OR_NUMBER = String.format("(%s|%s)", NUMBER_PATTERN, Variable.PATTERN.pattern());
+  private static final Pattern BINARY_OPERATION_PATTERN = Pattern.compile(VARIABLE_OR_NUMBER + "\\s*([*+/-])\\s*" + VARIABLE_OR_NUMBER);
+  private static final Pattern UNARY_OPERATION_PATTERN = Pattern.compile("([√~-])" + VARIABLE_OR_NUMBER);
 
-  @Parameter(names = {
-      "--name"}, description = "Name of the variable to set", required = true)
+  @Parameter(names = {"--name"}, description = "Name of the variable to set", required = true)
   String name;
 
   @Parameter(names = {"--value"}, description = "Value to set", required = true)
@@ -57,13 +63,13 @@ public class Assign extends Client {
 
   @VisibleForTesting
   protected Expression createExpression(String value) {
-    if (value.matches("\\d*(\\.\\d*)?")) {
+    if (NUMBER_PATTERN.matcher(value).matches()) {
       return new DoubleValue(Double.valueOf(value));
-    } else if (value.matches("[a-zA-Z]+")) {
+    } else if (Variable.PATTERN.matcher(value).matches()) {
       return new Variable(value);
     }
-    Matcher binaryMatcher = binaryOperationPattern.matcher(value);
-    Matcher unaryMatcher = unaryOperationPattern.matcher(value);
+    Matcher binaryMatcher = BINARY_OPERATION_PATTERN.matcher(value);
+    Matcher unaryMatcher = UNARY_OPERATION_PATTERN.matcher(value);
 
     if (binaryMatcher.matches()) {
       return createBinaryExpression(binaryMatcher);
