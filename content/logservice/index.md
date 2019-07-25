@@ -26,3 +26,4 @@ daemons provided for the LogService, but these are solely to be used for testing
 
 
 * [Testing]({{< ref "testing/index.md" >}})
+* [Log Lifecycle]({{< ref "lifecycle.md" >}})
