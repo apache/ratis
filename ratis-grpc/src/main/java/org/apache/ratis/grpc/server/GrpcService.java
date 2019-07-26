@@ -30,6 +30,7 @@ import org.apache.ratis.server.impl.RaftServerRpcWithProxy;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Server;
+import org.apache.ratis.thirdparty.io.netty.channel.ChannelOption;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.ClientAuth;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 
@@ -109,6 +110,7 @@ public class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient
     this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer);
 
     NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forPort(port)
+        .withChildOption(ChannelOption.SO_REUSEADDR, true)
         .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
         .flowControlWindow(flowControlWindow.getSizeInt())
         .addService(new GrpcServerProtocolService(idSupplier, raftServer))
