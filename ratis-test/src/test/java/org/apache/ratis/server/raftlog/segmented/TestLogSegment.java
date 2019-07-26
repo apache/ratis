@@ -23,7 +23,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.impl.ServerProtoUtils;
-import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecordWithEntry;
+import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -42,7 +42,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -130,13 +129,15 @@ public class TestLogSegment extends BaseTest {
     long offset = SegmentedRaftLogFormat.getHeaderLength();
     for (long i = start; i <= end; i++) {
       LogSegment.LogRecord record = segment.getLogRecord(i);
-      LogRecordWithEntry lre = segment.getEntryWithoutLoading(i);
-      Assert.assertEquals(i, lre.getRecord().getTermIndex().getIndex());
-      Assert.assertEquals(term, lre.getRecord().getTermIndex().getTerm());
+      final TermIndex ti = record.getTermIndex();
+      Assert.assertEquals(i, ti.getIndex());
+      Assert.assertEquals(term, ti.getTerm());
       Assert.assertEquals(offset, record.getOffset());
 
-      LogEntryProto entry = lre.hasEntry() ?
-          lre.getEntry() : segment.loadCache(lre.getRecord());
+      LogEntryProto entry = segment.getEntryFromCache(ti);
+      if (entry == null) {
+        entry = segment.loadCache(record);
+      }
       offset += getEntrySize(entry);
     }
   }
@@ -193,15 +194,13 @@ public class TestLogSegment extends BaseTest {
     // append till full
     long term = 0;
     int i = 0;
-    List<LogEntryProto> list = new ArrayList<>();
     while (size < max) {
       SimpleOperation op = new SimpleOperation("m" + i);
       LogEntryProto entry = ServerProtoUtils.toLogEntryProto(op.getLogEntryContent(), term, i++ + start);
       size += getEntrySize(entry);
-      list.add(entry);
+      segment.appendToOpenSegment(entry);
     }
 
-    segment.appendToOpenSegment(list.toArray(new LogEntryProto[list.size()]));
     Assert.assertTrue(segment.getTotalSize() >= max);
     checkLogSegment(segment, start, i - 1 + start, true, size, term);
   }
@@ -226,17 +225,6 @@ public class TestLogSegment extends BaseTest {
       entry = ServerProtoUtils.toLogEntryProto(m, 0, 1002);
       segment.appendToOpenSegment(entry);
       Assert.fail("should fail since the entry's index needs to be 1001");
-    } catch (IllegalStateException e) {
-      // the exception is expected.
-    }
-
-    LogEntryProto[] entries = new LogEntryProto[2];
-    for (int i = 0; i < 2; i++) {
-      entries[i] = ServerProtoUtils.toLogEntryProto(m, 0, 1001 + i * 2);
-    }
-    try {
-      segment.appendToOpenSegment(entries);
-      Assert.fail("should fail since there is gap between entries");
     } catch (IllegalStateException e) {
       // the exception is expected.
     }

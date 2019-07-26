@@ -27,7 +27,6 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
-import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecordWithEntry;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncateIndices;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -190,25 +189,25 @@ public class SegmentedRaftLog extends RaftLog {
   public LogEntryProto get(long index) throws RaftLogIOException {
     checkLogState();
     final LogSegment segment;
-    final LogRecordWithEntry recordAndEntry;
+    final LogRecord record;
     try (AutoCloseableLock readLock = readLock()) {
       segment = cache.getSegment(index);
       if (segment == null) {
         return null;
       }
-      recordAndEntry = segment.getEntryWithoutLoading(index);
-      if (recordAndEntry == null) {
+      record = segment.getLogRecord(index);
+      if (record == null) {
         return null;
       }
-      if (recordAndEntry.hasEntry()) {
-        return recordAndEntry.getEntry();
+      final LogEntryProto entry = segment.getEntryFromCache(record.getTermIndex());
+      if (entry != null) {
+        return entry;
       }
     }
 
-    // the entry is not in the segment's cache. Load the cache without holding
-    // RaftLog's lock.
+    // the entry is not in the segment's cache. Load the cache without holding the lock.
     checkAndEvictCache();
-    return segment.loadCache(recordAndEntry.getRecord());
+    return segment.loadCache(record);
   }
 
   @Override

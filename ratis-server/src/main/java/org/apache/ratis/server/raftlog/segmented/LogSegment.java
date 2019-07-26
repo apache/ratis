@@ -46,7 +46,7 @@ import java.util.function.Consumer;
  * In-memory cache for a log segment file. All the updates will be first written
  * into LogSegment then into corresponding files in the same order.
  *
- * This class will be protected by the RaftServer's lock.
+ * This class will be protected by the {@link SegmentedRaftLog}'s read-write lock.
  */
 class LogSegment implements Comparable<Long> {
   static final Logger LOG = LoggerFactory.getLogger(LogSegment.class);
@@ -63,7 +63,7 @@ class LogSegment implements Comparable<Long> {
 
     LogRecord(long offset, LogEntryProto entry) {
       this.offset = offset;
-      termIndex = TermIndex.newTermIndex(entry.getTerm(), entry.getIndex());
+      this.termIndex = ServerProtoUtils.toTermIndex(entry);
     }
 
     TermIndex getTermIndex() {
@@ -72,28 +72,6 @@ class LogSegment implements Comparable<Long> {
 
     long getOffset() {
       return offset;
-    }
-  }
-
-  static class LogRecordWithEntry {
-    private final LogRecord record;
-    private final LogEntryProto entry;
-
-    LogRecordWithEntry(LogRecord record, LogEntryProto entry) {
-      this.record = record;
-      this.entry = entry;
-    }
-
-    LogRecord getRecord() {
-      return record;
-    }
-
-    LogEntryProto getEntry() {
-      return entry;
-    }
-
-    boolean hasEntry() {
-      return entry != null;
     }
   }
 
@@ -189,20 +167,6 @@ class LogSegment implements Comparable<Long> {
         storage.getStorageDir().getClosedLogFile(startIndex, endIndex);
   }
 
-  public String toDebugString() {
-    final StringBuilder b = new StringBuilder()
-        .append("startIndex=").append(startIndex)
-        .append(", endIndex=").append(endIndex)
-        .append(", numOfEntries=").append(numOfEntries())
-        .append(", isOpen? ").append(isOpen)
-        .append(", file=").append(getSegmentFile());
-    records.stream().map(LogRecord::getTermIndex).forEach(
-        ti -> b.append("  ").append(ti).append(", cache=")
-            .append(ServerProtoUtils.toLogEntryString(entryCache.get(ti)))
-    );
-    return b.toString();
-  }
-
   private volatile boolean isOpen;
   private long totalSize;
   private final long startIndex;
@@ -211,7 +175,6 @@ class LogSegment implements Comparable<Long> {
   private final CacheLoader<LogRecord, LogEntryProto> cacheLoader = new LogEntryLoader();
   /** later replace it with a metric */
   private final AtomicInteger loadingTimes = new AtomicInteger();
-  private volatile boolean hasEntryCache;
 
   /**
    * the list of records is more like the index of a segment
@@ -229,7 +192,6 @@ class LogSegment implements Comparable<Long> {
     this.startIndex = start;
     this.endIndex = end;
     totalSize = SegmentedRaftLogFormat.getHeaderLength();
-    hasEntryCache = isOpen;
   }
 
   long getStartIndex() {
@@ -248,52 +210,39 @@ class LogSegment implements Comparable<Long> {
     return Math.toIntExact(endIndex - startIndex + 1);
   }
 
-  void appendToOpenSegment(LogEntryProto... entries) {
-    Preconditions.assertTrue(isOpen(),
-        "The log segment %s is not open for append", this.toString());
-    append(true, entries);
+  void appendToOpenSegment(LogEntryProto entry) {
+    Preconditions.assertTrue(isOpen(), "The log segment %s is not open for append", this);
+    append(true, entry);
   }
 
-  private void append(boolean keepEntryInCache, LogEntryProto... entries) {
-    Preconditions.assertTrue(entries != null && entries.length > 0);
-    final long term = entries[0].getTerm();
+  private void append(boolean keepEntryInCache, LogEntryProto entry) {
+    Objects.requireNonNull(entry, "entry == null");
     if (records.isEmpty()) {
-      Preconditions.assertTrue(entries[0].getIndex() == startIndex,
+      Preconditions.assertTrue(entry.getIndex() == startIndex,
           "gap between start index %s and first entry to append %s",
-          startIndex, entries[0].getIndex());
+          startIndex, entry.getIndex());
     }
-    for (LogEntryProto entry : entries) {
-      // all these entries should be of the same term
-      Preconditions.assertTrue(entry.getTerm() == term,
-          "expected term:%s, term of the entry:%s", term, entry.getTerm());
-      final LogRecord currentLast = getLastRecord();
-      if (currentLast != null) {
-        Preconditions.assertTrue(
-            entry.getIndex() == currentLast.getTermIndex().getIndex() + 1,
-            "gap between entries %s and %s", entry.getIndex(),
-            currentLast.getTermIndex().getIndex());
-      }
 
-      final LogRecord record = new LogRecord(totalSize, entry);
-      records.add(record);
-      if (keepEntryInCache) {
-        hasEntryCache = true;
-        entryCache.put(record.getTermIndex(), entry);
-      }
-      if (entry.hasConfigurationEntry()) {
-        configEntries.add(record.getTermIndex());
-      }
-      totalSize += getEntrySize(entry);
-      endIndex = entry.getIndex();
+    final LogRecord currentLast = getLastRecord();
+    if (currentLast != null) {
+      Preconditions.assertTrue(entry.getIndex() == currentLast.getTermIndex().getIndex() + 1,
+          "gap between entries %s and %s", entry.getIndex(), currentLast.getTermIndex().getIndex());
     }
+
+    final LogRecord record = new LogRecord(totalSize, entry);
+    records.add(record);
+    if (keepEntryInCache) {
+      entryCache.put(record.getTermIndex(), entry);
+    }
+    if (entry.hasConfigurationEntry()) {
+      configEntries.add(record.getTermIndex());
+    }
+    totalSize += getEntrySize(entry);
+    endIndex = entry.getIndex();
   }
 
-  LogRecordWithEntry getEntryWithoutLoading(long index) {
-    LogRecord record = getLogRecord(index);
-    if (record == null) {
-      return null;
-    }
-    return new LogRecordWithEntry(record, entryCache.get(record.getTermIndex()));
+  LogEntryProto getEntryFromCache(TermIndex ti) {
+    return entryCache.get(ti);
   }
 
   /**
@@ -305,9 +254,7 @@ class LogSegment implements Comparable<Long> {
       return entry;
     }
     try {
-      hasEntryCache = true;
-      entry = cacheLoader.load(record);
-      return entry;
+      return cacheLoader.load(record);
     } catch (Exception e) {
       throw new RaftLogIOException(e);
     }
@@ -342,13 +289,12 @@ class LogSegment implements Comparable<Long> {
    */
   void truncate(long fromIndex) {
     Preconditions.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
-    LogRecord record = records.get(Math.toIntExact(fromIndex - startIndex));
     for (long index = endIndex; index >= fromIndex; index--) {
       LogRecord removed = records.remove(Math.toIntExact(index - startIndex));
       entryCache.remove(removed.getTermIndex());
       configEntries.remove(removed.getTermIndex());
+      totalSize = removed.offset;
     }
-    totalSize = record.offset;
     isOpen = false;
     this.endIndex = fromIndex - 1;
   }
@@ -373,7 +319,6 @@ class LogSegment implements Comparable<Long> {
   void clear() {
     records.clear();
     entryCache.clear();
-    hasEntryCache = false;
     configEntries.clear();
     endIndex = startIndex - 1;
   }
@@ -383,12 +328,11 @@ class LogSegment implements Comparable<Long> {
   }
 
   void evictCache() {
-    hasEntryCache = false;
     entryCache.clear();
   }
 
   boolean hasCache() {
-    return hasEntryCache;
+    return isOpen || !entryCache.isEmpty(); // open segment always has cache.
   }
 
   boolean containsIndex(long index) {

@@ -26,6 +26,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
+import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.junit.Assert;
 import org.junit.Before;
@@ -54,12 +55,14 @@ public class TestSegmentedRaftLogCache {
     return s;
   }
 
-  private void checkCache(long start, long end, int segmentSize) throws IOException {
+  private void checkCache(long start, long end, int segmentSize) {
     Assert.assertEquals(start, cache.getStartIndex());
     Assert.assertEquals(end, cache.getEndIndex());
 
     for (long index = start; index <= end; index++) {
-      LogEntryProto entry = cache.getSegment(index).getEntryWithoutLoading(index).getEntry();
+      final LogSegment segment = cache.getSegment(index);
+      final LogRecord record = segment.getLogRecord(index);
+      final LogEntryProto entry = segment.getEntryFromCache(record.getTermIndex());
       Assert.assertEquals(index, entry.getIndex());
     }
 
