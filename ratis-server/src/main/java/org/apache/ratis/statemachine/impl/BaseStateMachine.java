@@ -149,6 +149,10 @@ public class BaseStateMachine implements StateMachine {
       @Override
       public void format() throws IOException {
       }
+
+      @Override
+      public void cleanupOldSnapshots(SnapshotRetentionPolicy snapshotRetentionPolicy) {
+      }
     };
   }
 

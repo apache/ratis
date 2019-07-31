@@ -17,11 +17,16 @@
  */
 package org.apache.ratis.server.storage;
 
+import static org.apache.ratis.statemachine.impl.SimpleStateMachineStorage.SNAPSHOT_REGEX;
+
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorageDirectory.StorageState;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
+import org.apache.ratis.statemachine.impl.SnapshotRetentionPolicy;
 import org.apache.ratis.util.FileUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -31,7 +36,12 @@ import org.mockito.internal.util.reflection.Whitebox;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Matcher;
 
 /**
  * Test RaftStorage and RaftStorageDirectory
@@ -202,5 +212,70 @@ public class TestRaftStorage extends BaseTest {
     } catch(IllegalArgumentException iae) {
       System.out.println("Good " + iae);
     }
+  }
+
+  @Test
+  public void testSnapshotCleanup() throws IOException {
+
+
+    SnapshotRetentionPolicy snapshotRetentionPolicy = new SnapshotRetentionPolicy() {
+      @Override
+      public int getNumSnapshotsRetained() {
+        return 3;
+      }
+    };
+
+
+    SimpleStateMachineStorage simpleStateMachineStorage = new SimpleStateMachineStorage();
+    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    simpleStateMachineStorage.init(storage);
+
+    List<Long> indices = new ArrayList<>();
+
+    //Create 5 snapshot files in storage dir.
+    for (int i = 0; i < 5; i++) {
+      final long term = ThreadLocalRandom.current().nextLong(10L);
+      final long index = ThreadLocalRandom.current().nextLong(1000L);
+      indices.add(index);
+      File file = simpleStateMachineStorage.getSnapshotFile(term, index);
+      file.createNewFile();
+    }
+
+    File stateMachineDir = storage.getStorageDir().getStateMachineDir();
+    Assert.assertTrue(stateMachineDir.listFiles().length == 5);
+    simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
+    File[] remainingFiles = stateMachineDir.listFiles();
+    Assert.assertTrue(remainingFiles.length == 3);
+
+    Collections.sort(indices);
+    Collections.reverse(indices);
+    List<Long> remainingIndices = indices.subList(0, 3);
+    for (File file : remainingFiles) {
+      System.out.println(file.getName());
+      Matcher matcher = SNAPSHOT_REGEX.matcher(file.getName());
+      if (matcher.matches()) {
+        Assert.assertTrue(remainingIndices.contains(Long.parseLong(matcher.group(2))));
+      }
+    }
+
+    // Attempt to clean up again should not delete any more files.
+    simpleStateMachineStorage.cleanupOldSnapshots(snapshotRetentionPolicy);
+    remainingFiles = stateMachineDir.listFiles();
+    Assert.assertTrue(remainingFiles.length == 3);
+
+    //Test with Retention disabled.
+    //Create 2 snapshot files in storage dir.
+    for (int i = 0; i < 2; i++) {
+      final long term = ThreadLocalRandom.current().nextLong(10L);
+      final long index = ThreadLocalRandom.current().nextLong(1000L);
+      indices.add(index);
+      File file = simpleStateMachineStorage.getSnapshotFile(term, index);
+      file.createNewFile();
+    }
+
+    simpleStateMachineStorage.cleanupOldSnapshots(new SnapshotRetentionPolicy() {
+    });
+    Assert.assertTrue(stateMachineDir.listFiles().length == 5);
+
   }
 }

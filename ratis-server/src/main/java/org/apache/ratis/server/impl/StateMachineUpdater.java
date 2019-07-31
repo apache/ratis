@@ -28,6 +28,7 @@ import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.impl.SnapshotRetentionPolicy;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,6 +74,7 @@ class StateMachineUpdater implements Runnable {
   private final RaftLogIndex snapshotIndex;
   private final AtomicReference<Long> stopIndex = new AtomicReference<>();
   private volatile State state = State.RUNNING;
+  private SnapshotRetentionPolicy snapshotRetentionPolicy;
 
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
       ServerState serverState, long lastAppliedIndex, RaftProperties properties) {
@@ -89,6 +91,13 @@ class StateMachineUpdater implements Runnable {
 
     final boolean autoSnapshot = RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties);
     this.autoSnapshotThreshold = autoSnapshot? RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties): null;
+    int numSnapshotFilesRetained = RaftServerConfigKeys.Snapshot.snapshotRetentionPolicy(properties);
+    this.snapshotRetentionPolicy = new SnapshotRetentionPolicy() {
+      @Override
+      public int getNumSnapshotsRetained() {
+        return numSnapshotFilesRetained;
+      }
+    };
     updater = new Daemon(this);
   }
 
@@ -233,6 +242,7 @@ class StateMachineUpdater implements Runnable {
             "Bug in StateMachine: snapshot index = " + i + " > appliedIndex = " + appliedIndex
             + "; StateMachine class=" +  stateMachine.getClass().getName() + ", stateMachine=" + stateMachine);
       }
+      stateMachine.getStateMachineStorage().cleanupOldSnapshots(snapshotRetentionPolicy);
     } catch (IOException e) {
       LOG.error(name + ": Failed to take snapshot", e);
       return;

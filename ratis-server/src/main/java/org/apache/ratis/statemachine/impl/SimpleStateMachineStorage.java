@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.statemachine.impl;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
@@ -33,8 +34,12 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * A StateMachineStorage that stores the snapshot in a single file.
@@ -46,7 +51,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   static final String SNAPSHOT_FILE_PREFIX = "snapshot";
   static final String CORRUPT_SNAPSHOT_FILE_SUFFIX = ".corrupt";
   /** snapshot.term_index */
-  static final Pattern SNAPSHOT_REGEX =
+  public static final Pattern SNAPSHOT_REGEX =
       Pattern.compile(SNAPSHOT_FILE_PREFIX + "\\.(\\d+)_(\\d+)");
 
   private RaftStorage raftStorage;
@@ -64,6 +69,38 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   @Override
   public void format() throws IOException {
     // TODO
+  }
+
+  @Override
+  public void cleanupOldSnapshots(SnapshotRetentionPolicy snapshotRetentionPolicy) throws IOException {
+    if (snapshotRetentionPolicy != null && snapshotRetentionPolicy.getNumSnapshotsRetained() > 0) {
+
+      List<SingleFileSnapshotInfo> allSnapshotFiles = new ArrayList<>();
+      try (DirectoryStream<Path> stream =
+               Files.newDirectoryStream(smDir.toPath())) {
+        for (Path path : stream) {
+          Matcher matcher = SNAPSHOT_REGEX.matcher(path.getFileName().toString());
+          if (matcher.matches()) {
+            final long endIndex = Long.parseLong(matcher.group(2));
+            final long term = Long.parseLong(matcher.group(1));
+            final FileInfo fileInfo = new FileInfo(path, null); //We don't need FileDigest here.
+            allSnapshotFiles.add(new SingleFileSnapshotInfo(fileInfo, term, endIndex));
+          }
+        }
+      }
+
+      if (allSnapshotFiles.size() > snapshotRetentionPolicy.getNumSnapshotsRetained()) {
+        allSnapshotFiles.sort(new SnapshotFileComparator());
+        List<File> snapshotFilesToBeCleaned = allSnapshotFiles.subList(
+            snapshotRetentionPolicy.getNumSnapshotsRetained(), allSnapshotFiles.size()).stream()
+            .map(singleFileSnapshotInfo -> singleFileSnapshotInfo.getFile().getPath().toFile())
+            .collect(Collectors.toList());
+        for (File snapshotFile : snapshotFilesToBeCleaned) {
+          LOG.info("Deleting old snapshot at {}", snapshotFile.getAbsolutePath());
+          FileUtils.deleteQuietly(snapshotFile);
+        }
+      }
+    }
   }
 
   public static TermIndex getTermIndexFromSnapshotFile(File file) {
@@ -135,5 +172,15 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
   @VisibleForTesting
   public File getSmDir() {
     return smDir;
+  }
+}
+
+/**
+ * Compare snapshot files based on transaction indexes.
+ */
+class SnapshotFileComparator implements Comparator<SingleFileSnapshotInfo> {
+  @Override
+  public int compare(SingleFileSnapshotInfo file1, SingleFileSnapshotInfo file2) {
+    return (int) (file2.getIndex() - file1.getIndex());
   }
 }

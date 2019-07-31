@@ -20,6 +20,7 @@ package org.apache.ratis.statemachine;
 import java.io.IOException;
 
 import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.statemachine.impl.SnapshotRetentionPolicy;
 
 public interface StateMachineStorage {
 
@@ -37,4 +38,5 @@ public interface StateMachineStorage {
 
   void format() throws IOException;
 
+  void cleanupOldSnapshots(SnapshotRetentionPolicy snapshotRetentionPolicy) throws IOException;
 }

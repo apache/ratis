@@ -335,6 +335,16 @@ public interface RaftServerConfigKeys {
     static void setAutoTriggerThreshold(RaftProperties properties, long autoTriggerThreshold) {
       setLong(properties::setLong, AUTO_TRIGGER_THRESHOLD_KEY, autoTriggerThreshold);
     }
+
+    String RETENTION_POLICY_KEY = PREFIX + ".retention.num.files";
+    int DEFAULT_ALL_SNAPSHOTS_RETAINED = -1;
+    static int snapshotRetentionPolicy(RaftProperties raftProperties) {
+      return getInt(raftProperties::getInt,
+          RETENTION_POLICY_KEY, DEFAULT_ALL_SNAPSHOTS_RETAINED, getDefaultLog());
+    }
+    static void setSnapshotRetentionPolicy(RaftProperties properties, int numSnapshotFilesRetained) {
+      setInt(properties::setInt, RETENTION_POLICY_KEY, numSnapshotFilesRetained);
+    }
   }
 
   /** server rpc timeout related */
