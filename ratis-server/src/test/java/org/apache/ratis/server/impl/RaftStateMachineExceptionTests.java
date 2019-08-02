@@ -71,14 +71,17 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
     }
   }
 
+  {
+    final RaftProperties prop = getProperties();
+    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY, StateMachineWithException.class, StateMachine.class);
+  }
+
   @Test
   public void testHandleStateMachineException() throws Exception {
-    final RaftProperties prop = getProperties();
-    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        StateMachineWithException.class, StateMachine.class);
-    final MiniRaftCluster cluster = newCluster(3);
-    cluster.start();
+    runWithNewCluster(3, this::runTestHandleStateMachineException);
+  }
 
+  private void runTestHandleStateMachineException(CLUSTER cluster) throws Exception {
     RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
     try(final RaftClient client = cluster.createClient(leaderId)) {
@@ -93,12 +96,10 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
 
   @Test
   public void testRetryOnStateMachineException() throws Exception {
-    final RaftProperties prop = getProperties();
-    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        StateMachineWithException.class, StateMachine.class);
-    final MiniRaftCluster cluster = newCluster(3);
-    cluster.start();
+    runWithNewCluster(3, this::runTestRetryOnStateMachineException);
+  }
 
+  private void runTestRetryOnStateMachineException(CLUSTER cluster) throws Exception {
     RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
     cluster.getLeaderAndSendFirstMessage(true);
@@ -141,38 +142,30 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
 
   @Test
   public void testRetryOnExceptionDuringReplication() throws Exception {
-    final RaftProperties prop = getProperties();
-    prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        StateMachineWithException.class, StateMachine.class);
-    final MiniRaftCluster cluster = newCluster(3);
-    cluster.start();
-    RaftTestUtil.waitForLeader(cluster);
-    RaftServerImpl leader = cluster.getLeader();
-    RaftPeerId leaderId = leader.getId();
+    runWithNewCluster(3, this::runTestRetryOnExceptionDuringReplication);
+  }
+
+  private void runTestRetryOnExceptionDuringReplication(CLUSTER cluster) throws Exception {
+    final RaftServerImpl oldLeader = RaftTestUtil.waitForLeader(cluster);
     cluster.getLeaderAndSendFirstMessage(true);
     // turn on the preAppend failure switch
     failPreAppend = true;
-    final RaftClient client = cluster.createClient(leaderId);
+    final RaftClient client = cluster.createClient(oldLeader.getId());
     final RaftClientRpc rpc = client.getClientRpc();
     final long callId = 999;
-    RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, new RaftTestUtil.SimpleMessage("message"));
+    final SimpleMessage message = new SimpleMessage("message");
+    RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), oldLeader.getId(), callId, message);
     RaftClientReply reply = rpc.sendRequest(r);
     Objects.requireNonNull(reply.getStateMachineException());
 
-    RetryCache.CacheEntry oldEntry = RaftServerTestUtil.getRetryEntry(
-        leader, client.getId(), callId);
+    final RetryCache.CacheEntry oldEntry = RaftServerTestUtil.getRetryEntry(oldLeader, client.getId(), callId);
     Assert.assertNotNull(oldEntry);
     Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(oldEntry));
 
-    // At this point of time the old leader would have stepped down. wait for
-    // leader election to complete
-    RaftTestUtil.waitForLeader(cluster);
-    leader = cluster.getLeader();
-    leaderId = leader.getId();
+    // At this point of time the old leader would have stepped down. wait for leader election to complete
+    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
     // retry
-    r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, new RaftTestUtil.SimpleMessage("message"));
+    r = cluster.newRaftClientRequest(client.getId(), leader.getId(), callId, message);
     reply = rpc.sendRequest(r);
     Objects.requireNonNull(reply.getStateMachineException());
 

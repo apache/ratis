@@ -110,14 +110,16 @@ class LeaderElection implements Runnable {
   private final RaftServerImpl server;
 
   LeaderElection(RaftServerImpl server) {
-    this.name = server.getId() + ":" + server.getGroupId() + ":" + getClass().getSimpleName() + COUNT.incrementAndGet();
+    this.name = server.getMemberId() + ":" + getClass().getSimpleName() + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
     this.daemon = new Daemon(this);
     this.server = server;
   }
 
   void start() {
-    lifeCycle.startAndTransition(daemon::start);
+    lifeCycle.transition(LifeCycle.State.STARTING);
+    lifeCycle.transition(LifeCycle.State.RUNNING);
+    daemon.start();
   }
 
   void shutdown() {
@@ -128,10 +130,6 @@ class LeaderElection implements Runnable {
   public void run() {
     try {
       askForVotes();
-    } catch (InterruptedException e) {
-      // the leader election thread is interrupted. The peer may already step
-      // down to a follower. The leader election should skip.
-      LOG.info("{} thread is interrupted gracefully; server={}", this, server);
     } catch(Throwable e) {
       final LifeCycle.State state = lifeCycle.getCurrentState();
       final String message = "Failed " + this + ", state=" + state;
