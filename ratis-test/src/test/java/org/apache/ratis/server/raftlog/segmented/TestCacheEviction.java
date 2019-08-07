@@ -22,12 +22,15 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.impl.ServerState;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.LogSegmentList;
 import org.apache.ratis.server.raftlog.segmented.TestSegmentedRaftLog.SegmentRange;
@@ -153,6 +156,8 @@ public class TestCacheEviction extends BaseTest {
     RaftServerConfigKeys.Log.setSegmentSizeMax(prop, SizeInBytes.valueOf("8KB"));
     RaftServerConfigKeys.Log.setPreallocatedSize(prop, SizeInBytes.valueOf("8KB"));
     final RaftPeerId peerId = RaftPeerId.valueOf("s0");
+    final RaftGroupId groupId = RaftGroupId.randomId();
+    final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(peerId, groupId);
     final int maxCachedNum = RaftServerConfigKeys.Log.maxCachedSegmentNum(prop);
 
     File storageDir = getTestDir();
@@ -165,8 +170,8 @@ public class TestCacheEviction extends BaseTest {
     Mockito.when(server.getFollowerNextIndices()).thenReturn(new long[]{});
     Mockito.when(state.getLastAppliedIndex()).thenReturn(0L);
 
-    SegmentedRaftLog raftLog = new SegmentedRaftLog(peerId, server, storage, -1, prop);
-    raftLog.open(RaftServerConstants.INVALID_LOG_INDEX, null);
+    SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, server, storage, -1, prop);
+    raftLog.open(RaftLog.INVALID_LOG_INDEX, null);
     List<SegmentRange> slist = TestSegmentedRaftLog.prepareRanges(0, maxCachedNum, 7, 0);
     LogEntryProto[] entries = generateEntries(slist);
     raftLog.append(entries).forEach(CompletableFuture::join);

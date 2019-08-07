@@ -117,7 +117,7 @@ public class ServerState implements Closeable {
 
     // we cannot apply log entries to the state machine in this step, since we
     // do not know whether the local log entries have been committed.
-    log = initLog(id, prop, lastApplied, this::setRaftConf);
+    this.log = initRaftLog(getMemberId(), server, storage, this::setRaftConf, lastApplied, prop);
 
     RaftLog.Metadata metadata = log.loadMetadata();
     currentTerm.set(metadata.getTerm());
@@ -179,18 +179,13 @@ public class ServerState implements Closeable {
     stateMachineUpdater.start();
   }
 
-  /**
-   * note we do not apply log entries to the state machine here since we do not
-   * know whether they have been committed.
-   */
-  private RaftLog initLog(RaftPeerId id, RaftProperties prop,
-      long lastIndexInSnapshot, Consumer<LogEntryProto> logConsumer)
-      throws IOException {
+  private static RaftLog initRaftLog(RaftGroupMemberId memberId, RaftServerImpl server, RaftStorage storage,
+      Consumer<LogEntryProto> logConsumer, long lastIndexInSnapshot, RaftProperties prop) throws IOException {
     final RaftLog log;
     if (RaftServerConfigKeys.Log.useMemory(prop)) {
-      log = new MemoryRaftLog(id, lastIndexInSnapshot, prop);
+      log = new MemoryRaftLog(memberId, lastIndexInSnapshot, prop);
     } else {
-      log = new SegmentedRaftLog(id, server, this.storage, lastIndexInSnapshot, prop);
+      log = new SegmentedRaftLog(memberId, server, storage, lastIndexInSnapshot, prop);
     }
     log.open(lastIndexInSnapshot, logConsumer);
     return log;

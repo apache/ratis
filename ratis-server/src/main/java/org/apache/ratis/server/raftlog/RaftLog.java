@@ -19,12 +19,11 @@ package org.apache.ratis.server.raftlog;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.LogAppender;
 import org.apache.ratis.server.impl.RaftConfiguration;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -59,13 +58,14 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(RaftLog.class);
   public static final String LOG_SYNC = RaftLog.class.getSimpleName() + ".logSync";
 
-  private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", getSelfId(), s);
-  private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", getSelfId(), s);
+  private final Consumer<Object> infoIndexChange = s -> LOG.info("{}: {}", getName(), s);
+  private final Consumer<Object> traceIndexChange = s -> LOG.trace("{}: {}", getName(), s);
 
   /** The least valid log index, i.e. the index used when writing to an empty log. */
   public static final long LEAST_VALID_LOG_INDEX = 0L;
   public static final long INVALID_LOG_INDEX = LEAST_VALID_LOG_INDEX - 1;
 
+  private final String name;
   /**
    * The largest committed index. Note the last committed log may be included
    * in the latest snapshot file.
@@ -74,7 +74,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   private final RaftLogIndex purgeIndex;
   private final int purgeGap;
 
-  private final RaftPeerId selfId;
+  private final RaftGroupMemberId memberId;
   private final int maxBufferSize;
 
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
@@ -83,8 +83,9 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   private volatile LogEntryProto lastMetadataEntry = null;
 
-  protected RaftLog(RaftPeerId selfId, long commitIndex, RaftProperties properties) {
-    this.selfId = selfId;
+  protected RaftLog(RaftGroupMemberId memberId, long commitIndex, RaftProperties properties) {
+    this.name = memberId + "-" + getClass().getSimpleName();
+    this.memberId = memberId;
     this.commitIndex = new RaftLogIndex("commitIndex", commitIndex);
     this.purgeIndex = new RaftLogIndex("purgeIndex", LEAST_VALID_LOG_INDEX - 1);
     this.purgeGap = RaftServerConfigKeys.Log.purgeGap(properties);
@@ -168,7 +169,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       try {
         operation = operation.preAppendTransaction();
       } catch (IOException e) {
-        throw new StateMachineException(selfId, e);
+        throw new StateMachineException(memberId, e);
       }
 
       // build the log entry after calling the StateMachine
@@ -176,9 +177,8 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
       int entrySize = e.getSerializedSize();
       if (entrySize > maxBufferSize) {
-        throw new StateMachineException(selfId, new RaftLogIOException(
-            "Log entry size " + entrySize + " exceeds the max buffer limit of "
-                + maxBufferSize));
+        throw new StateMachineException(memberId, new RaftLogIOException(
+            "Log entry size " + entrySize + " exceeds the max buffer limit of " + maxBufferSize));
       }
       appendEntry(e);
       return nextIndex;
@@ -193,7 +193,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   private long appendMetadataImpl(long term, long newCommitIndex) {
     checkLogState();
     if (!shouldAppendMetadata(newCommitIndex)) {
-      return RaftServerConstants.INVALID_LOG_INDEX;
+      return INVALID_LOG_INDEX;
     }
 
     final LogEntryProto entry;
@@ -437,12 +437,8 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     state.close();
   }
 
-  public RaftPeerId getSelfId() {
-    return selfId;
-  }
-
   public String getName() {
-    return selfId + "-" + getClass().getSimpleName();
+    return name;
   }
 
   /**
@@ -477,17 +473,17 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       } catch (TimeoutException t) {
         throw t;
       } catch (Throwable t) {
-        final String err = selfId + ": Failed readStateMachineData for " +
+        final String err = getName() + ": Failed readStateMachineData for " +
             ServerProtoUtils.toLogEntryString(logEntry);
-        LogAppender.LOG.error(err, t);
+        LOG.error(err, t);
         throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(t));
       }
       // by this time we have already read the state machine data,
       // so the log entry data should be set now
       if (ServerProtoUtils.shouldReadStateMachineData(entryProto)) {
-        final String err = selfId + ": State machine data not set for " +
+        final String err = getName() + ": State machine data not set for " +
             ServerProtoUtils.toLogEntryString(logEntry);
-        LogAppender.LOG.error(err);
+        LOG.error(err);
         throw new RaftLogIOException(err);
       }
       return entryProto;

@@ -23,8 +23,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.metrics.RatisMetricRegistry;
-import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -167,14 +166,14 @@ class SegmentedRaftLogWorker implements Runnable {
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
-  SegmentedRaftLogWorker(RaftPeerId selfId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
+  SegmentedRaftLogWorker(RaftGroupMemberId memberId, StateMachine stateMachine, Runnable submitUpdateCommitEvent,
                          RaftServerImpl server, RaftStorage storage, RaftProperties properties) {
-    this.name = selfId + "-" + getClass().getSimpleName() + ":" + storage.getStorageDir();
+    this.name = memberId + "-" + getClass().getSimpleName();
     LOG.info("new {} for {}", name, storage);
 
     this.submitUpdateCommitEvent = submitUpdateCommitEvent;
     this.stateMachine = stateMachine;
-    this.metricRegistry = RatisMetrics.createMetricRegistryForLogWorker(selfId.toString());
+    this.metricRegistry = RatisMetrics.createMetricRegistryForLogWorker(memberId.getPeerId().toString());
     this.storage = storage;
     this.server = server;
     final SizeInBytes queueByteLimit = RaftServerConfigKeys.Log.queueByteLimit(properties);

@@ -19,11 +19,11 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.raftlog.segmented.CacheInvalidationPolicy.CacheInvalidationPolicyDefault;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
@@ -38,8 +38,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Consumer;
-
-import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
 /**
  * In-memory RaftLog Cache. Currently we provide a simple implementation that
@@ -296,8 +294,8 @@ class SegmentedRaftLogCache {
   private final int maxCachedSegments;
   private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
 
-  SegmentedRaftLogCache(RaftPeerId selfId, RaftStorage storage, RaftProperties properties) {
-    this.name = selfId + "-" + getClass().getSimpleName();
+  SegmentedRaftLogCache(Object name, RaftStorage storage, RaftProperties properties) {
+    this.name = name + "-" + getClass().getSimpleName();
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;
     maxCachedSegments = RaftServerConfigKeys.Log.maxCachedSegmentNum(properties);
@@ -447,7 +445,7 @@ class SegmentedRaftLogCache {
   long getEndIndex() {
     return openSegment != null ? openSegment.getEndIndex() :
         (closedSegments.isEmpty() ?
-            INVALID_LOG_INDEX :
+            RaftLog.INVALID_LOG_INDEX:
             closedSegments.get(closedSegments.size() - 1).getEndIndex());
   }
 

@@ -19,11 +19,6 @@ package org.apache.ratis.protocol;
 
 public class StateMachineException extends RaftException {
   public StateMachineException(RaftGroupMemberId serverId, Throwable cause) {
-    this(serverId.getPeerId(), cause);
-  }
-
-  // TODO: remove this constructor in RATIS-609
-  public StateMachineException(RaftPeerId serverId, Throwable cause) {
     // cause.getMessage is added to this exception message as the exception received through
     // RPC call contains similar message but Simulated RPC doesn't. Adding the message
     // from cause to this exception makes it consistent across simulated and other RPC implementations.

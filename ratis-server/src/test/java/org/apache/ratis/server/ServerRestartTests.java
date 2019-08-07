@@ -246,7 +246,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final List<RaftPeerId> ids = new ArrayList<>();
     final RaftServerImpl leader = cluster.getLeader();
     final RaftLog leaderLog = leader.getState().getLog();
-    final RaftPeerId leaderId = leaderLog.getSelfId();
+    final RaftPeerId leaderId = leader.getId();
     ids.add(leaderId);
 
     RaftTestUtil.getStateMachineLogEntries(leaderLog);

@@ -18,6 +18,7 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
@@ -31,6 +32,7 @@ import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncateI
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
@@ -110,29 +112,89 @@ public class SegmentedRaftLog extends RaftLog {
     }
   }
 
-  private final Optional<RaftServerImpl> server;
+  /** The methods defined in {@link RaftServerImpl} which are used in {@link SegmentedRaftLog}. */
+  interface ServerLogMethods {
+    ServerLogMethods DUMMY = new ServerLogMethods() {};
+
+    default boolean shouldEvictCache() {
+      return false;
+    }
+
+    default long[] getFollowerNextIndices() {
+      return null;
+    }
+
+    default long getLastAppliedIndex() {
+      return INVALID_LOG_INDEX;
+    }
+
+    /** Notify the server that a log entry is being truncated. */
+    default void notifyTruncatedLogEntry(TermIndex ti) {
+    }
+  }
+
+  /**
+   * When the server is null, return the dummy instance of {@link ServerLogMethods}.
+   * Otherwise, the server is non-null, return the implementation using the given server.
+   */
+  private ServerLogMethods newServerLogMethods(RaftServerImpl impl) {
+    if (impl == null) {
+      return ServerLogMethods.DUMMY;
+    }
+
+    return new ServerLogMethods() {
+      @Override
+      public boolean shouldEvictCache() {
+        return cache.shouldEvict();
+      }
+
+      @Override
+      public long[] getFollowerNextIndices() {
+        return impl.getFollowerNextIndices();
+      }
+
+      @Override
+      public long getLastAppliedIndex() {
+        return impl.getState().getLastAppliedIndex();
+      }
+
+      @Override
+      public void notifyTruncatedLogEntry(TermIndex ti) {
+        try {
+          final LogEntryProto entry = get(ti.getIndex());
+          impl.notifyTruncatedLogEntry(entry);
+        } catch (RaftLogIOException e) {
+          LOG.error("{}: Failed to read log {}", getName(), ti, e);
+        }
+      }
+    };
+  }
+
+  private final ServerLogMethods server;
   private final RaftStorage storage;
+  private final StateMachine stateMachine;
   private final SegmentedRaftLogCache cache;
   private final SegmentedRaftLogWorker fileLogWorker;
   private final long segmentMaxSize;
   private final boolean stateMachineCachingEnabled;
 
-  public SegmentedRaftLog(RaftPeerId selfId, RaftServerImpl server,
+  public SegmentedRaftLog(RaftGroupMemberId memberId, RaftServerImpl server,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
-    this(selfId, server, server != null? server.getStateMachine(): null,
+    this(memberId, server, server != null? server.getStateMachine(): null,
         server != null? server::submitUpdateCommitEvent: null,
         storage, lastIndexInSnapshot, properties);
   }
 
-  SegmentedRaftLog(RaftPeerId selfId, RaftServerImpl server,
+  SegmentedRaftLog(RaftGroupMemberId memberId, RaftServerImpl server,
       StateMachine stateMachine, Runnable submitUpdateCommitEvent,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
-    super(selfId, lastIndexInSnapshot, properties);
-    this.server = Optional.ofNullable(server);
+    super(memberId, lastIndexInSnapshot, properties);
+    this.server = newServerLogMethods(server);
     this.storage = storage;
+    this.stateMachine = stateMachine;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
-    this.cache = new SegmentedRaftLogCache(selfId, storage, properties);
-    this.fileLogWorker = new SegmentedRaftLogWorker(selfId, stateMachine,
+    this.cache = new SegmentedRaftLogCache(memberId, storage, properties);
+    this.fileLogWorker = new SegmentedRaftLogWorker(memberId, stateMachine,
         submitUpdateCommitEvent, server, storage, properties);
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties);
   }
@@ -221,9 +283,10 @@ public class SegmentedRaftLog extends RaftLog {
     }
 
     try {
-      return new EntryWithData(entry, server.map(s -> s.getStateMachine().readStateMachineData(entry)).orElse(null));
+      final CompletableFuture<ByteString> future = stateMachine != null? stateMachine.readStateMachineData(entry): null;
+      return new EntryWithData(entry, future);
     } catch (Throwable e) {
-      final String err = getSelfId() + ": Failed readStateMachineData for " +
+      final String err = getName() + ": Failed readStateMachineData for " +
           ServerProtoUtils.toLogEntryString(entry);
       LOG.error(err, e);
       throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(e));
@@ -231,12 +294,11 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   private void checkAndEvictCache() {
-    if (server.isPresent() && cache.shouldEvict()) {
+    if (server.shouldEvictCache()) {
       // TODO if the cache is hitting the maximum size and we cannot evict any
       // segment's cache, should block the new entry appending or new segment
       // allocation.
-      final RaftServerImpl s = server.get();
-      cache.evictCache(s.getFollowerNextIndices(), fileLogWorker.getFlushIndex(), s.getState().getLastAppliedIndex());
+      cache.evictCache(server.getFollowerNextIndices(), fileLogWorker.getFlushIndex(), server.getLastAppliedIndex());
     }
   }
 
@@ -296,8 +358,7 @@ public class SegmentedRaftLog extends RaftLog {
   protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
     checkLogState();
     if (LOG.isTraceEnabled()) {
-      LOG.trace("{}: appendEntry {}", getSelfId(),
-          ServerProtoUtils.toLogEntryString(entry));
+      LOG.trace("{}: appendEntry {}", getName(), ServerProtoUtils.toLogEntryString(entry));
     }
     try(AutoCloseableLock writeLock = writeLock()) {
       validateLogEntry(entry);
@@ -334,7 +395,7 @@ public class SegmentedRaftLog extends RaftLog {
       }
       return writeFuture;
     } catch (Throwable throwable) {
-      LOG.error(getSelfId() + ": Failed to append " + ServerProtoUtils.toLogEntryString(entry), throwable);
+      LOG.error("{}: Failed to append {}", getName(), ServerProtoUtils.toLogEntryString(entry), throwable);
       throw throwable;
     }
   }
@@ -351,18 +412,6 @@ public class SegmentedRaftLog extends RaftLog {
     }
   }
 
-  private void failClientRequest(TermIndex ti) {
-    if (!server.isPresent()) {
-      return;
-    }
-    try {
-      final LogEntryProto entry = get(ti.getIndex());
-      server.get().failClientRequest(entry);
-    } catch(RaftLogIOException e) {
-      LOG.error(getName() + ": Failed to read log " + ti, e);
-    }
-  }
-
   @Override
   public List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries) {
     checkLogState();
@@ -370,7 +419,7 @@ public class SegmentedRaftLog extends RaftLog {
       return Collections.emptyList();
     }
     try(AutoCloseableLock writeLock = writeLock()) {
-      final TruncateIndices ti = cache.computeTruncateIndices(this::failClientRequest, entries);
+      final TruncateIndices ti = cache.computeTruncateIndices(server::notifyTruncatedLogEntry, entries);
       final long truncateIndex = ti.getTruncateIndex();
       final int index = ti.getArrayIndex();
       LOG.debug("truncateIndex={}, arrayIndex={}", truncateIndex, index);

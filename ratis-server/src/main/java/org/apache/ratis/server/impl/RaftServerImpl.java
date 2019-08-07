@@ -1281,7 +1281,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return null;
   }
 
-  public void failClientRequest(LogEntryProto logEntry) {
+  /**
+   * The given log entry is being truncated.
+   * Fail the corresponding client request, if there is any.
+   *
+   * @param logEntry the log entry being truncated
+   */
+  public void notifyTruncatedLogEntry(LogEntryProto logEntry) {
     if (logEntry.hasStateMachineLogEntry()) {
       final StateMachineLogEntryProto smLog = logEntry.getStateMachineLogEntry();
       final ClientId clientId = ClientId.valueOf(smLog.getClientId());

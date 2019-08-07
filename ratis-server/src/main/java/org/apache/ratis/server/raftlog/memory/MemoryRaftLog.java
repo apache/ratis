@@ -18,8 +18,8 @@
 package org.apache.ratis.server.raftlog.memory;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -72,8 +72,8 @@ public class MemoryRaftLog extends RaftLog {
   private final EntryList entries = new EntryList();
   private final AtomicReference<Metadata> metadata = new AtomicReference<>(new Metadata(null, 0));
 
-  public MemoryRaftLog(RaftPeerId selfId, long commitIndex, RaftProperties properties) {
-    super(selfId, commitIndex, properties);
+  public MemoryRaftLog(RaftGroupMemberId memberId, long commitIndex, RaftProperties properties) {
+    super(memberId, commitIndex, properties);
   }
 
   @Override
@@ -154,7 +154,7 @@ public class MemoryRaftLog extends RaftLog {
 
   @Override
   public long getStartIndex() {
-    return entries.size() == 0? RaftServerConstants.INVALID_LOG_INDEX: entries.getTermIndex(0).getIndex();
+    return entries.size() == 0? INVALID_LOG_INDEX: entries.getTermIndex(0).getIndex();
   }
 
   @Override
