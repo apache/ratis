@@ -314,3 +314,27 @@ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVI
 LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
 LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-----------------------------------------------------------------------
+This product uses the dropwizard-hadoop-metrics2.
+
+Copyright 2016 Josh Elser
+
+Licensed under the Apache License v2.0
+
+-----------------------------------------------------------------------
+This product uses https://github.com/mbocek/docker-ganglia/
+
+Contributed by Michal Bocek
+
+Licensed under the Apache License v2.0
+https://github.com/mbocek/docker-ganglia/blob/master/LICENSE
+
+-----------------------------------------------------------------------
+This product uses https://github.com/graphite-project/docker-graphite-statsd
+
+Copyright (c) 2013-2016 Nathan Hopkins
+
+Licensed under the MIT License
+
+--

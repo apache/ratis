@@ -21,35 +21,18 @@
    * limitations under the License.
    */
   -->
-  <id>bin</id>
+  <id>examples-bin</id>
   <formats>
     <format>tar.gz</format>
   </formats>
-  <moduleSets>
-    <moduleSet>
-      <useAllReactorProjects>true</useAllReactorProjects>
+  <dependencySets>
+    <dependencySet>
       <includes>
-        <include>org.apache.ratis:ratis-assembly</include>
-        <include>org.apache.ratis:ratis-client</include>
-        <include>org.apache.ratis:ratis-common</include>
-        <include>org.apache.ratis:ratis-grpc</include>
-        <include>org.apache.ratis:ratis-hadoop</include>
-        <include>org.apache.ratis:ratis-logservice</include>
-        <include>org.apache.ratis:ratis-netty</include>
-        <include>org.apache.ratis:ratis-proto</include>
-        <include>org.apache.ratis:ratis-replicated-map</include>
-        <include>org.apache.ratis:ratis-server</include>
-        <include>org.apache.ratis:ratis-test</include>
-        <include>org.apache.ratis:ratis-metrics</include>
-        <include>org.apache.ratis:ratis-resource-bundle</include>
+        <include>org.apache.ratis:ratis-examples</include>
       </includes>
-      <binaries>
-        <outputDirectory>jars</outputDirectory>
-        <includeDependencies>false</includeDependencies>
-        <unpack>false</unpack>
-      </binaries>
-    </moduleSet>
-  </moduleSets>
+      <outputDirectory>examples/lib</outputDirectory>
+    </dependencySet>
+  </dependencySets>
   <fileSets>
     <fileSet>
       <directory>${project.basedir}/..</directory>
@@ -60,14 +43,29 @@
       <fileMode>0644</fileMode>
     </fileSet>
     <fileSet>
-      <directory>${project.basedir}/src/main/resources</directory>
+      <directory>${project.build.directory}/maven-shared-archive-resources/META-INF/</directory>
       <outputDirectory>.</outputDirectory>
       <includes>
-        <include>README.md</include>
         <include>LICENSE</include>
         <include>NOTICE</include>
       </includes>
       <fileMode>0644</fileMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/src/main/resources</directory>
+      <outputDirectory>.</outputDirectory>
+      <includes>
+        <include>README.md</include>
+      </includes>
+      <fileMode>0644</fileMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-examples/src/main/bin</directory>
+      <outputDirectory>examples/bin</outputDirectory>
+      <includes>
+        <include>*.*</include>
+      </includes>
+      <fileMode>755</fileMode>
     </fileSet>
     <!-- Include dev support tools -->
     <fileSet>
@@ -75,6 +73,14 @@
       <outputDirectory>dev-support</outputDirectory>
       <fileMode>0644</fileMode>
       <directoryMode>0755</directoryMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-examples/src/main/resources</directory>
+      <outputDirectory>examples/conf</outputDirectory>
+      <includes>
+        <include>log4j.properties</include>
+      </includes>
+      <fileMode>644</fileMode>
     </fileSet>
   </fileSets>
 </assembly>

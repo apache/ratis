@@ -32,10 +32,42 @@
     <test.build.webapps>${project.build.directory}/test-classes/webapps</test.build.webapps>
     <test.cache.data>${project.build.directory}/test-classes</test.cache.data>
     <test.build.classes>${project.build.directory}/test-classes</test.build.classes>
+    <license.bundles.dependencies>true</license.bundles.dependencies>
   </properties>
 
   <build>
     <plugins>
+<!-- licensing info from our dependencies -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-remote-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>process-remote-resources</id>
+            <goals>
+              <goal>process</goal>
+            </goals>
+            <configuration>
+              <properties>
+                <bundled-dependencies>${license.bundles.dependencies}</bundled-dependencies>
+              </properties>
+              <resourceBundles>
+                <!-- Will generate META-INF/DEPENDENCIES META-INF/LICENSE META-INF/NOTICE -->
+                <resourceBundle>${project.groupId}:ratis-resource-bundle:${project.version}
+                </resourceBundle>
+              </resourceBundles>
+              <supplementalModelArtifacts>
+                <supplementalModelArtifact>
+                  ${project.groupId}:ratis-resource-bundle:${project.version}
+                </supplementalModelArtifact>
+              </supplementalModelArtifacts>
+              <supplementalModels>
+                <supplementalModel>supplemental-models.xml</supplementalModel>
+              </supplementalModels>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
@@ -103,6 +135,7 @@
           <descriptors>
             <descriptor>src/main/assembly/src.xml</descriptor>
             <descriptor>src/main/assembly/bin.xml</descriptor>
+            <descriptor>src/main/assembly/examples-bin.xml</descriptor>
           </descriptors>
         </configuration>
       </plugin>
@@ -138,7 +171,12 @@
       <groupId>org.apache.ratis</groupId>
       <artifactId>ratis-thirdparty-misc</artifactId>
     </dependency>
-
+    <dependency>
+      <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-resource-bundle</artifactId>
+      <version>${project.version}</version>
+      <optional>true</optional>
+     </dependency>
     <dependency>
       <artifactId>ratis-proto</artifactId>
       <groupId>org.apache.ratis</groupId>
@@ -270,6 +308,32 @@
                 <configuration>
                   <useSubDirectoryPerArtifact>true</useSubDirectoryPerArtifact>
                   <includes>**\/NOTICE,**\/NOTICE.txt</includes>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>concat-NOTICE-files</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>exec</goal>
+                </goals>
+                <configuration>
+                  <executable>env</executable>
+                  <arguments>
+                    <argument>bash</argument>
+                    <argument>-c</argument>
+                    <argument>cat maven-shared-archive-resources/META-INF/NOTICE \
+                      `find ${project.build.directory}/dependency -iname NOTICE -or -iname
+                      NOTICE.txt` \
+                    </argument>
+                  </arguments>
+                  <outputFile>${project.build.directory}/NOTICE.aggregate</outputFile>
+                  <workingDirectory>${project.build.directory}</workingDirectory>
                 </configuration>
               </execution>
             </executions>

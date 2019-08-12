@@ -67,6 +67,12 @@
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-ganglia</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>org.acplt</groupId>
+          <artifactId>oncrpc</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 </project>

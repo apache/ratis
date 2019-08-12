@@ -1,0 +1,372 @@
+#**
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+*#
+## Start with the NOTICE header for this particular artifact
+${project.name}
+Copyright 2017-2019 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+## Specially handled included deps. e.g. ASL2.0 works that have additional bundled works but
+#set($bundled-boostrap = ${bundled-boostrap.equalsIgnoreCase("true")})
+#set($bundled-logo = ${bundled-logo.equalsIgnoreCase("true")})
+#set($bundled-dependencies = ${bundled-dependencies.equalsIgnoreCase("true")})
+#if($bundled-bootstrap || $bundled-logo || $bundled-dependencies)
+====
+${project.name} contained works
+
+This product contains additional works that are distributed under licenses
+other than ASL v2. See LICENSE for full details
+
+#end
+## For modules that have the logo in their source tree
+#macro(orca_logo_notice)
+--
+Our Orca logo we got here: http://www.vectorfree.com/jumping-orca
+It is (c) 2012 by Vector Free user OverSurge
+
+It is licensed Creative Commons Attribution 3.0.
+
+We changed the logo by stripping the colored background, inverting
+it and then rotating it some.
+
+Later we found that vectorfree.com image is not properly licensed.
+The original is owned by vectorportal.com. The original was
+relicensed so we could use it as Creative Commons Attribution 3.0.
+The license is bundled with the download available here:
+http://www.vectorportal.com/subcategory/205/KILLER-WHALE-FREE-VECTOR.eps/ifile/9136/detailtest.asp
+#end
+## For modules that have bootstrap in their source tree
+#macro(bootstrap_notice)
+--
+This product includes portions of the Bootstrap project v3.0.0
+
+Copyright 2013 Twitter, Inc.
+
+Licensed under the Apache License v2.0
+
+This product uses the Glyphicons Halflings icon set.
+
+http://glyphicons.com/
+
+Copyright Jan Kovařík
+
+Licensed under the Apache License v2.0 as a part of the Bootstrap project.
+#end
+## no NOTICE file.
+#macro(findbugs_cleanroom_notice)
+--
+## Include a note about the cleanroom reimplementation because otherwise it looks like the gpl work.
+This product includes the 'Findbugs Annotations under Apache License' project
+(https://github.com/stephenc/findbugs-annotations), version 1.3.9-1
+licensed under the Apache Software License, version 2.0.
+#end
+#macro(netty_all_4_notice)
+--
+## the parts of the NOTICE file from io.nett:netty-all that are relevant
+This product includes portions of 'the Netty Project'
+
+  * http://netty.io/
+
+Copyright 2011 The Netty Project
+
+licensed under the Apache Software License, version 2.0.
+
+This product contains a modified version of Roland Kuhn's ASL2
+AbstractNodeQueue, which is based on Dmitriy Vyukov's non-intrusive MPSC queue.
+It can be obtained at:
+
+  * LICENSE Apache Software License, version 2.0.
+  * HOMEPAGE:
+    * https://github.com/akka/akka/blob/wip-2.2.3-for-scala-2.11/akka-actor/
+          src/main/java/akka/dispatch/AbstractNodeQueue.java
+
+The Netty Project includes additional subcomponents under additional licenses,
+noted in the LICENSE file.
+## Leave out all the 'optionally depends on' bits.
+
+#end
+
+#macro(jetty_notice $jetty-include-unixcrypt)
+--
+This product includes portions of 'The Jetty Web Container'
+
+Copyright 1995-2016 Mort Bay Consulting Pty Ltd.
+
+#if(${jetty-include-unixcrypt})
+## UnixCrypt.java paragraph only in server
+The UnixCrypt.java code ~Implements the one way cryptography used by
+Unix systems for simple password protection.  Copyright 1996 Aki Yoshida,
+modified April 2001  by Iris Van den Broeke, Daniel Deville.
+Permission to use, copy, modify and distribute UnixCrypt
+for non-commercial or commercial purposes and without fee is
+granted provided that the copyright notice appears in all copies.
+
+#end
+## jsp implementation paragraph is handled via org.eclipse.jetty:jetty-jsp:jar
+
+Some portions of the code are Copyright:
+  2006 Tim Vernum
+  1999 Jason Gilbert.
+## jboss integration skipped, not included
+## win32 service wrapper skipped, not included
+
+## This dot is here to stop a bug in the "collapse white space" feature of velocity
+## that otherwise swallows the license line.
+.
+licensed under the Apache Software License, version 2.0.
+
+#end
+#macro(log4j_notice)
+--
+## log4j has a NOTICE file but it isn't included in the jar
+This product includes 'Apache log4j'
+Copyright 2010 The Apache Software Foundation
+
+#end
+#macro(htrace_notice)
+--
+## htrace includes a relocated commons-logging that has a NOTICE file that's missing the copyright
+This product includes 'Apache Commons Logging'
+Copyright The Apache Software Foundation
+
+#end
+#macro(zookeeper_notice)
+--
+## ZooKeeper has a NOTICE file but it isn't included in the jar
+This product includes 'Apache ZooKeeper'
+Copyright 2009-2012 The Apache Software Foundation
+
+#end
+#macro(jets3t_notice)
+--
+## Jets3t has a NOTICE file but it isn't included in the jar
+This product includes 'Jets3t', which includes software developed by:
+
+   The Apache Software Foundation (http://www.apache.org/).
+
+   The ExoLab Project (http://www.exolab.org/)
+
+   Sun Microsystems (http://www.sun.com/)
+
+   Codehaus (http://castor.codehaus.org)
+
+   Tatu Saloranta (http://wiki.fasterxml.com/TatuSaloranta)
+
+#end
+#macro(jruby_notice)
+JRuby Incorporated Works
+
+Some additional libraries distributed with JRuby are not covered by
+JRuby's licence.
+
+## skip bytelist, jnr-posix, jruby-openssl, jruby-readline, psych, and yydebug
+## because they're covered by the jruby copyright and license
+
+## skip rails benchmark javascript, because it's not in the complete jar
+
+## jruby bundles asm, but we already ref that in our included deps
+
+## skip jline2, jzlib because BSD-3
+
+## skip rake because MIT
+
+## jruby bundles jcodings and joni, but we already ref that in our included deps
+
+## skip Bouncycastle, jnr-x86asm because MIT
+
+ invokebinder, jffi, jitescript, jnr-constants, jnr-enxio, jnr-ffi,
+ jnr-netdb, jnr-unixsocket, joda-time, maven, nailgun, options,
+ snakeyaml, unsafe-fences are distributed under the Apache License
+ version 2.0.
+
+## Skip racc, json-generator, json-parser because it is under Ruby license
+
+## jruby bundles jquery, but we already ref that above.
+#end
+#macro(commons_lang3_notice)
+--
+## commons-lang3 has following note in the NOTICE file
+This product includes software from the Spring Framework,
+under the Apache License 2.0 (see: StringUtils.containsWhitespace())
+
+#end
+## first bundled source
+#if(${bundled-logo})
+#orca_logo_notice()
+#end
+#if(${bundled-bootstrap})
+#bootstrap_notice()
+#end
+#if(${bundled-dependencies})
+#**
+ Note that this will fail the build if we don't have a license. update supplemental-models via
+ setting '-Dlicense.debug.print.included' and looking in the generated LICENSE file
+ * BSD and MIT licensed works are just in LICENSE.
+ * Public Domain dedicated works are just in LICENSE.
+ * ASL2.0 works are skipped. if they have a NOTICE file it'll get merged via the shade plugin.
+ * TODO If a non-ASL2.0 work has a NOTICE file, we'll get a duplicate.
+*#
+## group up by licenses we know we have several of
+#set($cddl_1_0=[])
+#set($cddl_1_1=[])
+#set($cpl_1_0=[])
+#set($mpl_1_1=[])
+## track jettys
+#set($jetty=false)
+#set($jetty-with-crypt=false)
+## track jruby
+#set($jruby=false)
+#foreach( ${dep} in ${projects} )
+#if(${dep.artifactId.equals("findbugs-annotations")})
+#if(${dep.groupId.equals("com.github.stephenc.findbugs")})
+#findbugs_cleanroom_notice()
+#end
+#end
+#if(${dep.artifactId.equals("netty-all")} && ${dep.version.startsWith("4")})
+#netty_all_4_notice()
+#end
+#if(${dep.artifactId.startsWith("jetty")})
+#set($jetty=true)
+#if(${dep.artifactId.equals("jetty")})
+#set($jetty-with-crypt=true)
+#end
+#end
+#if(${dep.artifactId.equals("log4j")})
+#log4j_notice()
+#end
+#if(${dep.artifactId.equals("htrace-core")})
+#htrace_notice()
+#end
+#if(${dep.artifactId.equals("zookeeper")})
+#zookeeper_notice()
+#end
+#if(${dep.artifactId.equals("jets3t")})
+#jets3t_notice()
+#end
+#if(${dep.artifactId.equals("jruby-complete")})
+#set($jruby=true)
+#end
+#if(${dep.artifactId.equals("commons-lang3")})
+#if(${dep.groupId.equals("org.apache.commons")})
+#commons_lang3_notice()
+#end
+#end
+#if( ${dep.licenses.isEmpty()} )
+ERROR: This product includes ${dep.name} which has no licenses!
+Revert the change if invalid or if intentional add license info to supplemental-models.xml
+
+<groupId>${dep.groupId}</groupId>
+<artifactId>${dep.artifactId}</artifactId>
+<version>${dep.version}</version>
+
+maven central search
+g:${dep.groupId} AND a:${dep.artifactId} AND v:${dep.version}
+
+project website
+${dep.url}
+project source
+${dep.scm.url}
+#else
+#if( !(${dep.licenses[0].name.contains("BSD")} || ${dep.licenses[0].name.contains("MIT")}) )
+#if( !(${dep.licenses[0].name.equals("Public Domain")}) )
+#if( !(${dep.licenses[0].name.contains("Apache Software License, Version 2.0")}) )
+#set($aggregated = false)
+#if(${dep.licenses[0].name.contains("CDDL")})
+#if(${dep.licenses[0].name.contains("1.0")})
+#set($aggregated = $cddl_1_0.add($dep))
+#elseif(${dep.licenses[0].name.contains("1.1")})
+#set($aggregated = $cddl_1_1.add($dep))
+#end
+#end
+#if(${dep.licenses[0].name.equalsIgnoreCase("Common Public License Version 1.0")})
+#set($aggregated = $cpl_1_0.add($dep))
+#end
+#if(${dep.licenses[0].name.equalsIgnoreCase("Mozilla Public License Version 1.1")})
+#set($aggregated = $mpl_1_1.add($dep))
+#end
+#if(!${aggregated})
+--
+This product includes ${dep.name}
+
+Licensed under ${dep.licenses[0].name}, see LICENSE for details.
+
+incorporated from ${dep.groupId}:${dep.artifactId}:${dep.packaging}:${dep.version}
+
+For source see '${dep.url}'.
+#end
+#end
+#end
+#end
+#end
+#end
+## Print out jetty
+#if(${jetty})
+#jetty_notice(${jetty-with-crypt})
+#end
+## Now go through all the lists of Category-B licensed works and make sure we
+## name them and give a URL for the project's home page.
+
+## list all the CPL
+#if(!(${cpl_1_0.isEmpty()}))
+----
+This product includes the following works licensed under the CPL v1.0, see LICENSE for details:
+
+#foreach(${dep} in ${cpl_1_0})
+  * ${dep.name} incorporated from ${dep.groupId}:${dep.artifactId}:${dep.packaging}:${dep.version}
+    For source see: ${dep.url}
+#end
+#end
+----
+## We presume the CPL list above will include the primary JRuby notice
+#if(${jruby})
+#jruby_notice()
+#end
+## list all the MPL
+#if(!(${mpl_1_1.isEmpty()}))
+----
+This product includes the following works licensed under the MPL v1.1, see LICENSE for details:
+
+#foreach(${dep} in ${mpl_1_1})
+  * ${dep.name} incorporated from ${dep.groupId}:${dep.artifactId}:${dep.packaging}:${dep.version}
+    For source see: ${dep.url}
+#end
+#end
+## list all the CDDL
+#if(!(${cddl_1_0.isEmpty()}))
+----
+This product includes the following works licensed under the CDDL v1.0, see LICENSE for details:
+
+#foreach(${dep} in ${cddl_1_0})
+  * ${dep.name} incorporated from ${dep.groupId}:${dep.artifactId}:${dep.packaging}:${dep.version}
+    For source see: ${dep.url}
+#end
+#end
+#if(!(${cddl_1_1.isEmpty()}))
+----
+This product includes the following works licensed under the CDDL v1.1, see LICENSE for details:
+
+#foreach(${dep} in ${cddl_1_1})
+  * ${dep.name} incorporated from ${dep.groupId}:${dep.artifactId}:${dep.packaging}:${dep.version}
+    For source see: ${dep.url}
+#end
+#end
+----
+Incorporated NOTICE files from bundled works below.
+----
+#end

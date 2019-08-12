@@ -45,7 +45,7 @@
     <module>ratis-common</module>
     <module>ratis-client</module>
     <module>ratis-server</module>
-
+    <module>ratis-resource-bundle</module>
     <module>ratis-grpc</module>
     <module>ratis-netty</module>
     <module>ratis-hadoop</module>
@@ -132,6 +132,11 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+     <!-- where to find the generated LICENSE files -->
+    <license.aggregate.path>
+      ${project.build.directory}/maven-shared-archive-resources/META-INF/LICENSE
+    </license.aggregate.path>
+    <license.bundles.dependencies>false</license.bundles.dependencies>
 
     <!-- Maven plugin versions -->
     <maven-antrun-plugin.version>1.7</maven-antrun-plugin.version>
@@ -153,7 +158,7 @@
     <maven-source-plugin.version>2.3</maven-source-plugin.version>
     <maven-stylus-skin.version>1.5</maven-stylus-skin.version>
     <maven-surefire-plugin.version>3.0.0-M1</maven-surefire-plugin.version>
-
+    <maven-remote-resources-plugin.version>1.5</maven-remote-resources-plugin.version>
     <protobuf-maven-plugin.version>0.5.1</protobuf-maven-plugin.version>
     <license-maven-plugin.version>1.19</license-maven-plugin.version>
     <copy-rename-maven-plugin.version>1.0</copy-rename-maven-plugin.version>
@@ -165,7 +170,7 @@
     -->
     <apache-rat-plugin.version>0.12</apache-rat-plugin.version>
     <build-helper-maven-plugin.version>1.9</build-helper-maven-plugin.version>
-    <exec-maven-plugin.version>1.3.1</exec-maven-plugin.version>
+    <exec-maven-plugin.version>1.6.0</exec-maven-plugin.version>
     <findbugs.version>3.0.0</findbugs.version>
     <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
     <wagon-ssh.version>1.0</wagon-ssh.version>
@@ -450,6 +455,11 @@
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>build-helper-maven-plugin</artifactId>
           <version>${build-helper-maven-plugin.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-remote-resources-plugin</artifactId>
+          <version>${maven-remote-resources-plugin.version}</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
@@ -853,6 +863,24 @@
             </executions>
           </plugin>
           <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>negate-license-bundles-property</id>
+                <goals>
+                  <goal>bsh-property</goal>
+                </goals>
+                <configuration>
+                  <source>skip.license.check = !${license.bundles.dependencies};</source>
+                  <properties>
+                    <property>skip.license.check</property>
+                  </properties>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-enforcer-plugin</artifactId>
             <dependencies>
@@ -882,6 +910,41 @@
                       </message>
                     </enforceBytecodeVersion>
                   </rules>
+                </configuration>
+              </execution>
+              <execution>
+                <id>check-aggregate-license</id>
+                <!-- must check after LICENSE is built at 'generate-resources' -->
+                <phase>process-resources</phase>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <evaluateBeanshell>
+                      <condition>
+                        File license = new File("${license.aggregate.path}");
+
+                        // Beanshell does not support try-with-resources,
+                        // so we must close this scanner manually
+                        Scanner scanner = new Scanner(license);
+
+                        while (scanner.hasNextLine()) {
+                        if (scanner.nextLine().startsWith("ERROR:")) {
+                        scanner.close();
+                        return false;
+                        }
+                        }
+                        scanner.close();
+                        return true;
+                      </condition>
+                      <message>
+                        License errors detected, for more detail find ERROR in
+                        ${license.aggregate.path}
+                      </message>
+                    </evaluateBeanshell>
+                  </rules>
+                  <skip>${skip.license.check}</skip>
                 </configuration>
               </execution>
             </executions>
