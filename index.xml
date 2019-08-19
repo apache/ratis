@@ -81,6 +81,16 @@ Examples To demonstrate how to use Ratis from the code, Please look at the follo
     </item>
     
     <item>
+      <title>Lifecycle</title>
+      <link>https://ratis.incubator.apache.org/logservice/lifecycle.html</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      
+      <guid>https://ratis.incubator.apache.org/logservice/lifecycle.html</guid>
+      <description>The LogService is a system which manages a collection of logs. Each of these logs has a defined state which allows certain operations on that log or corresponds to actions that the system is taking on that log.
+OPEN This is the first state for a Log which is created in the LogService. A Log which is OPEN can be read from or written to. This Log has a corresponding Raft Group (a quorum of servers) who are participating in the hosting of this Log.</description>
+    </item>
+    
+    <item>
       <title>LogService</title>
       <link>https://ratis.incubator.apache.org/logservice/</link>
       <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>

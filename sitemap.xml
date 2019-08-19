@@ -49,6 +49,10 @@
   </url>
   
   <url>
+    <loc>https://ratis.incubator.apache.org/logservice/lifecycle.html</loc>
+  </url>
+  
+  <url>
     <loc>https://ratis.incubator.apache.org/logservice/</loc>
   </url>
   
