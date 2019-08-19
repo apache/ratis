@@ -57,6 +57,10 @@
   </url>
   
   <url>
+    <loc>https://ratis.incubator.apache.org/logservice/security/</loc>
+  </url>
+  
+  <url>
     <loc>https://ratis.incubator.apache.org/logservice/testing/</loc>
   </url>
   
