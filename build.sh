@@ -17,6 +17,14 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 set -e
 mkdir -p build
+
+# Usage
+if [[ $# -ne 1 ]]; then
+  echo "Usage: ./build.sh <website_output>"
+  exit 3
+fi
+
+# RAT check
 rat_version="0.13"
 filename="apache-rat-${rat_version}-bin.tar.gz"
 artifact="creadur/apache-rat-${rat_version}/${filename}"
@@ -52,16 +60,15 @@ else
   echo "RAT check appears to have passed"
 fi
 
-if [[ $# -ne 1 ]]; then
-  echo "Usage: ./build.sh <website_output>"
-  exit 3
-fi
+# The command call will fail, but that's OK because we're catching it.
+set +e
 
+# Build the website
 BUILD_OUTPUT_DIR="$1"
-HUGO_EXEC=$(which hugo)
+HUGO_EXEC="$(command -v hugo)"
 if [ "$?" -ne 0 ]; then
-      echo "Please install hugo and put it to the path"
-		exit 1
+  echo "Please install hugo and put it to the path"
+  exit 1
 fi
 echo -e "\nBuilding website to ${BUILD_OUTPUT_DIR}"
-$HUGO_EXEC -d ${BUILD_OUTPUT_DIR}
+"$HUGO_EXEC" -d ${BUILD_OUTPUT_DIR}
