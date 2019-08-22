@@ -1,0 +1,45 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ *  with the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
+/* Rendered with dot -Tsvg lifecycle.dot > lifecycle.svg */
+digraph LogServiceStates {
+  node [shape=box, fontsize=16]
+  { rank = same;
+    write [shape=plaintext, label="write()",fillcolor=grey,style=filled];
+    read1 [shape=plaintext, label="read()",fillcolor=grey,style=filled];
+    read2 [shape=plaintext, label="read()",fillcolor=grey,style=filled];
+    export [shape=plaintext, label="export()",fillcolor=grey,style=filled];
+  }
+
+  external1 [shape=none,label=""];
+  external2 [shape=none,label=""];
+
+  OPEN [shape=Mdiamond];
+  DELETED [shape=Msquare];
+  OPEN -> CLOSED [label="API\nCall"];
+  OPEN -> CLOSED [label="Quorum\nFailure"];
+  CLOSED -> DELETED;
+  CLOSED -> ARCHIVING [label="API\nCall"];
+  OPEN -> {write; read1; export} -> OPEN;
+  CLOSED -> read2 -> CLOSED;
+  ARCHIVING -> ARCHIVED [label="On\nCompletion"];
+  ARCHIVED -> DELETED;
+
+  ARCHIVING -> external1 [label="Writes\nData\nExternally",style=dotted];
+  export -> external2 [label="Writes\nData\nExternally",style=dotted];
+}
