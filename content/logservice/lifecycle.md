@@ -95,3 +95,8 @@ An export of a log is more generic in that:
 * A log does not need to be CLOSED to be exported.
 * A log can be repeatedly exported (e.g. to multiple locations).
 * More data can be appended to a log that was exported (but new data would not be reflected in the exported version of the log).
+
+## Visualization
+
+To get a visual understanding of the log states, please see the image below:
+![Graphviz view of the logstates](lifecycle.svg)
