@@ -49,7 +49,7 @@ state.
 ### DELETED
 
 This is a simple state that is short lived. It tracks the clean up
-of any state from the hosting this Log. There are transitions out
+of any state from the hosting this Log. There are no transitions out
 of this state.
 
 ### ARCHIVING
