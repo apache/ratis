@@ -18,51 +18,77 @@
 package org.apache.ratis.grpc;
 
 import java.io.File;
+import java.security.PrivateKey;
+import java.security.cert.X509Certificate;
 
 /**
  * Ratis GRPC TLS configurations.
  */
 public class GrpcTlsConfig {
   // private key
-  private final File privateKey;
+  private PrivateKey privateKey;
+  private File privateKeyFile;
 
   // certificate
-  private final File certChain;
+  private X509Certificate certChain;
+  private File certChainFile;
 
   // ca certificate
-  private final File trustStore;
+  private X509Certificate trustStore;
+  private File trustStoreFile;
 
   // mutual TLS enabled
   private final boolean mTlsEnabled;
 
-  public File getPrivateKey() {
+  private final boolean fileBasedConfig;
+
+  public boolean isFileBasedConfig() {
+    return fileBasedConfig;
+  }
+
+  public PrivateKey getPrivateKey() {
     return privateKey;
   }
 
-  public File getCertChain() {
+  public File getPrivateKeyFile() {
+    return privateKeyFile;
+  }
+
+  public X509Certificate getCertChain() {
     return certChain;
   }
 
-  public File getTrustStore() {
+  public File getCertChainFile() {
+    return certChainFile;
+  }
+
+  public X509Certificate getTrustStore() {
     return trustStore;
+  }
+
+  public File getTrustStoreFile() {
+    return trustStoreFile;
   }
 
   public boolean getMtlsEnabled() {
     return mTlsEnabled;
   }
 
-  public GrpcTlsConfig(File privateKey, File certChain, File trustStore, boolean mTlsEnabled) {
+  public GrpcTlsConfig(PrivateKey privateKey, X509Certificate certChain,
+      X509Certificate trustStore, boolean mTlsEnabled) {
     this.privateKey = privateKey;
     this.certChain = certChain;
     this.trustStore = trustStore;
     this.mTlsEnabled = mTlsEnabled;
+    this.fileBasedConfig = false;
   }
 
-  @Override
-  public String toString() {
-    return "PrivateKey:" + getPrivateKey().getAbsolutePath() +
-        " Certificate:" + getCertChain().getAbsolutePath() +
-        " TrustStore:" + getTrustStore().getAbsolutePath() +
-        " Mutual TlS:" + getMtlsEnabled();
+  public GrpcTlsConfig(File privateKeyFile, File certChainFile,
+      File trustStoreFile, boolean mTlsEnabled) {
+    this.privateKeyFile = privateKeyFile;
+    this.certChainFile = certChainFile;
+    this.trustStoreFile = trustStoreFile;
+    this.mTlsEnabled = mTlsEnabled;
+    this.fileBasedConfig = true;
   }
 }
