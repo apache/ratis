@@ -24,6 +24,7 @@ import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
+import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -54,6 +55,7 @@ import java.util.stream.Collectors;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.getLeaderElectionMetrics;
 import static org.apache.ratis.util.LifeCycle.State.NEW;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
@@ -84,6 +86,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
 
   private final RaftServerJmxAdapter jmxAdapter;
+  private final LeaderElectionMetrics leaderElectionMetricsRegistry;
 
   private AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
 
@@ -109,6 +112,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     this.inProgressInstallSnapshotRequest = new AtomicReference<>(null);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
+    this.leaderElectionMetricsRegistry = getLeaderElectionMetrics(this);
   }
 
   private RetryCache initRetryCache(RaftProperties prop) {
@@ -411,6 +415,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
     // start election
     role.startLeaderElection(this);
+    leaderElectionMetricsRegistry.onNewLeaderElection();
   }
 
   @Override
@@ -1300,6 +1305,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         cacheEntry.failWithReply(reply);
       }
     }
+  }
+
+  public LeaderElectionMetrics getLeaderElectionMetricsRegistry() {
+    return leaderElectionMetricsRegistry;
   }
 
   private class RaftServerJmxAdapter extends JmxRegister implements RaftServerMXBean {

@@ -128,6 +128,7 @@ class LeaderElection implements Runnable {
 
   @Override
   public void run() {
+    Timestamp electionStartTime = Timestamp.currentTime();
     try {
       askForVotes();
     } catch(Throwable e) {
@@ -149,6 +150,8 @@ class LeaderElection implements Runnable {
         shutdown();
       }
     } finally {
+      // Update leader election completion metric(s).
+      server.getLeaderElectionMetricsRegistry().onLeaderElectionCompletion(electionStartTime.elapsedTimeMs());
       lifeCycle.transition(LifeCycle.State.CLOSED);
     }
   }

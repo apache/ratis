@@ -17,17 +17,23 @@
  */
 package org.apache.ratis;
 
+import static org.apache.ratis.RaftTestUtil.waitForLeader;
+import static org.junit.Assert.assertTrue;
+
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto.LogEntryBodyCase;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LogAppender;
+import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.impl.ServerState;
+import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -36,15 +42,19 @@ import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
+import java.util.SortedMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import com.codahale.metrics.Gauge;
 
 public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -112,6 +122,47 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
   public void testUnlimitedElementBuffer() throws Exception {
     RaftServerConfigKeys.Log.Appender.setBufferElementLimit(getProperties(), 0);
     runWithNewCluster(3, this::runTest);
+  }
+
+  @Test
+  public void testFollowerHeartbeatMetric() throws IOException, InterruptedException {
+
+    // Start a 3 node Ratis ring.
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
+    RaftServerImpl leaderServer = waitForLeader(cluster);
+
+    // Write 10 messages to leader.
+    try(RaftClient client = cluster.createClient(leaderServer.getId())) {
+      for (int i = 1; i <= 10; i++) {
+        client.send(new RaftTestUtil.SimpleMessage("Msg to make leader ready " +  i));
+      }
+    } catch (IOException e) {
+      throw e;
+    }
+
+    RatisMetricRegistry ratisMetricRegistry = RatisMetrics.getMetricRegistryForHeartbeat(
+        leaderServer.getMemberId().toString());
+
+    // Get all last_heartbeat_elapsed_time metric gauges. Should be equal to number of followers.
+    SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
+        s.contains("last_heartbeat_elapsed_time"));
+    assertTrue(heartbeatElapsedTimeGauges.size() == 2);
+
+    for (RaftServerImpl followerServer : cluster.getFollowers()) {
+      String followerId = followerServer.getId().toString();
+      Gauge metric = heartbeatElapsedTimeGauges.entrySet().parallelStream().filter(e -> e.getKey().contains(
+          followerId)).iterator().next().getValue();
+      // Metric for this follower exists.
+      assertTrue(metric != null);
+      // Metric in nanos > 0.
+      assertTrue((long)metric.getValue() > 0);
+      // Try to get Heartbeat metrics for follower.
+      RatisMetricRegistry followerMetricsRegistry = RatisMetrics.getMetricRegistryForHeartbeat(followerServer
+          .getMemberId().toString());
+      // Metric should not exist. It only exists in leader.
+      assertTrue(followerMetricsRegistry.getGauges((s, m) -> s.contains("last_heartbeat_elapsed_time")).isEmpty());
+    }
   }
 
   void runTest(CLUSTER cluster) throws Exception {

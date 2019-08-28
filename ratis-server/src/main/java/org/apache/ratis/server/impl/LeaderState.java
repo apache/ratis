@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.metrics.HeartbeatMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -193,6 +194,7 @@ public class LeaderState {
   private final int stagingCatchupGap;
   private final TimeDuration syncInterval;
   private final long placeHolderIndex;
+  private final HeartbeatMetrics heartbeatMetrics;
 
   LeaderState(RaftServerImpl server, RaftProperties properties) {
     this.server = server;
@@ -212,6 +214,7 @@ public class LeaderState {
     placeHolderIndex = raftLog.getNextIndex();
 
     senders = new SenderList();
+    heartbeatMetrics = HeartbeatMetrics.getHeartbeatMetrics(server);
     addSenders(others, placeHolderIndex, true);
     voterLists = divideFollowers(conf);
   }
@@ -375,8 +378,11 @@ public class LeaderState {
   Collection<LogAppender> addSenders(Collection<RaftPeer> newPeers, long nextIndex, boolean attendVote) {
     final Timestamp t = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final List<LogAppender> newAppenders = newPeers.stream()
-        .map(peer -> server.newLogAppender(this, peer, t, nextIndex, attendVote))
-        .collect(Collectors.toList());
+        .map(peer -> {
+          LogAppender logAppender = server.newLogAppender(this, peer, t, nextIndex, attendVote);
+          heartbeatMetrics.addFollower(logAppender.getFollower().getPeer().getId().toString());
+          return logAppender;
+        }).collect(Collectors.toList());
     senders.addAll(newAppenders);
     return newAppenders;
   }
@@ -771,5 +777,14 @@ public class LeaderState {
 
   Stream<LogAppender> getLogAppenders() {
     return senders.stream();
+  }
+
+  /**
+   * Record Follower Heartbeat Elapsed Time.
+   * @param followerId Follower Peer ID.
+   * @param elapsedTime Elapsed time in Nanos.
+   */
+  void recordFollowerHeartbeatElapsedTime(String followerId, long elapsedTime) {
+    heartbeatMetrics.recordFollowerHeartbeatElapsedTime(followerId, elapsedTime);
   }
 }

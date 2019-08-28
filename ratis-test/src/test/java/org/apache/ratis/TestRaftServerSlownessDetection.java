@@ -19,9 +19,11 @@ package org.apache.ratis;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
@@ -37,7 +39,10 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.SortedMap;
 import java.util.concurrent.TimeUnit;
+
+import com.codahale.metrics.Gauge;
 
 /**
  * Test Raft Server Slowness detection and notification to Leader's statemachine.
@@ -79,14 +84,28 @@ public class TestRaftServerSlownessDetection extends BaseTest {
 
   @Test
   public void testSlownessDetection() throws Exception {
-    RaftTestUtil.waitForLeader(cluster);
+    RaftServerImpl leaderServer = RaftTestUtil.waitForLeader(cluster);
     long slownessTimeout = RaftServerConfigKeys.Rpc
         .slownessTimeout(cluster.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
     RaftServerImpl failedFollower = cluster.getFollowers().get(0);
 
+    RatisMetricRegistry ratisMetricRegistry = RatisMetrics.getMetricRegistryForHeartbeat(
+        leaderServer.getMemberId().toString());
+    SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
+        s.contains("last_heartbeat_elapsed_time"));
+
+    String followerId = failedFollower.getId().toString();
+    Gauge metric = heartbeatElapsedTimeGauges.entrySet().parallelStream().filter(e -> e.getKey().contains(
+        followerId)).iterator().next().getValue();
+
+    long followerHeartBeatElapsedMetric = (long) metric.getValue();
+
     // fail the node and wait for the callback to be triggered
     cluster.killServer(failedFollower.getId());
     Thread.sleep( slownessTimeout * 2);
+
+    long followerHeartBeatElapsedMetricNew = (long) metric.getValue();
+    Assert.assertTrue(followerHeartBeatElapsedMetricNew > followerHeartBeatElapsedMetric);
 
     // Followers should not get any failed not notification
     for (RaftServerImpl followerServer : cluster.getFollowers()) {

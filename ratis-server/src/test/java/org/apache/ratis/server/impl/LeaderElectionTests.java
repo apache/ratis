@@ -22,22 +22,30 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.Timestamp;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
+import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_LATENCY;
+import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
+import static org.junit.Assert.assertTrue;
 
 public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -135,5 +143,28 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         10, ONE_SECOND, "getLeaderId", LOG);
     LOG.info(cluster.printServers());
     Assert.assertEquals(leader.getId(), lastServerLeaderId);
+  }
+
+  @Test
+  public void testLeaderElectionMetrics() throws IOException, InterruptedException {
+    LOG.info("Running testLeaderElectionMetrics");
+    Timestamp timestamp = Timestamp.currentTime();
+    final MiniRaftCluster cluster = newCluster(3);
+    cluster.start();
+    RaftServerImpl leaderServer = waitForLeader(cluster);
+
+    RatisMetricRegistry ratisMetricRegistry = RatisMetrics.getMetricRegistryForLeaderElection(leaderServer
+        .getMemberId().toString());
+
+    // Verify each metric individually.
+    long numLeaderElections = ratisMetricRegistry.counter(LEADER_ELECTION_COUNT_METRIC).getCount();
+    assertTrue(numLeaderElections > 0);
+
+    long numLeaderElectionTimeout = ratisMetricRegistry.counter(LEADER_ELECTION_TIMEOUT_COUNT_METRIC).getCount();
+    assertTrue(numLeaderElectionTimeout > 0);
+
+    Long leaderElectionLatency = (Long) ratisMetricRegistry.getGauges((s, metric) ->
+        s.contains(LEADER_ELECTION_LATENCY)).values().iterator().next().getValue();
+    assertTrue(leaderElectionLatency > 0 && leaderElectionLatency < timestamp.elapsedTimeMs());
   }
 }

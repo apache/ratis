@@ -31,6 +31,11 @@ public class RatisMetrics {
   public final static String RATIS_LOG_WORKER_METRICS_DESC = "Ratis metrics";
   public final static String RATIS_LOG_WORKER_METRICS = "ratis_log_worker";
   public final static String RATIS_APPLICATION_NAME_METRICS = "ratis_core";
+  public static final String RATIS_LEADER_ELECTION_METRICS = "leader_election";
+  public static final String RATIS_LEADER_ELECTION_METRICS_DESC = "Metrics for Ratis Leader Election.";
+  public static final String RATIS_HEARTBEAT_METRICS = "heartbeat";
+  public static final String RATIS_HEARTBEAT_METRICS_DESC = "Metrics for Ratis Heartbeat.";
+
   static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
 
   public static RatisMetricRegistry createMetricRegistryForLogWorker(String name) {
@@ -59,5 +64,15 @@ public class RatisMetrics {
         .startJVMReporting(1000, TimeUnit.MILLISECONDS, MetricsReporting.MetricReporterType.JMX);
 
     return registry;
+  }
+
+  public static RatisMetricRegistry getMetricRegistryForLeaderElection(String serverId) {
+    return create(new MetricRegistryInfo(serverId, RATIS_APPLICATION_NAME_METRICS, RATIS_LEADER_ELECTION_METRICS,
+            RATIS_LEADER_ELECTION_METRICS_DESC));
+  }
+
+  public static RatisMetricRegistry getMetricRegistryForHeartbeat(String serverId) {
+    return create(new MetricRegistryInfo(serverId, RATIS_APPLICATION_NAME_METRICS, RATIS_HEARTBEAT_METRICS,
+        RATIS_HEARTBEAT_METRICS_DESC));
   }
 }
