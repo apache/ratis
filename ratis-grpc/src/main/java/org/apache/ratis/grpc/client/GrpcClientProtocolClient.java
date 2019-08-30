@@ -79,7 +79,7 @@ public class GrpcClientProtocolClient implements Closeable {
   private final ManagedChannel channel;
 
   private final TimeDuration requestTimeoutDuration;
-  private final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(3);
+  private final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(0);
 
   private final RaftClientProtocolServiceBlockingStub blockingStub;
   private final RaftClientProtocolServiceStub asyncStub;
@@ -139,6 +139,7 @@ public class GrpcClientProtocolClient implements Closeable {
   public void close() {
     Optional.ofNullable(orderedStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
     Optional.ofNullable(unorderedStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
+    scheduler.close();
     channel.shutdownNow();
   }
 

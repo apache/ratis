@@ -21,21 +21,48 @@ import org.apache.ratis.util.function.CheckedRunnable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.Executors;
+import java.io.Closeable;
+import java.util.Collection;
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-public final class TimeoutScheduler {
+public final class TimeoutScheduler implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(TimeoutScheduler.class);
 
-  private static final TimeDuration DEFAULT_GRACE_PERIOD = TimeDuration.valueOf(1, TimeUnit.MINUTES);
+  static final TimeDuration DEFAULT_GRACE_PERIOD = TimeDuration.valueOf(1, TimeUnit.MINUTES);
 
   public static TimeoutScheduler newInstance(int numThreads) {
     return new TimeoutScheduler(numThreads);
+  }
+
+  class ShutdownTask implements Runnable {
+    private final int sid;
+    private final ScheduledFuture<?> future;
+
+    ShutdownTask(int sid, ScheduledFuture<?> future) {
+      this.sid = sid;
+      this.future = future;
+    }
+
+    int getSid() {
+      return sid;
+    }
+
+    @Override
+    public void run() {
+      tryShutdownScheduler(sid);
+    }
+
+    void cancel() {
+      future.cancel(false);
+    }
   }
 
   /** When there is no tasks, the time period to wait before shutting down the scheduler. */
@@ -46,16 +73,17 @@ public final class TimeoutScheduler {
   /** The scheduleID for each task */
   private int scheduleID = 0;
 
+  private ShutdownTask shutdownTask = null;
+
   private final int numThreads;
-  private volatile ScheduledExecutorService scheduler = null;
+  private volatile ScheduledThreadPoolExecutor scheduler = null;
 
   private TimeoutScheduler(int numThreads) {
     this.numThreads = numThreads;
   }
 
-  public int getNumThreads() {
-    final ScheduledExecutorService s = scheduler;
-    return s instanceof ScheduledThreadPoolExecutor? ((ScheduledThreadPoolExecutor)s).getCorePoolSize(): numThreads;
+  int getQueueSize() {
+    return Optional.ofNullable(scheduler).map(ScheduledThreadPoolExecutor::getQueue).map(Collection::size).orElse(0);
   }
 
   TimeDuration getGracePeriod() {
@@ -95,7 +123,8 @@ public final class TimeoutScheduler {
     if (scheduler == null) {
       Preconditions.assertTrue(numTasks == 0);
       LOG.debug("Initialize scheduler");
-      scheduler = Executors.newScheduledThreadPool(numThreads, Daemon::new);
+      scheduler = new ScheduledThreadPoolExecutor(numThreads, (ThreadFactory) Daemon::new);
+      scheduler.setRemoveOnCancelPolicy(true);
     }
     numTasks++;
     final int sid = scheduleID++;
@@ -105,16 +134,29 @@ public final class TimeoutScheduler {
   }
 
   private synchronized void onTaskCompleted() {
-    if (--numTasks == 0) {
-      final int sid = scheduleID;
-      final TimeDuration grace = getGracePeriod();
-      LOG.debug("Schedule a shutdown task: grace {}, sid {}", grace, sid);
-      schedule(scheduler, () -> tryShutdownScheduler(sid), () -> "shutdown task #" + sid, grace);
+    if (--numTasks > 0) {
+      return;
     }
+    final int sid = scheduleID;
+    if (shutdownTask != null) {
+      if (shutdownTask.getSid() == sid) {
+        // the shutdown task is still valid
+        return;
+      }
+      // the shutdown task is invalid
+      shutdownTask.cancel();
+    }
+
+    final TimeDuration grace = getGracePeriod();
+    LOG.debug("Schedule a shutdown task: grace {}, sid {}", grace, sid);
+    final ScheduledFuture<?> future = schedule(scheduler, () -> tryShutdownScheduler(sid),
+        () -> "shutdown task #" + sid, grace);
+    shutdownTask = new ShutdownTask(sid, future);
   }
 
-  static void schedule(ScheduledExecutorService service, Runnable task, Supplier<String> name, TimeDuration timeDuration) {
-    service.schedule(LogUtils.newRunnable(LOG, task, name),
+  private static ScheduledFuture<?> schedule(
+      ScheduledExecutorService service, Runnable task, Supplier<String> name, TimeDuration timeDuration) {
+    return service.schedule(LogUtils.newRunnable(LOG, task, name),
         timeDuration.getDuration(), timeDuration.getUnit());
   }
 
@@ -132,5 +174,13 @@ public final class TimeoutScheduler {
   /** When timeout, run the task.  Log the error, if there is any. */
   public void onTimeout(TimeDuration timeout, CheckedRunnable<?> task, Logger log, Supplier<String> errorMessage) {
     onTimeout(timeout, task, t -> log.error(errorMessage.get(), t));
+  }
+
+  @Override public synchronized void close() {
+    if (scheduler != null) {
+      LOG.debug("Closing ThreadPool");
+      scheduler.shutdownNow();
+      scheduler = null;
+    }
   }
 }

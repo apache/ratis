@@ -85,19 +85,14 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     RaftClient.Builder clientBuilder = RaftClient.newBuilder()
         .setRaftGroup(RaftGroup.emptyGroup())
         .setProperties(properties);
-    int numThreads = RaftClientConfigKeys.Async.SCHEDULER_THREADS_DEFAULT;
     int maxOutstandingRequests = RaftClientConfigKeys.Async.MAX_OUTSTANDING_REQUESTS_DEFAULT;
     try(RaftClient client = clientBuilder.build()) {
-      RaftClientTestUtil.assertScheduler(client, numThreads);
       RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
     }
 
-    numThreads = 200;
     maxOutstandingRequests = 5;
     RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties, maxOutstandingRequests);
-    RaftClientConfigKeys.Async.setSchedulerThreads(properties, numThreads);
     try(RaftClient client = clientBuilder.build()) {
-      RaftClientTestUtil.assertScheduler(client, numThreads);
       RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
     }
   }

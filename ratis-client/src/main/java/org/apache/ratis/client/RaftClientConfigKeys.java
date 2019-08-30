@@ -62,16 +62,6 @@ public interface RaftClientConfigKeys {
     static void setMaxOutstandingRequests(RaftProperties properties, int outstandingRequests) {
       setInt(properties::setInt, MAX_OUTSTANDING_REQUESTS_KEY, outstandingRequests);
     }
-
-    String SCHEDULER_THREADS_KEY = PREFIX + ".scheduler-threads";
-    int SCHEDULER_THREADS_DEFAULT = 3;
-    static int schedulerThreads(RaftProperties properties) {
-      return getInt(properties::getInt, SCHEDULER_THREADS_KEY,
-          SCHEDULER_THREADS_DEFAULT, getDefaultLog(), requireMin(1));
-    }
-    static void setSchedulerThreads(RaftProperties properties, int schedulerThreads) {
-      setInt(properties::setInt, SCHEDULER_THREADS_KEY, schedulerThreads);
-    }
   }
 
   static void main(String[] args) {

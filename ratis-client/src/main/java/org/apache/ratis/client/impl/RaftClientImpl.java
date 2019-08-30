@@ -18,7 +18,6 @@
 package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
@@ -97,7 +96,7 @@ final class RaftClientImpl implements RaftClient {
     Preconditions.assertTrue(retryPolicy != null, "retry policy can't be null");
     this.retryPolicy = retryPolicy;
 
-    scheduler = TimeoutScheduler.newInstance(RaftClientConfigKeys.Async.schedulerThreads(properties));
+    scheduler = TimeoutScheduler.newInstance(0);
     clientRpc.addServers(peers);
 
     this.orderedAsync = JavaUtils.memoize(() -> new OrderedAsync(this, properties));
@@ -376,10 +375,6 @@ final class RaftClientImpl implements RaftClient {
     }
   }
 
-  void assertScheduler(int numThreads) {
-    Preconditions.assertTrue(scheduler.getNumThreads() == numThreads);
-  }
-
   long getCallId() {
     return CALL_ID_COUNTER.get();
   }
@@ -391,6 +386,7 @@ final class RaftClientImpl implements RaftClient {
 
   @Override
   public void close() throws IOException {
+    scheduler.close();
     clientRpc.close();
   }
 }

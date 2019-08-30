@@ -63,7 +63,6 @@ public abstract class Client extends SubCommandBase {
 
     RaftClientConfigKeys.Rpc.setRequestTimeout(raftProperties,
         TimeDuration.valueOf(50000, TimeUnit.MILLISECONDS));
-    RaftClientConfigKeys.Async.setSchedulerThreads(raftProperties, 10);
     RaftClientConfigKeys.Async.setMaxOutstandingRequests(raftProperties, 1000);
 
 

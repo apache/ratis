@@ -70,10 +70,11 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
       lifeCycle.checkStateAndClose(() -> {
         if (proxy != null) {
           try {
+            LOG.debug("{}: Closing proxy for peer {}", name, peer);
             proxy.close();
           } catch (IOException e) {
-            LOG.warn("{}: Failed to close proxy for peer {}, proxy class: ",
-                name, peer, proxy.getClass());
+            LOG.warn("{}: Failed to close proxy for peer {}, proxy class: {}",
+                name, peer, proxy.getClass(), e);
           }
         }
       });

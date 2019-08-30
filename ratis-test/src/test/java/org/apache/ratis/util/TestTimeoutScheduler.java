@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,6 +18,7 @@
 package org.apache.ratis.util;
 
 import org.apache.log4j.Level;
+import org.apache.ratis.BaseTest;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -25,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-public class TestTimeoutScheduler {
+public class TestTimeoutScheduler extends BaseTest {
   {
     LogUtils.setLogLevel(TimeoutScheduler.LOG, Level.ALL);
   }
@@ -204,6 +205,34 @@ public class TestTimeoutScheduler {
       Assert.assertTrue(fired.get());
       Assert.assertFalse(scheduler.hasScheduler());
     }
+
+    errorHandler.assertNoError();
+  }
+
+  @Test(timeout = 1000)
+  public void testShutdown() throws Exception {
+    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(0);
+    Assert.assertEquals(TimeoutScheduler.DEFAULT_GRACE_PERIOD, scheduler.getGracePeriod());
+    final ErrorHandler errorHandler = new ErrorHandler();
+
+    final int numTasks = 100;
+    for(int i = 0; i < numTasks; i++) {
+      // long timeout
+      scheduler.onTimeout(HUNDRED_MILLIS, () -> {}, errorHandler);
+    }
+    HUNDRED_MILLIS.sleep();
+    HUNDRED_MILLIS.sleep();
+    Assert.assertEquals(1, scheduler.getQueueSize()); // only 1 shutdown task is scheduled
+
+    final TimeDuration oneMillis = TimeDuration.valueOf(1, TimeUnit.MILLISECONDS);
+    for(int i = 0; i < numTasks; i++) {
+      // short timeout
+      scheduler.onTimeout(oneMillis, () -> {}, errorHandler);
+      oneMillis.sleep();
+      oneMillis.sleep();
+    }
+    HUNDRED_MILLIS.sleep();
+    Assert.assertEquals(1, scheduler.getQueueSize()); // only 1 shutdown task is scheduled
 
     errorHandler.assertNoError();
   }
