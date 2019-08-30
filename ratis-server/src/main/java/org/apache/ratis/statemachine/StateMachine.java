@@ -283,4 +283,12 @@ public interface StateMachine extends Closeable {
   default void notifyLeader(long lastCommittedIndex){
   }
 
+  /**
+   * Notify about group removal in the state machine. This function is called
+   * during group removal after all the pending transactions have been applied
+   * by the state machine.
+   */
+  default void notifyGroupRemove() {
+  }
+
 }

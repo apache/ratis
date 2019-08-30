@@ -404,6 +404,7 @@ public class RaftServerProxy implements RaftServer {
     return f.thenApply(impl -> {
       final Collection<CommitInfoProto> commitInfos = impl.getCommitInfos();
       impl.shutdown(deleteDirectory);
+      impl.getStateMachine().notifyGroupRemove();
       return new RaftClientReply(request, commitInfos);
     });
   }
