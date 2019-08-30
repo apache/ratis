@@ -20,7 +20,7 @@ mkdir -p build
 
 # Usage
 if [[ $# -ne 1 ]]; then
-  echo "Usage: ./build.sh <website_output>"
+  echo "Usage: ./build.sh <website_output>" 2>&1
   exit 3
 fi
 
@@ -71,4 +71,4 @@ if [ "$?" -ne 0 ]; then
   exit 1
 fi
 echo -e "\nBuilding website to ${BUILD_OUTPUT_DIR}"
-"$HUGO_EXEC" -d ${BUILD_OUTPUT_DIR}
+"$HUGO_EXEC" -d "${BUILD_OUTPUT_DIR}"
