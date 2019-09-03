@@ -89,14 +89,28 @@ Vagrant.configure('2') do |config|
 
       # install Maven
       mkdir -p /usr/local
-      wget --continue http://apache.mirrors.ionfish.org/maven/maven-3/3.6.0/binaries/apache-maven-3.6.0-bin.tar.gz
-      tar -xzf apache-maven-3.6.0-bin.tar.gz -C /usr/local
+      export apache_maven_file="apache-maven-3.6.0-bin.tar.gz"
+      export apache_maven_sum="fae9c12b570c3ba18116a4e26ea524b29f7279c17cbaadc3326ca72927368924d9131d11b9e851b8dc9162228b6fdea955446be41207a5cfc61283dd8a561d2f"
+      wget --continue "https://archive.apache.org/dist/maven/maven-3/3.6.0/binaries/${apache_maven_file}"
+      if [[ $(sha512sum "${apache_maven_file}") != \
+            "$apache_maven_sum  $apache_maven_file" ]]; then
+        echo "Failed checksum verification for ${apache_maven_file}" > /dev/stderr
+        exit 1
+      fi
+      tar -xzf $apache_maven_file -C /usr/local
       [ -L /usr/local/bin/mvn ] || ln -s /usr/local/apache-maven-3.6.0/bin/mvn /usr/local/bin/mvn
 
       # Namazu dependencies
+      export go_download_file="go1.13.linux-amd64.tar.gz"
+      export go_download_sum="68a2297eb099d1a76097905a2ce334e3155004ec08cdea85f24527be3c48e856"
       apt-get install -y git libnetfilter-queue-dev libzmq3-dev
-      wget --continue https://dl.google.com/go/go1.11.2.linux-amd64.tar.gz
-      tar -xzf go1.11.2.linux-amd64.tar.gz -C /usr/local
+      wget --continue "https://dl.google.com/go/${go_download_file}"
+      if [[ $(sha256sum "${go_download_file}") != \
+            "$go_download_sum  $go_download_file" ]]; then
+        echo "Failed checksum verification for ${go_download_file}" > /dev/stderr
+        exit 1
+      fi
+      tar -xzf ${go_download_file} -C /usr/local
       [ -L /usr/local/bin/go ] || ln -s /usr/local/go/bin/go /usr/local/bin/go
     EOH
 
@@ -109,6 +123,8 @@ Vagrant.configure('2') do |config|
       export GOROOT=/usr/local/go
       export GOPATH=`pwd`
       # for some reason seelog fails to pull automatically
+      # Go should check its checksum database on go get per
+      # https://blog.golang.org/module-mirror-launch
       go get -u github.com/cihub/seelog
       ./build
     EOH
@@ -133,6 +149,9 @@ Vagrant.configure('2') do |config|
     end
 
     ratisbuild.vm.box = 'ubuntu/bionic64'
+    ratisbuild.vm.box_version = '20190918.0.0'
+    ratisbuild.vm.box_download_checksum_type = 'sha256'
+    ratisbuild.vm.box_download_checksum = 'ed0ac96a5ee41c8a2abff854c6ed1cefbc1cf60a53f1dfd283d66c27bf1c0d4a'
   end
 
   # Configure a generic VM with three Ratis servers
