@@ -24,6 +24,7 @@ import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
@@ -77,6 +78,15 @@ public class MetaServiceProtoUtil {
                 .newBuilder()
                 .setPingRequest(
                         MetaServiceProtos.LogServicePingRequestProto
+                                .newBuilder()
+                                .setPeer(MetaServiceProtoUtil.toRaftPeerProto(peer)).build()).build();
+    }
+
+    public static MetaSMRequestProto toHeartbeatRequestProto(RaftPeer peer) {
+        return MetaServiceProtos.MetaSMRequestProto
+                .newBuilder()
+                .setHeartbeatRequest(
+                        MetaServiceProtos.LogServiceHeartbeatRequestProto
                                 .newBuilder()
                                 .setPeer(MetaServiceProtoUtil.toRaftPeerProto(peer)).build()).build();
     }
@@ -192,7 +202,6 @@ public class MetaServiceProtoUtil {
             }
         };
     }
-
 
     public static DeleteLogReplyProto toDeleteLogReplyProto() {
         return DeleteLogReplyProto.newBuilder().build();

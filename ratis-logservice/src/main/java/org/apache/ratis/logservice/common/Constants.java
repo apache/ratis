@@ -58,4 +58,12 @@ public class Constants {
     public static final String RATIS_RAFT_SEGMENT_SIZE_KEY = "ratis.raft.segment.size";
     public static final long DEFAULT_RATIS_RAFT_SEGMENT_SIZE = 32 * 1024 *1024;// 32MB
 
+    public static final String LOG_SERVICE_HEARTBEAT_INTERVAL_KEY =
+            "logservice.heartbeat.interval"; // in ms
+    public static final long DEFAULT_HEARTBEAT_INTERVAL = 3000;// 3 seconds
+
+    public static final String LOG_SERVICE_PEER_FAILURE_DETECTION_PERIOD_KEY =
+            "logservice.peer.failure.detection.period"; // in ms
+    public static final long DEFAULT_PEER_FAILURE_DETECTION_PERIOD = 60000;// 1 min.
+
 }

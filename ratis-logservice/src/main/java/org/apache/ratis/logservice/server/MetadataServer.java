@@ -51,7 +51,7 @@ public class MetadataServer extends BaseServer {
 
     private String id;
 
-    private StateMachine metaStateMachine;
+    StateMachine metaStateMachine;
 
     private LifeCycle lifeCycle;
 
@@ -82,11 +82,14 @@ public class MetadataServer extends BaseServer {
 
         // Set properties common to all log service state machines
         setRaftProperties(properties);
-
+        long failureDetectionPeriod = getConfig().
+                getLong(Constants.LOG_SERVICE_PEER_FAILURE_DETECTION_PERIOD_KEY,
+                Constants.DEFAULT_PEER_FAILURE_DETECTION_PERIOD);
         Set<RaftPeer> peers = getPeersFromQuorum(opts.getMetaQuorum());
         RaftGroupId raftMetaGroupId = RaftGroupId.valueOf(opts.getMetaGroupId());
         RaftGroup metaGroup = RaftGroup.valueOf(raftMetaGroupId, peers);
-        metaStateMachine = new MetaStateMachine(raftMetaGroupId, RaftGroupId.valueOf(opts.getLogServerGroupId()));
+        metaStateMachine = new MetaStateMachine(raftMetaGroupId, RaftGroupId.valueOf(opts.getLogServerGroupId()),
+                failureDetectionPeriod);
 
         // Make sure that we aren't setting any invalid/harmful properties
         validateRaftProperties(properties);
@@ -158,5 +161,9 @@ public class MetadataServer extends BaseServer {
             validate();
             return new MetadataServer(getOpts());
         }
+    }
+
+    public RaftServer getServer() {
+        return server;
     }
 }

@@ -532,27 +532,33 @@ public class LogStateMachine extends BaseStateMachine {
     // TODO need to handle exceptions while operating with files.
 
     State targetState = State.valueOf(changeState.getState().name());
+    Throwable t = null;
     //if forced skip checking states
     if(!changeState.getForce()) {
       switch (targetState) {
       case OPEN:
         if (state != null) {
-          verifyState(State.OPEN, State.CLOSED);
+          t = verifyState(State.OPEN, State.CLOSED);
         }
         break;
       case CLOSED:
-        verifyState(State.OPEN);
+        t =  verifyState(State.OPEN);
         break;
       case ARCHIVED:
-        verifyState(State.ARCHIVING);
+        t = verifyState(State.ARCHIVING);
         break;
       case ARCHIVING:
-        verifyState(State.CLOSED);
+        t = verifyState(State.CLOSED);
         break;
       case DELETED:
-        verifyState(State.CLOSED);
+        t = verifyState(State.CLOSED);
         break;
       }
+    }
+    if(t != null) {
+      return CompletableFuture.completedFuture(Message
+              .valueOf(LogServiceProtos.ChangeStateReplyProto.newBuilder().
+                      setException(LogServiceProtoUtil.toLogException(t)).build().toByteString()));
     }
     this.state = targetState;
     return CompletableFuture.completedFuture(Message

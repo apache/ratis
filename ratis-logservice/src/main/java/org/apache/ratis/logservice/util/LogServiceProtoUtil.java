@@ -61,7 +61,7 @@ public class LogServiceProtoUtil {
     LogNameProto logNameProto = LogNameProto.newBuilder().setName(logName.getName()).build();
     ChangeStateLogRequestProto changeLog =
         ChangeStateLogRequestProto.newBuilder().setLogName(logNameProto)
-            .setState(LogStreamState.valueOf(state.name())).build();
+            .setState(LogStreamState.valueOf(state.name())).setForce(force).build();
     return LogServiceRequestProto.newBuilder().setChangeState(changeLog).build();
   }
 

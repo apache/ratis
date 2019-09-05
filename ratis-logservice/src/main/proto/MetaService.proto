@@ -106,6 +106,13 @@ message LogServicePingRequestProto {
   RaftPeerProto peer = 1;
 }
 
+message LogServiceHeartbeatRequestProto {
+  RaftPeerProto peer = 1;
+}
+
+message LogServiceHeartbeatReplyProto {
+}
+
 // Internal StateMachine change request
 // includes: all operations with workers and raft groups.
 message MetaSMRequestProto {
@@ -113,7 +120,7 @@ message MetaSMRequestProto {
     LogServicePingRequestProto pingRequest = 1;
     LogServiceRegisterLogRequestProto registerRequest = 2;
     LogServiceUnregisterLogRequestProto unregisterRequest = 3;
-
+    LogServiceHeartbeatRequestProto heartbeatRequest = 4;
   }
 }
 

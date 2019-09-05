@@ -27,6 +27,7 @@ import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.util.LogServiceCluster;
 import org.apache.ratis.logservice.util.TestUtils;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.junit.AfterClass;
@@ -42,17 +43,15 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
-
 import javax.management.InstanceNotFoundException;
 import javax.management.ObjectName;
+
+import static org.junit.Assert.*;
 
 public class TestMetaServer {
 
     static LogServiceCluster cluster = null;
+    static List<LogServer> workers = null;
     static AtomicInteger createCount = new AtomicInteger();
     static AtomicInteger deleteCount = new AtomicInteger();
     static AtomicInteger listCount = new AtomicInteger();
@@ -77,7 +76,7 @@ public class TestMetaServer {
     public static void beforeClass() {
         cluster = new LogServiceCluster(3);
         cluster.createWorkers(3);
-        List<LogServer> workers = cluster.getWorkers();
+        workers = cluster.getWorkers();
         assert(workers.size() == 3);
     }
 
@@ -101,6 +100,35 @@ public class TestMetaServer {
         assertNotNull(logStream2);
     }
 
+    /**
+     * Test closing log any of the peer in .
+     * @throws IOException
+     */
+    @Test
+    public void testCloseLogOnNodeFailure() throws Exception {
+        boolean peerClosed = false;
+        try {
+            for(int i = 0; i < 5; i++) {
+                LogStream logStream1 = client.createLog(LogName.of("testCloseLogOnNodeFailure"+i));
+                assertNotNull(logStream1);
+            }
+            assertTrue(((MetaStateMachine)cluster.getMasters().get(0).metaStateMachine).checkPeersAreSame());
+            workers.get(0).close();
+            peerClosed = true;
+            Thread.sleep(90000);
+            assertTrue(((MetaStateMachine)cluster.getMasters().get(0).metaStateMachine).checkPeersAreSame());
+            for(int i = 0; i < 5; i++) {
+                LogStream logStream2 = client.getLog(LogName.of("testCloseLogOnNodeFailure"+i));
+                assertNotNull(logStream2);
+                assertEquals(State.CLOSED, logStream2.getState());
+            }
+        } finally {
+            if(peerClosed) {
+                // recreate the worker closed in the test.
+                cluster.createWorkers(1);
+            }
+        }
+    }
 
     @Test
     public void testReadWritetoLog() throws IOException, InterruptedException {

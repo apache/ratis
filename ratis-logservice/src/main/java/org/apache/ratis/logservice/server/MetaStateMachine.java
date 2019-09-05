@@ -19,11 +19,7 @@
 package org.apache.ratis.logservice.server;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -37,10 +33,13 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.logservice.api.LogInfo;
 import org.apache.ratis.logservice.api.LogName;
+import org.apache.ratis.logservice.api.LogStream;
+import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.common.LogAlreadyExistException;
 import org.apache.ratis.logservice.common.LogNotFoundException;
 import org.apache.ratis.logservice.common.NoEnoughWorkersException;
 import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
+import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.CreateLogRequestProto;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.DeleteLogRequestProto;
@@ -53,18 +52,16 @@ import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftGroup;
-import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.*;
+
+
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.AutoCloseableLock;
+import org.apache.ratis.util.Daemon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,10 +86,15 @@ public class MetaStateMachine extends BaseStateMachine {
     // keep a copy of raftServer to get group information.
     private RaftServer raftServer;
 
+    private Map<RaftPeer, Set<LogName>> peerLogs = new ConcurrentHashMap<>();
+
+    private Map<RaftPeer, Long> heartbeatInfo = new ConcurrentHashMap<>();
 
     private RaftGroup currentGroup = null;
 
+    private Daemon peerHealthChecker = null;
     // MinHeap queue for load balancing groups across the peers
+    private long failureDetectionPeriod = Constants.DEFAULT_PEER_FAILURE_DETECTION_PERIOD;
     private PriorityBlockingQueue<PeerGroups> avail = new PriorityBlockingQueue<PeerGroups>();
 
     //Properties
@@ -104,9 +106,11 @@ public class MetaStateMachine extends BaseStateMachine {
     private RaftGroupId logServerGroupId;
     private RatisMetricRegistry metricRegistry;
 
-    public MetaStateMachine(RaftGroupId metadataGroupId, RaftGroupId logServerGroupId) {
+    public MetaStateMachine(RaftGroupId metadataGroupId, RaftGroupId logServerGroupId,
+                            long failureDetectionPeriod) {
       this.metadataGroupId = metadataGroupId;
       this.logServerGroupId = logServerGroupId;
+      this.failureDetectionPeriod = failureDetectionPeriod;
     }
 
     @Override
@@ -115,6 +119,8 @@ public class MetaStateMachine extends BaseStateMachine {
         this.metricRegistry = LogServiceMetricsRegistry
             .createMetricRegistryForLogServiceMetaData(server.getId().toString());
         super.initialize(server, groupId, storage);
+        peerHealthChecker = new Daemon(new PeerHealthChecker(),"peer-Health-Checker");
+        peerHealthChecker.start();
     }
 
     @Override
@@ -131,7 +137,19 @@ public class MetaStateMachine extends BaseStateMachine {
                 LogServiceRegisterLogRequestProto r = req.getRegisterRequest();
                 LogName logname = LogServiceProtoUtil.toLogName(r.getLogname());
                 RaftGroup rg = MetaServiceProtoUtil.toRaftGroup(r.getRaftGroup());
+                rg.getPeers().stream().forEach(raftPeer -> {
+                    Set<LogName> logNames;
+                    if(!peerLogs.containsKey(raftPeer)) {
+                        logNames = new HashSet<>();
+                        peerLogs.put(raftPeer, logNames);
+                    } else {
+                        logNames = peerLogs.get(raftPeer);
+                    }
+                    logNames.add(logname);
+
+                });
                 map.put(logname, rg);
+
                 LOG.info("Log {} registered at {} with group {} ", logname, getId(), rg );
                 break;
             case UNREGISTERREQUEST:
@@ -147,9 +165,14 @@ public class MetaStateMachine extends BaseStateMachine {
                 } else {
                     peers.add(peer);
                     avail.add(new PeerGroups(peer));
+                    heartbeatInfo.put(peer,  System.currentTimeMillis());
                 }
                 break;
-
+            case HEARTBEATREQUEST:
+                MetaServiceProtos.LogServiceHeartbeatRequestProto heartbeatRequest = req.getHeartbeatRequest();
+                RaftPeer heartbeatPeer = MetaServiceProtoUtil.toRaftPeer(heartbeatRequest.getPeer());
+                heartbeatInfo.put(heartbeatPeer,  System.currentTimeMillis());
+                break;
             default:
         }
         return super.applyTransactionSerial(trx);
@@ -328,15 +351,14 @@ public class MetaStateMachine extends BaseStateMachine {
                         .build();
                 try {
                     client.send(() -> MetaServiceProtos.MetaSMRequestProto.newBuilder()
-                            .setRegisterRequest(LogServiceRegisterLogRequestProto
-                                    .newBuilder()
+                            .setRegisterRequest(LogServiceRegisterLogRequestProto.newBuilder()
                                     .setLogname(LogServiceProtoUtil.toLogNameProto(name))
                                     .setRaftGroup(MetaServiceProtoUtil
                                             .toRaftGroupProto(raftGroup)))
                             .build().toByteString());
                 } catch (IOException e) {
                     LOG.error(
-                        "Exception while registring raft group with Metadata Service during creation of log");
+                        "Exception while registering raft group with Metadata Service during creation of log");
                     e.printStackTrace();
                 }
                 return CompletableFuture.completedFuture(Message.valueOf(MetaServiceProtoUtil
@@ -382,7 +404,6 @@ public class MetaStateMachine extends BaseStateMachine {
 
         public PeerGroups(RaftPeer peer) {
             this.peer = peer;
-
         }
 
         public Set<RaftGroup> getGroups () {
@@ -397,5 +418,88 @@ public class MetaStateMachine extends BaseStateMachine {
         public int compareTo(Object o) {
             return groups.size() - ((PeerGroups) o).groups.size();
         }
+    }
+
+    private class PeerHealthChecker implements Runnable {
+        @Override
+        public void run() {
+            while(true) {
+                try {
+                    Thread.sleep(1000);
+                    long now = System.currentTimeMillis();
+                    heartbeatInfo.keySet().stream().forEach(raftPeer -> {
+                        Long heartbeatTimestamp = heartbeatInfo.get(raftPeer);
+                        // Introduce configuration for period to detect the failure.
+                        if((now - heartbeatTimestamp) > failureDetectionPeriod) {
+                            // Close the logs serve by peer if any.
+                            if (peerLogs.containsKey(raftPeer)) {
+                                LOG.warn("Closing all logs hosted by peer {} because last heartbeat" +
+                                                " ({}ms) exceeds the threshold ({}ms)", raftPeer, now - heartbeatTimestamp,
+                                        failureDetectionPeriod);
+                                peers.remove(raftPeer);
+                                Set<LogName> logNames = peerLogs.get(raftPeer);
+                                Iterator<LogName> itr = logNames.iterator();
+                                while(itr.hasNext()) {
+                                    LogName logName = itr.next();
+                                    RaftGroup group = map.get(logName);
+                                    RaftClient client = RaftClient.newBuilder().
+                                            setRaftGroup(group).setProperties(properties).build();
+                                    try {
+                                        LOG.warn(String.format("Peer %s in the group %s went down." +
+                                                        " Hence closing the log %s serve by the group.",
+                                                raftPeer.toString(), group.toString(), logName.toString()));
+                                        RaftClientReply reply = client.send(
+                                                () -> LogServiceProtoUtil.
+                                                        toChangeStateRequestProto(logName, LogStream.State.CLOSED, true)
+                                                        .toByteString());
+                                        LogServiceProtos.ChangeStateReplyProto message =
+                                                LogServiceProtos.ChangeStateReplyProto.parseFrom(reply.getMessage().getContent());
+                                        if(message.hasException()) {
+                                            throw new IOException(message.getException().getErrorMsg());
+                                        }
+                                        itr.remove();
+                                        client.close();
+                                    } catch (IOException e) {
+                                        LOG.warn(String.format("Failed to close log %s on peer %s failure.",
+                                                logName, raftPeer.toString()), e);
+                                    }
+                                }
+                                if(logNames.isEmpty()) {
+                                    peerLogs.remove(raftPeer);
+                                    heartbeatInfo.remove(raftPeer);
+                                } // else retry closing failed logs on next period.
+                            }
+                            final List<PeerGroups> peerGroupsToRemove = new ArrayList<>();
+                            // remove peer groups from avail.
+                            avail.stream().forEach(peerGroup -> {
+                                if(peerGroup.getPeer().equals(raftPeer)) {
+                                    peerGroupsToRemove.add(peerGroup);
+                                }
+                            });
+                            for(PeerGroups peerGroups: peerGroupsToRemove) {
+                                avail.remove(peerGroups);
+                            }
+                        }
+                    });
+                } catch (Exception e) {
+                    LOG.error(
+                            "Exception while closing logs and removing peer" +
+                                    " from raft groups with Metadata Service on node failure", e);
+                }
+            }
+        }
+    }
+
+
+    // This method need to be used for testing only.
+    public boolean checkPeersAreSame() {
+        if(!peers.equals(peerLogs.keySet())) return false;
+            if(!peers.equals(heartbeatInfo.keySet())) return false;
+        Set<RaftPeer> availPeers = new HashSet<>();
+        avail.stream().forEach(peerGroups -> {
+            availPeers.add(peerGroups.getPeer());
+        });
+        if(!peers.equals(availPeers)) return false;
+        return true;
     }
 }

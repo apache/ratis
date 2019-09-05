@@ -61,6 +61,7 @@ message GetStateRequestProto {
 }
 
 message ChangeStateReplyProto {
+  LogServiceException exception = 1;
 }
 
 message GetStateReplyProto {

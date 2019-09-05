@@ -40,6 +40,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -53,6 +54,8 @@ public class LogServer extends BaseServer {
     private RaftServer raftServer = null;
     private RaftClient metaClient = null;
 
+    private Daemon daemon =  null;
+    private long heartbeatInterval = Constants.DEFAULT_HEARTBEAT_INTERVAL;
     public LogServer(ServerOpts opts) {
       super(opts);
       LOG.debug("Log Server options: {}", opts);
@@ -83,6 +86,13 @@ public class LogServer extends BaseServer {
       String archiveLocation = getConfig().get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY);
       if (archiveLocation != null) {
         properties.set(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY, archiveLocation);
+      }
+      heartbeatInterval = getConfig().getLong(Constants.LOG_SERVICE_HEARTBEAT_INTERVAL_KEY,
+        Constants.DEFAULT_HEARTBEAT_INTERVAL);
+      if(heartbeatInterval <= 0) {
+          LOG.warn("Heartbeat interval configuration is invalid." +
+                  " Setting default value "+ Constants.DEFAULT_HEARTBEAT_INTERVAL);
+          heartbeatInterval = Constants.DEFAULT_HEARTBEAT_INTERVAL;
       }
       RaftServerConfigKeys.Log.setSegmentSizeMax(properties, segmentSizeBytes);
       RaftServerConfigKeys.Log.setPreallocatedSize(properties, segmentSizeBytes);
@@ -136,6 +146,9 @@ public class LogServer extends BaseServer {
                 .setProperties(properties)
                 .build();
         metaClient.send(() -> MetaServiceProtoUtil.toPingRequestProto(peer).toByteString());
+        daemon = new Daemon(new HeartbeatSender(new RaftPeer(raftServer.getId())),
+                "heartbeat-Sender"+raftServer.getId());
+        daemon.start();
     }
 
     public static void main(String[] args) throws IOException {
@@ -164,12 +177,39 @@ public class LogServer extends BaseServer {
 
     public void close() throws IOException {
         raftServer.close();
+        daemon.interrupt();
     }
 
     public static class Builder extends BaseServer.Builder<LogServer> {
         public LogServer build() {
             validate();
             return new LogServer(getOpts());
+        }
+    }
+
+    private class HeartbeatSender implements Runnable {
+
+        RaftPeer peer;
+        public HeartbeatSender(RaftPeer peer) {
+            this.peer = peer;
+        }
+
+        @Override
+        public void run() {
+
+            while (true) {
+                try {
+                    metaClient.send(() -> MetaServiceProtoUtil.
+                            toHeartbeatRequestProto(peer).toByteString());
+                    Thread.sleep(heartbeatInterval);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return;
+                } catch (IOException e) {
+                    LOG.warn("Heartbeat request failed with exception", e);
+                }
+            }
+
         }
     }
 }
