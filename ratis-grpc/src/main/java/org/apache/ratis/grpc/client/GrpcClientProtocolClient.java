@@ -261,7 +261,7 @@ public class GrpcClientProtocolClient implements Closeable {
         final long callId = proto.getRpcReply().getCallId();
         try {
           final RaftClientReply reply = ClientProtoUtils.toRaftClientReply(proto);
-          LOG.info("{}: receive {}", getName(), reply);
+          LOG.trace("{}: receive {}", getName(), reply);
           final NotLeaderException nle = reply.getNotLeaderException();
           if (nle != null) {
             completeReplyExceptionally(nle, NotLeaderException.class.getName());
