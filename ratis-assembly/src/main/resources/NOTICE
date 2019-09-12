@@ -322,19 +322,4 @@ Copyright 2016 Josh Elser
 
 Licensed under the Apache License v2.0
 
------------------------------------------------------------------------
-This product uses https://github.com/mbocek/docker-ganglia/
-
-Contributed by Michal Bocek
-
-Licensed under the Apache License v2.0
-https://github.com/mbocek/docker-ganglia/blob/master/LICENSE
-
------------------------------------------------------------------------
-This product uses https://github.com/graphite-project/docker-graphite-statsd
-
-Copyright (c) 2013-2016 Nathan Hopkins
-
-Licensed under the MIT License
-
 --
