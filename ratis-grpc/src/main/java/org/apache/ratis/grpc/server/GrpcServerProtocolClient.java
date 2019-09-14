@@ -30,8 +30,11 @@ import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProto
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.thirdparty.io.netty.handler.ssl.SslContextBuilder;
 import org.apache.ratis.util.TimeDuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
+import java.util.concurrent.TimeUnit;
 
 /**
  * This is a RaftClient implementation that supports streaming data to the raft
@@ -42,6 +45,7 @@ public class GrpcServerProtocolClient implements Closeable {
   private final TimeDuration requestTimeoutDuration;
   private final RaftServerProtocolServiceBlockingStub blockingStub;
   private final RaftServerProtocolServiceStub asyncStub;
+  private static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolClient.class);
 
   public GrpcServerProtocolClient(RaftPeer target, int flowControlWindow,
       TimeDuration requestTimeoutDuration, GrpcTlsConfig tlsConfig) {
@@ -80,7 +84,12 @@ public class GrpcServerProtocolClient implements Closeable {
 
   @Override
   public void close() {
-    channel.shutdownNow();
+    channel.shutdown();
+    try {
+      channel.awaitTermination(5, TimeUnit.SECONDS);
+    } catch (Exception e) {
+      LOG.error("Unexpected exception while waiting for channel termination", e);
+    }
   }
 
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) {
