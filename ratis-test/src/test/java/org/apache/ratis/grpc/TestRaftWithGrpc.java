@@ -60,6 +60,12 @@ public class TestRaftWithGrpc
   }
 
   @Test
+  public void testStateMachineMetrics() throws Exception {
+    runWithNewCluster(NUM_SERVERS, cluster ->
+        testStateMachineMetrics(false, cluster, LOG));
+  }
+
+  @Test
   public void testUpdateViaHeartbeat() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::runTestUpdateViaHeartbeat);
   }

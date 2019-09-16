@@ -17,10 +17,12 @@
  */
 package org.apache.ratis;
 
+import com.codahale.metrics.Gauge;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
@@ -30,8 +32,11 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.RetryCacheTestUtil;
+import org.apache.ratis.server.metrics.RatisMetricNames;
+import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
@@ -42,6 +47,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.SortedMap;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
@@ -430,5 +436,54 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       TimeDuration retryCacheExpiryDuration = RaftServerConfigKeys.RetryCache.expiryTime(cluster.getProperties());
       Assert.assertTrue(duration.compareTo(retryCacheExpiryDuration) >= 0);
     }
+  }
+
+  public static void testStateMachineMetrics(boolean async,
+      MiniRaftCluster cluster, Logger LOG) throws Exception {
+    RaftServerImpl leader = waitForLeader(cluster);
+    long time = System.currentTimeMillis();
+    try (final RaftClient client = cluster.createClient()) {
+
+      // this is required because the lastAppliedTermIndex is not initialized
+      ((BaseStateMachine) leader.getStateMachine()).initLastAppliedTermIndex();
+      Assert.assertTrue(leader.isLeader());
+
+      Gauge appliedIndexGauge = getStatemachineGaugeWithName(leader,
+          RatisMetricNames.STATEMACHINE_APPLIED_INDEX_GAUGE);
+      Gauge smAppliedIndexGauge = getStatemachineGaugeWithName(leader,
+          RatisMetricNames.STATEMACHINE_APPLY_COMPLETED_GAUGE);
+
+      long appliedIndexBefore = (Long) appliedIndexGauge.getValue();
+      long smAppliedIndexBefore = (Long) smAppliedIndexGauge.getValue();
+
+      if (async) {
+        CompletableFuture<RaftClientReply> replyFuture = client.sendAsync(new SimpleMessage("abc"));
+        replyFuture.get();
+      } else {
+        client.send(new SimpleMessage("abc"));
+      }
+
+      long appliedIndexAfter = (Long) appliedIndexGauge.getValue();
+      long smAppliedIndexAfter = (Long) smAppliedIndexGauge.getValue();
+
+      Assert.assertTrue("StateMachine Applied Index not incremented",
+          appliedIndexAfter > appliedIndexBefore);
+      Assert.assertTrue("StateMachine Apply completed Index not incremented",
+          smAppliedIndexAfter > smAppliedIndexBefore);
+    }
+  }
+
+  private static Gauge getStatemachineGaugeWithName(RaftServerImpl server,
+      String gaugeName) {
+
+    RatisMetricRegistry ratisStateMachineMetricRegistry =
+        RatisMetrics.getMetricRegistryForStateMachine(
+            server.getMemberId().toString());
+
+    SortedMap<String, Gauge> gaugeMap =
+        ratisStateMachineMetricRegistry.getGauges((s, metric) ->
+            s.contains(gaugeName));
+
+    return gaugeMap.get(gaugeMap.firstKey());
   }
 }

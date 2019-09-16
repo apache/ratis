@@ -30,4 +30,8 @@ public final class RatisMetricNames {
 
   public static final String FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC = "follower_%s_last_heartbeat_elapsed_time";
 
+  public static final String STATEMACHINE_APPLIED_INDEX_GAUGE =
+      "statemachine_applied_index";
+  public static final String STATEMACHINE_APPLY_COMPLETED_GAUGE =
+      "statemachine_apply_completed_index";
 }

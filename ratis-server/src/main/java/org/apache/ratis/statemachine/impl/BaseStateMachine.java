@@ -19,6 +19,7 @@
 package org.apache.ratis.statemachine.impl;
 
 import com.codahale.metrics.Timer;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -106,6 +107,14 @@ public class BaseStateMachine implements StateMachine {
 
   protected void setLastAppliedTermIndex(TermIndex newTI) {
     lastAppliedTermIndex.set(newTI);
+  }
+
+  /**
+   * to be used for testing only.
+   */
+  @VisibleForTesting
+  public void initLastAppliedTermIndex() {
+    setLastAppliedTermIndex(TermIndex.newTermIndex(0, 0));
   }
 
   protected boolean updateLastAppliedTermIndex(long term, long index) {

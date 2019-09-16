@@ -353,6 +353,12 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   }
 
   @Test
+  public void testStateMachineMetrics() throws Exception {
+    runWithNewCluster(NUM_SERVERS, cluster ->
+        RaftBasicTests.testStateMachineMetrics(true, cluster, LOG));
+  }
+
+  @Test
   public void testAppendEntriesTimeout() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::runTestAppendEntriesTimeout);
   }

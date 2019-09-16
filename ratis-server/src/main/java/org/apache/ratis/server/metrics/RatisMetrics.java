@@ -35,6 +35,8 @@ public class RatisMetrics {
   public static final String RATIS_LEADER_ELECTION_METRICS_DESC = "Metrics for Ratis Leader Election.";
   public static final String RATIS_HEARTBEAT_METRICS = "heartbeat";
   public static final String RATIS_HEARTBEAT_METRICS_DESC = "Metrics for Ratis Heartbeat.";
+  public static final String RATIS_STATEMACHINE_METRICS = "ratis_state_machine";
+  public static final String RATIS_STATEMACHINE_METRICS_DESC = "Metrics for State Machine Updater";
 
   static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
 
@@ -74,5 +76,10 @@ public class RatisMetrics {
   public static RatisMetricRegistry getMetricRegistryForHeartbeat(String serverId) {
     return create(new MetricRegistryInfo(serverId, RATIS_APPLICATION_NAME_METRICS, RATIS_HEARTBEAT_METRICS,
         RATIS_HEARTBEAT_METRICS_DESC));
+  }
+
+  public static RatisMetricRegistry getMetricRegistryForStateMachine(String serverId) {
+    return create(new MetricRegistryInfo(serverId, RATIS_APPLICATION_NAME_METRICS,
+        RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC));
   }
 }

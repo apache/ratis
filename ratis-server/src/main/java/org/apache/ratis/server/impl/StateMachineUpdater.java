@@ -76,6 +76,7 @@ class StateMachineUpdater implements Runnable {
   private final AtomicReference<Long> stopIndex = new AtomicReference<>();
   private volatile State state = State.RUNNING;
   private SnapshotRetentionPolicy snapshotRetentionPolicy;
+  private StateMachineMetrics stateMachineMetrics = null;
 
   StateMachineUpdater(StateMachine stateMachine, RaftServerImpl server,
       ServerState serverState, long lastAppliedIndex, RaftProperties properties) {
@@ -103,7 +104,17 @@ class StateMachineUpdater implements Runnable {
   }
 
   void start() {
+    //wait for RaftServerImpl and ServerState constructors to complete
+    initializeMetrics();
     updater.start();
+  }
+
+  private void initializeMetrics() {
+    if (stateMachineMetrics == null) {
+      stateMachineMetrics =
+          StateMachineMetrics.getStateMachineMetrics(
+              server, appliedIndex, stateMachine);
+    }
   }
 
   private void stop() {
