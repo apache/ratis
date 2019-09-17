@@ -51,13 +51,15 @@ class FollowerState extends Daemon {
 
   static final Logger LOG = LoggerFactory.getLogger(FollowerState.class);
 
+  private final String name;
   private final RaftServerImpl server;
 
   private volatile Timestamp lastRpcTime = Timestamp.currentTime();
-  private volatile boolean monitorRunning = true;
+  private volatile boolean isRunning = true;
   private final AtomicInteger outstandingOp = new AtomicInteger();
 
   FollowerState(RaftServerImpl server) {
+    this.name = server.getMemberId() + "-" + getClass().getSimpleName();
     this.server = server;
   }
 
@@ -66,8 +68,7 @@ class FollowerState extends Daemon {
 
     final int n = type.update(outstandingOp);
     if (LOG.isTraceEnabled()) {
-      LOG.trace("{}: update lastRpcTime to {} for {}, outstandingOp={}",
-          server.getId(), lastRpcTime, type, n);
+      LOG.trace("{}: update lastRpcTime to {} for {}, outstandingOp={}", this, lastRpcTime, type, n);
     }
   }
 
@@ -84,27 +85,28 @@ class FollowerState extends Daemon {
   }
 
   void stopRunning() {
-    this.monitorRunning = false;
+    this.isRunning = false;
   }
 
   @Override
   public  void run() {
     long sleepDeviationThresholdMs = server.getSleepDeviationThresholdMs();
-    while (monitorRunning && server.isFollower()) {
+    while (isRunning && server.isFollower()) {
       final long electionTimeout = server.getRandomTimeoutMs();
       try {
         if (!JavaUtils.sleep(electionTimeout, sleepDeviationThresholdMs)) {
           continue;
         }
 
-        if (!monitorRunning || !server.isFollower()) {
-          LOG.info("{} heartbeat monitor quit", server.getId());
+        final boolean isFollower = server.isFollower();
+        if (!isRunning || !isFollower) {
+          LOG.info("{}: Stopping now (isRunning? {}, isFollower? {})", this, isRunning, isFollower);
           break;
         }
         synchronized (server) {
           if (outstandingOp.get() == 0 && lastRpcTime.elapsedTimeMs() >= electionTimeout) {
-            LOG.info("{}:{} changes to CANDIDATE, lastRpcTime:{}, electionTimeout:{}ms",
-                server.getId(), server.getGroupId(), lastRpcTime.elapsedTimeMs(), electionTimeout);
+            LOG.info("{}: change to CANDIDATE, lastRpcTime:{}ms, electionTimeout:{}ms",
+                this, lastRpcTime.elapsedTimeMs(), electionTimeout);
             server.getLeaderElectionMetricsRegistry().onLeaderElectionTimeout(); // Update timeout metric counters.
             // election timeout, should become a candidate
             server.changeToCandidate();
@@ -123,6 +125,6 @@ class FollowerState extends Daemon {
 
   @Override
   public String toString() {
-    return server.getId() + ": " + getClass().getSimpleName();
+    return name;
   }
 }

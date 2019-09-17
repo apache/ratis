@@ -99,13 +99,14 @@ public class LeaderState {
   }
 
   private class EventQueue {
+    private final String name = server.getMemberId() + "-" + getClass().getSimpleName();
     private final BlockingQueue<StateUpdateEvent> queue = new ArrayBlockingQueue<>(4096);
 
     void submit(StateUpdateEvent event) {
       try {
         queue.put(event);
       } catch (InterruptedException e) {
-        LOG.info("{}: Interrupted when submitting {} ", server.getId(), event);
+        LOG.info("{}: Interrupted when submitting {} ", this, event);
       }
     }
 
@@ -114,7 +115,7 @@ public class LeaderState {
       try {
         e = queue.poll(server.getMaxTimeoutMs(), TimeUnit.MILLISECONDS);
       } catch(InterruptedException ie) {
-        String s = server.getId() + ": " + getClass().getSimpleName() + " thread is interrupted";
+        String s = this + ": poll() is interrupted";
         if (!running) {
           LOG.info(s + " gracefully");
           return null;
@@ -128,6 +129,11 @@ public class LeaderState {
         for(; e.equals(queue.peek()); queue.poll());
       }
       return e;
+    }
+
+    @Override
+    public String toString() {
+      return name;
     }
   }
 
@@ -174,6 +180,7 @@ public class LeaderState {
   private final StateUpdateEvent CHECK_STAGING_EVENT =
       new StateUpdateEvent(StateUpdateEvent.Type.CHECK_STAGING, -1, this::checkStaging);
 
+  private final String name;
   private final RaftServerImpl server;
   private final RaftLog raftLog;
   private final long currentTerm;
@@ -185,7 +192,7 @@ public class LeaderState {
    * The list is protected by the RaftServer's lock.
    */
   private final SenderList senders;
-  private final EventQueue eventQueue = new EventQueue();
+  private final EventQueue eventQueue;
   private final EventProcessor processor;
   private final PendingRequests pendingRequests;
   private final WatchRequests watchRequests;
@@ -197,6 +204,7 @@ public class LeaderState {
   private final HeartbeatMetrics heartbeatMetrics;
 
   LeaderState(RaftServerImpl server, RaftProperties properties) {
+    this.name = server.getMemberId() + "-" + getClass().getSimpleName();
     this.server = server;
 
     stagingCatchupGap = RaftServerConfigKeys.stagingCatchupGap(properties);
@@ -205,9 +213,11 @@ public class LeaderState {
     final ServerState state = server.getState();
     this.raftLog = state.getLog();
     this.currentTerm = state.getCurrentTerm();
+
+    this.eventQueue = new EventQueue();
     processor = new EventProcessor();
-    this.pendingRequests = new PendingRequests(server.getId(), properties);
-    this.watchRequests = new WatchRequests(server.getId(), properties);
+    this.pendingRequests = new PendingRequests(server.getMemberId(), properties);
+    this.watchRequests = new WatchRequests(server.getMemberId(), properties);
 
     final RaftConfiguration conf = server.getRaftConf();
     Collection<RaftPeer> others = conf.getOtherPeers(server.getId());
@@ -249,9 +259,9 @@ public class LeaderState {
       server.getStateMachine().notifyNotLeader(transactions);
       watchRequests.failWatches(nle);
     } catch (IOException e) {
-      LOG.warn(server.getId() + ": Caught exception in sendNotLeaderResponses", e);
+      LOG.warn("{}: Caught exception in sendNotLeaderResponses", this, e);
     }
-    server.getServerRpc().notifyNotLeader(server.getGroupId());
+    server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
   }
 
   void notifySenders() {
@@ -274,6 +284,7 @@ public class LeaderState {
    * Start bootstrapping new peers
    */
   PendingRequest startSetConfiguration(SetConfigurationRequest request) {
+    LOG.info("{}: startSetConfiguration {}", this, request);
     Preconditions.assertTrue(running && !inStagingState());
 
     final List<RaftPeer> peersInNewConf = request.getPeersInNewConf();
@@ -303,14 +314,14 @@ public class LeaderState {
 
   PendingRequest addPendingRequest(PendingRequests.Permit permit, RaftClientRequest request, TransactionContext entry) {
     if (LOG.isDebugEnabled()) {
-      LOG.debug("{}: addPendingRequest at {}, entry=", server.getId(), request,
+      LOG.debug("{}: addPendingRequest at {}, entry={}", this, request,
           ServerProtoUtils.toLogEntryString(entry.getLogEntry()));
     }
     return pendingRequests.add(permit, request, entry);
   }
 
   CompletableFuture<RaftClientReply> addWatchReqeust(RaftClientRequest request) {
-    LOG.debug("{}: addWatchRequest {}", server.getId(), request);
+    LOG.debug("{}: addWatchRequest {}", this, request);
     return watchRequests.add(request)
         .thenApply(v -> new RaftClientReply(request, server.getCommitInfos()))
         .exceptionally(e -> {
@@ -395,7 +406,7 @@ public class LeaderState {
 
   void restartSender(LogAppender sender) {
     final FollowerInfo follower = sender.getFollower();
-    LOG.info("{}: Restarting {} for {}", server.getId(), sender.getClass().getSimpleName(), follower.getName());
+    LOG.info("{}: Restarting {} for {}", this, sender.getClass().getSimpleName(), follower.getName());
     senders.removeAll(Collections.singleton(sender));
     addAndStartSenders(Collections.singleton(follower.getPeer()));
   }
@@ -420,7 +431,7 @@ public class LeaderState {
     try {
       server.changeToFollowerAndPersistMetadata(term, "stepDown");
     } catch(IOException e) {
-      final String s = server.getId() + ": Failed to persist metadata for term " + term;
+      final String s = this + ": Failed to persist metadata for term " + term;
       LOG.warn(s, e);
       // the failure should happen while changing the state to follower
       // thus the in-memory state should have been updated
@@ -484,8 +495,7 @@ public class LeaderState {
     final Timestamp progressTime = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
     final Timestamp timeoutTime = Timestamp.currentTime().addTimeMs(-3*server.getMaxTimeoutMs());
     if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
-      LOG.debug("{} detects a follower {} timeout for bootstrapping," +
-              " timeoutTime: {}", server.getId(), follower, timeoutTime);
+      LOG.debug("{} detects a follower {} timeout ({}) for bootstrapping", this, follower, timeoutTime);
       return BootStrapProgress.NOPROGRESS;
     } else if (follower.getMatchIndex() + stagingCatchupGap > committed
         && follower.getLastRpcResponseTime().compareTo(progressTime) > 0) {
@@ -516,8 +526,7 @@ public class LeaderState {
           .getLastCommittedIndex();
       Collection<BootStrapProgress> reports = checkAllProgress(committedIndex);
       if (reports.contains(BootStrapProgress.NOPROGRESS)) {
-        LOG.debug("{} fails the setConfiguration request", server.getId());
-        stagingState.fail();
+        stagingState.fail(BootStrapProgress.NOPROGRESS);
       } else if (!reports.contains(BootStrapProgress.PROGRESSING)) {
         // all caught up!
         applyOldNewConf();
@@ -640,8 +649,7 @@ public class LeaderState {
         pendingRequests.replySetConfiguration(server::getCommitInfos);
         // if the leader is not included in the current configuration, step down
         if (!conf.containsInConf(server.getId())) {
-          LOG.info("{} is not included in the new configuration {}. Step down.",
-              server.getId(), conf);
+          LOG.info("{} is not included in the new configuration {}. Will shutdown server...", this, conf);
           try {
             // leave some time for all RPC senders to send out new conf entry
             Thread.sleep(server.getMinTimeoutMs());
@@ -725,6 +733,7 @@ public class LeaderState {
   }
 
   private class ConfigurationStagingState {
+    private final String name = server.getMemberId() + "-" + getClass().getSimpleName();
     private final Map<RaftPeerId, RaftPeer> newPeers;
     private final PeerConfiguration newConf;
 
@@ -755,14 +764,19 @@ public class LeaderState {
       return newPeers.containsKey(peerId);
     }
 
-    void fail() {
+    void fail(BootStrapProgress progress) {
+      final String message = this + ": Fail to set configuration " + newConf + " due to " + progress;
+      LOG.debug(message);
       stopAndRemoveSenders(s -> !s.getFollower().isAttendingVote());
 
       LeaderState.this.stagingState = null;
       // send back failure response to client's request
-      pendingRequests.failSetConfiguration(
-          new ReconfigurationTimeoutException("Fail to set configuration "
-              + newConf + ". Timeout when bootstrapping new peers."));
+      pendingRequests.failSetConfiguration(new ReconfigurationTimeoutException(message));
+    }
+
+    @Override
+    public String toString() {
+      return name;
     }
   }
 
@@ -786,5 +800,10 @@ public class LeaderState {
    */
   void recordFollowerHeartbeatElapsedTime(String followerId, long elapsedTime) {
     heartbeatMetrics.recordFollowerHeartbeatElapsedTime(followerId, elapsedTime);
+  }
+
+  @Override
+  public String toString() {
+    return name;
   }
 }

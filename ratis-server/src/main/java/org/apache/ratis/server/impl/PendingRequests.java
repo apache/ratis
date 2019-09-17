@@ -24,7 +24,7 @@ import org.apache.ratis.protocol.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftException;
-import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.TransactionContext;
@@ -135,7 +135,7 @@ class PendingRequests {
   private final String name;
   private final RequestMap pendingRequests;
 
-  PendingRequests(RaftPeerId id, RaftProperties properties) {
+  PendingRequests(RaftGroupMemberId id, RaftProperties properties) {
     this.name = id + "-" + getClass().getSimpleName();
     this.pendingRequests = new RequestMap(id, RaftServerConfigKeys.Write.elementLimit(properties));
   }

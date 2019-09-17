@@ -110,7 +110,7 @@ class LeaderElection implements Runnable {
   private final RaftServerImpl server;
 
   LeaderElection(RaftServerImpl server) {
-    this.name = server.getMemberId() + ":" + getClass().getSimpleName() + COUNT.incrementAndGet();
+    this.name = server.getMemberId() + "-" + getClass().getSimpleName() + COUNT.incrementAndGet();
     this.lifeCycle = new LifeCycle(this);
     this.daemon = new Daemon(this);
     this.server = server;
@@ -133,19 +133,15 @@ class LeaderElection implements Runnable {
       askForVotes();
     } catch(Throwable e) {
       final LifeCycle.State state = lifeCycle.getCurrentState();
-      final String message = "Failed " + this + ", state=" + state;
-
       if (state.isClosingOrClosed()) {
-        LogUtils.infoOrTrace(LOG, message, e);
         LOG.info("{}: {} is safely ignored since this is already {}",
-            this, e.getClass().getSimpleName(), state);
+            this, e.getClass().getSimpleName(), state, e);
       } else {
         if (!server.isAlive()) {
-          LogUtils.infoOrTrace(LOG, message, e);
           LOG.info("{}: {} is safely ignored since the server is not alive: {}",
-              this, e.getClass().getSimpleName(), server);
+              this, e.getClass().getSimpleName(), server, e);
         } else {
-          LOG.error(message, e);
+          LOG.error("{}: Failed, state={}", this, state, e);
         }
         shutdown();
       }
@@ -264,8 +260,10 @@ class LeaderElection implements Runnable {
         final RaftPeerId replierId = RaftPeerId.valueOf(r.getServerReply().getReplyId());
         final RequestVoteReplyProto previous = responses.putIfAbsent(replierId, r);
         if (previous != null) {
-          LOG.warn("{} received duplicated replies from {}, the 2nd reply is ignored: 1st = {}, 2nd = {}",
-              server.getId(), replierId, ServerProtoUtils.toString(previous), ServerProtoUtils.toString(r));
+          if (LOG.isWarnEnabled()) {
+            LOG.warn("{} received duplicated replies from {}, the 2nd reply is ignored: 1st={}, 2nd={}",
+                this, replierId, ServerProtoUtils.toString(previous), ServerProtoUtils.toString(r));
+          }
           continue;
         }
         if (r.getShouldShutdown()) {

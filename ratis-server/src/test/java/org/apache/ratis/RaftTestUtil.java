@@ -180,12 +180,12 @@ public interface RaftTestUtil {
   }
 
   static void assertLogEntries(RaftServerImpl server, long expectedTerm, SimpleMessage... expectedMessages) {
-    LOG.info("checking raft log for " + server.getId());
+    LOG.info("checking raft log for {}", server.getMemberId());
     final RaftLog log = server.getState().getLog();
     try {
       RaftTestUtil.assertLogEntries(log, expectedTerm, expectedMessages);
     } catch (AssertionError e) {
-      LOG.error(server.getId() + ": Unexpected raft log", e);
+      LOG.error("Unexpected raft log in {}", server.getMemberId(), e);
       throw e;
     }
   }

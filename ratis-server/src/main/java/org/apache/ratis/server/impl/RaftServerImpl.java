@@ -149,10 +149,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return sleepDeviationThresholdMs;
   }
 
-  public RaftGroupId getGroupId() {
-    return getMemberId().getGroupId();
-  }
-
   public StateMachine getStateMachine() {
     return stateMachine;
   }
@@ -189,7 +185,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       startInitializing();
     }
 
-    registerMBean(getId(), getGroupId(), jmxAdapter, jmxAdapter);
+    registerMBean(getId(), getMemberId().getGroupId(), jmxAdapter, jmxAdapter);
     state.start();
     return true;
   }
@@ -243,7 +239,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   RaftGroup getGroup() {
-    return RaftGroup.valueOf(getGroupId(), getRaftConf().getPeers());
+    return RaftGroup.valueOf(getMemberId().getGroupId(), getRaftConf().getPeers());
   }
 
   public void shutdown(boolean deleteDirectory) {
@@ -474,7 +470,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   void assertGroup(Object requestorId, RaftGroupId requestorGroupId) throws GroupMismatchException {
-    final RaftGroupId groupId = getGroupId();
+    final RaftGroupId groupId = getMemberId().getGroupId();
     if (!groupId.equals(requestorGroupId)) {
       throw new GroupMismatchException(getMemberId()
           + ": The group (" + requestorGroupId + ") of " + requestorId
@@ -1329,7 +1325,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     @Override
     public String getGroupId() {
-      return RaftServerImpl.this.getGroupId().toString();
+      return getMemberId().getGroupId().toString();
     }
 
     @Override
