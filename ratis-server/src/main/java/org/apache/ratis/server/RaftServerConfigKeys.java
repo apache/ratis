@@ -48,14 +48,14 @@ public interface RaftServerConfigKeys {
     setFiles(properties::setFiles, STORAGE_DIR_KEY, storageDir);
   }
 
-  String SLEEP_DEVIATION_THRESHOLD = PREFIX + ".sleep.deviation.threshold";
+  String SLEEP_DEVIATION_THRESHOLD_KEY = PREFIX + ".sleep.deviation.threshold";
   int SLEEP_DEVIATION_THRESHOLD_DEFAULT = 300;
   static int sleepDeviationThreshold(RaftProperties properties) {
-    return getInt(properties::getInt, SLEEP_DEVIATION_THRESHOLD,
+    return getInt(properties::getInt, SLEEP_DEVIATION_THRESHOLD_KEY,
         SLEEP_DEVIATION_THRESHOLD_DEFAULT, getDefaultLog());
   }
   static void setSleepDeviationThreshold(RaftProperties properties, int thresholdMs) {
-    setInt(properties::setInt, SLEEP_DEVIATION_THRESHOLD, thresholdMs);
+    setInt(properties::setInt, SLEEP_DEVIATION_THRESHOLD_KEY, thresholdMs);
   }
 
   /**
@@ -336,14 +336,13 @@ public interface RaftServerConfigKeys {
       setLong(properties::setLong, AUTO_TRIGGER_THRESHOLD_KEY, autoTriggerThreshold);
     }
 
-    String RETENTION_POLICY_KEY = PREFIX + ".retention.num.files";
-    int DEFAULT_ALL_SNAPSHOTS_RETAINED = -1;
-    static int snapshotRetentionPolicy(RaftProperties raftProperties) {
-      return getInt(raftProperties::getInt,
-          RETENTION_POLICY_KEY, DEFAULT_ALL_SNAPSHOTS_RETAINED, getDefaultLog());
+    String RETENTION_FILE_NUM_KEY = PREFIX + ".retention.file.num";
+    int RETENTION_FILE_NUM_DEFAULT = -1;
+    static int retentionFileNum(RaftProperties raftProperties) {
+      return getInt(raftProperties::getInt, RETENTION_FILE_NUM_KEY, RETENTION_FILE_NUM_DEFAULT, getDefaultLog());
     }
-    static void setSnapshotRetentionPolicy(RaftProperties properties, int numSnapshotFilesRetained) {
-      setInt(properties::setInt, RETENTION_POLICY_KEY, numSnapshotFilesRetained);
+    static void setRetentionFileNum(RaftProperties properties, int numSnapshotFilesRetained) {
+      setInt(properties::setInt, RETENTION_FILE_NUM_KEY, numSnapshotFilesRetained);
     }
   }
 

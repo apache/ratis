@@ -93,7 +93,7 @@ class StateMachineUpdater implements Runnable {
 
     final boolean autoSnapshot = RaftServerConfigKeys.Snapshot.autoTriggerEnabled(properties);
     this.autoSnapshotThreshold = autoSnapshot? RaftServerConfigKeys.Snapshot.autoTriggerThreshold(properties): null;
-    int numSnapshotFilesRetained = RaftServerConfigKeys.Snapshot.snapshotRetentionPolicy(properties);
+    final int numSnapshotFilesRetained = RaftServerConfigKeys.Snapshot.retentionFileNum(properties);
     this.snapshotRetentionPolicy = new SnapshotRetentionPolicy() {
       @Override
       public int getNumSnapshotsRetained() {

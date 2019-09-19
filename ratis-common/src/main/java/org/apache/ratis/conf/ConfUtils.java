@@ -248,6 +248,9 @@ public interface ConfUtils {
   }
 
   static void printAll(Class<?> confClass, Consumer<Object> out) {
+    if (confClass.isEnum()) {
+      return;
+    }
     out.accept("");
     out.accept("******* " + confClass + " *******");
     Arrays.asList(confClass.getDeclaredFields())
@@ -257,14 +260,14 @@ public interface ConfUtils {
   }
 
   static void printField(Class<?> confClass, Consumer<Object> out, Field f) {
-    if (!Modifier.isStatic(f.getModifiers())) {
-      out.accept("WARNING: Found non-static field " + f);
-      return;
+    final int modifiers = f.getModifiers();
+    if (!Modifier.isStatic(modifiers)) {
+      throw new IllegalStateException("Found non-static field " + f);
     }
-    if (printKey(confClass, out, f, "KEY", "DEFAULT",
-        (b, defaultField) ->
-            b.append(defaultField.getGenericType().getTypeName()).append(", ")
-             .append("default=").append(defaultField.get(null)))) {
+    if (!Modifier.isFinal(modifiers)) {
+      throw new IllegalStateException("Found non-final field " + f);
+    }
+    if (printKey(confClass, out, f, "KEY", "DEFAULT", ConfUtils::append)) {
       return;
     }
     if (printKey(confClass, out, f, "PARAMETER", "CLASS",
@@ -272,11 +275,33 @@ public interface ConfUtils {
       return;
     }
     final String fieldName = f.getName();
+    if ("LOG".equals(fieldName)) {
+      return;
+    }
+    if (!"PREFIX".equals(fieldName)) {
+      throw new IllegalStateException("Unexpected field: " + fieldName);
+    }
     try {
       out.accept("constant: " + fieldName + " = " + f.get(null));
     } catch (IllegalAccessException e) {
-      out.accept("WARNING: Failed to access " + f);
+      throw new IllegalStateException("Failed to access " + f, e);
     }
+  }
+
+  static void append(StringBuilder b, Field defaultField) throws IllegalAccessException {
+    b.append(defaultField.getGenericType().getTypeName());
+
+    final Class<?> type = defaultField.getType();
+    if (type.isEnum()) {
+      b.append(" enum[");
+      for(Object e : defaultField.getType().getEnumConstants()) {
+        b.append(e).append(", ");
+      }
+      b.setLength(b.length() - 2);
+      b.append("]");
+    }
+
+    b.append(", ").append("default=").append(defaultField.get(null));
   }
 
   static boolean printKey(
@@ -294,8 +319,7 @@ public interface ConfUtils {
       final Object keyName = f.get(null);
       b.append(KEY.toLowerCase()).append(": ").append(keyName);
     } catch (IllegalAccessException e) {
-      out.accept("WARNING: Failed to access " + fieldName);
-      b.append(fieldName + " is not public");
+      throw new IllegalStateException("Failed to access " + fieldName, e);
     }
     final int len = fieldName.length() - KEY.length();
     final String defaultFieldName = fieldName.substring(0, len) + DEFAULT;
@@ -304,11 +328,9 @@ public interface ConfUtils {
       final Field defaultField = confClass.getDeclaredField(defaultFieldName);
       processDefault.accept(b, defaultField);
     } catch (NoSuchFieldException e) {
-      out.accept("WARNING: " + DEFAULT + " not found for field " + f);
-      b.append(DEFAULT).append(" not found");
+      throw new IllegalStateException(DEFAULT + " not found for field " + f, e);
     } catch (IllegalAccessException e) {
-      out.accept("WARNING: Failed to access " + defaultFieldName);
-      b.append(defaultFieldName).append(" is not public");
+      throw new IllegalStateException("Failed to access " + defaultFieldName, e);
     }
     b.append(")");
     out.accept(b);

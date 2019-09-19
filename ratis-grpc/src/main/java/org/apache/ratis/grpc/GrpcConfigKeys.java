@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -30,48 +30,48 @@ import java.util.function.Consumer;
 import static org.apache.ratis.conf.ConfUtils.*;
 
 public interface GrpcConfigKeys {
+  Logger LOG = LoggerFactory.getLogger(GrpcConfigKeys.class);
+  static Consumer<String> getDefaultLog() {
+    return LOG::info;
+  }
+
   String PREFIX = "raft.grpc";
 
   interface TLS {
-    Logger LOG = LoggerFactory.getLogger(TLS.class);
-    static Consumer<String> getDefaultLog() {
-      return LOG::info;
-    }
+    String PREFIX = GrpcConfigKeys.PREFIX + ".tls";
 
-    String TLS_ROOT_PREFIX = GrpcConfigKeys.PREFIX + ".tls";
-
-    String TLS_ENABLED_KEY = TLS_ROOT_PREFIX + ".enabled";
+    String TLS_ENABLED_KEY = PREFIX + ".enabled";
     boolean TLS_ENABLED_DEFAULT = false;
     static boolean tlsEnabled(RaftProperties properties) {
       return getBoolean(properties::getBoolean, TLS_ENABLED_KEY, TLS_ENABLED_DEFAULT, getDefaultLog());
     }
 
-    String MUTUAL_AUTHN_ENABLED_KEY = TLS_ROOT_PREFIX + ".mutual_authn.enabled";
+    String MUTUAL_AUTHN_ENABLED_KEY = PREFIX + ".mutual_authn.enabled";
     boolean MUTUAL_AUTHN_ENABLED_DEFAULT = false;
     static boolean mutualAuthnEnabled(RaftProperties properties) {
       return getBoolean(properties::getBoolean,
           MUTUAL_AUTHN_ENABLED_KEY, MUTUAL_AUTHN_ENABLED_DEFAULT, getDefaultLog());
     }
 
-    String PRIVATE_KEY_FILE_KEY = TLS_ROOT_PREFIX + ".private.key.file.name";
+    String PRIVATE_KEY_FILE_KEY = PREFIX + ".private.key.file.name";
     String PRIVATE_KEY_FILE_DEFAULT = "private.pem";
     static String getPrivateKeyFile(RaftProperties properties) {
       return get(properties::get, PRIVATE_KEY_FILE_KEY, PRIVATE_KEY_FILE_DEFAULT, getDefaultLog());
     }
 
-    String CERT_CHAIN_FILE_KEY = TLS_ROOT_PREFIX + ".cert.chain.file.name";
+    String CERT_CHAIN_FILE_KEY = PREFIX + ".cert.chain.file.name";
     String CERT_CHAIN_FILE_DEFAULT = "certificate.crt";
     static String getCertChainFile(RaftProperties properties) {
       return get(properties::get, CERT_CHAIN_FILE_KEY, CERT_CHAIN_FILE_DEFAULT, getDefaultLog());
     }
 
-    String TRUST_STORE_KEY = TLS_ROOT_PREFIX + ".trust.store";
+    String TRUST_STORE_KEY = PREFIX + ".trust.store";
     String TRUST_STORE_DEFAULT = "ca.crt";
     static String getTrustStore(RaftProperties properties) {
       return get(properties::get, TRUST_STORE_KEY, TRUST_STORE_DEFAULT, getDefaultLog());
     }
 
-    String CONF_PARAMETER = TLS_ROOT_PREFIX + ".conf";
+    String CONF_PARAMETER = PREFIX + ".conf";
     Class<GrpcTlsConfig> CONF_CLASS = GrpcTlsConfig.class;
     static GrpcTlsConfig getConf(Parameters parameters) {
       return parameters != null ? parameters.get(CONF_PARAMETER, CONF_CLASS): null;
