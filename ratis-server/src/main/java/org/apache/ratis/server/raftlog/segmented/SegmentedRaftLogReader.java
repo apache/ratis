@@ -294,9 +294,9 @@ class SegmentedRaftLogReader implements Closeable {
     int expectedChecksum = in.readInt();
     int calculatedChecksum = (int) checksum.getValue();
     if (expectedChecksum != calculatedChecksum) {
-      throw new ChecksumException("LogEntry is corrupt. Calculated checksum is "
-          + calculatedChecksum + " but read checksum " + expectedChecksum,
-          limiter.markPos);
+      final String s = StringUtils.format("Log entry corrupted: Calculated checksum is %08X but read checksum is %08X.",
+          calculatedChecksum, expectedChecksum);
+      throw new ChecksumException(s, limiter.markPos);
     }
 
     // parse the buffer

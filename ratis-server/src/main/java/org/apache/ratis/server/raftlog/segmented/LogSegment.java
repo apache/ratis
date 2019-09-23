@@ -18,6 +18,7 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -81,14 +82,14 @@ class LogSegment implements Comparable<Long> {
   }
 
   @VisibleForTesting
-  static LogSegment newCloseSegment(RaftStorage storage,
-      long start, long end) {
+  static LogSegment newCloseSegment(RaftStorage storage, long start, long end) {
     Preconditions.assertTrue(start >= 0 && end >= start);
     return new LogSegment(storage, false, start, end);
   }
 
-  private static int readSegmentFile(File file, long start, long end,
-      boolean isOpen, Consumer<LogEntryProto> entryConsumer) throws IOException {
+  private static int readSegmentFile(File file, long start, long end, boolean isOpen,
+      CorruptionPolicy corruptionPolicy, Consumer<LogEntryProto> entryConsumer)
+      throws IOException {
     int count = 0;
     try (SegmentedRaftLogInputStream in = new SegmentedRaftLogInputStream(file, start, end, isOpen)) {
       for(LogEntryProto prev = null, next; (next = in.nextEntry()) != null; prev = next) {
@@ -102,19 +103,31 @@ class LogSegment implements Comparable<Long> {
         }
         count++;
       }
+    } catch (IOException ioe) {
+      switch (corruptionPolicy) {
+        case EXCEPTION: throw ioe;
+        case WARN_AND_RETURN:
+          LOG.warn("Failed to read segment file {} (start={}, end={}, isOpen? {}): only {} entries read successfully",
+              file, start, end, isOpen, count, ioe);
+          break;
+        default:
+          throw new IllegalStateException("Unexpected enum value: " + corruptionPolicy
+              + ", class=" + CorruptionPolicy.class);
+      }
     }
+
     return count;
   }
 
-  static LogSegment loadSegment(RaftStorage storage, File file,
-      long start, long end, boolean isOpen,
+  static LogSegment loadSegment(RaftStorage storage, File file, long start, long end, boolean isOpen,
       boolean keepEntryInCache, Consumer<LogEntryProto> logConsumer)
       throws IOException {
     final LogSegment segment = isOpen ?
         LogSegment.newOpenSegment(storage, start) :
         LogSegment.newCloseSegment(storage, start, end);
 
-    final int entryCount = readSegmentFile(file, start, end, isOpen, entry -> {
+    final CorruptionPolicy corruptionPolicy = CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
+    final int entryCount = readSegmentFile(file, start, end, isOpen, corruptionPolicy, entry -> {
       segment.append(keepEntryInCache || isOpen, entry);
       if (logConsumer != null) {
         logConsumer.accept(entry);
@@ -154,7 +167,7 @@ class LogSegment implements Comparable<Long> {
       final File file = getSegmentFile();
       // note the loading should not exceed the endIndex: it is possible that
       // the on-disk log file should be truncated but has not been done yet.
-      readSegmentFile(file, startIndex, endIndex, isOpen,
+      readSegmentFile(file, startIndex, endIndex, isOpen, getLogCorruptionPolicy(),
           entry -> entryCache.put(ServerProtoUtils.toTermIndex(entry), entry));
       loadingTimes.incrementAndGet();
       return Objects.requireNonNull(entryCache.get(key.getTermIndex()));
@@ -168,11 +181,11 @@ class LogSegment implements Comparable<Long> {
   }
 
   private volatile boolean isOpen;
-  private long totalSize;
+  private long totalSize = SegmentedRaftLogFormat.getHeaderLength();
   private final long startIndex;
   private volatile long endIndex;
   private final RaftStorage storage;
-  private final CacheLoader<LogRecord, LogEntryProto> cacheLoader = new LogEntryLoader();
+  private final LogEntryLoader cacheLoader = new LogEntryLoader();
   /** later replace it with a metric */
   private final AtomicInteger loadingTimes = new AtomicInteger();
 
@@ -191,7 +204,6 @@ class LogSegment implements Comparable<Long> {
     this.isOpen = isOpen;
     this.startIndex = start;
     this.endIndex = end;
-    totalSize = SegmentedRaftLogFormat.getHeaderLength();
   }
 
   long getStartIndex() {
@@ -208,6 +220,10 @@ class LogSegment implements Comparable<Long> {
 
   int numOfEntries() {
     return Math.toIntExact(endIndex - startIndex + 1);
+  }
+
+  CorruptionPolicy getLogCorruptionPolicy() {
+    return CorruptionPolicy.get(storage, RaftStorage::getLogCorruptionPolicy);
   }
 
   void appendToOpenSegment(LogEntryProto entry) {

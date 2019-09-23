@@ -26,8 +26,10 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static org.apache.ratis.conf.ConfUtils.*;
 
@@ -214,6 +216,32 @@ public interface RaftServerConfigKeys {
     }
     static void setForceSyncNum(RaftProperties properties, int forceSyncNum) {
       setInt(properties::setInt, FORCE_SYNC_NUM_KEY, forceSyncNum);
+    }
+
+    /** The policy to handle corrupted raft log. */
+    enum CorruptionPolicy {
+      /** Rethrow the exception. */
+      EXCEPTION,
+      /** Print a warn log message and return all uncorrupted log entries up to the corruption. */
+      WARN_AND_RETURN;
+
+      public static CorruptionPolicy getDefault() {
+        return EXCEPTION;
+      }
+
+      public static <T> CorruptionPolicy get(T supplier, Function<T, CorruptionPolicy> getMethod) {
+        return Optional.ofNullable(supplier).map(getMethod).orElse(getDefault());
+      }
+    }
+
+    String CORRUPTION_POLICY_KEY = PREFIX + ".corruption.policy";
+    CorruptionPolicy CORRUPTION_POLICY_DEFAULT = CorruptionPolicy.getDefault();
+    static CorruptionPolicy corruptionPolicy(RaftProperties properties) {
+      return get(properties::getEnum,
+          CORRUPTION_POLICY_KEY, CORRUPTION_POLICY_DEFAULT, getDefaultLog());
+    }
+    static void setCorruptionPolicy(RaftProperties properties, CorruptionPolicy corruptionPolicy) {
+      set(properties::setEnum, CORRUPTION_POLICY_KEY, corruptionPolicy);
     }
 
     interface StateMachineData {

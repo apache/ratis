@@ -25,9 +25,11 @@ import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.protocol.ChecksumException;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.ServerProtoUtils;
@@ -36,6 +38,8 @@ import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogFormat;
+import org.apache.ratis.server.RaftServerConfigKeys.Log;
+import org.apache.ratis.server.raftlog.segmented.TestSegmentedRaftLog;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -57,6 +61,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -311,5 +316,70 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final TermIndex lastAppliedTermIndex = leaderStateMachine.getLastAppliedTermIndex();
     Assert.assertEquals(lastCommittedEntry.getTerm(), lastAppliedTermIndex.getTerm());
     Assert.assertTrue(lastCommittedEntry.getIndex() <= lastAppliedTermIndex.getIndex());
+  }
+
+  @Test
+  public void testRestartWithCorruptedLogEntryWithWarnAndReturn() throws Exception {
+    final RaftProperties p = getProperties();
+    final Log.CorruptionPolicy policy = Log.corruptionPolicy(p);
+    Log.setCorruptionPolicy(p, Log.CorruptionPolicy.WARN_AND_RETURN);
+
+    runWithNewCluster(1, this::runTestRestartWithCorruptedLogEntry);
+
+    Log.setCorruptionPolicy(p, policy);
+  }
+
+  @Test
+  public void testRestartWithCorruptedLogEntryWithException() throws Exception {
+    final RaftProperties p = getProperties();
+    final Log.CorruptionPolicy policy = Log.corruptionPolicy(p);
+    Log.setCorruptionPolicy(p, Log.CorruptionPolicy.EXCEPTION);
+
+    testFailureCase("restart-fail-ChecksumException",
+        () -> runWithNewCluster(1, this::runTestRestartWithCorruptedLogEntry),
+        CompletionException.class, ChecksumException.class);
+
+    Log.setCorruptionPolicy(p, policy);
+  }
+
+  private void runTestRestartWithCorruptedLogEntry(CLUSTER cluster) throws Exception {
+    // this is the only server
+    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    final RaftPeerId id = leader.getId();
+
+    // send a few messages
+    final SimpleMessage[] messages = SimpleMessage.create(10);
+    final SimpleMessage lastMessage = messages[messages.length - 1];
+    try (final RaftClient client = cluster.createClient()) {
+      for (SimpleMessage m : messages) {
+        Assert.assertTrue(client.send(m).isSuccess());
+      }
+
+      // assert that the last message exists
+      Assert.assertTrue(client.sendReadOnly(lastMessage).isSuccess());
+    }
+
+    final RaftLog log = leader.getState().getLog();
+    final long size = TestSegmentedRaftLog.getOpenSegmentSize(log);
+    leader.getProxy().close();
+
+    // corrupt the log
+    final File openLogFile = JavaUtils.attempt(() -> getOpenLogFile(leader),
+        10, HUNDRED_MILLIS, id + "-getOpenLogFile", LOG);
+    try(final RandomAccessFile raf = new RandomAccessFile(openLogFile, "rw")) {
+      final long mid = size / 2;
+      raf.seek(mid);
+      for (long i = mid; i < size; i++) {
+        raf.write(0);
+      }
+    }
+
+    // after the log is corrupted and the server is restarted, the last entry should no longer exist.
+    cluster.restartServer(id, false);
+    testFailureCase("last-entry-not-found", () -> {
+      try (final RaftClient client = cluster.createClient()) {
+        client.sendReadOnly(lastMessage);
+      }
+    }, StateMachineException.class, IndexOutOfBoundsException.class);
   }
 }

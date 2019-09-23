@@ -74,6 +74,10 @@ public class TestSegmentedRaftLog extends BaseTest {
     LogUtils.setLogLevel(SegmentedRaftLog.LOG, Level.TRACE);
   }
 
+  public static long getOpenSegmentSize(RaftLog raftLog) {
+    return ((SegmentedRaftLog)raftLog).getRaftLogCache().getOpenSegment().getTotalSize();
+  }
+
   private static final RaftPeerId peerId = RaftPeerId.valueOf("s0");
   private static final RaftGroupId groupId = RaftGroupId.randomId();
   private static final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(peerId, groupId);

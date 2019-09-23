@@ -18,6 +18,7 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.RaftServerConfigKeys.Log.CorruptionPolicy;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
@@ -39,11 +40,17 @@ public class RaftStorage implements Closeable {
   // TODO support multiple storage directories
   private final RaftStorageDirectory storageDir;
   private final StorageState state;
+  private final CorruptionPolicy logCorruptionPolicy;
   private volatile MetaFile metaFile;
 
   public RaftStorage(File dir, RaftServerConstants.StartupOption option)
       throws IOException {
-    storageDir = new RaftStorageDirectory(dir);
+    this(dir, option, CorruptionPolicy.getDefault());
+  }
+
+  public RaftStorage(File dir, RaftServerConstants.StartupOption option, CorruptionPolicy logCorruptionPolicy)
+      throws IOException {
+    this.storageDir = new RaftStorageDirectory(dir);
     if (option == RaftServerConstants.StartupOption.FORMAT) {
       if (storageDir.analyzeStorage(false) == StorageState.NON_EXISTENT) {
         throw new IOException("Cannot format " + storageDir);
@@ -60,10 +67,15 @@ public class RaftStorage implements Closeable {
             + ". Its state: " + state);
       }
     }
+    this.logCorruptionPolicy = logCorruptionPolicy;
   }
 
   StorageState getState() {
     return state;
+  }
+
+  public CorruptionPolicy getLogCorruptionPolicy() {
+    return logCorruptionPolicy;
   }
 
   private void format() throws IOException {
