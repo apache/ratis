@@ -1,0 +1,9 @@
+name: main
+on: pull_request
+jobs:
+  build:
+    run-on: ubuntu-18.04
+      steps:
+        - uses: actions/checkout@master    
+
+
