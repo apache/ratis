@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.server.storage;
 
+import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_FLUSH_TIME;
+
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RatisMetrics;
@@ -30,8 +32,12 @@ import java.util.function.Consumer;
 public interface RaftStorageTestUtils {
 
   static String getLogFlushTimeMetric(RaftPeerId serverId) {
+    return getRaftLogFullMetric(serverId, RAFT_LOG_FLUSH_TIME);
+  }
+
+  static String getRaftLogFullMetric(RaftPeerId serverId, String metricName) {
     return RatisMetrics.RATIS_APPLICATION_NAME_METRICS + "." + RatisMetrics.RATIS_LOG_WORKER_METRICS
-        + "." + serverId + ".flush-time";
+        + "." + serverId + "." + metricName;
   }
 
   static void printLog(RaftLog log, Consumer<String> println) {

@@ -92,7 +92,7 @@ public class TestRaftServerSlownessDetection extends BaseTest {
     RatisMetricRegistry ratisMetricRegistry = RatisMetrics.getMetricRegistryForHeartbeat(
         leaderServer.getMemberId().toString());
     SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
-        s.contains("last_heartbeat_elapsed_time"));
+        s.contains("lastHeartbeatElapsedTime"));
 
     String followerId = failedFollower.getId().toString();
     Gauge metric = heartbeatElapsedTimeGauges.entrySet().parallelStream().filter(e -> e.getKey().contains(

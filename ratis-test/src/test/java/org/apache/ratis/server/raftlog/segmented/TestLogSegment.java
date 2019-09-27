@@ -23,6 +23,8 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.metrics.RaftLogMetrics;
+import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
@@ -47,8 +49,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
+import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
 import static org.apache.ratis.server.raftlog.segmented.LogSegment.getEntrySize;
+
+import com.codahale.metrics.Timer;
 
 /**
  * Test basic functionality of {@link LogSegment}
@@ -167,7 +171,7 @@ public class TestLogSegment extends BaseTest {
     final File openSegmentFile = prepareLog(true, 0, 100, 0, isLastEntryPartiallyWritten);
     RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
     LogSegment openSegment = LogSegment.loadSegment(storage, openSegmentFile, 0,
-        INVALID_LOG_INDEX, true, loadInitial, null);
+        INVALID_LOG_INDEX, true, loadInitial, null, null);
     final int delta = isLastEntryPartiallyWritten? 1: 0;
     checkLogSegment(openSegment, 0, 99 - delta, true, openSegmentFile.length(), 0);
     storage.close();
@@ -177,7 +181,7 @@ public class TestLogSegment extends BaseTest {
     // load a closed segment (1000-1099)
     final File closedSegmentFile = prepareLog(false, 1000, 100, 1, false);
     LogSegment closedSegment = LogSegment.loadSegment(storage, closedSegmentFile,
-        1000, 1099, false, loadInitial, null);
+        1000, 1099, false, loadInitial, null, null);
     checkLogSegment(closedSegment, 1000, 1099, false,
         closedSegment.getTotalSize(), 1);
     Assert.assertEquals(loadInitial ? 0 : 1, closedSegment.getLoadingTimes());
@@ -186,7 +190,7 @@ public class TestLogSegment extends BaseTest {
   @Test
   public void testAppendEntries() throws Exception {
     final long start = 1000;
-    LogSegment segment = LogSegment.newOpenSegment(null, start);
+    LogSegment segment = LogSegment.newOpenSegment(null, start, null);
     long size = SegmentedRaftLogFormat.getHeaderLength();
     final long max = 8 * 1024 * 1024;
     checkLogSegment(segment, start, start - 1, true, size, 0);
@@ -206,8 +210,26 @@ public class TestLogSegment extends BaseTest {
   }
 
   @Test
+  public void testAppendEntryMetric() throws Exception {
+    RaftLogMetrics raftLogMetrics = RatisMetrics.createMetricRegistryForLogWorker("test");
+
+    final File openSegmentFile = prepareLog(true, 0, 100, 0, true);
+    RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);
+    LogSegment openSegment = LogSegment.loadSegment(storage, openSegmentFile, 0,
+        INVALID_LOG_INDEX, true, true, null, raftLogMetrics);
+    checkLogSegment(openSegment, 0, 98, true, openSegmentFile.length(), 0);
+    storage.close();
+
+    Timer readEntryTimer = raftLogMetrics.getRaftLogReadEntryTimer();
+    Assert.assertNotNull(readEntryTimer);
+    Assert.assertEquals(100, readEntryTimer.getCount());
+    Assert.assertTrue(readEntryTimer.getMeanRate() > 0);
+  }
+
+
+  @Test
   public void testAppendWithGap() throws Exception {
-    LogSegment segment = LogSegment.newOpenSegment(null, 1000);
+    LogSegment segment = LogSegment.newOpenSegment(null, 1000, null);
     SimpleOperation op = new SimpleOperation("m");
     final StateMachineLogEntryProto m = op.getLogEntryContent();
     try {
@@ -234,7 +256,7 @@ public class TestLogSegment extends BaseTest {
   public void testTruncate() throws Exception {
     final long term = 1;
     final long start = 1000;
-    LogSegment segment = LogSegment.newOpenSegment(null, start);
+    LogSegment segment = LogSegment.newOpenSegment(null, start, null);
     for (int i = 0; i < 100; i++) {
       LogEntryProto entry = ServerProtoUtils.toLogEntryProto(
           new SimpleOperation("m" + i).getLogEntryContent(), term, i + start);

@@ -40,18 +40,6 @@ public class RatisMetrics {
 
   static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
 
-  public static RatisMetricRegistry createMetricRegistryForLogWorker(String name) {
-    return create(
-        new MetricRegistryInfo(name, RATIS_APPLICATION_NAME_METRICS, RATIS_LOG_WORKER_METRICS,
-            RATIS_LOG_WORKER_METRICS_DESC));
-  }
-
-  public static RatisMetricRegistry getMetricRegistryForLogWorker(String name) {
-    return MetricRegistries.global().get(
-        new MetricRegistryInfo(name, RATIS_APPLICATION_NAME_METRICS, RATIS_LOG_WORKER_METRICS,
-            RATIS_LOG_WORKER_METRICS_DESC)).get();
-  }
-
   private static RatisMetricRegistry create(MetricRegistryInfo info) {
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
     if (metricRegistry.isPresent()) {
@@ -82,4 +70,21 @@ public class RatisMetrics {
     return create(new MetricRegistryInfo(serverId, RATIS_APPLICATION_NAME_METRICS,
         RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC));
   }
+
+  public static RaftLogMetrics createMetricRegistryForLogWorker(String name) {
+    RatisMetricRegistry ratisMetricRegistry = getMetricRegistryForLogWorker(name);
+    if (ratisMetricRegistry == null) {
+      ratisMetricRegistry = create(new MetricRegistryInfo(name, RATIS_APPLICATION_NAME_METRICS,
+          RATIS_LOG_WORKER_METRICS, RATIS_LOG_WORKER_METRICS_DESC));
+    }
+    return new RaftLogMetrics(ratisMetricRegistry);
+  }
+
+  public static RatisMetricRegistry getMetricRegistryForLogWorker(String name) {
+    Optional<RatisMetricRegistry> ratisMetricRegistry = MetricRegistries.global().get(
+        new MetricRegistryInfo(name, RATIS_APPLICATION_NAME_METRICS, RATIS_LOG_WORKER_METRICS,
+            RATIS_LOG_WORKER_METRICS_DESC));
+    return ratisMetricRegistry.orElse(null);
+  }
+
 }

@@ -146,7 +146,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
 
     // Get all last_heartbeat_elapsed_time metric gauges. Should be equal to number of followers.
     SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
-        s.contains("last_heartbeat_elapsed_time"));
+        s.contains("lastHeartbeatElapsedTime"));
     assertTrue(heartbeatElapsedTimeGauges.size() == 2);
 
     for (RaftServerImpl followerServer : cluster.getFollowers()) {

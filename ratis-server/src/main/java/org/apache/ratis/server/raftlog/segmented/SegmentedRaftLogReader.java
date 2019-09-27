@@ -20,6 +20,7 @@ package org.apache.ratis.server.raftlog.segmented;
 import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.protocol.ChecksumException;
 import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedInputStream;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
@@ -32,6 +33,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.util.zip.Checksum;
+
+import com.codahale.metrics.Timer;
 
 class SegmentedRaftLogReader implements Closeable {
   static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogReader.class);
@@ -130,13 +133,15 @@ class SegmentedRaftLogReader implements Closeable {
   private final DataInputStream in;
   private byte[] temp = new byte[4096];
   private final Checksum checksum;
+  private final RaftLogMetrics raftLogMetrics;
 
-  SegmentedRaftLogReader(File file) throws FileNotFoundException {
+  SegmentedRaftLogReader(File file, RaftLogMetrics raftLogMetrics) throws FileNotFoundException {
     this.file = file;
     this.limiter = new LimitedInputStream(
         new BufferedInputStream(new FileInputStream(file)));
     in = new DataInputStream(limiter);
     checksum = new PureJavaCrc32C();
+    this.raftLogMetrics = raftLogMetrics;
   }
 
   /**
@@ -181,7 +186,11 @@ class SegmentedRaftLogReader implements Closeable {
    *         exception when skipBrokenEdits is false.
    */
   LogEntryProto readEntry() throws IOException {
+    Timer.Context readEntryContext = null;
     try {
+      if (raftLogMetrics != null) {
+        readEntryContext = raftLogMetrics.getRaftLogReadEntryTimer().time();
+      }
       return decodeEntry();
     } catch (EOFException eof) {
       in.reset();
@@ -202,6 +211,10 @@ class SegmentedRaftLogReader implements Closeable {
       // broken, throw the exception instead of skipping broken entries
       in.reset();
       throw new IOException("got unexpected exception " + e.getMessage(), e);
+    } finally {
+      if (readEntryContext != null) {
+        readEntryContext.stop();
+      }
     }
   }
 

@@ -22,6 +22,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -290,15 +291,22 @@ class SegmentedRaftLogCache {
   private volatile LogSegment openSegment;
   private final LogSegmentList closedSegments;
   private final RaftStorage storage;
+  private final RaftLogMetrics raftLogMetrics;
 
   private final int maxCachedSegments;
   private final CacheInvalidationPolicy evictionPolicy = new CacheInvalidationPolicyDefault();
 
   SegmentedRaftLogCache(Object name, RaftStorage storage, RaftProperties properties) {
+    this(name, storage, properties, null);
+  }
+
+  SegmentedRaftLogCache(Object name, RaftStorage storage, RaftProperties properties,
+                                RaftLogMetrics raftLogMetrics) {
     this.name = name + "-" + getClass().getSimpleName();
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;
     maxCachedSegments = RaftServerConfigKeys.Log.maxCachedSegmentNum(properties);
+    this.raftLogMetrics = raftLogMetrics;
   }
 
   int getMaxCachedSegments() {
@@ -308,7 +316,7 @@ class SegmentedRaftLogCache {
   void loadSegment(LogPathAndIndex pi, boolean keepEntryInCache,
       Consumer<LogEntryProto> logConsumer) throws IOException {
     LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(),
-        pi.startIndex, pi.endIndex, pi.isOpen(), keepEntryInCache, logConsumer);
+        pi.startIndex, pi.endIndex, pi.isOpen(), keepEntryInCache, logConsumer, raftLogMetrics);
     if (logSegment != null) {
       addSegment(logSegment);
     }
@@ -350,7 +358,7 @@ class SegmentedRaftLogCache {
   }
 
   void addOpenSegment(long startIndex) {
-    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex));
+    setOpenSegment(LogSegment.newOpenSegment(storage, startIndex,raftLogMetrics));
   }
 
   private void setOpenSegment(LogSegment openSegment) {

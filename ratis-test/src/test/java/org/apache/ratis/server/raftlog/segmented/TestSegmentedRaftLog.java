@@ -21,6 +21,7 @@ import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -31,6 +32,7 @@ import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.impl.RetryCache;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -66,6 +68,8 @@ import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import com.codahale.metrics.Timer;
 
 public class TestSegmentedRaftLog extends BaseTest {
   static {
@@ -193,6 +197,15 @@ public class TestSegmentedRaftLog extends BaseTest {
           .toArray(LogEntryProto[]::new);
       Assert.assertArrayEquals(entries, entriesFromLog);
       Assert.assertEquals(entries[entries.length - 1], getLastEntry(raftLog));
+
+      RatisMetricRegistry metricRegistryForLogWorker =
+          RatisMetrics.getMetricRegistryForLogWorker(memberId.getPeerId().toString());
+
+      Timer raftLogSegmentLoadLatencyTimer = metricRegistryForLogWorker.timer("segmentLoadLatency");
+      Assert.assertTrue(raftLogSegmentLoadLatencyTimer.getMeanRate() > 0);
+
+      Timer raftLogReadLatencyTimer = metricRegistryForLogWorker.timer("readEntryLatency");
+      Assert.assertTrue(raftLogReadLatencyTimer.getMeanRate() > 0);
     }
   }
 

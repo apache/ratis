@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.OpenCloseState;
 import org.apache.ratis.util.Preconditions;
@@ -65,8 +66,14 @@ public class SegmentedRaftLogInputStream implements Closeable {
   private final boolean isOpen;
   private final OpenCloseState state;
   private SegmentedRaftLogReader reader;
+  private RaftLogMetrics raftLogMetrics;
 
   public SegmentedRaftLogInputStream(File log, long startIndex, long endIndex, boolean isOpen) {
+    this(log, startIndex, endIndex, isOpen, null);
+  }
+
+  SegmentedRaftLogInputStream(File log, long startIndex, long endIndex, boolean isOpen,
+                                      RaftLogMetrics raftLogMetrics) {
     if (isOpen) {
       Preconditions.assertTrue(endIndex == INVALID_LOG_INDEX);
     } else {
@@ -78,12 +85,13 @@ public class SegmentedRaftLogInputStream implements Closeable {
     this.endIndex = endIndex;
     this.isOpen = isOpen;
     this.state = new OpenCloseState(getName());
+    this.raftLogMetrics = raftLogMetrics;
   }
 
   private void init() throws IOException {
     state.open();
     try {
-      final SegmentedRaftLogReader r = new SegmentedRaftLogReader(logFile);
+      final SegmentedRaftLogReader r = new SegmentedRaftLogReader(logFile, raftLogMetrics);
       if (r.verifyHeader()) {
         reader = r;
       }
@@ -184,7 +192,7 @@ public class SegmentedRaftLogInputStream implements Closeable {
       throws IOException {
     SegmentedRaftLogInputStream in;
     try {
-      in = new SegmentedRaftLogInputStream(file, INVALID_LOG_INDEX, INVALID_LOG_INDEX, false);
+      in = new SegmentedRaftLogInputStream(file, INVALID_LOG_INDEX, INVALID_LOG_INDEX, false, null);
       // read the header, initialize the inputstream
       in.init();
     } catch (EOFException e) {
