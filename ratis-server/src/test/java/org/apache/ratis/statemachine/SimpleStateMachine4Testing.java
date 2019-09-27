@@ -423,7 +423,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   }
 
-  @Override public void notifyLeader(long lastCommittedIndex) {
+  @Override public void notifyLeader(RaftGroupId groupId, long lastCommittedIndex) {
     notifiedAsLeader = true;
   }
 
