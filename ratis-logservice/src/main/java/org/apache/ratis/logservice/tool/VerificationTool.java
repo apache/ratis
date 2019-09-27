@@ -66,23 +66,48 @@ public class VerificationTool {
 
     public static final Logger LOG = LoggerFactory.getLogger(LogStateMachine.class);
 
-    @Parameter(names = {"-q", "--metaQuorum"}, description = "Metadata Service Quorum", required = true)
+    @Parameter(names = {"-q", "--metaQuorum"},
+        description = "Metadata Service Quorum",
+        required = true)
     private String metaQuorum;
-    @Parameter(names = {"-nl", "--numLogs"}, description = "Number of logs", validateWith = NonZeroPositiveInteger.class)
+
+    @Parameter(names = {"-nl", "--numLogs"},
+        description = "Number of logs",
+        validateWith = NonZeroPositiveInteger.class)
     private int numLogs = 10;
-    @Parameter(names = {"-nr", "--numRecords"}, description = "Number of records to write per log", validateWith = NonZeroPositiveInteger.class)
+
+    @Parameter(names = {"-nr", "--numRecords"},
+        description = "Number of records to write per log",
+        validateWith = NonZeroPositiveInteger.class)
     private int numRecords = 1000;
-    @Parameter(names = {"-w", "--write"}, description = "Write to the logs", arity = 1)
+
+    @Parameter(names = {"-w", "--write"},
+        description = "Write to the logs",
+        arity = 1)
     private boolean write = true;
-    @Parameter(names = {"-r", "--read"}, description = "Read the logs", arity = 1)
+
+    @Parameter(names = {"-r", "--read"},
+        description = "Read the logs",
+        arity = 1)
     private boolean read = true;
-    @Parameter(names = {"-l", "--logFrequency"}, description = "Print update every N operations", validateWith = NonZeroPositiveInteger.class)
+
+    @Parameter(names = {"-l", "--logFrequency"},
+        description = "Print update every N operations",
+        validateWith = NonZeroPositiveInteger.class)
     private int logFrequency = 50;
-    @Parameter(names = {"-h", "--help"}, description = "Help", help = true)
+
+    @Parameter(names = {"-h", "--help"},
+        description = "Help",
+        help = true)
     private boolean help = false;
-    @Parameter(names = {"-s", "--size"}, description = "Size in bytes of each value")
+
+    @Parameter(names = {"-s", "--size"},
+        description = "Size in bytes of each value")
     private int recordSize = -1;
-    @Parameter(names = {"-bs", "--batchSize"}, description = "Number of records in a batch, a value of 0 disables batching", validateWith = PositiveInteger.class)
+
+    @Parameter(names = {"-bs", "--batchSize"},
+        description = "Number of records in a batch, a value of 0 disables batching",
+        validateWith = PositiveInteger.class)
     private int batchSize = 0;
 
     public static final String LOG_NAME_PREFIX = "testlog";
@@ -93,7 +118,6 @@ public class VerificationTool {
         JCommander jc = JCommander.newBuilder()
                 .addObject(tool)
                 .build();
-        
         jc.parse(args);
         if (tool.help) {
           jc.usage();
@@ -175,13 +199,29 @@ public class VerificationTool {
         LOG.info("All operations finished");
     }
 
-    static abstract class Operation implements Runnable {
+    abstract static class Operation implements Runnable {
       static final byte DIVIDER_BYTE = '_';
-      final LogName logName;
-      final LogServiceClient client;
-      final int numRecords;
-      final int logFreq;
-      final int valueSize;
+      private final LogName logName;
+      private final LogServiceClient client;
+      private final int numRecords;
+      private final int logFreq;
+      private final int valueSize;
+
+      public LogName getLogName() {
+        return logName;
+      }
+
+      public int getNumRecords() {
+        return numRecords;
+      }
+
+      public int getLogFreq() {
+        return logFreq;
+      }
+
+      public LogServiceClient getClient() {
+        return client;
+      }
 
       Operation(LogName logName, LogServiceClient client, int numRecords, int logFreq, int valueSize) {
         this.logName = logName;
@@ -272,15 +312,15 @@ public class VerificationTool {
         public void run() {
             try {
                 LogWriter writer = getLogWriter();
-                for (int i = 0; i < this.numRecords; i++) {
+                for (int i = 0; i < getNumRecords(); i++) {
                     String message = MESSAGE_PREFIX + i;
-                    if (i % logFreq == 0) {
-                      LOG.info(logName + " Writing " + message);
+                    if (i % getLogFreq() == 0) {
+                      LOG.info(getLogName() + " Writing " + message);
                     }
                     writer.write(createValue(message));
                 }
                 writer.close();
-                LOG.info("{} entries written to {} successfully.", numRecords, logName);
+                LOG.info("{} entries written to {} successfully.", getNumRecords(), getLogName());
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -305,8 +345,8 @@ public class VerificationTool {
                     for(int j = 0; j < batchSize; j++) {
                         String message = MESSAGE_PREFIX + (i * batchSize + j);
                         messages.add(createValue(message));
-                        if((i * batchSize + j) % logFreq == 0) {
-                            LOG.info(logName + " batching write " + message);
+                        if((i * batchSize + j) % getLogFreq() == 0) {
+                            LOG.info(getLogName() + " batching write " + message);
                         }
                     }
                     try {
@@ -317,13 +357,13 @@ public class VerificationTool {
                 }
 
                 // Catch the last bit that didn't evenly fit into the batch sizes
-                if (numRecords % batchSize != 0) {
+                if (getNumRecords() % batchSize != 0) {
                   List<ByteBuffer> lastBatch = new ArrayList<>();
-                  for (int i = numBatches * batchSize; i < numRecords; i++) {
+                  for (int i = numBatches * batchSize; i < getNumRecords(); i++) {
                     String message = MESSAGE_PREFIX + i;
                     lastBatch.add(createValue(message));
                   }
-                  LOG.info(logName + " writing last mini-batch of " + lastBatch.size() + " records");
+                  LOG.info(getLogName() + " writing last mini-batch of " + lastBatch.size() + " records");
                   try {
                     writer.write(lastBatch);
                   } catch (IOException e) {
@@ -331,7 +371,7 @@ public class VerificationTool {
                   }
                 }
                 LOG.info("{} entries written in batches to {} successfully.",
-                        numRecords, logName);
+                        getNumRecords(), getLogName());
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -345,19 +385,19 @@ public class VerificationTool {
 
         public void run() {
             try {
-                LogStream logStream = this.client.getLog(logName);
+                LogStream logStream = getClient().getLog(getLogName());
                 LogReader reader = logStream.createReader();
                 long size = logStream.getLength();
-                if(size != this.numRecords) {
+                if(size != getNumRecords()) {
                     LOG.error("There is mismatch is number of records. Expected Records: "+
-                            this.numRecords +", Actual Records: " + size);
+                        getNumRecords() +", Actual Records: " + size);
                     System.exit(-1);
                 }
                 for (int i = 0; i < size; i++) {
                     ByteBuffer buffer = reader.readNext();
                     String message = parseValue(buffer);
-                    if (i % logFreq == 0) {
-                      LOG.info(logName + " Read " + message);
+                    if (i % getLogFreq() == 0) {
+                      LOG.info(getLogName() + " Read " + message);
                     }
                     if(!message.equals(MESSAGE_PREFIX + i)) {
                         LOG.error("Message is not correct. Expected: "+(MESSAGE_PREFIX + i)
@@ -365,7 +405,7 @@ public class VerificationTool {
                         System.exit(-1);
                     }
                 }
-                LOG.info("{} log entries read from log {} successfully.", numRecords, logName);
+                LOG.info("{} log entries read from log {} successfully.", getNumRecords(), getLogName());
                 reader.close();
             } catch (IOException e) {
                 throw new RuntimeException(e);

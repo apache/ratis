@@ -28,7 +28,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferExce
 /**
  * Identifier to uniquely identify a {@link LogStream}.
  */
-public class LogName {
+public final class LogName {
   // It's pretty likely that what uniquely defines a LogStream
   // to change over time. We should account for this by making an
   // API which can naturally evolve.

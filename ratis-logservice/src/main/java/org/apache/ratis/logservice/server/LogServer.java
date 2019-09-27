@@ -189,8 +189,8 @@ public class LogServer extends BaseServer {
 
     private class HeartbeatSender implements Runnable {
 
-        RaftPeer peer;
-        public HeartbeatSender(RaftPeer peer) {
+        private RaftPeer peer;
+        HeartbeatSender(RaftPeer peer) {
             this.peer = peer;
         }
 

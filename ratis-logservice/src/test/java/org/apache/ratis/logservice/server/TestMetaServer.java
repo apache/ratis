@@ -112,11 +112,11 @@ public class TestMetaServer {
                 LogStream logStream1 = client.createLog(LogName.of("testCloseLogOnNodeFailure"+i));
                 assertNotNull(logStream1);
             }
-            assertTrue(((MetaStateMachine)cluster.getMasters().get(0).metaStateMachine).checkPeersAreSame());
+            assertTrue(((MetaStateMachine)cluster.getMasters().get(0).getMetaStateMachine()).checkPeersAreSame());
             workers.get(0).close();
             peerClosed = true;
             Thread.sleep(90000);
-            assertTrue(((MetaStateMachine)cluster.getMasters().get(0).metaStateMachine).checkPeersAreSame());
+            assertTrue(((MetaStateMachine)cluster.getMasters().get(0).getMetaStateMachine()).checkPeersAreSame());
             for(int i = 0; i < 5; i++) {
                 LogStream logStream2 = client.getLog(LogName.of("testCloseLogOnNodeFailure"+i));
                 assertNotNull(logStream2);

@@ -58,7 +58,7 @@ public class LogReaderImpl implements LogReader {
   /*
    * offset
    */
-  long currentRecordId;
+  private long currentRecordId;
 
   public LogReaderImpl(LogStream logStream) {
     this.parent = logStream;
@@ -123,7 +123,7 @@ public class LogReaderImpl implements LogReader {
 
   @Override
   public List<ByteBuffer> readBulk(int numRecords) throws IOException {
-		Preconditions.checkArgument(numRecords > 0, "number of records must be greater than 0");
+    Preconditions.checkArgument(numRecords > 0, "number of records must be greater than 0");
 
     try {
       RaftClientReply reply = raftClient

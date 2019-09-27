@@ -24,7 +24,6 @@ import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.*;
-import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.ReflectionUtils;
@@ -37,7 +36,9 @@ import java.util.stream.Collectors;
 
 import static org.apache.ratis.logservice.util.LogServiceProtoUtil.toLogNameProto;
 
-public class MetaServiceProtoUtil {
+public final class MetaServiceProtoUtil {
+    private MetaServiceProtoUtil() {
+    }
 
     public static RaftPeerProto toRaftPeerProto(RaftPeer peer) {
         RaftPeerProto.Builder builder = RaftPeerProto.newBuilder()
@@ -189,7 +190,7 @@ public class MetaServiceProtoUtil {
     static Iterable<RaftPeerProto> toRaftPeerProtos(
             final Collection<RaftPeer> peers) {
         return () -> new Iterator<RaftPeerProto>() {
-            final Iterator<RaftPeer> i = peers.iterator();
+            private final Iterator<RaftPeer> i = peers.iterator();
 
             @Override
             public boolean hasNext() {

@@ -30,7 +30,7 @@ public interface LogStream extends AutoCloseable{
   /**
    * An enumeration that defines the current state of a LogStream
    */
-  public enum State {
+  enum State {
     /*
     Log is open to receive writes/read request
      */

@@ -19,33 +19,29 @@ package org.apache.ratis.logservice.server;
 
 import java.io.IOException;
 
-import org.apache.ratis.server.raftlog.RaftLogIOException;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
-
 public interface RaftLogReader {
 
   /**
    * Positions this reader just before the current recordId. Use {@link #next()} to get that
    * element, but take care to check if a value is present using {@link #hasNext()} first.
    */
-  public void seek(long recordId) throws IOException;
+  void seek(long recordId) throws IOException;
 
   /**
    * Returns true if there is a log entry to read.
    */
-  public boolean hasNext() throws IOException;
+  boolean hasNext() throws IOException;
 
   /**
    * Returns the next log entry. Ensure {@link #hasNext()} returns true before
    * calling this method.
    */
-  public byte[] next() throws IOException;
+  byte[] next() throws IOException;
 
   /**
    * Returns current raft index read
    * @return
    */
-  public long getCurrentRaftIndex();
+  long getCurrentRaftIndex();
 
   }

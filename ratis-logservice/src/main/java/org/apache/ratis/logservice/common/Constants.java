@@ -22,7 +22,9 @@ import org.apache.ratis.protocol.RaftGroupId;
 
 import java.util.UUID;
 
-public class Constants {
+public final class Constants {
+    private Constants() {
+    }
 
     public static final UUID META_GROUP_UUID = new UUID(0,1);
     public static final RaftGroupId META_GROUP_ID = RaftGroupId.valueOf(META_GROUP_UUID);

@@ -51,11 +51,15 @@ public class MetadataServer extends BaseServer {
 
     private String id;
 
-    StateMachine metaStateMachine;
+    private StateMachine metaStateMachine;
 
     private LifeCycle lifeCycle;
 
-    public MetadataServer(ServerOpts opts) {
+    public StateMachine getMetaStateMachine() {
+      return metaStateMachine;
+    }
+
+  public MetadataServer(ServerOpts opts) {
       super(opts);
       LOG.debug("Metadata Server options: {}", opts);
       this.id = opts.getHost() + "_" + opts.getPort();

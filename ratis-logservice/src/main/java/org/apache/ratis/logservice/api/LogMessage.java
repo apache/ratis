@@ -24,7 +24,7 @@ public abstract class LogMessage implements Message {
   /*
    * Log name
    */
-  protected LogName logName;
+  private LogName logName;
 
   /**
    * Get log name
