@@ -18,20 +18,6 @@
 
 package org.apache.ratis.server.metrics;
 
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_APPEND_ENTRY_LATENCY;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_CACHE_HIT_COUNT;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_CACHE_MISS_COUNT;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_DATA_QUEUE_SIZE;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_FLUSH_TIME;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_LOAD_SEGMENT_LATENCY;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_READ_ENTRY_LATENCY;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_SYNC_BATCH_SIZE;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_SYNC_TIME;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_TASK_ENQUEUE_DELAY;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_TASK_EXECUTION_TIME;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_TASK_QUEUE_TIME;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_LOG_WORKER_QUEUE_SIZE;
-
 import java.util.Queue;
 
 import org.apache.ratis.metrics.RatisMetricRegistry;
@@ -40,6 +26,8 @@ import org.apache.ratis.util.DataQueue;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+
+import static org.apache.ratis.server.metrics.RatisMetricNames.*;
 
 public class RaftLogMetrics {
 
@@ -86,6 +74,14 @@ public class RaftLogMetrics {
 
   public void onRaftLogCacheMiss() {
     registry.counter(RAFT_LOG_CACHE_MISS_COUNT).inc();
+  }
+
+  public void onRaftLogFlush() {
+    registry.counter(RAFT_LOG_FLUSH_COUNT).inc();
+  }
+
+  public void onRaftLogAppendEntry() {
+    registry.counter(RAFT_LOG_APPEND_ENTRY_COUNT).inc();
   }
 
   public Timer getRaftLogAppendEntryTimer() {

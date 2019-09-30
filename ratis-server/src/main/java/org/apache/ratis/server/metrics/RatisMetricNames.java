@@ -42,6 +42,9 @@ public final class RatisMetricNames {
   // Time taken to flush log.
   public static final String RAFT_LOG_FLUSH_TIME = "flushTime";
 
+  // Number of times raft log is flushed
+  public static final String RAFT_LOG_FLUSH_COUNT = "flushCount";
+
   // Time taken to sync raft log.
   public static final String RAFT_LOG_SYNC_TIME = "syncTime";
 
@@ -72,6 +75,9 @@ public final class RatisMetricNames {
 
   // Time taken for a Raft log operation to complete execution.
   public static final String RAFT_LOG_TASK_EXECUTION_TIME = "ExecutionTime";
+
+  // Number of entries appended to the raft log
+  public static final String RAFT_LOG_APPEND_ENTRY_COUNT = "appendEntryCount";
 
   //////////////////////////////
   // Raft Log Read Path Metrics

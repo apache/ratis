@@ -482,6 +482,7 @@ class SegmentedRaftLogWorker implements Runnable {
         stateMachineDataPolicy.getFromFuture(stateMachineFuture, () -> this + "-writeStateMachineData");
       }
 
+      raftLogMetrics.onRaftLogAppendEntry();
       Preconditions.assertTrue(out != null);
       Preconditions.assertTrue(lastWrittenIndex + 1 == entry.getIndex(),
           "lastWrittenIndex == %s, entry == %s", lastWrittenIndex, entry);
@@ -489,6 +490,7 @@ class SegmentedRaftLogWorker implements Runnable {
       lastWrittenIndex = entry.getIndex();
       pendingFlushNum++;
       if (shouldFlush()) {
+        raftLogMetrics.onRaftLogFlush();
         flushWrites();
       }
     }
