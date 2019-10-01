@@ -159,8 +159,7 @@ public class MetaStateMachine extends BaseStateMachine {
             case PINGREQUEST:
                 LogServicePingRequestProto pingRequest = req.getPingRequest();
                 RaftPeer peer = MetaServiceProtoUtil.toRaftPeer(pingRequest.getPeer());
-                //If Set<RaftPeer> contains peer then there Do Nothing,
-                // that's just heartbeat else add the peer to the set.
+                //If Set<RaftPeer> contains peer then do nothing as that's just heartbeat else add the peer to the set.
                 if (!peers.contains(peer)) {
                     peers.add(peer);
                     avail.add(new PeerGroups(peer));
@@ -290,25 +289,7 @@ public class MetaStateMachine extends BaseStateMachine {
                 MetaServiceProtoUtil.toDeleteLogReplyProto().toByteString()));
     }
 
-//    private CompletableFuture<Message> processCloseLog(
-//    MetaServiceProtos.MetaServiceRequestProto logServiceRequestProto) {
-//        CloseLogRequestProto closeLog = logServiceRequestProto.getCloseLog();
-//        LogName logName = LogServiceProtoUtil.toLogName(closeLog.getLogName());
-//        // Need to check whether the file is opened if opened close it.
-//        // TODO need to handle exceptions while operating with files.
-//        return CompletableFuture.completedFuture(Message
-//                .valueOf(CloseLogReplyProto.newBuilder().build().toByteString()));
-//    }
 
-
-//    private CompletableFuture<Message> processGetStateRequest(
-//            MetaServiceProtos.MetaServiceRequestProto logServiceRequestProto) {
-//        MetaServiceProtos.GetStateRequestProto getState = logServiceRequestProto.getGetState();
-//        LogName logName = LogServiceProtoUtil.toLogName(getState.getLogName());
-//        return CompletableFuture.completedFuture(Message.valueOf(LogServiceProtoUtil
-//                .toGetStateReplyProto(true).toByteString()));
-//    }
-//
     private CompletableFuture<Message> processCreateLogRequest(
             MetaServiceProtos.MetaServiceRequestProto logServiceRequestProto) {
         LogName name;

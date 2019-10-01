@@ -89,8 +89,7 @@ public class LogStreamImpl implements LogStream {
   private void init() {
     // TODO create new state machine. etc
     this.state = State.OPEN;
-    this.listeners =
-        Collections.synchronizedList(new ArrayList<RecordListener>());
+    this.listeners = Collections.synchronizedList(new ArrayList<RecordListener>());
   }
 
   @Override

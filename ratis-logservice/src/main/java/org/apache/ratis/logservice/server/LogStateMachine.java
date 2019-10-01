@@ -332,7 +332,7 @@ public class LogStateMachine extends BaseStateMachine {
         LogServiceProtos.GetExportInfoReplyProto.newBuilder();
     exportMap.values().stream().map(
         archInfo -> exportBuilder.addInfo(LogServiceProtoUtil.toExportInfoProto(archInfo)))
-        .collect(Collectors.toList());
+            .collect(Collectors.toList());
 
     return CompletableFuture.completedFuture(Message.valueOf(exportBuilder.build().toByteString()));
   }
@@ -552,7 +552,6 @@ public class LogStateMachine extends BaseStateMachine {
         t = verifyState(State.CLOSED);
         break;
       default:
-        t = verifyState(targetState);
       }
     }
     if(t != null) {

@@ -264,7 +264,7 @@ public class LogServiceClient implements AutoCloseable {
      * Updates a log with the new configuration object, overriding
      * the previous configuration.
      *
-     * @param config The new configuration object
+     * @param conf The new configuration object
      */
     void updateConfiguration(LogName name, LogServiceConfiguration conf) {
       //TODO: write me
