@@ -20,6 +20,7 @@ package org.apache.ratis.statemachine;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -279,15 +280,9 @@ public interface StateMachine extends Closeable {
   }
 
   /**
-   * Notify the state machine that the raft peer is a leader now.
+   * Notify the state machine that a RaftPeer has been elected as leader.
    */
-  default void notifyLeader(RaftGroupId groupId, long lastCommittedIndex){
-  }
-
-  /**
-   * Notify the follower state machine that a RaftPeer has been elected as leader.
-   */
-  default void notifyLeaderChanged(RaftGroupId groupId, RaftPeerId raftPeerId) {
+  default void notifyLeaderChanged(RaftGroupMemberId groupMemberId, RaftPeerId raftPeerId) {
   }
 
   /**

@@ -238,7 +238,6 @@ public class LeaderState {
     CodeInjectionForTesting.execute(APPEND_PLACEHOLDER,
         server.getId().toString(), null);
     raftLog.append(placeHolder);
-    server.getStateMachine().notifyLeader(server.getGroup().getGroupId(), raftLog.getLastCommittedIndex());
     processor.start();
     senders.forEach(LogAppender::startAppender);
     return placeHolder;
