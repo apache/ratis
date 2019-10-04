@@ -89,10 +89,12 @@ public class TestRaftServerSlownessDetection extends BaseTest {
         .slownessTimeout(cluster.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
     RaftServerImpl failedFollower = cluster.getFollowers().get(0);
 
-    RatisMetricRegistry ratisMetricRegistry = RatisMetrics.getMetricRegistryForHeartbeat(
-        leaderServer.getMemberId().toString());
-    SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
-        s.contains("lastHeartbeatElapsedTime"));
+    RatisMetricRegistry ratisMetricRegistry =
+        RatisMetrics.getMetricRegistryForRaftLeader(
+            leaderServer.getMemberId().toString());
+    SortedMap<String, Gauge> heartbeatElapsedTimeGauges =
+        ratisMetricRegistry.getGauges((s, metric) ->
+            s.contains("lastHeartbeatElapsedTime"));
 
     String followerId = failedFollower.getId().toString();
     Gauge metric = heartbeatElapsedTimeGauges.entrySet().parallelStream().filter(e -> e.getKey().contains(

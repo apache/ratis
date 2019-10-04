@@ -27,11 +27,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.impl.RaftServerProxy;
-import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.server.impl.RetryCacheTestUtil;
+import org.apache.ratis.server.impl.*;
 import org.apache.ratis.server.metrics.RatisMetricNames;
 import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -455,6 +451,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
       long appliedIndexBefore = (Long) appliedIndexGauge.getValue();
       long smAppliedIndexBefore = (Long) smAppliedIndexGauge.getValue();
+      checkFollowerCommitLagsLeader(cluster);
 
       if (async) {
         CompletableFuture<RaftClientReply> replyFuture = client.sendAsync(new SimpleMessage("abc"));
@@ -465,11 +462,31 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
       long appliedIndexAfter = (Long) appliedIndexGauge.getValue();
       long smAppliedIndexAfter = (Long) smAppliedIndexGauge.getValue();
+      checkFollowerCommitLagsLeader(cluster);
 
       Assert.assertTrue("StateMachine Applied Index not incremented",
           appliedIndexAfter > appliedIndexBefore);
       Assert.assertTrue("StateMachine Apply completed Index not incremented",
           smAppliedIndexAfter > smAppliedIndexBefore);
+    }
+  }
+
+  private static void checkFollowerCommitLagsLeader(MiniRaftCluster cluster) {
+    List<RaftServerImpl> followers = cluster.getFollowers();
+    RaftServerImpl leader = cluster.getLeader();
+
+    RatisMetricRegistry leaderMetricsRegistry =
+        RatisMetrics.getMetricRegistryForRaftLeader(
+            leader.getMemberId().toString());
+
+    Gauge leaderCommitGauge = RaftLeaderMetrics
+        .getPeerCommitIndexGauge(leader, leader);
+
+    for (RaftServerImpl follower : followers) {
+      Gauge followerCommitGauge = RaftLeaderMetrics
+          .getPeerCommitIndexGauge(leader, follower);
+      Assert.assertTrue((Long)leaderCommitGauge.getValue() >=
+          (Long)followerCommitGauge.getValue());
     }
   }
 

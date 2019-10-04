@@ -28,7 +28,11 @@ public final class RatisMetricNames {
   public static final String LEADER_ELECTION_LATENCY = "leaderElectionLatency";
   public static final String LAST_LEADER_ELAPSED_TIME = "lastLeaderElapsedTime";
 
-  public static final String FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC = "follower-%s-lastHeartbeatElapsedTime";
+  public static final String
+      LEADER_METRIC_FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC =
+      "follower_%s_lastHeartbeatElapsedTime";
+  public static final String LEADER_METRIC_PEER_COMMIT_INDEX =
+      "%s_peerCommitIndex";
 
   public static final String STATEMACHINE_APPLIED_INDEX_GAUGE =
       "statemachine_applied_index";

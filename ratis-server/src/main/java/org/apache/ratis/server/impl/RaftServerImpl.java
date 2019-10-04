@@ -298,6 +298,14 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   /**
+   * return ref to the commit info cache.
+   * @return commit info cache
+   */
+  public CommitInfoCache getCommitInfoCache() {
+    return commitInfoCache;
+  }
+
+  /**
    * Change the server state to Follower if this server is in a different role or force is true.
    * @param newTerm The new term.
    * @param force Force to start a new {@link FollowerState} even if this server is already a follower.

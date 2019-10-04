@@ -21,7 +21,6 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
-import org.apache.ratis.server.metrics.HeartbeatMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -201,7 +200,7 @@ public class LeaderState {
   private final int stagingCatchupGap;
   private final TimeDuration syncInterval;
   private final long placeHolderIndex;
-  private final HeartbeatMetrics heartbeatMetrics;
+  private final RaftLeaderMetrics raftLeaderMetrics;
 
   LeaderState(RaftServerImpl server, RaftProperties properties) {
     this.name = server.getMemberId() + "-" + getClass().getSimpleName();
@@ -224,7 +223,7 @@ public class LeaderState {
     placeHolderIndex = raftLog.getNextIndex();
 
     senders = new SenderList();
-    heartbeatMetrics = HeartbeatMetrics.getHeartbeatMetrics(server);
+    raftLeaderMetrics = RaftLeaderMetrics.getRaftLeaderMetrics(server);
     addSenders(others, placeHolderIndex, true);
     voterLists = divideFollowers(conf);
   }
@@ -337,7 +336,7 @@ public class LeaderState {
 
   void commitIndexChanged() {
     getMajorityMin(FollowerInfo::getCommitIndex, raftLog::getLastCommittedIndex).ifPresent(m -> {
-      // Normally, leader commit index is always ahead followers.
+      // Normally, leader commit index is always ahead of followers.
       // However, after a leader change, the new leader commit index may
       // be behind some followers in the beginning.
       watchRequests.update(ReplicationLevel.ALL_COMMITTED, m.min);
@@ -390,7 +389,8 @@ public class LeaderState {
     final List<LogAppender> newAppenders = newPeers.stream()
         .map(peer -> {
           LogAppender logAppender = server.newLogAppender(this, peer, t, nextIndex, attendVote);
-          heartbeatMetrics.addFollower(logAppender.getFollower().getPeer().getId().toString());
+          raftLeaderMetrics
+              .addFollower(logAppender.getFollower().getPeer());
           return logAppender;
         }).collect(Collectors.toList());
     senders.addAll(newAppenders);
@@ -794,11 +794,20 @@ public class LeaderState {
 
   /**
    * Record Follower Heartbeat Elapsed Time.
-   * @param followerId Follower Peer ID.
+   * @param follower RaftPeer.
    * @param elapsedTime Elapsed time in Nanos.
    */
-  void recordFollowerHeartbeatElapsedTime(String followerId, long elapsedTime) {
-    heartbeatMetrics.recordFollowerHeartbeatElapsedTime(followerId, elapsedTime);
+  void recordFollowerHeartbeatElapsedTime(RaftPeer follower, long elapsedTime) {
+    raftLeaderMetrics.recordFollowerHeartbeatElapsedTime(follower,
+        elapsedTime);
+  }
+
+  /**
+   * Return the metric registry for the Group Leader.
+   * @return the group leader metrics registry
+   */
+  RaftLeaderMetrics getRaftLeaderMetrics() {
+    return raftLeaderMetrics;
   }
 
   @Override

@@ -141,8 +141,9 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       throw e;
     }
 
-    RatisMetricRegistry ratisMetricRegistry = RatisMetrics.getMetricRegistryForHeartbeat(
-        leaderServer.getMemberId().toString());
+    RatisMetricRegistry ratisMetricRegistry =
+        RatisMetrics.getMetricRegistryForRaftLeader(
+            leaderServer.getMemberId().toString());
 
     // Get all last_heartbeat_elapsed_time metric gauges. Should be equal to number of followers.
     SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
@@ -158,8 +159,9 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       // Metric in nanos > 0.
       assertTrue((long)metric.getValue() > 0);
       // Try to get Heartbeat metrics for follower.
-      RatisMetricRegistry followerMetricsRegistry = RatisMetrics.getMetricRegistryForHeartbeat(followerServer
-          .getMemberId().toString());
+      RatisMetricRegistry followerMetricsRegistry =
+          RatisMetrics.getMetricRegistryForRaftLeader(
+              followerServer.getMemberId().toString());
       // Metric should not exist. It only exists in leader.
       assertTrue(followerMetricsRegistry.getGauges((s, m) -> s.contains("last_heartbeat_elapsed_time")).isEmpty());
     }
