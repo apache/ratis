@@ -19,12 +19,7 @@ set -e               # exit on error
 
 cd "$(dirname "$0")" # connect to root
 
-# load URLs, checksums of dependencies
-source ./dev-support/binary_locations.sh
-# all dependency env. vars. start with ratis_ include them all via --build-arg
-build_args=$(env|awk 'BEGIN{FS="="};/^ratis_.*/{printf "--build-arg " $1 " "}')
-
-docker build $build_args -t ratis-build dev-support/docker
+docker build -t ratis-build dev-support/docker
 
 if [ "$(uname -s)" == "Linux" ]; then
   USER_NAME=${SUDO_USER:=$USER}
