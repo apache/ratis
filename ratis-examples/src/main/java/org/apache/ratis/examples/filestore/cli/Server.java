@@ -25,6 +25,9 @@ import org.apache.ratis.examples.common.SubCommandBase;
 import org.apache.ratis.examples.filestore.FileStoreCommon;
 import org.apache.ratis.examples.filestore.FileStoreStateMachine;
 import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.metrics.JVMMetrics;
+import org.apache.ratis.metrics.MetricRegistries;
+import org.apache.ratis.metrics.MetricsReporting;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
@@ -33,6 +36,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.JmxRegister;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
 
@@ -53,7 +57,6 @@ public class Server extends SubCommandBase {
   @Parameter(names = {"--storage", "-s"}, description = "Storage dir", required = true)
   private File storageDir;
 
-
   @Override
   public void run() throws Exception {
     RaftPeerId peerId = RaftPeerId.valueOf(id);
@@ -67,6 +70,11 @@ public class Server extends SubCommandBase {
     ConfUtils.setFile(properties::setFile, FileStoreCommon.STATEMACHINE_DIR_KEY,
         storageDir);
     StateMachine stateMachine = new FileStoreStateMachine(properties);
+    MetricRegistries registries = MetricRegistries.global();
+    JVMMetrics.addJvmMetrics(registries);
+
+    registries.addReporterRegistration(MetricsReporting.consoleReporter(10, TimeUnit.SECONDS));
+    registries.addReporterRegistration(MetricsReporting.jmxReporter());
 
     final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(raftGroupId)), peers);
     RaftServer raftServer = RaftServer.newBuilder()
@@ -74,9 +82,10 @@ public class Server extends SubCommandBase {
         .setStateMachine(stateMachine).setProperties(properties)
         .setGroup(raftGroup)
         .build();
+
     raftServer.start();
 
-    for(; raftServer.getLifeCycleState() != LifeCycle.State.CLOSED;) {
+    for (; raftServer.getLifeCycleState() != LifeCycle.State.CLOSED; ) {
       TimeUnit.SECONDS.sleep(1);
     }
   }

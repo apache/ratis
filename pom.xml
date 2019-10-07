@@ -203,8 +203,6 @@
 
     <!--metrics-->
     <dropwizard.version>3.2.5</dropwizard.version>
-    <dropwizard-metrics-hadoop-metrics2-reporter.version>0.1.2
-    </dropwizard-metrics-hadoop-metrics2-reporter.version>
   </properties>
 
   <dependencyManagement>
@@ -315,11 +313,6 @@
         <version>${project.version}</version>
         <type>test-jar</type>
         <scope>test</scope>
-      </dependency>
-      <dependency>
-        <groupId>com.github.joshelser</groupId>
-        <artifactId>dropwizard-metrics-hadoop-metrics2-reporter</artifactId>
-        <version>${dropwizard-metrics-hadoop-metrics2-reporter.version}</version>
       </dependency>
 
       <dependency>
