@@ -251,6 +251,7 @@ public class ServerState implements Closeable {
         lastNoLeaderTime = null;
         suffix = ", leader elected after " + previous.elapsedTimeMs() + "ms";
         server.getStateMachine().notifyLeaderChanged(getMemberId(), newLeaderId);
+        server.honorMinTimeoutMs();
       }
       LOG.info("{}: change Leader from {} to {} at term {} for {}{}",
           getMemberId(), leaderId, newLeaderId, getCurrentTerm(), op, suffix);
