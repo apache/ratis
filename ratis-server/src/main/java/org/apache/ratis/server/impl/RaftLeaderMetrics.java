@@ -26,10 +26,10 @@ import java.util.Map;
 import java.util.SortedMap;
 
 import com.codahale.metrics.Gauge;
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.metrics.RatisMetrics;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Preconditions;
 
 /**

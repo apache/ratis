@@ -60,6 +60,7 @@
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-jvm</artifactId>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
@@ -70,6 +71,7 @@
           <artifactId>oncrpc</artifactId>
         </exclusion>
       </exclusions>
+      <optional>true</optional>
     </dependency>
   </dependencies>
 </project>
