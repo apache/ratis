@@ -35,8 +35,6 @@ import org.apache.ratis.server.impl.ServerState;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.google.protobuf.ByteString;
-
 /**
  * Test for LeaderElectionMetrics.
  */

@@ -93,4 +93,5 @@ public final class RatisMetricNames {
   // Time required to load and process raft log segments during restart
   public static final String RAFT_LOG_LOAD_SEGMENT_LATENCY = "segmentLoadLatency";
 
+  public static final String FOLLOWER_APPEND_ENTRIES_LATENCY = "follower_append_entry_latency";
 }

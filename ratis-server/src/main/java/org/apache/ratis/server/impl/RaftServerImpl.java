@@ -18,6 +18,7 @@
 package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
@@ -25,6 +26,8 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
+import org.apache.ratis.server.metrics.RatisMetricNames;
+import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -61,6 +64,8 @@ import static org.apache.ratis.util.LifeCycle.State.NEW;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
+import com.codahale.metrics.Timer;
+
 public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol {
   public static final Logger LOG = LoggerFactory.getLogger(RaftServerImpl.class);
@@ -88,6 +93,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   private final RaftServerJmxAdapter jmxAdapter;
   private final LeaderElectionMetrics leaderElectionMetricsRegistry;
+  private final RatisMetricRegistry raftServerMetricsRegistry;
 
   private AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
 
@@ -116,6 +122,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetricsRegistry = getLeaderElectionMetrics(this);
+    this.raftServerMetricsRegistry = RatisMetrics.getMetricsRegistryForServer(id.toString());
   }
 
   private RetryCache initRetryCache(RaftProperties prop) {
@@ -911,6 +918,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final long currentTerm;
     final long followerCommit = state.getLog().getLastCommittedIndex();
     final Optional<FollowerState> followerState;
+    Timer.Context timer = raftServerMetricsRegistry.timer(RatisMetricNames.FOLLOWER_APPEND_ENTRIES_LATENCY).time();
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
@@ -971,6 +979,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
       logAppendEntries(isHeartbeat, () ->
           getMemberId() + ": succeeded to handle AppendEntries. Reply: " + ServerProtoUtils.toString(reply));
+      timer.stop();  // TODO: future never completes exceptionally?
       return reply;
     });
   }

@@ -37,6 +37,8 @@ public class RatisMetrics {
   public static final String RATIS_LEADER_METRICS_DESC = "Metrics for Ratis Leader.";
   public static final String RATIS_STATEMACHINE_METRICS = "ratis_state_machine";
   public static final String RATIS_STATEMACHINE_METRICS_DESC = "Metrics for State Machine Updater";
+  public static final String RATIS_SERVER_METRICS = "server";
+  public static final String RATIS_SERVER_METRICS_DESC = "Metrics for Raft server";
 
   static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
 
@@ -88,4 +90,8 @@ public class RatisMetrics {
     return ratisMetricRegistry.orElse(null);
   }
 
+  public static RatisMetricRegistry getMetricsRegistryForServer(String serverId) {
+    return create(new MetricRegistryInfo(serverId, RATIS_APPLICATION_NAME_METRICS, RATIS_SERVER_METRICS,
+        RATIS_SERVER_METRICS_DESC));
+  }
 }
