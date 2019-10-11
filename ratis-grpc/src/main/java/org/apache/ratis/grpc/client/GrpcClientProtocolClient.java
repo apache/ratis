@@ -140,13 +140,13 @@ public class GrpcClientProtocolClient implements Closeable {
   public void close() {
     Optional.ofNullable(orderedStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
     Optional.ofNullable(unorderedStreamObservers.getAndSet(null)).ifPresent(AsyncStreamObservers::close);
-    scheduler.close();
     channel.shutdown();
     try {
       channel.awaitTermination(5, TimeUnit.SECONDS);
     } catch (Exception e) {
       LOG.error("Unexpected exception while waiting for channel termination", e);
     }
+    scheduler.close();
   }
 
   RaftClientReplyProto groupAdd(GroupManagementRequestProto request) throws IOException {

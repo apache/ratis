@@ -149,6 +149,10 @@ public final class TimeoutScheduler implements Closeable {
 
     final TimeDuration grace = getGracePeriod();
     LOG.debug("Schedule a shutdown task: grace {}, sid {}", grace, sid);
+    if (scheduler == null) {
+      shutdownTask = null;
+      return;
+    }
     final ScheduledFuture<?> future = schedule(scheduler, () -> tryShutdownScheduler(sid),
         () -> "shutdown task #" + sid, grace);
     shutdownTask = new ShutdownTask(sid, future);
@@ -161,7 +165,7 @@ public final class TimeoutScheduler implements Closeable {
   }
 
   private synchronized void tryShutdownScheduler(int sid) {
-    if (sid == scheduleID) {
+    if (sid == scheduleID && scheduler != null) {
       // No new tasks submitted, shutdown the scheduler.
       LOG.debug("shutdown scheduler: sid {}", sid);
       scheduler.shutdown();
@@ -176,7 +180,8 @@ public final class TimeoutScheduler implements Closeable {
     onTimeout(timeout, task, t -> log.error(errorMessage.get(), t));
   }
 
-  @Override public synchronized void close() {
+  @Override
+  public synchronized void close() {
     if (scheduler != null) {
       LOG.debug("Closing ThreadPool");
       scheduler.shutdownNow();
