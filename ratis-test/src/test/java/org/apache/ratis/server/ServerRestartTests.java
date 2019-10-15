@@ -112,7 +112,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final long leaderLastIndex = cluster.getLeader().getState().getLog().getLastEntryTermIndex().getIndex();
     // make sure the restarted follower can catchup
     final ServerState followerState = cluster.getRaftServerImpl(followerId).getState();
-    JavaUtils.attempt(() -> followerState.getLastAppliedIndex() >= leaderLastIndex,
+    JavaUtils.attemptRepeatedly(() -> followerState.getLastAppliedIndex() >= leaderLastIndex,
         10, ONE_SECOND, "follower catchup", LOG);
 
     // make sure the restarted peer's log segments is correct
@@ -188,7 +188,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
   void runTestRestartWithCorruptedLogHeader(MiniRaftCluster cluster) throws Exception {
     RaftTestUtil.waitForLeader(cluster);
     for(RaftServerImpl impl : cluster.iterateServerImpls()) {
-      JavaUtils.attempt(() -> getOpenLogFile(impl), 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS),
+      JavaUtils.attemptRepeatedly(() -> getOpenLogFile(impl), 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS),
           impl.getId() + ": wait for log file creation", LOG);
     }
 
@@ -196,7 +196,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     cluster.getServers().forEach(RaftServerProxy::close);
 
     for(RaftServerImpl impl : cluster.iterateServerImpls()) {
-      final File openLogFile = JavaUtils.attempt(() -> getOpenLogFile(impl),
+      final File openLogFile = JavaUtils.attemptRepeatedly(() -> getOpenLogFile(impl),
           10, HUNDRED_MILLIS, impl.getId() + "-getOpenLogFile", LOG);
       for(int i = 0; i < SegmentedRaftLogFormat.getHeaderLength(); i++) {
         assertCorruptedLogHeader(impl.getId(), openLogFile, i, cluster, LOG);
@@ -292,9 +292,9 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       cluster.restartServer(id, false);
       final RaftServerImpl server = cluster.getRaftServerImpl(id);
       final RaftLog raftLog = server.getState().getLog();
-      JavaUtils.attempt(() -> raftLog.getLastCommittedIndex() >= loggedCommitIndex,
+      JavaUtils.attemptRepeatedly(() -> raftLog.getLastCommittedIndex() >= loggedCommitIndex,
           10, HUNDRED_MILLIS, id + "(commitIndex >= loggedCommitIndex)", LOG);
-      JavaUtils.attempt(() -> server.getState().getLastAppliedIndex() >= loggedCommitIndex,
+      JavaUtils.attemptRepeatedly(() -> server.getState().getLastAppliedIndex() >= loggedCommitIndex,
           10, HUNDRED_MILLIS, id + "(lastAppliedIndex >= loggedCommitIndex)", LOG);
       LOG.info("{}: commitIndex={}, lastAppliedIndex={}",
           id, raftLog.getLastCommittedIndex(), server.getState().getLastAppliedIndex());
@@ -364,7 +364,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     leader.getProxy().close();
 
     // corrupt the log
-    final File openLogFile = JavaUtils.attempt(() -> getOpenLogFile(leader),
+    final File openLogFile = JavaUtils.attemptRepeatedly(() -> getOpenLogFile(leader),
         10, HUNDRED_MILLIS, id + "-getOpenLogFile", LOG);
     try(final RandomAccessFile raf = new RandomAccessFile(openLogFile, "rw")) {
       final long mid = size / 2;

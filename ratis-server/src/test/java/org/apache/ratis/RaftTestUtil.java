@@ -94,7 +94,7 @@ public interface RaftTestUtil {
       exception.set(ise);
     };
 
-    final RaftServerImpl leader = JavaUtils.attempt(
+    final RaftServerImpl leader = JavaUtils.attemptRepeatedly(
         () -> cluster.getLeader(groupId, handleNoLeaders, handleMultipleLeaders),
         numAttempts, sleepTime, name, LOG);
 
@@ -359,7 +359,7 @@ public interface RaftTestUtil {
     final String name = JavaUtils.getCallerStackTraceElement().getMethodName() + "-changeLeader";
     cluster.setBlockRequestsFrom(oldLeader.toString(), true);
     try {
-      return JavaUtils.attempt(() -> {
+      return JavaUtils.attemptRepeatedly(() -> {
         final RaftPeerId newLeader = waitForLeader(cluster).getId();
         if (newLeader.equals(oldLeader)) {
           throw constructor.apply("Failed to change leader: newLeader == oldLeader == " + oldLeader);

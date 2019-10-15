@@ -139,7 +139,7 @@ public interface JavaUtils {
   }
 
   /** Attempt to get a return value from the given supplier multiple times. */
-  static <RETURN, THROWABLE extends Throwable> RETURN attempt(
+  static <RETURN, THROWABLE extends Throwable> RETURN attemptRepeatedly(
       CheckedSupplier<RETURN, THROWABLE> supplier,
       int numAttempts, TimeDuration sleepTime, String name, Logger log)
       throws THROWABLE, InterruptedException {
@@ -169,33 +169,21 @@ public interface JavaUtils {
   static <THROWABLE extends Throwable> void attempt(
       CheckedRunnable<THROWABLE> runnable, int numAttempts, TimeDuration sleepTime, String name, Logger log)
       throws THROWABLE, InterruptedException {
-    attempt(CheckedRunnable.asCheckedSupplier(runnable), numAttempts, sleepTime, name, log);
+    attemptRepeatedly(CheckedRunnable.asCheckedSupplier(runnable), numAttempts, sleepTime, name, log);
   }
 
   /** Attempt to wait the given condition to return true multiple times. */
-  static void attempt(
+  static void attemptUntilTrue(
       BooleanSupplier condition, int numAttempts, TimeDuration sleepTime, String name, Logger log)
       throws InterruptedException {
     Objects.requireNonNull(condition, "condition == null");
-    Preconditions.assertTrue(numAttempts > 0, () -> "numAttempts = " + numAttempts + " <= 0");
-    Preconditions.assertTrue(!sleepTime.isNegative(), () -> "sleepTime = " + sleepTime + " < 0");
-
-    for(int i = 1; i <= numAttempts; i++) {
-      if (condition.getAsBoolean()) {
-        return;
+    attempt(() -> {
+      if (!condition.getAsBoolean()) {
+        throw new IllegalStateException("Condition " + name + " is false.");
       }
-      if (log != null && log.isWarnEnabled()) {
-        log.warn("FAILED " + name + " attempt #" + i + "/" + numAttempts
-            + ": sleep " + sleepTime + " and then retry.");
-      }
-
-      sleepTime.sleep();
-    }
-
-    if (!condition.getAsBoolean()) {
-      throw new IllegalStateException("Failed " + name + " for " + numAttempts + " attempts.");
-    }
+    }, numAttempts, sleepTime, name, log);
   }
+
 
   static Timer runRepeatedly(Runnable runnable, long delay, long period, TimeUnit unit) {
     final Timer timer = new Timer(true);

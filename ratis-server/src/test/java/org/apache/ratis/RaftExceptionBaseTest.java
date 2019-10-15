@@ -80,7 +80,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
       }
 
       final RaftClientRpc rpc = client.getClientRpc();
-      JavaUtils.attempt(() -> assertNotLeaderException(newLeader, "m2", oldLeader, rpc, cluster),
+      JavaUtils.attemptRepeatedly(() -> assertNotLeaderException(newLeader, "m2", oldLeader, rpc, cluster),
           10, ONE_SECOND, "assertNotLeaderException", LOG);
 
       sendMessage("m3", client);
@@ -128,7 +128,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
       // it is possible that the remote peer's rpc server is not ready. need retry
       final RaftClientRpc rpc = client.getClientRpc();
-      final RaftClientReply reply = JavaUtils.attempt(
+      final RaftClientReply reply = JavaUtils.attemptRepeatedly(
           () -> assertNotLeaderException(newLeader, "m1", oldLeader, rpc, cluster),
           10, ONE_SECOND, "assertNotLeaderException", LOG);
 

@@ -136,7 +136,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     LOG.info("nextIndex = {}", nextIndex);
     // wait for the snapshot to be done
     final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
-    JavaUtils.attempt(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
+    JavaUtils.attemptRepeatedly(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
         10, ONE_SECOND, "snapshotFile.exist", LOG);
 
     // restart the peer and check if it can correctly load snapshot
@@ -184,7 +184,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       final long nextIndex = cluster.getLeader().getState().getLog().getNextIndex();
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
-      JavaUtils.attempt(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
+      JavaUtils.attemptRepeatedly(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
           10, ONE_SECOND, "snapshotFile.exist", LOG);
       logs = storageDirectory.getLogSegmentFiles();
     } finally {

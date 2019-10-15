@@ -141,7 +141,7 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
     // trigger setConfiguration
     cluster.setConfiguration(allPeers);
 
-    final RaftPeerId newLeaderId = JavaUtils.attempt(() -> {
+    final RaftPeerId newLeaderId = JavaUtils.attemptRepeatedly(() -> {
       final RaftPeerId id = RaftTestUtil.waitForLeader(cluster).getId();
       Assert.assertNotEquals(leaderId, id);
       return id;

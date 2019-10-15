@@ -521,7 +521,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
       // find ConfigurationEntry
       final TimeDuration sleepTime = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);
-      final long confIndex = JavaUtils.attempt(() -> {
+      final long confIndex = JavaUtils.attemptRepeatedly(() -> {
         final long last = log.getLastEntryTermIndex().getIndex();
         for (long i = last; i >= 1; i--) {
           if (log.get(i).hasConfigurationEntry()) {
@@ -532,7 +532,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       }, 10, sleepTime, "confIndex", LOG);
 
       // wait till the old leader persist the new conf
-      JavaUtils.attempt(() -> log.getFlushIndex() >= confIndex,
+      JavaUtils.attemptRepeatedly(() -> log.getFlushIndex() >= confIndex,
           10, sleepTime, "FLUSH", LOG);
       final long committed = log.getLastCommittedIndex();
       Assert.assertTrue(committed < confIndex);
@@ -546,7 +546,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       Assert.assertTrue(gotNotLeader.get());
 
       // the old leader should have truncated the setConf from the log
-      JavaUtils.attempt(() -> log.getLastCommittedIndex() >= confIndex,
+      JavaUtils.attemptRepeatedly(() -> log.getLastCommittedIndex() >= confIndex,
           10, ONE_SECOND, "COMMIT", LOG);
       Assert.assertTrue(log.get(confIndex).hasConfigurationEntry());
       log2 = null;

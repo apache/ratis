@@ -137,7 +137,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     // start the last server
     final RaftServerProxy lastServer = i.next();
     lastServer.start();
-    final RaftPeerId lastServerLeaderId = JavaUtils.attempt(
+    final RaftPeerId lastServerLeaderId = JavaUtils.attemptRepeatedly(
         () -> Optional.ofNullable(lastServer.getImpls().iterator().next().getState().getLeaderId())
             .orElseThrow(() -> new IllegalStateException("No leader yet")),
         10, ONE_SECOND, "getLeaderId", LOG);

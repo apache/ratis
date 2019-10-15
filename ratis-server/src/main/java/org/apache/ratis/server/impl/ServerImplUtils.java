@@ -49,7 +49,7 @@ public class ServerImplUtils {
     final RaftServerProxy proxy;
     try {
       // attempt multiple times to avoid temporary bind exception
-      proxy = JavaUtils.attempt(
+      proxy = JavaUtils.attemptRepeatedly(
           () -> new RaftServerProxy(id, stateMachineRegistry, properties, parameters),
           5, sleepTime, "new RaftServerProxy", RaftServerProxy.LOG);
     } catch (InterruptedException e) {
