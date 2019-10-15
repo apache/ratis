@@ -50,7 +50,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -96,8 +95,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final RatisMetricRegistry raftServerMetricsRegistry;
 
   private AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
-
-  private final AtomicBoolean honorMinTimeoutMs = new AtomicBoolean();
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -151,12 +148,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   int getRandomTimeoutMs() {
-    return (honorMinTimeoutMs.get() ? minTimeoutMs : 0) +
-        ThreadLocalRandom.current().nextInt(maxTimeoutMs - minTimeoutMs + 1);
-  }
-
-  void honorMinTimeoutMs() {
-    honorMinTimeoutMs.set(Boolean.TRUE);
+    return minTimeoutMs + ThreadLocalRandom.current().nextInt(maxTimeoutMs - minTimeoutMs + 1);
   }
 
   int getSleepDeviationThresholdMs() {
