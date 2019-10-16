@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.logservice.shell;
 
-import org.apache.ratis.logservice.client.LogServiceClient;
+import org.apache.ratis.logservice.api.LogServiceClient;
 import org.jline.reader.LineReader;
 import org.jline.terminal.Terminal;
 

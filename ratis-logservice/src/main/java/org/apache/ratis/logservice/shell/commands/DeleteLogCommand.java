@@ -20,7 +20,7 @@ package org.apache.ratis.logservice.shell.commands;
 import java.io.IOException;
 
 import org.apache.ratis.logservice.api.LogName;
-import org.apache.ratis.logservice.client.LogServiceClient;
+import org.apache.ratis.logservice.api.LogServiceClient;
 import org.apache.ratis.logservice.shell.Command;
 import org.jline.reader.LineReader;
 import org.jline.terminal.Terminal;

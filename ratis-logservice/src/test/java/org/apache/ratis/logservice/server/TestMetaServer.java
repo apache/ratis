@@ -20,7 +20,7 @@ package org.apache.ratis.logservice.server;
 
 import org.apache.ratis.logservice.api.*;
 import org.apache.ratis.logservice.api.LogStream.State;
-import org.apache.ratis.logservice.client.LogServiceClient;
+import org.apache.ratis.logservice.api.LogServiceClient;
 import org.apache.ratis.logservice.common.LogAlreadyExistException;
 import org.apache.ratis.logservice.common.LogNotFoundException;
 import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;

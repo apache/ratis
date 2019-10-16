@@ -34,7 +34,7 @@ import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogReader;
 import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogWriter;
-import org.apache.ratis.logservice.client.LogServiceClient;
+import org.apache.ratis.logservice.api.LogServiceClient;
 import org.apache.ratis.logservice.common.LogNotFoundException;
 import org.apache.ratis.logservice.server.LogStateMachine;
 import org.slf4j.Logger;

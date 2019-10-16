@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.Map.Entry;
 import java.util.Objects;
 
-import org.apache.ratis.logservice.client.LogServiceClient;
+import org.apache.ratis.logservice.api.LogServiceClient;
 import org.apache.ratis.logservice.shell.commands.ExitCommand;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.History;
