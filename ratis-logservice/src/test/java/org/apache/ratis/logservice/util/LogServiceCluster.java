@@ -22,7 +22,7 @@ package org.apache.ratis.logservice.util;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogStream;
-import org.apache.ratis.logservice.client.LogServiceClient;
+import org.apache.ratis.logservice.api.LogServiceClient;
 import org.apache.ratis.logservice.server.LogServer;
 import org.apache.ratis.logservice.server.MetadataServer;
 

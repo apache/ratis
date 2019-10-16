@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.ratis.logservice.api.LogInfo;
-import org.apache.ratis.logservice.client.LogServiceClient;
+import org.apache.ratis.logservice.api.LogServiceClient;
 import org.apache.ratis.logservice.shell.Command;
 import org.jline.reader.LineReader;
 import org.jline.terminal.Terminal;
