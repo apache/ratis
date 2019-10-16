@@ -15,15 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ratis.logservice.client;
+package org.apache.ratis.logservice.api;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.logservice.api.LogInfo;
-import org.apache.ratis.logservice.api.LogName;
-import org.apache.ratis.logservice.api.LogServiceConfiguration;
-import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.impl.ArchivedLogStreamImpl;
