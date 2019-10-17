@@ -28,6 +28,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** A map from peer id to peer and its proxy. */
@@ -35,7 +36,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(PeerProxyMap.class);
 
   /** Peer and its proxy. */
-  private class PeerAndProxy implements Closeable {
+  private class PeerAndProxy {
     private final RaftPeer peer;
     private volatile PROXY proxy = null;
     private final LifeCycle lifeCycle;
@@ -65,19 +66,18 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
       return proxy;
     }
 
+    Optional<PROXY> setNullProxyAndClose() {
+      final PROXY p;
+      synchronized (this) {
+        p = proxy;
+        lifeCycle.checkStateAndClose(() -> proxy = null);
+      }
+      return Optional.ofNullable(p);
+    }
+
     @Override
-    public synchronized void close() {
-      lifeCycle.checkStateAndClose(() -> {
-        if (proxy != null) {
-          try {
-            LOG.debug("{}: Closing proxy for peer {}", name, peer);
-            proxy.close();
-          } catch (IOException e) {
-            LOG.warn("{}: Failed to close proxy for peer {}, proxy class: {}",
-                name, peer, proxy.getClass(), e);
-          }
-        }
-      });
+    public String toString() {
+      return peer.toString();
     }
   }
 
@@ -120,14 +120,18 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
 
   public void resetProxy(RaftPeerId id) {
     LOG.debug("{}: reset proxy for {}", name, id );
+    final PeerAndProxy pp;
+    Optional<PROXY> optional = Optional.empty();
     synchronized (resetLock) {
-      final PeerAndProxy pp = peers.remove(id);
+      pp = peers.remove(id);
       if (pp != null) {
         final RaftPeer peer = pp.getPeer();
-        pp.close();
+        optional = pp.setNullProxyAndClose();
         computeIfAbsent(peer);
       }
     }
+    // close proxy without holding the reset lock
+    optional.ifPresent(proxy -> closeProxy(proxy, pp));
   }
 
   /** @return true if the given throwable is handled; otherwise, the call is an no-op, return false. */
@@ -145,6 +149,17 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
 
   @Override
   public void close() {
-    peers.values().forEach(PeerAndProxy::close);
+    peers.values().parallelStream().forEach(
+        pp -> pp.setNullProxyAndClose().ifPresent(proxy -> closeProxy(proxy, pp)));
+  }
+
+  private void closeProxy(PROXY proxy, PeerAndProxy pp) {
+    try {
+      LOG.debug("{}: Closing proxy for peer {}", name, pp);
+      proxy.close();
+    } catch (IOException e) {
+      LOG.warn("{}: Failed to close proxy for peer {}, proxy class: {}",
+          name, pp, proxy.getClass(), e);
+    }
   }
 }

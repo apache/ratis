@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 public abstract class BaseTest {
@@ -56,8 +57,21 @@ public abstract class BaseTest {
     ExitUtils.disableSystemExit();
   }
 
+  private final AtomicReference<Throwable> firstException = new AtomicReference<>();
+
+  public void setFirstException(Throwable e) {
+    if (firstException.compareAndSet(null, e)) {
+      LOG.error("Set firstException", e);
+    }
+  }
+
   @After
-  public void assertNotTerminated() {
+  public void assertNoFailures() {
+    final Throwable e = firstException.get();
+    if (e != null) {
+      throw new IllegalStateException("Failed: first exception was set", e);
+    }
+
     ExitUtils.assertNotTerminated();
   }
 
