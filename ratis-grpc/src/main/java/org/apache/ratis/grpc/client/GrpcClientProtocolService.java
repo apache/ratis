@@ -217,13 +217,14 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
 
     CompletableFuture<Void> processClientRequest(RaftClientRequest request, Consumer<RaftClientReply> replyHandler) {
       try {
+        String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + request.toString() : "";
         return protocol.submitClientRequestAsync(request
         ).thenAcceptAsync(replyHandler
         ).exceptionally(exception -> {
           // TODO: the exception may be from either raft or state machine.
           // Currently we skip all the following responses when getting an
           // exception from the state machine.
-          responseError(exception, () -> "processClientRequest for " + request);
+          responseError(exception, () -> errMsg);
           return null;
         });
       } catch (IOException e) {
