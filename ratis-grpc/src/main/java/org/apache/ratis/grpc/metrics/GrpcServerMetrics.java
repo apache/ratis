@@ -18,20 +18,16 @@
 package org.apache.ratis.grpc.metrics;
 
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
-import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
-import org.apache.ratis.metrics.MetricsReporting;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 import com.codahale.metrics.Timer;
-import com.google.common.annotations.VisibleForTesting;
 
 public class GrpcServerMetrics {
   private final RatisMetricRegistry registry;
-  private static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
 
   private static final String RATIS_GRPC_METRICS_APP_NAME = "ratis_grpc";
   private static final String RATIS_GRPC_METRICS_COMP_NAME = "log_appender";
@@ -54,11 +50,6 @@ public class GrpcServerMetrics {
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
 
     registry = metricRegistry.orElseGet(() -> MetricRegistries.global().create(info));
-
-    metricsReporting.startMetricsReporter(registry, MetricsReporting.MetricReporterType.JMX,
-            MetricsReporting.MetricReporterType.HADOOP2);
-    // JVM metrics
-    JVMMetrics.startJVMReporting(1000, TimeUnit.MILLISECONDS, MetricsReporting.MetricReporterType.JMX);
   }
 
   public Timer getGrpcLogAppenderLatencyTimer(String follower) {
@@ -78,7 +69,7 @@ public class GrpcServerMetrics {
   }
 
   public void onRequestNotLeader(String follower) {
-      registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER, follower)).inc();
+    registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER, follower)).inc();
   }
 
   public void onRequestInconsistency(String follower) {

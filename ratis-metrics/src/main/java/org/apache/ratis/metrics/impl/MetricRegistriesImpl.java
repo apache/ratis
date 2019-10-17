@@ -1,5 +1,4 @@
 /**
- *
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -7,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,21 +17,32 @@
  */
 package org.apache.ratis.metrics.impl;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryFactory;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implementation of MetricRegistries that does ref-counting.
  */
 public class MetricRegistriesImpl extends MetricRegistries {
+
+  private static final Logger LOG = LoggerFactory.getLogger(MetricRegistriesImpl.class);
+
+  private List<Consumer<RatisMetricRegistry>> reporterRegistrations = new ArrayList<>();
+
   private final MetricRegistryFactory factory;
+
   private final RefCountingMap<MetricRegistryInfo, RatisMetricRegistry> registries;
 
   public MetricRegistriesImpl() {
@@ -46,7 +56,16 @@ public class MetricRegistriesImpl extends MetricRegistries {
 
   @Override
   public RatisMetricRegistry create(MetricRegistryInfo info) {
-    return registries.put(info, () -> factory.create(info));
+    return registries.put(info, () -> {
+      if (reporterRegistrations.size() == 0) {
+        LOG.warn(
+            "First MetricRegistry has been created without registering reporters. You may need to call" +
+                " MetricRegistries.global().addReportRegistration(...) before.");
+      }
+      RatisMetricRegistry registry = factory.create(info);
+      reporterRegistrations.forEach(reg -> reg.accept(registry));
+      return registry;
+    });
   }
 
   @Override
@@ -72,5 +91,10 @@ public class MetricRegistriesImpl extends MetricRegistries {
   @Override
   public Set<MetricRegistryInfo> getMetricRegistryInfos() {
     return Collections.unmodifiableSet(registries.keySet());
+  }
+
+  @Override
+  public void addReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration) {
+    this.reporterRegistrations.add(reporterRegistration);
   }
 }

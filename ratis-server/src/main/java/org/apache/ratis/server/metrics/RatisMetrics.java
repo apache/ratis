@@ -19,18 +19,15 @@
 package org.apache.ratis.server.metrics;
 
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
-import org.apache.ratis.metrics.JVMMetrics;
-import org.apache.ratis.metrics.MetricsReporting;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 
 public class RatisMetrics {
-  public final static String RATIS_LOG_WORKER_METRICS_DESC = "Ratis metrics";
-  public final static String RATIS_LOG_WORKER_METRICS = "ratis_log_worker";
-  public final static String RATIS_APPLICATION_NAME_METRICS = "ratis_core";
+  public static final String RATIS_LOG_WORKER_METRICS_DESC = "Ratis metrics";
+  public static final String RATIS_LOG_WORKER_METRICS = "ratis_log_worker";
+  public static final String RATIS_APPLICATION_NAME_METRICS = "ratis_core";
   public static final String RATIS_LEADER_ELECTION_METRICS = "leader_election";
   public static final String RATIS_LEADER_ELECTION_METRICS_DESC = "Metrics for Ratis Leader Election.";
   public static final String RATIS_LEADER_METRICS = "ratis_leader";
@@ -40,27 +37,18 @@ public class RatisMetrics {
   public static final String RATIS_SERVER_METRICS = "server";
   public static final String RATIS_SERVER_METRICS_DESC = "Metrics for Raft server";
 
-  static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
-
   private static RatisMetricRegistry create(MetricRegistryInfo info) {
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
     if (metricRegistry.isPresent()) {
       return metricRegistry.get();
     }
     RatisMetricRegistry registry = MetricRegistries.global().create(info);
-    metricsReporting
-        .startMetricsReporter(registry, MetricsReporting.MetricReporterType.JMX,
-            MetricsReporting.MetricReporterType.HADOOP2);
-    // JVM metrics
-    JVMMetrics
-        .startJVMReporting(1000, TimeUnit.MILLISECONDS, MetricsReporting.MetricReporterType.JMX);
-
     return registry;
   }
 
   public static RatisMetricRegistry getMetricRegistryForLeaderElection(String serverId) {
     return create(new MetricRegistryInfo(serverId, RATIS_APPLICATION_NAME_METRICS, RATIS_LEADER_ELECTION_METRICS,
-            RATIS_LEADER_ELECTION_METRICS_DESC));
+        RATIS_LEADER_ELECTION_METRICS_DESC));
   }
 
   public static RatisMetricRegistry getMetricRegistryForRaftLeader(String serverId) {
