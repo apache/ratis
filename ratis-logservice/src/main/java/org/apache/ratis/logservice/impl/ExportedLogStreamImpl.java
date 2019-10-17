@@ -30,6 +30,6 @@ public class ExportedLogStreamImpl extends ArchivedLogStreamImpl {
 
   @Override
   protected void init() {
-    state = State.CLOSED;
+    setState(State.CLOSED);
   }
 }

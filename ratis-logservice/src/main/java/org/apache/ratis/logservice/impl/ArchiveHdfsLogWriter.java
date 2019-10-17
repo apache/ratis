@@ -29,7 +29,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.ratis.logservice.api.ArchiveLogWriter;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.util.LogServiceUtils;
-import org.apache.ratis.util.LogUtils;
 
 public class ArchiveHdfsLogWriter implements ArchiveLogWriter {
   private final Configuration configuration;

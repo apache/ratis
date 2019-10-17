@@ -42,16 +42,20 @@ public class ArchivedLogStreamImpl implements LogStream {
   /*
    * Log stream name
    */
-  LogName name;
+  private LogName name;
   /*
    * Log stream configuration
    */
-  LogServiceConfiguration config;
+  private LogServiceConfiguration config;
+
   /*
    * State
    */
-  State state;
+  private State state;
 
+  protected void setState(State state) {
+    this.state = state;
+  }
 
   public ArchivedLogStreamImpl(LogName name, LogServiceConfiguration config) {
     this(name, config.get(Constants.LOG_SERVICE_ARCHIVAL_LOCATION_KEY));
@@ -67,7 +71,7 @@ public class ArchivedLogStreamImpl implements LogStream {
   }
 
   protected void init() {
-    state = State.ARCHIVED;
+    this.state = State.ARCHIVED;
   }
 
   @Override

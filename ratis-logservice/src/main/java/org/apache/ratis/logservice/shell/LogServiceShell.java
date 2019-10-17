@@ -43,7 +43,7 @@ import com.beust.jcommander.JCommander;
  * An interactive shell that can interact with a LogService instance.
  */
 public class LogServiceShell {
-  private static Logger LOG = LoggerFactory.getLogger(LogServiceShell.class);
+  private static final Logger LOG = LoggerFactory.getLogger(LogServiceShell.class);
 
   private static final String PROMPT = "logservice> ";
 
@@ -142,7 +142,7 @@ public class LogServiceShell {
         .build()
         .parse(args);
 
-    try (LogServiceClient logServiceClient = new LogServiceClient(opts.metaQuorum)) {
+    try (LogServiceClient logServiceClient = new LogServiceClient(opts.getMetaQuorum())) {
       LogServiceShell client = new LogServiceShell(terminal, lineReader, logServiceClient);
       client.run();
     }

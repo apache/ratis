@@ -29,7 +29,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class LogServiceUtils {
+public final class LogServiceUtils {
+    private LogServiceUtils() {
+    }
 
     public static Set<RaftPeer> getPeersFromIds(String identity) {
         return Stream.of(identity.split(",")).map(elem ->

@@ -48,28 +48,28 @@ public class LogStreamImpl implements LogStream {
   /*
    * Log stream listeners
    */
-  List<RecordListener> listeners;
+  private List<RecordListener> listeners;
   /*
    * Log stream name
    */
-  LogName name;
+  private LogName name;
   /*
    * Parent log service instance
    */
-  RaftClient raftClient;
+  private RaftClient raftClient;
   /*
    * Log stream configuration
    */
-  LogServiceConfiguration config;
+  private LogServiceConfiguration config;
   /*
    * State
    */
-  LogStream.State state;
+  private LogStream.State state;
 
   /*
    * Length
    */
-  long length;
+  private long length;
 
 
   public LogStreamImpl(LogName name, RaftClient raftClient) {
@@ -88,8 +88,8 @@ public class LogStreamImpl implements LogStream {
 
   private void init() {
     // TODO create new state machine. etc
-    state = State.OPEN;
-    listeners = Collections.synchronizedList(new ArrayList<RecordListener>());
+    this.state = State.OPEN;
+    this.listeners = Collections.synchronizedList(new ArrayList<RecordListener>());
   }
 
   @Override

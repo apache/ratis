@@ -54,8 +54,8 @@ public class LogServiceClient implements AutoCloseable {
 
 
     // the raft client for meta quorum. All DML operations are going using this client.
-    final private RaftClient client;
-    final private LogServiceConfiguration config;
+    private final RaftClient client;
+    private final LogServiceConfiguration config;
 
     /**
      * Constuctor. Build raft client for meta quorum
@@ -264,9 +264,9 @@ public class LogServiceClient implements AutoCloseable {
      * Updates a log with the new configuration object, overriding
      * the previous configuration.
      *
-     * @param config The new configuration object
+     * @param conf The new configuration object
      */
-    void updateConfiguration(LogName name, LogServiceConfiguration config) {
+    void updateConfiguration(LogName name, LogServiceConfiguration conf) {
       //TODO: write me
     }
 

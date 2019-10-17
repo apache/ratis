@@ -32,7 +32,7 @@ import org.apache.ratis.logservice.shell.commands.ListLogsCommand;
 import org.apache.ratis.logservice.shell.commands.PutToLogCommand;
 import org.apache.ratis.logservice.shell.commands.ReadLogCommand;
 
-public class CommandFactory {
+public final class CommandFactory {
   private static final Map<String,Command> KNOWN_COMMANDS = cacheCommands();
 
   private static Map<String,Command> cacheCommands() {
