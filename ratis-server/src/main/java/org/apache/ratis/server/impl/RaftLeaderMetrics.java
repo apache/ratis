@@ -26,7 +26,9 @@ import java.util.Map;
 import java.util.SortedMap;
 
 import com.codahale.metrics.Gauge;
+
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
@@ -82,8 +84,13 @@ public final class RaftLeaderMetrics {
   public void addPeerCommitIndexGauge(RaftPeer peer) {
     String followerCommitIndexKey = String.format(
         LEADER_METRIC_PEER_COMMIT_INDEX, peer.getId().toString());
-    registry.gauge(followerCommitIndexKey,
-        () -> () -> commitInfoCache.get(peer.getId()).getCommitIndex());
+    registry.gauge(followerCommitIndexKey, () -> () -> {
+      RaftProtos.CommitInfoProto commitInfoProto = commitInfoCache.get(peer.getId());
+      if (commitInfoProto != null) {
+        return commitInfoProto.getCommitIndex();
+      }
+      return 0L;
+    });
   }
 
   /**
