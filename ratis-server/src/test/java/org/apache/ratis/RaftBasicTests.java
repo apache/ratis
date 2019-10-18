@@ -475,18 +475,19 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     List<RaftServerImpl> followers = cluster.getFollowers();
     RaftServerImpl leader = cluster.getLeader();
 
-    RatisMetricRegistry leaderMetricsRegistry =
-        RatisMetrics.getMetricRegistryForRaftLeader(
-            leader.getMemberId().toString());
-
-    Gauge leaderCommitGauge = RaftLeaderMetrics
+    Gauge leaderCommitGauge = RaftServerMetrics
         .getPeerCommitIndexGauge(leader, leader);
 
     for (RaftServerImpl follower : followers) {
-      Gauge followerCommitGauge = RaftLeaderMetrics
+      Gauge followerCommitGauge = RaftServerMetrics
           .getPeerCommitIndexGauge(leader, follower);
       Assert.assertTrue((Long)leaderCommitGauge.getValue() >=
           (Long)followerCommitGauge.getValue());
+      Gauge followerMetric = RaftServerMetrics
+          .getPeerCommitIndexGauge(follower, follower);
+      System.out.println(followerCommitGauge.getValue());
+      System.out.println(followerMetric.getValue());
+      Assert.assertTrue((Long)followerCommitGauge.getValue()  <= (Long)followerMetric.getValue());
     }
   }
 

@@ -35,9 +35,9 @@ public final class RatisMetricNames {
       "%s_peerCommitIndex";
 
   public static final String STATEMACHINE_APPLIED_INDEX_GAUGE =
-      "statemachine_applied_index";
+      "statemachineAppliedIndex";
   public static final String STATEMACHINE_APPLY_COMPLETED_GAUGE =
-      "statemachine_apply_completed_index";
+      "statemachineApplyCompletedIndex";
 
   //////////////////////////////
   // Raft Log Write Path Metrics

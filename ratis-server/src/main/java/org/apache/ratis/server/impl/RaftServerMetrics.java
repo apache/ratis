@@ -35,26 +35,26 @@ import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesti
 import org.apache.ratis.util.Preconditions;
 
 /**
- * Metric Registry for Raft Group Leader. One instance per leader.
+ * Metric Registry for Raft Group Server. One instance per leader/follower.
  */
-public final class RaftLeaderMetrics {
+public final class RaftServerMetrics {
 
   private RatisMetricRegistry registry = null;
   private Map<String, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
   private CommitInfoCache commitInfoCache;
 
-  private static Map<String, RaftLeaderMetrics> metricsMap = new HashMap<>();
+  private static Map<String, RaftServerMetrics> metricsMap = new HashMap<>();
 
-  public static RaftLeaderMetrics getRaftLeaderMetrics(
+  public static RaftServerMetrics getRaftServerMetrics(
       RaftServerImpl raftServer) {
-    RaftLeaderMetrics leaderMetrics = new RaftLeaderMetrics(raftServer);
-    metricsMap.put(raftServer.getMemberId().toString(), leaderMetrics);
+    RaftServerMetrics serverMetrics = new RaftServerMetrics(raftServer);
+    metricsMap.put(raftServer.getMemberId().toString(), serverMetrics);
 
-    return leaderMetrics;
+    return serverMetrics;
   }
 
-  private RaftLeaderMetrics(RaftServerImpl server) {
-    registry = RatisMetrics.getMetricRegistryForRaftLeader(
+  private RaftServerMetrics(RaftServerImpl server) {
+    registry = RatisMetrics.getMetricRegistryForRaftServer(
         server.getMemberId().toString());
     commitInfoCache = server.getCommitInfoCache();
     addPeerCommitIndexGauge(server.getPeer());
@@ -103,9 +103,9 @@ public final class RaftLeaderMetrics {
   public static Gauge getPeerCommitIndexGauge(RaftServerImpl server,
       RaftServerImpl peerServer) {
 
-    RaftLeaderMetrics leaderMetrics =
+    RaftServerMetrics serverMetrics =
         metricsMap.get(server.getMemberId().toString());
-    if (leaderMetrics == null) {
+    if (serverMetrics == null) {
       return null;
     }
 
@@ -114,7 +114,7 @@ public final class RaftLeaderMetrics {
         peerServer.getPeer().getId().toString());
 
     SortedMap<String, Gauge> map =
-        leaderMetrics.registry.getGauges((s, metric) ->
+        serverMetrics.registry.getGauges((s, metric) ->
             s.contains(followerCommitIndexKey));
 
     Preconditions.assertTrue(map.size() <= 1);

@@ -25,14 +25,12 @@ import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 
 public class RatisMetrics {
-  public static final String RATIS_LOG_WORKER_METRICS_DESC = "Ratis metrics";
-  public static final String RATIS_LOG_WORKER_METRICS = "ratis_log_worker";
   public static final String RATIS_APPLICATION_NAME_METRICS = "ratis_core";
+  public static final String RATIS_LOG_WORKER_METRICS_DESC = "Metrics for Log Worker";
+  public static final String RATIS_LOG_WORKER_METRICS = "log_worker";
   public static final String RATIS_LEADER_ELECTION_METRICS = "leader_election";
   public static final String RATIS_LEADER_ELECTION_METRICS_DESC = "Metrics for Ratis Leader Election.";
-  public static final String RATIS_LEADER_METRICS = "ratis_leader";
-  public static final String RATIS_LEADER_METRICS_DESC = "Metrics for Ratis Leader.";
-  public static final String RATIS_STATEMACHINE_METRICS = "ratis_state_machine";
+  public static final String RATIS_STATEMACHINE_METRICS = "state_machine";
   public static final String RATIS_STATEMACHINE_METRICS_DESC = "Metrics for State Machine Updater";
   public static final String RATIS_SERVER_METRICS = "server";
   public static final String RATIS_SERVER_METRICS_DESC = "Metrics for Raft server";
@@ -51,10 +49,10 @@ public class RatisMetrics {
         RATIS_LEADER_ELECTION_METRICS_DESC));
   }
 
-  public static RatisMetricRegistry getMetricRegistryForRaftLeader(String serverId) {
+  public static RatisMetricRegistry getMetricRegistryForRaftServer(String serverId) {
     return create(new MetricRegistryInfo(serverId,
-        RATIS_APPLICATION_NAME_METRICS, RATIS_LEADER_METRICS,
-        RATIS_LEADER_METRICS_DESC));
+        RATIS_APPLICATION_NAME_METRICS, RATIS_SERVER_METRICS,
+        RATIS_SERVER_METRICS_DESC));
   }
 
   public static RatisMetricRegistry getMetricRegistryForStateMachine(String serverId) {

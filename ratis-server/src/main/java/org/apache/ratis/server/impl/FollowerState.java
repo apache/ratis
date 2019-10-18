@@ -57,10 +57,13 @@ class FollowerState extends Daemon {
   private volatile Timestamp lastRpcTime = Timestamp.currentTime();
   private volatile boolean isRunning = true;
   private final AtomicInteger outstandingOp = new AtomicInteger();
+  private final RaftServerMetrics raftServerMetrics;
 
   FollowerState(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + getClass().getSimpleName();
     this.server = server;
+    raftServerMetrics = RaftServerMetrics.getRaftServerMetrics(server);
+    raftServerMetrics.addPeerCommitIndexGauge(server.getPeer());
   }
 
   void updateLastRpcTime(UpdateType type) {

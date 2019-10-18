@@ -200,7 +200,7 @@ public class LeaderState {
   private final int stagingCatchupGap;
   private final TimeDuration syncInterval;
   private final long placeHolderIndex;
-  private final RaftLeaderMetrics raftLeaderMetrics;
+  private final RaftServerMetrics raftServerMetrics;
 
   LeaderState(RaftServerImpl server, RaftProperties properties) {
     this.name = server.getMemberId() + "-" + getClass().getSimpleName();
@@ -223,7 +223,7 @@ public class LeaderState {
     placeHolderIndex = raftLog.getNextIndex();
 
     senders = new SenderList();
-    raftLeaderMetrics = RaftLeaderMetrics.getRaftLeaderMetrics(server);
+    raftServerMetrics = RaftServerMetrics.getRaftServerMetrics(server);
     addSenders(others, placeHolderIndex, true);
     voterLists = divideFollowers(conf);
   }
@@ -389,7 +389,7 @@ public class LeaderState {
     final List<LogAppender> newAppenders = newPeers.stream()
         .map(peer -> {
           LogAppender logAppender = server.newLogAppender(this, peer, t, nextIndex, attendVote);
-          raftLeaderMetrics
+          raftServerMetrics
               .addFollower(logAppender.getFollower().getPeer());
           return logAppender;
         }).collect(Collectors.toList());
@@ -798,16 +798,8 @@ public class LeaderState {
    * @param elapsedTime Elapsed time in Nanos.
    */
   void recordFollowerHeartbeatElapsedTime(RaftPeer follower, long elapsedTime) {
-    raftLeaderMetrics.recordFollowerHeartbeatElapsedTime(follower,
+    raftServerMetrics.recordFollowerHeartbeatElapsedTime(follower,
         elapsedTime);
-  }
-
-  /**
-   * Return the metric registry for the Group Leader.
-   * @return the group leader metrics registry
-   */
-  RaftLeaderMetrics getRaftLeaderMetrics() {
-    return raftLeaderMetrics;
   }
 
   @Override
