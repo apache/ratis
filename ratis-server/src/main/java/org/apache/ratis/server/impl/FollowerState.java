@@ -62,7 +62,7 @@ class FollowerState extends Daemon {
   FollowerState(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + getClass().getSimpleName();
     this.server = server;
-    raftServerMetrics = RaftServerMetrics.getRaftServerMetrics(server);
+    raftServerMetrics = server.getRaftServerMetrics();
     raftServerMetrics.addPeerCommitIndexGauge(server.getPeer());
   }
 

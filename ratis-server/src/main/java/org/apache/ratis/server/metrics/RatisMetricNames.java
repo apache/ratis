@@ -39,6 +39,21 @@ public final class RatisMetricNames {
   public static final String STATEMACHINE_APPLY_COMPLETED_GAUGE =
       "statemachineApplyCompletedIndex";
 
+  // Raft client read request metric timer.
+  public static final String RAFT_CLIENT_READ_REQUEST = "clientReadRequest";
+
+  public static final String RAFT_CLIENT_STALE_READ_REQUEST = "clientStaleReadRequest";
+
+  public static final String RAFT_CLIENT_WRITE_REQUEST = "clientWriteRequest";
+
+  public static final String RAFT_CLIENT_WATCH_REQUEST = "clientWatch%sRequest";
+
+  public static final String RETRY_REQUEST_CACHE_HIT_COUNTER = "numRetryCacheHits";
+
+  public static final String REQUEST_QUEUE_LIMIT_HIT_COUNTER = "numRequestQueueLimitHits";
+
+  public static final String REQUEST_QUEUE_SIZE = "numPendingRequestInQueue";
+
   //////////////////////////////
   // Raft Log Write Path Metrics
   /////////////////////////////

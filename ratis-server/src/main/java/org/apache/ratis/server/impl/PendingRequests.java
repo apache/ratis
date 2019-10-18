@@ -51,21 +51,25 @@ class PendingRequests {
   private static class RequestMap {
     private final Object name;
     private final ConcurrentMap<Long, PendingRequest> map = new ConcurrentHashMap<>();
+    private final RaftServerMetrics raftServerMetrics;
 
     /** Permits to put new requests, always synchronized. */
     private final Map<Permit, Permit> permits = new HashMap<>();
     /** Track and limit the number of requests. */
     private final ResourceSemaphore resource;
 
-    RequestMap(Object name, int capacity) {
+    RequestMap(Object name, int capacity, RaftServerMetrics raftServerMetrics) {
       this.name = name;
       this.resource = new ResourceSemaphore(capacity);
+      this.raftServerMetrics = raftServerMetrics;
+      raftServerMetrics.addNumPendingRequestsGauge(resource, capacity);
     }
 
     Permit tryAcquire() {
       final boolean acquired = resource.tryAcquire();
       LOG.trace("tryAcquire? {}", acquired);
       if (!acquired) {
+        raftServerMetrics.onRequestQueueLimitHit();
         return null;
       }
       return putPermit();
@@ -135,9 +139,9 @@ class PendingRequests {
   private final String name;
   private final RequestMap pendingRequests;
 
-  PendingRequests(RaftGroupMemberId id, RaftProperties properties) {
+  PendingRequests(RaftGroupMemberId id, RaftProperties properties, RaftServerMetrics raftServerMetrics) {
     this.name = id + "-" + getClass().getSimpleName();
-    this.pendingRequests = new RequestMap(id, RaftServerConfigKeys.Write.elementLimit(properties));
+    this.pendingRequests = new RequestMap(id, RaftServerConfigKeys.Write.elementLimit(properties), raftServerMetrics);
   }
 
   Permit tryAcquire() {

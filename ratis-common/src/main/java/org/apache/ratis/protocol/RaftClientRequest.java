@@ -127,7 +127,7 @@ public class RaftClientRequest extends RaftClientMessage {
       return (WatchRequestTypeProto)proto;
     }
 
-    static String toString(ReplicationLevel replication) {
+    public static String toString(ReplicationLevel replication) {
       return replication == ReplicationLevel.MAJORITY? "": "-" + replication;
     }
 

@@ -18,21 +18,33 @@
 
 package org.apache.ratis.server.impl;
 
+import static org.apache.ratis.server.metrics.RatisMetricNames.FOLLOWER_APPEND_ENTRIES_LATENCY;
 import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_METRIC_PEER_COMMIT_INDEX;
 import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_METRIC_FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC;
+import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_READ_REQUEST;
+import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_STALE_READ_REQUEST;
+import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_WATCH_REQUEST;
+import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_WRITE_REQUEST;
+import static org.apache.ratis.server.metrics.RatisMetricNames.REQUEST_QUEUE_LIMIT_HIT_COUNTER;
+import static org.apache.ratis.server.metrics.RatisMetricNames.REQUEST_QUEUE_SIZE;
+import static org.apache.ratis.server.metrics.RatisMetricNames.RETRY_REQUEST_CACHE_HIT_COUNTER;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
 
 import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Timer;
 
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ResourceSemaphore;
 
 /**
  * Metric Registry for Raft Group Server. One instance per leader/follower.
@@ -49,13 +61,11 @@ public final class RaftServerMetrics {
       RaftServerImpl raftServer) {
     RaftServerMetrics serverMetrics = new RaftServerMetrics(raftServer);
     metricsMap.put(raftServer.getMemberId().toString(), serverMetrics);
-
     return serverMetrics;
   }
 
   private RaftServerMetrics(RaftServerImpl server) {
-    registry = RatisMetrics.getMetricRegistryForRaftServer(
-        server.getMemberId().toString());
+    registry = RatisMetrics.getMetricRegistryForRaftServer(server.getMemberId().toString());
     commitInfoCache = server.getCommitInfoCache();
     addPeerCommitIndexGauge(server.getPeer());
   }
@@ -129,5 +139,40 @@ public final class RaftServerMetrics {
   public void recordFollowerHeartbeatElapsedTime(RaftPeer peer, long elapsedTime) {
     followerLastHeartbeatElapsedTimeMap.put(peer.getId().toString(),
         elapsedTime);
+  }
+
+  public Timer getFollowerAppendEntryTimer() {
+    return registry.timer(FOLLOWER_APPEND_ENTRIES_LATENCY);
+  }
+
+  public Timer getTimer(String timerName) {
+    return registry.timer(timerName);
+  }
+
+  public Timer getClientRequestTimer(RaftClientRequest request) {
+    if (request.is(TypeCase.READ)) {
+      return getTimer(RAFT_CLIENT_READ_REQUEST);
+    } else if (request.is(TypeCase.STALEREAD)) {
+      return getTimer(RAFT_CLIENT_STALE_READ_REQUEST);
+    } else if (request.is(TypeCase.WATCH)) {
+      String watchType = RaftClientRequest.Type.toString(request.getType().getWatch().getReplication());
+      return getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, watchType));
+    } else if (request.is(TypeCase.WRITE)) {
+      return getTimer(RAFT_CLIENT_WRITE_REQUEST);
+    }
+    return null;
+  }
+
+  public void onRetryRequestCacheHit() {
+    registry.counter(RETRY_REQUEST_CACHE_HIT_COUNTER).inc();
+  }
+
+  public void onRequestQueueLimitHit() {
+    registry.counter(REQUEST_QUEUE_LIMIT_HIT_COUNTER).inc();
+  }
+
+  public void addNumPendingRequestsGauge(ResourceSemaphore resourceSemaphore, int capacity) {
+    registry.gauge(REQUEST_QUEUE_SIZE,
+        () -> () -> (capacity - resourceSemaphore.availablePermits()));
   }
 }

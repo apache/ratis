@@ -75,9 +75,4 @@ public class RatisMetrics {
             RATIS_LOG_WORKER_METRICS_DESC));
     return ratisMetricRegistry.orElse(null);
   }
-
-  public static RatisMetricRegistry getMetricsRegistryForServer(String serverId) {
-    return create(new MetricRegistryInfo(serverId, RATIS_APPLICATION_NAME_METRICS, RATIS_SERVER_METRICS,
-        RATIS_SERVER_METRICS_DESC));
-  }
 }

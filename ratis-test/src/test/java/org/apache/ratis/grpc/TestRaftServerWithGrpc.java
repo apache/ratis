@@ -17,6 +17,11 @@
  */
 package org.apache.ratis.grpc;
 
+import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_READ_REQUEST;
+import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_STALE_READ_REQUEST;
+import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_WATCH_REQUEST;
+import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_WRITE_REQUEST;
+
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
@@ -29,6 +34,7 @@ import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.GrpcClientProtocolClient;
 import org.apache.ratis.grpc.client.GrpcClientProtocolService;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.AlreadyClosedException;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -37,6 +43,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerMetrics;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
@@ -119,7 +126,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
   @Test
   public void testLeaderRestart() throws Exception {
-    runWithNewCluster(3, this::runTestLeaderRestart);
+    runWithNewCluster(1, this::runTestLeaderRestart);
   }
 
   void runTestLeaderRestart(MiniRaftClusterWithGrpc cluster) throws Exception {
@@ -165,6 +172,40 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
           ExecutionException.class, TimeoutIOException.class);
     }
 
+  }
+
+  @Test
+  public void testRaftClientMetrics() throws Exception {
+    runWithNewCluster(3, this::testRaftClientRequestMetrics);
+  }
+
+  void testRaftClientRequestMetrics(MiniRaftClusterWithGrpc cluster) throws IOException,
+      ExecutionException, InterruptedException {
+    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    RaftServerMetrics raftServerMetrics = leader.getRaftServerMetrics();
+
+    try (final RaftClient client = cluster.createClient()) {
+      final CompletableFuture<RaftClientReply> f1 = client.sendAsync(new SimpleMessage("testing"));
+      Assert.assertTrue(f1.get().isSuccess());
+      Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_WRITE_REQUEST).getCount() > 0);
+
+      final CompletableFuture<RaftClientReply> f2 = client.sendReadOnlyAsync(new SimpleMessage("testing"));
+      Assert.assertTrue(f2.get().isSuccess());
+      Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_READ_REQUEST).getCount() > 0);
+
+      final CompletableFuture<RaftClientReply> f3 = client.sendStaleReadAsync(new SimpleMessage("testing"),
+          0, leader.getId());
+      Assert.assertTrue(f3.get().isSuccess());
+      Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_STALE_READ_REQUEST).getCount() > 0);
+
+      final CompletableFuture<RaftClientReply> f4 = client.sendWatchAsync(0, RaftProtos.ReplicationLevel.ALL);
+      Assert.assertTrue(f4.get().isSuccess());
+      Assert.assertTrue(raftServerMetrics.getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, "-ALL")).getCount() > 0);
+
+      final CompletableFuture<RaftClientReply> f5 = client.sendWatchAsync(0, RaftProtos.ReplicationLevel.MAJORITY);
+      Assert.assertTrue(f5.get().isSuccess());
+      Assert.assertTrue(raftServerMetrics.getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, "")).getCount() > 0);
+    }
   }
 
   static RaftClientRequest newRaftClientRequest(RaftClient client, RaftPeerId serverId, long seqNum) {

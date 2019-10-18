@@ -215,7 +215,8 @@ public class LeaderState {
 
     this.eventQueue = new EventQueue();
     processor = new EventProcessor();
-    this.pendingRequests = new PendingRequests(server.getMemberId(), properties);
+    raftServerMetrics = server.getRaftServerMetrics();
+    this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
 
     final RaftConfiguration conf = server.getRaftConf();
@@ -223,7 +224,6 @@ public class LeaderState {
     placeHolderIndex = raftLog.getNextIndex();
 
     senders = new SenderList();
-    raftServerMetrics = RaftServerMetrics.getRaftServerMetrics(server);
     addSenders(others, placeHolderIndex, true);
     voterLists = divideFollowers(conf);
   }
