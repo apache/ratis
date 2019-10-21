@@ -25,6 +25,7 @@ import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.Iterator;
@@ -46,7 +47,9 @@ import org.apache.ratis.logservice.impl.LogStreamImpl;
 import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
 import org.apache.ratis.logservice.server.LogStateMachine;
 import org.apache.ratis.logservice.util.TestUtils;
+import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -57,6 +60,10 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
     extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   public static final Logger LOG = LoggerFactory.getLogger(LogServiceReadWriteBase.class);
+
+  static {
+    JVMMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
+  }
 
   {
     final RaftProperties p = getProperties();

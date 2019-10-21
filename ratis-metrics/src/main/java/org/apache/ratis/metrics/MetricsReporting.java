@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -23,6 +23,7 @@ import java.util.function.Consumer;
 import com.codahale.metrics.ConsoleReporter;
 import com.codahale.metrics.JmxReporter;
 import com.codahale.metrics.JmxReporter.Builder;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,10 +33,10 @@ public final class MetricsReporting {
   private MetricsReporting() {
   }
 
-  public static Consumer<RatisMetricRegistry> consoleReporter(int period, TimeUnit unit) {
+  public static Consumer<RatisMetricRegistry> consoleReporter(TimeDuration rate) {
     return ratisMetricRegistry -> ConsoleReporter.forRegistry(ratisMetricRegistry.getDropWizardMetricRegistry())
         .convertRatesTo(TimeUnit.SECONDS).convertDurationsTo(TimeUnit.MILLISECONDS).build()
-        .start(period, unit);
+        .start(rate.getDuration(), rate.getUnit());
   }
 
   public static Consumer<RatisMetricRegistry> jmxReporter() {

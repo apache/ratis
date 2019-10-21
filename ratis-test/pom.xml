@@ -88,5 +88,11 @@
       <artifactId>mockito-all</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>io.dropwizard.metrics</groupId>
+      <artifactId>metrics-jvm</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 </project>

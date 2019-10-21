@@ -27,9 +27,10 @@ import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.util.LogServiceCluster;
 import org.apache.ratis.logservice.util.TestUtils;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -40,6 +41,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -49,6 +51,9 @@ import javax.management.ObjectName;
 import static org.junit.Assert.*;
 
 public class TestMetaServer {
+    static {
+        JVMMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    }
 
     static LogServiceCluster cluster = null;
     static List<LogServer> workers = null;

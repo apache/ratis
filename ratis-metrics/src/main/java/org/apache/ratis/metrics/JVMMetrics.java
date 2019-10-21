@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,16 +21,20 @@ import com.codahale.metrics.jvm.ClassLoadingGaugeSet;
 import com.codahale.metrics.jvm.GarbageCollectorMetricSet;
 import com.codahale.metrics.jvm.MemoryUsageGaugeSet;
 import com.codahale.metrics.jvm.ThreadStatesGaugeSet;
+import org.apache.ratis.util.TimeDuration;
 
 /**
  * Helper class to add JVM metrics.
  */
-public final class JVMMetrics {
-
-  private JVMMetrics() {
+public interface JVMMetrics {
+  static void initJvmMetrics(TimeDuration consoleReportRate) {
+    final MetricRegistries registries = MetricRegistries.global();
+    JVMMetrics.addJvmMetrics(registries);
+    registries.addReporterRegistration(MetricsReporting.consoleReporter(consoleReportRate));
+    registries.addReporterRegistration(MetricsReporting.jmxReporter());
   }
 
-  public static void addJvmMetrics(MetricRegistries registries) {
+  static void addJvmMetrics(MetricRegistries registries) {
     MetricRegistryInfo info = new MetricRegistryInfo("jvm", "ratis_jvm", "jvm", "jvm metrics");
 
     RatisMetricRegistry registry = registries.create(info);
