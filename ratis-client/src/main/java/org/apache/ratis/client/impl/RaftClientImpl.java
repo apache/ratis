@@ -96,7 +96,7 @@ final class RaftClientImpl implements RaftClient {
     Preconditions.assertTrue(retryPolicy != null, "retry policy can't be null");
     this.retryPolicy = retryPolicy;
 
-    scheduler = TimeoutScheduler.newInstance(0);
+    scheduler = TimeoutScheduler.getInstance();
     clientRpc.addServers(peers);
 
     this.orderedAsync = JavaUtils.memoize(() -> new OrderedAsync(this, properties));

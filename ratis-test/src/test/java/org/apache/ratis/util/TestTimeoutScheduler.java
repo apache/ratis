@@ -47,7 +47,7 @@ public class TestTimeoutScheduler extends BaseTest {
 
   @Test(timeout = 1000)
   public void testSingleTask() throws Exception {
-    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
+    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance();
     final TimeDuration grace = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     scheduler.setGracePeriod(grace);
     Assert.assertFalse(scheduler.hasScheduler());
@@ -78,11 +78,12 @@ public class TestTimeoutScheduler extends BaseTest {
     Assert.assertFalse(scheduler.hasScheduler());
 
     errorHandler.assertNoError();
+    scheduler.setGracePeriod(grace);
   }
 
   @Test(timeout = 1000)
   public void testMultipleTasks() throws Exception {
-    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
+    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance();
     final TimeDuration grace = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     scheduler.setGracePeriod(grace);
     Assert.assertFalse(scheduler.hasScheduler());
@@ -128,7 +129,7 @@ public class TestTimeoutScheduler extends BaseTest {
 
   @Test(timeout = 1000)
   public void testExtendingGracePeriod() throws Exception {
-    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
+    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance();
     final TimeDuration grace = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     scheduler.setGracePeriod(grace);
     Assert.assertFalse(scheduler.hasScheduler());
@@ -178,7 +179,7 @@ public class TestTimeoutScheduler extends BaseTest {
 
   @Test(timeout = 1000)
   public void testRestartingScheduler() throws Exception {
-    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(1);
+    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance();
     final TimeDuration grace = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
     scheduler.setGracePeriod(grace);
     Assert.assertFalse(scheduler.hasScheduler());
@@ -209,9 +210,9 @@ public class TestTimeoutScheduler extends BaseTest {
     errorHandler.assertNoError();
   }
 
-  @Test(timeout = 1000)
+  @Test(timeout = 10_000)
   public void testShutdown() throws Exception {
-    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance(0);
+    final TimeoutScheduler scheduler = TimeoutScheduler.newInstance();
     Assert.assertEquals(TimeoutScheduler.DEFAULT_GRACE_PERIOD, scheduler.getGracePeriod());
     final ErrorHandler errorHandler = new ErrorHandler();
 
@@ -222,7 +223,8 @@ public class TestTimeoutScheduler extends BaseTest {
     }
     HUNDRED_MILLIS.sleep();
     HUNDRED_MILLIS.sleep();
-    Assert.assertEquals(1, scheduler.getQueueSize()); // only 1 shutdown task is scheduled
+    JavaUtils.attempt(() -> Assert.assertEquals(1, scheduler.getQueueSize()),
+        10, HUNDRED_MILLIS, "only 1 shutdown task is scheduled", LOG);
 
     final TimeDuration oneMillis = TimeDuration.valueOf(1, TimeUnit.MILLISECONDS);
     for(int i = 0; i < numTasks; i++) {
@@ -232,7 +234,8 @@ public class TestTimeoutScheduler extends BaseTest {
       oneMillis.sleep();
     }
     HUNDRED_MILLIS.sleep();
-    Assert.assertEquals(1, scheduler.getQueueSize()); // only 1 shutdown task is scheduled
+    JavaUtils.attempt(() -> Assert.assertEquals(1, scheduler.getQueueSize()),
+        10, HUNDRED_MILLIS, "only 1 shutdown task is scheduled", LOG);
 
     errorHandler.assertNoError();
   }
