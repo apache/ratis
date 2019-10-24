@@ -99,7 +99,7 @@ final class RaftClientImpl implements RaftClient {
     scheduler = TimeoutScheduler.getInstance();
     clientRpc.addServers(peers);
 
-    this.orderedAsync = JavaUtils.memoize(() -> new OrderedAsync(this, properties));
+    this.orderedAsync = JavaUtils.memoize(() -> OrderedAsync.newInstance(this, properties));
   }
 
   @Override

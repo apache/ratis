@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -61,6 +61,19 @@ public interface RaftClientConfigKeys {
     }
     static void setMaxOutstandingRequests(RaftProperties properties, int outstandingRequests) {
       setInt(properties::setInt, MAX_OUTSTANDING_REQUESTS_KEY, outstandingRequests);
+    }
+
+    interface Experimental {
+      String PREFIX = Async.PREFIX + "." + Experimental.class.getSimpleName().toLowerCase();
+
+      String SEND_DUMMY_REQUEST_KEY = PREFIX + ".send-dummy-request";
+      boolean SEND_DUMMY_REQUEST_DEFAULT = true;
+      static boolean sendDummyRequest(RaftProperties properties) {
+        return getBoolean(properties::getBoolean, SEND_DUMMY_REQUEST_KEY, SEND_DUMMY_REQUEST_DEFAULT, getDefaultLog());
+      }
+      static void setSendDummyRequest(RaftProperties properties, boolean sendDummyRequest) {
+        setBoolean(properties::setBoolean, SEND_DUMMY_REQUEST_KEY, sendDummyRequest);
+      }
     }
   }
 

@@ -98,6 +98,7 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
   }
 
   public PROXY getProxy(RaftPeerId id) throws IOException {
+    Objects.requireNonNull(id, "id == null");
     PeerAndProxy p = peers.get(id);
     if (p == null) {
       synchronized (resetLock) {

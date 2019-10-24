@@ -105,12 +105,18 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testRequestAsyncWithRetryFailure() throws Exception {
-    runWithNewCluster(1, false, cluster -> runTestRequestAsyncWithRetryFailure(false, cluster));
+    runTestRequestAsyncWithRetryFailure(false);
   }
 
   @Test
   public void testRequestAsyncWithRetryFailureAfterInitialMessages() throws Exception {
-    runWithNewCluster(1, true, cluster -> runTestRequestAsyncWithRetryFailure(true, cluster));
+    runTestRequestAsyncWithRetryFailure(true);
+  }
+
+  void runTestRequestAsyncWithRetryFailure(boolean initialMessages) throws Exception {
+    RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(getProperties(), false);
+    runWithNewCluster(1, initialMessages, cluster -> runTestRequestAsyncWithRetryFailure(initialMessages, cluster));
+    RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(getProperties(), true);
   }
 
   void runTestRequestAsyncWithRetryFailure(boolean initialMessages, CLUSTER cluster) throws Exception {
@@ -345,11 +351,13 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   @Test
   public void testRequestTimeout() throws Exception {
     final TimeDuration oldExpiryTime = RaftServerConfigKeys.RetryCache.expiryTime(getProperties());
-    RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), TimeDuration.valueOf(5, TimeUnit.SECONDS));
+    RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), FIVE_SECONDS);
+    RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(getProperties(), false);
     runWithNewCluster(NUM_SERVERS, cluster -> RaftBasicTests.testRequestTimeout(true, cluster, LOG));
 
     //reset for the other tests
     RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), oldExpiryTime);
+    RaftClientConfigKeys.Async.Experimental.setSendDummyRequest(getProperties(), true);
   }
 
   @Test

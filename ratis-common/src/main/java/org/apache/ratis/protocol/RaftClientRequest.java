@@ -30,6 +30,8 @@ import static org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase.
  */
 public class RaftClientRequest extends RaftClientMessage {
   private static final Type WRITE_DEFAULT = new Type(WriteRequestTypeProto.getDefaultInstance());
+  private static final Type WATCH_DEFAULT = new Type(
+      WatchRequestTypeProto.newBuilder().setIndex(0L).setReplication(ReplicationLevel.MAJORITY).build());
 
   private static final Type DEFAULT_READ = new Type(ReadRequestTypeProto.getDefaultInstance());
   private static final Type DEFAULT_STALE_READ = new Type(StaleReadRequestTypeProto.getDefaultInstance());
@@ -47,6 +49,9 @@ public class RaftClientRequest extends RaftClientMessage {
         : new Type(StaleReadRequestTypeProto.newBuilder().setMinIndex(minIndex).build());
   }
 
+  public static Type watchRequestType() {
+    return WATCH_DEFAULT;
+  }
   public static Type watchRequestType(long index, ReplicationLevel replication) {
     return new Type(WatchRequestTypeProto.newBuilder().setIndex(index).setReplication(replication).build());
   }

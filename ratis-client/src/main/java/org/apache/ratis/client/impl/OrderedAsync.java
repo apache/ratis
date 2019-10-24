@@ -53,8 +53,8 @@ import java.util.function.Function;
 import java.util.function.LongFunction;
 
 /** Send ordered asynchronous requests to a raft service. */
-class OrderedAsync {
-  private static final Logger LOG = LoggerFactory.getLogger(OrderedAsync.class);
+public final class OrderedAsync {
+  public static final Logger LOG = LoggerFactory.getLogger(OrderedAsync.class);
 
   static class PendingOrderedRequest extends PendingClientRequest
       implements SlidingWindow.ClientSideRequest<RaftClientReply> {
@@ -110,13 +110,23 @@ class OrderedAsync {
     }
   }
 
+  static OrderedAsync newInstance(RaftClientImpl client, RaftProperties properties) {
+    final OrderedAsync ordered = new OrderedAsync(client, properties);
+    // send a dummy watch request to establish the connection
+    // TODO: this is a work around, it is better to fix the underlying RPC implementation
+    if (RaftClientConfigKeys.Async.Experimental.sendDummyRequest(properties)) {
+      ordered.send(RaftClientRequest.watchRequestType(), null, null);
+    }
+    return ordered;
+  }
+
   private final RaftClientImpl client;
   /** Map: id -> {@link SlidingWindow}, in order to support async calls to the Raft service or individual servers. */
   private final ConcurrentMap<String, SlidingWindow.Client<PendingOrderedRequest, RaftClientReply>> slidingWindows
       = new ConcurrentHashMap<>();
   private final Semaphore requestSemaphore;
 
-  OrderedAsync(RaftClientImpl client, RaftProperties properties) {
+  private OrderedAsync(RaftClientImpl client, RaftProperties properties) {
     this.client = Objects.requireNonNull(client, "client == null");
     this.requestSemaphore = new Semaphore(RaftClientConfigKeys.Async.maxOutstandingRequests(properties));
   }
@@ -170,6 +180,7 @@ class OrderedAsync {
 
     final RaftClientRequest request = pending.newRequestImpl();
     if (request == null) { // already done
+      LOG.debug("{} newRequestImpl returns null", pending);
       return;
     }
 
@@ -198,14 +209,15 @@ class OrderedAsync {
 
   private void scheduleWithTimeout(PendingOrderedRequest pending, RaftClientRequest request, RetryPolicy retryPolicy) {
     final int attempt = pending.getAttemptCount();
-    LOG.debug("schedule* attempt #{} with policy {} for {}", attempt, retryPolicy, request);
     final TimeDuration sleepTime = retryPolicy.getSleepTime(attempt, request);
-    scheduleWithTimeout(pending, request.getServerId(), sleepTime);
+    LOG.debug("schedule* attempt #{} with sleep {} and policy {} for {}", attempt, sleepTime, retryPolicy, request);
+    scheduleWithTimeout(pending, sleepTime, getSlidingWindow(request));
   }
 
-  private void scheduleWithTimeout(PendingOrderedRequest pending, RaftPeerId serverId, TimeDuration sleepTime) {
+  private void scheduleWithTimeout(PendingOrderedRequest pending, TimeDuration sleepTime,
+      SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> slidingWindow) {
     client.getScheduler().onTimeout(sleepTime,
-        () -> getSlidingWindow(serverId).retry(pending, this::sendRequestWithRetry),
+        () -> slidingWindow.retry(pending, this::sendRequestWithRetry),
         LOG, () -> "Failed* to retry " + pending);
   }
 

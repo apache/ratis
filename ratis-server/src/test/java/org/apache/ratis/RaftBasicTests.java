@@ -37,6 +37,7 @@ import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
+import org.apache.ratis.util.Timestamp;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -407,7 +408,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
   public static void testRequestTimeout(boolean async, MiniRaftCluster cluster, Logger LOG) throws Exception {
     waitForLeader(cluster);
-    long time = System.currentTimeMillis();
+    final Timestamp startTime = Timestamp.currentTime();
     try (final RaftClient client = cluster.createClient()) {
       // Get the next callId to be used by the client
       long callId = RaftClientTestUtil.getCallId(client);
@@ -428,7 +429,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       // Eventually the request would be accepted by the server
       // when the retry cache entry is invalidated.
       // The duration for which the client waits should be more than the retryCacheExpiryDuration.
-      TimeDuration duration = TimeDuration.valueOf(System.currentTimeMillis() - time, TimeUnit.MILLISECONDS);
+      final TimeDuration duration = startTime.elapsedTime();
       TimeDuration retryCacheExpiryDuration = RaftServerConfigKeys.RetryCache.expiryTime(cluster.getProperties());
       Assert.assertTrue(duration.compareTo(retryCacheExpiryDuration) >= 0);
     }
