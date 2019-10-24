@@ -302,7 +302,8 @@ public class GrpcClientProtocolClient implements Closeable {
     }
 
     CompletableFuture<RaftClientReply> onNext(RaftClientRequest request) {
-      final CompletableFuture<RaftClientReply> f = replies.putNew(request.getCallId());
+      final long callId = request.getCallId();
+      final CompletableFuture<RaftClientReply> f = replies.putNew(callId);
       if (f == null) {
         return JavaUtils.completeExceptionally(new AlreadyClosedException(getName() + " is closed."));
       }
@@ -315,14 +316,14 @@ public class GrpcClientProtocolClient implements Closeable {
         return f;
       }
 
-      scheduler.onTimeout(requestTimeoutDuration, () -> timeoutCheck(request), LOG,
-          () -> "Timeout check failed for client request: " + request);
+      scheduler.onTimeout(requestTimeoutDuration, () -> timeoutCheck(callId), LOG,
+          () -> "Timeout check failed for client request #" + callId);
       return f;
     }
 
-    private void timeoutCheck(RaftClientRequest request) {
-      handleReplyFuture(request.getCallId(), f -> f.completeExceptionally(
-          new TimeoutIOException("Request timeout " + requestTimeoutDuration + ": " + request)));
+    private void timeoutCheck(long callId) {
+      handleReplyFuture(callId, f -> f.completeExceptionally(
+          new TimeoutIOException("Request #" + callId + " timeout " + requestTimeoutDuration)));
     }
 
     private void handleReplyFuture(long callId, Consumer<CompletableFuture<RaftClientReply>> handler) {
