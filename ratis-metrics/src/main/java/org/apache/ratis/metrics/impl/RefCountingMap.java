@@ -34,8 +34,8 @@ class RefCountingMap<K, V> {
 
   private ConcurrentHashMap<K, Payload<V>> map = new ConcurrentHashMap<>();
   private static class Payload<V> {
-    V v;
-    int refCount;
+    private V v;
+    private int refCount;
     Payload(V v) {
       this.v = v;
       this.refCount = 1; // create with ref count = 1

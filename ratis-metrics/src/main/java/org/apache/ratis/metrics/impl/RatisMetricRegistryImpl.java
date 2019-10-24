@@ -38,7 +38,7 @@ import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesti
  * Custom implementation of {@link MetricRegistry}.
  */
 public class RatisMetricRegistryImpl implements RatisMetricRegistry {
-  MetricRegistry metricRegistry = new MetricRegistry();
+  private MetricRegistry metricRegistry = new MetricRegistry();
 
   private final MetricRegistryInfo info;
 
