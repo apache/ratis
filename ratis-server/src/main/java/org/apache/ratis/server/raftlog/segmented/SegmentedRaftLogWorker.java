@@ -447,7 +447,7 @@ class SegmentedRaftLogWorker implements Runnable {
           this.stateMachineFuture = stateMachine.writeStateMachineData(entry);
         } catch (Throwable e) {
           LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
-              + ", entry=" + ServerProtoUtils.toLogEntryString(entry), e);
+              + ", entry=" + ServerProtoUtils.toLogEntryString(entry, stateMachine), e);
           throw e;
         }
       }
@@ -502,7 +502,7 @@ class SegmentedRaftLogWorker implements Runnable {
 
     @Override
     public String toString() {
-      return super.toString() + ": " + ServerProtoUtils.toLogEntryString(entry);
+      return super.toString() + ": " + ServerProtoUtils.toLogEntryString(entry, stateMachine);
     }
   }
 

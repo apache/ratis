@@ -471,18 +471,18 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
         entryProto = future.thenApply(data -> ServerProtoUtils.addStateMachineData(data, logEntry))
             .get(timeout.getDuration(), timeout.getUnit());
       } catch (TimeoutException t) {
+        final String err = getName() + ": Timeout readStateMachineData for " + toLogEntryString(logEntry);
+        LOG.error(err, t);
         throw t;
       } catch (Throwable t) {
-        final String err = getName() + ": Failed readStateMachineData for " +
-            ServerProtoUtils.toLogEntryString(logEntry);
+        final String err = getName() + ": Failed readStateMachineData for " + toLogEntryString(logEntry);
         LOG.error(err, t);
         throw new RaftLogIOException(err, JavaUtils.unwrapCompletionException(t));
       }
       // by this time we have already read the state machine data,
       // so the log entry data should be set now
       if (ServerProtoUtils.shouldReadStateMachineData(entryProto)) {
-        final String err = getName() + ": State machine data not set for " +
-            ServerProtoUtils.toLogEntryString(logEntry);
+        final String err = getName() + ": State machine data not set for " + toLogEntryString(logEntry);
         LOG.error(err);
         throw new RaftLogIOException(err);
       }
@@ -491,7 +491,11 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
     @Override
     public String toString() {
-      return ServerProtoUtils.toLogEntryString(logEntry);
+      return toLogEntryString(logEntry);
     }
+  }
+
+  public String toLogEntryString(LogEntryProto logEntry) {
+    return ServerProtoUtils.toLogEntryString(logEntry);
   }
 }

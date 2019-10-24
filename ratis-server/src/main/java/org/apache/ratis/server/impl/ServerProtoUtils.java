@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -65,14 +66,26 @@ public interface ServerProtoUtils {
   }
 
   static String toLogEntryString(LogEntryProto entry) {
+    return toLogEntryString(entry, null);
+  }
+
+  static String toStateMachineLogEntryString(StateMachineLogEntryProto smLog, StateMachine stateMachine) {
+    if (stateMachine != null) {
+      return stateMachine.toStateMachineLogEntryString(smLog);
+    }
+    final ByteString clientId = smLog.getClientId();
+    return (clientId.isEmpty() ? "<empty clientId>" : ClientId.valueOf(clientId)) + ", cid=" + smLog.getCallId();
+  }
+
+
+  static String toLogEntryString(LogEntryProto entry,
+                                 StateMachine stateMachine) {
     if (entry == null) {
       return null;
     }
     final String s;
     if (entry.hasStateMachineLogEntry()) {
-      final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-      final ByteString clientId = smLog.getClientId();
-      s = ", " + (clientId.isEmpty()? "<empty clientId>": ClientId.valueOf(clientId)) + ", cid=" + smLog.getCallId();
+      s = ", " + toStateMachineLogEntryString(entry.getStateMachineLogEntry(), stateMachine);
     } else if (entry.hasMetadataEntry()) {
       final MetadataProto metadata = entry.getMetadataEntry();
       s = "(c" + metadata.getCommitIndex() + ")";
