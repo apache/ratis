@@ -47,7 +47,7 @@ public abstract class BaseTest {
   public final Logger LOG = LoggerFactory.getLogger(getClass());
 
   public static final TimeDuration HUNDRED_MILLIS = TimeDuration.valueOf(100, TimeUnit.MILLISECONDS);
-  public static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+  public static final TimeDuration ONE_SECOND = TimeDuration.ONE_SECOND;
   public static final TimeDuration FIVE_SECONDS = TimeDuration.valueOf(5, TimeUnit.SECONDS);
 
   {

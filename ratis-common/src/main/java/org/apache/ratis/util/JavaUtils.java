@@ -143,6 +143,14 @@ public interface JavaUtils {
       CheckedSupplier<RETURN, THROWABLE> supplier,
       int numAttempts, TimeDuration sleepTime, String name, Logger log)
       throws THROWABLE, InterruptedException {
+    return attempt(supplier, numAttempts, sleepTime, () -> name, log);
+  }
+
+  /** Attempt to get a return value from the given supplier multiple times. */
+  static <RETURN, THROWABLE extends Throwable> RETURN attempt(
+      CheckedSupplier<RETURN, THROWABLE> supplier,
+      int numAttempts, TimeDuration sleepTime, Supplier<?> name, Logger log)
+      throws THROWABLE, InterruptedException {
     Objects.requireNonNull(supplier, "supplier == null");
     Preconditions.assertTrue(numAttempts > 0, () -> "numAttempts = " + numAttempts + " <= 0");
     Preconditions.assertTrue(!sleepTime.isNegative(), () -> "sleepTime = " + sleepTime + " < 0");
@@ -155,7 +163,7 @@ public interface JavaUtils {
           throw t;
         }
         if (log != null && log.isWarnEnabled()) {
-          log.warn("FAILED \"" + name + "\", attempt #" + i + "/" + numAttempts
+          log.warn("FAILED \"" + name.get() + "\", attempt #" + i + "/" + numAttempts
               + ": " + t + ", sleep " + sleepTime + " and then retry.", t);
         }
       }

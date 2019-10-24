@@ -32,6 +32,7 @@ import java.util.function.LongUnaryOperator;
  * This is a value-based class.
  */
 public final class TimeDuration implements Comparable<TimeDuration> {
+  public static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
 
   /** Abbreviations of {@link TimeUnit}. */
   public enum Abbreviation {

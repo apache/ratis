@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,9 +27,21 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.function.Supplier;
 
 public interface FileUtils {
   Logger LOG = LoggerFactory.getLogger(FileUtils.class);
+
+  int NUM_ATTEMPTS = 5;
+  TimeDuration SLEEP_TIME = TimeDuration.ONE_SECOND;
+
+  static <T> T attempt(CheckedSupplier<T, IOException> op, Supplier<?> name) throws IOException {
+    try {
+      return JavaUtils.attempt(op, NUM_ATTEMPTS, SLEEP_TIME, name, LOG);
+    } catch (InterruptedException e) {
+      throw IOUtils.toInterruptedIOException("Interrupted " + name.get(), e);
+    }
+  }
 
   static void truncateFile(File f, long target) throws IOException {
     final long original = f.length();

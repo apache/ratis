@@ -288,7 +288,8 @@ public class RaftStorageDirectory {
    * @throws IOException if locking fails
    */
   public void lock() throws IOException {
-    FileLock newLock = tryLock();
+    final File lockF = new File(root, STORAGE_FILE_LOCK);
+    final FileLock newLock = FileUtils.attempt(() -> tryLock(lockF), () -> "tryLock " + lockF);
     if (newLock == null) {
       String msg = "Cannot lock storage " + this.root
           + ". The directory is already locked";
@@ -308,9 +309,8 @@ public class RaftStorageDirectory {
    * <code>null</code> if storage is already locked.
    * @throws IOException if locking fails.
    */
-  private FileLock tryLock() throws IOException {
+  private FileLock tryLock(File lockF) throws IOException {
     boolean deletionHookAdded = false;
-    File lockF = new File(root, STORAGE_FILE_LOCK);
     if (!lockF.exists()) {
       lockF.deleteOnExit();
       deletionHookAdded = true;
