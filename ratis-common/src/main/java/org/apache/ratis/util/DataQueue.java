@@ -129,7 +129,7 @@ public class DataQueue<E> {
         return results;
       }
 
-      final TimeDuration remaining = limit.minus(startTime.elapsedTime());
+      final TimeDuration remaining = limit.subtract(startTime.elapsedTime());
       try {
         results.add(getResult.apply(peeked, remaining));
       } catch (TimeoutException e) {

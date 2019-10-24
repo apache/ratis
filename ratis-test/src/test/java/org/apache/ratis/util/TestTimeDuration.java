@@ -123,35 +123,55 @@ public class TestTimeDuration {
   }
 
   @Test(timeout = 1000)
-  public void testMinus() {
+  public void testAddAndSubtract() {
     final TimeDuration oneSecond = TimeDuration.valueOf(1, TimeUnit.SECONDS);
     final TimeDuration tenSecond = TimeDuration.valueOf(10, TimeUnit.SECONDS);
     {
-      final TimeDuration d = oneSecond.minus(oneSecond);
+      final TimeDuration d = oneSecond.subtract(oneSecond);
       assertEquals(0, d.getDuration());
       assertEquals(TimeUnit.SECONDS, d.getUnit());
+
+      final TimeDuration sum = d.add(oneSecond);
+      assertEquals(1, sum.getDuration());
+      assertEquals(TimeUnit.SECONDS, sum.getUnit());
     }
     {
-      final TimeDuration d = tenSecond.minus(oneSecond);
+      final TimeDuration d = tenSecond.subtract(oneSecond);
       assertEquals(9, d.getDuration());
       assertEquals(TimeUnit.SECONDS, d.getUnit());
+
+      final TimeDuration sum = d.add(oneSecond);
+      assertEquals(10, sum.getDuration());
+      assertEquals(TimeUnit.SECONDS, sum.getUnit());
     }
     {
-      final TimeDuration d = oneSecond.minus(tenSecond);
+      final TimeDuration d = oneSecond.subtract(tenSecond);
       assertEquals(-9, d.getDuration());
       assertEquals(TimeUnit.SECONDS, d.getUnit());
+
+      final TimeDuration sum = d.add(tenSecond);
+      assertEquals(1, sum.getDuration());
+      assertEquals(TimeUnit.SECONDS, sum.getUnit());
     }
 
     final TimeDuration oneMS = TimeDuration.valueOf(1, TimeUnit.MILLISECONDS);
     {
-      final TimeDuration d = oneSecond.minus(oneMS);
+      final TimeDuration d = oneSecond.subtract(oneMS);
       assertEquals(999, d.getDuration());
       assertEquals(TimeUnit.MILLISECONDS, d.getUnit());
+
+      final TimeDuration sum = d.add(oneSecond);
+      assertEquals(1999, sum.getDuration());
+      assertEquals(TimeUnit.MILLISECONDS, sum.getUnit());
     }
     {
-      final TimeDuration d = oneMS.minus(oneSecond);
+      final TimeDuration d = oneMS.subtract(oneSecond);
       assertEquals(-999, d.getDuration());
       assertEquals(TimeUnit.MILLISECONDS, d.getUnit());
+
+      final TimeDuration sum = d.add(oneSecond);
+      assertEquals(1, sum.getDuration());
+      assertEquals(TimeUnit.MILLISECONDS, sum.getUnit());
     }
   }
 }

@@ -32,6 +32,7 @@ import java.util.function.LongUnaryOperator;
  * This is a value-based class.
  */
 public final class TimeDuration implements Comparable<TimeDuration> {
+  public static final TimeDuration ZERO = valueOf(0, TimeUnit.NANOSECONDS);
   public static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
 
   /** Abbreviations of {@link TimeUnit}. */
@@ -158,8 +159,15 @@ public final class TimeDuration implements Comparable<TimeDuration> {
     return this.unit == targetUnit? this: valueOf(toLong(targetUnit), targetUnit);
   }
 
+  /** @return (this + that) in the minimum unit among them. */
+  public TimeDuration add(TimeDuration that) {
+    Objects.requireNonNull(that, "that == null");
+    final TimeUnit minUnit = CollectionUtils.min(this.unit, that.unit);
+    return valueOf(this.toLong(minUnit) + that.toLong(minUnit), minUnit);
+  }
+
   /** @return (this - that) in the minimum unit among them. */
-  public TimeDuration minus(TimeDuration that) {
+  public TimeDuration subtract(TimeDuration that) {
     Objects.requireNonNull(that, "that == null");
     final TimeUnit minUnit = CollectionUtils.min(this.unit, that.unit);
     return valueOf(this.toLong(minUnit) - that.toLong(minUnit), minUnit);
