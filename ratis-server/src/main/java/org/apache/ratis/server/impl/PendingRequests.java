@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -28,8 +29,9 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.util.ResourceSemaphore;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.ResourceSemaphore;
+import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,6 +50,29 @@ class PendingRequests {
 
   static class Permit {}
 
+  static class RequestLimits extends ResourceSemaphore.Group {
+    RequestLimits(int elementLimit, SizeInBytes byteLimit) {
+      super(elementLimit, byteLimit.getSizeInt());
+    }
+
+    int getElementCount() {
+      return get(0).used();
+    }
+
+    // TODO: add metrics
+    int getByteSize() {
+      return get(1).used();
+    }
+
+    boolean tryAcquire(Message message) {
+      return tryAcquire(1, Message.getSize(message));
+    }
+
+    void release(Message message) {
+      release(1, Message.getSize(message));
+    }
+  }
+
   private static class RequestMap {
     private final Object name;
     private final ConcurrentMap<Long, PendingRequest> map = new ConcurrentHashMap<>();
@@ -55,18 +80,19 @@ class PendingRequests {
 
     /** Permits to put new requests, always synchronized. */
     private final Map<Permit, Permit> permits = new HashMap<>();
-    /** Track and limit the number of requests. */
-    private final ResourceSemaphore resource;
+    /** Track and limit the number of requests and the total message size. */
+    private final RequestLimits resource;
 
-    RequestMap(Object name, int capacity, RaftServerMetrics raftServerMetrics) {
+    RequestMap(Object name, int elementLimit, SizeInBytes byteLimit, RaftServerMetrics raftServerMetrics) {
       this.name = name;
-      this.resource = new ResourceSemaphore(capacity);
+      this.resource = new RequestLimits(elementLimit, byteLimit);
       this.raftServerMetrics = raftServerMetrics;
-      raftServerMetrics.addNumPendingRequestsGauge(resource, capacity);
+
+      raftServerMetrics.addNumPendingRequestsGauge(resource::getElementCount);
     }
 
-    Permit tryAcquire() {
-      final boolean acquired = resource.tryAcquire();
+    Permit tryAcquire(Message message) {
+      final boolean acquired = resource.tryAcquire(message);
       LOG.trace("tryAcquire? {}", acquired);
       if (!acquired) {
         raftServerMetrics.onRequestQueueLimitHit();
@@ -108,7 +134,7 @@ class PendingRequests {
       if (r == null) {
         return null;
       }
-      resource.release();
+      resource.release(r.getRequest().getMessage());
       LOG.trace("release");
       return r;
     }
@@ -141,11 +167,14 @@ class PendingRequests {
 
   PendingRequests(RaftGroupMemberId id, RaftProperties properties, RaftServerMetrics raftServerMetrics) {
     this.name = id + "-" + getClass().getSimpleName();
-    this.pendingRequests = new RequestMap(id, RaftServerConfigKeys.Write.elementLimit(properties), raftServerMetrics);
+    this.pendingRequests = new RequestMap(id,
+        RaftServerConfigKeys.Write.elementLimit(properties),
+        RaftServerConfigKeys.Write.byteLimit(properties),
+        raftServerMetrics);
   }
 
-  Permit tryAcquire() {
-    return pendingRequests.tryAcquire();
+  Permit tryAcquire(Message message) {
+    return pendingRequests.tryAcquire(message);
   }
 
   PendingRequest add(Permit permit, RaftClientRequest request, TransactionContext entry) {

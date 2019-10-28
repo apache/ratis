@@ -306,8 +306,8 @@ public class LeaderState {
     return pending;
   }
 
-  PendingRequests.Permit tryAcquirePendingRequest() {
-    return pendingRequests.tryAcquire();
+  PendingRequests.Permit tryAcquirePendingRequest(Message message) {
+    return pendingRequests.tryAcquire(message);
   }
 
   PendingRequest addPendingRequest(PendingRequests.Permit permit, RaftClientRequest request, TransactionContext entry) {

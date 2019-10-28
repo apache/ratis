@@ -88,6 +88,16 @@ public interface RaftServerConfigKeys {
     static void setElementLimit(RaftProperties properties, int limit) {
       setInt(properties::setInt, ELEMENT_LIMIT_KEY, limit, requireMin(1));
     }
+
+    String BYTE_LIMIT_KEY = PREFIX + ".byte-limit";
+    SizeInBytes BYTE_LIMIT_DEFAULT = SizeInBytes.valueOf("64MB");
+    static SizeInBytes byteLimit(RaftProperties properties) {
+      return getSizeInBytes(properties::getSizeInBytes,
+          BYTE_LIMIT_KEY, BYTE_LIMIT_DEFAULT, getDefaultLog());
+    }
+    static void setByteLimit(RaftProperties properties, int byteLimit) {
+      setInt(properties::setInt, BYTE_LIMIT_KEY, byteLimit, requireMin(1));
+    }
   }
 
   interface Watch {

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,6 +21,7 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.MemoizedSupplier;
 import org.apache.ratis.util.StringUtils;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -51,10 +52,18 @@ public interface Message {
     return valueOf(ByteString.copyFromUtf8(string), () -> "Message:" + string);
   }
 
+  static int getSize(Message message) {
+    return Optional.ofNullable(message).map(Message::size).orElse(0);
+  }
+
   Message EMPTY = valueOf(ByteString.EMPTY);
 
   /**
    * @return the content of the message
    */
   ByteString getContent();
+
+  default int size() {
+    return Optional.ofNullable(getContent()).map(ByteString::size).orElse(0);
+  }
 }

@@ -44,7 +44,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Preconditions;
-import org.apache.ratis.util.ResourceSemaphore;
 
 /**
  * Metric Registry for Raft Group Server. One instance per leader/follower.
@@ -171,8 +170,7 @@ public final class RaftServerMetrics {
     registry.counter(REQUEST_QUEUE_LIMIT_HIT_COUNTER).inc();
   }
 
-  public void addNumPendingRequestsGauge(ResourceSemaphore resourceSemaphore, int capacity) {
-    registry.gauge(REQUEST_QUEUE_SIZE,
-        () -> () -> (capacity - resourceSemaphore.availablePermits()));
+  void addNumPendingRequestsGauge(Gauge queueSize) {
+    registry.gauge(REQUEST_QUEUE_SIZE, () -> queueSize);
   }
 }
