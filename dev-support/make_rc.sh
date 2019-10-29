@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -22,12 +22,10 @@
 # timestamp suffix. Deploys builds to maven.
 #
 # To finish, check what was build.  If good copy to people.apache.org and
-# close the maven repos.  Call a vote. 
+# close the maven repos.  Call a vote.
 #
 # Presumes your settings.xml all set up so can sign artifacts published to mvn, etc.
-
 set -e
-
 # Set mvn and mvnopts
 mvn=mvn
 if [ "$MAVEN" != "" ]; then
@@ -43,6 +41,7 @@ mvnGet() {
     org.codehaus.mojo:exec-maven-plugin:1.6.0:exec 2>/dev/null
 }
 
+
 # Check project name
 projectname=$(mvnGet project.name)
 projectversion=$(mvnGet project.version)
@@ -57,53 +56,141 @@ else
   exit 1;
 fi
 
+if [ ! "$RATISVERSION" ]; then
+  echo "Please set the RATISVERSION environment variable (eg. export RATISVERSION=0.3.0)"
+  exit 1
+fi
+
+if [ ! "$RC" ]; then
+   echo "Please set the RC number. (eg. export RC=\"-rc2\")"
+   exit 1
+fi
+
+
 # Set projectdir and archivedir
 projectdir=$(pwd)
 echo "Project dir: ${projectdir}"
-archivedir="${projectdir}/../`basename ${projectdir}`.`date -u +"%Y%m%d-%H%M%S"`"
-echo "Archive dir: ${archivedir}"
-if [ -d "${archivedir}" ]; then
-  echo "${archivedir} already exists"
-  exit 1;
-fi
+WORKINGDIR="${projectdir}/../$(basename "${projectdir}").${RATISVERSION}${RC}"
+echo "Archive dir: ${WORKINGDIR}"
 
 # Set repodir
-repodir=${projectdir}/../`basename ${projectdir}`.repository
+repodir=${MVN_REPO_DIR:-${projectdir}/../$(basename "${projectdir}").repository}
 echo "Repo dir: ${repodir}"
 
+SVNDISTDIR=${SVNDISTDIR:-$projectdir/../svndistratis}
+if [ ! -d "$SVNDISTDIR" ]; then
+  svn co https://dist.apache.org/repos/dist/dev/incubator/ratis "$SVNDISTDIR"
+fi
+
+
+if [ ! "$CODESIGNINGKEY" ]; then
+  echo "Please specify your signing key ID in the CODESIGNINGKEY environment variable"
+  exit 1
+fi
+
+
 mvnFun() {
-  set -x
-  MAVEN_OPTS="${mvnopts}" ${mvn} -Dmaven.repo.local=${repodir} $@
-  set +x
+  MAVEN_OPTS="${mvnopts}" ${mvn} -Dmaven.repo.local="${repodir}" "$@"
 }
 
-# generate tar.gz
-mvnFun clean install -DskipTests assembly:single -Prelease -Dmaven.javadoc.skip=true
+prepare-src() {
+  cd "$projectdir"
+  git reset --hard
+  git clean -fdx
+  mvnFun versions:set -DnewVersion="$RATISVERSION"
+  git commit -a -m "Change version for the version $RATISVERSION $RC"
 
-mkdir "${archivedir}"
-archivedir=`cd ${archivedir} > /dev/null; pwd`
+  git config user.signingkey "${CODESIGNINGKEY}"
+  git tag -s -m "Release $RATISVERSION $RC" ratis-"${RATISVERSION}${RC}"
+  git reset --hard ratis-"${RATISVERSION}${RC}"
 
-artifactid=$(mvnGet project.artifactId)
-assemblydir="$(pwd)/${artifactid}-assembly"
-mv ${assemblydir}/target/*${artifactid}*${projectversion}*.tar.gz "${archivedir}"
+  git clean -fdx
 
-echo
-echo "Successfully generated artifacts for ${projectname} ${projectversion}"
-ls -l ${archivedir}
-echo
-echo "Check the content of ${archivedir}."
-echo "If good, sign and push to dist.apache.org"
-echo "  cd ${archivedir}"
-echo '  for i in *.tar.gz; do echo $i; gpg --print-mds $i > $i.mds ; done'
-echo '  for i in *.tar.gz; do echo $i; gpg --print-md SHA512 $i > $i.sha512 ; done'
-echo '  for i in *.tar.gz; do echo $i; gpg --armor --output $i.asc --detach-sig $i ; done'
-echo
-echo "Check the content deployed to maven."
-echo "If good, close the repo and record links of temporary staging repo"
-echo "  MAVEN_OPTS=\"${mvnopts}\" ${mvn} deploy -DskipTests -Papache-release -Prelease -Dmaven.repo.local=${repodir}"
-echo
-echo "If all good tag the RC"
-echo
-echo "Finally, you may want to remove archive dir and repo dir"
-echo "  rm -rf ${archivedir}"
-echo "  rm -rf ${repodir}"
+  #grep -r SNAPSHOT --include=pom.xml
+
+  mvnFun clean install assembly:single -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
+}
+
+prepare-bin() {
+  echo "Cleaning up workingdir $WORKINGDIR"
+  rm -rf "$WORKINGDIR"
+  mkdir -p "$WORKINGDIR"
+  cd "$WORKINGDIR"
+  tar zvxf "$projectdir/ratis-assembly/target/apache-ratis-incubating-${RATISVERSION}-src.tar.gz"
+  cd "apache-ratis-incubating-${RATISVERSION}"
+
+  mvnFun clean install assembly:single -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
+}
+
+assembly() {
+  cd "$SVNDISTDIR"
+  RCDIR="$SVNDISTDIR/${RATISVERSION}/${RC#-}"
+  mkdir -p "$RCDIR"
+  cd "$RCDIR"
+  cp "$WORKINGDIR/apache-ratis-incubating-${RATISVERSION}/ratis-assembly/target/apache-ratis-incubating-${RATISVERSION}-bin.tar.gz" "apache-ratis-incubating-${RATISVERSION}-bin.tar.gz"
+  cp "$projectdir/ratis-assembly/target/apache-ratis-incubating-${RATISVERSION}-src.tar.gz" "apache-ratis-incubating-${RATISVERSION}-src.tar.gz"
+  for i in *.tar.gz; do gpg  -u "${CODESIGNINGKEY}" --armor --output "${i}.asc" --detach-sig "${i}"; done
+  for i in *.tar.gz; do gpg --print-md SHA512 "${i}" > "${i}.sha512"; done
+  for i in *.tar.gz; do gpg --print-mds "${i}" > "${i}.mds"; done
+  cd "$SVNDISTDIR"
+  svn add "${RATISVERSION}" || svn add "${RATISVERSION}/${RC#-}"
+}
+
+publish-git(){
+  cd "$projectdir"
+  git push apache "ratis-${RATISVERSION}${RC}"
+}
+
+publish-svn() {
+   cd "${SVNDISTDIR}"
+  svn commit -m "Publish proposed version of the next Ratis release ${RATISVERSION}${RC}"
+}
+
+publish-mvn(){
+  cd "$projectdir"
+  mvnFun -X clean deploy assembly:single -DskipTests=true  -Prelease -Papache-release -Dgpg.keyname="${CODESIGNINGKEY}"
+}
+
+if [ "$#" -ne 1 ]; then
+  cat << EOF
+
+Please choose from available phases (eg. make_rc.sh prepare-src):
+
+   1. prepare-src: This is the first step. It modifies the mvn version, creates the git tag and
+                   builds the project to create the source artifacts.
+                   IT INCLUDES A GIT RESET + CLEAN. ALL THE LOCAL CHANGES WILL BE LOST!
+
+   2. prepare-bin: The source artifact is copied to the $WORKINGDIR and the binary artifact is created from the source.
+                   This is an additional check as the the released source artifact should be enough to build the whole project.
+
+   3. assembly :   This step copies all the required artifacts to the svn directory and ($SVNDISTDIR) creates the signatures/checksum files.
+
+   4. publish-git: The first remote step, only do it if everything is fine. It pushes the rc tag to the repository.
+
+   5. publish-svn: Uploads the artifacts to the apache dev staging area to start the vote.
+
+   6. publish-mvn: Uploads the artifacts to the maven staging repository
+
+The next steps of the release process are not scripted:
+
+   7. Close the staging maven repository at https://repository.apache.org/
+
+   8. Send out the vote mail to the ratis-dev list
+
+   9. Summarize the vote after the given period.
+
+   10. (If the vote passed): Send out the next voting mail to the incubator mailing list.
+
+   11. (If the vote passed): Move the staged artifacts in svn from the dev area to the dist area.
+
+   12. Publish maven repository at https://repository.apache.org/
+
+
+
+
+
+EOF
+else
+  set -x
+  eval "$1"
+fi
