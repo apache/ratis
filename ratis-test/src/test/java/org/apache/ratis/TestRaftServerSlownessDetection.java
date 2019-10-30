@@ -28,7 +28,7 @@ import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
 import org.junit.Assert;
@@ -51,7 +51,7 @@ import com.codahale.metrics.Gauge;
 @Ignore
 public class TestRaftServerSlownessDetection extends BaseTest {
   static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 3;

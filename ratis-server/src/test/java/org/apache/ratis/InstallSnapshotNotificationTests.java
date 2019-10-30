@@ -36,7 +36,7 @@ import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
 import org.junit.Test;
@@ -57,7 +57,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
   static final Logger LOG = LoggerFactory.getLogger(InstallSnapshotNotificationTests.class);
 
   {
-    LogUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(RaftLog.LOG, Level.DEBUG);
   }
 
   {

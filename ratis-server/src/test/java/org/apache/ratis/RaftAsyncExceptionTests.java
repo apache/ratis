@@ -29,7 +29,7 @@ import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -44,7 +44,7 @@ public abstract class RaftAsyncExceptionTests<CLUSTER extends MiniRaftCluster>
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
 
   {
-    LogUtils.setLogLevel(OrderedAsync.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(OrderedAsync.LOG, Level.DEBUG);
     getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
   }

@@ -48,7 +48,7 @@ import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
@@ -64,8 +64,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterWithGrpc.FactoryGet {
   {
-    LogUtils.setLogLevel(GrpcClientProtocolService.LOG, Level.ALL);
-    LogUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.ALL);
+    Log4jUtils.setLogLevel(GrpcClientProtocolService.LOG, Level.ALL);
+    Log4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.ALL);
   }
 
   @Before

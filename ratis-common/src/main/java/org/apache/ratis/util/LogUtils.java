@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.log4j.Level;
-import org.apache.log4j.LogManager;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
@@ -32,16 +30,6 @@ import java.util.function.Supplier;
  */
 public interface LogUtils {
   Logger LOG = LoggerFactory.getLogger(LogUtils.class);
-
-  static void setLogLevel(Logger logger, Level level) {
-    final String name = logger.getName();
-    if (LOG.isTraceEnabled()) {
-      LOG.trace("", new Throwable("Set " + name + " log level to " + level));
-    } else {
-      LOG.info("Set {} log level to {}", name, level);
-    }
-    LogManager.getLogger(name).setLevel(level);
-  }
 
   static <THROWABLE extends Throwable> void runAndLog(
       Logger log, CheckedRunnable<THROWABLE> op, Supplier<String> opName)

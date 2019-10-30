@@ -1,3 +1,5 @@
+package org.apache.ratis.util;
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -15,23 +17,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.grpc;
 
 import org.apache.log4j.Level;
-import org.apache.ratis.WatchRequestTests;
-import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.client.impl.UnorderedAsync;
-import org.apache.ratis.grpc.client.GrpcClientProtocolService;
-import org.apache.ratis.grpc.client.GrpcClientRpc;
-import org.apache.ratis.util.Log4jUtils;
+import org.apache.log4j.LogManager;
+import org.slf4j.Logger;
 
-public class TestWatchRequestWithGrpc
-    extends WatchRequestTests<MiniRaftClusterWithGrpc>
-    implements MiniRaftClusterWithGrpc.FactoryGet {
-  {
-    Log4jUtils.setLogLevel(GrpcClientProtocolService.LOG, Level.ALL);
-    Log4jUtils.setLogLevel(GrpcClientRpc.LOG, Level.ALL);
-    Log4jUtils.setLogLevel(UnorderedAsync.LOG, Level.ALL);
-    Log4jUtils.setLogLevel(RaftClient.LOG, Level.ALL);
+public interface Log4jUtils {
+
+  static void setLogLevel(Logger logger, Level level) {
+    final String name = logger.getName();
+    if (LogUtils.LOG.isTraceEnabled()) {
+      LogUtils.LOG.trace("", new Throwable("Set " + name + " log level to " + level));
+    } else {
+      LogUtils.LOG.info("Set {} log level to {}", name, level);
+    }
+    LogManager.getLogger(name).setLevel(level);
   }
+
 }

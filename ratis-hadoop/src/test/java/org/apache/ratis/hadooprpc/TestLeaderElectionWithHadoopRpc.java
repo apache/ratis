@@ -22,14 +22,14 @@ import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.log4j.Level;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.LeaderElectionTests;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.junit.Test;
 
 public class TestLeaderElectionWithHadoopRpc
     extends LeaderElectionTests<MiniRaftClusterWithHadoopRpc>
     implements MiniRaftClusterWithHadoopRpc.Factory.Get {
   static {
-    LogUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
   }
 
   @Override

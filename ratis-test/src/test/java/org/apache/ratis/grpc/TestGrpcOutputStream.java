@@ -23,7 +23,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.GrpcClientStreamer;
 import org.apache.ratis.grpc.client.GrpcOutputStream;
 import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.junit.Ignore;
 
@@ -38,7 +38,7 @@ public class TestGrpcOutputStream
     extends OutputStreamBaseTest<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
   static {
-    LogUtils.setLogLevel(GrpcClientStreamer.LOG, Level.ALL);
+    Log4jUtils.setLogLevel(GrpcClientStreamer.LOG, Level.ALL);
   }
 
   @Override

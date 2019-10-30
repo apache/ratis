@@ -28,7 +28,7 @@ import java.util.function.Consumer;
 
 public class TestTimeoutScheduler extends BaseTest {
   {
-    LogUtils.setLogLevel(TimeoutScheduler.LOG, Level.ALL);
+    Log4jUtils.setLogLevel(TimeoutScheduler.LOG, Level.ALL);
   }
 
   static class ErrorHandler implements Consumer<RuntimeException> {

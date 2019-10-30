@@ -25,7 +25,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.slf4j.Logger;
@@ -40,10 +40,10 @@ public class RaftServerTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftServerTestUtil.class);
 
   public static void setWatchRequestsLogLevel(Level level) {
-    LogUtils.setLogLevel(WatchRequests.LOG, level);
+    Log4jUtils.setLogLevel(WatchRequests.LOG, level);
   }
   public static void setPendingRequestsLogLevel(Level level) {
-    LogUtils.setLogLevel(PendingRequests.LOG, level);
+    Log4jUtils.setLogLevel(PendingRequests.LOG, level);
   }
 
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,

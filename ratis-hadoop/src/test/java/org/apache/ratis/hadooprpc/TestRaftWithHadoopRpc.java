@@ -24,13 +24,13 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.junit.Test;
 
 public class TestRaftWithHadoopRpc
     extends RaftBasicTests<MiniRaftClusterWithHadoopRpc> {
   static {
-    LogUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(MiniRaftClusterWithHadoopRpc.LOG, Level.DEBUG);
   }
 
   static final Configuration CONF = new Configuration();

@@ -41,9 +41,9 @@ import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
@@ -73,9 +73,9 @@ import com.codahale.metrics.Timer;
 
 public class TestSegmentedRaftLog extends BaseTest {
   static {
-    LogUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.TRACE);
-    LogUtils.setLogLevel(SegmentedRaftLog.LOG, Level.TRACE);
+    Log4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.TRACE);
+    Log4jUtils.setLogLevel(SegmentedRaftLog.LOG, Level.TRACE);
   }
 
   public static long getOpenSegmentSize(RaftLog raftLog) {

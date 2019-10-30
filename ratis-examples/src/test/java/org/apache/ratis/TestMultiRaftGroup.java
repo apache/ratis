@@ -26,7 +26,7 @@ import org.apache.ratis.examples.arithmetic.TestArithmetic;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.server.impl.GroupManagementBaseTest;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.function.CheckedBiConsumer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RunWith(Parameterized.class)
 public class TestMultiRaftGroup extends BaseTest {
   static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
   }
 
   @Parameterized.Parameters

@@ -22,7 +22,7 @@ import org.apache.ratis.conf.ConfUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.junit.After;
@@ -51,8 +51,8 @@ public abstract class BaseTest {
   public static final TimeDuration FIVE_SECONDS = TimeDuration.valueOf(5, TimeUnit.SECONDS);
 
   {
-    LogUtils.setLogLevel(ConfUtils.LOG, Level.WARN);
-    LogUtils.setLogLevel(FileUtils.LOG, Level.TRACE);
+    Log4jUtils.setLogLevel(ConfUtils.LOG, Level.WARN);
+    Log4jUtils.setLogLevel(FileUtils.LOG, Level.TRACE);
 
     ExitUtils.disableSystemExit();
   }

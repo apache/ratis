@@ -20,13 +20,13 @@ package org.apache.ratis.grpc;
 import org.apache.log4j.Level;
 import org.apache.ratis.OutputStreamBaseTest;
 import org.apache.ratis.grpc.client.GrpcClientProtocolService;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 
 public class TestRaftOutputStreamWithGrpc
     extends OutputStreamBaseTest<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
   {
-    LogUtils.setLogLevel(GrpcClientProtocolService.LOG, Level.TRACE);
+    Log4jUtils.setLogLevel(GrpcClientProtocolService.LOG, Level.TRACE);
   }
 
   @Override
