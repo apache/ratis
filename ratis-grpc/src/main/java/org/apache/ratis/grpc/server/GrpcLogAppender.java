@@ -235,40 +235,38 @@ public class GrpcLogAppender extends LogAppender {
      */
     @Override
     public void onNext(AppendEntriesReplyProto reply) {
-      final AppendEntriesRequest request = pendingRequests.remove(reply.getServerReply().getCallId());
+      AppendEntriesRequest request = pendingRequests.remove(reply.getServerReply().getCallId());
+      if (request != null) {
+        request.stopRequestTimer(); // Update completion time
+      }
+
       if (LOG.isDebugEnabled()) {
         LOG.debug("{}: received {} reply {}, request={}",
             this, firstResponseReceived? "a": "the first",
             ServerProtoUtils.toString(reply), request);
       }
-      request.stopRequestTimer(); // Update completion time
 
       try {
-        onNextImpl(request, reply);
+        onNextImpl(reply);
       } catch(Throwable t) {
         LOG.error("Failed onNext request=" + request
             + ", reply=" + ServerProtoUtils.toString(reply), t);
       }
     }
 
-    private void onNextImpl(AppendEntriesRequest request, AppendEntriesReplyProto reply) {
+    private void onNextImpl(AppendEntriesReplyProto reply) {
       // update the last rpc time
       follower.updateLastRpcResponseTime();
 
       if (!firstResponseReceived) {
         firstResponseReceived = true;
       }
-      if (request == null) {
-        // The request is already handled (probably timeout), ignore the reply.
-        LOG.warn("{}: Request not found, ignoring reply: {}", this, ServerProtoUtils.toString(reply));
-        return;
-      }
 
       switch (reply.getResult()) {
         case SUCCESS:
           grpcServerMetrics.onRequestSuccess(getFollowerId().toString());
           updateCommitIndex(reply.getFollowerCommit());
-          if (checkAndUpdateMatchIndex(request)) {
+          if (follower.updateMatchIndex(reply.getMatchIndex())) {
             submitEventOnSuccessAppend();
           }
           break;
@@ -299,8 +297,8 @@ public class GrpcLogAppender extends LogAppender {
       }
       GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
-      long callId = GrpcUtil.getCallId(t);
-      resetClient(pendingRequests.remove(callId));
+      AppendEntriesRequest request = pendingRequests.remove(GrpcUtil.getCallId(t));
+      resetClient(request);
     }
 
     @Override
@@ -313,10 +311,6 @@ public class GrpcLogAppender extends LogAppender {
     public String toString() {
       return name;
     }
-  }
-
-  private boolean checkAndUpdateMatchIndex(AppendEntriesRequest request) {
-    return follower.updateMatchIndex(request.getNewMatchIndex());
   }
 
   private synchronized void updateNextIndex(long replyNextIndex) {
@@ -543,12 +537,6 @@ public class GrpcLogAppender extends LogAppender {
 
     TermIndex getPreviousLog() {
       return previousLog;
-    }
-
-    long getNewMatchIndex() {
-      return lastEntry != null? lastEntry.getIndex()
-          : previousLog != null? previousLog.getIndex()
-          : 0;
     }
 
     void startRequestTimer() {

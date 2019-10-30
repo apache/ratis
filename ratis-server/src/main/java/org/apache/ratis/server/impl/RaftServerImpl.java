@@ -924,7 +924,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-            leaderId, getMemberId(), currentTerm, followerCommit, state.getNextIndex(), NOT_LEADER, callId);
+            leaderId, getMemberId(), currentTerm, followerCommit, state.getNextIndex(), NOT_LEADER, callId,
+            RaftLog.INVALID_LOG_INDEX);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
               getMemberId(), leaderId, leaderTerm, state, ServerProtoUtils.toString(reply));
@@ -974,8 +975,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       synchronized(this) {
         state.updateStatemachine(leaderCommit, currentTerm);
         final long n = isHeartbeat? state.getLog().getNextIndex(): entries[entries.length - 1].getIndex() + 1;
+        final long matchIndex = entries.length != 0 ? entries[entries.length - 1].getIndex() :
+                previous != null ? previous.getIndex() : RaftLog.INVALID_LOG_INDEX;
         reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getMemberId(), currentTerm,
-            state.getLog().getLastCommittedIndex(), n, SUCCESS, callId);
+            state.getLog().getLastCommittedIndex(), n, SUCCESS, callId, matchIndex);
       }
       logAppendEntries(isHeartbeat, () ->
           getMemberId() + ": succeeded to handle AppendEntries. Reply: " + ServerProtoUtils.toString(reply));
@@ -992,7 +995,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
 
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
-        leaderId, getMemberId(), currentTerm, followerCommit, replyNextIndex, INCONSISTENCY, callId);
+        leaderId, getMemberId(), currentTerm, followerCommit, replyNextIndex, INCONSISTENCY, callId,
+        RaftLog.INVALID_LOG_INDEX);
     LOG.info("{}: inconsistency entries. Reply:{}", getMemberId(), ServerProtoUtils.toString(reply));
     return reply;
   }

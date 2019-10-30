@@ -399,9 +399,11 @@ public interface ServerProtoUtils {
         .build();
   }
 
+  @SuppressWarnings("parameternumber")
   static AppendEntriesReplyProto toAppendEntriesReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId, long term,
-      long followerCommit, long nextIndex, AppendResult result, long callId) {
+      long followerCommit, long nextIndex, AppendResult result, long callId,
+      long matchIndex) {
     RaftRpcReplyProto.Builder rpcReply = toRaftRpcReplyProtoBuilder(
         requestorId, replyId, result == AppendResult.SUCCESS)
         .setCallId(callId);
@@ -409,6 +411,7 @@ public interface ServerProtoUtils {
         .setServerReply(rpcReply)
         .setTerm(term)
         .setNextIndex(nextIndex)
+        .setMatchIndex(matchIndex)
         .setFollowerCommit(followerCommit)
         .setResult(result).build();
   }

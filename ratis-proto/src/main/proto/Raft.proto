@@ -175,6 +175,7 @@ message AppendEntriesReplyProto {
   uint64 nextIndex = 3;
   AppendResult result = 4;
   uint64 followerCommit = 5;
+  uint64 matchIndex = 6;
 }
 
 message InstallSnapshotRequestProto {
