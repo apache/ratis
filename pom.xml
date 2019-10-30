@@ -199,7 +199,7 @@
     <!-- number of threads/forks to use when running tests in parallel, see parallel-tests profile -->
     <testsThreadCount>4</testsThreadCount>
 
-    <checkstyle.version>8.16</checkstyle.version>
+    <checkstyle.version>8.18</checkstyle.version>
 
     <!--metrics-->
     <dropwizard.version>3.2.5</dropwizard.version>
