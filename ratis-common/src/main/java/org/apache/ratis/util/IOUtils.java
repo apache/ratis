@@ -21,13 +21,7 @@ import org.apache.ratis.protocol.AlreadyClosedException;
 import org.apache.ratis.protocol.TimeoutIOException;
 import org.slf4j.Logger;
 
-import java.io.ByteArrayInputStream;
-import java.io.Closeable;
-import java.io.EOFException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InterruptedIOException;
-import java.io.ObjectInputStream;
+import java.io.*;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
@@ -95,7 +89,7 @@ public interface IOUtils {
   }
 
   static void readFully(InputStream in, int buffSize) throws IOException {
-    final byte buf[] = new byte[buffSize];
+    final byte [] buf = new byte[buffSize];
     for(int bytesRead = in.read(buf); bytesRead >= 0; ) {
       bytesRead = in.read(buf);
     }

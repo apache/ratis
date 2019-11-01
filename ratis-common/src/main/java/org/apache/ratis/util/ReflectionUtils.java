@@ -61,7 +61,7 @@ public interface ReflectionUtils {
   }
 
   final class Classes {
-    private static Class<?>[] EMPTY_ARRAY = {};
+    private static Class<?>[] emptyArray = {};
 
     private static final Map<ClassLoader, Map<String, WeakReference<Class<?>>>>
         CLASSES = new WeakHashMap<>();
@@ -75,21 +75,21 @@ public interface ReflectionUtils {
      */
     private static final class NegativeCacheSentinel {}
 
-    private static ClassLoader CLASS_LOADER;
+    private static ClassLoader classLoader;
     static {
-      CLASS_LOADER = Thread.currentThread().getContextClassLoader();
-      if (CLASS_LOADER == null) {
-        CLASS_LOADER = ReflectionUtils.class.getClassLoader();
+      classLoader = Thread.currentThread().getContextClassLoader();
+      if (classLoader == null) {
+        classLoader = ReflectionUtils.class.getClassLoader();
       }
     }
 
     private static Map<String, WeakReference<Class<?>>> getClassMap() {
       Map<String, WeakReference<Class<?>>> map;
       synchronized (CLASSES) {
-        map = CLASSES.get(CLASS_LOADER);
+        map = CLASSES.get(classLoader);
         if (map == null) {
           map = Collections.synchronizedMap(new WeakHashMap<>());
-          CLASSES.put(CLASS_LOADER, map);
+          CLASSES.put(classLoader, map);
         }
       }
       return map;
@@ -97,7 +97,7 @@ public interface ReflectionUtils {
   }
 
   static ClassLoader getClassLoader() {
-    return Classes.CLASS_LOADER;
+    return Classes.classLoader;
   }
 
   /**
@@ -119,7 +119,7 @@ public interface ReflectionUtils {
 
     if (clazz == null) {
       try {
-        clazz = Class.forName(name, true, Classes.CLASS_LOADER);
+        clazz = Class.forName(name, true, Classes.classLoader);
       } catch (ClassNotFoundException e) {
         // Leave a marker that the class isn't found
         map.put(name, new WeakReference<>(Classes.NEGATIVE_CACHE_SENTINEL));
@@ -155,7 +155,7 @@ public interface ReflectionUtils {
    * Create an object for the given class using its default constructor.
    */
   static <T> T newInstance(Class<T> clazz) {
-    return newInstance(clazz, Classes.EMPTY_ARRAY);
+    return newInstance(clazz, Classes.emptyArray);
   }
 
   /**

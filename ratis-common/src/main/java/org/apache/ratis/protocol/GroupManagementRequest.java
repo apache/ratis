@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.protocol;
 
-public class GroupManagementRequest extends RaftClientRequest {
-  public static abstract class Op {
+public final class GroupManagementRequest extends RaftClientRequest {
+  public abstract static class Op {
     public abstract RaftGroupId getGroupId();
   }
 

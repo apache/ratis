@@ -57,7 +57,7 @@ public class RaftClientRequest extends RaftClientMessage {
   }
 
   /** The type of a request (oneof write, read, staleRead, watch; see the message RaftClientRequestProto). */
-  public static class Type {
+  public static final class Type {
     public static Type valueOf(WriteRequestTypeProto write) {
       return WRITE_DEFAULT;
     }
@@ -104,8 +104,8 @@ public class RaftClientRequest extends RaftClientMessage {
       this(WATCH, watch);
     }
 
-    public boolean is(RaftClientRequestProto.TypeCase typeCase) {
-      return getTypeCase().equals(typeCase);
+    public boolean is(RaftClientRequestProto.TypeCase tCase) {
+      return getTypeCase().equals(tCase);
     }
 
     public RaftClientRequestProto.TypeCase getTypeCase() {

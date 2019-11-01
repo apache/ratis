@@ -40,6 +40,7 @@ public class GroupInfoReply extends RaftClientReply {
     this.group = group;
   }
 
+  @SuppressWarnings("parameternumber")
   public GroupInfoReply(
           ClientId clientId, RaftPeerId serverId, RaftGroupId groupId,
           long callId, boolean success, RoleInfoProto roleInfoProto,

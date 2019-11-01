@@ -27,10 +27,10 @@ import java.util.*;
  * This is a value-based class.
  */
 public final class RaftGroup {
-  private static RaftGroup EMPTY_GROUP = new RaftGroup();
+  private static RaftGroup emptyGroup = new RaftGroup();
 
   public static RaftGroup emptyGroup() {
-    return EMPTY_GROUP;
+    return emptyGroup;
   }
 
   /** @return a group with the given id and peers. */
@@ -55,7 +55,7 @@ public final class RaftGroup {
 
   private RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers) {
     this.groupId = Objects.requireNonNull(groupId, "groupId == null");
-    Preconditions.assertTrue(!groupId.equals(EMPTY_GROUP.getGroupId()),
+    Preconditions.assertTrue(!groupId.equals(emptyGroup.getGroupId()),
         () -> "Group Id " + groupId + " is reserved for the empty group.");
 
     if (peers == null || peers.isEmpty()) {

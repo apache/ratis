@@ -68,7 +68,9 @@ public abstract class MD5FileUtil {
     String md5Line;
     try {
       md5Line = reader.readLine();
-      if (md5Line == null) { md5Line = ""; }
+      if (md5Line == null) {
+        md5Line = "";
+      }
       md5Line = md5Line.trim();
     } catch (IOException ioe) {
       throw new IOException("Error reading md5 file at " + md5File, ioe);

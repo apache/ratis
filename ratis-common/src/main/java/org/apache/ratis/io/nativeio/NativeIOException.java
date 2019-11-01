@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.io.nativeio;
 
-import java.io.IOException;
-
 import org.apache.ratis.util.PlatformUtils;
+
+import java.io.IOException;
 
 
 /**
@@ -61,10 +61,11 @@ public class NativeIOException extends IOException {
 
   @Override
   public String toString() {
-    if (PlatformUtils.WINDOWS)
+    if (PlatformUtils.WINDOWS) {
       return errorCode + ": " + super.getMessage();
-    else
+    } else {
       return errno.toString() + ": " + super.getMessage();
+    }
   }
 }
 

@@ -50,7 +50,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
-/** 
+/**
  * Provides access to configuration parameters. The current implementation is a
  * simplified version of hadoop's Configuration.
  */
@@ -61,11 +61,11 @@ public class RaftProperties {
     private final Object resource;
     private final String name;
 
-    public Resource(Object resource) {
+    Resource(Object resource) {
       this(resource, resource.toString());
     }
 
-    public Resource(Object resource, String name) {
+    Resource(Object resource, String name) {
       this.resource = resource;
       this.name = name;
     }
@@ -112,7 +112,7 @@ public class RaftProperties {
    * List of default Resources. Resources are loaded in the order of the list
    * entries
    */
-  private static final CopyOnWriteArrayList<String> defaultResources =
+  private static final CopyOnWriteArrayList<String> DEFAULT_RESOURCES =
     new CopyOnWriteArrayList<>();
 
   /**
@@ -179,8 +179,8 @@ public class RaftProperties {
    * @param name file name. File should be present in the classpath.
    */
   public static synchronized void addDefaultResource(String name) {
-    if(!defaultResources.contains(name)) {
-      defaultResources.add(name);
+    if(!DEFAULT_RESOURCES.contains(name)) {
+      DEFAULT_RESOURCES.add(name);
       REGISTRY.keySet().stream().filter(conf -> conf.loadDefaults)
           .forEach(RaftProperties::reloadConfiguration);
     }
@@ -575,8 +575,9 @@ public class RaftProperties {
    */
   public int getInt(String name, int defaultValue) {
     String valueString = getTrimmed(name);
-    if (valueString == null)
+    if (valueString == null) {
       return defaultValue;
+    }
     String hexString = getHexDigits(valueString);
     if (hexString != null) {
       return Integer.parseInt(hexString, 16);
@@ -628,8 +629,9 @@ public class RaftProperties {
    */
   public long getLong(String name, long defaultValue) {
     String valueString = getTrimmed(name);
-    if (valueString == null)
+    if (valueString == null) {
       return defaultValue;
+    }
     String hexString = getHexDigits(valueString);
     if (hexString != null) {
       return Long.parseLong(hexString, 16);
@@ -726,8 +728,9 @@ public class RaftProperties {
    */
   public float getFloat(String name, float defaultValue) {
     String valueString = getTrimmed(name);
-    if (valueString == null)
+    if (valueString == null) {
       return defaultValue;
+    }
     return Float.parseFloat(valueString);
   }
 
@@ -755,8 +758,9 @@ public class RaftProperties {
    */
   public double getDouble(String name, double defaultValue) {
     String valueString = getTrimmed(name);
-    if (valueString == null)
+    if (valueString == null) {
       return defaultValue;
+    }
     return Double.parseDouble(valueString);
   }
 
@@ -911,16 +915,16 @@ public class RaftProperties {
    */
   public static class IntegerRanges implements Iterable<Integer>{
     private static class Range {
-      int start;
-      int end;
+      private int start;
+      private int end;
     }
 
     private static class RangeNumberIterator implements Iterator<Integer> {
-      Iterator<Range> internal;
-      int at;
-      int end;
+      private Iterator<Range> internal;
+      private int at;
+      private int end;
 
-      public RangeNumberIterator(List<Range> ranges) {
+      RangeNumberIterator(List<Range> ranges) {
         if (ranges != null) {
           internal = ranges.iterator();
         }
@@ -961,7 +965,7 @@ public class RaftProperties {
       }
     }
 
-    List<Range> ranges = new ArrayList<>();
+    private List<Range> ranges = new ArrayList<>();
 
     public IntegerRanges() {
     }
@@ -1116,8 +1120,9 @@ public class RaftProperties {
    */
   public Class<?> getClass(String name, Class<?> defaultValue) {
     String valueString = getTrimmed(name);
-    if (valueString == null)
-      return defaultValue;
+    if (valueString == null) {
+        return defaultValue;
+    }
     try {
       return ReflectionUtils.getClassByName(valueString);
     } catch (ClassNotFoundException e) {
@@ -1145,12 +1150,13 @@ public class RaftProperties {
       String name, Class<? extends BASE> defaultValue, Class<BASE> xface) {
     try {
       Class<?> theClass = getClass(name, defaultValue);
-      if (theClass != null && !xface.isAssignableFrom(theClass))
+      if (theClass != null && !xface.isAssignableFrom(theClass)){
         throw new RuntimeException(theClass+" not "+xface.getName());
-      else if (theClass != null)
+      } else if (theClass != null) {
         return theClass.asSubclass(xface);
-      else
+      } else {
         return null;
+      }
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -1168,8 +1174,9 @@ public class RaftProperties {
    * @param xface the interface implemented by the named class.
    */
   public void setClass(String name, Class<?> theClass, Class<?> xface) {
-    if (!xface.isAssignableFrom(theClass))
+    if (!xface.isAssignableFrom(theClass)) {
       throw new RuntimeException(theClass+" not "+xface.getName());
+    }
     set(name, theClass.getName());
   }
 
@@ -1241,23 +1248,23 @@ public class RaftProperties {
     }
   }
 
-  private void loadResources(Properties properties,
-                             ArrayList<Resource> resources) {
+  private void loadResources(Properties props,
+                             ArrayList<Resource> res) {
     if(loadDefaults) {
-      for (String resource : defaultResources) {
-        loadResource(properties, new Resource(resource));
+      for (String resource : DEFAULT_RESOURCES) {
+        loadResource(props, new Resource(resource));
       }
     }
 
     for (int i = 0; i < resources.size(); i++) {
-      Resource ret = loadResource(properties, resources.get(i));
+      Resource ret = loadResource(props, res.get(i));
       if (ret != null) {
-        resources.set(i, ret);
+        res.set(i, ret);
       }
     }
   }
 
-  private Resource loadResource(Properties properties, Resource wrapper) {
+  private Resource loadResource(Properties p, Resource wrapper) {
     String name = UNKNOWN_RESOURCE;
     try {
       Object resource = wrapper.getResource();
@@ -1303,7 +1310,7 @@ public class RaftProperties {
         }
         root = doc.getDocumentElement();
       }
-      Properties toAddTo = properties;
+      Properties toAddTo = p;
       if(returnCachedProperties) {
         toAddTo = new Properties();
       }
@@ -1313,15 +1320,17 @@ public class RaftProperties {
       NodeList props = root.getChildNodes();
       for (int i = 0; i < props.getLength(); i++) {
         Node propNode = props.item(i);
-        if (!(propNode instanceof Element))
+        if (!(propNode instanceof Element)) {
           continue;
+        }
         Element prop = (Element)propNode;
         if ("configuration".equals(prop.getTagName())) {
           loadResource(toAddTo, new Resource(prop, name));
           continue;
         }
-        if (!"property".equals(prop.getTagName()))
+        if (!"property".equals(prop.getTagName())) {
           LOG.warn("bad conf file: element not <property>");
+        }
 
         String attr = null;
         String value = null;
@@ -1329,35 +1338,45 @@ public class RaftProperties {
         LinkedList<String> source = new LinkedList<>();
 
         Attr propAttr = prop.getAttributeNode("name");
-        if (propAttr != null)
+        if (propAttr != null){
           attr = StringUtils.weakIntern(propAttr.getValue());
+        }
         propAttr = prop.getAttributeNode("value");
-        if (propAttr != null)
+        if (propAttr != null){
           value = StringUtils.weakIntern(propAttr.getValue());
+        }
         propAttr = prop.getAttributeNode("final");
-        if (propAttr != null)
+        if (propAttr != null){
           finalParameter = "true".equals(propAttr.getValue());
+        }
         propAttr = prop.getAttributeNode("source");
-        if (propAttr != null)
+        if (propAttr != null) {
           source.add(StringUtils.weakIntern(propAttr.getValue()));
+        }
 
         NodeList fields = prop.getChildNodes();
         for (int j = 0; j < fields.getLength(); j++) {
           Node fieldNode = fields.item(j);
-          if (!(fieldNode instanceof Element))
+          if (!(fieldNode instanceof Element)) {
             continue;
+          }
+
           Element field = (Element)fieldNode;
-          if ("name".equals(field.getTagName()) && field.hasChildNodes())
+          if ("name".equals(field.getTagName()) && field.hasChildNodes()) {
             attr = StringUtils.weakIntern(
-                ((Text)field.getFirstChild()).getData().trim());
-          if ("value".equals(field.getTagName()) && field.hasChildNodes())
+                    ((Text)field.getFirstChild()).getData().trim());
+          }
+          if ("value".equals(field.getTagName()) && field.hasChildNodes()) {
             value = StringUtils.weakIntern(
-                ((Text)field.getFirstChild()).getData());
-          if ("final".equals(field.getTagName()) && field.hasChildNodes())
+                    ((Text)field.getFirstChild()).getData());
+          }
+          if ("final".equals(field.getTagName()) && field.hasChildNodes()) {
             finalParameter = "true".equals(((Text)field.getFirstChild()).getData());
-          if ("source".equals(field.getTagName()) && field.hasChildNodes())
+          }
+          if ("source".equals(field.getTagName()) && field.hasChildNodes()) {
             source.add(StringUtils.weakIntern(
-                ((Text)field.getFirstChild()).getData()));
+                    ((Text)field.getFirstChild()).getData()));
+          }
         }
         source.add(name);
 
@@ -1369,7 +1388,7 @@ public class RaftProperties {
       }
 
       if (returnCachedProperties) {
-        overlay(properties, toAddTo);
+        overlay(p, toAddTo);
         return new Resource(toAddTo, name);
       }
       return null;
@@ -1386,15 +1405,15 @@ public class RaftProperties {
     }
   }
 
-  private void loadProperty(Properties properties, String name, String attr,
+  private void loadProperty(Properties props, String name, String attr,
       String value, boolean finalParameter, String[] source) {
     if (value != null) {
       if (!finalParameters.contains(attr)) {
-        properties.setProperty(attr, value);
+        props.setProperty(attr, value);
         if(source != null) {
           updatingResource.put(attr, source);
         }
-      } else if (!value.equals(properties.getProperty(attr))) {
+      } else if (!value.equals(props.getProperty(attr))) {
         LOG.warn(name+":an attempt to override final parameter: "+attr
             +";  Ignoring.");
       }
@@ -1493,7 +1512,7 @@ public class RaftProperties {
     StringBuilder sb = new StringBuilder();
     sb.append("Configuration: ");
     if(loadDefaults) {
-      toString(defaultResources, sb);
+      toString(DEFAULT_RESOURCES, sb);
       if(resources.size()>0) {
         sb.append(", ");
       }
@@ -1502,8 +1521,8 @@ public class RaftProperties {
     return sb.toString();
   }
 
-  private <T> void toString(List<T> resources, StringBuilder sb) {
-    ListIterator<T> i = resources.listIterator();
+  private <T> void toString(List<T> resList, StringBuilder sb) {
+    ListIterator<T> i = resList.listIterator();
     while (i.hasNext()) {
       if (i.nextIndex() != 0) {
         sb.append(", ");

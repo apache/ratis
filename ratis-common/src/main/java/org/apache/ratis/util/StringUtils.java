@@ -30,7 +30,10 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
-public class StringUtils {
+public final class StringUtils {
+  private StringUtils() {
+  }
+
   public static final String[] EMPTY_STRING_ARRAY = {};
 
   /** Retains a weak reference to each string instance it has interned. */

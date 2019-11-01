@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
 /**
@@ -34,35 +33,38 @@ import java.nio.channels.FileChannel;
  * These functions should generally be used alongside a fallback to another
  * more portable mechanism.
  */
-public class NativeIO {
+public final class NativeIO {
+  private NativeIO() {
+  }
+
   private static final Logger LOG = LoggerFactory.getLogger(NativeIO.class);
 
   public static class POSIX {
     // Flags for open() call from bits/fcntl.h - Set by JNI
-    public static int O_RDONLY = -1;
-    public static int O_WRONLY = -1;
-    public static int O_RDWR = -1;
-    public static int O_CREAT = -1;
-    public static int O_EXCL = -1;
-    public static int O_NOCTTY = -1;
-    public static int O_TRUNC = -1;
-    public static int O_APPEND = -1;
-    public static int O_NONBLOCK = -1;
-    public static int O_SYNC = -1;
+    private static final int O_RDONLY = -1;
+    private static final int O_WRONLY = -1;
+    private static final int O_RDWR = -1;
+    private static final int O_CREAT = -1;
+    private static final int O_EXCL = -1;
+    private static final int O_NOCTTY = -1;
+    private static final int O_TRUNC = -1;
+    private static final int O_APPEND = -1;
+    private static final int O_NONBLOCK = -1;
+    private static final int O_SYNC = -1;
 
-    // Flags for posix_fadvise() from bits/fcntl.h - Set by JNI
+    // Flags for posixFadvise() from bits/fcntl.h - Set by JNI
     /* No further special treatment.  */
-    public static int POSIX_FADV_NORMAL = -1;
+    private static final int POSIX_FADV_NORMAL = -1;
     /* Expect random page references.  */
-    public static int POSIX_FADV_RANDOM = -1;
+    private static final int POSIX_FADV_RANDOM = -1;
     /* Expect sequential page references.  */
-    public static int POSIX_FADV_SEQUENTIAL = -1;
+    private static final int POSIX_FADV_SEQUENTIAL = -1;
     /* Will need these pages.  */
-    public static int POSIX_FADV_WILLNEED = -1;
+    private static final int POSIX_FADV_WILLNEED = -1;
     /* Don't need these pages.  */
-    public static int POSIX_FADV_DONTNEED = -1;
+    private static final int POSIX_FADV_DONTNEED = -1;
     /* Data will be accessed once.  */
-    public static int POSIX_FADV_NOREUSE = -1;
+    private static final int POSIX_FADV_NOREUSE = -1;
 
 
     // Updated by JNI when supported by glibc.  Leave defaults in case kernel
@@ -70,18 +72,18 @@ public class NativeIO {
     /* Wait upon writeout of all pages
        in the range before performing the
        write.  */
-    public static int SYNC_FILE_RANGE_WAIT_BEFORE = 1;
+    public static final int SYNC_FILE_RANGE_WAIT_BEFORE = 1;
     /* Initiate writeout of all those
        dirty pages in the range which are
        not presently under writeback.  */
-    public static int SYNC_FILE_RANGE_WRITE = 2;
+    public static final int SYNC_FILE_RANGE_WRITE = 2;
     /* Wait upon writeout of all pages in
        the range after performing the
        write.  */
-    public static int SYNC_FILE_RANGE_WAIT_AFTER = 4;
+    public static final int SYNC_FILE_RANGE_WAIT_AFTER = 4;
 
     // Set to true via JNI if possible
-    public static boolean fadvisePossible = false;
+    private static boolean fadvisePossible = false;
 
     private static boolean nativeLoaded = false;
     private static boolean syncFileRangePossible = true;
@@ -191,16 +193,16 @@ public class NativeIO {
       }
     }
 
-    /** Wrapper around posix_fadvise(2) */
-    static native void posix_fadvise(
+    /** Wrapper around posixFadvise(2) */
+    static native void posixFadvise(
       FileDescriptor fd, long offset, long len, int flags) throws NativeIOException;
 
-    /** Wrapper around sync_file_range(2) */
-    static native void sync_file_range(
+    /** Wrapper around syncFileRange(2) */
+    static native void syncFileRange(
       FileDescriptor fd, long offset, long nbytes, int flags) throws NativeIOException;
 
     /**
-     * Call posix_fadvise on the given file descriptor. See the manpage
+     * Call posixFadvise on the given file descriptor. See the manpage
      * for this syscall for more information. On systems where this
      * call is not available, does nothing.
      *
@@ -211,7 +213,7 @@ public class NativeIO {
         throws NativeIOException {
       if (nativeLoaded && fadvisePossible) {
         try {
-          posix_fadvise(fd, offset, len, flags);
+          posixFadvise(fd, offset, len, flags);
         } catch (UnsatisfiedLinkError ule) {
           fadvisePossible = false;
         }
@@ -219,7 +221,7 @@ public class NativeIO {
     }
 
     /**
-     * Call sync_file_range on the given file descriptor. See the manpage
+     * Call syncFileRange on the given file descriptor. See the manpage
      * for this syscall for more information. On systems where this
      * call is not available, does nothing.
      *
@@ -230,14 +232,14 @@ public class NativeIO {
         throws NativeIOException {
       if (nativeLoaded && syncFileRangePossible) {
         try {
-          sync_file_range(fd, offset, nbytes, flags);
+          syncFileRange(fd, offset, nbytes, flags);
         } catch (UnsupportedOperationException | UnsatisfiedLinkError uoe) {
           syncFileRangePossible = false;
         }
       }
     }
 
-    static native void mlock_native(
+    static native void mlockNative(
         ByteBuffer buffer, long len) throws NativeIOException;
 
     /**
@@ -253,7 +255,7 @@ public class NativeIO {
       if (!buffer.isDirect()) {
         throw new IOException("Cannot mlock a non-direct ByteBuffer");
       }
-      mlock_native(buffer, len);
+      mlockNative(buffer, len);
     }
 
     /** Linux only methods used for getOwner() implementation */
@@ -269,20 +271,20 @@ public class NativeIO {
       private int mode;
 
       // Mode constants - Set by JNI
-      public static int S_IFMT = -1;    /* type of file */
-      public static int S_IFIFO  = -1;  /* named pipe (fifo) */
-      public static int S_IFCHR  = -1;  /* character special */
-      public static int S_IFDIR  = -1;  /* directory */
-      public static int S_IFBLK  = -1;  /* block special */
-      public static int S_IFREG  = -1;  /* regular */
-      public static int S_IFLNK  = -1;  /* symbolic link */
-      public static int S_IFSOCK = -1;  /* socket */
-      public static int S_ISUID = -1;  /* set user id on execution */
-      public static int S_ISGID = -1;  /* set group id on execution */
-      public static int S_ISVTX = -1;  /* save swapped text even after use */
-      public static int S_IRUSR = -1;  /* read permission, owner */
-      public static int S_IWUSR = -1;  /* write permission, owner */
-      public static int S_IXUSR = -1;  /* execute/search permission, owner */
+      private static final int S_IFMT = -1;    /* type of file */
+      private static final int S_IFIFO  = -1;  /* named pipe (fifo) */
+      private static final int S_IFCHR  = -1;  /* character special */
+      private static final int S_IFDIR  = -1;  /* directory */
+      private static final int S_IFBLK  = -1;  /* block special */
+      private static final int S_IFREG  = -1;  /* regular */
+      private static final int S_IFLNK  = -1;  /* symbolic link */
+      private static final int S_IFSOCK = -1;  /* socket */
+      private static final int S_ISUID = -1;  /* set user id on execution */
+      private static final int S_ISGID = -1;  /* set group id on execution */
+      private static final int S_ISVTX = -1;  /* save swapped text even after use */
+      private static final int S_IRUSR = -1;  /* read permission, owner */
+      private static final int S_IWUSR = -1;  /* write permission, owner */
+      private static final int S_IXUSR = -1;  /* execute/search permission, owner */
 
       Stat(int ownerId, int groupId, int mode) {
         this.ownerId = ownerId;
@@ -322,18 +324,18 @@ public class NativeIO {
     }
 
     private static class CachedName {
-      final long timestamp;
-      final String name;
+      private final long timestamp;
+      private final String name;
 
-      public CachedName(String name, long timestamp) {
+      CachedName(String name, long timestamp) {
         this.name = name;
         this.timestamp = timestamp;
       }
     }
 
-    public final static int MMAP_PROT_READ = 0x1;
-    public final static int MMAP_PROT_WRITE = 0x2;
-    public final static int MMAP_PROT_EXEC = 0x4;
+    public static final int MMAP_PROT_READ = 0x1;
+    public static final int MMAP_PROT_WRITE = 0x2;
+    public static final int MMAP_PROT_EXEC = 0x4;
 
     public static native long mmap(FileDescriptor fd, int prot,
         boolean shared, long length) throws IOException;
@@ -526,9 +528,9 @@ public class NativeIO {
   private static native long getMemlockLimit0();
 
   private static class CachedUid {
-    final long timestamp;
-    final String username;
-    public CachedUid(String username, long timestamp) {
+    private final long timestamp;
+    private final String username;
+    CachedUid(String username, long timestamp) {
       this.timestamp = timestamp;
       this.username = username;
     }
@@ -546,8 +548,9 @@ public class NativeIO {
    */
   private static String stripDomain(String name) {
     int i = name.indexOf('\\');
-    if (i != -1)
+    if (i != -1) {
       name = name.substring(i + 1);
+    }
     return name;
   }
 
@@ -605,8 +608,9 @@ public class NativeIO {
               NativeIO.Windows.FILE_SHARE_WRITE |
               NativeIO.Windows.FILE_SHARE_DELETE,
           NativeIO.Windows.OPEN_EXISTING);
-      if (seekOffset > 0)
+      if (seekOffset > 0) {
         NativeIO.Windows.setFilePointer(fd, seekOffset, NativeIO.Windows.FILE_BEGIN);
+      }
       return new FileInputStream(fd);
     }
   }
@@ -656,13 +660,11 @@ public class NativeIO {
       }
     }
   }
-  
+
   /**
    * A version of renameTo that throws a descriptive exception when it fails.
-   *
    * @param src                  The source path
    * @param dst                  The destination path
-   * 
    * @throws NativeIOException   On failure.
    */
   public static void renameTo(File src, File dst)
@@ -679,10 +681,8 @@ public class NativeIO {
 
   /**
    * A version of renameTo that throws a descriptive exception when it fails.
-   *
    * @param src                  The source path
    * @param dst                  The destination path
-   * 
    * @throws NativeIOException   On failure.
    */
   private static native void renameTo0(String src, String dst)

@@ -31,7 +31,7 @@ public interface NetUtils {
 
   abstract class StaticResolution {
     /** Host -> resolved name */
-    private static final Map<String, String> hostToResolved = new ConcurrentHashMap<>();
+    private static Map<String, String> hostToResolved = new ConcurrentHashMap<>();
 
     /** Adds a static resolution for host. */
     public static void put(String host, String resolvedName) {
@@ -113,7 +113,7 @@ public interface NetUtils {
   }
 
   static InetSocketAddress createLocalServerAddress() {
-    try(final ServerSocket s = new ServerSocket()) {
+    try(ServerSocket s = new ServerSocket()) {
       s.setReuseAddress(true);
       s.bind(null);
       return (InetSocketAddress) s.getLocalSocketAddress();

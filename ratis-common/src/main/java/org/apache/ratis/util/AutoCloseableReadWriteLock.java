@@ -46,15 +46,16 @@ public class AutoCloseableReadWriteLock {
     return writeLock;
   }
 
-  private void logLocking(Object name, StackTraceElement caller, boolean read, boolean acquire, Consumer<String> log) {
+  private void logLocking(Object objectName, StackTraceElement caller, boolean read, boolean acquire,
+                          Consumer<String> log) {
     if (caller != null && log != null) {
       final int d = acquire? depth.getAndIncrement(): depth.decrementAndGet();
       final StringBuilder b = new StringBuilder();
       for(int i = 0; i < d; i++) {
         b.append("  ");
       }
-      if (name != null) {
-        b.append(name).append(": ");
+      if (objectName != null) {
+        b.append(objectName).append(": ");
       }
       b.append(read? "readLock ": "writeLock ")
           .append(acquire ? "ACQUIRED ": "RELEASED ")

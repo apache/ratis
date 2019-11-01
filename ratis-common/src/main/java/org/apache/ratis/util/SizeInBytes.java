@@ -22,7 +22,7 @@ import java.util.Objects;
 /**
  * Size which may be constructed with a {@link TraditionalBinaryPrefix}.
  */
-public class SizeInBytes {
+public final class SizeInBytes {
   public static SizeInBytes valueOf(long size) {
     final String s = String.valueOf(size);
     return new SizeInBytes(size, s, s);
