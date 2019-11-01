@@ -59,14 +59,14 @@ public class Server extends SubCommandBase {
     RaftPeerId peerId = RaftPeerId.valueOf(id);
     RaftProperties properties = new RaftProperties();
 
-    RaftPeer[] peers = getPeers();
     final int port = NetUtils.createSocketAddr(getPeer(peerId).getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
     RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(storageDir));
     StateMachine stateMachine = new ArithmeticStateMachine();
 
-    final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(raftGroupId)), peers);
+    final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(getRaftGroupId())),
+            getParsedPeers());
     RaftServer raftServer = RaftServer.newBuilder()
         .setServerId(RaftPeerId.valueOf(id))
         .setStateMachine(stateMachine).setProperties(properties)
@@ -82,13 +82,14 @@ public class Server extends SubCommandBase {
   /**
    * @return the peer with the given id if it is in this group; otherwise, return null.
    */
-  public RaftPeer getPeer(RaftPeerId id) {
-    Objects.requireNonNull(id, "id == null");
-    for (RaftPeer p : getPeers()) {
-      if (id.equals(p.getId())) {
+  public RaftPeer getPeer(RaftPeerId raftPeerId) {
+    Objects.requireNonNull(raftPeerId, "raftPeerId == null");
+    for (RaftPeer p : getParsedPeers()) {
+      if (raftPeerId.equals(p.getId())) {
         return p;
       }
     }
-    throw new IllegalArgumentException("Raft peer id " + id + " is not part of the raft group definitions " + peers);
+    throw new IllegalArgumentException("Raft peer id " + raftPeerId + " is not part of the raft group definitions " +
+            getPeers());
   }
 }

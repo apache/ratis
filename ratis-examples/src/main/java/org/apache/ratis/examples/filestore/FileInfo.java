@@ -80,7 +80,7 @@ abstract class FileInfo {
           + ", path=" + getRelativePath());
     }
 
-    try(final SeekableByteChannel in = Files.newByteChannel(
+    try(SeekableByteChannel in = Files.newByteChannel(
         resolver.apply(getRelativePath()), StandardOpenOption.READ)) {
       final ByteBuffer buffer = ByteBuffer.allocateDirect(FileStoreCommon.getChunkSize(length));
       in.position(offset).read(buffer);
@@ -302,8 +302,8 @@ abstract class FileInfo {
       final CompletableFuture<Integer> previousCommit = previous != null?
           previous.getCommitFuture(): CompletableFuture.completedFuture(0);
       // Commit after both current write and previous commit completed.
-      return info.getWriteFuture().thenCombineAsync(previousCommit, (writeSize, previousCommitSize) -> {
-        Preconditions.assertTrue(size == writeSize);
+      return info.getWriteFuture().thenCombineAsync(previousCommit, (wSize, previousCommitSize) -> {
+        Preconditions.assertTrue(size == wSize);
         try {
           return task.get();
         } catch (IOException e) {

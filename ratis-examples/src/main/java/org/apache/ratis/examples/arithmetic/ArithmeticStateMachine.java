@@ -86,7 +86,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   public long takeSnapshot() {
     final Map<String, Double> copy;
     final TermIndex last;
-    try(final AutoCloseableLock readLock = readLock()) {
+    try(AutoCloseableLock readLock = readLock()) {
       copy = new HashMap<>(variables);
       last = getLastAppliedTermIndex();
     }
@@ -94,7 +94,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     final File snapshotFile =  storage.getSnapshotFile(last.getTerm(), last.getIndex());
     LOG.info("Taking a snapshot to file {}", snapshotFile);
 
-    try(final ObjectOutputStream out = new ObjectOutputStream(
+    try(ObjectOutputStream out = new ObjectOutputStream(
         new BufferedOutputStream(new FileOutputStream(snapshotFile)))) {
       out.writeObject(copy);
     } catch(IOException ioe) {
@@ -121,8 +121,8 @@ public class ArithmeticStateMachine extends BaseStateMachine {
     }
 
     final TermIndex last = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotFile);
-    try(final AutoCloseableLock writeLock = writeLock();
-        final ObjectInputStream in = new ObjectInputStream(
+    try(AutoCloseableLock writeLock = writeLock();
+        ObjectInputStream in = new ObjectInputStream(
             new BufferedInputStream(new FileInputStream(snapshotFile)))) {
       if (reload) {
         reset();
@@ -144,7 +144,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
   public CompletableFuture<Message> query(Message request) {
     final Expression q = Expression.Utils.bytes2Expression(request.getContent().toByteArray(), 0);
     final Double result;
-    try(final AutoCloseableLock readLock = readLock()) {
+    try(AutoCloseableLock readLock = readLock()) {
       result = q.evaluate(variables);
     }
     final Expression r = Expression.Utils.double2Expression(result);
@@ -164,7 +164,7 @@ public class ArithmeticStateMachine extends BaseStateMachine {
 
     final long index = entry.getIndex();
     final Double result;
-    try(final AutoCloseableLock writeLock = writeLock()) {
+    try(AutoCloseableLock writeLock = writeLock()) {
       result = assignment.evaluate(variables);
       updateLastAppliedTermIndex(entry.getTerm(), index);
     }

@@ -30,12 +30,12 @@ public abstract class SubCommandBase {
 
   @Parameter(names = {"--raftGroup",
       "-g"}, description = "Raft group identifier")
-  protected String raftGroupId = "demoRaftGroup123";
+  private String raftGroupId = "demoRaftGroup123";
 
   @Parameter(names = {"--peers", "-r"}, description =
       "Raft peers (format: name:host:port,"
           + "name:host:port)", required = true)
-  protected String peers;
+  private String peers;
 
   public static RaftPeer[] parsePeers(String peers) {
     return Stream.of(peers.split(",")).map(address -> {
@@ -45,9 +45,17 @@ public abstract class SubCommandBase {
     }).toArray(RaftPeer[]::new);
   }
 
-  public RaftPeer[] getPeers() {
+  public RaftPeer[] getParsedPeers() {
     return parsePeers(peers);
   }
 
+  public String getPeers() {
+    return peers;
+  }
+
   public abstract void run() throws Exception;
+
+  public String getRaftGroupId() {
+    return raftGroupId;
+  }
 }

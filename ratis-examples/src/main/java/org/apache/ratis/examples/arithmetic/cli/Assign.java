@@ -37,15 +37,15 @@ import java.util.regex.Pattern;
 @Parameters(commandDescription = "Assign value to a variable.")
 public class Assign extends Client {
 
-  Pattern binaryOperationPattern = Pattern.compile("([a-z1-9]*)([\\*\\-/\\+])([a-z1-9]*)");
-  Pattern unaryOperationPattern = Pattern.compile("([√~])([a-z1-9]+)");
+  private Pattern binaryOperationPattern = Pattern.compile("([a-z1-9]*)([\\*\\-/\\+])([a-z1-9]*)");
+  private Pattern unaryOperationPattern = Pattern.compile("([√~])([a-z1-9]+)");
 
   @Parameter(names = {
       "--name"}, description = "Name of the variable to set", required = true)
-  String name;
+  private String name;
 
   @Parameter(names = {"--value"}, description = "Value to set", required = true)
-  String value;
+  private String value;
 
   @Override
   protected void operation(RaftClient client) throws IOException {
@@ -56,21 +56,21 @@ public class Assign extends Client {
   }
 
   @VisibleForTesting
-  protected Expression createExpression(String value) {
-    if (value.matches("\\d*(\\.\\d*)?")) {
-      return new DoubleValue(Double.valueOf(value));
-    } else if (value.matches("[a-zA-Z]+")) {
-      return new Variable(value);
+  protected Expression createExpression(String val) {
+    if (val.matches("\\d*(\\.\\d*)?")) {
+      return new DoubleValue(Double.valueOf(val));
+    } else if (val.matches("[a-zA-Z]+")) {
+      return new Variable(val);
     }
-    Matcher binaryMatcher = binaryOperationPattern.matcher(value);
-    Matcher unaryMatcher = unaryOperationPattern.matcher(value);
+    Matcher binaryMatcher = this.binaryOperationPattern.matcher(val);
+    Matcher unaryMatcher = this.unaryOperationPattern.matcher(val);
 
     if (binaryMatcher.matches()) {
       return createBinaryExpression(binaryMatcher);
     } else if (unaryMatcher.matches()) {
       return createUnaryExpression(unaryMatcher);
     } else {
-      throw new IllegalArgumentException("Invalid expression " + value + " Try something like: 'a+b' or '2'");
+      throw new IllegalArgumentException("Invalid expression " + val + " Try something like: 'a+b' or '2'");
     }
   }
 
