@@ -44,7 +44,6 @@ public class FollowerInfo {
   private volatile boolean attendVote;
   private final int rpcSlownessTimeoutMs;
 
-
   FollowerInfo(RaftGroupMemberId id, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
       boolean attendVote, int rpcSlownessTimeoutMs) {
     this.name = id + "->" + peer.getId();
@@ -135,7 +134,7 @@ public class FollowerInfo {
     lastRpcSendTime.set(Timestamp.currentTime());
   }
 
-  Timestamp getLastRpcTime() {
+  public Timestamp getLastRpcTime() {
     return Timestamp.latest(lastRpcResponseTime.get(), lastRpcSendTime.get());
   }
 

@@ -34,6 +34,8 @@ public class RatisMetrics {
   public static final String RATIS_STATEMACHINE_METRICS_DESC = "Metrics for State Machine Updater";
   public static final String RATIS_SERVER_METRICS = "server";
   public static final String RATIS_SERVER_METRICS_DESC = "Metrics for Raft server";
+  public static final String RATIS_LOG_APPENDER_METRICS = "log_appender";
+  public static final String RATIS_LOG_APPENDER_METRICS_DESC = "Metrics for log appender";
 
   private static RatisMetricRegistry create(MetricRegistryInfo info) {
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
@@ -74,5 +76,10 @@ public class RatisMetrics {
         new MetricRegistryInfo(name, RATIS_APPLICATION_NAME_METRICS, RATIS_LOG_WORKER_METRICS,
             RATIS_LOG_WORKER_METRICS_DESC));
     return ratisMetricRegistry.orElse(null);
+  }
+
+  public static RatisMetricRegistry getMetricRegistryForLogAppender(String serverId) {
+    return create(new MetricRegistryInfo(serverId, RATIS_APPLICATION_NAME_METRICS,
+        RATIS_LOG_APPENDER_METRICS, RATIS_LOG_APPENDER_METRICS_DESC));
   }
 }

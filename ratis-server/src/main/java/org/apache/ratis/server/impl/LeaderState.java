@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.metrics.LogAppenderMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -201,6 +202,7 @@ public class LeaderState {
   private final TimeDuration syncInterval;
   private final long placeHolderIndex;
   private final RaftServerMetrics raftServerMetrics;
+  private final LogAppenderMetrics logAppenderMetrics;
 
   LeaderState(RaftServerImpl server, RaftProperties properties) {
     this.name = server.getMemberId() + "-" + getClass().getSimpleName();
@@ -216,6 +218,7 @@ public class LeaderState {
     this.eventQueue = new EventQueue();
     processor = new EventProcessor();
     raftServerMetrics = server.getRaftServerMetrics();
+    logAppenderMetrics = new LogAppenderMetrics(server.getMemberId());
     this.pendingRequests = new PendingRequests(server.getMemberId(), properties, raftServerMetrics);
     this.watchRequests = new WatchRequests(server.getMemberId(), properties);
 
@@ -389,8 +392,8 @@ public class LeaderState {
     final List<LogAppender> newAppenders = newPeers.stream()
         .map(peer -> {
           LogAppender logAppender = server.newLogAppender(this, peer, t, nextIndex, attendVote);
-          raftServerMetrics
-              .addFollower(logAppender.getFollower().getPeer());
+          raftServerMetrics.addFollower(logAppender.getFollower().getPeer());
+          logAppenderMetrics.addFollowerGauges(logAppender.getFollower());
           return logAppender;
         }).collect(Collectors.toList());
     senders.addAll(newAppenders);

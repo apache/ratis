@@ -109,4 +109,10 @@ public final class RatisMetricNames {
   public static final String RAFT_LOG_LOAD_SEGMENT_LATENCY = "segmentLoadLatency";
 
   public static final String FOLLOWER_APPEND_ENTRIES_LATENCY = "follower_append_entry_latency";
+
+  public static final String FOLLOWER_NEXT_INDEX = "follower_%s_next_index";
+
+  public static final String FOLLOWER_MATCH_INDEX = "follower_%s_match_index";
+
+  public static final String FOLLOWER_RPC_RESP_TIME = "follower_%s_rpc_response_time";
 }
