@@ -19,6 +19,7 @@
 package org.apache.ratis.statemachine.impl;
 
 import com.codahale.metrics.Timer;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -31,12 +32,12 @@ import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.statemachine.TransactionContext;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Preconditions;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +54,10 @@ public class BaseStateMachine implements StateMachine {
   private final AtomicReference<TermIndex> lastAppliedTermIndex = new AtomicReference<>();
 
   private final SortedMap<Long, CompletableFuture<Void>> transactionFutures = new TreeMap<>();
+
+  public BaseStateMachine() {
+    setLastAppliedTermIndex(TermIndex.newTermIndex(0, -1));
+  }
 
   public RaftPeerId getId() {
     return server.isDone()? server.join().getId(): null;
@@ -96,6 +101,8 @@ public class BaseStateMachine implements StateMachine {
   @Override
   public CompletableFuture<Message> applyTransaction(TransactionContext trx) {
     // return the same message contained in the entry
+    RaftProtos.LogEntryProto entry = Objects.requireNonNull(trx.getLogEntry());
+    updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
     return CompletableFuture.completedFuture(
         Message.valueOf(trx.getLogEntry().getStateMachineLogEntry().getLogData()));
   }
@@ -109,12 +116,9 @@ public class BaseStateMachine implements StateMachine {
     lastAppliedTermIndex.set(newTI);
   }
 
-  /**
-   * to be used for testing only.
-   */
-  @VisibleForTesting
-  public void initLastAppliedTermIndex() {
-    setLastAppliedTermIndex(TermIndex.newTermIndex(0, 0));
+  @Override
+  public void notifyIndexUpdate(long term, long index) {
+    updateLastAppliedTermIndex(term, index);
   }
 
   protected boolean updateLastAppliedTermIndex(long term, long index) {

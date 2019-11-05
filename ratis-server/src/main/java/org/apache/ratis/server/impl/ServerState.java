@@ -433,7 +433,7 @@ public class ServerState implements Closeable {
   }
 
   public long getLastAppliedIndex() {
-    return stateMachineUpdater.getLastAppliedIndex();
+    return stateMachineUpdater.getStateMachineLastAppliedIndex();
   }
 
   boolean containsTermIndex(TermIndex ti) {

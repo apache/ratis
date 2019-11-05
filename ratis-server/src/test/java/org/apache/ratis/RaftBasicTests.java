@@ -32,7 +32,6 @@ import org.apache.ratis.server.metrics.RatisMetricNames;
 import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
@@ -438,11 +437,8 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   public static void testStateMachineMetrics(boolean async,
       MiniRaftCluster cluster, Logger LOG) throws Exception {
     RaftServerImpl leader = waitForLeader(cluster);
-    long time = System.currentTimeMillis();
     try (final RaftClient client = cluster.createClient()) {
 
-      // this is required because the lastAppliedTermIndex is not initialized
-      ((BaseStateMachine) leader.getStateMachine()).initLastAppliedTermIndex();
       Assert.assertTrue(leader.isLeader());
 
       Gauge appliedIndexGauge = getStatemachineGaugeWithName(leader,

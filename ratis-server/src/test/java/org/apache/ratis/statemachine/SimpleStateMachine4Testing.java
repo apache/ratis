@@ -308,8 +308,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
         }
       }
+      // The end index is greater than last entry in indexMap as it also
+      // includes the configuration and metadata entries
       Preconditions.assertTrue(
-          !indexMap.isEmpty() && endIndex == indexMap.lastKey(),
+          !indexMap.isEmpty() && endIndex >= indexMap.lastKey(),
           "endIndex=%s, indexMap=%s", endIndex, indexMap);
       this.endIndexLastCkpt = endIndex;
       setLastAppliedTermIndex(snapshot.getTermIndex());
