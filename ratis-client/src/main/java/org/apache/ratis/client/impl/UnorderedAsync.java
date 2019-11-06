@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.ClientRetryEvent;
 import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.GroupMismatchException;
@@ -82,9 +83,11 @@ public interface UnorderedAsync {
           return;
         }
         RetryPolicy retryPolicy = client.getRetryPolicy();
-        if (!retryPolicy.shouldRetry(attemptCount, request)) {
-          f.completeExceptionally(
-              client.noMoreRetries(request, attemptCount, replyException != null? replyException: e));
+        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request,
+            replyException != null? replyException: e);
+        final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
+        if (!action.shouldRetry()) {
+          f.completeExceptionally(client.noMoreRetries(event));
           return;
         }
 
@@ -116,10 +119,10 @@ public interface UnorderedAsync {
         }
 
         LOG.debug("schedule retry for attempt #{}, policy={}, request={}", attemptCount, retryPolicy, request);
-        client.getScheduler().onTimeout(retryPolicy.getSleepTime(attemptCount, request),
+        client.getScheduler().onTimeout(action.getSleepTime(),
             () -> sendRequestWithRetry(pending, client), LOG, () -> clientId + ": Failed~ to retry " + request);
       } catch (Throwable t) {
-        LOG.error(clientId + ": XXX Failed " + request, t);
+        LOG.error(clientId + ": Failed " + request, t);
         f.completeExceptionally(t);
       }
     });

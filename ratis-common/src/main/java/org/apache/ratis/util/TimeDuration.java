@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedBiFunction;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -34,6 +36,7 @@ import java.util.function.LongUnaryOperator;
 public final class TimeDuration implements Comparable<TimeDuration> {
   public static final TimeDuration ZERO = valueOf(0, TimeUnit.NANOSECONDS);
   public static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
+  public static final TimeDuration ONE_MINUTE = TimeDuration.valueOf(1, TimeUnit.MINUTES);
 
   /** Abbreviations of {@link TimeUnit}. */
   public enum Abbreviation {
@@ -199,6 +202,12 @@ public final class TimeDuration implements Comparable<TimeDuration> {
    */
   public TimeDuration apply(LongUnaryOperator operator) {
     return valueOf(operator.applyAsLong(duration), unit);
+  }
+
+  /** Apply the given function to the (duration, unit) of this object. */
+  public <OUTPUT, THROWABLE extends Throwable> OUTPUT apply(
+      CheckedBiFunction<Long, TimeUnit, OUTPUT, THROWABLE> function) throws THROWABLE {
+    return function.apply(getDuration(), getUnit());
   }
 
   /** @return Is this {@link TimeDuration} negative? */

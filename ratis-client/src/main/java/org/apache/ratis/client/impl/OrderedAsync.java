@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.ClientRetryEvent;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.conf.RaftProperties;
@@ -148,8 +149,8 @@ public final class OrderedAsync {
     getSlidingWindow(request).fail(request.getSlidingWindowEntry().getSeqNum(), t);
   }
 
-  private void handleAsyncRetryFailure(RaftClientRequest request, int attemptCount, Throwable throwable) {
-    failAllAsyncRequests(request, client.noMoreRetries(request, attemptCount, throwable));
+  private void handleAsyncRetryFailure(ClientRetryEvent event) {
+    failAllAsyncRequests(event.getRequest(), client.noMoreRetries(event));
   }
 
   CompletableFuture<RaftClientReply> send(RaftClientRequest.Type type, Message message, RaftPeerId server) {
@@ -209,7 +210,8 @@ public final class OrderedAsync {
 
   private void scheduleWithTimeout(PendingOrderedRequest pending, RaftClientRequest request, RetryPolicy retryPolicy) {
     final int attempt = pending.getAttemptCount();
-    final TimeDuration sleepTime = retryPolicy.getSleepTime(attempt, request);
+    final ClientRetryEvent event = new ClientRetryEvent(attempt, request);
+    final TimeDuration sleepTime = retryPolicy.handleAttemptFailure(event).getSleepTime();
     LOG.debug("schedule* attempt #{} with sleep {} and policy {} for {}", attempt, sleepTime, retryPolicy, request);
     scheduleWithTimeout(pending, sleepTime, getSlidingWindow(request));
   }
@@ -239,8 +241,11 @@ public final class OrderedAsync {
       if (reply != null) {
         getSlidingWindow(request).receiveReply(
             request.getSlidingWindowEntry().getSeqNum(), reply, this::sendRequestWithRetry);
-      } else if (!retryPolicy.shouldRetry(attemptCount, request)) {
-        handleAsyncRetryFailure(request, attemptCount, replyException);
+      } else {
+        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, replyException);
+        if (!retryPolicy.handleAttemptFailure(event).shouldRetry()) {
+          handleAsyncRetryFailure(event);
+        }
       }
       return reply;
     }).exceptionally(e -> {
@@ -251,8 +256,9 @@ public final class OrderedAsync {
       }
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof IOException && !(e instanceof GroupMismatchException)) {
-        if (!retryPolicy.shouldRetry(attemptCount, request)) {
-          handleAsyncRetryFailure(request, attemptCount, e);
+        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, e);
+        if (!retryPolicy.handleAttemptFailure(event).shouldRetry()) {
+          handleAsyncRetryFailure(event);
         } else {
           if (e instanceof NotLeaderException) {
             NotLeaderException nle = (NotLeaderException)e;

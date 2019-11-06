@@ -17,31 +17,47 @@
  */
 package org.apache.ratis.retry;
 
-import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.util.TimeDuration;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * Policy abstract for retrying.
  */
 public interface RetryPolicy {
-  TimeDuration ZERO_MILLIS = TimeDuration.valueOf(0, TimeUnit.MILLISECONDS);
+  Action NO_RETRY_ACTION = new Action() {
+    @Override
+    public boolean shouldRetry() {
+      return false;
+    }
+    @Override
+    public TimeDuration getSleepTime() {
+      return TimeDuration.ZERO;
+    }
+  };
+
+  Action RETRY_WITHOUT_SLEEP_ACTION = () -> TimeDuration.ZERO;
+
+  /** The action it should take. */
+  interface Action {
+    /** @return true if it has to make another attempt; otherwise, return false. */
+    default boolean shouldRetry() {
+      return true;
+    }
+
+    /** @return the sleep time period before the next attempt. */
+    TimeDuration getSleepTime();
+  }
+
+  /** The event triggered the failure. */
+  interface Event {
+    /** @return the number of attempts tried so far. */
+    int getAttemptCount();
+  }
 
   /**
    * Determines whether it is supposed to retry after the operation has failed.
    *
-   * @param attemptCount The number of times attempted so far.
-   * @param request The failed request.
-   * @return true if it has to make another attempt; otherwise, return false.
+   * @param event The failed event.
+   * @return the action it should take.
    */
-  boolean shouldRetry(int attemptCount, RaftClientRequest request);
-
-  /**
-   * @param attemptCount The number of times attempted so far.
-   * @return the {@link TimeDuration} to sleep in between the retries.
-   */
-  default TimeDuration getSleepTime(int attemptCount, RaftClientRequest request) {
-    return ZERO_MILLIS;
-  }
+  Action handleAttemptFailure(Event event);
 }
