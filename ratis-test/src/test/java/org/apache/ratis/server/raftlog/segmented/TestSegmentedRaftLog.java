@@ -32,7 +32,6 @@ import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.impl.RetryCache;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
-import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -63,6 +62,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
+import static org.apache.ratis.server.metrics.RatisMetrics.getMetricRegistryForLogWorker;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doNothing;
@@ -198,8 +198,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       Assert.assertArrayEquals(entries, entriesFromLog);
       Assert.assertEquals(entries[entries.length - 1], getLastEntry(raftLog));
 
-      RatisMetricRegistry metricRegistryForLogWorker =
-          RatisMetrics.getMetricRegistryForLogWorker(memberId.getPeerId().toString());
+      RatisMetricRegistry metricRegistryForLogWorker = getMetricRegistryForLogWorker(memberId.getPeerId().toString());
 
       Timer raftLogSegmentLoadLatencyTimer = metricRegistryForLogWorker.timer("segmentLoadLatency");
       Assert.assertTrue(raftLogSegmentLoadLatencyTimer.getMeanRate() > 0);
@@ -399,6 +398,18 @@ public class TestSegmentedRaftLog extends BaseTest {
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
     long expectedIndex = segmentSize * (endTerm - startTerm - 2);
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
+  }
+
+  @Test
+  public void testPurgeLogMetric() throws Exception {
+    int startTerm = 0;
+    int endTerm = 5;
+    int segmentSize = 200;
+    long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
+    long expectedIndex = segmentSize * (endTerm - startTerm - 2);
+    purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
+    RatisMetricRegistry metricRegistryForLogWorker = getMetricRegistryForLogWorker(memberId.getPeerId().toString());
+    Assert.assertTrue(metricRegistryForLogWorker.timer("purgeLog").getCount() > 0);
   }
 
   @Test

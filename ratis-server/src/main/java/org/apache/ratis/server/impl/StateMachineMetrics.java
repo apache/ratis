@@ -18,6 +18,8 @@
 
 package org.apache.ratis.server.impl;
 
+import static org.apache.ratis.server.metrics.RatisMetricNames.STATEMACHINE_TAKE_SNAPSHOT_TIMER;
+
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.server.metrics.RatisMetricNames;
 import org.apache.ratis.server.metrics.RatisMetrics;
@@ -25,6 +27,8 @@ import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.statemachine.StateMachine;
 
 import java.util.function.LongSupplier;
+
+import com.codahale.metrics.Timer;
 
 /**
  * Metrics Registry for the State Machine Updater. One instance per group.
@@ -54,4 +58,10 @@ public final class StateMachineMetrics {
     registry.gauge(RatisMetricNames.STATEMACHINE_APPLY_COMPLETED_GAUGE,
         () -> () -> getApplyCompleted.getAsLong());
   }
+
+
+  public Timer getTakeSnapshotTimer() {
+    return registry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER);
+  }
+
 }

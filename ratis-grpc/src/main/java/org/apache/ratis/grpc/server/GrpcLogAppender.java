@@ -434,6 +434,7 @@ public class GrpcLogAppender extends LogAppender {
         }
       }
       snapshotRequestObserver.onCompleted();
+      grpcServerMetrics.onInstallSnapshot();
     } catch (Exception e) {
       LOG.warn("{}: failed to install snapshot {}: {}", this, snapshot.getFiles(), e);
       if (snapshotRequestObserver != null) {

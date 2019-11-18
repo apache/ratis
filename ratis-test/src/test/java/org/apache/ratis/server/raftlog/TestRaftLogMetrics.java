@@ -161,7 +161,7 @@ public class TestRaftLogMetrics extends BaseTest
     Timer queueingDelayTimer = ratisMetricRegistry.timer(RAFT_LOG_TASK_ENQUEUE_DELAY);
     Assert.assertTrue(queueingDelayTimer.getMeanRate() > 0);
 
-    Timer executionTimer = ratisMetricRegistry.timer("writelog" + RAFT_LOG_TASK_EXECUTION_TIME);
+    Timer executionTimer = ratisMetricRegistry.timer(String.format(RAFT_LOG_TASK_EXECUTION_TIME, "writelog"));
     Assert.assertTrue(executionTimer.getMeanRate() > 0);
 
     Assert.assertNotNull(ratisMetricRegistry.get(RAFT_LOG_DATA_QUEUE_SIZE));

@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
 
+import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Timer;
 
@@ -146,6 +147,10 @@ public final class RaftServerMetrics {
 
   public Timer getTimer(String timerName) {
     return registry.timer(timerName);
+  }
+
+  public Counter getCounter(String counterName) {
+    return registry.counter(counterName);
   }
 
   public Timer getClientRequestTimer(RaftClientRequest request) {

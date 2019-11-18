@@ -406,7 +406,7 @@ class SegmentedRaftLogWorker implements Runnable {
     return addIOTask(new PurgeLog(ts, storage));
   }
 
-  private static final class PurgeLog extends Task {
+  private final class PurgeLog extends Task {
     private final TruncationSegments segments;
     private final RaftStorage storage;
 
@@ -418,11 +418,13 @@ class SegmentedRaftLogWorker implements Runnable {
     @Override
     void execute() throws IOException {
       if (segments.toDelete != null) {
+        Timer.Context purgeLogContext = raftLogMetrics.getRaftLogPurgeTimer().time();
         for (SegmentFileInfo fileInfo : segments.toDelete) {
           File delFile = storage.getStorageDir()
                   .getClosedLogFile(fileInfo.startIndex, fileInfo.endIndex);
           FileUtils.deleteFile(delFile);
         }
+        purgeLogContext.stop();
       }
     }
 

@@ -97,7 +97,7 @@ public class RaftLogMetrics {
   }
 
   public Timer getRaftLogTaskExecutionTimer(String taskName) {
-    return getTimer(taskName + RAFT_LOG_TASK_EXECUTION_TIME);
+    return getTimer(String.format(RAFT_LOG_TASK_EXECUTION_TIME, taskName));
   }
 
   public Timer getRaftLogReadEntryTimer() {
@@ -106,6 +106,10 @@ public class RaftLogMetrics {
 
   public Timer getRaftLogLoadSegmentTimer() {
     return getTimer(RAFT_LOG_LOAD_SEGMENT_LATENCY);
+  }
+
+  public Timer getRaftLogPurgeTimer() {
+    return getTimer(RAFT_LOG_PURGE_METRIC);
   }
 
 }

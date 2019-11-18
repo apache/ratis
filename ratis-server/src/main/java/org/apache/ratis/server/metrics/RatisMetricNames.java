@@ -29,17 +29,20 @@ public final class RatisMetricNames {
   public static final String LAST_LEADER_ELAPSED_TIME = "lastLeaderElapsedTime";
 
   public static final String
-      LEADER_METRIC_FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC =
-      "follower_%s_lastHeartbeatElapsedTime";
-  public static final String LEADER_METRIC_PEER_COMMIT_INDEX =
-      "%s_peerCommitIndex";
+      LEADER_METRIC_FOLLOWER_LAST_HEARTBEAT_ELAPSED_TIME_METRIC = "%s_lastHeartbeatElapsedTime";
+  public static final String LEADER_METRIC_PEER_COMMIT_INDEX = "%s_peerCommitIndex";
 
-  public static final String STATEMACHINE_APPLIED_INDEX_GAUGE =
-      "statemachineAppliedIndex";
-  public static final String STATEMACHINE_APPLY_COMPLETED_GAUGE =
-      "statemachineApplyCompletedIndex";
+  //////////////////////////////
+  // Raft State Machine Metrics
+  /////////////////////////////
 
-  // Raft client read request metric timer.
+  public static final String STATEMACHINE_APPLIED_INDEX_GAUGE = "statemachineAppliedIndex";
+  public static final String STATEMACHINE_APPLY_COMPLETED_GAUGE = "statemachineApplyCompletedIndex";
+  public static final String STATEMACHINE_TAKE_SNAPSHOT_TIMER = "stateMachineTakeSnapshot";
+
+  //////////////////////////////
+  // Raft Client Metrics
+  /////////////////////////////
   public static final String RAFT_CLIENT_READ_REQUEST = "clientReadRequest";
 
   public static final String RAFT_CLIENT_STALE_READ_REQUEST = "clientStaleReadRequest";
@@ -93,10 +96,14 @@ public final class RatisMetricNames {
   public static final String RAFT_LOG_TASK_ENQUEUE_DELAY = "queueingDelay";
 
   // Time taken for a Raft log operation to complete execution.
-  public static final String RAFT_LOG_TASK_EXECUTION_TIME = "ExecutionTime";
+  public static final String RAFT_LOG_TASK_EXECUTION_TIME = "%sExecutionTime";
 
   // Number of entries appended to the raft log
   public static final String RAFT_LOG_APPEND_ENTRY_COUNT = "appendEntryCount";
+
+  public static final String RAFT_LOG_PURGE_METRIC = "purgeLog";
+
+  public static final String LOG_APPENDER_INSTALL_SNAPSHOT_METRIC = "numInstallSnapshot";
 
   //////////////////////////////
   // Raft Log Read Path Metrics

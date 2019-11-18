@@ -34,15 +34,16 @@ public class GrpcServerMetrics {
   private static final String RATIS_GRPC_METRICS_DESC = "Metrics for Ratis Grpc Log Appender";
 
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY =
-      "grpc_log_appender_follower_%s_latency";
+      "%s_latency";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS =
-      "grpc_log_appender_follower_%s_success_reply_count";
+      "%s_success_reply_count";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER =
-      "grpc_log_appender_follower_%s_not_leader_reply_count";
+      "%s_not_leader_reply_count";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY =
-      "grpc_log_appender_follower_%s_inconsistency_reply_count";
-  public static final String RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT = "grpc_log_appender_num_retries";
-  public static final String RATIS_GRPC_METRICS_REQUESTS_TOTAL = "grpc_log_appender_num_requests";
+      "%s_inconsistency_reply_count";
+  public static final String RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT = "num_retries";
+  public static final String RATIS_GRPC_METRICS_REQUESTS_TOTAL = "num_requests";
+  public static final String RATIS_GRPC_INSTALL_SNAPSHOT_COUNT = "num_install_snapshot";
 
   public GrpcServerMetrics(String serverId) {
     MetricRegistryInfo info = new MetricRegistryInfo(serverId, RATIS_GRPC_METRICS_APP_NAME,
@@ -74,6 +75,10 @@ public class GrpcServerMetrics {
 
   public void onRequestInconsistency(String follower) {
     registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY, follower)).inc();
+  }
+
+  public void onInstallSnapshot() {
+    registry.counter(RATIS_GRPC_INSTALL_SNAPSHOT_COUNT).inc();
   }
 
   @VisibleForTesting
