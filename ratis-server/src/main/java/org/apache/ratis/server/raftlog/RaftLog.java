@@ -115,15 +115,13 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   public boolean updateLastCommitted(long majorityIndex, long currentTerm) {
     try(AutoCloseableLock writeLock = writeLock()) {
       final long oldCommittedIndex = getLastCommittedIndex();
-      if (oldCommittedIndex < majorityIndex) {
+      final long newCommitIndex = Math.min(majorityIndex, getFlushIndex());
+      if (oldCommittedIndex < newCommitIndex) {
         // Only update last committed index for current term. See §5.4.2 in
         // paper for details.
-        final TermIndex entry = getTermIndex(majorityIndex);
+        final TermIndex entry = getTermIndex(newCommitIndex);
         if (entry != null && entry.getTerm() == currentTerm) {
-          final long newCommitIndex = Math.min(majorityIndex, getFlushIndex());
-          if (newCommitIndex > oldCommittedIndex) {
-            commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);
-          }
+          commitIndex.updateIncreasingly(newCommitIndex, traceIndexChange);
           return true;
         }
       }
