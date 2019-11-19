@@ -97,7 +97,7 @@ public class LogAppender {
     }
 
     boolean isRunning() {
-      return !lifeCycle.getCurrentState().isOneOf(CLOSING, CLOSED, EXCEPTION);
+      return !LifeCycle.States.CLOSING_OR_CLOSED_OR_EXCEPTION.contains(lifeCycle.getCurrentState());
     }
 
     void stop() {

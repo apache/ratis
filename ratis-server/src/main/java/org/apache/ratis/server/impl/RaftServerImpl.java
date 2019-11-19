@@ -474,9 +474,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return new NotLeaderException(getMemberId(), conf.getPeer(leaderId), peers);
   }
 
-  private LifeCycle.State assertLifeCycleState(LifeCycle.State... expected) throws ServerNotReadyException {
+  private LifeCycle.State assertLifeCycleState(Set<LifeCycle.State> expected) throws ServerNotReadyException {
     return lifeCycle.assertCurrentState((n, c) -> new ServerNotReadyException(
-        getMemberId() + " is not in " + Arrays.toString(expected) + ": current state is " + c),
+        getMemberId() + " is not in " + expected + ": current state is " + c),
         expected);
   }
 
@@ -495,7 +495,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private CompletableFuture<RaftClientReply> appendTransaction(
       RaftClientRequest request, TransactionContext context,
       RetryCache.CacheEntry cacheEntry) throws IOException {
-    assertLifeCycleState(RUNNING);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
     CompletableFuture<RaftClientReply> reply;
 
     final PendingRequest pending;
@@ -540,7 +540,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
-    assertLifeCycleState(RUNNING);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
     LOG.debug("{}: receive client request({})", getMemberId(), request);
     Timer timer = raftServerMetrics.getClientRequestTimer(request);
     final Timer.Context timerContext = (timer != null) ? timer.time() : null;
@@ -678,7 +678,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   @Override
   public CompletableFuture<RaftClientReply> setConfigurationAsync(SetConfigurationRequest request) throws IOException {
     LOG.info("{}: receive setConfiguration {}", getMemberId(), request);
-    assertLifeCycleState(RUNNING);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
     CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
@@ -764,7 +764,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         candidateId, candidateTerm, candidateLastEntry);
     LOG.debug("{}: receive requestVote({}, {}, {}, {})",
         getMemberId(), candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
-    assertLifeCycleState(RUNNING);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(candidateId, candidateGroupId);
 
     boolean voteGranted = false;
@@ -889,7 +889,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(),
         leaderId, leaderTerm, previous, leaderCommit, initializing, entries);
 
-    final LifeCycle.State currentState = assertLifeCycleState(STARTING, RUNNING);
+    final LifeCycle.State currentState = assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
     if (currentState == STARTING) {
       if (role.getCurrentRole() == null) {
         throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
@@ -1056,7 +1056,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(),
         leaderId, request);
 
-    assertLifeCycleState(STARTING, RUNNING);
+    assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
     assertGroup(leaderId, leaderGroupId);
 
     // Check if install snapshot from Leader is enabled

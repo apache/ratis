@@ -25,8 +25,10 @@ import org.slf4j.LoggerFactory;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 
@@ -70,16 +72,6 @@ public class LifeCycle {
 
     private static final Map<State, List<State>> PREDECESSORS;
 
-    /** Does this object equal to one of the given states? */
-    public boolean isOneOf(State... states) {
-      for(State e : states) {
-        if (e == this) {
-          return true;
-        }
-      }
-      return false;
-    }
-
     /** Is this {@link State#RUNNING}? */
     public boolean isRunning() {
       return this == RUNNING;
@@ -87,7 +79,7 @@ public class LifeCycle {
 
     /** Is this {@link State#CLOSING} or {@link State#CLOSED}? */
     public boolean isClosingOrClosed() {
-      return this == State.CLOSING || this == State.CLOSED;
+      return States.CLOSING_OR_CLOSED.contains(this);
     }
 
     static void put(State key, Map<State, List<State>> map, State... values) {
@@ -123,6 +115,26 @@ public class LifeCycle {
       Preconditions.assertTrue(isValid(from, to),
           "ILLEGAL TRANSITION: In %s, %s -> %s", name, from, to);
     }
+  }
+
+  public static final class States {
+
+    public static final Set<State> RUNNING
+        = Collections.unmodifiableSet(EnumSet.of(State.RUNNING));
+
+    public static final Set<State> STARTING_OR_RUNNING
+        = Collections.unmodifiableSet(EnumSet.of(State.STARTING, State.RUNNING));
+
+    public static final Set<State> CLOSING_OR_CLOSED
+        = Collections.unmodifiableSet(EnumSet.of(State.CLOSING, State.CLOSED));
+
+    public static final Set<State> CLOSING_OR_CLOSED_OR_EXCEPTION
+        = Collections.unmodifiableSet(EnumSet.of(State.CLOSING, State.CLOSED, State.EXCEPTION));
+
+    private States() {
+      // no instances
+    }
+
   }
 
   private volatile String name;
@@ -171,17 +183,17 @@ public class LifeCycle {
   }
 
   /** Assert if the current state equals to one of the expected states. */
-  public void assertCurrentState(State... expected) {
+  public void assertCurrentState(Set<State> expected) {
     assertCurrentState((n, c) -> new IllegalStateException("STATE MISMATCHED: In "
         + n + ", current state " + c + " is not one of the expected states "
-        + Arrays.toString(expected)), expected);
+        + expected), expected);
   }
 
   /** Assert if the current state equals to one of the expected states. */
   public <T extends Throwable> State assertCurrentState(
-      BiFunction<String, State, T> newThrowable, State... expected) throws T {
+      BiFunction<String, State, T> newThrowable, Set<State> expected) throws T {
     final State c = getCurrentState();
-    if (!c.isOneOf(expected)) {
+    if (!expected.contains(c)) {
       throw newThrowable.apply(name, c);
     }
     return c;
@@ -243,7 +255,7 @@ public class LifeCycle {
 
     for(;;) {
       final State c = getCurrentState();
-      if (c.isOneOf(State.CLOSING, State.CLOSED)) {
+      if (c.isClosingOrClosed()) {
         return c; //already closing or closed.
       }
 
