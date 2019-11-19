@@ -21,7 +21,10 @@ package org.apache.ratis.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class NativeLibraryChecker {
+public final class NativeLibraryChecker {
+  private NativeLibraryChecker() {
+  }
+
   public static final Logger LOG = LoggerFactory.getLogger(NativeLibraryChecker.class);
 
   /**

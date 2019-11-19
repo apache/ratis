@@ -32,21 +32,21 @@ public class AutoCloseableReadWriteLock {
 
   public AutoCloseableLock readLock(StackTraceElement caller, Consumer<String> log) {
     final AutoCloseableLock readLock = AutoCloseableLock.acquire(lock.readLock(),
-        () -> logLocking(name, caller, true, false, log));
+        () -> logLocking(caller, true, false, log));
 
-    logLocking(name, caller, true, true, log);
+    logLocking(caller, true, true, log);
     return readLock;
   }
 
   public AutoCloseableLock writeLock(StackTraceElement caller, Consumer<String> log) {
     final AutoCloseableLock writeLock = AutoCloseableLock.acquire(lock.writeLock(),
-        () -> logLocking(name, caller, false, false, log));
+        () -> logLocking(caller, false, false, log));
 
-    logLocking(name, caller, false, true, log);
+    logLocking(caller, false, true, log);
     return writeLock;
   }
 
-  private void logLocking(Object name, StackTraceElement caller, boolean read, boolean acquire, Consumer<String> log) {
+  private void logLocking(StackTraceElement caller, boolean read, boolean acquire, Consumer<String> log) {
     if (caller != null && log != null) {
       final int d = acquire? depth.getAndIncrement(): depth.decrementAndGet();
       final StringBuilder b = new StringBuilder();

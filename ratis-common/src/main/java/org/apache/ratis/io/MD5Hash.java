@@ -18,9 +18,9 @@
 
 package org.apache.ratis.io;
 
-import java.io.IOException;
 import java.io.DataInput;
 import java.io.DataOutput;
+import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -52,8 +52,9 @@ public class MD5Hash {
 
   /** Constructs an MD5Hash with a specified value. */
   public MD5Hash(byte[] digest) {
-    if (digest.length != MD5_LEN)
+    if (digest.length != MD5_LEN) {
       throw new IllegalArgumentException("Wrong length: " + digest.length);
+    }
     this.digest = digest;
   }
 
@@ -78,7 +79,9 @@ public class MD5Hash {
   }
 
   /** Returns the digest bytes. */
-  public byte[] getDigest() { return digest; }
+  public byte[] getDigest() {
+    return digest;
+  }
 
   /** Construct a hash value for a byte array. */
   public static MD5Hash digest(byte[] data) {
@@ -129,8 +132,9 @@ public class MD5Hash {
   /** Construct a half-sized version of this MD5.  Fits in a long **/
   public long halfDigest() {
     long value = 0;
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; i++) {
       value |= ((digest[i] & 0xffL) << (8*(7-i)));
+    }
     return value;
   }
 
@@ -140,8 +144,9 @@ public class MD5Hash {
    */
   public int quarterDigest() {
     int value = 0;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 4; i++) {
       value |= ((digest[i] & 0xff) << (8*(3-i)));
+    }
     return value;
   }
 
@@ -149,8 +154,9 @@ public class MD5Hash {
    * same values.  */
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof MD5Hash))
+    if (!(o instanceof MD5Hash)) {
       return false;
+    }
     MD5Hash other = (MD5Hash)o;
     return Arrays.equals(this.digest, other.digest);
   }
@@ -180,15 +186,15 @@ public class MD5Hash {
 
   /** Sets the digest value from a hex string. */
   public void setDigest(String hex) {
-    if (hex.length() != MD5_LEN*2)
+    if (hex.length() != MD5_LEN*2) {
       throw new IllegalArgumentException("Wrong length: " + hex.length());
-    byte[] digest = new byte[MD5_LEN];
+    }
+    this.digest = new byte[MD5_LEN];
     for (int i = 0; i < MD5_LEN; i++) {
       int j = i << 1;
-      digest[i] = (byte)(charToNibble(hex.charAt(j)) << 4 |
+      this.digest[i] = (byte)(charToNibble(hex.charAt(j)) << 4 |
           charToNibble(hex.charAt(j+1)));
     }
-    this.digest = digest;
   }
 
   private static int charToNibble(char c) {

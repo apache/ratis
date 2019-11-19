@@ -95,7 +95,7 @@ public interface IOUtils {
   }
 
   static void readFully(InputStream in, int buffSize) throws IOException {
-    final byte buf[] = new byte[buffSize];
+    final byte [] buf = new byte[buffSize];
     for(int bytesRead = in.read(buf); bytesRead >= 0; ) {
       bytesRead = in.read(buf);
     }

@@ -17,16 +17,18 @@
  */
 package org.apache.ratis.util;
 
-import java.nio.ByteBuffer;
-
 import org.apache.ratis.protocol.ChecksumException;
+
+import java.nio.ByteBuffer;
 
 /**
  * Wrapper around JNI support code to do checksum computation
  * natively.
  */
-class NativeCrc32 {
-  
+final class NativeCrc32 {
+  private NativeCrc32() {
+  }
+
   /**
    * Return true if the JNI-based native CRC extensions are available.
    */
@@ -44,14 +46,13 @@ class NativeCrc32 {
    * have their position initially at the start of the data, and their limit
    * set at the end of the data. The position, limit, and mark are not
    * modified.
-   * 
    * @param bytesPerSum the chunk size (eg 512 bytes)
    * @param checksumType the DataChecksum type constant (NULL is not supported)
    * @param sums the DirectByteBuffer pointing at the beginning of the
    *             stored checksums
    * @param data the DirectByteBuffer pointing at the beginning of the
    *             data to check
-   * @param basePos the position in the file where the data buffer starts 
+   * @param basePos the position in the file where the data buffer starts
    * @param fileName the name of the file being verified
    * @throws ChecksumException if there is an invalid checksum
    */
@@ -64,6 +65,7 @@ class NativeCrc32 {
         fileName, basePos, true);
   }
 
+  @SuppressWarnings("parameternumber")
   public static void verifyChunkedSumsByteArray(int bytesPerSum,
       int checksumType, byte[] sums, int sumsOffset, byte[] data,
       int dataOffset, int dataLength, String fileName, long basePos)
@@ -91,12 +93,14 @@ class NativeCrc32 {
         "", 0, false);
   }
 
+  @SuppressWarnings("parameternumber")
   private static native void nativeComputeChunkedSums(
       int bytesPerSum, int checksumType,
       ByteBuffer sums, int sumsOffset,
       ByteBuffer data, int dataOffset, int dataLength,
       String fileName, long basePos, boolean verify);
 
+  @SuppressWarnings("parameternumber")
   private static native void nativeComputeChunkedSumsByteArray(
       int bytesPerSum, int checksumType,
       byte[] sums, int sumsOffset,

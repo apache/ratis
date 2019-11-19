@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
 public interface ProtoUtils {
   static ByteString writeObject2ByteString(Object obj) {
     final ByteString.Output byteOut = ByteString.newOutput();
-    try(final ObjectOutputStream objOut = new ObjectOutputStream(byteOut)) {
+    try(ObjectOutputStream objOut = new ObjectOutputStream(byteOut)) {
       objOut.writeObject(obj);
     } catch (IOException e) {
       throw new IllegalStateException(
@@ -82,7 +82,7 @@ public interface ProtoUtils {
   static Iterable<RaftPeerProto> toRaftPeerProtos(
       final Collection<RaftPeer> peers) {
     return () -> new Iterator<RaftPeerProto>() {
-      final Iterator<RaftPeer> i = peers.iterator();
+      private final Iterator<RaftPeer> i = peers.iterator();
 
       @Override
       public boolean hasNext() {

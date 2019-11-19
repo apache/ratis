@@ -21,7 +21,13 @@ import org.apache.ratis.io.MD5Hash;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
@@ -63,12 +69,14 @@ public abstract class MD5FileUtil {
    */
   private static Matcher readStoredMd5(File md5File) throws IOException {
     BufferedReader reader =
-        new BufferedReader(new InputStreamReader(new FileInputStream(
+          new BufferedReader(new InputStreamReader(new FileInputStream(
             md5File), StandardCharsets.UTF_8));
     String md5Line;
     try {
       md5Line = reader.readLine();
-      if (md5Line == null) { md5Line = ""; }
+      if (md5Line == null) {
+        md5Line = "";
+      }
       md5Line = md5Line.trim();
     } catch (IOException ioe) {
       throw new IOException("Error reading md5 file at " + md5File, ioe);

@@ -24,7 +24,7 @@ import java.util.concurrent.locks.Lock;
  * Wrap a lock with the {@link AutoCloseable} interface
  * so that the {@link #close()} method will unlock the lock.
  */
-public class AutoCloseableLock implements AutoCloseable {
+public final class AutoCloseableLock implements AutoCloseable {
   /**
    * Acquire the given lock and then wrap it with {@link AutoCloseableLock}
    * so that the given lock can be released by calling {@link #close()},
