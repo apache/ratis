@@ -160,7 +160,7 @@ class LeaderElection implements Runnable {
     } finally {
       // Update leader election completion metric(s).
       server.getLeaderElectionMetricsRegistry().onLeaderElectionCompletion(electionStartTime.elapsedTimeMs());
-      lifeCycle.transition(LifeCycle.State.CLOSED);
+      lifeCycle.checkStateAndClose(() -> {});
     }
   }
 
