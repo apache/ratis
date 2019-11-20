@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.LogUtils;
@@ -118,16 +119,27 @@ class LeaderElection implements Runnable {
 
   void start() {
     lifeCycle.transition(LifeCycle.State.STARTING);
-    lifeCycle.transition(LifeCycle.State.RUNNING);
     daemon.start();
+  }
+
+  @VisibleForTesting
+  void startInForeground() {
+    lifeCycle.transition(LifeCycle.State.STARTING);
+    run();
   }
 
   void shutdown() {
     lifeCycle.checkStateAndClose();
   }
 
+  @VisibleForTesting
+  LifeCycle.State getCurrentState() {
+    return lifeCycle.getCurrentState();
+  }
+
   @Override
   public void run() {
+    lifeCycle.transition(LifeCycle.State.RUNNING);
     Timestamp electionStartTime = Timestamp.currentTime();
     try {
       askForVotes();
