@@ -18,6 +18,8 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.util.function.CheckedBiFunction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,19 +36,37 @@ import java.util.function.LongUnaryOperator;
  * This is a value-based class.
  */
 public final class TimeDuration implements Comparable<TimeDuration> {
+  static final Logger LOG = LoggerFactory.getLogger(TimeDuration.class);
+
   public static final TimeDuration ZERO = valueOf(0, TimeUnit.NANOSECONDS);
+  public static final TimeDuration ONE_MILLISECOND = TimeDuration.valueOf(1, TimeUnit.MILLISECONDS);
   public static final TimeDuration ONE_SECOND = TimeDuration.valueOf(1, TimeUnit.SECONDS);
   public static final TimeDuration ONE_MINUTE = TimeDuration.valueOf(1, TimeUnit.MINUTES);
+
+  static final double ERROR_THRESHOLD = 0.001; // accept 0.1% error
+
+  /** @return the next lower {@link TimeUnit}.  If the unit is already the lowest, return it. */
+  public static TimeUnit lowerUnit(TimeUnit unit) {
+    final int ordinal = unit.ordinal();
+    return ordinal == 0? unit: TimeUnit.values()[ordinal - 1];
+  }
+
+  /** @return the next higher {@link TimeUnit}.  If the unit is already the highest, return it. */
+  public static TimeUnit higherUnit(TimeUnit unit) {
+    final int ordinal = unit.ordinal();
+    final TimeUnit[] timeUnits = TimeUnit.values();
+    return ordinal == timeUnits.length - 1? unit: timeUnits[ordinal + 1];
+  }
 
   /** Abbreviations of {@link TimeUnit}. */
   public enum Abbreviation {
     NANOSECONDS("ns", "nanos"),
-    MICROSECONDS("us", "μs", "micros"),
+    MICROSECONDS("μs", "us", "micros"),
     MILLISECONDS("ms", "msec", "millis"),
     SECONDS("s", "sec"),
-    MINUTES("m", "min"),
-    HOURS("h", "hr"),
-    DAYS("d");
+    MINUTES("min", "m"),
+    HOURS("hr", "h"),
+    DAYS("day", "d");
 
     private final TimeUnit unit = TimeUnit.valueOf(name());
     private final List<String> symbols;
@@ -57,10 +77,19 @@ public final class TimeDuration implements Comparable<TimeDuration> {
       input.forEach(s -> all.add(s.toLowerCase()));
 
       final String s = unit.name().toLowerCase();
-      all.add(s);
-      all.add(s.substring(0, s.length() - 1));
+      addIfAbsent(all, s);
+      addIfAbsent(all, s.substring(0, s.length() - 1));
 
       this.symbols = Collections.unmodifiableList(all);
+    }
+
+    static void addIfAbsent(List<String> list, String toAdd) {
+      for(String s : list) {
+        if (toAdd.equals(s)) {
+          return;
+        }
+      }
+      list.add(toAdd);
     }
 
     /** @return the corresponding {@link TimeUnit}. */
@@ -92,11 +121,13 @@ public final class TimeDuration implements Comparable<TimeDuration> {
   /**
    * Parse the given time duration string.
    * If no unit is specified, use the default unit.
+   * This method support underscores in Numeric Literals as in Java 8.
    *
    * @return a {@link TimeDuration} in the target unit.
    */
   public static TimeDuration valueOf(String timeString, TimeUnit defaultUnit) {
-    final String lower = Objects.requireNonNull(timeString, "timeString = null").trim();
+    Objects.requireNonNull(timeString, "timeString = null");
+    final String lower = timeString.trim().replace("_", "").toLowerCase();
     for(Abbreviation a : Abbreviation.values()) {
       for(String s : a.getSymbols()) {
         if (lower.endsWith(s)) {
@@ -159,7 +190,12 @@ public final class TimeDuration implements Comparable<TimeDuration> {
 
   /** @return the {@link TimeDuration} in the target unit. */
   public TimeDuration to(TimeUnit targetUnit) {
-    return this.unit == targetUnit? this: valueOf(toLong(targetUnit), targetUnit);
+    if (this.unit == targetUnit) {
+      return this;
+    }
+    final TimeDuration t = valueOf(toLong(targetUnit), targetUnit);
+    LOG.debug("{}.to({}) = {}", this, targetUnit, t);
+    return t;
   }
 
   /** @return (this + that) in the minimum unit among them. */
@@ -174,6 +210,49 @@ public final class TimeDuration implements Comparable<TimeDuration> {
     Objects.requireNonNull(that, "that == null");
     final TimeUnit minUnit = CollectionUtils.min(this.unit, that.unit);
     return valueOf(this.toLong(minUnit) - that.toLong(minUnit), minUnit);
+  }
+
+  private static boolean isMagnitudeLarge(long n) {
+    return n > 1_000_000_000_000L || n < -1_000_000_000_000L;
+  }
+
+  /** @return this * multiplier; the result unit may be changed in order to reduce rounding/overflow error. */
+  public TimeDuration multiply(double multiplier) {
+    final double product = duration * multiplier;
+    final long rounded = Math.round(product);
+
+    if (unit.ordinal() != TimeUnit.values().length - 1) {
+      // check overflow error
+      if (rounded == Long.MAX_VALUE || rounded == Long.MIN_VALUE) {
+        if (Math.abs(multiplier) > 2) {
+          return multiply(2).multiply(multiplier / 2);
+        } else {
+          return to(higherUnit(unit)).multiply(multiplier);
+        }
+      }
+    }
+    if (unit.ordinal() != 0) {
+      // check round off error
+      if (Math.abs(product - rounded) > Math.abs(product) * ERROR_THRESHOLD) {
+        if (isMagnitudeLarge(duration) && Math.abs(multiplier) < 0.5d) {
+          return multiply(0.5).multiply(multiplier * 2);
+        } else {
+          return to(lowerUnit(unit)).multiply(multiplier);
+        }
+      }
+    }
+
+    final TimeDuration t = valueOf(rounded, unit);
+    LOG.debug("{} * {} = {}", this, multiplier, t);
+    return t;
+  }
+
+  /** @return -this. */
+  public TimeDuration negate() {
+    if (duration == Long.MIN_VALUE) {
+      return valueOf(Long.MAX_VALUE, unit);
+    }
+    return valueOf(Math.negateExact(duration), unit);
   }
 
   /** Round up to the given nanos to nearest multiple (in nanoseconds) of this {@link TimeDuration}. */

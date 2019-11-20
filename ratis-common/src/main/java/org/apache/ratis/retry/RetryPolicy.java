@@ -22,6 +22,7 @@ import org.apache.ratis.util.TimeDuration;
 /**
  * Policy abstract for retrying.
  */
+@FunctionalInterface
 public interface RetryPolicy {
   Action NO_RETRY_ACTION = new Action() {
     @Override
@@ -37,6 +38,7 @@ public interface RetryPolicy {
   Action RETRY_WITHOUT_SLEEP_ACTION = () -> TimeDuration.ZERO;
 
   /** The action it should take. */
+  @FunctionalInterface
   interface Action {
     /** @return true if it has to make another attempt; otherwise, return false. */
     default boolean shouldRetry() {
@@ -48,6 +50,7 @@ public interface RetryPolicy {
   }
 
   /** The event triggered the failure. */
+  @FunctionalInterface
   interface Event {
     /** @return the number of attempts tried so far. */
     int getAttemptCount();

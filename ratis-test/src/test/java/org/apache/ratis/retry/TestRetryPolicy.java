@@ -15,24 +15,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis;
+package org.apache.ratis.retry;
 
+import org.apache.ratis.BaseTest;
 import org.apache.ratis.client.ClientRetryEvent;
 import org.apache.ratis.client.retry.RequestTypeDependentRetryPolicy;
-import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
+import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.retry.RetryPolicies;
-import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 
-
+/** Test {@link RetryPolicy}. */
 public class TestRetryPolicy extends BaseTest {
+  @Override
+  public int getGlobalTimeoutSeconds() {
+    return 1;
+  }
 
   @Test
   public void testRetryMultipleTimesWithFixedSleep() {
