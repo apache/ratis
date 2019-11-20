@@ -48,6 +48,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import static org.apache.ratis.util.LifeCycle.State.NEW;
+import static org.apache.ratis.util.LifeCycle.State.RUNNING;
+import static org.apache.ratis.util.LifeCycle.State.STARTING;
+
 class LeaderElection implements Runnable {
   public static final Logger LOG = LoggerFactory.getLogger(LeaderElection.class);
 
@@ -118,14 +122,21 @@ class LeaderElection implements Runnable {
   }
 
   void start() {
-    lifeCycle.transition(LifeCycle.State.STARTING);
-    daemon.start();
+    startIfNew(daemon::start);
   }
 
   @VisibleForTesting
   void startInForeground() {
-    lifeCycle.transition(LifeCycle.State.STARTING);
-    run();
+    startIfNew(this);
+  }
+
+  private void startIfNew(Runnable starter) {
+    if (lifeCycle.compareAndTransition(NEW, STARTING)) {
+      starter.run();
+    } else {
+      final LifeCycle.State state = lifeCycle.getCurrentState();
+      LOG.info("{}: skip starting since this is already {}", this, state);
+    }
   }
 
   void shutdown() {
@@ -139,7 +150,12 @@ class LeaderElection implements Runnable {
 
   @Override
   public void run() {
-    lifeCycle.transition(LifeCycle.State.RUNNING);
+    if (!lifeCycle.compareAndTransition(STARTING, RUNNING)) {
+      final LifeCycle.State state = lifeCycle.getCurrentState();
+      LOG.info("{}: skip running since this is already {}", this, state);
+      return;
+    }
+
     Timestamp electionStartTime = Timestamp.currentTime();
     try {
       askForVotes();

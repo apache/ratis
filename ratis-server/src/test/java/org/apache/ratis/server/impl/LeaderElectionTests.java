@@ -33,7 +33,6 @@ import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Log4jUtils;
-import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
 import org.junit.Assert;
@@ -179,14 +178,9 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testImmediatelyRevertedToFollower() {
-    RaftServerImpl server = mock(RaftServerImpl.class);
-    when(server.isAlive()).thenReturn(true);
-    when(server.isCandidate()).thenReturn(false);
-    when(server.getMemberId()).thenReturn(RaftGroupMemberId.valueOf(RaftPeerId.valueOf("any"), RaftGroupId.randomId()));
-    LeaderElectionMetrics leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(server);
-    when(server.getLeaderElectionMetricsRegistry()).thenReturn(leaderElectionMetrics);
-
+    RaftServerImpl server = createMockServer(true);
     LeaderElection subject = new LeaderElection(server);
+
     try {
       subject.startInForeground();
       assertEquals(LifeCycle.State.CLOSED, subject.getCurrentState());
@@ -194,5 +188,30 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
       LOG.info("Error starting LeaderElection", e);
       fail(e.getMessage());
     }
+  }
+
+  @Test
+  public void testShutdownBeforeStart() {
+    RaftServerImpl server = createMockServer(false);
+    LeaderElection subject = new LeaderElection(server);
+
+    try {
+      subject.shutdown();
+      subject.startInForeground();
+      assertEquals(LifeCycle.State.CLOSED, subject.getCurrentState());
+    } catch (Exception e) {
+      LOG.info("Error starting LeaderElection", e);
+      fail(e.getMessage());
+    }
+  }
+
+  private static RaftServerImpl createMockServer(boolean alive) {
+    RaftServerImpl server = mock(RaftServerImpl.class);
+    when(server.isAlive()).thenReturn(alive);
+    when(server.isCandidate()).thenReturn(false);
+    when(server.getMemberId()).thenReturn(RaftGroupMemberId.valueOf(RaftPeerId.valueOf("any"), RaftGroupId.randomId()));
+    LeaderElectionMetrics leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(server);
+    when(server.getLeaderElectionMetricsRegistry()).thenReturn(leaderElectionMetrics);
+    return server;
   }
 }
