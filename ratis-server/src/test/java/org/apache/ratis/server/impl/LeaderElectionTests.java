@@ -23,11 +23,15 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.metrics.LeaderElectionMetrics;
 import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
@@ -45,7 +49,11 @@ import static org.apache.ratis.RaftTestUtil.waitForLeader;
 import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_COUNT_METRIC;
 import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_LATENCY;
 import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -166,5 +174,44 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     Long leaderElectionLatency = (Long) ratisMetricRegistry.getGauges((s, metric) ->
         s.contains(LEADER_ELECTION_LATENCY)).values().iterator().next().getValue();
     assertTrue(leaderElectionLatency > 0 && leaderElectionLatency < timestamp.elapsedTimeMs());
+  }
+
+  @Test
+  public void testImmediatelyRevertedToFollower() {
+    RaftServerImpl server = createMockServer(true);
+    LeaderElection subject = new LeaderElection(server);
+
+    try {
+      subject.startInForeground();
+      assertEquals(LifeCycle.State.CLOSED, subject.getCurrentState());
+    } catch (Exception e) {
+      LOG.info("Error starting LeaderElection", e);
+      fail(e.getMessage());
+    }
+  }
+
+  @Test
+  public void testShutdownBeforeStart() {
+    RaftServerImpl server = createMockServer(false);
+    LeaderElection subject = new LeaderElection(server);
+
+    try {
+      subject.shutdown();
+      subject.startInForeground();
+      assertEquals(LifeCycle.State.CLOSED, subject.getCurrentState());
+    } catch (Exception e) {
+      LOG.info("Error starting LeaderElection", e);
+      fail(e.getMessage());
+    }
+  }
+
+  private static RaftServerImpl createMockServer(boolean alive) {
+    RaftServerImpl server = mock(RaftServerImpl.class);
+    when(server.isAlive()).thenReturn(alive);
+    when(server.isCandidate()).thenReturn(false);
+    when(server.getMemberId()).thenReturn(RaftGroupMemberId.valueOf(RaftPeerId.valueOf("any"), RaftGroupId.randomId()));
+    LeaderElectionMetrics leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(server);
+    when(server.getLeaderElectionMetricsRegistry()).thenReturn(leaderElectionMetrics);
+    return server;
   }
 }

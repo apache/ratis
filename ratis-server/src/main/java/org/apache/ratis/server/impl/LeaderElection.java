@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.SnapshotInfo;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.LogUtils;
@@ -46,6 +47,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+
+import static org.apache.ratis.util.LifeCycle.State.NEW;
+import static org.apache.ratis.util.LifeCycle.State.RUNNING;
+import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
 class LeaderElection implements Runnable {
   public static final Logger LOG = LoggerFactory.getLogger(LeaderElection.class);
@@ -117,17 +122,40 @@ class LeaderElection implements Runnable {
   }
 
   void start() {
-    lifeCycle.transition(LifeCycle.State.STARTING);
-    lifeCycle.transition(LifeCycle.State.RUNNING);
-    daemon.start();
+    startIfNew(daemon::start);
+  }
+
+  @VisibleForTesting
+  void startInForeground() {
+    startIfNew(this);
+  }
+
+  private void startIfNew(Runnable starter) {
+    if (lifeCycle.compareAndTransition(NEW, STARTING)) {
+      starter.run();
+    } else {
+      final LifeCycle.State state = lifeCycle.getCurrentState();
+      LOG.info("{}: skip starting since this is already {}", this, state);
+    }
   }
 
   void shutdown() {
     lifeCycle.checkStateAndClose();
   }
 
+  @VisibleForTesting
+  LifeCycle.State getCurrentState() {
+    return lifeCycle.getCurrentState();
+  }
+
   @Override
   public void run() {
+    if (!lifeCycle.compareAndTransition(STARTING, RUNNING)) {
+      final LifeCycle.State state = lifeCycle.getCurrentState();
+      LOG.info("{}: skip running since this is already {}", this, state);
+      return;
+    }
+
     Timestamp electionStartTime = Timestamp.currentTime();
     try {
       askForVotes();
@@ -148,7 +176,7 @@ class LeaderElection implements Runnable {
     } finally {
       // Update leader election completion metric(s).
       server.getLeaderElectionMetricsRegistry().onLeaderElectionCompletion(electionStartTime.elapsedTimeMs());
-      lifeCycle.transition(LifeCycle.State.CLOSED);
+      lifeCycle.checkStateAndClose(() -> {});
     }
   }
 
