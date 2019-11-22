@@ -41,10 +41,10 @@ public class LoadGen extends Client {
   private static final String UTF8_CSN = StandardCharsets.UTF_8.name();
 
   @Parameter(names = {"--size"}, description = "Size of each file", required = true)
-  String size;
+  private String size;
 
   @Parameter(names = {"--numFiles"}, description = "Number of files", required = true)
-  String numFiles;
+  private String numFiles;
 
   private static byte[] string2Bytes(String str) {
     try {

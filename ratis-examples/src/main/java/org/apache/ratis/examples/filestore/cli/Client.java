@@ -66,8 +66,8 @@ public abstract class Client extends SubCommandBase {
     RaftClientConfigKeys.Async.setMaxOutstandingRequests(raftProperties, 1000);
 
 
-    final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(raftGroupId)),
-        parsePeers(peers));
+    final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(getRaftGroupId())),
+            getPeers());
 
     RaftClient.Builder builder =
         RaftClient.newBuilder().setProperties(raftProperties);

@@ -20,7 +20,6 @@ package org.apache.ratis.examples.arithmetic.cli;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.examples.arithmetic.AssignmentMessage;
 import org.apache.ratis.examples.arithmetic.expression.DoubleValue;
 import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.examples.arithmetic.expression.Variable;
@@ -36,7 +35,7 @@ public class Get extends Client {
 
   @Parameter(names = {
       "--name"}, description = "Name of the variable to set", required = true)
-  String name;
+  private String name;
 
   @Override
   protected void operation(RaftClient client) throws IOException {

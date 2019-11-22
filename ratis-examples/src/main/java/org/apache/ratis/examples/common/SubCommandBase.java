@@ -21,6 +21,7 @@ import com.beust.jcommander.Parameter;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -30,12 +31,12 @@ public abstract class SubCommandBase {
 
   @Parameter(names = {"--raftGroup",
       "-g"}, description = "Raft group identifier")
-  protected String raftGroupId = "demoRaftGroup123";
+  private String raftGroupId = "demoRaftGroup123";
 
   @Parameter(names = {"--peers", "-r"}, description =
       "Raft peers (format: name:host:port,"
           + "name:host:port)", required = true)
-  protected String peers;
+  private String peers;
 
   public static RaftPeer[] parsePeers(String peers) {
     return Stream.of(peers.split(",")).map(address -> {
@@ -50,4 +51,22 @@ public abstract class SubCommandBase {
   }
 
   public abstract void run() throws Exception;
+
+  public String getRaftGroupId() {
+    return raftGroupId;
+  }
+
+  /**
+   * @return the peer with the given id if it is in this group; otherwise, return null.
+   */
+  public RaftPeer getPeer(RaftPeerId raftPeerId) {
+    Objects.requireNonNull(raftPeerId, "raftPeerId == null");
+    for (RaftPeer p : getPeers()) {
+      if (raftPeerId.equals(p.getId())) {
+        return p;
+      }
+    }
+    throw new IllegalArgumentException("Raft peer id " + raftPeerId + " is not part of the raft group definitions " +
+            this.peers);
+  }
 }

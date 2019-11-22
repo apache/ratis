@@ -23,7 +23,6 @@ import org.apache.ratis.util.*;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 public interface FileStoreCommon {
   String STATEMACHINE_DIR_KEY = "example.filestore.statemachine.dir";

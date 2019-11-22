@@ -28,7 +28,6 @@ import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -40,7 +39,6 @@ import org.apache.ratis.util.TimeDuration;
 
 import java.io.File;
 import java.util.Collections;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -62,7 +60,6 @@ public class Server extends SubCommandBase {
     RaftPeerId peerId = RaftPeerId.valueOf(id);
     RaftProperties properties = new RaftProperties();
 
-    RaftPeer[] peers = getPeers();
     final int port = NetUtils.createSocketAddr(getPeer(peerId).getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
@@ -71,7 +68,8 @@ public class Server extends SubCommandBase {
         storageDir);
     StateMachine stateMachine = new FileStoreStateMachine(properties);
 
-    final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(raftGroupId)), peers);
+    final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(getRaftGroupId())),
+            getPeers());
     RaftServer raftServer = RaftServer.newBuilder()
         .setServerId(RaftPeerId.valueOf(id))
         .setStateMachine(stateMachine).setProperties(properties)
@@ -85,16 +83,4 @@ public class Server extends SubCommandBase {
     }
   }
 
-  /**
-   * @return the peer with the given id if it is in this group; otherwise, return null.
-   */
-  public RaftPeer getPeer(RaftPeerId id) {
-    Objects.requireNonNull(id, "id == null");
-    for (RaftPeer p : getPeers()) {
-      if (id.equals(p.getId())) {
-        return p;
-      }
-    }
-    throw new IllegalArgumentException("Raft peer id " + id + " is not part of the raft group definitions " + peers);
-  }
 }

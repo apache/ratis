@@ -39,8 +39,8 @@ public abstract class Client extends SubCommandBase {
   public void run() throws Exception {
     RaftProperties raftProperties = new RaftProperties();
 
-    final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(raftGroupId)),
-        parsePeers(peers));
+    final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(getRaftGroupId())),
+            getPeers());
 
     RaftClient.Builder builder =
         RaftClient.newBuilder().setProperties(raftProperties);
