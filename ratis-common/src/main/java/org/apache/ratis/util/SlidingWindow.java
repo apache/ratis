@@ -62,14 +62,14 @@ public interface SlidingWindow {
 
   /** A seqNum-to-request map, sorted by seqNum. */
   class RequestMap<REQUEST extends Request<REPLY>, REPLY> implements Iterable<REQUEST> {
-    static boolean LOG_REPEATEDLY = false;
+    private static boolean logRepeatedly = false;
     private final Object name;
     /** Request map: seqNum -> request */
     private final SortedMap<Long, REQUEST> requests = new ConcurrentSkipListMap<>();
 
     RequestMap(Object name) {
       this.name = name;
-      if (LOG_REPEATEDLY && LOG.isDebugEnabled()) {
+      if (logRepeatedly && LOG.isDebugEnabled()) {
         JavaUtils.runRepeatedly(this::log, 5, 10, TimeUnit.SECONDS);
       }
     }

@@ -61,7 +61,7 @@ public interface ReflectionUtils {
   }
 
   final class Classes {
-    private static Class<?>[] EMPTY_ARRAY = {};
+    private static final Class<?>[] EMPTY_ARRAY = {};
 
     private static final Map<ClassLoader, Map<String, WeakReference<Class<?>>>>
         CLASSES = new WeakHashMap<>();
@@ -75,13 +75,8 @@ public interface ReflectionUtils {
      */
     private static final class NegativeCacheSentinel {}
 
-    private static ClassLoader CLASS_LOADER;
-    static {
-      CLASS_LOADER = Thread.currentThread().getContextClassLoader();
-      if (CLASS_LOADER == null) {
-        CLASS_LOADER = ReflectionUtils.class.getClassLoader();
-      }
-    }
+    private static final ClassLoader CLASS_LOADER = Optional.ofNullable(
+            Thread.currentThread().getContextClassLoader()).orElseGet(ReflectionUtils.class::getClassLoader);
 
     private static Map<String, WeakReference<Class<?>>> getClassMap() {
       Map<String, WeakReference<Class<?>>> map;

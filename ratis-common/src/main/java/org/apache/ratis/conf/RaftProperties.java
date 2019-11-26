@@ -136,7 +136,7 @@ public class RaftProperties {
    * List of default Resources. Resources are loaded in the order of the list
    * entries
    */
-  private static final CopyOnWriteArrayList<String> defaultResources =
+  private static final CopyOnWriteArrayList<String> DEFAULT_RESOURCES =
     new CopyOnWriteArrayList<>();
 
   /**
@@ -203,8 +203,8 @@ public class RaftProperties {
    * @param name file name. File should be present in the classpath.
    */
   public static synchronized void addDefaultResource(String name) {
-    if(!defaultResources.contains(name)) {
-      defaultResources.add(name);
+    if(!DEFAULT_RESOURCES.contains(name)) {
+      DEFAULT_RESOURCES.add(name);
       REGISTRY.keySet().stream().filter(conf -> conf.loadDefaults)
           .forEach(RaftProperties::reloadConfiguration);
     }
@@ -1053,7 +1053,7 @@ public class RaftProperties {
       properties = new Properties();
       Map<String, String[]> backup =
           new ConcurrentHashMap<>(updatingResource);
-      loadResources(properties, resources);
+      loadResources();
 
       if (overlay != null) {
         properties.putAll(overlay);
@@ -1116,10 +1116,9 @@ public class RaftProperties {
     }
   }
 
-  private void loadResources(Properties properties,
-                             ArrayList<Resource> resources) {
+  private void loadResources() {
     if(loadDefaults) {
-      for (String resource : defaultResources) {
+      for (String resource : DEFAULT_RESOURCES) {
         loadResource(properties, new Resource(resource));
       }
     }
@@ -1132,14 +1131,13 @@ public class RaftProperties {
     }
   }
 
-  private Resource loadResource(Properties properties, Resource wrapper) {
+  private Resource loadResource(Properties propts, Resource wrapper) {
     String name = UNKNOWN_RESOURCE;
     try {
       Object resource = wrapper.getResource();
       name = wrapper.getName();
 
-      DocumentBuilderFactory docBuilderFactory
-        = DocumentBuilderFactory.newInstance();
+      DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
       //ignore all comments inside the xml file
       docBuilderFactory.setIgnoringComments(true);
 
@@ -1148,10 +1146,7 @@ public class RaftProperties {
       try {
           docBuilderFactory.setXIncludeAware(true);
       } catch (UnsupportedOperationException e) {
-        LOG.error("Failed to set setXIncludeAware(true) for parser "
-                + docBuilderFactory
-                + ":" + e,
-                e);
+        LOG.error("Failed to set setXIncludeAware(true) for parser " + docBuilderFactory + ":" + e, e);
       }
       DocumentBuilder builder = docBuilderFactory.newDocumentBuilder();
       Document doc = null;
@@ -1167,7 +1162,7 @@ public class RaftProperties {
         doc = parse(builder, (InputStream) resource, null);
         returnCachedProperties = true;
       } else if (resource instanceof Properties) {
-        overlay(properties, (Properties) resource);
+        overlay(propts, (Properties) resource);
       } else if (resource instanceof Element) {
         root = (Element) resource;
       }
@@ -1178,7 +1173,7 @@ public class RaftProperties {
         }
         root = doc.getDocumentElement();
       }
-      Properties toAddTo = properties;
+      Properties toAddTo = propts;
       if(returnCachedProperties) {
         toAddTo = new Properties();
       }
@@ -1188,15 +1183,18 @@ public class RaftProperties {
       NodeList props = root.getChildNodes();
       for (int i = 0; i < props.getLength(); i++) {
         Node propNode = props.item(i);
-        if (!(propNode instanceof Element))
+        if (!(propNode instanceof Element)) {
           continue;
+        }
+
         Element prop = (Element)propNode;
         if ("configuration".equals(prop.getTagName())) {
           loadResource(toAddTo, new Resource(prop, name));
           continue;
         }
-        if (!"property".equals(prop.getTagName()))
+        if (!"property".equals(prop.getTagName())) {
           LOG.warn("bad conf file: element not <property>");
+        }
 
         String attr = null;
         String value = null;
@@ -1227,17 +1225,21 @@ public class RaftProperties {
             continue;
           }
           Element field = (Element)fieldNode;
-          if ("name".equals(field.getTagName()) && field.hasChildNodes())
+          if ("name".equals(field.getTagName()) && field.hasChildNodes()) {
             attr = StringUtils.weakIntern(
                 ((Text)field.getFirstChild()).getData().trim());
-          if ("value".equals(field.getTagName()) && field.hasChildNodes())
+          }
+          if ("value".equals(field.getTagName()) && field.hasChildNodes()) {
             value = StringUtils.weakIntern(
                 ((Text)field.getFirstChild()).getData());
-          if ("final".equals(field.getTagName()) && field.hasChildNodes())
+          }
+          if ("final".equals(field.getTagName()) && field.hasChildNodes()) {
             finalParameter = "true".equals(((Text)field.getFirstChild()).getData());
-          if ("source".equals(field.getTagName()) && field.hasChildNodes())
+          }
+          if ("source".equals(field.getTagName()) && field.hasChildNodes()) {
             source.add(StringUtils.weakIntern(
                 ((Text)field.getFirstChild()).getData()));
+          }
         }
         source.add(name);
 
@@ -1249,7 +1251,7 @@ public class RaftProperties {
       }
 
       if (returnCachedProperties) {
-        overlay(properties, toAddTo);
+        overlay(propts, toAddTo);
         return new Resource(toAddTo, name);
       }
       return null;
@@ -1266,15 +1268,15 @@ public class RaftProperties {
     }
   }
 
-  private void loadProperty(Properties properties, String name, String attr,
+  private void loadProperty(Properties prop, String name, String attr,
       String value, boolean finalParameter, String[] source) {
     if (value != null) {
       if (!finalParameters.contains(attr)) {
-        properties.setProperty(attr, value);
+        prop.setProperty(attr, value);
         if(source != null) {
           updatingResource.put(attr, source);
         }
-      } else if (!value.equals(properties.getProperty(attr))) {
+      } else if (!value.equals(prop.getProperty(attr))) {
         LOG.warn(name+":an attempt to override final parameter: "+attr
             +";  Ignoring.");
       }
@@ -1373,7 +1375,7 @@ public class RaftProperties {
     StringBuilder sb = new StringBuilder();
     sb.append("Configuration: ");
     if(loadDefaults) {
-      toString(defaultResources, sb);
+      toString(DEFAULT_RESOURCES, sb);
       if(resources.size()>0) {
         sb.append(", ");
       }
@@ -1382,8 +1384,8 @@ public class RaftProperties {
     return sb.toString();
   }
 
-  private <T> void toString(List<T> resources, StringBuilder sb) {
-    ListIterator<T> i = resources.listIterator();
+  private <T> void toString(List<T> res, StringBuilder sb) {
+    ListIterator<T> i = res.listIterator();
     while (i.hasNext()) {
       if (i.nextIndex() != 0) {
         sb.append(", ");

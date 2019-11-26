@@ -28,16 +28,16 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Id of Raft Peer which is globally unique.
  */
-public class RaftPeerId {
-  private static final Map<ByteString, RaftPeerId> byteStringMap = new ConcurrentHashMap<>();
-  private static final Map<String, RaftPeerId> stringMap = new ConcurrentHashMap<>();
+public final class RaftPeerId {
+  private static final Map<ByteString, RaftPeerId> BYTE_STRING_MAP = new ConcurrentHashMap<>();
+  private static final Map<String, RaftPeerId> STRING_MAP = new ConcurrentHashMap<>();
 
   public static RaftPeerId valueOf(ByteString id) {
-    return byteStringMap.computeIfAbsent(id, RaftPeerId::new);
+    return BYTE_STRING_MAP.computeIfAbsent(id, RaftPeerId::new);
   }
 
   public static RaftPeerId valueOf(String id) {
-    return stringMap.computeIfAbsent(id, RaftPeerId::new);
+    return STRING_MAP.computeIfAbsent(id, RaftPeerId::new);
   }
 
   public static RaftPeerId getRaftPeerId(String id) {

@@ -305,30 +305,30 @@ public interface ConfUtils {
   }
 
   static boolean printKey(
-      Class<?> confClass, Consumer<Object> out, Field f, String KEY, String DEFAULT,
+      Class<?> confClass, Consumer<Object> out, Field f, String key, String defaultName,
       CheckedBiConsumer<StringBuilder, Field, IllegalAccessException> processDefault) {
     final String fieldName = f.getName();
-    if (fieldName.endsWith("_" + DEFAULT)) {
+    if (fieldName.endsWith("_" + defaultName)) {
       return true;
     }
-    if (!fieldName.endsWith("_" + KEY)) {
+    if (!fieldName.endsWith("_" + key)) {
       return false;
     }
     final StringBuilder b = new StringBuilder();
     try {
       final Object keyName = f.get(null);
-      b.append(KEY.toLowerCase()).append(": ").append(keyName);
+      b.append(key.toLowerCase()).append(": ").append(keyName);
     } catch (IllegalAccessException e) {
       throw new IllegalStateException("Failed to access " + fieldName, e);
     }
-    final int len = fieldName.length() - KEY.length();
-    final String defaultFieldName = fieldName.substring(0, len) + DEFAULT;
+    final int len = fieldName.length() - key.length();
+    final String defaultFieldName = fieldName.substring(0, len) + defaultName;
     b.append(" (");
     try {
       final Field defaultField = confClass.getDeclaredField(defaultFieldName);
       processDefault.accept(b, defaultField);
     } catch (NoSuchFieldException e) {
-      throw new IllegalStateException(DEFAULT + " not found for field " + f, e);
+      throw new IllegalStateException(defaultName + " not found for field " + f, e);
     } catch (IllegalAccessException e) {
       throw new IllegalStateException("Failed to access " + defaultFieldName, e);
     }

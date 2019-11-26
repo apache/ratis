@@ -27,7 +27,7 @@ import java.util.*;
  * This is a value-based class.
  */
 public final class RaftGroup {
-  private static RaftGroup EMPTY_GROUP = new RaftGroup();
+  private static final RaftGroup EMPTY_GROUP = new RaftGroup();
 
   public static RaftGroup emptyGroup() {
     return EMPTY_GROUP;

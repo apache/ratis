@@ -69,8 +69,8 @@ public abstract class RaftId {
   }
 
   /** @return the last 12 hex digits. */
-  String createUuidString(UUID uuid) {
-    final String s = uuid.toString().toUpperCase();
+  String createUuidString(UUID id) {
+    final String s = id.toString().toUpperCase();
     final int i = s.lastIndexOf('-');
     return s.substring(i + 1);
   }
