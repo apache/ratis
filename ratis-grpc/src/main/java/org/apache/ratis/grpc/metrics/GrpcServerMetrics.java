@@ -41,6 +41,8 @@ public class GrpcServerMetrics {
       "%s_not_leader_reply_count";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY =
       "%s_inconsistency_reply_count";
+  public static final String RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT =
+      "%s_append_entry_timeout_count";
   public static final String RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT = "num_retries";
   public static final String RATIS_GRPC_METRICS_REQUESTS_TOTAL = "num_requests";
   public static final String RATIS_GRPC_INSTALL_SNAPSHOT_COUNT = "num_install_snapshot";
@@ -75,6 +77,10 @@ public class GrpcServerMetrics {
 
   public void onRequestInconsistency(String follower) {
     registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY, follower)).inc();
+  }
+
+  public void onRequestTimeout(String follower) {
+    registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT, follower)).inc();
   }
 
   public void onInstallSnapshot() {

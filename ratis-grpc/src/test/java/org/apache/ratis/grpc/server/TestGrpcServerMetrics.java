@@ -21,6 +21,7 @@ import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS;
+import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUESTS_TOTAL;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT;
 import static org.mockito.Mockito.mock;
@@ -94,6 +95,7 @@ public class TestGrpcServerMetrics {
     assertCounterIncremented(RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS, grpcServerMetrics::onRequestSuccess);
     assertCounterIncremented(RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER, grpcServerMetrics::onRequestNotLeader);
     assertCounterIncremented(RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY, grpcServerMetrics::onRequestInconsistency);
+    assertCounterIncremented(RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT, grpcServerMetrics::onRequestTimeout);
   }
 
   private void assertCounterIncremented(String counterVar, Consumer<String> incFunction) {

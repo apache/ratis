@@ -208,7 +208,8 @@ public class GrpcLogAppender extends LogAppender {
   private void timeoutAppendRequest(long callId) {
     final AppendEntriesRequest pending = pendingRequests.remove(callId);
     if (pending != null) {
-      LOG.warn( "{}: appendEntries Timeout, request={}", this, pending);
+      LOG.warn("{}: appendEntries Timeout, request={}", this, pending);
+      grpcServerMetrics.onRequestTimeout(getFollowerId().toString());
     }
   }
 
