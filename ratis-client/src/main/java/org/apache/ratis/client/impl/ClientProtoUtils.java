@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
+import java.util.Optional;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.proto.RaftProtos.*;
@@ -194,6 +195,18 @@ public interface ClientProtoUtils {
             .setServerId(ProtoUtils.toRaftGroupMemberIdProtoBuilder(lnre.getServerId()));
         b.setLeaderNotReadyException(lnreBuilder);
       }
+
+      final RaftClientReplyProto serialized = b.build();
+      final RaftException e = reply.getException();
+      if (e != null) {
+        final RaftClientReply deserialized = toRaftClientReply(serialized);
+        if (!Optional.ofNullable(deserialized.getException())
+            .map(Object::getClass).filter(e.getClass()::equals).isPresent()) {
+          throw new AssertionError("Corruption while serializing reply= " + reply
+              + " but serialized=" + serialized + " and deserialized=" + deserialized, e);
+        }
+      }
+      return serialized;
     }
     return b.build();
   }
