@@ -27,8 +27,8 @@ import org.apache.ratis.util.ReflectionUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto
-    .ExceptionDetailsCase.LEADERNOTREADYEXCEPTION;
+import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.ALREADYCLOSEDEXCEPTION;
+import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.LEADERNOTREADYEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTREPLICATEDEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.STATEMACHINEEXCEPTION;
@@ -196,6 +196,16 @@ public interface ClientProtoUtils {
         b.setLeaderNotReadyException(lnreBuilder);
       }
 
+      final AlreadyClosedException ace = reply.getAlreadyClosedException();
+      if (ace != null) {
+        final Throwable t = ace.getCause() != null ? ace.getCause() : ace;
+        AlreadyClosedExceptionProto.Builder aceBuilder = AlreadyClosedExceptionProto.newBuilder()
+            .setExceptionClassName(t.getClass().getName())
+            .setErrorMsg(ace.getMessage())
+            .setStacktrace(ProtoUtils.writeObject2ByteString(ace.getStackTrace()));
+        b.setAlreadyClosedException(aceBuilder);
+      }
+
       final RaftClientReplyProto serialized = b.build();
       final RaftException e = reply.getException();
       if (e != null) {
@@ -264,6 +274,10 @@ public interface ClientProtoUtils {
     } else if (replyProto.getExceptionDetailsCase().equals(LEADERNOTREADYEXCEPTION)) {
       LeaderNotReadyExceptionProto lnreProto = replyProto.getLeaderNotReadyException();
       e = new LeaderNotReadyException(ProtoUtils.toRaftGroupMemberId(lnreProto.getServerId()));
+    } else if (replyProto.getExceptionDetailsCase().equals(ALREADYCLOSEDEXCEPTION)) {
+      AlreadyClosedExceptionProto aceProto = replyProto.getAlreadyClosedException();
+      e = wrapAlreadyClosedException(aceProto.getExceptionClassName(),
+          aceProto.getErrorMsg(), aceProto.getStacktrace());
     } else {
       e = null;
     }
@@ -317,6 +331,27 @@ public interface ClientProtoUtils {
         (StackTraceElement[]) ProtoUtils.toObject(stackTraceBytes);
     sme.setStackTrace(stacktrace);
     return sme;
+  }
+
+  static AlreadyClosedException wrapAlreadyClosedException(
+      String className, String errorMsg, ByteString stackTraceBytes) {
+    AlreadyClosedException ace;
+    if (className == null) {
+      ace = new AlreadyClosedException(errorMsg);
+    } else {
+      try {
+        Class<?> clazz = Class.forName(className);
+        final Exception e = ReflectionUtils.instantiateException(
+            clazz.asSubclass(Exception.class), errorMsg, null);
+        ace = new AlreadyClosedException(errorMsg, e);
+      } catch (Exception e) {
+        ace = new AlreadyClosedException(className + ": " + errorMsg);
+      }
+    }
+    StackTraceElement[] stacktrace =
+        (StackTraceElement[]) ProtoUtils.toObject(stackTraceBytes);
+    ace.setStackTrace(stacktrace);
+    return ace;
   }
 
   static Message toMessage(final ClientMessageEntryProto p) {
