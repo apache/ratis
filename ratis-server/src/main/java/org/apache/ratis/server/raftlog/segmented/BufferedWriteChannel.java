@@ -34,11 +34,11 @@ public class BufferedWriteChannel extends BufferedChannelBase {
   /** Are all the data already flushed? */
   private boolean flushed = true;
 
-  public BufferedWriteChannel(FileChannel fc, int writeCapacity)
+  public BufferedWriteChannel(FileChannel fc, ByteBuffer byteBuffer)
       throws IOException {
     super(fc);
     this.position = fc.position();
-    this.writeBuffer = ByteBuffer.allocateDirect(writeCapacity);
+    this.writeBuffer = byteBuffer;
   }
 
   /**

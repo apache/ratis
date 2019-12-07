@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Optional;
@@ -146,6 +147,7 @@ class SegmentedRaftLogWorker implements Runnable {
   private final Timer raftLogQueueingTimer;
   private final Timer raftLogEnqueueingDelayTimer;
   private final RaftLogMetrics raftLogMetrics;
+  private final ByteBuffer writeBuffer;
 
   /**
    * The number of entries that have been written into the SegmentedRaftLogOutputStream but
@@ -199,6 +201,8 @@ class SegmentedRaftLogWorker implements Runnable {
     this.raftLogSyncTimer = metricRegistry.getRaftLogSyncTimer();
     this.raftLogQueueingTimer = metricRegistry.getRaftLogQueueTimer();
     this.raftLogEnqueueingDelayTimer = metricRegistry.getRaftLogEnqueueDelayTimer();
+
+    this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
   }
 
   void start(long latestIndex, File openSegmentFile) throws IOException {
@@ -207,8 +211,7 @@ class SegmentedRaftLogWorker implements Runnable {
     flushIndex.setUnconditionally(latestIndex, infoIndexChange);
     if (openSegmentFile != null) {
       Preconditions.assertTrue(openSegmentFile.exists());
-      out = new SegmentedRaftLogOutputStream(openSegmentFile, true, segmentMaxSize,
-          preallocatedSize, bufferSize);
+      allocateSegmentedRaftLogOutputStream(openSegmentFile, true);
     }
     workerThread.start();
   }
@@ -520,8 +523,7 @@ class SegmentedRaftLogWorker implements Runnable {
 
     @Override
     public void execute() throws IOException {
-      IOUtils.cleanup(LOG, out);
-      out = null;
+      freeSegmentedRaftLogOutputStream();
 
       File openFile = storage.getStorageDir().getOpenLogFile(startIndex);
       Preconditions.assertTrue(openFile.exists(),
@@ -570,9 +572,8 @@ class SegmentedRaftLogWorker implements Runnable {
       File openFile = storage.getStorageDir().getOpenLogFile(newStartIndex);
       Preconditions.assertTrue(!openFile.exists(), "open file %s exists for %s",
           openFile, name);
-      Preconditions.assertTrue(out == null && pendingFlushNum == 0);
-      out = new SegmentedRaftLogOutputStream(openFile, false, segmentMaxSize,
-          preallocatedSize, bufferSize);
+      Preconditions.assertTrue(pendingFlushNum == 0);
+      allocateSegmentedRaftLogOutputStream(openFile, false);
       Preconditions.assertTrue(openFile.exists(), "Failed to create file %s for %s",
           openFile.getAbsolutePath(), name);
       LOG.info("{}: created new log segment {}", name, openFile);
@@ -596,8 +597,7 @@ class SegmentedRaftLogWorker implements Runnable {
 
     @Override
     void execute() throws IOException {
-      IOUtils.cleanup(null, out);
-      out = null;
+      freeSegmentedRaftLogOutputStream();
       CompletableFuture<Void> stateMachineFuture = null;
       if (stateMachine != null) {
         stateMachineFuture = stateMachine.truncateStateMachineData(truncateIndex);
@@ -671,5 +671,17 @@ class SegmentedRaftLogWorker implements Runnable {
 
   long getFlushIndex() {
     return flushIndex.get();
+  }
+
+  private void freeSegmentedRaftLogOutputStream() {
+    IOUtils.cleanup(LOG, out);
+    out = null;
+    Preconditions.assertTrue(writeBuffer.position() == 0);
+  }
+
+  private void allocateSegmentedRaftLogOutputStream(File file, boolean append) throws IOException {
+    Preconditions.assertTrue(out == null && writeBuffer.position() == 0);
+    out = new SegmentedRaftLogOutputStream(file, append, segmentMaxSize,
+            preallocatedSize, writeBuffer);
   }
 }

@@ -51,6 +51,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -255,7 +256,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LOG.debug("Taking a snapshot with t:{}, i:{}, file:{}", termIndex.getTerm(),
         termIndex.getIndex(), snapshotFile);
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(snapshotFile, false,
-        segmentMaxSize, preallocatedSize, bufferSize)) {
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       for (final LogEntryProto entry : indexMap.values()) {
         if (entry.getIndex() > endIndex) {
           break;

@@ -52,6 +52,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -142,7 +143,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       final int size = (int) (range.end - range.start + 1);
       LogEntryProto[] entries = new LogEntryProto[size];
       try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
-          segmentMaxSize, preallocatedSize, bufferSize)) {
+          segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
         for (int i = 0; i < size; i++) {
           SimpleOperation m = new SimpleOperation("m" + (i + range.start));
           entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, i + range.start);

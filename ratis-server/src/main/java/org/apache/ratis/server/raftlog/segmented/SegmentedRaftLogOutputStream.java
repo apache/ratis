@@ -57,7 +57,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   private long preallocatedPos;
 
   public SegmentedRaftLogOutputStream(File file, boolean append, long segmentMaxSize,
-      long preallocatedSize, int bufferSize)
+      long preallocatedSize, ByteBuffer byteBuffer)
       throws IOException {
     this.file = file;
     this.checksum = new PureJavaCrc32C();
@@ -69,7 +69,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
       fc.position(fc.size());
       preallocatedPos = fc.size();
 
-      out = new BufferedWriteChannel(fc, bufferSize);
+      out = new BufferedWriteChannel(fc, byteBuffer);
       if (!append) {
         create();
       }
