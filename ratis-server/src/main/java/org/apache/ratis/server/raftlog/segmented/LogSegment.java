@@ -139,6 +139,13 @@ class LogSegment implements Comparable<Long> {
     });
     LOG.info("Successfully read {} entries from segment file {}", entryCount, file);
 
+    final int expectedEntryCount = Math.toIntExact(end - start + 1);
+    final boolean corrupted = entryCount != expectedEntryCount;
+    if (corrupted) {
+      LOG.warn("Segment file is corrupted: expected to have {} entries but only {} entries read successfully",
+          expectedEntryCount, entryCount);
+    }
+
     if (entryCount == 0) {
       // The segment does not have any entries, delete the file.
       FileUtils.deleteFile(file);
@@ -148,14 +155,29 @@ class LogSegment implements Comparable<Long> {
       FileUtils.truncateFile(file, segment.getTotalSize());
     }
 
-    Preconditions.assertTrue(start == segment.getStartIndex());
-    if (!segment.records.isEmpty()) {
-      Preconditions.assertTrue(start == segment.records.get(0).getTermIndex().getIndex());
-    }
-    if (!isOpen) {
-      Preconditions.assertTrue(segment.getEndIndex() == end);
+    try {
+      segment.assertSegment(start, entryCount, corrupted, end);
+    } catch (Exception e) {
+      throw new IllegalStateException("Failed to read segment file " + file, e);
     }
     return segment;
+  }
+
+  private void assertSegment(long expectedStart, int expectedEntryCount, boolean corrupted, long expectedEnd) {
+    Preconditions.assertSame(expectedStart, getStartIndex(), "Segment start index");
+    Preconditions.assertSame(expectedEntryCount, records.size(), "Number of records");
+
+    final long expectedLastIndex = expectedStart + expectedEntryCount - 1;
+    Preconditions.assertSame(expectedLastIndex, getEndIndex(), "Segment end index");
+
+    final LogRecord last = getLastRecord();
+    if (last != null) {
+      Preconditions.assertSame(expectedLastIndex, last.getTermIndex().getIndex(), "Index at the last record");
+      Preconditions.assertSame(expectedStart, records.get(0).getTermIndex().getIndex(), "Index at the first record");
+    }
+    if (!isOpen && !corrupted) {
+      Preconditions.assertSame(expectedEnd, expectedLastIndex, "End/last Index");
+    }
   }
 
   /**
@@ -192,7 +214,9 @@ class LogSegment implements Comparable<Long> {
 
   private volatile boolean isOpen;
   private long totalSize = SegmentedRaftLogFormat.getHeaderLength();
+  /** Segment start index, inclusive. */
   private final long startIndex;
+  /** Segment end index, inclusive. */
   private volatile long endIndex;
   private final RaftStorage storage;
   private RaftLogMetrics raftLogMetrics;
