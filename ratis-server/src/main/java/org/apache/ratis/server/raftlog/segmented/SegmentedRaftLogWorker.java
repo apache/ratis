@@ -588,20 +588,24 @@ class SegmentedRaftLogWorker implements Runnable {
   private class TruncateLog extends Task {
     private final TruncationSegments segments;
     private final long truncateIndex;
+    CompletableFuture<Void> stateMachineFuture = null;
 
     TruncateLog(TruncationSegments ts, long index) {
       this.segments = ts;
       this.truncateIndex = index;
-
+      if (stateMachine != null) {
+        // TruncateLog and WriteLog instance is created while taking a RaftLog write lock.
+        // StateMachine call is made inside the constructor so that it is lock
+        // protected. This is to make sure that stateMachine can determine which
+        // indexes to truncate as stateMachine calls would happen in the sequence
+        // of log operations.
+        stateMachineFuture = stateMachine.truncateStateMachineData(truncateIndex);
+      }
     }
 
     @Override
     void execute() throws IOException {
       freeSegmentedRaftLogOutputStream();
-      CompletableFuture<Void> stateMachineFuture = null;
-      if (stateMachine != null) {
-        stateMachineFuture = stateMachine.truncateStateMachineData(truncateIndex);
-      }
 
       if (segments.toTruncate != null) {
         File fileToTruncate = segments.toTruncate.isOpen ?

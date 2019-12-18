@@ -138,8 +138,11 @@ public interface StateMachine extends Closeable {
       throws IOException;
 
   /**
-   * Write asynchronously the state machine data to this state machine.
-   *
+   * Write asynchronously the state machine data to this state machine. The call
+   * to stateMachine is made with the RaftLog lock held. All the stateMachineData
+   * calls are sequential and in order of the corresponding log operations.
+   * The operation must be lightweight and should be used to determine the task
+   * to be performed. The task if heavy should be performed inside the CompletableFuture.
    * @return a future for the write task if the state machine data should be sync'ed;
    *         otherwise, return null.
    */
@@ -256,7 +259,11 @@ public interface StateMachine extends Closeable {
   /**
    * Truncates asynchronously the associated state machine data starting from the given log
    * index from the state machine. It will be a no op if the corresponding log entry does not
-   * have associated stateMachineData.
+   * have associated stateMachineData. The call to stateMachine is made with the RaftLog
+   * lock held. All the stateMachineData calls are sequential and in order of the
+   * corresponding log operations. The operation must be lightweight and should be used
+   * to determine the truncation task to be performed. The task if heavy should
+   * be performed inside the CompletableFuture.
    * @param index log Index starting from which the stateMachineData will be truncated.
    * @return a combined future for the remove task for all the log entries starting from
    *         given logIndex, null otherwise
