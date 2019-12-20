@@ -165,6 +165,7 @@ class SegmentedRaftLogWorker implements Runnable {
   private final long preallocatedSize;
   private final int bufferSize;
   private final RaftServerImpl server;
+  private int flushBatchSize;
 
   private final StateMachineDataPolicy stateMachineDataPolicy;
 
@@ -188,6 +189,7 @@ class SegmentedRaftLogWorker implements Runnable {
     this.preallocatedSize = RaftServerConfigKeys.Log.preallocatedSize(properties).getSize();
     this.bufferSize = RaftServerConfigKeys.Log.writeBufferSize(properties).getSizeInt();
     this.forceSyncNum = RaftServerConfigKeys.Log.forceSyncNum(properties);
+    this.flushBatchSize = 0;
 
     this.stateMachineDataPolicy = new StateMachineDataPolicy(properties);
 
@@ -196,7 +198,7 @@ class SegmentedRaftLogWorker implements Runnable {
     // Server Id can be null in unit tests
     metricRegistry.addDataQueueSizeGauge(queue);
     metricRegistry.addLogWorkerQueueSizeGauge(writeTasks.q);
-    metricRegistry.addFlushBatchSizeGauge(() -> (Gauge<Integer>) () -> pendingFlushNum);
+    metricRegistry.addFlushBatchSizeGauge(() -> (Gauge<Integer>) () -> flushBatchSize);
     this.logFlushTimer = metricRegistry.getFlushTimer();
     this.raftLogSyncTimer = metricRegistry.getRaftLogSyncTimer();
     this.raftLogQueueingTimer = metricRegistry.getRaftLogQueueTimer();
@@ -353,6 +355,7 @@ class SegmentedRaftLogWorker implements Runnable {
           stateMachineDataPolicy.getFromFuture(f, () -> this + "-flushStateMachineData");
         }
         final Timer.Context logSyncTimerContext = raftLogSyncTimer.time();
+        flushBatchSize = (int)(lastWrittenIndex - flushIndex.get());
         out.flush();
         logSyncTimerContext.stop();
         if (!stateMachineDataPolicy.isSync()) {
