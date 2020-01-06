@@ -509,8 +509,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final LeaderState leaderState = role.getLeaderStateNonNull();
       final PendingRequests.Permit permit = leaderState.tryAcquirePendingRequest(request.getMessage());
       if (permit == null) {
-        return JavaUtils.completeExceptionally(new ResourceUnavailableException(
+        cacheEntry.failWithException(new ResourceUnavailableException(
             getMemberId() + ": Failed to acquire a pending write request for " + request));
+        return cacheEntry.getReplyFuture();
       }
       try {
         state.appendLog(context);
@@ -529,8 +530,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // put the request into the pending queue
       pending = leaderState.addPendingRequest(permit, request, context);
       if (pending == null) {
-        return JavaUtils.completeExceptionally(new ResourceUnavailableException(
+        cacheEntry.failWithException(new ResourceUnavailableException(
             getMemberId() + ": Failed to add a pending write request for " + request));
+        return cacheEntry.getReplyFuture();
       }
       leaderState.notifySenders();
     }

@@ -215,6 +215,10 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
       return isClosed.compareAndSet(false, true);
     }
 
+    boolean isClosed() {
+      return isClosed.get();
+    }
+
     CompletableFuture<Void> processClientRequest(RaftClientRequest request, Consumer<RaftClientReply> replyHandler) {
       try {
         String errMsg = LOG.isDebugEnabled() ? "processClientRequest for " + request.toString() : "";
@@ -330,6 +334,11 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
 
     @Override
     void processClientRequest(RaftClientRequest r) {
+      if (isClosed()) {
+        final AlreadyClosedException exception = new AlreadyClosedException(getName() + ": the stream is closed");
+        responseError(exception, () -> "processClientRequest (stream already closed) for " + r);
+      }
+
       final RaftGroupId requestGroupId = r.getRaftGroupId();
       // use the group id in the first request as the group id of this observer
       final RaftGroupId updated = groupId.updateAndGet(g -> g != null ? g: requestGroupId);
