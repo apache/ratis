@@ -18,12 +18,15 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.RaftTestUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.concurrent.TimeoutException;
+
 public class TestResourceSemaphore extends BaseTest {
-  @Test(timeout = 1000)
-  public void testGroup() {
+  @Test(timeout = 5000)
+  public void testGroup() throws InterruptedException, TimeoutException {
     final ResourceSemaphore.Group g = new ResourceSemaphore.Group(3, 1);
 
     assertUsed(g, 0, 0);
@@ -47,6 +50,27 @@ public class TestResourceSemaphore extends BaseTest {
     g.release(0, 0);
     assertUsed(g, 0, 0);
 
+    g.acquire(1, 1);
+    assertUsed(g, 1, 1);
+    final Thread t = new Thread(acquire(g, 1, 1));
+    t.start();
+    RaftTestUtil.waitFor(() -> Thread.State.WAITING == t.getState(), 100, 1000);
+    assertUsed(g, 2, 1);
+
+    g.release(0, 1);
+    RaftTestUtil.waitFor(() -> Thread.State.TERMINATED == t.getState(), 100, 1000);
+    assertUsed(g, 2, 1);
+
+    final Thread t1 = new Thread(acquire(g, 1, 1));
+    t1.start();
+    RaftTestUtil.waitFor(() -> Thread.State.WAITING == t1.getState(), 100, 1000);
+    assertUsed(g, 3, 1);
+
+    t1.interrupt();
+    RaftTestUtil.waitFor(() -> Thread.State.TERMINATED == t1.getState(), 100, 1000);
+    assertUsed(g, 2, 1);
+    g.release(2, 1);
+
     testFailureCase("release over limit-0", () -> g.release(1, 0), IllegalStateException.class);
     testFailureCase("release over limit-1", () -> g.release(0, 1), IllegalStateException.class);
   }
@@ -61,5 +85,15 @@ public class TestResourceSemaphore extends BaseTest {
   static void assertAcquire(ResourceSemaphore.Group g, boolean expected, int... permits) {
     final boolean computed = g.tryAcquire(permits);
     Assert.assertEquals(expected, computed);
+  }
+
+  static Runnable acquire(ResourceSemaphore.Group g, int... permits) {
+    return () -> {
+      try {
+        g.acquire(permits);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    };
   }
 }

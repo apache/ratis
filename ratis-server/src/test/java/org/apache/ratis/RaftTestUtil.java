@@ -34,6 +34,7 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.thirdparty.com.google.common.base.Preconditions;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.CollectionUtils;
@@ -55,6 +56,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
@@ -62,6 +64,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 
 public interface RaftTestUtil {
@@ -118,6 +121,25 @@ public interface RaftTestUtil {
     cluster.killServer(leader.getId());
     return leader.getId();
   }
+
+  static void waitFor(Supplier<Boolean> check, int checkEveryMillis,
+      int waitForMillis) throws TimeoutException, InterruptedException {
+    Preconditions.checkNotNull(check);
+    Preconditions.checkArgument(waitForMillis >= checkEveryMillis);
+
+    long st = System.currentTimeMillis();
+    boolean result = check.get();
+
+    while (!result && (System.currentTimeMillis() - st < waitForMillis)) {
+      Thread.sleep(checkEveryMillis);
+      result = check.get();
+    }
+
+    if (!result) {
+      throw new TimeoutException("Timed out waiting for condition.");
+    }
+  }
+
 
   static boolean logEntriesContains(RaftLog log, SimpleMessage... expectedMessages) {
     return logEntriesContains(log, 0L, Long.MAX_VALUE, expectedMessages);

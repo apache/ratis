@@ -92,7 +92,7 @@ public class ResourceSemaphore extends Semaphore {
     private final List<ResourceSemaphore> resources;
 
     public Group(int... limits) {
-      Preconditions.assertTrue(limits.length > 1, () -> "limits.length = " + limits.length + " < 2");
+      Preconditions.assertTrue(limits.length >= 1, () -> "limits is empty");
       final List<ResourceSemaphore> list = new ArrayList<>(limits.length);
       for(int limit : limits) {
         list.add(new ResourceSemaphore(limit));
@@ -108,7 +108,7 @@ public class ResourceSemaphore extends Semaphore {
       return resources.get(i);
     }
 
-    protected boolean tryAcquire(int... permits) {
+    public boolean tryAcquire(int... permits) {
       Preconditions.assertTrue(permits.length == resources.size(),
           () -> "items.length = " + permits.length + " != resources.size() = " + resources.size());
       int i = 0;
@@ -127,6 +127,23 @@ public class ResourceSemaphore extends Semaphore {
         resources.get(i).release(permits[i]);
       }
       return false;
+    }
+
+    public void acquire(int... permits) throws InterruptedException {
+      Preconditions.assertTrue(permits.length == resources.size(),
+          () -> "items.length = " + permits.length + " != resources.size() = "
+              + resources.size());
+      int i = 0;
+      try {
+        for (; i < permits.length; i++) {
+          resources.get(i).acquire(permits[i]);
+        }
+      } catch (Throwable t) {
+        for (; --i >= 0;) {
+          resources.get(i).release(permits[i]);
+        }
+        throw t;
+      }
     }
 
     protected void release(int... permits) {
