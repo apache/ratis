@@ -1242,6 +1242,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final ClientId clientId = ClientId.valueOf(smLog.getClientId());
     final long callId = smLog.getCallId();
     final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(clientId, callId);
+    if (isLeader()) {
+      Preconditions.assertTrue(cacheEntry != null && !cacheEntry.isCompletedNormally(),
+              "retry cache entry should be pending: %s", cacheEntry);
+    }
     if (cacheEntry.isFailed()) {
       retryCache.refreshEntry(new RetryCache.CacheEntry(cacheEntry.getKey()));
     }

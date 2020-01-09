@@ -27,7 +27,6 @@ import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesti
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -167,8 +166,6 @@ public class RetryCache implements Closeable {
     } catch (ExecutionException e) {
       throw new IllegalStateException(e);
     }
-    Preconditions.assertTrue(entry != null && !entry.isCompletedNormally(),
-        "retry cache entry should be pending: %s", entry);
     return entry;
   }
 
