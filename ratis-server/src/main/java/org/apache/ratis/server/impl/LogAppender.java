@@ -546,7 +546,7 @@ public class LogAppender {
     return followerIndex < raftLog.getNextIndex();
   }
 
-  private boolean shouldHeartbeat() {
+  protected boolean shouldHeartbeat() {
     return getHeartbeatRemainingTime() <= 0;
   }
 

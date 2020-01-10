@@ -176,6 +176,7 @@ message AppendEntriesReplyProto {
   AppendResult result = 4;
   uint64 followerCommit = 5;
   uint64 matchIndex = 6;
+  bool isHearbeat = 7;
 }
 
 message InstallSnapshotRequestProto {

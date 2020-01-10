@@ -403,7 +403,7 @@ public interface ServerProtoUtils {
   static AppendEntriesReplyProto toAppendEntriesReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId, long term,
       long followerCommit, long nextIndex, AppendResult result, long callId,
-      long matchIndex) {
+      long matchIndex, boolean isHeartbeat) {
     RaftRpcReplyProto.Builder rpcReply = toRaftRpcReplyProtoBuilder(
         requestorId, replyId, result == AppendResult.SUCCESS)
         .setCallId(callId);
@@ -413,7 +413,9 @@ public interface ServerProtoUtils {
         .setNextIndex(nextIndex)
         .setMatchIndex(matchIndex)
         .setFollowerCommit(followerCommit)
-        .setResult(result).build();
+        .setResult(result)
+        .setIsHearbeat(isHeartbeat)
+        .build();
   }
 
   static AppendEntriesRequestProto toAppendEntriesRequestProto(

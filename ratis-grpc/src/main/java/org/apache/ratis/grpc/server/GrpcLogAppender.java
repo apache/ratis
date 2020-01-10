@@ -51,7 +51,7 @@ public class GrpcLogAppender extends LogAppender {
   public static final Logger LOG = LoggerFactory.getLogger(GrpcLogAppender.class);
 
   private final GrpcService rpcService;
-  private final Map<Long, AppendEntriesRequest> pendingRequests;
+  private final RequestMap pendingRequests = new RequestMap();
   private final int maxPendingRequestsNum;
   private long callId = 0;
   private volatile boolean firstResponseReceived = false;
@@ -73,7 +73,6 @@ public class GrpcLogAppender extends LogAppender {
     maxPendingRequestsNum = GrpcConfigKeys.Server.leaderOutstandingAppendsMax(
         server.getProxy().getProperties());
     requestTimeoutDuration = RaftServerConfigKeys.Rpc.requestTimeout(server.getProxy().getProperties());
-    pendingRequests = new ConcurrentHashMap<>();
     installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(
         server.getProxy().getProperties());
     grpcServerMetrics = new GrpcServerMetrics(server.getMemberId().toString());
@@ -116,7 +115,7 @@ public class GrpcLogAppender extends LogAppender {
             shouldAppendLog = false;
           }
         }
-        if (shouldAppendLog && !shouldWait()) {
+        if (shouldHeartbeat() || (shouldAppendLog && !shouldWait())) {
           // keep appending log entries or sending heartbeats
           appendLog();
         }
@@ -160,7 +159,7 @@ public class GrpcLogAppender extends LogAppender {
 
   /** @return true iff not received first response or queue is full. */
   private boolean shouldWait() {
-    final int size = pendingRequests.size();
+    final int size = pendingRequests.logRequestsSize();
     if (size == 0) {
       return false;
     }
@@ -182,7 +181,7 @@ public class GrpcLogAppender extends LogAppender {
       grpcServerMetrics.onRequestCreate();
       request = new AppendEntriesRequest(pending,
           grpcServerMetrics.getGrpcLogAppenderLatencyTimer(getFollowerId().toString()));
-      pendingRequests.put(request.getCallId(), request);
+      pendingRequests.put(request);
       increaseNextIndex(pending);
       if (appendLogRequestObserver == null) {
         appendLogRequestObserver = getClient().appendEntries(new AppendLogResponseHandler());
@@ -200,15 +199,16 @@ public class GrpcLogAppender extends LogAppender {
         server.getId(), null, proto);
     request.startRequestTimer();
     s.onNext(proto);
-    scheduler.onTimeout(requestTimeoutDuration, () -> timeoutAppendRequest(request.getCallId()), LOG,
-        () -> "Timeout check failed for append entry request: " + request);
+    scheduler.onTimeout(requestTimeoutDuration,
+        () -> timeoutAppendRequest(request.getCallId(), request.isHeartbeat()),
+        LOG, () -> "Timeout check failed for append entry request: " + request);
     follower.updateLastRpcSendTime();
   }
 
-  private void timeoutAppendRequest(long callId) {
-    final AppendEntriesRequest pending = pendingRequests.remove(callId);
+  private void timeoutAppendRequest(long cid, boolean heartbeat) {
+    final AppendEntriesRequest pending = pendingRequests.handleTimeout(cid, heartbeat);
     if (pending != null) {
-      LOG.warn("{}: appendEntries Timeout, request={}", this, pending);
+      LOG.warn("{}: {} appendEntries Timeout, request={}", this, heartbeat ? "HEARTBEAT" : "", pending);
       grpcServerMetrics.onRequestTimeout(getFollowerId().toString());
     }
   }
@@ -236,7 +236,7 @@ public class GrpcLogAppender extends LogAppender {
      */
     @Override
     public void onNext(AppendEntriesReplyProto reply) {
-      AppendEntriesRequest request = pendingRequests.remove(reply.getServerReply().getCallId());
+      AppendEntriesRequest request = pendingRequests.remove(reply);
       if (request != null) {
         request.stopRequestTimer(); // Update completion time
       }
@@ -298,7 +298,7 @@ public class GrpcLogAppender extends LogAppender {
       }
       GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
-      AppendEntriesRequest request = pendingRequests.remove(GrpcUtil.getCallId(t));
+      AppendEntriesRequest request = pendingRequests.remove(GrpcUtil.getCallId(t), GrpcUtil.isHeartbeat(t));
       resetClient(request);
     }
 
@@ -549,9 +549,47 @@ public class GrpcLogAppender extends LogAppender {
       timerContext.stop();
     }
 
+    boolean isHeartbeat() {
+      return entriesCount == 0;
+    }
+
     @Override
     public String toString() {
       return getClass().getSimpleName() + ":cid=" + callId + ",entriesCount=" + entriesCount + ",lastEntry=" + lastEntry;
+    }
+  }
+
+  static class RequestMap {
+    private final Map<Long, AppendEntriesRequest> logRequests = new ConcurrentHashMap<>();
+    private final Map<Long, AppendEntriesRequest> heartbeats = new ConcurrentHashMap<>();
+
+    int logRequestsSize() {
+      return logRequests.size();
+    }
+
+    void clear() {
+      logRequests.clear();
+      heartbeats.clear();
+    }
+
+    void put(AppendEntriesRequest request) {
+      if (request.isHeartbeat()) {
+        heartbeats.put(request.getCallId(), request);
+      } else {
+        logRequests.put(request.getCallId(), request);
+      }
+    }
+
+    AppendEntriesRequest remove(AppendEntriesReplyProto reply) {
+      return remove(reply.getServerReply().getCallId(), reply.getIsHearbeat());
+    }
+
+    AppendEntriesRequest remove(long cid, boolean isHeartbeat) {
+      return isHeartbeat ? heartbeats.remove(cid): logRequests.remove(cid);
+    }
+
+    public AppendEntriesRequest handleTimeout(long callId, boolean heartbeat) {
+      return heartbeat ? heartbeats.remove(callId) : logRequests.get(callId);
     }
   }
 }

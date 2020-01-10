@@ -915,7 +915,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             + previous + ", " + leaderCommit + ", " + initializing
             + ", commits" + ProtoUtils.toString(commitInfos)
             + ", entries: " + ServerProtoUtils.toString(entries));
-    final List<CompletableFuture<Long>> futures;
 
     final long currentTerm;
     final long followerCommit = state.getLog().getLastCommittedIndex();
@@ -927,7 +926,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
             leaderId, getMemberId(), currentTerm, followerCommit, state.getNextIndex(), NOT_LEADER, callId,
-            RaftLog.INVALID_LOG_INDEX);
+            RaftLog.INVALID_LOG_INDEX, isHeartbeat);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
               getMemberId(), leaderId, leaderTerm, state, ServerProtoUtils.toString(reply));
@@ -955,7 +954,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // back to leader so that the leader can update this follower's next index.
 
       AppendEntriesReplyProto inconsistencyReply = checkInconsistentAppendEntries(
-          leaderId, currentTerm, followerCommit, previous, callId, entries);
+          leaderId, currentTerm, followerCommit, previous, callId, isHeartbeat, entries);
       if (inconsistencyReply != null) {
         followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
         return CompletableFuture.completedFuture(inconsistencyReply);
@@ -964,7 +963,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       state.updateConfiguration(entries);
     }
 
-    futures = state.getLog().append(entries);
+    final List<CompletableFuture<Long>> futures = entries.length == 0 ? Collections.emptyList()
+        : state.getLog().append(entries);
     commitInfos.forEach(commitInfoCache::update);
 
     if (!isHeartbeat) {
@@ -978,9 +978,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         state.updateStatemachine(leaderCommit, currentTerm);
         final long n = isHeartbeat? state.getLog().getNextIndex(): entries[entries.length - 1].getIndex() + 1;
         final long matchIndex = entries.length != 0 ? entries[entries.length - 1].getIndex() :
-                previous != null ? previous.getIndex() : RaftLog.INVALID_LOG_INDEX;
+            RaftLog.INVALID_LOG_INDEX;
         reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getMemberId(), currentTerm,
-            state.getLog().getLastCommittedIndex(), n, SUCCESS, callId, matchIndex);
+            state.getLog().getLastCommittedIndex(), n, SUCCESS, callId, matchIndex,
+            isHeartbeat);
       }
       logAppendEntries(isHeartbeat, () ->
           getMemberId() + ": succeeded to handle AppendEntries. Reply: " + ServerProtoUtils.toString(reply));
@@ -990,7 +991,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   private AppendEntriesReplyProto checkInconsistentAppendEntries(RaftPeerId leaderId, long currentTerm,
-      long followerCommit, TermIndex previous, long callId, LogEntryProto... entries) {
+      long followerCommit, TermIndex previous, long callId, boolean isHeartbeat, LogEntryProto... entries) {
     final long replyNextIndex = checkInconsistentAppendEntries(previous, entries);
     if (replyNextIndex == -1) {
       return null;
@@ -998,7 +999,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
         leaderId, getMemberId(), currentTerm, followerCommit, replyNextIndex, INCONSISTENCY, callId,
-        RaftLog.INVALID_LOG_INDEX);
+        RaftLog.INVALID_LOG_INDEX, isHeartbeat);
     LOG.info("{}: inconsistency entries. Reply:{}", getMemberId(), ServerProtoUtils.toString(reply));
     return reply;
   }
