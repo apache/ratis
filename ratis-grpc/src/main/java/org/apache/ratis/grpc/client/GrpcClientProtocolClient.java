@@ -80,6 +80,7 @@ public class GrpcClientProtocolClient implements Closeable {
   private final ManagedChannel channel;
 
   private final TimeDuration requestTimeoutDuration;
+  private final TimeDuration watchRequestTimeoutDuration;
   private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
   private final RaftClientProtocolServiceBlockingStub blockingStub;
@@ -130,6 +131,8 @@ public class GrpcClientProtocolClient implements Closeable {
     asyncStub = RaftClientProtocolServiceGrpc.newStub(channel);
     adminBlockingStub = AdminProtocolServiceGrpc.newBlockingStub(channel);
     this.requestTimeoutDuration = RaftClientConfigKeys.Rpc.requestTimeout(properties);
+    this.watchRequestTimeoutDuration =
+        RaftClientConfigKeys.Rpc.watchRequestTimeout(properties);
   }
 
   String getName() {
@@ -316,8 +319,13 @@ public class GrpcClientProtocolClient implements Closeable {
         return f;
       }
 
-      scheduler.onTimeout(requestTimeoutDuration, () -> timeoutCheck(callId), LOG,
-          () -> "Timeout check failed for client request #" + callId);
+      if (request.getType().getTypeCase().equals(RaftClientRequestProto.TypeCase.WATCH)) {
+        scheduler.onTimeout(requestTimeoutDuration, () -> timeoutCheck(callId), LOG,
+            () -> "Timeout check failed for client request #" + callId);
+      } else {
+        scheduler.onTimeout(watchRequestTimeoutDuration, () -> timeoutCheck(callId), LOG,
+            () -> "Timeout check failed for client request #" + callId);
+      }
       return f;
     }
 
