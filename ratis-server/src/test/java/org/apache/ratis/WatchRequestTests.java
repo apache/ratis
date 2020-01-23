@@ -19,11 +19,15 @@ package org.apache.ratis;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.NotReplicatedException;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftRetryFailureException;
+import org.apache.ratis.protocol.TimeoutIOException;
+import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
@@ -47,6 +51,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
+import static org.junit.Assert.fail;
 
 public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -107,6 +113,24 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       }
     }
 
+    CompletableFuture<RaftClientReply> sendWatchRequest(long logIndex)
+        throws Exception {
+
+      try (final RaftClient watchClient =
+          cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId(),
+          RetryPolicies.retryUpToMaximumCountWithFixedSleep(5,
+          TimeDuration.valueOf(5, TimeUnit.SECONDS)))) {
+
+        CompletableFuture<RaftClientReply> reply =
+            watchClient.sendAsync(new RaftTestUtil.SimpleMessage("message"));
+        long writeIndex = reply.get().getLogIndex();
+        Assert.assertTrue(writeIndex > 0);
+        watchClient.sendWatchAsync(writeIndex, ReplicationLevel.MAJORITY_COMMITTED);
+        return watchClient.sendWatchAsync(logIndex, ReplicationLevel.MAJORITY);
+      }
+
+    }
+
     @Override
     public String toString() {
       return "numMessages=" + numMessages;
@@ -117,6 +141,19 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       throws Exception {
     try(final RaftClient client = cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId())) {
       final int[] numMessages = {1, 10, 20};
+      for(int n : numMessages) {
+        final TestParameters p = new TestParameters(n, client, cluster, LOG);
+        LOG.info("{}) {}, {}", n, p, cluster.printServers());
+        testCase.accept(p);
+      }
+    }
+  }
+
+  static void runSingleTest(CheckedConsumer<TestParameters, Exception> testCase,
+      MiniRaftCluster cluster, Logger LOG)
+      throws Exception {
+    try(final RaftClient client = cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId())) {
+      final int[] numMessages = {1};
       for(int n : numMessages) {
         final TestParameters p = new TestParameters(n, client, cluster, LOG);
         LOG.info("{}) {}, {}", n, p, cluster.printServers());
@@ -281,9 +318,9 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     futures.forEach(f -> {
       if (f.isDone()) {
         try {
-          Assert.fail("Done unexpectedly: " + f.get());
+          fail("Done unexpectedly: " + f.get());
         } catch(Exception e) {
-          Assert.fail("Done unexpectedly and failed to get: " + e);
+          fail("Done unexpectedly and failed to get: " + e);
         }
       }
     });
@@ -388,6 +425,45 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     LOG.info("unblock follower {}", blockedFollower.getId());
   }
 
+  @Test
+  public void testWatchRequestClientTimeout() throws Exception {
+    final RaftProperties p = getProperties();
+    RaftServerConfigKeys.Watch.setTimeout(p, TimeDuration.valueOf(100,
+        TimeUnit.SECONDS));
+    RaftClientConfigKeys.Rpc.setWatchRequestTimeout(p,
+        TimeDuration.valueOf(15, TimeUnit.SECONDS));
+    try {
+      runWithNewCluster(NUM_SERVERS,
+          cluster -> runSingleTest(WatchRequestTests::runTestWatchRequestClientTimeout, cluster, LOG));
+    } finally {
+      RaftServerConfigKeys.Watch.setTimeout(p, RaftServerConfigKeys.Watch.TIMEOUT_DEFAULT);
+      RaftClientConfigKeys.Rpc.setWatchRequestTimeout(p,
+          RaftClientConfigKeys.Rpc.WATCH_REQUEST_TIMEOUT_DEFAULT);
+    }
+  }
+
+  static void runTestWatchRequestClientTimeout(TestParameters p) throws Exception {
+    final Logger LOG = p.log;
+
+    CompletableFuture<RaftClientReply> watchReply;
+    watchReply = p.sendWatchRequest(1000);
+
+    try {
+      watchReply.get();
+      fail("runTestWatchRequestClientTimeout failed");
+    } catch (Exception ex) {
+      LOG.error("error occurred", ex);
+      Assert.assertEquals(RaftRetryFailureException.class,
+          ex.getCause().getClass());
+      if (ex.getCause() != null) {
+        if (ex.getCause().getCause() != null) {
+          Assert.assertEquals(TimeoutIOException.class,
+              ex.getCause().getCause().getClass());
+        }
+      }
+    }
+  }
+
   static void checkTimeout(List<CompletableFuture<RaftClientReply>> replies,
       List<CompletableFuture<WatchReplies>> watches, Logger LOG) throws Exception {
     for(int i = 0; i < replies.size(); i++) {
@@ -409,7 +485,7 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       CheckedSupplier<RaftClientReply, Exception> replySupplier) throws Exception {
     try {
       replySupplier.get();
-      Assert.fail();
+      fail();
     } catch (ExecutionException e) {
       final Throwable cause = e.getCause();
       assertNotReplicatedException(logIndex, replication, cause);

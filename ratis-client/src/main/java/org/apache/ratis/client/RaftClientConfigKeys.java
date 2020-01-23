@@ -48,6 +48,18 @@ public interface RaftClientConfigKeys {
     static void setRequestTimeout(RaftProperties properties, TimeDuration timeoutDuration) {
       setTimeDuration(properties::setTimeDuration, REQUEST_TIMEOUT_KEY, timeoutDuration);
     }
+
+    String WATCH_REQUEST_TIMEOUT_KEY = PREFIX + ".watch.request.timeout";
+    TimeDuration WATCH_REQUEST_TIMEOUT_DEFAULT =
+        TimeDuration.valueOf(10000, TimeUnit.MILLISECONDS);
+    static TimeDuration watchRequestTimeout(RaftProperties properties) {
+      return getTimeDuration(properties.getTimeDuration(WATCH_REQUEST_TIMEOUT_DEFAULT.getUnit()),
+          WATCH_REQUEST_TIMEOUT_KEY, WATCH_REQUEST_TIMEOUT_DEFAULT, getDefaultLog());
+    }
+    static void setWatchRequestTimeout(RaftProperties properties,
+        TimeDuration timeoutDuration) {
+      setTimeDuration(properties::setTimeDuration, WATCH_REQUEST_TIMEOUT_KEY, timeoutDuration);
+    }
   }
 
   interface Async {
