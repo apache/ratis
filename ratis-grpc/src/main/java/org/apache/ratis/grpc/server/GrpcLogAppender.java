@@ -76,6 +76,8 @@ public class GrpcLogAppender extends LogAppender {
     installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(
         server.getProxy().getProperties());
     grpcServerMetrics = new GrpcServerMetrics(server.getMemberId().toString());
+    grpcServerMetrics.addPendingRequestsCount(server.getMemberId().toString(),
+        () -> pendingRequests.logRequestsSize());
   }
 
   private GrpcServerProtocolClient getClient() throws IOException {

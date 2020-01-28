@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.server;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER;
+import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT;
 import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS_REQUESTS_TOTAL;
@@ -27,8 +28,10 @@ import static org.apache.ratis.grpc.metrics.GrpcServerMetrics.RATIS_GRPC_METRICS
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.util.SortedMap;
 import java.util.function.Consumer;
 
+import com.codahale.metrics.Gauge;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;
@@ -40,6 +43,7 @@ import org.apache.ratis.server.impl.ServerState;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 public class TestGrpcServerMetrics {
   private static GrpcServerMetrics grpcServerMetrics;
@@ -88,6 +92,28 @@ public class TestGrpcServerMetrics {
     Assert.assertEquals(0L, ratisMetricRegistry.counter(RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT).getCount());
     grpcServerMetrics.onRequestRetry();
     Assert.assertEquals(1L, ratisMetricRegistry.counter(RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT).getCount());
+  }
+
+  @Test
+  public void testGrpcLogPendingRequestCount() {
+    GrpcLogAppender.RequestMap pendingRequest = Mockito.mock(GrpcLogAppender.RequestMap.class);
+    when(pendingRequest.logRequestsSize()).thenReturn(0);
+    grpcServerMetrics.addPendingRequestsCount(raftPeerId.toString(),
+        () -> pendingRequest.logRequestsSize());
+    Assert.assertEquals(0, getGuageWithName(
+            String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT,
+                raftPeerId.toString())).getValue());
+    when(pendingRequest.logRequestsSize()).thenReturn(10);
+    Assert.assertEquals(10, getGuageWithName(
+            String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT,
+                raftPeerId.toString())).getValue());
+  }
+
+  private Gauge getGuageWithName(String gaugeName) {
+    SortedMap<String, Gauge> gaugeMap =
+        grpcServerMetrics.getRegistry().getGauges((s, metric) ->
+            s.contains(gaugeName));
+    return gaugeMap.get(gaugeMap.firstKey());
   }
 
   @Test

@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.metrics;
 
 import java.util.Optional;
 
+import com.codahale.metrics.Gauge;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
@@ -43,6 +44,9 @@ public class GrpcServerMetrics {
       "%s_inconsistency_reply_count";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT =
       "%s_append_entry_timeout_count";
+  public static final String RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT
+      = "%s_pending_log_requests_count";
+
   public static final String RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT = "num_retries";
   public static final String RATIS_GRPC_METRICS_REQUESTS_TOTAL = "num_requests";
   public static final String RATIS_GRPC_INSTALL_SNAPSHOT_COUNT = "num_install_snapshot";
@@ -81,6 +85,11 @@ public class GrpcServerMetrics {
 
   public void onRequestTimeout(String follower) {
     registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT, follower)).inc();
+  }
+
+  public void addPendingRequestsCount(String follower,
+      Gauge pendinglogQueueSize) {
+    registry.gauge(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT, follower), () -> pendinglogQueueSize);
   }
 
   public void onInstallSnapshot() {
