@@ -31,9 +31,9 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.LogAppender;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerMetrics;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.impl.ServerState;
-import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
@@ -142,8 +142,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     }
 
     RatisMetricRegistry ratisMetricRegistry =
-        RatisMetrics.getMetricRegistryForRaftServer(
-            leaderServer.getMemberId().toString());
+        RaftServerMetrics.getRaftServerMetrics(leaderServer).getRegistry();
 
     // Get all last_heartbeat_elapsed_time metric gauges. Should be equal to number of followers.
     SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
@@ -160,8 +159,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       assertTrue((long)metric.getValue() > 0);
       // Try to get Heartbeat metrics for follower.
       RatisMetricRegistry followerMetricsRegistry =
-          RatisMetrics.getMetricRegistryForRaftServer(
-              followerServer.getMemberId().toString());
+          RaftServerMetrics.getRaftServerMetrics(followerServer).getRegistry();
       // Metric should not exist. It only exists in leader.
       assertTrue(followerMetricsRegistry.getGauges((s, m) -> s.contains("last_heartbeat_elapsed_time")).isEmpty());
     }

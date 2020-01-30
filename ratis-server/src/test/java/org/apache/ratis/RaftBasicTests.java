@@ -18,18 +18,19 @@
 package org.apache.ratis;
 
 import com.codahale.metrics.Gauge;
+
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.impl.RaftClientTestUtil;
+import org.apache.ratis.metrics.MetricRegistries;
+import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.*;
-import org.apache.ratis.server.metrics.RatisMetricNames;
-import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.ExitUtils;
@@ -43,6 +44,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.SortedMap;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -56,6 +58,11 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
+import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS;
+import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS_DESC;
+import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_APPLIED_INDEX_GAUGE;
+import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_APPLY_COMPLETED_GAUGE;
+import static org.apache.ratis.server.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
 
 public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -442,9 +449,9 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       Assert.assertTrue(leader.isLeader());
 
       Gauge appliedIndexGauge = getStatemachineGaugeWithName(leader,
-          RatisMetricNames.STATEMACHINE_APPLIED_INDEX_GAUGE);
+          STATEMACHINE_APPLIED_INDEX_GAUGE);
       Gauge smAppliedIndexGauge = getStatemachineGaugeWithName(leader,
-          RatisMetricNames.STATEMACHINE_APPLY_COMPLETED_GAUGE);
+          STATEMACHINE_APPLY_COMPLETED_GAUGE);
 
       long appliedIndexBefore = (Long) appliedIndexGauge.getValue();
       long smAppliedIndexBefore = (Long) smAppliedIndexGauge.getValue();
@@ -491,9 +498,13 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   private static Gauge getStatemachineGaugeWithName(RaftServerImpl server,
       String gaugeName) {
 
-    RatisMetricRegistry ratisStateMachineMetricRegistry =
-        RatisMetrics.getMetricRegistryForStateMachine(
-            server.getMemberId().toString());
+    MetricRegistryInfo info = new MetricRegistryInfo(server.getMemberId().toString(),
+        RATIS_APPLICATION_NAME_METRICS,
+        RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC);
+
+    Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
+    Assert.assertTrue(metricRegistry.isPresent());
+    RatisMetricRegistry ratisStateMachineMetricRegistry = metricRegistry.get();
 
     SortedMap<String, Gauge> gaugeMap =
         ratisStateMachineMetricRegistry.getGauges((s, metric) ->

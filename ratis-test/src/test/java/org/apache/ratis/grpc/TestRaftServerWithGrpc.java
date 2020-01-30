@@ -17,10 +17,10 @@
  */
 package org.apache.ratis.grpc;
 
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_READ_REQUEST;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_STALE_READ_REQUEST;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_WATCH_REQUEST;
-import static org.apache.ratis.server.metrics.RatisMetricNames.RAFT_CLIENT_WRITE_REQUEST;
+import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_READ_REQUEST;
+import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_STALE_READ_REQUEST;
+import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_WATCH_REQUEST;
+import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_WRITE_REQUEST;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;

@@ -18,10 +18,8 @@
 
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.metrics.RatisMetricNames.STATEMACHINE_TAKE_SNAPSHOT_TIMER;
-
+import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
-import org.apache.ratis.server.metrics.RatisMetricNames;
 import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.RaftLogIndex;
 import org.apache.ratis.statemachine.StateMachine;
@@ -33,8 +31,14 @@ import com.codahale.metrics.Timer;
 /**
  * Metrics Registry for the State Machine Updater. One instance per group.
  */
-public final class StateMachineMetrics {
-  private RatisMetricRegistry registry = null;
+public final class StateMachineMetrics extends RatisMetrics {
+
+  public static final String RATIS_STATEMACHINE_METRICS = "state_machine";
+  public static final String RATIS_STATEMACHINE_METRICS_DESC = "Metrics for State Machine Updater";
+
+  public static final String STATEMACHINE_APPLIED_INDEX_GAUGE = "appliedIndex";
+  public static final String STATEMACHINE_APPLY_COMPLETED_GAUGE = "applyCompletedIndex";
+  public static final String STATEMACHINE_TAKE_SNAPSHOT_TIMER = "takeSnapshot";
 
   public static StateMachineMetrics getStateMachineMetrics(
       RaftServerImpl server, RaftLogIndex appliedIndex,
@@ -51,14 +55,18 @@ public final class StateMachineMetrics {
 
   private StateMachineMetrics(String serverId, LongSupplier getApplied,
       LongSupplier getApplyCompleted) {
-
-    registry = RatisMetrics.getMetricRegistryForStateMachine(serverId);
-    registry.gauge(RatisMetricNames.STATEMACHINE_APPLIED_INDEX_GAUGE,
+    registry = getMetricRegistryForStateMachine(serverId);
+    registry.gauge(STATEMACHINE_APPLIED_INDEX_GAUGE,
         () -> () -> getApplied.getAsLong());
-    registry.gauge(RatisMetricNames.STATEMACHINE_APPLY_COMPLETED_GAUGE,
+    registry.gauge(STATEMACHINE_APPLY_COMPLETED_GAUGE,
         () -> () -> getApplyCompleted.getAsLong());
   }
 
+  private RatisMetricRegistry getMetricRegistryForStateMachine(String serverId) {
+    return create(new MetricRegistryInfo(serverId,
+        RATIS_APPLICATION_NAME_METRICS,
+        RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC));
+  }
 
   public Timer getTakeSnapshotTimer() {
     return registry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER);

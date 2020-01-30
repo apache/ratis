@@ -17,8 +17,11 @@
  */
 package org.apache.ratis.statemachine;
 
-import static org.apache.ratis.server.metrics.RatisMetricNames.LOG_APPENDER_INSTALL_SNAPSHOT_METRIC;
-import static org.apache.ratis.server.metrics.RatisMetricNames.STATEMACHINE_TAKE_SNAPSHOT_TIMER;
+import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS;
+import static org.apache.ratis.server.impl.StateMachineMetrics.RATIS_STATEMACHINE_METRICS_DESC;
+import static org.apache.ratis.server.impl.StateMachineMetrics.STATEMACHINE_TAKE_SNAPSHOT_TIMER;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.LOG_APPENDER_INSTALL_SNAPSHOT_METRIC;
+import static org.apache.ratis.server.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
 
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
@@ -27,13 +30,14 @@ import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.MetricRegistries;
+import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
-import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
 import org.apache.ratis.server.storage.RaftStorageDirectory.LogPathAndIndex;
@@ -52,6 +56,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -241,7 +246,12 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   }
 
   private static void verifyTakeSnapshotMetric(RaftServerImpl leader) {
-    RatisMetricRegistry metricRegistry = RatisMetrics.getMetricRegistryForStateMachine(leader.getMemberId().toString());
+    MetricRegistryInfo info = new MetricRegistryInfo(leader.getMemberId().toString(),
+        RATIS_APPLICATION_NAME_METRICS,
+        RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC);
+    Optional<RatisMetricRegistry> opt = MetricRegistries.global().get(info);
+    Assert.assertTrue(opt.isPresent());
+    RatisMetricRegistry metricRegistry = opt.get();
     Assert.assertNotNull(metricRegistry);
     Timer timer = metricRegistry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER);
     Assert.assertTrue(timer.getCount() > 0);

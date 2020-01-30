@@ -17,9 +17,9 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.metrics.RatisMetricNames.FOLLOWER_MATCH_INDEX;
-import static org.apache.ratis.server.metrics.RatisMetricNames.FOLLOWER_NEXT_INDEX;
-import static org.apache.ratis.server.metrics.RatisMetricNames.FOLLOWER_RPC_RESP_TIME;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_MATCH_INDEX;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_NEXT_INDEX;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_RPC_RESP_TIME;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,7 +52,7 @@ public class TestLogAppenderMetrics {
     followerInfo = new TestFollowerInfo(raftGroupMemberId, raftPeer, Timestamp.currentTime(), 100L, true, 1000);
     when(logAppender.getFollower()).thenReturn(followerInfo);
     LogAppenderMetrics logAppenderMetrics = new LogAppenderMetrics(raftGroupMemberId);
-    ratisMetricRegistry = logAppenderMetrics.getRatisMetricRegistry();
+    ratisMetricRegistry = logAppenderMetrics.getRegistry();
     logAppenderMetrics.addFollowerGauges(followerInfo);
   }
 

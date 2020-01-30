@@ -123,6 +123,7 @@ class StateMachineUpdater implements Runnable {
     state = State.STOP;
     try {
       stateMachine.close();
+      stateMachineMetrics.unregister();
     } catch(Throwable t) {
       LOG.warn(name + ": Failed to close " + stateMachine.getClass().getSimpleName() + " " + stateMachine, t);
     }

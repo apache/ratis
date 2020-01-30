@@ -24,7 +24,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerConstants.StartupOption;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
-import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.server.storage.RaftStorageDirectory;
@@ -212,7 +211,7 @@ public class TestLogSegment extends BaseTest {
 
   @Test
   public void testAppendEntryMetric() throws Exception {
-    RaftLogMetrics raftLogMetrics = RatisMetrics.createMetricRegistryForLogWorker("test");
+    RaftLogMetrics raftLogMetrics = new RaftLogMetrics("test");
 
     final File openSegmentFile = prepareLog(true, 0, 100, 0, true);
     RaftStorage storage = new RaftStorage(storageDir, StartupOption.REGULAR);

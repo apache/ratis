@@ -24,7 +24,6 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
-import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
@@ -192,7 +191,7 @@ public class SegmentedRaftLog extends RaftLog {
   private final SegmentedRaftLogWorker fileLogWorker;
   private final long segmentMaxSize;
   private final boolean stateMachineCachingEnabled;
-  private final RaftLogMetrics metricRegistry;
+  private final RaftLogMetrics raftLogMetrics;
 
   public SegmentedRaftLog(RaftGroupMemberId memberId, RaftServerImpl server,
       RaftStorage storage, long lastIndexInSnapshot, RaftProperties properties) {
@@ -209,10 +208,10 @@ public class SegmentedRaftLog extends RaftLog {
     this.storage = storage;
     this.stateMachine = stateMachine;
     segmentMaxSize = RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
-    this.metricRegistry = RatisMetrics.createMetricRegistryForLogWorker(memberId.getPeerId().toString());
-    this.cache = new SegmentedRaftLogCache(memberId, storage, properties, metricRegistry);
+    this.raftLogMetrics = new RaftLogMetrics(memberId.getPeerId().toString());
+    this.cache = new SegmentedRaftLogCache(memberId, storage, properties, raftLogMetrics);
     this.fileLogWorker = new SegmentedRaftLogWorker(memberId, stateMachine,
-        submitUpdateCommitEvent, server, storage, properties, metricRegistry);
+        submitUpdateCommitEvent, server, storage, properties, raftLogMetrics);
     stateMachineCachingEnabled = RaftServerConfigKeys.Log.StateMachineData.cachingEnabled(properties);
   }
 
@@ -248,7 +247,7 @@ public class SegmentedRaftLog extends RaftLog {
         // so that during the initial loading we can apply part of the log
         // entries to the state machine
         boolean keepEntryInCache = (paths.size() - i++) <= cache.getMaxCachedSegments();
-        final Timer.Context loadSegmentContext = metricRegistry.getRaftLogLoadSegmentTimer().time();
+        final Timer.Context loadSegmentContext = raftLogMetrics.getRaftLogLoadSegmentTimer().time();
         cache.loadSegment(pi, keepEntryInCache, logConsumer);
         loadSegmentContext.stop();
       }
@@ -282,13 +281,13 @@ public class SegmentedRaftLog extends RaftLog {
       }
       final LogEntryProto entry = segment.getEntryFromCache(record.getTermIndex());
       if (entry != null) {
-        metricRegistry.onRaftLogCacheHit();
+        raftLogMetrics.onRaftLogCacheHit();
         return entry;
       }
     }
 
     // the entry is not in the segment's cache. Load the cache without holding the lock.
-    metricRegistry.onRaftLogCacheMiss();
+    raftLogMetrics.onRaftLogCacheMiss();
     checkAndEvictCache();
     return segment.loadCache(record);
   }
@@ -383,7 +382,7 @@ public class SegmentedRaftLog extends RaftLog {
 
   @Override
   protected CompletableFuture<Long> appendEntryImpl(LogEntryProto entry) {
-    final Timer.Context context = metricRegistry.getRaftLogAppendEntryTimer().time();
+    final Timer.Context context = raftLogMetrics.getRaftLogAppendEntryTimer().time();
     checkLogState();
     if (LOG.isTraceEnabled()) {
       LOG.trace("{}: appendEntry {}", getName(), ServerProtoUtils.toLogEntryString(entry));
@@ -508,6 +507,7 @@ public class SegmentedRaftLog extends RaftLog {
     }
     fileLogWorker.close();
     storage.close();
+    raftLogMetrics.unregister();
   }
 
   SegmentedRaftLogCache getRaftLogCache() {

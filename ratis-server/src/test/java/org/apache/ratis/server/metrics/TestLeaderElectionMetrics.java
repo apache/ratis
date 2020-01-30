@@ -18,9 +18,9 @@
 
 package org.apache.ratis.server.metrics;
 
-import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_COUNT_METRIC;
-import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_LATENCY;
-import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_LATENCY;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -54,7 +54,7 @@ public class TestLeaderElectionMetrics {
     RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId.valueOf(raftPeerId, raftGroupId);
     when(raftServer.getMemberId()).thenReturn(raftGroupMemberId);
     leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(raftServer);
-    ratisMetricRegistry = RatisMetrics.getMetricRegistryForLeaderElection(raftServer.getMemberId().toString());
+    ratisMetricRegistry = leaderElectionMetrics.getRegistry();
   }
 
   @Test

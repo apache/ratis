@@ -27,7 +27,6 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
-import org.apache.ratis.server.metrics.RatisMetrics;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogTestUtils;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -46,9 +45,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
-import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_COUNT_METRIC;
-import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_LATENCY;
-import static org.apache.ratis.server.metrics.RatisMetricNames.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_COUNT_METRIC;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_LATENCY;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -161,8 +160,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     cluster.start();
     RaftServerImpl leaderServer = waitForLeader(cluster);
 
-    RatisMetricRegistry ratisMetricRegistry = RatisMetrics.getMetricRegistryForLeaderElection(leaderServer
-        .getMemberId().toString());
+    RatisMetricRegistry ratisMetricRegistry = LeaderElectionMetrics.getLeaderElectionMetrics(leaderServer).getRegistry();
 
     // Verify each metric individually.
     long numLeaderElections = ratisMetricRegistry.counter(LEADER_ELECTION_COUNT_METRIC).getCount();
@@ -211,7 +209,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     when(server.isCandidate()).thenReturn(false);
     when(server.getMemberId()).thenReturn(RaftGroupMemberId.valueOf(RaftPeerId.valueOf("any"), RaftGroupId.randomId()));
     LeaderElectionMetrics leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(server);
-    when(server.getLeaderElectionMetricsRegistry()).thenReturn(leaderElectionMetrics);
+    when(server.getLeaderElectionMetrics()).thenReturn(leaderElectionMetrics);
     return server;
   }
 }

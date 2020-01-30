@@ -263,6 +263,7 @@ public class LeaderState {
       LOG.warn("{}: Caught exception in sendNotLeaderResponses", this, e);
     }
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
+    logAppenderMetrics.unregister();
   }
 
   void notifySenders() {

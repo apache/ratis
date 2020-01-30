@@ -17,8 +17,22 @@
  */
 package org.apache.ratis.server.raftlog;
 
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_APPEND_ENTRY_COUNT;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_APPEND_ENTRY_LATENCY;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_CACHE_HIT_COUNT;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_CACHE_MISS_COUNT;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_DATA_QUEUE_SIZE;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_FLUSH_COUNT;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_FLUSH_TIME;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_SYNC_BATCH_SIZE;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_SYNC_TIME;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_TASK_ENQUEUE_DELAY;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_TASK_EXECUTION_TIME;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_TASK_QUEUE_TIME;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_WORKER_QUEUE_SIZE;
+import static org.apache.ratis.server.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
+
 import com.codahale.metrics.Timer;
-import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
@@ -26,7 +40,7 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.metrics.RatisMetrics;
+import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.server.storage.RaftStorageTestUtils;
 import org.apache.ratis.statemachine.StateMachine;
@@ -42,8 +56,6 @@ import java.lang.management.ManagementFactory;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.apache.ratis.server.metrics.RatisMetricNames.*;
 
 public class TestRaftLogMetrics extends BaseTest
     implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
@@ -108,8 +120,8 @@ public class TestRaftLogMetrics extends BaseTest
 
   static void assertFlushCount(RaftServerImpl server) throws Exception {
     final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getId());
-    Timer tm = (Timer) RatisMetrics.getMetricRegistryForLogWorker(server.getId().toString())
-        .get(RAFT_LOG_FLUSH_TIME);
+    RatisMetricRegistry ratisMetricRegistry = new RaftLogMetrics((server.getId().toString())).getRegistry();
+    Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_FLUSH_TIME);
     Assert.assertNotNull(tm);
 
     final MetricsStateMachine stateMachine = MetricsStateMachine.get(server);
@@ -119,7 +131,7 @@ public class TestRaftLogMetrics extends BaseTest
     Assert.assertTrue(tm.getMeanRate() > 0);
 
     // Test jmx
-    ObjectName oname = new ObjectName("ratis_core", "name", flushTimeMetric);
+    ObjectName oname = new ObjectName(RATIS_APPLICATION_NAME_METRICS, "name", flushTimeMetric);
     Assert.assertEquals(expectedFlush,
         ((Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count"))
             .intValue());
@@ -127,7 +139,7 @@ public class TestRaftLogMetrics extends BaseTest
 
   static void assertRaftLogWritePathMetrics(RaftServerImpl server) throws Exception {
     final String syncTimeMetric = RaftStorageTestUtils.getRaftLogFullMetric(server.getId(), RAFT_LOG_SYNC_TIME);
-    RatisMetricRegistry ratisMetricRegistry = RatisMetrics.getMetricRegistryForLogWorker(server.getId().toString());
+    RatisMetricRegistry ratisMetricRegistry = new RaftLogMetrics((server.getId().toString())).getRegistry();
 
     //Test sync count
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_SYNC_TIME);
@@ -138,7 +150,7 @@ public class TestRaftLogMetrics extends BaseTest
     Assert.assertTrue(tm.getMeanRate() > 0);
 
     // Test jmx. Just testing one metric's JMX is good enough.
-    ObjectName oname = new ObjectName("ratis_core", "name", syncTimeMetric);
+    ObjectName oname = new ObjectName(RATIS_APPLICATION_NAME_METRICS, "name", syncTimeMetric);
     Assert.assertEquals(expectedFlush,
         ((Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count"))
             .intValue());
