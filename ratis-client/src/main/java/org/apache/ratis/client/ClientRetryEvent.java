@@ -45,6 +45,7 @@ public class ClientRetryEvent implements RetryPolicy.Event {
     return request;
   }
 
+  @Override
   public Throwable getCause() {
     return cause;
   }
