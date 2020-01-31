@@ -57,6 +57,7 @@
     <module>ratis-replicated-map</module>
     <module>ratis-logservice</module>
     <module>ratis-metrics</module>
+    <module>ratis-tools</module>
   </modules>
 
   <pluginRepositories>

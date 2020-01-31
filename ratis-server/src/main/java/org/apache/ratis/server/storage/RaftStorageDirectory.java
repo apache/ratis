@@ -18,6 +18,7 @@
 package org.apache.ratis.server.storage;
 
 import org.apache.ratis.server.impl.RaftServerConstants;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.AtomicFileOutputStream;
 import org.apache.ratis.util.FileUtils;
 import org.slf4j.Logger;
@@ -38,7 +39,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.nio.file.Files.newDirectoryStream;
-import static org.apache.ratis.server.impl.RaftServerConstants.INVALID_LOG_INDEX;
 
 public class RaftStorageDirectory {
   static final Logger LOG = LoggerFactory.getLogger(RaftStorageDirectory.class);
@@ -193,25 +193,32 @@ public class RaftStorageDirectory {
     try (DirectoryStream<Path> stream =
              Files.newDirectoryStream(getCurrentDir().toPath())) {
       for (Path path : stream) {
-        for (Pattern pattern : Arrays.asList(CLOSED_SEGMENT_REGEX, OPEN_SEGMENT_REGEX)) {
-          Matcher matcher = pattern.matcher(path.getFileName().toString());
-          if (matcher.matches()) {
-            if (pattern == OPEN_SEGMENT_REGEX && Files.size(path) == 0L) {
-              Files.delete(path);
-              LOG.info("Delete zero size file " + path);
-              break;
-            }
-            final long startIndex = Long.parseLong(matcher.group(1));
-            final long endIndex = matcher.groupCount() == 2 ?
-                Long.parseLong(matcher.group(2)) : INVALID_LOG_INDEX;
-            list.add(new LogPathAndIndex(path, startIndex, endIndex));
-            break;
-          }
+        LogPathAndIndex lpi = processOnePath(path);
+        if (lpi != null) {
+          list.add(lpi);
         }
       }
     }
     list.sort(Comparator.comparingLong(o -> o.startIndex));
     return list;
+  }
+
+  public static LogPathAndIndex processOnePath(Path path) throws IOException {
+    for (Pattern pattern : Arrays.asList(CLOSED_SEGMENT_REGEX, OPEN_SEGMENT_REGEX)) {
+      Matcher matcher = pattern.matcher(path.getFileName().toString());
+      if (matcher.matches()) {
+        if (pattern == OPEN_SEGMENT_REGEX && Files.size(path) == 0L) {
+          Files.delete(path);
+          LOG.info("Delete zero size file " + path);
+          return null;
+        }
+        final long startIndex = Long.parseLong(matcher.group(1));
+        final long endIndex = matcher.groupCount() == 2 ?
+            Long.parseLong(matcher.group(2)) : RaftLog.INVALID_LOG_INDEX;
+        return new LogPathAndIndex(path, startIndex, endIndex);
+      }
+    }
+    return null;
   }
 
   /**

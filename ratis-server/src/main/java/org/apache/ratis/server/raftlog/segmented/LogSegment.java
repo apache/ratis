@@ -50,7 +50,7 @@ import java.util.function.Consumer;
  *
  * This class will be protected by the {@link SegmentedRaftLog}'s read-write lock.
  */
-class LogSegment implements Comparable<Long> {
+public class LogSegment implements Comparable<Long> {
   static final Logger LOG = LoggerFactory.getLogger(LogSegment.class);
 
   static long getEntrySize(LogEntryProto entry) {
@@ -89,7 +89,7 @@ class LogSegment implements Comparable<Long> {
     return new LogSegment(storage, false, start, end, raftLogMetrics);
   }
 
-  private static int readSegmentFile(File file, long start, long end,
+  public static int readSegmentFile(File file, long start, long end,
       boolean isOpen, CorruptionPolicy corruptionPolicy,
       RaftLogMetrics raftLogMetrics, Consumer<LogEntryProto> entryConsumer) throws
       IOException {

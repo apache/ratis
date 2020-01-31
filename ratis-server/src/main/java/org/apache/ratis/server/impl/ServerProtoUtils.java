@@ -26,7 +26,6 @@ import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
@@ -35,6 +34,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
@@ -69,26 +69,31 @@ public interface ServerProtoUtils {
     return toLogEntryString(entry, null);
   }
 
-  static String toStateMachineLogEntryString(StateMachineLogEntryProto smLog, StateMachine stateMachine) {
-    if (stateMachine != null) {
-      return stateMachine.toStateMachineLogEntryString(smLog);
-    }
+  static String toStateMachineLogEntryString(StateMachineLogEntryProto smLog,
+                                             Function<StateMachineLogEntryProto, String> function) {
     final ByteString clientId = smLog.getClientId();
-    return (clientId.isEmpty() ? "<empty clientId>" : ClientId.valueOf(clientId)) + ", cid=" + smLog.getCallId();
+    String callIdString = (clientId.isEmpty() ? "<empty clientId>" : ClientId.valueOf(clientId))
+        + ", cid=" + smLog.getCallId();
+
+    String smString = "";
+    if (function != null) {
+      smString = "\n\t State Machine: " + function.apply(smLog);
+    }
+    return callIdString + smString;
   }
 
 
   static String toLogEntryString(LogEntryProto entry,
-                                 StateMachine stateMachine) {
+                                 Function<StateMachineLogEntryProto, String> function) {
     if (entry == null) {
       return null;
     }
     final String s;
     if (entry.hasStateMachineLogEntry()) {
-      s = ", " + toStateMachineLogEntryString(entry.getStateMachineLogEntry(), stateMachine);
+      s = ", " + toStateMachineLogEntryString(entry.getStateMachineLogEntry(), function);
     } else if (entry.hasMetadataEntry()) {
       final MetadataProto metadata = entry.getMetadataEntry();
-      s = "(c" + metadata.getCommitIndex() + ")";
+      s = "(c:" + metadata.getCommitIndex() + ")";
     } else {
       s = "";
     }

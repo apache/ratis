@@ -528,6 +528,6 @@ public class SegmentedRaftLog extends RaftLog {
 
   @Override
   public String toLogEntryString(LogEntryProto logEntry) {
-    return ServerProtoUtils.toLogEntryString(logEntry, stateMachine);
+    return ServerProtoUtils.toLogEntryString(logEntry, stateMachine::toStateMachineLogEntryString);
   }
 }
