@@ -59,12 +59,11 @@ class PendingRequests {
       return get(0).used();
     }
 
-    // TODO: add metrics
     int getByteSize() {
       return get(1).used();
     }
 
-    boolean tryAcquire(Message message) {
+    ResourceSemaphore.ResourceAcquireStatus tryAcquire(Message message) {
       return tryAcquire(1, Message.getSize(message));
     }
 
@@ -89,13 +88,19 @@ class PendingRequests {
       this.raftServerMetrics = raftServerMetrics;
 
       raftServerMetrics.addNumPendingRequestsGauge(resource::getElementCount);
+      raftServerMetrics.addNumPendingRequestsByteSize(resource::getByteSize);
     }
 
     Permit tryAcquire(Message message) {
-      final boolean acquired = resource.tryAcquire(message);
+      final ResourceSemaphore.ResourceAcquireStatus acquired = resource.tryAcquire(message);
       LOG.trace("tryAcquire? {}", acquired);
-      if (!acquired) {
+      if (acquired == ResourceSemaphore.ResourceAcquireStatus.FAILED_IN_ELEMENT_LIMIT) {
         raftServerMetrics.onRequestQueueLimitHit();
+        raftServerMetrics.onResourceLimitHit();
+        return null;
+      } else if (acquired == ResourceSemaphore.ResourceAcquireStatus.FAILED_IN_BYTE_SIZE_LIMIT) {
+        raftServerMetrics.onRequestByteSizeLimitHit();
+        raftServerMetrics.onResourceLimitHit();
         return null;
       }
       return putPermit();

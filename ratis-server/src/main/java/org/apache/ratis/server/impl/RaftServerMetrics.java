@@ -56,7 +56,11 @@ public final class RaftServerMetrics extends RatisMetrics {
   public static final String RAFT_CLIENT_WATCH_REQUEST = "clientWatch%sRequest";
   public static final String RETRY_REQUEST_CACHE_HIT_COUNTER = "numRetryCacheHits";
   public static final String REQUEST_QUEUE_LIMIT_HIT_COUNTER = "numRequestQueueLimitHits";
+  public static final String RESOURCE_LIMIT_HIT_COUNTER = "leaderNumResourceLimitHits";
+  public static final String REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER = "numRequestsByteSizeLimitHits";
   public static final String REQUEST_QUEUE_SIZE = "numPendingRequestInQueue";
+  public static final String REQUEST_BYTE_SIZE = "numPendingRequestByteSize";
+
 
   private Map<String, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
   private CommitInfoCache commitInfoCache;
@@ -188,5 +192,21 @@ public final class RaftServerMetrics extends RatisMetrics {
 
   void addNumPendingRequestsGauge(Gauge queueSize) {
     registry.gauge(REQUEST_QUEUE_SIZE, () -> queueSize);
+  }
+
+  void addNumPendingRequestsByteSize(Gauge byteSize) {
+    registry.gauge(REQUEST_BYTE_SIZE, () -> byteSize);
+  }
+
+  void onRequestByteSizeLimitHit() {
+    registry.counter(REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER).inc();
+  }
+
+  void onResourceLimitHit() {
+    registry.counter(RESOURCE_LIMIT_HIT_COUNTER).inc();
+  }
+
+  public RatisMetricRegistry getRegistry() {
+    return registry;
   }
 }
