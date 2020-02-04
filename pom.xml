@@ -260,6 +260,18 @@
        <scope>test</scope>
       </dependency>
       <dependency>
+        <artifactId>ratis-tools</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-tools</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
         <artifactId>ratis-grpc</artifactId>
         <groupId>org.apache.ratis</groupId>
         <version>${project.version}</version>
