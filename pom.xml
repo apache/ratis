@@ -33,6 +33,34 @@
   <url>https://ratis.apache.org/</url>
   <inceptionYear>2017</inceptionYear>
 
+  <distributionManagement>
+    <repository>
+      <id>${distMgmtStagingId}</id>
+      <name>${distMgmtStagingName}</name>
+      <url>${distMgmtStagingUrl}</url>
+    </repository>
+    <snapshotRepository>
+      <id>${distMgmtSnapshotsId}</id>
+      <name>${distMgmtSnapshotsName}</name>
+      <url>${distMgmtSnapshotsUrl}</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <repositories>
+    <repository>
+      <id>${distMgmtSnapshotsId}</id>
+      <name>${distMgmtSnapshotsName}</name>
+      <url>${distMgmtSnapshotsUrl}</url>
+    </repository>
+    <repository>
+      <id>repository.jboss.org</id>
+      <url>http://repository.jboss.org/nexus/content/groups/public/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
@@ -175,6 +203,13 @@
     <findbugs.version>3.0.0</findbugs.version>
     <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
     <wagon-ssh.version>1.0</wagon-ssh.version>
+
+    <distMgmtSnapshotsId>apache.snapshots.https</distMgmtSnapshotsId>
+    <distMgmtSnapshotsName>Apache Development Snapshot Repository</distMgmtSnapshotsName>
+    <distMgmtSnapshotsUrl>https://repository.apache.org/content/repositories/snapshots</distMgmtSnapshotsUrl>
+    <distMgmtStagingId>apache.staging.https</distMgmtStagingId>
+    <distMgmtStagingName>Apache Release Distribution Repository</distMgmtStagingName>
+    <distMgmtStagingUrl>https://repository.apache.org/service/local/staging/deploy/maven2</distMgmtStagingUrl>
 
     <shell-executable>bash</shell-executable>
 
