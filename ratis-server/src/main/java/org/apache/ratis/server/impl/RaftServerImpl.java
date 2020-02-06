@@ -1019,9 +1019,16 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final long firstEntryIndex = entries[0].getIndex();
       final long snapshotIndex = state.getSnapshotIndex();
       if (snapshotIndex > 0 && snapshotIndex >= firstEntryIndex) {
-        LOG.info("{}: Failed appendEntries as latest snapshot ({}) already has the append entries (first index: {})",
-            getMemberId(), snapshotIndex, firstEntryIndex);
+        LOG.info("{}: Failed appendEntries: the first entry (index {}) is already in snapshot (snapshot index: {})",
+            getMemberId(), firstEntryIndex, snapshotIndex);
         return snapshotIndex + 1;
+      }
+
+      final long commitIndex =  state.getLog().getLastCommittedIndex();
+      if (commitIndex > 0 && commitIndex >= firstEntryIndex) {
+        LOG.info("{}: Failed appendEntries: the first entry (index {}) is already committed (commit index: {})",
+            getMemberId(), firstEntryIndex, commitIndex);
+        return commitIndex + 1;
       }
     }
 
