@@ -339,7 +339,7 @@ public class LogSegment implements Comparable<Long> {
   /**
    * Remove records from the given index (inclusive)
    */
-  void truncate(long fromIndex) {
+  synchronized void truncate(long fromIndex) {
     Preconditions.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
     for (long index = endIndex; index >= fromIndex; index--) {
       LogRecord removed = records.remove(Math.toIntExact(index - startIndex));
@@ -368,18 +368,18 @@ public class LogSegment implements Comparable<Long> {
         (this.getEndIndex() < l ? -1 : 1);
   }
 
-  void clear() {
+  synchronized void clear() {
     records.clear();
     entryCache.clear();
     configEntries.clear();
     endIndex = startIndex - 1;
   }
 
-  public int getLoadingTimes() {
+  int getLoadingTimes() {
     return loadingTimes.get();
   }
 
-  void evictCache() {
+  synchronized void evictCache() {
     entryCache.clear();
   }
 
