@@ -246,6 +246,12 @@ enum RaftPeerRole {
 message WriteRequestTypeProto {
 }
 
+message StreamRequestTypeProto {
+  uint64 streamId = 1;  // the id of this stream
+  uint64 messageId = 2; // the message id within a particular stream.
+  bool close = 3;       // close the stream?
+}
+
 message ReadRequestTypeProto {
 }
 
@@ -268,6 +274,7 @@ message RaftClientRequestProto {
     ReadRequestTypeProto read = 4;
     StaleReadRequestTypeProto staleRead = 5;
     WatchRequestTypeProto watch = 6;
+    StreamRequestTypeProto stream = 7;
   }
 }
 

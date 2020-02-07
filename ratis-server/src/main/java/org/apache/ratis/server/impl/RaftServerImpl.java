@@ -559,12 +559,26 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
       // let the state machine handle read-only request from client
       final StateMachine stateMachine = getStateMachine();
-      if (request.is(RaftClientRequestProto.TypeCase.READ)) {
+      RaftClientRequest.Type type = request.getType();
+      if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
+        if (type.getStream().getClose()) {
+          final CompletableFuture<RaftClientRequest> f = streamCloseAsync(request);
+          if (f.isCompletedExceptionally()) {
+            return f.thenApply(r -> null);
+          }
+          request = f.join();
+          type = request.getType();
+        }
+      }
+
+      if (type.is(RaftClientRequestProto.TypeCase.READ)) {
         // TODO: We might not be the leader anymore by the time this completes.
         // See the RAFT paper section 8 (last part)
         replyFuture =  processQueryFuture(stateMachine.query(request.getMessage()), request);
-      } else if (request.is(RaftClientRequestProto.TypeCase.WATCH)) {
+      } else if (type.is(RaftClientRequestProto.TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
+      } else if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
+        replyFuture = streamAsync(request);
       } else {
         // query the retry cache
         RetryCache.CacheQueryResult previousResult = retryCache.queryCache(
@@ -619,6 +633,19 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
           new RaftClientReply(request, new StateMachineException(getMemberId(), e), getCommitInfos()));
     }
     return processQueryFuture(getStateMachine().queryStale(request.getMessage(), minIndex), request);
+  }
+
+  private CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
+    return role.getLeaderState()
+        .map(ls -> ls.streamAsync(request))
+        .orElseGet(() -> CompletableFuture.completedFuture(
+            new RaftClientReply(request, generateNotLeaderException(), getCommitInfos())));
+  }
+
+  private CompletableFuture<RaftClientRequest> streamCloseAsync(RaftClientRequest request) {
+    return role.getLeaderState()
+        .map(ls -> ls.streamCloseAsync(request))
+        .orElse(null);
   }
 
   CompletableFuture<RaftClientReply> processQueryFuture(

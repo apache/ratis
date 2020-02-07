@@ -154,7 +154,7 @@ public final class OrderedAsync {
   }
 
   CompletableFuture<RaftClientReply> send(RaftClientRequest.Type type, Message message, RaftPeerId server) {
-    if (!type.is(TypeCase.WATCH)) {
+    if (!type.is(TypeCase.WATCH) && !type.is(TypeCase.STREAM)) {
       Objects.requireNonNull(message, "message == null");
     }
     try {

@@ -20,6 +20,7 @@ package org.apache.ratis.client.impl;
 import org.apache.ratis.client.ClientRetryEvent;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.client.api.StreamApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
@@ -85,6 +86,7 @@ final class RaftClientImpl implements RaftClient {
   private final TimeoutScheduler scheduler;
 
   private final Supplier<OrderedAsync> orderedAsync;
+  private final Supplier<StreamApi> streamApi;
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
@@ -101,6 +103,7 @@ final class RaftClientImpl implements RaftClient {
     clientRpc.addServers(peers);
 
     this.orderedAsync = JavaUtils.memoize(() -> OrderedAsync.newInstance(this, properties));
+    this.streamApi = JavaUtils.memoize(() -> StreamImpl.newInstance(this, properties));
   }
 
   @Override
@@ -121,6 +124,11 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
+  public StreamApi getStreamApi() {
+    return streamApi.get();
+  }
+
+  @Override
   public CompletableFuture<RaftClientReply> sendAsync(Message message) {
     return sendAsync(RaftClientRequest.writeRequestType(), message, null);
   }
@@ -138,6 +146,14 @@ final class RaftClientImpl implements RaftClient {
   @Override
   public CompletableFuture<RaftClientReply> sendWatchAsync(long index, ReplicationLevel replication) {
     return UnorderedAsync.send(RaftClientRequest.watchRequestType(index, replication), this);
+  }
+
+  CompletableFuture<RaftClientReply> streamAsync(long streamId, long messageId, Message message) {
+    return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, false), message, null);
+  }
+
+  CompletableFuture<RaftClientReply> streamCloseAsync(long streamId, long messageId) {
+    return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, true), null, null);
   }
 
   private CompletableFuture<RaftClientReply> sendAsync(

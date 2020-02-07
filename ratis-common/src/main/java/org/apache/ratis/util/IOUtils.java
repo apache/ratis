@@ -197,11 +197,15 @@ public interface IOUtils {
 
   static <T> T readObject(InputStream in, Class<T> clazz) {
     try(ObjectInputStream oin = new ObjectInputStream(in)) {
-      return clazz.cast(oin.readObject());
+      final Object obj = oin.readObject();
+      try {
+        return clazz.cast(obj);
+      } catch (ClassCastException e) {
+        throw new IllegalStateException("Failed to cast to " + clazz + ", object="
+            + (obj instanceof Throwable? StringUtils.stringifyException((Throwable) obj): obj), e);
+      }
     } catch (IOException | ClassNotFoundException e) {
       throw new IllegalStateException("Failed to read an object.", e);
-    } catch (ClassCastException e) {
-      throw new IllegalStateException("Failed to cast the object to " + clazz, e);
     }
   }
 }
