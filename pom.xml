@@ -54,7 +54,7 @@
     </repository>
     <repository>
       <id>repository.jboss.org</id>
-      <url>http://repository.jboss.org/nexus/content/groups/public/</url>
+      <url>https://repository.jboss.org/nexus/content/groups/public/</url>
       <snapshots>
         <enabled>false</enabled>
       </snapshots>
@@ -91,7 +91,7 @@
   <pluginRepositories>
     <pluginRepository>
       <id>apache.snapshots</id>
-      <url>http://repository.apache.org/snapshots/</url>
+      <url>https://repository.apache.org/snapshots/</url>
     </pluginRepository>
   </pluginRepositories>
 
