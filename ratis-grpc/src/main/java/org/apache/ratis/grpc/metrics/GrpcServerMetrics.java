@@ -59,20 +59,23 @@ public class GrpcServerMetrics {
     registry = metricRegistry.orElseGet(() -> MetricRegistries.global().create(info));
   }
 
-  public Timer getGrpcLogAppenderLatencyTimer(String follower) {
-    return registry.timer(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY, follower));
+  public Timer getGrpcLogAppenderLatencyTimer(String follower,
+      boolean isHeartbeat) {
+    return registry.timer(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + getHeartbeatSuffix(isHeartbeat),
+        follower));
   }
 
   public void onRequestRetry() {
     registry.counter(RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT).inc();
   }
 
-  public void onRequestCreate() {
-    registry.counter(RATIS_GRPC_METRICS_REQUESTS_TOTAL).inc();
+  public void onRequestCreate(boolean isHeartbeat) {
+    registry.counter(RATIS_GRPC_METRICS_REQUESTS_TOTAL + getHeartbeatSuffix(isHeartbeat)).inc();
   }
 
-  public void onRequestSuccess(String follower) {
-    registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS, follower)).inc();
+  public void onRequestSuccess(String follower, boolean isHearbeat) {
+    registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS + getHeartbeatSuffix(isHearbeat),
+        follower)).inc();
   }
 
   public void onRequestNotLeader(String follower) {
@@ -83,8 +86,9 @@ public class GrpcServerMetrics {
     registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY, follower)).inc();
   }
 
-  public void onRequestTimeout(String follower) {
-    registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT, follower)).inc();
+  public void onRequestTimeout(String follower, boolean isHeartbeat) {
+    registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT + getHeartbeatSuffix(isHeartbeat),
+        follower)).inc();
   }
 
   public void addPendingRequestsCount(String follower,
@@ -94,6 +98,10 @@ public class GrpcServerMetrics {
 
   public void onInstallSnapshot() {
     registry.counter(RATIS_GRPC_INSTALL_SNAPSHOT_COUNT).inc();
+  }
+
+  public static String getHeartbeatSuffix(boolean heartbeat) {
+    return heartbeat ? "_heartbeat" : "";
   }
 
   @VisibleForTesting

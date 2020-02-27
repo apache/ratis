@@ -50,6 +50,7 @@ public class TestGrpcServerMetrics {
   private static RatisMetricRegistry ratisMetricRegistry;
   private static RaftGroupId raftGroupId;
   private static RaftPeerId raftPeerId;
+  private static RaftPeerId followerId;
 
   @BeforeClass
   public static void setUp() throws Exception {
@@ -59,6 +60,7 @@ public class TestGrpcServerMetrics {
     when(serverStateMock.getLastLeaderElapsedTimeMs()).thenReturn(1000L);
     raftGroupId = RaftGroupId.randomId();
     raftPeerId = RaftPeerId.valueOf("TestId");
+    followerId = RaftPeerId.valueOf("FollowerId");
     RaftGroupMemberId raftGroupMemberId = RaftGroupMemberId.valueOf(raftPeerId, raftGroupId);
     when(raftServer.getMemberId()).thenReturn(raftGroupMemberId);
     grpcServerMetrics = new GrpcServerMetrics(raftGroupMemberId.toString());
@@ -67,24 +69,40 @@ public class TestGrpcServerMetrics {
 
   @Test
   public void testGrpcLogAppenderLatencyTimer() throws Exception {
-    RaftProtos.AppendEntriesRequestProto.Builder proto = RaftProtos.AppendEntriesRequestProto.newBuilder();
-    GrpcLogAppender.AppendEntriesRequest req =
-        new GrpcLogAppender.AppendEntriesRequest(proto.build(),
-            grpcServerMetrics.getGrpcLogAppenderLatencyTimer(raftPeerId.toString()));
-    Assert.assertEquals(0L, ratisMetricRegistry.timer(String.format(
-        RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY, raftPeerId.toString())).getSnapshot().getMax());
-    req.startRequestTimer();
-    Thread.sleep(1000L);
-    req.stopRequestTimer();
-    Assert.assertTrue(ratisMetricRegistry.timer(String.format(
-        RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY, raftPeerId.toString())).getSnapshot().getMax() > 1000L);
+    for (boolean heartbeat : new boolean[] { true, false }) {
+      RaftProtos.AppendEntriesRequestProto.Builder proto =
+          RaftProtos.AppendEntriesRequestProto.newBuilder();
+      if (!heartbeat) {
+        proto.addEntries(RaftProtos.LogEntryProto.newBuilder().build());
+      }
+      GrpcLogAppender.AppendEntriesRequest req =
+          new GrpcLogAppender.AppendEntriesRequest(proto.build(), followerId,
+              grpcServerMetrics);
+      Assert.assertEquals(0L, ratisMetricRegistry.timer(String.format(
+          RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + GrpcServerMetrics
+              .getHeartbeatSuffix(heartbeat), followerId.toString()))
+          .getSnapshot().getMax());
+      req.startRequestTimer();
+      Thread.sleep(1000L);
+      req.stopRequestTimer();
+      Assert.assertTrue(ratisMetricRegistry.timer(String.format(
+          RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + GrpcServerMetrics
+              .getHeartbeatSuffix(heartbeat), followerId.toString()))
+          .getSnapshot().getMax() > 1000L);
+    }
   }
 
   @Test
   public void testGrpcLogRequestTotal() {
-    Assert.assertEquals(0L, ratisMetricRegistry.counter(RATIS_GRPC_METRICS_REQUESTS_TOTAL).getCount());
-    grpcServerMetrics.onRequestCreate();
-    Assert.assertEquals(1L, ratisMetricRegistry.counter(RATIS_GRPC_METRICS_REQUESTS_TOTAL).getCount());
+    for (boolean heartbeat : new boolean[] { true, false }) {
+      long reqTotal = ratisMetricRegistry.counter(
+          RATIS_GRPC_METRICS_REQUESTS_TOTAL + GrpcServerMetrics
+              .getHeartbeatSuffix(heartbeat)).getCount();
+      grpcServerMetrics.onRequestCreate(heartbeat);
+      Assert.assertEquals(reqTotal + 1, ratisMetricRegistry.counter(
+          RATIS_GRPC_METRICS_REQUESTS_TOTAL + GrpcServerMetrics
+              .getHeartbeatSuffix(heartbeat)).getCount());
+    }
   }
 
   @Test
@@ -118,10 +136,18 @@ public class TestGrpcServerMetrics {
 
   @Test
   public void testGrpcLogAppenderRequestCounters() {
-    assertCounterIncremented(RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS, grpcServerMetrics::onRequestSuccess);
     assertCounterIncremented(RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER, grpcServerMetrics::onRequestNotLeader);
     assertCounterIncremented(RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY, grpcServerMetrics::onRequestInconsistency);
-    assertCounterIncremented(RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT, grpcServerMetrics::onRequestTimeout);
+
+    for (boolean heartbeat : new boolean[] { true, false }) {
+      assertCounterIncremented(RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS+ GrpcServerMetrics
+              .getHeartbeatSuffix(heartbeat),
+          follower -> grpcServerMetrics
+              .onRequestSuccess(follower, heartbeat));
+      assertCounterIncremented(RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT+ GrpcServerMetrics
+              .getHeartbeatSuffix(heartbeat),
+          follower -> grpcServerMetrics.onRequestTimeout(follower, heartbeat));
+    }
   }
 
   private void assertCounterIncremented(String counterVar, Consumer<String> incFunction) {

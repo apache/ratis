@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcUtil;
 import org.apache.ratis.grpc.metrics.GrpcServerMetrics;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.FollowerInfo;
 import org.apache.ratis.server.impl.LeaderState;
@@ -76,7 +77,7 @@ public class GrpcLogAppender extends LogAppender {
     installSnapshotEnabled = RaftServerConfigKeys.Log.Appender.installSnapshotEnabled(
         server.getProxy().getProperties());
     grpcServerMetrics = new GrpcServerMetrics(server.getMemberId().toString());
-    grpcServerMetrics.addPendingRequestsCount(server.getMemberId().toString(),
+    grpcServerMetrics.addPendingRequestsCount(getFollowerId().toString(),
         () -> pendingRequests.logRequestsSize());
   }
 
@@ -180,9 +181,7 @@ public class GrpcLogAppender extends LogAppender {
       if (pending == null) {
         return;
       }
-      grpcServerMetrics.onRequestCreate();
-      request = new AppendEntriesRequest(pending,
-          grpcServerMetrics.getGrpcLogAppenderLatencyTimer(getFollowerId().toString()));
+      request = new AppendEntriesRequest(pending, getFollowerId(), grpcServerMetrics);
       pendingRequests.put(request);
       increaseNextIndex(pending);
       if (appendLogRequestObserver == null) {
@@ -211,7 +210,7 @@ public class GrpcLogAppender extends LogAppender {
     final AppendEntriesRequest pending = pendingRequests.handleTimeout(cid, heartbeat);
     if (pending != null) {
       LOG.warn("{}: {} appendEntries Timeout, request={}", this, heartbeat ? "HEARTBEAT" : "", pending);
-      grpcServerMetrics.onRequestTimeout(getFollowerId().toString());
+      grpcServerMetrics.onRequestTimeout(getFollowerId().toString(), heartbeat);
     }
   }
 
@@ -267,7 +266,7 @@ public class GrpcLogAppender extends LogAppender {
 
       switch (reply.getResult()) {
         case SUCCESS:
-          grpcServerMetrics.onRequestSuccess(getFollowerId().toString());
+          grpcServerMetrics.onRequestSuccess(getFollowerId().toString(), reply.getIsHearbeat());
           updateCommitIndex(reply.getFollowerCommit());
           if (follower.updateMatchIndex(reply.getMatchIndex())) {
             submitEventOnSuccessAppend();
@@ -526,13 +525,14 @@ public class GrpcLogAppender extends LogAppender {
 
     private final TermIndex lastEntry;
 
-    AppendEntriesRequest(AppendEntriesRequestProto proto, Timer timer) {
+    AppendEntriesRequest(AppendEntriesRequestProto proto, RaftPeerId followerId, GrpcServerMetrics grpcServerMetrics) {
       this.callId = proto.getServerRequest().getCallId();
       this.previousLog = proto.hasPreviousLog()? ServerProtoUtils.toTermIndex(proto.getPreviousLog()): null;
       this.entriesCount = proto.getEntriesCount();
       this.lastEntry = entriesCount > 0? ServerProtoUtils.toTermIndex(proto.getEntries(entriesCount - 1)): null;
 
-      this.timer = timer;
+      this.timer = grpcServerMetrics.getGrpcLogAppenderLatencyTimer(followerId.toString(), isHeartbeat());
+      grpcServerMetrics.onRequestCreate(isHeartbeat());
     }
 
     long getCallId() {

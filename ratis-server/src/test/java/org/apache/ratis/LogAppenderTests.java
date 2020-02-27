@@ -158,10 +158,13 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       // Metric in nanos > 0.
       assertTrue((long)metric.getValue() > 0);
       // Try to get Heartbeat metrics for follower.
-      RatisMetricRegistry followerMetricsRegistry =
-          RaftServerMetrics.getRaftServerMetrics(followerServer).getRegistry();
+      RaftServerMetrics followerMetrics = RaftServerMetrics.getRaftServerMetrics(followerServer);
       // Metric should not exist. It only exists in leader.
-      assertTrue(followerMetricsRegistry.getGauges((s, m) -> s.contains("last_heartbeat_elapsed_time")).isEmpty());
+      assertTrue(followerMetrics.getRegistry().getGauges((s, m) -> s.contains("lastHeartbeatElapsedTime")).isEmpty());
+      for (boolean heartbeat : new boolean[] { true, false }) {
+        assertTrue(followerMetrics.getFollowerAppendEntryTimer(heartbeat).getMeanRate() > 0.0d);
+        assertTrue(followerMetrics.getFollowerAppendEntryTimer(heartbeat).getCount() > 0L);
+      }
     }
   }
 

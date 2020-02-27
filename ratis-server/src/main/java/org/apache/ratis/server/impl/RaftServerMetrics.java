@@ -156,8 +156,8 @@ public final class RaftServerMetrics extends RatisMetrics {
         elapsedTime);
   }
 
-  public Timer getFollowerAppendEntryTimer() {
-    return registry.timer(FOLLOWER_APPEND_ENTRIES_LATENCY);
+  public Timer getFollowerAppendEntryTimer(boolean isHeartbeat) {
+    return registry.timer(FOLLOWER_APPEND_ENTRIES_LATENCY + (isHeartbeat ? "_heartbeat" : ""));
   }
 
   public Timer getTimer(String timerName) {
