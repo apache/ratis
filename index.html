@@ -4,7 +4,7 @@
 <html>
 
 <head>
-	<meta name="generator" content="Hugo 0.54.0" />
+	<meta name="generator" content="Hugo 0.62.0" />
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -183,16 +183,8 @@
         <div class="row header">
             <h2>Latest news</h2>
             
-            <div class="panel-heading clearfix"><a class="pull-left" href="/post/0.3.0.html">Release 0.3.0 is available</a>
-                <small class="pull-right">2019 Apr 21 </small>
-            </div>
-            
-            <div class="panel-heading clearfix"><a class="pull-left" href="/post/0.2.0.html">Release 0.2.0 is available</a>
-                <small class="pull-right">2018 Jul 15 </small>
-            </div>
-            
-            <div class="panel-heading clearfix"><a class="pull-left" href="/post/0.1.0-alpha.html">Release 0.1.0-alpha is available</a>
-                <small class="pull-right">2017 May 2 </small>
+            <div class="panel-heading clearfix"><a class="pull-left" href="/post.html">Posts</a>
+                <small class="pull-right">2020 Feb 4 </small>
             </div>
             
         </div>
@@ -225,6 +217,24 @@
                 </thead>
                 
                 <tr>
+                    <td>0.5.0</td>
+                    <td>2020 Feb 4 </td>
+                    <td><a href="https://www.apache.org/dist/incubator/ratis/0.5.0/">
+                        https://www.apache.org/dist/incubator/ratis/0.5.0/</a>
+                    </td>
+                    <td><a href="post/0.5.0.html">Announcement</a></td>
+                </tr>
+                
+                <tr>
+                    <td>0.4.0</td>
+                    <td>2019 Sep 12 </td>
+                    <td><a href="https://www.apache.org/dist/incubator/ratis/0.4.0/">
+                        https://www.apache.org/dist/incubator/ratis/0.4.0/</a>
+                    </td>
+                    <td><a href="post/0.4.0.html">Announcement</a></td>
+                </tr>
+                
+                <tr>
                     <td>0.3.0</td>
                     <td>2019 Apr 21 </td>
                     <td><a href="https://www.apache.org/dist/incubator/ratis/0.3.0/">
@@ -240,15 +250,6 @@
                         https://www.apache.org/dist/incubator/ratis/0.2.0/</a>
                     </td>
                     <td><a href="post/0.2.0.html">Announcement</a></td>
-                </tr>
-                
-                <tr>
-                    <td>0.1.0-alpha</td>
-                    <td>2017 May 2 </td>
-                    <td><a href="https://www.apache.org/dist/incubator/ratis/0.1.0-alpha/">
-                        https://www.apache.org/dist/incubator/ratis/0.1.0-alpha/</a>
-                    </td>
-                    <td><a href="post/0.1.0-alpha.html">Announcement</a></td>
                 </tr>
                 
             </table>
@@ -270,66 +271,42 @@
         <div class="row header">
             
             <h2>Getting started</h2>
-            
-
-<!---
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-   http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. See accompanying LICENSE file.
--->
-
-<p>Ratis is a <a href="https://raft.github.io/">Raft</a> protocol <em>library</em> in Java. It&rsquo;s not a standalone server application like Zookeeper or Consul.</p>
-
+            <!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+<p>Ratis is a <a href="https://raft.github.io/%22">Raft</a> protocol <em>library</em> in Java. It's not a standalone server application like Zookeeper or Consul.</p>
 <h3 id="examples">Examples</h3>
-
 <p>To demonstrate how to use Ratis from the code, Please look at the following examples.</p>
-
 <ul>
-<li><p><a href="https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/arithmetic">Arithmetic example</a>: This is a simple distributed calculator that replicates the values defined and allows user to perform arithmetic operations on these replicated values.</p></li>
-
-<li><p><a href="https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/filestore">FileStore example</a>: This is an example of using Ratis for reading and writing files.</p></li>
+<li>
+<p><a href="https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/arithmetic">Arithmetic example</a>: This is a simple distributed calculator that replicates the values defined and allows user to perform arithmetic operations on these replicated values.</p>
+</li>
+<li>
+<p><a href="https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/filestore">FileStore example</a>: This is an example of using Ratis for reading and writing files.</p>
+</li>
 </ul>
-
-<!-- TODO: We should have the following as documentation in the github.  -->
-
+<!-- raw HTML omitted -->
 <p>The source code of the examples could be found in the
 <a href="https://github.com/apache/incubator-ratis/blob/master/ratis-examples/">ratis-examples</a> sub-project.</p>
-
 <h3 id="maven-usage">Maven usage</h3>
-
 <p>To use in our project you can access the latest binaries from maven central:</p>
-
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-server<span style="color:#f92672">&lt;/artifactId&gt;</span>
-   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency</span><span style="color:#f92672">&gt;</span>
+   <span style="color:#f92672">&lt;artifactId</span><span style="color:#f92672">&gt;</span>ratis-server<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId</span><span style="color:#f92672">&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
-
 <p>You also need to include <em>one</em> of the transports:</p>
-
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-grpc<span style="color:#f92672">&lt;/artifactId&gt;</span>
-   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency</span><span style="color:#f92672">&gt;</span>
+   <span style="color:#f92672">&lt;artifactId</span><span style="color:#f92672">&gt;</span>ratis-grpc<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId</span><span style="color:#f92672">&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
-
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"> <span style="color:#f92672">&lt;dependency&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-netty<span style="color:#f92672">&lt;/artifactId&gt;</span>
-   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"> <span style="color:#f92672">&lt;dependency</span><span style="color:#f92672">&gt;</span>
+   <span style="color:#f92672">&lt;artifactId</span><span style="color:#f92672">&gt;</span>ratis-netty<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId</span><span style="color:#f92672">&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
-
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-hadoop<span style="color:#f92672">&lt;/artifactId&gt;</span>
-   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency</span><span style="color:#f92672">&gt;</span>
+   <span style="color:#f92672">&lt;artifactId</span><span style="color:#f92672">&gt;</span>ratis-hadoop<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId</span><span style="color:#f92672">&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
-
-<p>Please note that Apache Hadoop dependencies are shaded, so it&rsquo;s safe to use hadoop transport with different versions of Hadoop.</p>
+<p>Please note that Apache Hadoop dependencies are shaded, so it's safe to use hadoop transport with different versions of Hadoop.</p>
 
             
         </div>
@@ -342,55 +319,29 @@
         <div class="row header">
             
             <h2>Community</h2>
-            
-
-<!---
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-   http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. See accompanying LICENSE file.
--->
-
+            <!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
 <h3 id="mailing-list">Mailing list</h3>
-
 <h4 id="developers">Developers</h4>
-
-<p>If you&rsquo;d like to contribute to Apache Ratis, please subscribe to the Ratis developer mailing list.</p>
-
+<p>If you'd like to contribute to Apache Ratis, please subscribe to the Ratis developer mailing list.</p>
 <p>The Ratis developer mailing list is: <a href="mailto:dev@ratis.incubator.apache.org">dev@ratis.incubator.apache.org</a>.</p>
-
 <ul>
-<li><a href="mailto: dev-subscribe@ratis.incubator.apache.org">Subscribe to List</a></li>
-<li><a href="mailto: dev-unsubscribe@ratis.incubator.apache.org">Unsubscribe from List</a></li>
+<li>[Subscribe to List](mailto: <a href="mailto:dev-subscribe@ratis.incubator.apache.org">dev-subscribe@ratis.incubator.apache.org</a>)</li>
+<li>[Unsubscribe from List](mailto: <a href="mailto:dev-unsubscribe@ratis.incubator.apache.org">dev-unsubscribe@ratis.incubator.apache.org</a>)</li>
 <li><a href="http://mail-archives.apache.org/mod_mbox/ratis-dev/">Archives</a></li>
 </ul>
-
 <h4 id="user">User</h4>
-
 <p>The user@ mailing list is the preferred mailing list for end-user
 questions and discussion.</p>
-
 <p>Please use  dev mailing list to address developers on a specific technical question.</p>
-
 <p>The Ratis user mailing list is: <a href="mailto:user@ratis.incubator.apache.org">user@ratis.incubator.apache.org</a>.</p>
-
 <ul>
-<li><a href="mailto: user-subscribe@ratis.incubator.apache.org">Subscribe to List</a></li>
-<li><a href="mailto: user-unsubscribe@ratis.incubator.apache.org">Unsubscribe from List</a></li>
+<li>[Subscribe to List](mailto: <a href="mailto:user-subscribe@ratis.incubator.apache.org">user-subscribe@ratis.incubator.apache.org</a>)</li>
+<li>[Unsubscribe from List](mailto: <a href="mailto:user-unsubscribe@ratis.incubator.apache.org">user-unsubscribe@ratis.incubator.apache.org</a>)</li>
 <li><a href="http://mail-archives.apache.org/mod_mbox/ratis-user/">Archives</a></li>
 </ul>
-
 <p>To post to the list, it is necessary to subscribe to it.</p>
-
 <h3 id="slack">Slack</h3>
-
 <p>There is also a slack instance for discussion at <a href="https://apacheratisdev.slack.com">https://apacheratisdev.slack.com</a>.
 Please write to the mailing list if you need an invite.</p>
 
@@ -405,22 +356,9 @@ Please write to the mailing list if you need an invite.</p>
         <div class="row header">
             
             <h2>Source</h2>
-            <!---
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-   http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. See accompanying LICENSE file.
--->
-
+            <!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
 <p>Source code is part of every release, you can download the source bundles from download section and build the project according to the included instructions.</p>
-
 <p>The versioned source code history is available from the <a href="https://gitbox.apache.org/repos/asf?p=incubator-ratis.git">Apache git</a> repository or
 from the <a href="https://github.com/apache/incubator-ratis">github mirror</a>. It is only for development and not intended for use by the general public.
 Only the source code from the released artifacts are checked by the Project Management Committee.</p>
@@ -461,7 +399,7 @@ Only the source code from the released artifacts are checked by the Project Mana
     <div class="container">
 
         <div class="col-md-12 trademark">
-            <p>&copy; 2019 <a href="http://apache.org">The Apache Software Foundation</a>,
+            <p>&copy; 2020 <a href="http://apache.org">The Apache Software Foundation</a>,
                 Apache, Apache Ratis, the Apache feather logo, Apache Ratis logo, Apache Incubator logo are trademarks of The Apache Software Foundation.
             <p>
         </div>

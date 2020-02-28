@@ -93,113 +93,71 @@
 
 <div class="container">
 <h1>Lifecycle</h1>
-
-
-<!---
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-   http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. See accompanying LICENSE file.
--->
-
+<!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
 <p>The LogService is a system which manages a collection of logs. Each
 of these logs has a defined state which allows certain operations on that
 log or corresponds to actions that the system is taking on that log.</p>
-
 <h3 id="open">OPEN</h3>
-
 <p>This is the first state for a Log which is created in the LogService. A
 Log which is OPEN can be read from or written to. This Log has a corresponding
 Raft Group (a quorum of servers) who are participating in the hosting of this
 Log.</p>
-
 <p>The only transition out from this state is to the CLOSED state.</p>
-
 <h3 id="closed">CLOSED</h3>
-
 <p>The CLOSED state indicates that a Log is no longer accepting writes. The
 Log is still available to be read from the Raft Group.</p>
-
 <p>A log can be transitioned from OPEN to CLOSED via the client API, but it
 can also be done automatically by the LogService. When a node which was
 participating in the Raft Group for this Log becomes unreachable, we consider
 this Group to be unhealthy and proactively close it to prevent any additional
 writes which may block due to too few nodes to accept a write.</p>
-
 <p>The transition from OPEN to CLOSED is one-way: a Log cannot transition back
 to the OPEN state from the CLOSED state. A CLOSED log may be deleted from the
 system.</p>
-
 <p>From the CLOSED state, a log can be transitioned to the ARCHIVING state or the DELETED
 state.</p>
-
 <h3 id="deleted">DELETED</h3>
-
 <p>This is a simple state that is short lived. It tracks the clean up
 of any state from the hosting this Log. There are no transitions out
 of this state.</p>
-
 <h3 id="archiving">ARCHIVING</h3>
-
 <p>The ARCHIVING state is reached by the archive API call from
 the LogService client. An archival of a log is equivalent to an export
 of that log from the beginning of the log file to a known location. See
 below for a tangent on exporting versus archiving.</p>
-
 <p>This state indicates that the LogService is in the process of copying all
 records in the Log from the starting offset of the archival request to the
 specified location (a user-provided location or a preconfigured location).
 We expect the location to be in some remote storage system such as HDFS or S3.</p>
-
 <p>The only transition out from this state is to ARCHIVED.</p>
-
 <h3 id="archived">ARCHIVED</h3>
-
 <p>A Log can only reach the ARCHIVED state from the ARCHIVING state. This state
 is automatically transitioned into when the archival of a log is done in
 its entirety.</p>
-
 <p>The action of archiving a log is an asynchronous process, managed by the leader
 of the Raft Group, thus watching for this state on a log indicates when the
 asynchronous archival is complete and the log can be safely read from the
 archived location.</p>
-
 <p>The only transition out from this state is to DELETED.</p>
-
 <h2 id="archive-and-export">Archive and Export</h2>
-
 <p>The archive and export API calls are very similar in nature but have
 important distinctions in their implementation. As mentioned above,
 an archival of a log is an export of the entire log to a specific location.</p>
-
 <p>An archival of a log is specification of export in that:</p>
-
 <ul>
 <li>An archival of a log requires it to be CLOSED.</li>
 <li>An archived log cannot receive new writes.</li>
 </ul>
-
 <p>An export of a log is more generic in that:</p>
-
 <ul>
 <li>A log does not need to be CLOSED to be exported.</li>
 <li>A log can be repeatedly exported (e.g. to multiple locations).</li>
 <li>More data can be appended to a log that was exported (but new data would not be reflected in the exported version of the log).</li>
 </ul>
-
 <h2 id="visualization">Visualization</h2>
-
-<p>To get a visual understanding of the log states, please see the image below:
-<p>
-  <img src="lifecycle.svg" alt="Graphviz view of the logstates"/>&ldquo;
-</p></p>
+<p>To get a visual understanding of the log states, please see the image below:</p>
+<!-- raw HTML omitted -->
 
 </div>
 
@@ -207,7 +165,7 @@ an archival of a log is an export of the entire log to a specific location.</p>
     <div class="container">
 
         <div class="col-md-12 trademark">
-            <p>&copy; 2019 <a href="http://apache.org">The Apache Software Foundation</a>,
+            <p>&copy; 2020 <a href="http://apache.org">The Apache Software Foundation</a>,
                 Apache, Apache Ratis, the Apache feather logo, Apache Ratis logo, Apache Incubator logo are trademarks of The Apache Software Foundation.
             <p>
         </div>

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Apache Ratis</title>
@@ -17,7 +17,7 @@
       
       <guid>https://ratis.incubator.apache.org/logservice/testing/docker.html</guid>
       <description>The Docker orchestration is comprised of the following:
- A Docker image which has the necessary software to run the LogService A docker-compose.yml file which can launch the necessary containers for a full-fledged LogService &amp;ldquo;cluster&amp;rdquo; Scripts to build the Docker image and launch a client environment to interact with a running cluster via Compose.  Building the Docker image $ mvn clean package assembly:single -DskipTests $ cd ratis-logservice &amp;amp;&amp;amp; .</description>
+ A Docker image which has the necessary software to run the LogService A docker-compose.yml file which can launch the necessary containers for a full-fledged LogService &amp;ldquo;cluster&amp;rdquo; Scripts to build the Docker image and launch a client environment to interact with a running cluster via Compose.  Building the Docker image $ mvn clean package assembly:single -DskipTests $ cd ratis-logservice &amp;amp;&amp;amp; ./build-docker.sh The above will create a Docker image tagged as ratis-logservice:latest.</description>
     </item>
     
     <item>
