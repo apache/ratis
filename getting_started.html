@@ -93,66 +93,42 @@
 
 <div class="container">
 <h1>Getting started</h1>
-
-
-<!---
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-   http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License. See accompanying LICENSE file.
--->
-
-<p>Ratis is a <a href="https://raft.github.io/">Raft</a> protocol <em>library</em> in Java. It&rsquo;s not a standalone server application like Zookeeper or Consul.</p>
-
+<!-- raw HTML omitted -->
+<!-- raw HTML omitted -->
+<p>Ratis is a <a href="https://raft.github.io/%22">Raft</a> protocol <em>library</em> in Java. It's not a standalone server application like Zookeeper or Consul.</p>
 <h3 id="examples">Examples</h3>
-
 <p>To demonstrate how to use Ratis from the code, Please look at the following examples.</p>
-
 <ul>
-<li><p><a href="https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/arithmetic">Arithmetic example</a>: This is a simple distributed calculator that replicates the values defined and allows user to perform arithmetic operations on these replicated values.</p></li>
-
-<li><p><a href="https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/filestore">FileStore example</a>: This is an example of using Ratis for reading and writing files.</p></li>
+<li>
+<p><a href="https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/arithmetic">Arithmetic example</a>: This is a simple distributed calculator that replicates the values defined and allows user to perform arithmetic operations on these replicated values.</p>
+</li>
+<li>
+<p><a href="https://github.com/apache/incubator-ratis/tree/master/ratis-examples/src/main/java/org/apache/ratis/examples/filestore">FileStore example</a>: This is an example of using Ratis for reading and writing files.</p>
+</li>
 </ul>
-
-<!-- TODO: We should have the following as documentation in the github.  -->
-
+<!-- raw HTML omitted -->
 <p>The source code of the examples could be found in the
 <a href="https://github.com/apache/incubator-ratis/blob/master/ratis-examples/">ratis-examples</a> sub-project.</p>
-
 <h3 id="maven-usage">Maven usage</h3>
-
 <p>To use in our project you can access the latest binaries from maven central:</p>
-
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-server<span style="color:#f92672">&lt;/artifactId&gt;</span>
-   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency</span><span style="color:#f92672">&gt;</span>
+   <span style="color:#f92672">&lt;artifactId</span><span style="color:#f92672">&gt;</span>ratis-server<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId</span><span style="color:#f92672">&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
-
 <p>You also need to include <em>one</em> of the transports:</p>
-
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-grpc<span style="color:#f92672">&lt;/artifactId&gt;</span>
-   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency</span><span style="color:#f92672">&gt;</span>
+   <span style="color:#f92672">&lt;artifactId</span><span style="color:#f92672">&gt;</span>ratis-grpc<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId</span><span style="color:#f92672">&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
-
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"> <span style="color:#f92672">&lt;dependency&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-netty<span style="color:#f92672">&lt;/artifactId&gt;</span>
-   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"> <span style="color:#f92672">&lt;dependency</span><span style="color:#f92672">&gt;</span>
+   <span style="color:#f92672">&lt;artifactId</span><span style="color:#f92672">&gt;</span>ratis-netty<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId</span><span style="color:#f92672">&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
-
-<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency&gt;</span>
-   <span style="color:#f92672">&lt;artifactId&gt;</span>ratis-hadoop<span style="color:#f92672">&lt;/artifactId&gt;</span>
-   <span style="color:#f92672">&lt;groupId&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-xml" data-lang="xml"><span style="color:#f92672">&lt;dependency</span><span style="color:#f92672">&gt;</span>
+   <span style="color:#f92672">&lt;artifactId</span><span style="color:#f92672">&gt;</span>ratis-hadoop<span style="color:#f92672">&lt;/artifactId&gt;</span>
+   <span style="color:#f92672">&lt;groupId</span><span style="color:#f92672">&gt;</span>org.apache.ratis<span style="color:#f92672">&lt;/groupId&gt;</span>
 <span style="color:#f92672">&lt;/dependency&gt;</span></code></pre></div>
-
-<p>Please note that Apache Hadoop dependencies are shaded, so it&rsquo;s safe to use hadoop transport with different versions of Hadoop.</p>
+<p>Please note that Apache Hadoop dependencies are shaded, so it's safe to use hadoop transport with different versions of Hadoop.</p>
 
 </div>
 
@@ -160,7 +136,7 @@
     <div class="container">
 
         <div class="col-md-12 trademark">
-            <p>&copy; 2019 <a href="http://apache.org">The Apache Software Foundation</a>,
+            <p>&copy; 2020 <a href="http://apache.org">The Apache Software Foundation</a>,
                 Apache, Apache Ratis, the Apache feather logo, Apache Ratis logo, Apache Incubator logo are trademarks of The Apache Software Foundation.
             <p>
         </div>

@@ -1,6 +1,26 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  
+  <url>
+    <loc>https://ratis.incubator.apache.org/</loc>
+    <lastmod>2020-02-04T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://ratis.incubator.apache.org/post.html</loc>
+    <lastmod>2020-02-04T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://ratis.incubator.apache.org/post/0.5.0.html</loc>
+    <lastmod>2020-02-04T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>https://ratis.incubator.apache.org/post/0.4.0.html</loc>
+    <lastmod>2019-09-12T00:00:00+00:00</lastmod>
+  </url>
   
   <url>
     <loc>https://ratis.incubator.apache.org/post/0.3.0.html</loc>
@@ -19,21 +39,16 @@
   
   <url>
     <loc>https://ratis.incubator.apache.org/logservice.html</loc>
+    <priority>0</priority>
   </url>
   
   <url>
     <loc>https://ratis.incubator.apache.org/logservice/testing.html</loc>
-  </url>
-  
-  <url>
-    <loc>https://ratis.incubator.apache.org/</loc>
-    <lastmod>2019-04-21T00:00:00+00:00</lastmod>
     <priority>0</priority>
   </url>
   
   <url>
     <loc>https://ratis.incubator.apache.org/categories.html</loc>
-    <priority>0</priority>
   </url>
   
   <url>
@@ -57,17 +72,11 @@
   </url>
   
   <url>
-    <loc>https://ratis.incubator.apache.org/logservice/security/</loc>
+    <loc>https://ratis.incubator.apache.org/logservice/security.html</loc>
   </url>
   
   <url>
     <loc>https://ratis.incubator.apache.org/logservice/testing/</loc>
-  </url>
-  
-  <url>
-    <loc>https://ratis.incubator.apache.org/post.html</loc>
-    <lastmod>2019-04-21T00:00:00+00:00</lastmod>
-    <priority>0</priority>
   </url>
   
   <url>
@@ -76,7 +85,6 @@
   
   <url>
     <loc>https://ratis.incubator.apache.org/tags.html</loc>
-    <priority>0</priority>
   </url>
   
   <url>
