@@ -19,8 +19,8 @@ package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedOutputStream;
-import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
+import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.PureJavaCrc32C;
 import org.apache.ratis.util.function.CheckedConsumer;
 import org.slf4j.Logger;
@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.zip.Checksum;
@@ -41,20 +40,18 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   private static final int BUFFER_SIZE = 1024 * 1024; // 1 MB
   static {
     fill = ByteBuffer.allocateDirect(BUFFER_SIZE);
-    fill.position(0);
     for (int i = 0; i < fill.capacity(); i++) {
       fill.put(SegmentedRaftLogFormat.getTerminator());
     }
+    fill.flip();
   }
 
-  private File file;
-  private FileChannel fc; // channel of the file stream for sync
-  private BufferedWriteChannel out; // buffered FileChannel for writing
+  private final File file;
+  private final BufferedWriteChannel out; // buffered FileChannel for writing
   private final Checksum checksum;
 
   private final long segmentMaxSize;
   private final long preallocatedSize;
-  private long preallocatedPos;
 
   public SegmentedRaftLogOutputStream(File file, boolean append, long segmentMaxSize,
       long preallocatedSize, ByteBuffer byteBuffer)
@@ -63,26 +60,13 @@ public class SegmentedRaftLogOutputStream implements Closeable {
     this.checksum = new PureJavaCrc32C();
     this.segmentMaxSize = segmentMaxSize;
     this.preallocatedSize = preallocatedSize;
-    RandomAccessFile rp = new RandomAccessFile(file, "rw");
-    try {
-      fc = rp.getChannel();
-      fc.position(fc.size());
-      preallocatedPos = fc.size();
+    this.out = BufferedWriteChannel.open(file, append, byteBuffer);
 
-      out = new BufferedWriteChannel(fc, byteBuffer);
-      if (!append) {
-        create();
-      }
-    } catch (IOException ioe) {
-      LOG.warn("Hit IOException while creating log segment " + file
-          + ", delete the partial file.");
-      // hit IOException, clean up the in-progress log file
-      try {
-        FileUtils.deleteFully(file);
-      } catch (IOException e) {
-        LOG.warn("Failed to delete the file " + file, e);
-      }
-      throw ioe;
+    if (!append) {
+      // write header
+      preallocateIfNecessary(SegmentedRaftLogFormat.getHeaderLength());
+      SegmentedRaftLogFormat.applyHeaderTo(CheckedConsumer.asCheckedFunction(out::write));
+      out.flush();
     }
   }
 
@@ -100,52 +84,27 @@ public class SegmentedRaftLogOutputStream implements Closeable {
    */
   public void write(LogEntryProto entry) throws IOException {
     final int serialized = entry.getSerializedSize();
-    final int bufferSize = CodedOutputStream.computeUInt32SizeNoTag(serialized)
-        + serialized;
+    final int proto = CodedOutputStream.computeUInt32SizeNoTag(serialized) + serialized;
+    final byte[] buf = new byte[proto + 4]; // proto and 4-byte checksum
+    preallocateIfNecessary(buf.length);
 
-    preallocateIfNecessary(bufferSize + 4);
-
-    byte[] buf = new byte[bufferSize];
     CodedOutputStream cout = CodedOutputStream.newInstance(buf);
     cout.writeUInt32NoTag(serialized);
     entry.writeTo(cout);
 
     checksum.reset();
-    checksum.update(buf, 0, buf.length);
-    final int sum = (int) checksum.getValue();
+    checksum.update(buf, 0, proto);
+    ByteBuffer.wrap(buf, proto, 4).putInt((int) checksum.getValue());
 
     out.write(buf);
-    writeInt(sum);
-  }
-
-  private void writeInt(int v) throws IOException {
-    out.write((v >>> 24) & 0xFF);
-    out.write((v >>> 16) & 0xFF);
-    out.write((v >>>  8) & 0xFF);
-    out.write((v) & 0xFF);
-  }
-
-  private void create() throws IOException {
-    fc.truncate(0);
-    fc.position(0);
-    preallocatedPos = 0;
-    preallocate(); // preallocate file
-
-    SegmentedRaftLogFormat.applyHeaderTo(CheckedConsumer.asCheckedFunction(out::write));
-    flush();
   }
 
   @Override
   public void close() throws IOException {
     try {
-      out.flush();
-      if (fc != null && fc.isOpen()) {
-        fc.truncate(fc.position());
-      }
+      flush();
     } finally {
-      IOUtils.cleanup(LOG, fc, out);
-      fc = null;
-      out = null;
+      IOUtils.cleanup(LOG, out);
     }
   }
 
@@ -154,31 +113,29 @@ public class SegmentedRaftLogOutputStream implements Closeable {
    * Collect sync metrics.
    */
   public void flush() throws IOException {
-    if (out == null) {
-      throw new IOException("Trying to use aborted output stream");
+    try {
+      out.flush();
+    } catch (IOException ioe) {
+      throw new IOException("Failed to flush " + this, ioe);
     }
-    out.flush();
   }
 
-  private void preallocate() throws IOException {
-    fill.position(0);
-    long targetSize = Math.min(segmentMaxSize - fc.size(), preallocatedSize);
-    int allocated = 0;
-    while (allocated < targetSize) {
-      int size = (int) Math.min(BUFFER_SIZE, targetSize - allocated);
-      ByteBuffer buffer = fill.slice();
-      buffer.limit(size);
-      IOUtils.writeFully(fc, buffer, preallocatedPos);
-      preallocatedPos += size;
-      allocated += size;
-    }
-    LOG.debug("Pre-allocated {} bytes for the log segment", allocated);
+  private static long actualPreallocateSize(long outstandingData, long remainingSpace, long preallocate) {
+    return outstandingData > remainingSpace? outstandingData
+        : outstandingData > preallocate? outstandingData
+        : Math.min(preallocate, remainingSpace);
+  }
+
+  private long preallocate(FileChannel fc, long outstanding) throws IOException {
+    final long actual = actualPreallocateSize(outstanding, segmentMaxSize - fc.size(), preallocatedSize);
+    Preconditions.assertTrue(actual >= outstanding);
+    final long allocated = IOUtils.preallocate(fc, actual, fill);
+    LOG.debug("Pre-allocated {} bytes for {}", allocated, this);
+    return allocated;
   }
 
   private void preallocateIfNecessary(int size) throws IOException {
-    if (out.position() + size > preallocatedPos) {
-      preallocate();
-    }
+    out.preallocateIfNecessary(size, this::preallocate);
   }
 
   @Override

@@ -510,8 +510,8 @@ class SegmentedRaftLogWorker implements Runnable {
 
     @Override
     public String toString() {
-      return super.toString() + ": " + ServerProtoUtils.
-          toLogEntryString(entry, stateMachine::toStateMachineLogEntryString);
+      return super.toString() + ": " + ServerProtoUtils.toLogEntryString(
+          entry, stateMachine == null? null: stateMachine::toStateMachineLogEntryString);
     }
   }
 
