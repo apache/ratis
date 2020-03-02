@@ -85,7 +85,7 @@ public final class TimeoutScheduler implements Closeable {
 
     private static ScheduledThreadPoolExecutor newExecutor() {
       LOG.debug("new ScheduledThreadPoolExecutor");
-      final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(0, (ThreadFactory) Daemon::new);
+      final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1, (ThreadFactory) Daemon::new);
       e.setRemoveOnCancelPolicy(true);
       return e;
     }
