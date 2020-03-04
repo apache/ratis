@@ -45,11 +45,11 @@ class BufferedWriteChannel implements Closeable {
     return new BufferedWriteChannel(fc, buffer);
   }
 
-  // The buffer used to write operations.
   private final FileChannel fileChannel;
   private final ByteBuffer writeBuffer;
+  private boolean forced = true;
 
-  private BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer) {
+  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer) {
     this.fileChannel = fileChannel;
     this.writeBuffer = byteBuffer;
   }
@@ -61,7 +61,7 @@ class BufferedWriteChannel implements Closeable {
       writeBuffer.put(b, offset, toPut);
       offset += toPut;
       if (writeBuffer.remaining() == 0) {
-        flushInternal();
+        flushBuffer();
       }
     }
   }
@@ -81,20 +81,21 @@ class BufferedWriteChannel implements Closeable {
    * @throws IOException if the write or sync operation fails.
    */
   void flush() throws IOException {
-    if (flushInternal()) {
+    flushBuffer();
+    if (!forced) {
       fileChannel.force(false);
+      forced = true;
     }
   }
 
   /**
-   * Write any data in the buffer to the file and advance the writeBufferPosition
-   * Callers are expected to synchronize appropriately
+   * Write any data in the buffer to the file.
    *
    * @throws IOException if the write fails.
    */
-  private boolean flushInternal() throws IOException {
+  private void flushBuffer() throws IOException {
     if (writeBuffer.position() == 0) {
-      return false; // nothing to flush
+      return; // nothing to flush
     }
 
     writeBuffer.flip();
@@ -102,7 +103,7 @@ class BufferedWriteChannel implements Closeable {
       fileChannel.write(writeBuffer);
     } while (writeBuffer.hasRemaining());
     writeBuffer.clear();
-    return true;
+    forced = false;
   }
 
   boolean isOpen() {
