@@ -67,6 +67,10 @@ public interface ConfUtils {
     };
   }
 
+  static BiConsumer<String, Long> requireMin(SizeInBytes min) {
+    return requireMin(min.getSize());
+  }
+
   static BiConsumer<String, Long> requireMin(long min) {
     return (key, value) -> {
       if (value < min) {

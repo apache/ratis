@@ -17,11 +17,14 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.api.MessageOutputStream;
 import org.apache.ratis.client.api.StreamApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
+import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,14 +60,35 @@ public final class StreamImpl implements StreamApi {
   }
 
   private final RaftClientImpl client;
+  private final SizeInBytes submessageSize;
   private final AtomicLong streamId = new AtomicLong();
 
   private StreamImpl(RaftClientImpl client, RaftProperties properties) {
     this.client = Objects.requireNonNull(client, "client == null");
+    this.submessageSize = RaftClientConfigKeys.Stream.submessageSize(properties);
   }
 
   @Override
   public MessageOutputStream stream() {
     return new MessageOutputStreamImpl(streamId.incrementAndGet());
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> streamAsync(Message message, SizeInBytes subSize) {
+    final int n = subSize.getSizeInt();
+    final MessageOutputStream out = stream();
+    final ByteString bytes = message.getContent();
+    for(int i = 0; i < bytes.size(); ) {
+      final int j = Math.min(i + n, bytes.size());
+      final ByteString sub = bytes.substring(i, j);
+      out.sendAsync(Message.valueOf(sub));
+      i = j;
+    }
+    return out.closeAsync();
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> streamAsync(Message message) {
+    return streamAsync(message, submessageSize);
   }
 }

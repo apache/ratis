@@ -20,14 +20,21 @@ package org.apache.ratis;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.api.MessageOutputStream;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.junit.Assert;
 import org.junit.Test;
+
+import java.nio.charset.StandardCharsets;
 
 public abstract class StreamApiTests<CLUSTER extends MiniRaftCluster> extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
@@ -38,13 +45,12 @@ public abstract class StreamApiTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   public static final int NUM_SERVERS = 3;
 
-  {
-    getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
-        SimpleStateMachine4Testing.class, StateMachine.class);
-  }
-
   @Test
   public void testStream() throws Exception {
+    final RaftProperties p = getProperties();
+    p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        SimpleStateMachine4Testing.class, StateMachine.class);
+
     runWithNewCluster(NUM_SERVERS, this::runTestStream);
   }
 
@@ -65,6 +71,48 @@ public abstract class StreamApiTests<CLUSTER extends MiniRaftCluster> extends Ba
     // check if all the parts are streamed as a single message.
     try(RaftClient client = cluster.createClient()) {
       final RaftClientReply reply = client.sendReadOnly(new SimpleMessage(key.toString()));
+      Assert.assertTrue(reply.isSuccess());
+    }
+  }
+
+  private static final SizeInBytes SUBMESSAGE_SIZE = SizeInBytes.ONE_KB;
+
+  @Test
+  public void testStreamAsync() throws Exception {
+    final RaftProperties p = getProperties();
+    RaftClientConfigKeys.Stream.setSubmessageSize(p, SUBMESSAGE_SIZE);
+    p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
+        SimpleStateMachine4Testing.class, StateMachine.class);
+
+    runWithNewCluster(NUM_SERVERS, this::runTestStreamAsync);
+    RaftClientConfigKeys.Stream.setSubmessageSize(p);
+  }
+
+  void runTestStreamAsync(CLUSTER cluster) throws Exception {
+    RaftTestUtil.waitForLeader(cluster);
+
+    ByteString bytes = ByteString.EMPTY;
+    for(int i = 0; i < 10; ) {
+      final String s = (char)('A' + i) + "1234567";
+      LOG.info("s=" + s);
+      final ByteString b = ByteString.copyFrom(s, StandardCharsets.UTF_8);
+      Assert.assertEquals(8, b.size());
+      for(int j = 0; j < 128; j++) {
+        bytes = bytes.concat(b);
+      }
+      i++;
+      Assert.assertEquals(i*SUBMESSAGE_SIZE.getSizeInt(), bytes.size());
+    }
+
+    try(RaftClient client = cluster.createClient()) {
+      final RaftClientReply reply = client.getStreamApi().streamAsync(Message.valueOf(bytes)).get();
+      Assert.assertTrue(reply.isSuccess());
+    }
+
+
+    // check if all the parts are streamed as a single message.
+    try(RaftClient client = cluster.createClient()) {
+      final RaftClientReply reply = client.sendReadOnly(new SimpleMessage(bytes.toString(StandardCharsets.UTF_8)));
       Assert.assertTrue(reply.isSuccess());
     }
   }

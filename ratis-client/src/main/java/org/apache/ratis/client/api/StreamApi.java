@@ -17,8 +17,13 @@
  */
 package org.apache.ratis.client.api;
 
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.CompletableFuture;
 
 /** A client who sends requests to a raft service. */
 public interface StreamApi {
@@ -26,4 +31,10 @@ public interface StreamApi {
 
   /** Create a stream to send a large message. */
   MessageOutputStream stream();
+
+  /** Send the given (large) message using a stream with the submessage size. */
+  CompletableFuture<RaftClientReply> streamAsync(Message message, SizeInBytes submessageSize);
+
+  /** Send the given message using a stream with submessage size specified in conf. */
+  CompletableFuture<RaftClientReply> streamAsync(Message message);
 }
