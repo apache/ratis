@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -56,7 +56,7 @@ public class TestRaftServerConfigKeys {
    * RaftServerConfigKeys and verifies it by reading directly from property.
    */
   @Test
-  public void testStorageDirsProperty() {
+  public void testStorageDirProperty() {
     final File testDir = new File(
         rootTestDir.get(), UUID.randomUUID().toString());
     final List<File> directories = new ArrayList<>();
@@ -64,7 +64,7 @@ public class TestRaftServerConfigKeys {
 
     IntStream.range(0, 10).mapToObj((i) -> new File(testDir,
         Integer.toString(i))).forEach(directories::add);
-    RaftServerConfigKeys.setStorageDirs(properties, directories);
+    RaftServerConfigKeys.setStorageDir(properties, directories);
 
     final String expected = directories.stream().map(File::getAbsolutePath)
         .collect(Collectors.joining(","));
@@ -77,16 +77,16 @@ public class TestRaftServerConfigKeys {
    * RaftServerConfigKeys and also verifies the same via RaftServerConfigKeys.
    */
   @Test
-  public void testStorageDirs() {
+  public void testStorageDir() {
     final File testDir = new File(
         rootTestDir.get(), UUID.randomUUID().toString());
     final List<File> directories = new ArrayList<>();
     IntStream.range(0, 10).mapToObj((i) -> new File(testDir,
         Integer.toString(i))).forEach(directories::add);
     RaftProperties properties = new RaftProperties();
-    RaftServerConfigKeys.setStorageDirs(properties, directories);
+    RaftServerConfigKeys.setStorageDir(properties, directories);
 
-    final List<File> storageDirs = RaftServerConfigKeys.storageDirs(properties);
+    final List<File> storageDirs = RaftServerConfigKeys.storageDir(properties);
     final List<String> expectedDirs = directories.stream()
         .map(File::getAbsolutePath).collect(Collectors.toList());
     final List<String> actualDirs = storageDirs.stream()

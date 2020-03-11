@@ -40,10 +40,13 @@ public interface GrpcConfigKeys {
   interface TLS {
     String PREFIX = GrpcConfigKeys.PREFIX + ".tls";
 
-    String TLS_ENABLED_KEY = PREFIX + ".enabled";
-    boolean TLS_ENABLED_DEFAULT = false;
-    static boolean tlsEnabled(RaftProperties properties) {
-      return getBoolean(properties::getBoolean, TLS_ENABLED_KEY, TLS_ENABLED_DEFAULT, getDefaultLog());
+    String ENABLED_KEY = PREFIX + ".enabled";
+    boolean ENABLED_DEFAULT = false;
+    static boolean enabled(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, ENABLED_KEY, ENABLED_DEFAULT, getDefaultLog());
+    }
+    static void setEnabled(RaftProperties properties, boolean enabled) {
+      setBoolean(properties::setBoolean, ENABLED_KEY, enabled);
     }
 
     String MUTUAL_AUTHN_ENABLED_KEY = PREFIX + ".mutual_authn.enabled";
@@ -52,28 +55,40 @@ public interface GrpcConfigKeys {
       return getBoolean(properties::getBoolean,
           MUTUAL_AUTHN_ENABLED_KEY, MUTUAL_AUTHN_ENABLED_DEFAULT, getDefaultLog());
     }
-
-    String PRIVATE_KEY_FILE_KEY = PREFIX + ".private.key.file.name";
-    String PRIVATE_KEY_FILE_DEFAULT = "private.pem";
-    static String getPrivateKeyFile(RaftProperties properties) {
-      return get(properties::get, PRIVATE_KEY_FILE_KEY, PRIVATE_KEY_FILE_DEFAULT, getDefaultLog());
+    static void setMutualAuthnEnabled(RaftProperties properties, boolean mutualAuthnEnabled) {
+      setBoolean(properties::setBoolean, MUTUAL_AUTHN_ENABLED_KEY, mutualAuthnEnabled);
     }
 
-    String CERT_CHAIN_FILE_KEY = PREFIX + ".cert.chain.file.name";
-    String CERT_CHAIN_FILE_DEFAULT = "certificate.crt";
-    static String getCertChainFile(RaftProperties properties) {
-      return get(properties::get, CERT_CHAIN_FILE_KEY, CERT_CHAIN_FILE_DEFAULT, getDefaultLog());
+    String PRIVATE_KEY_FILE_NAME_KEY = PREFIX + ".private.key.file.name";
+    String PRIVATE_KEY_FILE_NAME_DEFAULT = "private.pem";
+    static String privateKeyFileName(RaftProperties properties) {
+      return get(properties::get, PRIVATE_KEY_FILE_NAME_KEY, PRIVATE_KEY_FILE_NAME_DEFAULT, getDefaultLog());
+    }
+    static void setPrivateKeyFileName(RaftProperties properties, String privateKeyFileName) {
+      set(properties::set, PRIVATE_KEY_FILE_NAME_KEY, privateKeyFileName);
+    }
+
+    String CERT_CHAIN_FILE_NAME_KEY = PREFIX + ".cert.chain.file.name";
+    String CERT_CHAIN_FILE_NAME_DEFAULT = "certificate.crt";
+    static String certChainFileName(RaftProperties properties) {
+      return get(properties::get, CERT_CHAIN_FILE_NAME_KEY, CERT_CHAIN_FILE_NAME_DEFAULT, getDefaultLog());
+    }
+    static void setCertChainFileName(RaftProperties properties, String certChainFileName) {
+      set(properties::set, CERT_CHAIN_FILE_NAME_KEY, certChainFileName);
     }
 
     String TRUST_STORE_KEY = PREFIX + ".trust.store";
     String TRUST_STORE_DEFAULT = "ca.crt";
-    static String getTrustStore(RaftProperties properties) {
+    static String trustStore(RaftProperties properties) {
       return get(properties::get, TRUST_STORE_KEY, TRUST_STORE_DEFAULT, getDefaultLog());
+    }
+    static void setTrustStore(RaftProperties properties, String trustStore) {
+      set(properties::set, TRUST_STORE_KEY, trustStore);
     }
 
     String CONF_PARAMETER = PREFIX + ".conf";
     Class<GrpcTlsConfig> CONF_CLASS = GrpcTlsConfig.class;
-    static GrpcTlsConfig getConf(Parameters parameters) {
+    static GrpcTlsConfig conf(Parameters parameters) {
       return parameters != null ? parameters.get(CONF_PARAMETER, CONF_CLASS): null;
     }
     static void setConf(Parameters parameters, GrpcTlsConfig conf) {
@@ -82,11 +97,6 @@ public interface GrpcConfigKeys {
   }
 
   interface Server {
-    Logger LOG = LoggerFactory.getLogger(Server.class);
-    static Consumer<String> getDefaultLog() {
-      return LOG::info;
-    }
-
     String PREFIX = GrpcConfigKeys.PREFIX + ".server";
 
     String PORT_KEY = PREFIX + ".port";

@@ -60,7 +60,7 @@ public class Server extends SubCommandBase {
     final int port = NetUtils.createSocketAddr(getPeer(peerId).getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
-    RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(storageDir));
+    RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
     StateMachine stateMachine = new ArithmeticStateMachine();
 
     final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(getRaftGroupId())),

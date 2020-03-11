@@ -63,7 +63,7 @@ public class Server extends SubCommandBase {
     final int port = NetUtils.createSocketAddr(getPeer(peerId).getAddress()).getPort();
     GrpcConfigKeys.Server.setPort(properties, port);
     properties.setInt(GrpcConfigKeys.OutputStream.RETRY_TIMES_KEY, Integer.MAX_VALUE);
-    RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(storageDir));
+    RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(storageDir));
     ConfUtils.setFile(properties::setFile, FileStoreCommon.STATEMACHINE_DIR_KEY,
         storageDir);
     StateMachine stateMachine = new FileStoreStateMachine(properties);

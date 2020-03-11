@@ -66,14 +66,14 @@ public interface RaftClientConfigKeys {
   interface Async {
     String PREFIX = RaftClientConfigKeys.PREFIX + ".async";
 
-    String MAX_OUTSTANDING_REQUESTS_KEY = PREFIX + ".outstanding-requests.max";
-    int MAX_OUTSTANDING_REQUESTS_DEFAULT = 100;
-    static int maxOutstandingRequests(RaftProperties properties) {
-      return getInt(properties::getInt, MAX_OUTSTANDING_REQUESTS_KEY,
-          MAX_OUTSTANDING_REQUESTS_DEFAULT, getDefaultLog(), requireMin(2));
+    String OUTSTANDING_REQUESTS_MAX_KEY = PREFIX + ".outstanding-requests.max";
+    int OUTSTANDING_REQUESTS_MAX_DEFAULT = 100;
+    static int outstandingRequestsMax(RaftProperties properties) {
+      return getInt(properties::getInt, OUTSTANDING_REQUESTS_MAX_KEY,
+          OUTSTANDING_REQUESTS_MAX_DEFAULT, getDefaultLog(), requireMin(2));
     }
-    static void setMaxOutstandingRequests(RaftProperties properties, int outstandingRequests) {
-      setInt(properties::setInt, MAX_OUTSTANDING_REQUESTS_KEY, outstandingRequests);
+    static void setOutstandingRequestsMax(RaftProperties properties, int outstandingRequests) {
+      setInt(properties::setInt, OUTSTANDING_REQUESTS_MAX_KEY, outstandingRequests);
     }
 
     interface Experimental {

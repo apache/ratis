@@ -182,7 +182,7 @@ public class RaftServerProxy implements RaftServer {
     final Optional<RaftGroup> raftGroup = Optional.ofNullable(group);
     final Optional<RaftGroupId> raftGroupId = raftGroup.map(RaftGroup::getGroupId);
 
-    RaftServerConfigKeys.storageDirs(properties).parallelStream()
+    RaftServerConfigKeys.storageDir(properties).parallelStream()
         .forEach((dir) -> Optional.ofNullable(dir.listFiles())
             .map(Arrays::stream).orElse(Stream.empty())
             .filter(File::isDirectory)

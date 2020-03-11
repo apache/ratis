@@ -83,13 +83,13 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     RaftClient.Builder clientBuilder = RaftClient.newBuilder()
         .setRaftGroup(RaftGroup.emptyGroup())
         .setProperties(properties);
-    int maxOutstandingRequests = RaftClientConfigKeys.Async.MAX_OUTSTANDING_REQUESTS_DEFAULT;
+    int maxOutstandingRequests = RaftClientConfigKeys.Async.OUTSTANDING_REQUESTS_MAX_DEFAULT;
     try(RaftClient client = clientBuilder.build()) {
       RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
     }
 
     maxOutstandingRequests = 5;
-    RaftClientConfigKeys.Async.setMaxOutstandingRequests(properties, maxOutstandingRequests);
+    RaftClientConfigKeys.Async.setOutstandingRequestsMax(properties, maxOutstandingRequests);
     try(RaftClient client = clientBuilder.build()) {
       RaftClientTestUtil.assertAsyncRequestSemaphore(client, maxOutstandingRequests, 0);
     }
@@ -196,7 +196,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   void runTestAsyncRequestSemaphore(CLUSTER cluster) throws Exception {
     waitForLeader(cluster);
 
-    int numMessages = RaftClientConfigKeys.Async.maxOutstandingRequests(getProperties());
+    int numMessages = RaftClientConfigKeys.Async.outstandingRequestsMax(getProperties());
     CompletableFuture[] futures = new CompletableFuture[numMessages + 1];
     final SimpleMessage[] messages = SimpleMessage.create(numMessages);
     final RaftClient client = cluster.createClient();

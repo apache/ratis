@@ -59,11 +59,11 @@ public abstract class Client extends SubCommandBase {
     RaftServerConfigKeys.Log.setSegmentSizeMax(raftProperties,
         SizeInBytes.valueOf(1 * 1024 * 1024 * 1024));
 
-    RaftServerConfigKeys.Log.setMaxCachedSegmentNum(raftProperties, 2);
+    RaftServerConfigKeys.Log.setSegmentCacheNumMax(raftProperties, 2);
 
     RaftClientConfigKeys.Rpc.setRequestTimeout(raftProperties,
         TimeDuration.valueOf(50000, TimeUnit.MILLISECONDS));
-    RaftClientConfigKeys.Async.setMaxOutstandingRequests(raftProperties, 1000);
+    RaftClientConfigKeys.Async.setOutstandingRequestsMax(raftProperties, 1000);
 
 
     final RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.valueOf(ByteString.copyFromUtf8(getRaftGroupId())),

@@ -103,7 +103,7 @@ public class ServerState implements Closeable {
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
     // use full uuid string to create a subdirectory
-    final File dir = chooseStorageDir(RaftServerConfigKeys.storageDirs(prop),
+    final File dir = chooseStorageDir(RaftServerConfigKeys.storageDir(prop),
         group.getGroupId().getUuid().toString());
     storage = new RaftStorage(dir, RaftServerConstants.StartupOption.REGULAR,
         RaftServerConfigKeys.Log.corruptionPolicy(prop));

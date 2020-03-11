@@ -56,7 +56,7 @@ public class TestRaftLogReadWrite extends BaseTest {
   public void setup() throws Exception {
     storageDir = getTestDir();
     RaftProperties properties = new RaftProperties();
-    RaftServerConfigKeys.setStorageDirs(properties,  Collections.singletonList(storageDir));
+    RaftServerConfigKeys.setStorageDir(properties,  Collections.singletonList(storageDir));
     this.segmentMaxSize =
         RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
     this.preallocatedSize =

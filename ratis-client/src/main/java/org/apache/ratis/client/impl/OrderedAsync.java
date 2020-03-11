@@ -129,7 +129,7 @@ public final class OrderedAsync {
 
   private OrderedAsync(RaftClientImpl client, RaftProperties properties) {
     this.client = Objects.requireNonNull(client, "client == null");
-    this.requestSemaphore = new Semaphore(RaftClientConfigKeys.Async.maxOutstandingRequests(properties));
+    this.requestSemaphore = new Semaphore(RaftClientConfigKeys.Async.outstandingRequestsMax(properties));
   }
 
   private void resetSlidingWindow(RaftClientRequest request) {

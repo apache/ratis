@@ -58,6 +58,7 @@ import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Before;
@@ -192,12 +193,12 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
   public void testRaftServerMetrics() throws Exception {
     final RaftProperties p = getProperties();
     RaftServerConfigKeys.Write.setElementLimit(p, 10);
-    RaftServerConfigKeys.Write.setByteLimit(p, 110);
+    RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf(110));
     try {
       runWithNewCluster(3, this::testRequestMetrics);
     } finally {
       RaftServerConfigKeys.Write.setElementLimit(p, RaftServerConfigKeys.Write.ELEMENT_LIMIT_DEFAULT);
-      RaftServerConfigKeys.Write.setByteLimit(p, RaftServerConfigKeys.Write.BYTE_LIMIT_DEFAULT.getSizeInt());
+      RaftServerConfigKeys.Write.setByteLimit(p, RaftServerConfigKeys.Write.BYTE_LIMIT_DEFAULT);
     }
   }
 

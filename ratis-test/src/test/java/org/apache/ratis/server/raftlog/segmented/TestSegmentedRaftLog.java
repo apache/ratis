@@ -116,7 +116,7 @@ public class TestSegmentedRaftLog extends BaseTest {
   public void setup() throws Exception {
     storageDir = getTestDir();
     properties = new RaftProperties();
-    RaftServerConfigKeys.setStorageDirs(properties,  Collections.singletonList(storageDir));
+    RaftServerConfigKeys.setStorageDir(properties,  Collections.singletonList(storageDir));
     storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
     this.segmentMaxSize =
         RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();

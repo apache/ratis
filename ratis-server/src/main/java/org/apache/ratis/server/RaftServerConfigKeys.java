@@ -43,10 +43,10 @@ public interface RaftServerConfigKeys {
 
   String STORAGE_DIR_KEY = PREFIX + ".storage.dir";
   List<File> STORAGE_DIR_DEFAULT = Collections.singletonList(new File("/tmp/raft-server/"));
-  static List<File> storageDirs(RaftProperties properties) {
+  static List<File> storageDir(RaftProperties properties) {
     return getFiles(properties::getFiles, STORAGE_DIR_KEY, STORAGE_DIR_DEFAULT, getDefaultLog());
   }
-  static void setStorageDirs(RaftProperties properties, List<File> storageDir) {
+  static void setStorageDir(RaftProperties properties, List<File> storageDir) {
     setFiles(properties::setFiles, STORAGE_DIR_KEY, storageDir);
   }
 
@@ -95,8 +95,8 @@ public interface RaftServerConfigKeys {
       return getSizeInBytes(properties::getSizeInBytes,
           BYTE_LIMIT_KEY, BYTE_LIMIT_DEFAULT, getDefaultLog());
     }
-    static void setByteLimit(RaftProperties properties, int byteLimit) {
-      setInt(properties::setInt, BYTE_LIMIT_KEY, byteLimit, requireMin(1));
+    static void setByteLimit(RaftProperties properties, SizeInBytes byteLimit) {
+      setSizeInBytes(properties::set, BYTE_LIMIT_KEY, byteLimit, requireMin(1L));
     }
   }
 
@@ -188,14 +188,14 @@ public interface RaftServerConfigKeys {
     /**
      * Besides the open segment, the max number of segments caching log entries.
      */
-    String SEGMENT_CACHE_MAX_NUM_KEY = PREFIX + ".segment.cache.num.max";
-    int SEGMENT_CACHE_MAX_NUM_DEFAULT = 6;
-    static int maxCachedSegmentNum(RaftProperties properties) {
-      return getInt(properties::getInt, SEGMENT_CACHE_MAX_NUM_KEY,
-          SEGMENT_CACHE_MAX_NUM_DEFAULT, getDefaultLog(), requireMin(0));
+    String SEGMENT_CACHE_NUM_MAX_KEY = PREFIX + ".segment.cache.num.max";
+    int SEGMENT_CACHE_NUM_MAX_DEFAULT = 6;
+    static int segmentCacheNumMax(RaftProperties properties) {
+      return getInt(properties::getInt, SEGMENT_CACHE_NUM_MAX_KEY,
+          SEGMENT_CACHE_NUM_MAX_DEFAULT, getDefaultLog(), requireMin(0));
     }
-    static void setMaxCachedSegmentNum(RaftProperties properties, int maxCachedSegmentNum) {
-      setInt(properties::setInt, SEGMENT_CACHE_MAX_NUM_KEY, maxCachedSegmentNum);
+    static void setSegmentCacheNumMax(RaftProperties properties, int maxCachedSegmentNum) {
+      setInt(properties::setInt, SEGMENT_CACHE_NUM_MAX_KEY, maxCachedSegmentNum);
     }
 
     String PREALLOCATED_SIZE_KEY = PREFIX + ".preallocated.size";
