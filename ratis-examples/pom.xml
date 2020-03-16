@@ -29,8 +29,12 @@
       <artifactId>ratis-thirdparty-misc</artifactId>
     </dependency>
     <dependency>
-      <artifactId>ratis-proto</artifactId>
       <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-proto</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.ratis</groupId>
+      <artifactId>ratis-tools</artifactId>
     </dependency>
 
     <dependency>

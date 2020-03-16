@@ -16,12 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.tools;
-
-import org.apache.ratis.examples.arithmetic.AssignmentMessage;
-import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+package org.apache.ratis.examples.arithmetic;
 
 import java.io.File;
+
+import org.apache.ratis.proto.RaftProtos.StateMachineLogEntryProto;
+import org.apache.ratis.tools.ParseRatisLog;
 
 /**
  * Utility to dump log segments for Arithmetic State Machine.
