@@ -57,7 +57,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
   static final String CLASS_NAME = NettyRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
-  public static class Builder extends RaftServerRpc.Builder<Builder, NettyRpcService> {
+  public static final class Builder extends RaftServerRpc.Builder<Builder, NettyRpcService> {
     private Builder() {}
 
     @Override
@@ -155,75 +155,75 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
     RaftRpcRequestProto rpcRequest = null;
     try {
       switch (proto.getRaftNettyServerRequestCase()) {
-        case REQUESTVOTEREQUEST: {
+        case REQUESTVOTEREQUEST:
           final RequestVoteRequestProto request = proto.getRequestVoteRequest();
           rpcRequest = request.getServerRequest();
           final RequestVoteReplyProto reply = server.requestVote(request);
           return RaftNettyServerReplyProto.newBuilder()
               .setRequestVoteReply(reply)
               .build();
-        }
-        case APPENDENTRIESREQUEST: {
-          final AppendEntriesRequestProto request = proto.getAppendEntriesRequest();
-          rpcRequest = request.getServerRequest();
-          final AppendEntriesReplyProto reply = server.appendEntries(request);
+
+        case APPENDENTRIESREQUEST:
+          final AppendEntriesRequestProto appendEntriesRequest = proto.getAppendEntriesRequest();
+          rpcRequest = appendEntriesRequest.getServerRequest();
+          final AppendEntriesReplyProto appendEntriesReply = server.appendEntries(appendEntriesRequest);
           return RaftNettyServerReplyProto.newBuilder()
-              .setAppendEntriesReply(reply)
+              .setAppendEntriesReply(appendEntriesReply)
               .build();
-        }
-        case INSTALLSNAPSHOTREQUEST: {
-          final InstallSnapshotRequestProto request = proto.getInstallSnapshotRequest();
-          rpcRequest = request.getServerRequest();
-          final InstallSnapshotReplyProto reply = server.installSnapshot(request);
+
+        case INSTALLSNAPSHOTREQUEST:
+          final InstallSnapshotRequestProto installSnapshotRequest = proto.getInstallSnapshotRequest();
+          rpcRequest = installSnapshotRequest.getServerRequest();
+          final InstallSnapshotReplyProto installSnapshotReply = server.installSnapshot(installSnapshotRequest);
           return RaftNettyServerReplyProto.newBuilder()
-              .setInstallSnapshotReply(reply)
+              .setInstallSnapshotReply(installSnapshotReply)
               .build();
-        }
-        case RAFTCLIENTREQUEST: {
-          final RaftClientRequestProto request = proto.getRaftClientRequest();
-          rpcRequest = request.getRpcRequest();
-          final RaftClientReply reply = server.submitClientRequest(
-              ClientProtoUtils.toRaftClientRequest(request));
+
+        case RAFTCLIENTREQUEST:
+          final RaftClientRequestProto raftClientRequest = proto.getRaftClientRequest();
+          rpcRequest = raftClientRequest.getRpcRequest();
+          final RaftClientReply raftClientReply = server.submitClientRequest(
+              ClientProtoUtils.toRaftClientRequest(raftClientRequest));
           return RaftNettyServerReplyProto.newBuilder()
-              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
+              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(raftClientReply))
               .build();
-        }
-        case SETCONFIGURATIONREQUEST: {
-          final SetConfigurationRequestProto request = proto.getSetConfigurationRequest();
-          rpcRequest = request.getRpcRequest();
-          final RaftClientReply reply = server.setConfiguration(
-              ClientProtoUtils.toSetConfigurationRequest(request));
+
+        case SETCONFIGURATIONREQUEST:
+          final SetConfigurationRequestProto configurationRequest = proto.getSetConfigurationRequest();
+          rpcRequest = configurationRequest.getRpcRequest();
+          final RaftClientReply configurationReply = server.setConfiguration(
+              ClientProtoUtils.toSetConfigurationRequest(configurationRequest));
           return RaftNettyServerReplyProto.newBuilder()
-              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
+              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(configurationReply))
               .build();
-        }
-        case GROUPMANAGEMENTREQUEST: {
-          final GroupManagementRequestProto request = proto.getGroupManagementRequest();
-          rpcRequest = request.getRpcRequest();
-          final RaftClientReply reply = server.groupManagement(
-              ClientProtoUtils.toGroupManagementRequest(request));
+
+        case GROUPMANAGEMENTREQUEST:
+          final GroupManagementRequestProto groupManagementRequest = proto.getGroupManagementRequest();
+          rpcRequest = groupManagementRequest.getRpcRequest();
+          final RaftClientReply groupManagementReply = server.groupManagement(
+              ClientProtoUtils.toGroupManagementRequest(groupManagementRequest));
           return RaftNettyServerReplyProto.newBuilder()
-              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(reply))
+              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(groupManagementReply))
               .build();
-        }
-        case GROUPLISTREQUEST: {
-          final GroupListRequestProto request = proto.getGroupListRequest();
-          rpcRequest = request.getRpcRequest();
-          final GroupListReply reply = server.getGroupList(
-              ClientProtoUtils.toGroupListRequest(request));
+
+        case GROUPLISTREQUEST:
+          final GroupListRequestProto groupListRequest = proto.getGroupListRequest();
+          rpcRequest = groupListRequest.getRpcRequest();
+          final GroupListReply groupListReply = server.getGroupList(
+              ClientProtoUtils.toGroupListRequest(groupListRequest));
           return RaftNettyServerReplyProto.newBuilder()
-              .setGroupListReply(ClientProtoUtils.toGroupListReplyProto(reply))
+              .setGroupListReply(ClientProtoUtils.toGroupListReplyProto(groupListReply))
               .build();
-        }
-        case GROUPINFOREQUEST: {
-          final GroupInfoRequestProto request = proto.getGroupInfoRequest();
-          rpcRequest = request.getRpcRequest();
-          final GroupInfoReply reply = server.getGroupInfo(
-              ClientProtoUtils.toGroupInfoRequest(request));
+
+        case GROUPINFOREQUEST:
+          final GroupInfoRequestProto groupInfoRequest = proto.getGroupInfoRequest();
+          rpcRequest = groupInfoRequest.getRpcRequest();
+          final GroupInfoReply groupInfoReply = server.getGroupInfo(
+              ClientProtoUtils.toGroupInfoRequest(groupInfoRequest));
           return RaftNettyServerReplyProto.newBuilder()
-              .setGroupInfoReply(ClientProtoUtils.toGroupInfoReplyProto(reply))
+              .setGroupInfoReply(ClientProtoUtils.toGroupInfoReplyProto(groupInfoReply))
               .build();
-        }
+
         case RAFTNETTYSERVERREQUEST_NOT_SET:
           throw new IllegalArgumentException("Request case not set in proto: "
               + proto.getRaftNettyServerRequestCase());
