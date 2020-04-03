@@ -195,7 +195,8 @@ public class GrpcLogAppender extends LogAppender {
     }
   }
 
-  private void sendRequest(AppendEntriesRequest request, AppendEntriesRequestProto proto, StreamObserver<AppendEntriesRequestProto> s) {
+  private void sendRequest(AppendEntriesRequest request, AppendEntriesRequestProto proto,
+        StreamObserver<AppendEntriesRequestProto> s) {
     CodeInjectionForTesting.execute(GrpcService.GRPC_SEND_SERVER_REQUEST,
         server.getId(), null, proto);
     request.startRequestTimer();
@@ -385,6 +386,7 @@ public class GrpcLogAppender extends LogAppender {
               this, RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
               server.getId(), installSnapshotEnabled, getFollowerId(), !installSnapshotEnabled);
         case UNRECOGNIZED:
+        default:
           break;
       }
     }
@@ -557,7 +559,8 @@ public class GrpcLogAppender extends LogAppender {
 
     @Override
     public String toString() {
-      return getClass().getSimpleName() + ":cid=" + callId + ",entriesCount=" + entriesCount + ",lastEntry=" + lastEntry;
+      return getClass().getSimpleName() + ":cid=" + callId + ",entriesCount=" + entriesCount + ",lastEntry=" +
+          lastEntry;
     }
   }
 

@@ -37,7 +37,8 @@ public class GrpcAdminProtocolService extends AdminProtocolServiceImplBase {
   }
 
   @Override
-  public void groupManagement(GroupManagementRequestProto proto, StreamObserver<RaftClientReplyProto> responseObserver) {
+  public void groupManagement(GroupManagementRequestProto proto,
+        StreamObserver<RaftClientReplyProto> responseObserver) {
     final GroupManagementRequest request = ClientProtoUtils.toGroupManagementRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.groupManagementAsync(request),
         ClientProtoUtils::toRaftClientReplyProto);

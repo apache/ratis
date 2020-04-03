@@ -264,7 +264,9 @@ public class GrpcClientProtocolClient implements Closeable {
   class AsyncStreamObservers {
     /** Request map: callId -> future */
     private final ReplyMap replies = new ReplyMap();
-    private final StreamObserver<RaftClientReplyProto> replyStreamObserver = new StreamObserver<RaftClientReplyProto>() {
+
+    private final StreamObserver<RaftClientReplyProto> replyStreamObserver
+        = new StreamObserver<RaftClientReplyProto>() {
       @Override
       public void onNext(RaftClientReplyProto proto) {
         final long callId = proto.getRpcReply().getCallId();
