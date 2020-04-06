@@ -25,6 +25,7 @@ import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.metrics.LeaderElectionMetrics;
+import org.apache.ratis.server.metrics.RetryCacheMetrics;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -89,6 +90,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final RaftServerJmxAdapter jmxAdapter;
   private final LeaderElectionMetrics leaderElectionMetrics;
   private final RaftServerMetrics raftServerMetrics;
+  private final RetryCacheMetrics retryCacheMetrics;
 
   private AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
 
@@ -116,6 +118,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(this);
     this.raftServerMetrics = RaftServerMetrics.getRaftServerMetrics(this);
+    this.retryCacheMetrics = RetryCacheMetrics.getRetryCacheMetrics(this);
   }
 
   private RetryCache initRetryCache(RaftProperties prop) {
@@ -274,6 +277,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
       leaderElectionMetrics.unregister();
       raftServerMetrics.unregister();
+      retryCacheMetrics.unregister();
       if (deleteDirectory) {
         final RaftStorageDirectory dir = state.getStorage().getStorageDir();
         try {
