@@ -86,6 +86,7 @@
     <module>ratis-logservice</module>
     <module>ratis-metrics</module>
     <module>ratis-tools</module>
+    <module>ratis-docs</module>
   </modules>
 
   <pluginRepositories>
