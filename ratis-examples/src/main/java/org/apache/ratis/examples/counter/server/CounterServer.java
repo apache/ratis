@@ -23,7 +23,7 @@ public class CounterServer {
 
   public static void main(String[] args) throws IOException, InterruptedException {
     if (args.length < 1) {
-      System.err.println("Usage: java -jar *.jar {serverIndex}");
+      System.err.println("Usage: java -cp *.jar org.apache.ratis.examples.counter.server.CounterServer {serverIndex}");
       System.err.println("{serverIndex} could be 1, 2 or 3");
       System.exit(1);
     }
