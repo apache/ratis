@@ -280,7 +280,7 @@ public class GrpcClientProtocolClient implements Closeable {
           }
           final LeaderNotReadyException lnre = reply.getLeaderNotReadyException();
           if (lnre != null) {
-            completeReplyExceptionally(lnre, NotLeaderException.class.getName());
+            completeReplyExceptionally(lnre, LeaderNotReadyException.class.getName());
             return;
           }
           handleReplyFuture(callId, f -> f.complete(reply));
