@@ -45,7 +45,7 @@ import java.util.function.Consumer;
  * caches all the segments in the memory. The cache is not thread-safe and
  * requires external lock protection.
  */
-class SegmentedRaftLogCache {
+public class SegmentedRaftLogCache {
   public static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogCache.class);
 
   static final class SegmentFileInfo {
@@ -163,6 +163,16 @@ class SegmentedRaftLogCache {
     int size() {
       try(AutoCloseableLock readLock = readLock()) {
         return segments.size();
+      }
+    }
+
+    long sizeInBytes() {
+      try(AutoCloseableLock readLock = readLock()) {
+        long size = 0;
+        for (LogSegment segment : segments) {
+          size += segment.getTotalSize();
+        }
+        return size;
       }
     }
 
@@ -334,6 +344,9 @@ class SegmentedRaftLogCache {
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;
     this.raftLogMetrics = raftLogMetrics;
+    this.raftLogMetrics.addClosedSegmentsNum(this);
+    this.raftLogMetrics.addClosedSegmentsSizeInBytes(this);
+    this.raftLogMetrics.addOpenSegmentSizeInBytes(this);
     this.maxCachedSegments = RaftServerConfigKeys.Log.segmentCacheNumMax(properties);
   }
 
@@ -350,8 +363,16 @@ class SegmentedRaftLogCache {
     }
   }
 
-  long getCachedSegmentNum() {
+  public long getCachedSegmentNum() {
     return closedSegments.countCached();
+  }
+
+  public long getClosedSegmentsSizeInBytes() {
+    return closedSegments.sizeInBytes();
+  }
+
+  public long getOpenSegmentSizeInBytes() {
+    return openSegment.getTotalSize();
   }
 
   boolean shouldEvict() {

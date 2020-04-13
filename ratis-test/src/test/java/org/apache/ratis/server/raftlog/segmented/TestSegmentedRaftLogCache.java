@@ -17,17 +17,22 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
+import static org.apache.ratis.server.metrics.RaftLogMetrics.*;
+
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.stream.IntStream;
 
 import org.apache.ratis.RaftTestUtil.SimpleOperation;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache.TruncationSegments;
 import org.apache.ratis.server.raftlog.segmented.LogSegment.LogRecord;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,10 +41,19 @@ public class TestSegmentedRaftLogCache {
   private static final RaftProperties prop = new RaftProperties();
 
   private SegmentedRaftLogCache cache;
+  private RaftLogMetrics raftLogMetrics;
+  private RatisMetricRegistry ratisMetricRegistry;
 
   @Before
   public void setup() {
-    cache = new SegmentedRaftLogCache(null, null, prop);
+    raftLogMetrics = new RaftLogMetrics("test");
+    ratisMetricRegistry = raftLogMetrics.getRegistry();
+    cache = new SegmentedRaftLogCache(null, null, prop, raftLogMetrics);
+  }
+
+  @After
+  public void clear() {
+    raftLogMetrics.unregister();
   }
 
   private LogSegment prepareLogSegment(long start, long end, boolean isOpen) {
@@ -300,5 +314,24 @@ public class TestSegmentedRaftLogCache {
 
     Iterator<TermIndex> iterator = cache.iterator(300);
     Assert.assertFalse(iterator.hasNext());
+  }
+
+  @Test
+  public void testCacheMetric() {
+    cache.addSegment(prepareLogSegment(0, 99, false));
+    cache.addSegment(prepareLogSegment(100, 200, false));
+    cache.addSegment(prepareLogSegment(201, 300, true));
+
+    Long closedSegmentsNum = (Long) ratisMetricRegistry.getGauges((s, metric) ->
+        s.contains(RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM)).values().iterator().next().getValue();
+    Assert.assertEquals(2L, closedSegmentsNum.longValue());
+
+    Long closedSegmentsSizeInBytes = (Long) ratisMetricRegistry.getGauges((s, metric) ->
+        s.contains(RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES)).values().iterator().next().getValue();
+    Assert.assertEquals(closedSegmentsSizeInBytes.longValue(), cache.getClosedSegmentsSizeInBytes());
+
+    Long openSegmentSizeInBytes = (Long) ratisMetricRegistry.getGauges((s, metric) ->
+        s.contains(RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES)).values().iterator().next().getValue();
+    Assert.assertEquals(openSegmentSizeInBytes.longValue(), cache.getOpenSegmentSizeInBytes());
   }
 }
