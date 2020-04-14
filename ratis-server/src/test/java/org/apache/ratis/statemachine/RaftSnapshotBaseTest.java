@@ -203,6 +203,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
         Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
         return null;
       }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
+      verifyTakeSnapshotMetric(cluster.getLeader());
       logs = storageDirectory.getLogSegmentFiles();
     } finally {
       cluster.shutdown();
@@ -237,7 +238,6 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       // restart the peer and check if it can correctly handle conf change
       cluster.restartServer(cluster.getLeader().getId(), false);
       assertLeaderContent(cluster);
-      verifyTakeSnapshotMetric(cluster.getLeader());
     } finally {
       cluster.shutdown();
     }
