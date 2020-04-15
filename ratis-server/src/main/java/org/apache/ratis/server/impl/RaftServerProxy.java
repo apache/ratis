@@ -386,8 +386,12 @@ public class RaftServerProxy implements RaftServer {
           if (throwable != null) {
             if (!(throwable.getCause() instanceof AlreadyExistsException)) {
               impls.remove(newGroup.getGroupId());
+              LOG.warn(getId() + ": Failed groupAdd* " + request, throwable);
+            } else {
+              if (LOG.isDebugEnabled()) {
+                LOG.debug(getId() + ": Failed groupAdd* " + request, throwable);
+              }
             }
-            LOG.warn(getId() + ": Failed groupAdd* " + request, throwable);
           }
         });
   }
