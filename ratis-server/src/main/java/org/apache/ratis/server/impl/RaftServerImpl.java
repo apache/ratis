@@ -586,7 +586,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         if (previousResult.isRetry()) {
           // if the previous attempt is still pending or it succeeded, return its
           // future
-          raftServerMetrics.onRetryRequestCacheHit();
           replyFuture = previousResult.getEntry().getReplyFuture();
         } else {
           final RetryCache.CacheEntry cacheEntry = previousResult.getEntry();

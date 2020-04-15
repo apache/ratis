@@ -54,13 +54,16 @@ public final class RaftServerMetrics extends RatisMetrics {
   public static final String RAFT_CLIENT_STALE_READ_REQUEST = "clientStaleReadRequest";
   public static final String RAFT_CLIENT_WRITE_REQUEST = "clientWriteRequest";
   public static final String RAFT_CLIENT_WATCH_REQUEST = "clientWatch%sRequest";
-  public static final String RETRY_REQUEST_CACHE_HIT_COUNTER = "numRetryCacheHits";
   public static final String REQUEST_QUEUE_LIMIT_HIT_COUNTER = "numRequestQueueLimitHits";
   public static final String RESOURCE_LIMIT_HIT_COUNTER = "leaderNumResourceLimitHits";
   public static final String REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER = "numRequestsByteSizeLimitHits";
   public static final String REQUEST_QUEUE_SIZE = "numPendingRequestInQueue";
   public static final String REQUEST_BYTE_SIZE = "numPendingRequestByteSize";
-
+  public static final String RETRY_CACHE_ENTRY_COUNT_METRIC = "retryCacheEntryCount";
+  public static final String RETRY_CACHE_HIT_COUNT_METRIC = "retryCacheHitCount";
+  public static final String RETRY_CACHE_HIT_RATE_METRIC = "retryCacheHitRate";
+  public static final String RETRY_CACHE_MISS_COUNT_METRIC = "retryCacheMissCount";
+  public static final String RETRY_CACHE_MISS_RATE_METRIC = "retryCacheMissRate";
 
   private Map<String, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
   private CommitInfoCache commitInfoCache;
@@ -78,12 +81,21 @@ public final class RaftServerMetrics extends RatisMetrics {
     registry = getMetricRegistryForRaftServer(server.getMemberId().toString());
     commitInfoCache = server.getCommitInfoCache();
     addPeerCommitIndexGauge(server.getId());
+    addRetryCacheMetric(server);
   }
 
   private RatisMetricRegistry getMetricRegistryForRaftServer(String serverId) {
     return create(new MetricRegistryInfo(serverId,
         RATIS_APPLICATION_NAME_METRICS, RATIS_SERVER_METRICS,
         RATIS_SERVER_METRICS_DESC));
+  }
+
+  private void addRetryCacheMetric(RaftServerImpl raftServer) {
+    registry.gauge(RETRY_CACHE_ENTRY_COUNT_METRIC, () -> () -> raftServer.getRetryCache().size());
+    registry.gauge(RETRY_CACHE_HIT_COUNT_METRIC, () -> () -> raftServer.getRetryCache().stats().hitCount());
+    registry.gauge(RETRY_CACHE_HIT_RATE_METRIC, () -> () -> raftServer.getRetryCache().stats().hitRate());
+    registry.gauge(RETRY_CACHE_MISS_COUNT_METRIC, () -> () -> raftServer.getRetryCache().stats().missCount());
+    registry.gauge(RETRY_CACHE_MISS_RATE_METRIC, () -> () -> raftServer.getRetryCache().stats().missRate());
   }
 
   /**
@@ -180,10 +192,6 @@ public final class RaftServerMetrics extends RatisMetrics {
       return getTimer(RAFT_CLIENT_WRITE_REQUEST);
     }
     return null;
-  }
-
-  public void onRetryRequestCacheHit() {
-    registry.counter(RETRY_REQUEST_CACHE_HIT_COUNTER).inc();
   }
 
   public void onRequestQueueLimitHit() {
