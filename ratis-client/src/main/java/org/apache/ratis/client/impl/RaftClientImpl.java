@@ -26,6 +26,7 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -370,7 +371,7 @@ final class RaftClientImpl implements RaftClient {
 
     Optional.ofNullable(handler).ifPresent(h -> h.accept(request));
 
-    if (ioe instanceof LeaderNotReadyException) {
+    if (ioe instanceof LeaderNotReadyException || ioe instanceof ResourceUnavailableException) {
       return;
     }
 
