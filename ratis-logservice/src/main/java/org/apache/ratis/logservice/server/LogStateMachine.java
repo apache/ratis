@@ -148,7 +148,7 @@ public class LogStateMachine extends BaseStateMachine {
   void reset() {
     this.length = 0;
     this.dataRecordsSize = 0;
-    setLastAppliedTermIndex(null);
+    setLastAppliedTermIndex(TermIndex.newTermIndex(0, -1));
   }
 
   @Override

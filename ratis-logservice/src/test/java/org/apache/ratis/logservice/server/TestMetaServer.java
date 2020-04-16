@@ -32,6 +32,7 @@ import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -89,6 +90,14 @@ public class TestMetaServer {
     public static void afterClass() {
         if (cluster != null) {
           cluster.close();
+        }
+    }
+
+    @Before
+    public void before() {
+        //ensure workers before each test
+        if (workers.size() < 3) {
+            cluster.createWorkers(3 - workers.size());
         }
     }
 
