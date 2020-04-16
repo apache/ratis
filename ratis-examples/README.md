@@ -22,9 +22,7 @@ see also [BUILDING.md](../BUILDING.md).
 For the Example 1 and 2, All the scripts for running the examples are located in the [ratis-examples/src/main/bin](src/main/bin) directory;
 see below for the usage.
 
-Example 3 does not contain any script to run it thus you can run it by these commands:
-for server: `java -cp target/*.jar org.apache.ratis.examples.counter.server.CounterServer`
-for client: `java -cp target/*.jar org.apache.ratis.examples.counter.client.CounterClient`
+Example 3 does not contain any script to run it refer to [Example 3 run section](#run-counter-server-and-client).
 
 ## Example 1: FileStore
 
@@ -133,6 +131,12 @@ several INCREMENT command and after that, it sends a GET command and prints the
 result which should be the value of the counter.
 'Counter State Machine' implemented in `CounterStateMachine` class.
 You can find more detail by reading these classes javaDocs.
+
+### Run Counter Server and Client
+run the client and servers by these commands from ratis-examples directory:
+for server: `java -cp target/*.jar org.apache.ratis.examples.counter.server.CounterServer {serverIndex}`
+replace {serverIndex} with 1, 2, or 3
+for client: `java -cp target/*.jar org.apache.ratis.examples.counter.client.CounterClient`
 
 ## Pre-Setup Vagrant Pseudo Cluster
 Note: This option is only available to Example 1 and 2
