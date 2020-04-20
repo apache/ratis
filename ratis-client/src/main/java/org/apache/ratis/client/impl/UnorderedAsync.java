@@ -83,8 +83,9 @@ public interface UnorderedAsync {
           return;
         }
         RetryPolicy retryPolicy = client.getRetryPolicy();
-        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request,
-            replyException != null? replyException: e);
+        final Throwable cause = replyException != null ? replyException : e;
+        final int causeCount = pending.incrementExceptionCount(cause);
+        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, causeCount, cause);
         final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
         if (!action.shouldRetry()) {
           f.completeExceptionally(client.noMoreRetries(event));

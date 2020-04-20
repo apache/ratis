@@ -36,8 +36,9 @@ public final class ExceptionDependentRetry implements RetryPolicy {
     private RetryPolicy defaultPolicy;
     private final Map<String, RetryPolicy> exceptionNameToPolicyMap =
         new TreeMap<>();
+    private int maxAttempts = Integer.MAX_VALUE;
 
-    public Builder setExceptionToPolicy(Class<? extends Throwable> exception,
+    Builder setExceptionToPolicy(Class<? extends Throwable> exception,
         RetryPolicy retryPolicy) {
       Preconditions.assertTrue(retryPolicy != null, "Exception to policy should not be null");
       final RetryPolicy previous = exceptionNameToPolicyMap.put(exception.getName(), retryPolicy);
@@ -45,15 +46,19 @@ public final class ExceptionDependentRetry implements RetryPolicy {
       return this;
     }
 
-    public Builder setDefaultPolicy(RetryPolicy retryPolicy) {
+    Builder setDefaultPolicy(RetryPolicy retryPolicy) {
       Preconditions.assertTrue(retryPolicy != null, "Default Policy should not be null");
       this.defaultPolicy = retryPolicy;
       return this;
     }
 
+    Builder setMaxAttempts(int attempts) {
+      this.maxAttempts = attempts;
+      return this;
+    }
+
     public ExceptionDependentRetry build() {
-      return new ExceptionDependentRetry(defaultPolicy,
-          exceptionNameToPolicyMap);
+      return new ExceptionDependentRetry(defaultPolicy, exceptionNameToPolicyMap, maxAttempts);
     }
   }
 
@@ -63,12 +68,15 @@ public final class ExceptionDependentRetry implements RetryPolicy {
 
   private final RetryPolicy defaultPolicy;
   private final Map<String, RetryPolicy> exceptionNameToPolicyMap;
+  private final int maxAttempts;
 
 
-  private ExceptionDependentRetry(RetryPolicy defaultPolicy, Map<String, RetryPolicy> policyMap) {
+  private ExceptionDependentRetry(RetryPolicy defaultPolicy,
+      Map<String, RetryPolicy> policyMap, int maxAttempts) {
     Preconditions.assertTrue(defaultPolicy != null, "Default Policy should not be null");
     this.defaultPolicy = defaultPolicy;
     this.exceptionNameToPolicyMap = Collections.unmodifiableMap(policyMap);
+    this.maxAttempts = maxAttempts;
   }
 
   @Override
@@ -79,7 +87,7 @@ public final class ExceptionDependentRetry implements RetryPolicy {
     // default one. We go with default one in 2 cases.
     // 1. If policy map does not have exception mapped to policy.
     // 2. If event has exception value null.
-    if (event.getCause() != null)  {
+    if (event.getCause() != null) {
       policy = exceptionNameToPolicyMap.get(event.getCause().getClass().getName());
     }
 
@@ -87,6 +95,7 @@ public final class ExceptionDependentRetry implements RetryPolicy {
       policy = defaultPolicy;
     }
 
-    return policy.handleAttemptFailure(event);
+    return event.getAttemptCount() < maxAttempts ? policy.handleAttemptFailure(event::getCauseCount) :
+        NO_RETRY_ACTION;
   }
 }

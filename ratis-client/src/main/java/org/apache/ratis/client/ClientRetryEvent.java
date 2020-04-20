@@ -19,26 +19,36 @@ package org.apache.ratis.client;
 
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 /** An {@link RetryPolicy.Event} specific to client request failure. */
 public class ClientRetryEvent implements RetryPolicy.Event {
   private final int attemptCount;
+  private final int causeCount;
   private final RaftClientRequest request;
   private final Throwable cause;
 
-  public ClientRetryEvent(int attemptCount, RaftClientRequest request, Throwable cause) {
+  public ClientRetryEvent(int attemptCount, RaftClientRequest request, int causeCount,
+      Throwable cause) {
     this.attemptCount = attemptCount;
+    this.causeCount = causeCount;
     this.request = request;
     this.cause = cause;
   }
 
+  @VisibleForTesting
   public ClientRetryEvent(int attemptCount, RaftClientRequest request) {
-    this(attemptCount, request, null);
+    this(attemptCount, request, 0, null);
   }
 
   @Override
   public int getAttemptCount() {
     return attemptCount;
+  }
+
+  @Override
+  public int getCauseCount() {
+    return causeCount;
   }
 
   public RaftClientRequest getRequest() {

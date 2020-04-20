@@ -177,7 +177,9 @@ public class TestRetryPolicy extends BaseTest {
    */
   private void checkEvent(int exceptionAttemptCount, RetryPolicy retryPolicy, RaftClientRequest raftClientRequest,
       Throwable exception, Pair exceptionPolicyPair) {
-    final ClientRetryEvent event = new ClientRetryEvent(exceptionAttemptCount, raftClientRequest, exception);
+    final ClientRetryEvent event =
+        new ClientRetryEvent(exceptionAttemptCount, raftClientRequest,
+            exceptionAttemptCount, exception);
     final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
 
     final boolean expected = exceptionAttemptCount < exceptionPolicyPair.retries;

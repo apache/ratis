@@ -191,16 +191,19 @@ public final class OrderedAsync {
         return;
       }
       if (reply == null) {
-        scheduleWithTimeout(pending, request, retryPolicy);
+        scheduleWithTimeout(pending, request, retryPolicy, null);
       } else {
         f.complete(reply);
       }
     }).exceptionally(e -> {
-      e = JavaUtils.unwrapCompletionException(e);
-      if (e instanceof NotLeaderException) {
-        RetryPolicy noLeaderRetry = ((NotLeaderException) e).getSuggestedLeader() != null ?
-            RetryPolicies.retryForeverNoSleep() : retryPolicy;
-        scheduleWithTimeout(pending, request, noLeaderRetry);
+      if (e instanceof CompletionException) {
+        e = JavaUtils.unwrapCompletionException(e);
+        RetryPolicy retryPolicyToUse = retryPolicy;
+        if (e instanceof NotLeaderException) {
+          retryPolicyToUse = ((NotLeaderException) e).getSuggestedLeader() != null ?
+              RetryPolicies.retryForeverNoSleep() : retryPolicy;
+        }
+        scheduleWithTimeout(pending, request, retryPolicyToUse, e);
         return null;
       }
       f.completeExceptionally(e);
@@ -208,9 +211,11 @@ public final class OrderedAsync {
     });
   }
 
-  private void scheduleWithTimeout(PendingOrderedRequest pending, RaftClientRequest request, RetryPolicy retryPolicy) {
+  private void scheduleWithTimeout(PendingOrderedRequest pending,
+      RaftClientRequest request, RetryPolicy retryPolicy, Throwable e) {
     final int attempt = pending.getAttemptCount();
-    final ClientRetryEvent event = new ClientRetryEvent(attempt, request);
+    final ClientRetryEvent event = new ClientRetryEvent(attempt, request,
+        pending.getExceptionCount(e), e);
     final TimeDuration sleepTime = retryPolicy.handleAttemptFailure(event).getSleepTime();
     LOG.debug("schedule* attempt #{} with sleep {} and policy {} for {}", attempt, sleepTime, retryPolicy, request);
     scheduleWithTimeout(pending, sleepTime, getSlidingWindow(request));
@@ -242,7 +247,8 @@ public final class OrderedAsync {
         getSlidingWindow(request).receiveReply(
             request.getSlidingWindowEntry().getSeqNum(), reply, this::sendRequestWithRetry);
       } else {
-        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, replyException);
+        final ClientRetryEvent event = new ClientRetryEvent(attemptCount,
+            request, pending.getExceptionCount(replyException), replyException);
         if (!retryPolicy.handleAttemptFailure(event).shouldRetry()) {
           handleAsyncRetryFailure(event);
         }
@@ -256,7 +262,8 @@ public final class OrderedAsync {
       }
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof IOException && !(e instanceof GroupMismatchException)) {
-        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, e);
+        final int exceptionCount = pending.incrementExceptionCount(e);
+        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, exceptionCount, e);
         if (!retryPolicy.handleAttemptFailure(event).shouldRetry()) {
           handleAsyncRetryFailure(event);
         } else {
@@ -267,10 +274,7 @@ public final class OrderedAsync {
             client.handleIOException(request, (IOException) e, null, this::resetSlidingWindow);
           }
         }
-        if (e instanceof NotLeaderException) {
-          throw new CompletionException(e);
-        }
-        return null;
+        throw new CompletionException(e);
       }
       failAllAsyncRequests(request, e);
       return null;

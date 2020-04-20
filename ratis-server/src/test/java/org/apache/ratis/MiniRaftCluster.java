@@ -648,6 +648,10 @@ public abstract class MiniRaftCluster implements Closeable {
     return createClient(leaderId, group);
   }
 
+  public RaftClient createClient(RetryPolicy retryPolicy) {
+    return createClient(null, group, retryPolicy);
+  }
+
   public RaftClient createClient(RaftPeerId leaderId, RetryPolicy retryPolicy) {
     return createClient(leaderId, group, retryPolicy);
   }
