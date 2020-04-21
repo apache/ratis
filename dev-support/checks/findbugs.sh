@@ -16,22 +16,22 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../.." || exit 1
 
-MAVEN_OPTIONS='-B -fae'
-
-if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
-  #shellcheck disable=SC2086
-  mvn ${MAVEN_OPTIONS} compile findbugs:check
-  exit $?
-fi
-
-#shellcheck disable=SC2086
-mvn ${MAVEN_OPTIONS} compile findbugs:check
-
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/findbugs"}
 mkdir -p "$REPORT_DIR"
 REPORT_FILE="$REPORT_DIR/summary.txt"
 
 touch "$REPORT_FILE"
+
+MAVEN_OPTIONS='-B -fae'
+
+if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
+  #shellcheck disable=SC2086
+  mvn ${MAVEN_OPTIONS} compile findbugs:check | tee "$REPORT_FILE"
+  exit $?
+fi
+
+#shellcheck disable=SC2086
+mvn ${MAVEN_OPTIONS} compile findbugs:check
 
 find $DIR -name spotbugsXml.xml -print0 | xargs -0 unionBugs -output "${REPORT_DIR}"/summary.xml
 convertXmlToText "${REPORT_DIR}"/summary.xml | tee -a "${REPORT_FILE}"
