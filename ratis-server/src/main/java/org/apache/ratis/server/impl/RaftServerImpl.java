@@ -1051,7 +1051,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final TermIndex installSnapshot = inProgressInstallSnapshotRequest.get();
     if (installSnapshot != null) {
       LOG.info("{}: Failed appendEntries as snapshot ({}) installation is in progress", getMemberId(), installSnapshot);
-      return installSnapshot.getIndex();
+      return state.getNextIndex();
     }
 
     // Check that the first log entry is greater than the snapshot index in the latest snapshot.
