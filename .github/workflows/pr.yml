@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@master
-      - uses: ./.github/buildenv
+      - uses: ./.github/actions/build
         with:
           args: ./dev-support/checks/build.sh
   rat:
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./.github/buildenv
+        - uses: ./.github/actions/build
           with:
              args: ./dev-support/checks/rat.sh
         - uses: actions/upload-artifact@master
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./.github/buildenv
+        - uses: ./.github/actions/build
           with:
              args: ./dev-support/checks/author.sh
         - uses: actions/upload-artifact@master
@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./.github/buildenv
+        - uses: ./.github/actions/build
           with:
              args: ./dev-support/checks/unit.sh
         - uses: actions/upload-artifact@master
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./.github/buildenv
+        - uses: ./.github/actions/build
           with:
              args: ./dev-support/checks/checkstyle.sh
         - uses: actions/upload-artifact@master
@@ -81,7 +81,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./.github/buildenv
+        - uses: ./.github/actions/build
           with:
              args: ./dev-support/checks/findbugs.sh
         - uses: actions/upload-artifact@master
