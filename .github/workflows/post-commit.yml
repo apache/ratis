@@ -21,9 +21,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@master
-      - uses: ./.github/actions/build
-        with:
-          args: ./dev-support/checks/build.sh
+      - run: ./dev-support/checks/build.sh
   rat:
     name: rat
     runs-on: ubuntu-18.04
@@ -73,9 +71,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./.github/actions/build
-          with:
-             args: ./dev-support/checks/findbugs.sh
+        - run: ./dev-support/checks/findbugs.sh
         - uses: actions/upload-artifact@master
           if: always()
           with:
