@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 
 import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_APPEND_ENTRIES_LATENCY;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.SortedMap;
@@ -68,7 +69,7 @@ public final class RaftServerMetrics extends RatisMetrics {
   private Map<String, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
   private CommitInfoCache commitInfoCache;
 
-  private static Map<String, RaftServerMetrics> metricsMap = new HashMap<>();
+  private static Map<String, RaftServerMetrics> metricsMap = new ConcurrentHashMap<>();
 
   public static RaftServerMetrics getRaftServerMetrics(
       RaftServerImpl raftServer) {
