@@ -376,6 +376,7 @@ public class GrpcLogAppender extends LogAppender {
           final long followerSnapshotIndex = reply.getSnapshotIndex();
           LOG.info("{}: set follower snapshotIndex to {}.", this, followerSnapshotIndex);
           getFollower().setSnapshotIndex(followerSnapshotIndex);
+          updateCommitIndex(followerSnapshotIndex);
           removePending(reply);
           break;
         case NOT_LEADER:
