@@ -29,9 +29,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./.github/actions/build
-          with:
-             args: ./dev-support/checks/rat.sh
+        - run: ./dev-support/checks/rat.sh
         - uses: actions/upload-artifact@master
           if: always()
           with:
@@ -53,9 +51,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./.github/actions/build
-          with:
-             args: ./dev-support/checks/unit.sh
+        - run: ./dev-support/checks/unit.sh
         - uses: actions/upload-artifact@master
           if: always()
           with:
@@ -66,7 +62,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./dev-support/checks/checkstyle.sh
+        - run: ./dev-support/checks/checkstyle.sh
         - uses: actions/upload-artifact@master
           if: always()
           with:
