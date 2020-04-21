@@ -372,8 +372,8 @@ public class ServerState implements Closeable {
     return false;
   }
 
-  void reloadStateMachine(long lastIndexInSnapshot, long curTerm) {
-    log.updateLastCommitted(lastIndexInSnapshot, curTerm);
+  void reloadStateMachine(long lastIndexInSnapshot) {
+    log.updateSnapshotIndex(lastIndexInSnapshot);
     stateMachineUpdater.reloadStateMachine();
   }
 

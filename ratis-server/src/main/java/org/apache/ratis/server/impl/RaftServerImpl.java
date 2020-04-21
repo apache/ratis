@@ -1168,7 +1168,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         // update the committed index
         // re-load the state machine if this is the last chunk
         if (snapshotChunkRequest.getDone()) {
-          state.reloadStateMachine(lastIncludedIndex, leaderTerm);
+          state.reloadStateMachine(lastIncludedIndex);
         }
       } finally {
         updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_COMPLETE);
