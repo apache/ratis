@@ -13,19 +13,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+set -o pipefail
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../.." || exit 1
-
-export MAVEN_OPTS="-Xmx4096m"
-mvn -B -fn test
 
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/unit"}
 mkdir -p "$REPORT_DIR"
 
-# shellcheck source=dev-support/checks/_mvn_unit_report.sh
+export MAVEN_OPTS="-Xmx4096m"
+mvn -B -fae test "$@" | tee "${REPORT_DIR}/output.log"
+rc=$?
+
+# shellcheck source=hadoop-ozone/dev-support/checks/_mvn_unit_report.sh
 source "$DIR/_mvn_unit_report.sh"
 
 if [[ -s "$REPORT_DIR/summary.txt" ]] ; then
     exit 1
 fi
-exit 0
+exit ${rc}

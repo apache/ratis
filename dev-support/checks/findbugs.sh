@@ -16,7 +16,16 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR/../.." || exit 1
 
-mvn -B compile -fn findbugs:check -Dfindbugs.failOnError=false
+MAVEN_OPTIONS='-B -fae'
+
+if ! type unionBugs >/dev/null 2>&1 || ! type convertXmlToText >/dev/null 2>&1; then
+  #shellcheck disable=SC2086
+  mvn ${MAVEN_OPTIONS} compile findbugs:check
+  exit $?
+fi
+
+#shellcheck disable=SC2086
+mvn ${MAVEN_OPTIONS} compile findbugs:check
 
 REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/findbugs"}
 mkdir -p "$REPORT_DIR"
@@ -24,7 +33,9 @@ REPORT_FILE="$REPORT_DIR/summary.txt"
 
 touch "$REPORT_FILE"
 
-find . -name findbugsXml.xml -print0 | xargs -0 -n1 convertXmlToText | tee -a "${REPORT_FILE}"
+find $DIR -name spotbugsXml.xml -print0 | xargs -0 unionBugs -output "${REPORT_DIR}"/summary.xml
+convertXmlToText "${REPORT_DIR}"/summary.xml | tee -a "${REPORT_FILE}"
+convertXmlToText -html:fancy-hist.xsl "${REPORT_DIR}"/summary.xml "${REPORT_DIR}"/summary.html
 
 wc -l "$REPORT_FILE" | awk '{print $1}'> "$REPORT_DIR/failures"
 

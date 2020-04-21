@@ -21,12 +21,11 @@ mkdir -p "$REPORT_DIR"
 
 REPORT_FILE="$REPORT_DIR/summary.txt"
 
-cd hadoop-hdds || exit 1
 mvn -B -fn org.apache.rat:apache-rat-plugin:0.13:check
 
-cd "$DIR/../../.." || exit 1
+cd "$DIR/../.." || exit 1
 
-grep -r --include=rat.txt "!????" hadoop-hdds hadoop-ozone | tee "$REPORT_FILE"
+grep -r --include=rat.txt "!????" . | tee "$REPORT_FILE"
 
 wc -l "$REPORT_FILE" | awk '{print $1}'> "$REPORT_DIR/failures"
 

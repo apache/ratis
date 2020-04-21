@@ -20,11 +20,7 @@ REPORT_DIR=${OUTPUT_DIR:-"$DIR/../../target/author"}
 mkdir -p "$REPORT_DIR"
 REPORT_FILE="$REPORT_DIR/summary.txt"
 
-#hide this string to not confuse yetus
-AUTHOR="uthor"
-AUTHOR="@a${AUTHOR}"
-
-grep -r --include="*.java" "$AUTHOR" . | tee "$REPORT_FILE"
+grep -r --include="*.java" "@author" . | tee "$REPORT_FILE"
 
 wc -l "$REPORT_FILE" | awk '{print $1}'> "$REPORT_DIR/failures"
 
