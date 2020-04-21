@@ -209,6 +209,7 @@ public class LogAppender {
 
   protected AppendEntriesRequestProto createRequest(long callId) throws RaftLogIOException {
     final TermIndex previous = getPrevious(follower.getNextIndex());
+    final long snapshotIndex = follower.getSnapshotIndex();
     final long heartbeatRemainingMs = getHeartbeatRemainingTime();
     if (heartbeatRemainingMs <= 0L) {
       // heartbeat
@@ -234,12 +235,12 @@ public class LogAppender {
         (entry, time, exception) -> LOG.warn("{}: Failed to get {} in {}: {}",
             follower.getName(), entry, time, exception));
     buffer.clear();
-    assertProtos(protos, followerNext, previous);
+    assertProtos(protos, followerNext, previous, snapshotIndex);
     return leaderState.newAppendEntriesRequestProto(
         getFollowerId(), previous, protos, !follower.isAttendingVote(), callId);
   }
 
-  private void assertProtos(List<LogEntryProto> protos, long nextIndex, TermIndex previous) {
+  private void assertProtos(List<LogEntryProto> protos, long nextIndex, TermIndex previous, long snapshotIndex) {
     if (protos.isEmpty()) {
       return;
     }
@@ -247,10 +248,14 @@ public class LogAppender {
     Preconditions.assertTrue(firstIndex == nextIndex,
         () -> follower.getName() + ": firstIndex = " + firstIndex + " != nextIndex = " + nextIndex);
     if (firstIndex > RaftLog.LEAST_VALID_LOG_INDEX) {
-      Objects.requireNonNull(previous,
-          () -> follower.getName() + ": Previous TermIndex not found for firstIndex = " + firstIndex);
-      Preconditions.assertTrue(previous.getIndex() == firstIndex - 1,
-          () -> follower.getName() + ": Previous = " + previous + " but firstIndex = " + firstIndex);
+      // Check if nextIndex is 1 greater than the snapshotIndex. If yes, then
+      // we do not have to check for the existence of previous.
+      if (nextIndex != snapshotIndex + 1) {
+        Objects.requireNonNull(previous,
+            () -> follower.getName() + ": Previous TermIndex not found for firstIndex = " + firstIndex);
+        Preconditions.assertTrue(previous.getIndex() == firstIndex - 1,
+            () -> follower.getName() + ": Previous = " + previous + " but firstIndex = " + firstIndex);
+      }
     }
   }
 
