@@ -42,9 +42,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./.github/actions/build
-          with:
-             args: ./dev-support/checks/author.sh
+        - run: ./dev-support/checks/author.sh
         - uses: actions/upload-artifact@master
           if: always()
           with:
@@ -68,9 +66,7 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
-        - uses: ./.github/actions/build
-          with:
-             args: ./dev-support/checks/checkstyle.sh
+        - uses: ./dev-support/checks/checkstyle.sh
         - uses: actions/upload-artifact@master
           if: always()
           with:
