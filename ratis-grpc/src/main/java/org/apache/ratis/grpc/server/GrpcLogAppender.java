@@ -369,12 +369,20 @@ public class GrpcLogAppender extends LogAppender {
 
       switch (reply.getResult()) {
         case SUCCESS:
+          LOG.info("{}: Completed InstallSnapshot. Reply: {}", this);
+          removePending(reply);
+          break;
+        case NOTIFIED:
+          LOG.info("{}: Notified to InstallSnapshot.", this);
+          removePending(reply);
+          break;
         case IN_PROGRESS:
+          LOG.info("{}: InstallSnapshot in progress.", this);
           removePending(reply);
           break;
         case ALREADY_INSTALLED:
           final long followerSnapshotIndex = reply.getSnapshotIndex();
-          LOG.info("{}: set follower snapshotIndex to {}.", this, followerSnapshotIndex);
+          LOG.info("{}: Already Installed Snapshot Index {}.", this, followerSnapshotIndex);
           getFollower().setSnapshotIndex(followerSnapshotIndex);
           updateCommitIndex(followerSnapshotIndex);
           removePending(reply);
@@ -395,17 +403,19 @@ public class GrpcLogAppender extends LogAppender {
     @Override
     public void onError(Throwable t) {
       if (!isAppenderRunning()) {
-        LOG.info("{} is stopped", this);
+        LOG.info("{} is stopped", GrpcLogAppender.this);
         return;
       }
-      LOG.error("{}: Failed installSnapshot: {}", this, t);
+      GrpcUtil.warn(LOG, () -> this + ": Failed InstallSnapshot", t);
+      grpcServerMetrics.onRequestRetry(); // Update try counter
       resetClient(null);
-      close();
     }
 
     @Override
     public void onCompleted() {
-      LOG.info("{}: follower responses installSnapshot COMPLETED", this);
+      if (!firstResponseReceived) {
+        LOG.info("{}: follower responded installSnapshot COMPLETED/NOTIFIED", this);
+      }
       close();
     }
 

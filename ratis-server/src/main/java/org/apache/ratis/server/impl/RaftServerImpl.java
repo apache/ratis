@@ -1226,12 +1226,15 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         stateMachine.notifyInstallSnapshotFromLeader(getRoleInfoProto(), firstAvailableLogTermIndex)
             .whenComplete((reply, exception) -> {
               if (exception != null) {
-                LOG.error("{}: State Machine failed to install snapshot", getMemberId(), exception);
+                LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
+                    getMemberId(), exception.getMessage());
                 inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
                 return;
               }
 
               if (reply != null) {
+                LOG.info("{}: StateMachine successfully installed snapshot index {}. Reloading the StateMachine.",
+                    getMemberId(), reply.getIndex());
                 stateMachine.pause();
                 state.updateInstalledSnapshotIndex(reply);
                 state.reloadStateMachine(reply.getIndex(), leaderTerm);
@@ -1240,11 +1243,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             });
 
         return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
-            currentTerm, InstallSnapshotResult.SUCCESS, -1);
+            currentTerm, InstallSnapshotResult.NOTIFIED, -1);
       }
 
-      LOG.info("{}: StateMachine installSnapshot is in progress: {}",
-          getMemberId(), inProgressInstallSnapshotRequest.get());
+      LOG.info("{}: Snapshot Installation by StateMachine is in progress.", getMemberId());
       return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
           currentTerm, InstallSnapshotResult.IN_PROGRESS, -1);
     }

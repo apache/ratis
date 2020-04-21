@@ -132,6 +132,7 @@ enum InstallSnapshotResult {
   IN_PROGRESS = 2;
   ALREADY_INSTALLED = 3;
   CONF_MISMATCH = 4;
+  NOTIFIED = 5;
 }
 
 message RequestVoteRequestProto {
