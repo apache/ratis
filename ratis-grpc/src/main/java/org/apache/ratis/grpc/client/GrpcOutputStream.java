@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class GrpcOutputStream extends OutputStream {
   /** internal buffer */
-  private final byte buf[];
+  private final byte[] buf;
   private int count;
   private final AtomicLong seqNum = new AtomicLong();
   private final ClientId clientId;
@@ -62,7 +62,7 @@ public class GrpcOutputStream extends OutputStream {
   }
 
   @Override
-  public void write(byte b[], int off, int len) throws IOException {
+  public void write(byte[] b, int off, int len) throws IOException {
     checkClosed();
     if (off < 0 || len < 0 || off > b.length - len) {
       throw new ArrayIndexOutOfBoundsException();

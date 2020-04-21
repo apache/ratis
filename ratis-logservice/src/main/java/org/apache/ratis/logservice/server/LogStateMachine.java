@@ -182,8 +182,8 @@ public class LogStateMachine extends BaseStateMachine {
 
   private void checkInitialization() throws IOException {
     if (this.log == null) {
-      ServerState state = proxy.getImpl(groupId).getState();
-      this.log = state.getLog();
+      ServerState serverState = proxy.getImpl(groupId).getState();
+      this.log = serverState.getLog();
     }
   }
 
@@ -196,15 +196,15 @@ public class LogStateMachine extends BaseStateMachine {
   @Override
   public long takeSnapshot() {
     final TermIndex last;
-    try(final AutoCloseableLock readLock = readLock()) {
+    try(AutoCloseableLock readLock = readLock()) {
       last = getLastAppliedTermIndex();
     }
 
     final File snapshotFile =  storage.getSnapshotFile(last.getTerm(), last.getIndex());
     LOG.info("Taking a snapshot to file {}", snapshotFile);
 
-    try(final AutoCloseableLock readLock = readLock();
-        final ObjectOutputStream out = new ObjectOutputStream(
+    try(AutoCloseableLock readLock = readLock();
+        ObjectOutputStream out = new ObjectOutputStream(
         new BufferedOutputStream(new FileOutputStream(snapshotFile)))) {
       out.writeLong(length);
       out.writeLong(dataRecordsSize);
@@ -233,8 +233,8 @@ public class LogStateMachine extends BaseStateMachine {
     }
 
     final TermIndex last = SimpleStateMachineStorage.getTermIndexFromSnapshotFile(snapshotFile);
-    try(final AutoCloseableLock writeLock = writeLock();
-        final ObjectInputStream in = new ObjectInputStream(
+    try(AutoCloseableLock writeLock = writeLock();
+        ObjectInputStream in = new ObjectInputStream(
             new BufferedInputStream(new FileInputStream(snapshotFile)))) {
       if (reload) {
         reset();
@@ -331,8 +331,8 @@ public class LogStateMachine extends BaseStateMachine {
     LogServiceProtos.GetExportInfoReplyProto.Builder exportBuilder =
         LogServiceProtos.GetExportInfoReplyProto.newBuilder();
     exportMap.values().stream().map(
-        archivalInfo -> exportBuilder.addInfo(LogServiceProtoUtil.toExportInfoProto(archivalInfo)))
-        .collect(Collectors.toList());
+        archInfo -> exportBuilder.addInfo(LogServiceProtoUtil.toExportInfoProto(archInfo)))
+            .collect(Collectors.toList());
 
     return CompletableFuture.completedFuture(Message.valueOf(exportBuilder.build().toByteString()));
   }
@@ -343,8 +343,7 @@ public class LogStateMachine extends BaseStateMachine {
    * @return reply message
    */
   private CompletableFuture<Message>
-      processGetStartIndexRequest(LogServiceRequestProto proto)
-  {
+      processGetStartIndexRequest(LogServiceRequestProto proto) {
 
     Throwable t = verifyState(State.OPEN);
     long startIndex = log.getStartIndex();
@@ -358,8 +357,7 @@ public class LogStateMachine extends BaseStateMachine {
    * @return reply message
    */
   private CompletableFuture<Message>
-      processGetLastCommittedIndexRequest(LogServiceRequestProto proto)
-  {
+      processGetLastCommittedIndexRequest(LogServiceRequestProto proto) {
     Throwable t = verifyState(State.OPEN);
     long lastIndex = log.getLastCommittedIndex();
     return CompletableFuture.completedFuture(Message
@@ -461,7 +459,7 @@ public class LogStateMachine extends BaseStateMachine {
     Throwable t = verifyState(State.OPEN);
     final List<Long> ids = new ArrayList<Long>();
     if (t == null) {
-      try (final AutoCloseableLock writeLock = writeLock()) {
+      try (AutoCloseableLock writeLock = writeLock()) {
           List<byte[]> entries = LogServiceProtoUtil.toListByteArray(proto.getDataList());
           for (byte[] bb : entries) {
             ids.add(this.length);
@@ -553,6 +551,7 @@ public class LogStateMachine extends BaseStateMachine {
       case DELETED:
         t = verifyState(State.CLOSED);
         break;
+      default:
       }
     }
     if(t != null) {
@@ -573,8 +572,8 @@ public class LogStateMachine extends BaseStateMachine {
   }
 
   private Throwable verifyState(State... states) {
-    for (State state : states) {
-      if (this.state == state) {
+    for (State st : states) {
+      if (this.state == st) {
         return null;
       }
     }
@@ -744,9 +743,9 @@ public class LogStateMachine extends BaseStateMachine {
     }
   }
 
-  private void sendChangeStateRequest(State state, boolean force) throws IOException {
+  private void sendChangeStateRequest(State st, boolean force) throws IOException {
       getClient().send(
-          () -> LogServiceProtoUtil.toChangeStateRequestProto(LogName.of("Dummy"), state, force)
+          () -> LogServiceProtoUtil.toChangeStateRequestProto(LogName.of("Dummy"), st, force)
               .toByteString());
   }
 

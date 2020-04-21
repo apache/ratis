@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
@@ -65,17 +66,34 @@ public interface ServerProtoUtils {
   }
 
   static String toLogEntryString(LogEntryProto entry) {
+    return toLogEntryString(entry, null);
+  }
+
+  static String toStateMachineLogEntryString(StateMachineLogEntryProto smLog,
+                                             Function<StateMachineLogEntryProto, String> function) {
+    final ByteString clientId = smLog.getClientId();
+    String callIdString = (clientId.isEmpty() ? "<empty clientId>" : ClientId.valueOf(clientId))
+        + ", cid=" + smLog.getCallId();
+
+    String smString = "";
+    if (function != null) {
+      smString = "\n\t State Machine: " + function.apply(smLog);
+    }
+    return callIdString + smString;
+  }
+
+
+  static String toLogEntryString(LogEntryProto entry,
+                                 Function<StateMachineLogEntryProto, String> function) {
     if (entry == null) {
       return null;
     }
     final String s;
     if (entry.hasStateMachineLogEntry()) {
-      final StateMachineLogEntryProto smLog = entry.getStateMachineLogEntry();
-      final ByteString clientId = smLog.getClientId();
-      s = ", " + (clientId.isEmpty()? "<empty clientId>": ClientId.valueOf(clientId)) + ", cid=" + smLog.getCallId();
+      s = ", " + toStateMachineLogEntryString(entry.getStateMachineLogEntry(), function);
     } else if (entry.hasMetadataEntry()) {
       final MetadataProto metadata = entry.getMetadataEntry();
-      s = "(c" + metadata.getCommitIndex() + ")";
+      s = "(c:" + metadata.getCommitIndex() + ")";
     } else {
       s = "";
     }
@@ -386,9 +404,11 @@ public interface ServerProtoUtils {
         .build();
   }
 
+  @SuppressWarnings("parameternumber")
   static AppendEntriesReplyProto toAppendEntriesReplyProto(
       RaftPeerId requestorId, RaftGroupMemberId replyId, long term,
-      long followerCommit, long nextIndex, AppendResult result, long callId) {
+      long followerCommit, long nextIndex, AppendResult result, long callId,
+      long matchIndex, boolean isHeartbeat) {
     RaftRpcReplyProto.Builder rpcReply = toRaftRpcReplyProtoBuilder(
         requestorId, replyId, result == AppendResult.SUCCESS)
         .setCallId(callId);
@@ -396,8 +416,11 @@ public interface ServerProtoUtils {
         .setServerReply(rpcReply)
         .setTerm(term)
         .setNextIndex(nextIndex)
+        .setMatchIndex(matchIndex)
         .setFollowerCommit(followerCommit)
-        .setResult(result).build();
+        .setResult(result)
+        .setIsHearbeat(isHeartbeat)
+        .build();
   }
 
   static AppendEntriesRequestProto toAppendEntriesRequestProto(

@@ -17,12 +17,15 @@
  */
 package org.apache.ratis.statemachine;
 
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
@@ -135,8 +138,11 @@ public interface StateMachine extends Closeable {
       throws IOException;
 
   /**
-   * Write asynchronously the state machine data to this state machine.
-   *
+   * Write asynchronously the state machine data to this state machine. The call
+   * to stateMachine is made with the RaftLog lock held. All the stateMachineData
+   * calls are sequential and in order of the corresponding log operations.
+   * The operation must be lightweight and should be used to determine the task
+   * to be performed. The task if heavy should be performed inside the CompletableFuture.
    * @return a future for the write task if the state machine data should be sync'ed;
    *         otherwise, return null.
    */
@@ -253,7 +259,11 @@ public interface StateMachine extends Closeable {
   /**
    * Truncates asynchronously the associated state machine data starting from the given log
    * index from the state machine. It will be a no op if the corresponding log entry does not
-   * have associated stateMachineData.
+   * have associated stateMachineData. The call to stateMachine is made with the RaftLog
+   * lock held. All the stateMachineData calls are sequential and in order of the
+   * corresponding log operations. The operation must be lightweight and should be used
+   * to determine the truncation task to be performed. The task if heavy should
+   * be performed inside the CompletableFuture.
    * @param index log Index starting from which the stateMachineData will be truncated.
    * @return a combined future for the remove task for all the log entries starting from
    *         given logIndex, null otherwise
@@ -279,15 +289,9 @@ public interface StateMachine extends Closeable {
   }
 
   /**
-   * Notify the state machine that the raft peer is a leader now.
+   * Notify the state machine that a RaftPeer has been elected as leader.
    */
-  default void notifyLeader(RaftGroupId groupId, long lastCommittedIndex){
-  }
-
-  /**
-   * Notify the follower state machine that a RaftPeer has been elected as leader.
-   */
-  default void notifyLeaderChanged(RaftGroupId groupId, RaftPeerId raftPeerId) {
+  default void notifyLeaderChanged(RaftGroupMemberId groupMemberId, RaftPeerId raftPeerId) {
   }
 
   /**
@@ -298,4 +302,12 @@ public interface StateMachine extends Closeable {
   default void notifyGroupRemove() {
   }
 
+  /**
+   * Converts the proto object into a useful log string to add information about state machine data.
+   * @param proto state machine proto
+   * @return
+   */
+  default String toStateMachineLogEntryString(RaftProtos.StateMachineLogEntryProto proto) {
+    return ServerProtoUtils.toStateMachineLogEntryString(proto, null);
+  }
 }

@@ -22,7 +22,7 @@ import static org.junit.Assert.assertEquals;
 import java.nio.ByteBuffer;
 
 import org.apache.ratis.logservice.api.LogName;
-import org.apache.ratis.logservice.client.LogServiceClient;
+import org.apache.ratis.logservice.api.LogServiceClient;
 import org.apache.ratis.logservice.tool.VerificationTool.Operation;
 import org.junit.Test;
 

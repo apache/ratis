@@ -30,9 +30,9 @@ import com.codahale.metrics.MetricRegistry;
  */
 public class MetricRegistryInfo {
 
-  protected final String prefix;
-  protected final String metricsDescription;
-  protected final String metricsComponentName;
+  private final String prefix;
+  private final String metricsDescription;
+  private final String metricsComponentName;
   private final String fullName;
   private final String applicationName;
 

@@ -58,7 +58,7 @@ public class GrpcFactory implements ServerFactory, ClientFactory {
   }
 
   public GrpcFactory(Parameters parameters) {
-    this(GrpcConfigKeys.TLS.getConf(parameters));
+    this(GrpcConfigKeys.TLS.conf(parameters));
   }
 
   public GrpcFactory(GrpcTlsConfig tlsConfig) {

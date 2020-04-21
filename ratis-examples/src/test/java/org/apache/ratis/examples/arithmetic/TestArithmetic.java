@@ -26,7 +26,7 @@ import org.apache.ratis.examples.arithmetic.expression.Expression;
 import org.apache.ratis.examples.arithmetic.expression.NullValue;
 import org.apache.ratis.examples.arithmetic.expression.Variable;
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.Preconditions;
 import org.junit.Assert;
 import org.junit.Test;
@@ -41,7 +41,7 @@ import static org.apache.ratis.examples.arithmetic.expression.UnaryExpression.Op
 
 public class TestArithmetic extends ParameterizedBaseTest {
   {
-    LogUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(ArithmeticStateMachine.LOG, Level.DEBUG);
   }
 
   @Parameterized.Parameters

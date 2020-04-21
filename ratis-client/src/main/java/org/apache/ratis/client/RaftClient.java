@@ -18,6 +18,7 @@
 package org.apache.ratis.client;
 
 import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.client.api.StreamApi;
 import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -43,6 +44,8 @@ public interface RaftClient extends Closeable {
 
   /** @return the client rpct. */
   RaftClientRpc getClientRpc();
+
+  StreamApi getStreamApi();
 
   /**
    * Async call to send the given message to the raft service.

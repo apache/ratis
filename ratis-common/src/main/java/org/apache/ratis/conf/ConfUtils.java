@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
@@ -65,6 +66,10 @@ public interface ConfUtils {
             key + " = " + value + " > max = " + max);
       }
     };
+  }
+
+  static BiConsumer<String, Long> requireMin(SizeInBytes min) {
+    return requireMin(min.getSize());
   }
 
   static BiConsumer<String, Long> requireMin(long min) {
@@ -305,35 +310,70 @@ public interface ConfUtils {
   }
 
   static boolean printKey(
-      Class<?> confClass, Consumer<Object> out, Field f, String KEY, String DEFAULT,
+      Class<?> confClass, Consumer<Object> out, Field f, String key, String defaultName,
       CheckedBiConsumer<StringBuilder, Field, IllegalAccessException> processDefault) {
     final String fieldName = f.getName();
-    if (fieldName.endsWith("_" + DEFAULT)) {
+    if (fieldName.endsWith("_" + defaultName)) {
       return true;
     }
-    if (!fieldName.endsWith("_" + KEY)) {
+    if (!fieldName.endsWith("_" + key)) {
       return false;
     }
     final StringBuilder b = new StringBuilder();
+    final Object keyName;
     try {
-      final Object keyName = f.get(null);
-      b.append(KEY.toLowerCase()).append(": ").append(keyName);
+      keyName = f.get(null);
+      b.append(key.toLowerCase()).append(": ").append(keyName);
     } catch (IllegalAccessException e) {
       throw new IllegalStateException("Failed to access " + fieldName, e);
     }
-    final int len = fieldName.length() - KEY.length();
-    final String defaultFieldName = fieldName.substring(0, len) + DEFAULT;
+    assertKey(fieldName, key.length(), keyName, confClass);
+    final String defaultFieldName = fieldName.substring(0, fieldName.length() - key.length()) + defaultName;
     b.append(" (");
     try {
       final Field defaultField = confClass.getDeclaredField(defaultFieldName);
       processDefault.accept(b, defaultField);
     } catch (NoSuchFieldException e) {
-      throw new IllegalStateException(DEFAULT + " not found for field " + f, e);
+      throw new IllegalStateException(defaultName + " not found for field " + f, e);
     } catch (IllegalAccessException e) {
       throw new IllegalStateException("Failed to access " + defaultFieldName, e);
     }
     b.append(")");
+
     out.accept(b);
     return true;
+  }
+
+  static String normalizeName(String name) {
+    return name.replaceAll("[._-]", "").toLowerCase();
+  }
+
+  static void assertKey(String fieldName, int toTruncate, Object keyName, Class<?> confClass) {
+    final String normalizedFieldName = normalizeName(fieldName.substring(0, fieldName.length() - toTruncate));
+    final String normalizedKeyName = normalizeName("" + keyName);
+
+    if (!normalizedKeyName.endsWith(normalizedFieldName)) {
+      throw new IllegalStateException("Field and key mismatched: fieldName = " + fieldName + " (" + normalizedFieldName
+          + ") but keyName = " + keyName + " (" + normalizedKeyName + ")");
+    }
+
+    // check getter and setter methods
+    boolean getter = false;
+    boolean setter = false;
+    for(Method m : confClass.getMethods()) {
+      final String name = m.getName();
+      if (name.equalsIgnoreCase(normalizedFieldName)) {
+        getter = true;
+      }
+      if (name.equalsIgnoreCase("set" + normalizedFieldName)) {
+        setter = true;
+      }
+    }
+    if (!getter) {
+      throw new IllegalStateException("Getter method not found for " + fieldName);
+    }
+    if (!setter) {
+      throw new IllegalStateException("Setter method not found for " + fieldName);
+    }
   }
 }

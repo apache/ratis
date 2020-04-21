@@ -21,7 +21,7 @@ import org.apache.ratis.util.Preconditions;
 
 import java.util.Map;
 
-public class NullValue implements Expression {
+public final class NullValue implements Expression {
   private static final NullValue INSTANCE = new NullValue();
 
   public static NullValue getInstance() {

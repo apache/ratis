@@ -29,7 +29,7 @@ import java.util.function.Supplier;
  *
  * @param <T> The supplier result type.
  */
-public class MemoizedSupplier<T> implements Supplier<T> {
+public final class MemoizedSupplier<T> implements Supplier<T> {
   /**
    * @param supplier to supply at most one non-null value.
    * @return a {@link MemoizedSupplier} with the given supplier.

@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.util.Collection;
 import java.util.Optional;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
@@ -38,11 +37,17 @@ public final class TimeoutScheduler implements Closeable {
 
   static final TimeDuration DEFAULT_GRACE_PERIOD = TimeDuration.valueOf(1, TimeUnit.MINUTES);
 
-  public static TimeoutScheduler newInstance(int numThreads) {
-    return new TimeoutScheduler(numThreads);
+  private static final Supplier<TimeoutScheduler> INSTANCE = JavaUtils.memoize(TimeoutScheduler::new);
+
+  public static TimeoutScheduler getInstance() {
+    return INSTANCE.get();
   }
 
-  class ShutdownTask implements Runnable {
+  static TimeoutScheduler newInstance() {
+    return new TimeoutScheduler();
+  }
+
+  static class ShutdownTask {
     private final int sid;
     private final ScheduledFuture<?> future;
 
@@ -55,13 +60,38 @@ public final class TimeoutScheduler implements Closeable {
       return sid;
     }
 
-    @Override
-    public void run() {
-      tryShutdownScheduler(sid);
-    }
-
     void cancel() {
       future.cancel(false);
+    }
+  }
+
+  private static class Scheduler {
+    private final AtomicReference<ScheduledThreadPoolExecutor> executor = new AtomicReference<>();
+
+    boolean hasExecutor() {
+      return executor.get() != null;
+    }
+
+    int getQueueSize() {
+      return Optional.ofNullable(executor.get())
+          .map(ScheduledThreadPoolExecutor::getQueue)
+          .map(Collection::size).orElse(0);
+    }
+
+    ScheduledFuture<?> schedule(Runnable task, Supplier<String> name, TimeDuration time) {
+      return executor.updateAndGet(e -> Optional.ofNullable(e).orElseGet(Scheduler::newExecutor))
+          .schedule(LogUtils.newRunnable(LOG, task, name), time.getDuration(), time.getUnit());
+    }
+
+    private static ScheduledThreadPoolExecutor newExecutor() {
+      LOG.debug("new ScheduledThreadPoolExecutor");
+      final ScheduledThreadPoolExecutor e = new ScheduledThreadPoolExecutor(1, (ThreadFactory) Daemon::new);
+      e.setRemoveOnCancelPolicy(true);
+      return e;
+    }
+
+    void shutdown() {
+      Optional.ofNullable(executor.getAndSet(null)).ifPresent(ScheduledThreadPoolExecutor::shutdown);
     }
   }
 
@@ -75,15 +105,13 @@ public final class TimeoutScheduler implements Closeable {
 
   private ShutdownTask shutdownTask = null;
 
-  private final int numThreads;
-  private volatile ScheduledThreadPoolExecutor scheduler = null;
+  private final Scheduler scheduler = new Scheduler();
 
-  private TimeoutScheduler(int numThreads) {
-    this.numThreads = numThreads;
+  private TimeoutScheduler() {
   }
 
   int getQueueSize() {
-    return Optional.ofNullable(scheduler).map(ScheduledThreadPoolExecutor::getQueue).map(Collection::size).orElse(0);
+    return scheduler.getQueueSize();
   }
 
   TimeDuration getGracePeriod() {
@@ -94,8 +122,8 @@ public final class TimeoutScheduler implements Closeable {
     this.gracePeriod.set(gracePeriod);
   }
 
-  synchronized boolean hasScheduler() {
-    return scheduler != null;
+  boolean hasScheduler() {
+    return scheduler.hasExecutor();
   }
 
   /**
@@ -120,17 +148,11 @@ public final class TimeoutScheduler implements Closeable {
   }
 
   private synchronized void onTimeout(TimeDuration timeout, Consumer<Integer> toSchedule) {
-    if (scheduler == null) {
-      Preconditions.assertTrue(numTasks == 0);
-      LOG.debug("Initialize scheduler");
-      scheduler = new ScheduledThreadPoolExecutor(numThreads, (ThreadFactory) Daemon::new);
-      scheduler.setRemoveOnCancelPolicy(true);
-    }
     numTasks++;
     final int sid = scheduleID++;
 
     LOG.debug("schedule a task: timeout {}, sid {}", timeout, sid);
-    schedule(scheduler, () -> toSchedule.accept(sid), () -> "task #" + sid, timeout);
+    scheduler.schedule(() -> toSchedule.accept(sid), () -> "task #" + sid, timeout);
   }
 
   private synchronized void onTaskCompleted() {
@@ -149,15 +171,9 @@ public final class TimeoutScheduler implements Closeable {
 
     final TimeDuration grace = getGracePeriod();
     LOG.debug("Schedule a shutdown task: grace {}, sid {}", grace, sid);
-    final ScheduledFuture<?> future = schedule(scheduler, () -> tryShutdownScheduler(sid),
+    final ScheduledFuture<?> future = scheduler.schedule(() -> tryShutdownScheduler(sid),
         () -> "shutdown task #" + sid, grace);
     shutdownTask = new ShutdownTask(sid, future);
-  }
-
-  private static ScheduledFuture<?> schedule(
-      ScheduledExecutorService service, Runnable task, Supplier<String> name, TimeDuration timeDuration) {
-    return service.schedule(LogUtils.newRunnable(LOG, task, name),
-        timeDuration.getDuration(), timeDuration.getUnit());
   }
 
   private synchronized void tryShutdownScheduler(int sid) {
@@ -165,7 +181,6 @@ public final class TimeoutScheduler implements Closeable {
       // No new tasks submitted, shutdown the scheduler.
       LOG.debug("shutdown scheduler: sid {}", sid);
       scheduler.shutdown();
-      scheduler = null;
     } else {
       LOG.debug("shutdown cancelled: scheduleID has changed from {} to {}", sid, scheduleID);
     }
@@ -176,11 +191,8 @@ public final class TimeoutScheduler implements Closeable {
     onTimeout(timeout, task, t -> log.error(errorMessage.get(), t));
   }
 
-  @Override public synchronized void close() {
-    if (scheduler != null) {
-      LOG.debug("Closing ThreadPool");
-      scheduler.shutdownNow();
-      scheduler = null;
-    }
+  @Override
+  public synchronized void close() {
+    tryShutdownScheduler(scheduleID);
   }
 }

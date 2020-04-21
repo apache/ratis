@@ -18,11 +18,8 @@
 
 package org.apache.ratis.logservice.metrics;
 
-import java.util.concurrent.TimeUnit;
-
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
-import org.apache.ratis.metrics.MetricsReporting;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 
 public class LogServiceMetricsRegistry {
@@ -32,7 +29,6 @@ public class LogServiceMetricsRegistry {
   public static final String RATIS_LOG_SERVICE_META_DATA_METRICS = "metadata_statemachine";
   public static final String RATIS_LOG_SERVICE_META_DATA_METRICS_DESC =
       "Ratis log service metadata metrics";
-  static MetricsReporting metricsReporting = new MetricsReporting(500, TimeUnit.MILLISECONDS);
 
   public static RatisMetricRegistry createMetricRegistryForLogService(String logName,
       String serverId) {
@@ -59,9 +55,6 @@ public class LogServiceMetricsRegistry {
 
   private static RatisMetricRegistry create(MetricRegistryInfo info) {
     RatisMetricRegistry registry = MetricRegistries.global().create(info);
-    metricsReporting
-        .startMetricsReporter(registry, MetricsReporting.MetricReporterType.JMX,
-            MetricsReporting.MetricReporterType.HADOOP2);
     return registry;
   }
 

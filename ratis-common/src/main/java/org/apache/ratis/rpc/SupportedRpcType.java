@@ -18,7 +18,6 @@
 package org.apache.ratis.rpc;
 
 import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.util.ReflectionUtils;
 
 /** The RPC types supported. */

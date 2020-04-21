@@ -17,8 +17,10 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.ClientRetryEvent;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.client.api.StreamApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
@@ -84,6 +86,7 @@ final class RaftClientImpl implements RaftClient {
   private final TimeoutScheduler scheduler;
 
   private final Supplier<OrderedAsync> orderedAsync;
+  private final Supplier<StreamApi> streamApi;
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
@@ -96,10 +99,11 @@ final class RaftClientImpl implements RaftClient {
     Preconditions.assertTrue(retryPolicy != null, "retry policy can't be null");
     this.retryPolicy = retryPolicy;
 
-    scheduler = TimeoutScheduler.newInstance(0);
+    scheduler = TimeoutScheduler.getInstance();
     clientRpc.addServers(peers);
 
-    this.orderedAsync = JavaUtils.memoize(() -> new OrderedAsync(this, properties));
+    this.orderedAsync = JavaUtils.memoize(() -> OrderedAsync.newInstance(this, properties));
+    this.streamApi = JavaUtils.memoize(() -> StreamImpl.newInstance(this, properties));
   }
 
   @Override
@@ -120,6 +124,11 @@ final class RaftClientImpl implements RaftClient {
   }
 
   @Override
+  public StreamApi getStreamApi() {
+    return streamApi.get();
+  }
+
+  @Override
   public CompletableFuture<RaftClientReply> sendAsync(Message message) {
     return sendAsync(RaftClientRequest.writeRequestType(), message, null);
   }
@@ -137,6 +146,14 @@ final class RaftClientImpl implements RaftClient {
   @Override
   public CompletableFuture<RaftClientReply> sendWatchAsync(long index, ReplicationLevel replication) {
     return UnorderedAsync.send(RaftClientRequest.watchRequestType(index, replication), this);
+  }
+
+  CompletableFuture<RaftClientReply> streamAsync(long streamId, long messageId, Message message) {
+    return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, false), message, null);
+  }
+
+  CompletableFuture<RaftClientReply> streamCloseAsync(long streamId, long messageId) {
+    return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, true), null, null);
   }
 
   private CompletableFuture<RaftClientReply> sendAsync(
@@ -252,23 +269,28 @@ final class RaftClientImpl implements RaftClient {
       } catch (IOException e) {
         ioe = e;
       }
-      if (!retryPolicy.shouldRetry(attemptCount, request)) {
-        throw (IOException)noMoreRetries(request, attemptCount, ioe);
+
+      final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, ioe);
+      final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
+      if (!action.shouldRetry()) {
+        throw (IOException)noMoreRetries(event);
       }
 
       try {
-        retryPolicy.getSleepTime(attemptCount, request).sleep();
+        action.getSleepTime().sleep();
       } catch (InterruptedException e) {
         throw new InterruptedIOException("retry policy=" + retryPolicy);
       }
     }
   }
 
-  Throwable noMoreRetries(RaftClientRequest request, int attemptCount, Throwable throwable) {
+  Throwable noMoreRetries(ClientRetryEvent event) {
+    final int attemptCount = event.getAttemptCount();
+    final Throwable throwable = event.getCause();
     if (attemptCount == 1 && throwable != null) {
       return throwable;
     }
-    return new RaftRetryFailureException(request, attemptCount, retryPolicy, throwable);
+    return new RaftRetryFailureException(event.getRequest(), attemptCount, retryPolicy, throwable);
   }
 
   private RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
@@ -369,7 +391,7 @@ final class RaftClientImpl implements RaftClient {
             clientId, oldLeader, newLeader, ioe.getClass().getName());
         this.leaderId = newLeader;
       }
-      clientRpc.handleException(oldLeader, ioe, reconnect);
+      clientRpc.handleException(oldLeader, ioe, true);
     }
   }
 

@@ -24,7 +24,13 @@ import org.apache.ratis.util.StringUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.w3c.dom.*;
+import org.w3c.dom.Attr;
+import org.w3c.dom.Element;
+import org.w3c.dom.Document;
+import org.w3c.dom.DOMException;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.Text;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -35,12 +41,30 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.JarURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.*;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
@@ -50,7 +74,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
-/** 
+/**
  * Provides access to configuration parameters. The current implementation is a
  * simplified version of hadoop's Configuration.
  */
@@ -61,11 +85,11 @@ public class RaftProperties {
     private final Object resource;
     private final String name;
 
-    public Resource(Object resource) {
+    Resource(Object resource) {
       this(resource, resource.toString());
     }
 
-    public Resource(Object resource, String name) {
+    Resource(Object resource, String name) {
       this.resource = resource;
       this.name = name;
     }
@@ -112,7 +136,7 @@ public class RaftProperties {
    * List of default Resources. Resources are loaded in the order of the list
    * entries
    */
-  private static final CopyOnWriteArrayList<String> defaultResources =
+  private static final CopyOnWriteArrayList<String> DEFAULT_RESOURCES =
     new CopyOnWriteArrayList<>();
 
   /**
@@ -179,8 +203,8 @@ public class RaftProperties {
    * @param name file name. File should be present in the classpath.
    */
   public static synchronized void addDefaultResource(String name) {
-    if(!defaultResources.contains(name)) {
-      defaultResources.add(name);
+    if(!DEFAULT_RESOURCES.contains(name)) {
+      DEFAULT_RESOURCES.add(name);
       REGISTRY.keySet().stream().filter(conf -> conf.loadDefaults)
           .forEach(RaftProperties::reloadConfiguration);
     }
@@ -575,8 +599,9 @@ public class RaftProperties {
    */
   public int getInt(String name, int defaultValue) {
     String valueString = getTrimmed(name);
-    if (valueString == null)
+    if (valueString == null) {
       return defaultValue;
+    }
     String hexString = getHexDigits(valueString);
     if (hexString != null) {
       return Integer.parseInt(hexString, 16);
@@ -628,8 +653,9 @@ public class RaftProperties {
    */
   public long getLong(String name, long defaultValue) {
     String valueString = getTrimmed(name);
-    if (valueString == null)
+    if (valueString == null) {
       return defaultValue;
+    }
     String hexString = getHexDigits(valueString);
     if (hexString != null) {
       return Long.parseLong(hexString, 16);
@@ -726,8 +752,9 @@ public class RaftProperties {
    */
   public float getFloat(String name, float defaultValue) {
     String valueString = getTrimmed(name);
-    if (valueString == null)
+    if (valueString == null) {
       return defaultValue;
+    }
     return Float.parseFloat(valueString);
   }
 
@@ -755,8 +782,9 @@ public class RaftProperties {
    */
   public double getDouble(String name, double defaultValue) {
     String valueString = getTrimmed(name);
-    if (valueString == null)
+    if (valueString == null) {
       return defaultValue;
+    }
     return Double.parseDouble(valueString);
   }
 
@@ -903,163 +931,6 @@ public class RaftProperties {
   }
 
   /**
-   * A class that represents a set of positive integer ranges. It parses
-   * strings of the form: "2-3,5,7-" where ranges are separated by comma and
-   * the lower/upper bounds are separated by dash. Either the lower or upper
-   * bound may be omitted meaning all values up to or over. So the string
-   * above means 2, 3, 5, and 7, 8, 9, ...
-   */
-  public static class IntegerRanges implements Iterable<Integer>{
-    private static class Range {
-      int start;
-      int end;
-    }
-
-    private static class RangeNumberIterator implements Iterator<Integer> {
-      Iterator<Range> internal;
-      int at;
-      int end;
-
-      public RangeNumberIterator(List<Range> ranges) {
-        if (ranges != null) {
-          internal = ranges.iterator();
-        }
-        at = -1;
-        end = -2;
-      }
-
-      @Override
-      public boolean hasNext() {
-        if (at <= end) {
-          return true;
-        } else if (internal != null){
-          return internal.hasNext();
-        }
-        return false;
-      }
-
-      @Override
-      public Integer next() {
-        if (at <= end) {
-          at++;
-          return at - 1;
-        } else if (internal != null){
-          Range found = internal.next();
-          if (found != null) {
-            at = found.start;
-            end = found.end;
-            at++;
-            return at - 1;
-          }
-        }
-        return null;
-      }
-
-      @Override
-      public void remove() {
-        throw new UnsupportedOperationException();
-      }
-    }
-
-    List<Range> ranges = new ArrayList<>();
-
-    public IntegerRanges() {
-    }
-
-    public IntegerRanges(String newValue) {
-      StringTokenizer itr = new StringTokenizer(newValue, ",");
-      while (itr.hasMoreTokens()) {
-        String rng = itr.nextToken().trim();
-        String[] parts = rng.split("-", 3);
-        if (parts.length < 1 || parts.length > 2) {
-          throw new IllegalArgumentException("integer range badly formed: " +
-                                             rng);
-        }
-        Range r = new Range();
-        r.start = convertToInt(parts[0], 0);
-        if (parts.length == 2) {
-          r.end = convertToInt(parts[1], Integer.MAX_VALUE);
-        } else {
-          r.end = r.start;
-        }
-        if (r.start > r.end) {
-          throw new IllegalArgumentException("IntegerRange from " + r.start +
-                                             " to " + r.end + " is invalid");
-        }
-        ranges.add(r);
-      }
-    }
-
-    /**
-     * Convert a string to an int treating empty strings as the default value.
-     * @param value the string value
-     * @param defaultValue the value for if the string is empty
-     * @return the desired integer
-     */
-    private static int convertToInt(String value, int defaultValue) {
-      String trim = value.trim();
-      if (trim.length() == 0) {
-        return defaultValue;
-      }
-      return Integer.parseInt(trim);
-    }
-
-    /**
-     * Is the given value in the set of ranges
-     * @param value the value to check
-     * @return is the value in the ranges?
-     */
-    public boolean isIncluded(int value) {
-      for(Range r: ranges) {
-        if (r.start <= value && value <= r.end) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    /**
-     * @return true if there are no values in this range, else false.
-     */
-    public boolean isEmpty() {
-      return ranges == null || ranges.isEmpty();
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder result = new StringBuilder();
-      boolean first = true;
-      for(Range r: ranges) {
-        if (first) {
-          first = false;
-        } else {
-          result.append(',');
-        }
-        result.append(r.start);
-        result.append('-');
-        result.append(r.end);
-      }
-      return result.toString();
-    }
-
-    @Override
-    public Iterator<Integer> iterator() {
-      return new RangeNumberIterator(ranges);
-    }
-
-  }
-
-  /**
-   * Parse the given attribute as a set of integer ranges
-   * @param name the attribute name
-   * @param defaultValue the default value if it is not set
-   * @return a new set of ranges from the configured value
-   */
-  public IntegerRanges getRange(String name, String defaultValue) {
-    return new IntegerRanges(get(name, defaultValue));
-  }
-
-  /**
    * Get the comma delimited values of the <code>name</code> property as
    * an array of <code>String</code>s, trimmed of the leading and trailing whitespace.
    * If no such property is specified then an empty array is returned.
@@ -1116,8 +987,9 @@ public class RaftProperties {
    */
   public Class<?> getClass(String name, Class<?> defaultValue) {
     String valueString = getTrimmed(name);
-    if (valueString == null)
+    if (valueString == null) {
       return defaultValue;
+    }
     try {
       return ReflectionUtils.getClassByName(valueString);
     } catch (ClassNotFoundException e) {
@@ -1145,12 +1017,14 @@ public class RaftProperties {
       String name, Class<? extends BASE> defaultValue, Class<BASE> xface) {
     try {
       Class<?> theClass = getClass(name, defaultValue);
-      if (theClass != null && !xface.isAssignableFrom(theClass))
+      if (theClass != null && !xface.isAssignableFrom(theClass)) {
         throw new RuntimeException(theClass+" not "+xface.getName());
-      else if (theClass != null)
+      } else if (theClass != null) {
         return theClass.asSubclass(xface);
-      else
+      } else {
         return null;
+      }
+
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -1168,8 +1042,9 @@ public class RaftProperties {
    * @param xface the interface implemented by the named class.
    */
   public void setClass(String name, Class<?> theClass, Class<?> xface) {
-    if (!xface.isAssignableFrom(theClass))
+    if (!xface.isAssignableFrom(theClass)) {
       throw new RuntimeException(theClass+" not "+xface.getName());
+    }
     set(name, theClass.getName());
   }
 
@@ -1178,7 +1053,7 @@ public class RaftProperties {
       properties = new Properties();
       Map<String, String[]> backup =
           new ConcurrentHashMap<>(updatingResource);
-      loadResources(properties, resources);
+      loadResources();
 
       if (overlay != null) {
         properties.putAll(overlay);
@@ -1241,10 +1116,9 @@ public class RaftProperties {
     }
   }
 
-  private void loadResources(Properties properties,
-                             ArrayList<Resource> resources) {
+  private void loadResources() {
     if(loadDefaults) {
-      for (String resource : defaultResources) {
+      for (String resource : DEFAULT_RESOURCES) {
         loadResource(properties, new Resource(resource));
       }
     }
@@ -1257,14 +1131,13 @@ public class RaftProperties {
     }
   }
 
-  private Resource loadResource(Properties properties, Resource wrapper) {
+  private Resource loadResource(Properties propts, Resource wrapper) {
     String name = UNKNOWN_RESOURCE;
     try {
       Object resource = wrapper.getResource();
       name = wrapper.getName();
 
-      DocumentBuilderFactory docBuilderFactory
-        = DocumentBuilderFactory.newInstance();
+      DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
       //ignore all comments inside the xml file
       docBuilderFactory.setIgnoringComments(true);
 
@@ -1273,10 +1146,7 @@ public class RaftProperties {
       try {
           docBuilderFactory.setXIncludeAware(true);
       } catch (UnsupportedOperationException e) {
-        LOG.error("Failed to set setXIncludeAware(true) for parser "
-                + docBuilderFactory
-                + ":" + e,
-                e);
+        LOG.error("Failed to set setXIncludeAware(true) for parser " + docBuilderFactory + ":" + e, e);
       }
       DocumentBuilder builder = docBuilderFactory.newDocumentBuilder();
       Document doc = null;
@@ -1292,7 +1162,7 @@ public class RaftProperties {
         doc = parse(builder, (InputStream) resource, null);
         returnCachedProperties = true;
       } else if (resource instanceof Properties) {
-        overlay(properties, (Properties) resource);
+        overlay(propts, (Properties) resource);
       } else if (resource instanceof Element) {
         root = (Element) resource;
       }
@@ -1303,7 +1173,7 @@ public class RaftProperties {
         }
         root = doc.getDocumentElement();
       }
-      Properties toAddTo = properties;
+      Properties toAddTo = propts;
       if(returnCachedProperties) {
         toAddTo = new Properties();
       }
@@ -1313,15 +1183,18 @@ public class RaftProperties {
       NodeList props = root.getChildNodes();
       for (int i = 0; i < props.getLength(); i++) {
         Node propNode = props.item(i);
-        if (!(propNode instanceof Element))
+        if (!(propNode instanceof Element)) {
           continue;
+        }
+
         Element prop = (Element)propNode;
         if ("configuration".equals(prop.getTagName())) {
           loadResource(toAddTo, new Resource(prop, name));
           continue;
         }
-        if (!"property".equals(prop.getTagName()))
+        if (!"property".equals(prop.getTagName())) {
           LOG.warn("bad conf file: element not <property>");
+        }
 
         String attr = null;
         String value = null;
@@ -1329,35 +1202,44 @@ public class RaftProperties {
         LinkedList<String> source = new LinkedList<>();
 
         Attr propAttr = prop.getAttributeNode("name");
-        if (propAttr != null)
+        if (propAttr != null) {
           attr = StringUtils.weakIntern(propAttr.getValue());
+        }
         propAttr = prop.getAttributeNode("value");
-        if (propAttr != null)
+        if (propAttr != null) {
           value = StringUtils.weakIntern(propAttr.getValue());
+        }
         propAttr = prop.getAttributeNode("final");
-        if (propAttr != null)
+        if (propAttr != null) {
           finalParameter = "true".equals(propAttr.getValue());
+        }
         propAttr = prop.getAttributeNode("source");
-        if (propAttr != null)
+        if (propAttr != null) {
           source.add(StringUtils.weakIntern(propAttr.getValue()));
+        }
 
         NodeList fields = prop.getChildNodes();
         for (int j = 0; j < fields.getLength(); j++) {
           Node fieldNode = fields.item(j);
-          if (!(fieldNode instanceof Element))
+          if (!(fieldNode instanceof Element)) {
             continue;
+          }
           Element field = (Element)fieldNode;
-          if ("name".equals(field.getTagName()) && field.hasChildNodes())
+          if ("name".equals(field.getTagName()) && field.hasChildNodes()) {
             attr = StringUtils.weakIntern(
                 ((Text)field.getFirstChild()).getData().trim());
-          if ("value".equals(field.getTagName()) && field.hasChildNodes())
+          }
+          if ("value".equals(field.getTagName()) && field.hasChildNodes()) {
             value = StringUtils.weakIntern(
                 ((Text)field.getFirstChild()).getData());
-          if ("final".equals(field.getTagName()) && field.hasChildNodes())
+          }
+          if ("final".equals(field.getTagName()) && field.hasChildNodes()) {
             finalParameter = "true".equals(((Text)field.getFirstChild()).getData());
-          if ("source".equals(field.getTagName()) && field.hasChildNodes())
+          }
+          if ("source".equals(field.getTagName()) && field.hasChildNodes()) {
             source.add(StringUtils.weakIntern(
                 ((Text)field.getFirstChild()).getData()));
+          }
         }
         source.add(name);
 
@@ -1369,7 +1251,7 @@ public class RaftProperties {
       }
 
       if (returnCachedProperties) {
-        overlay(properties, toAddTo);
+        overlay(propts, toAddTo);
         return new Resource(toAddTo, name);
       }
       return null;
@@ -1386,15 +1268,15 @@ public class RaftProperties {
     }
   }
 
-  private void loadProperty(Properties properties, String name, String attr,
+  private void loadProperty(Properties prop, String name, String attr,
       String value, boolean finalParameter, String[] source) {
     if (value != null) {
       if (!finalParameters.contains(attr)) {
-        properties.setProperty(attr, value);
+        prop.setProperty(attr, value);
         if(source != null) {
           updatingResource.put(attr, source);
         }
-      } else if (!value.equals(properties.getProperty(attr))) {
+      } else if (!value.equals(prop.getProperty(attr))) {
         LOG.warn(name+":an attempt to override final parameter: "+attr
             +";  Ignoring.");
       }
@@ -1493,7 +1375,7 @@ public class RaftProperties {
     StringBuilder sb = new StringBuilder();
     sb.append("Configuration: ");
     if(loadDefaults) {
-      toString(defaultResources, sb);
+      toString(DEFAULT_RESOURCES, sb);
       if(resources.size()>0) {
         sb.append(", ");
       }
@@ -1502,8 +1384,8 @@ public class RaftProperties {
     return sb.toString();
   }
 
-  private <T> void toString(List<T> resources, StringBuilder sb) {
-    ListIterator<T> i = resources.listIterator();
+  private <T> void toString(List<T> res, StringBuilder sb) {
+    ListIterator<T> i = res.listIterator();
     while (i.hasNext()) {
       if (i.nextIndex() != 0) {
         sb.append(", ");

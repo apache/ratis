@@ -32,7 +32,7 @@ import org.apache.ratis.server.impl.RetryCacheTestUtil;
 import org.apache.ratis.server.impl.RetryCache;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.ServerProtoUtils;
-import org.apache.ratis.server.metrics.RatisMetrics;
+import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.server.raftlog.RaftLog;
@@ -41,9 +41,9 @@ import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.LogUtils;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
@@ -53,6 +53,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -73,9 +74,9 @@ import com.codahale.metrics.Timer;
 
 public class TestSegmentedRaftLog extends BaseTest {
   static {
-    LogUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.TRACE);
-    LogUtils.setLogLevel(SegmentedRaftLog.LOG, Level.TRACE);
+    Log4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(SegmentedRaftLogCache.LOG, Level.TRACE);
+    Log4jUtils.setLogLevel(SegmentedRaftLog.LOG, Level.TRACE);
   }
 
   public static long getOpenSegmentSize(RaftLog raftLog) {
@@ -115,7 +116,7 @@ public class TestSegmentedRaftLog extends BaseTest {
   public void setup() throws Exception {
     storageDir = getTestDir();
     properties = new RaftProperties();
-    RaftServerConfigKeys.setStorageDirs(properties,  Collections.singletonList(storageDir));
+    RaftServerConfigKeys.setStorageDir(properties,  Collections.singletonList(storageDir));
     storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
     this.segmentMaxSize =
         RaftServerConfigKeys.Log.segmentSizeMax(properties).getSize();
@@ -142,7 +143,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       final int size = (int) (range.end - range.start + 1);
       LogEntryProto[] entries = new LogEntryProto[size];
       try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(file, false,
-          segmentMaxSize, preallocatedSize, bufferSize)) {
+          segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
         for (int i = 0; i < size; i++) {
           SimpleOperation m = new SimpleOperation("m" + (i + range.start));
           entries[i] = ServerProtoUtils.toLogEntryProto(m.getLogEntryContent(), range.term, i + range.start);
@@ -198,8 +199,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       Assert.assertArrayEquals(entries, entriesFromLog);
       Assert.assertEquals(entries[entries.length - 1], getLastEntry(raftLog));
 
-      RatisMetricRegistry metricRegistryForLogWorker =
-          RatisMetrics.getMetricRegistryForLogWorker(memberId.getPeerId().toString());
+      RatisMetricRegistry metricRegistryForLogWorker = new RaftLogMetrics((memberId.getPeerId().toString())).getRegistry();
 
       Timer raftLogSegmentLoadLatencyTimer = metricRegistryForLogWorker.timer("segmentLoadLatency");
       Assert.assertTrue(raftLogSegmentLoadLatencyTimer.getMeanRate() > 0);
@@ -399,6 +399,18 @@ public class TestSegmentedRaftLog extends BaseTest {
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
     long expectedIndex = segmentSize * (endTerm - startTerm - 2);
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
+  }
+
+  @Test
+  public void testPurgeLogMetric() throws Exception {
+    int startTerm = 0;
+    int endTerm = 5;
+    int segmentSize = 200;
+    long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
+    long expectedIndex = segmentSize * (endTerm - startTerm - 2);
+    RatisMetricRegistry metricRegistryForLogWorker = new RaftLogMetrics((memberId.getPeerId().toString())).getRegistry();
+    purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
+    Assert.assertTrue(metricRegistryForLogWorker.timer("purgeLog").getCount() > 0);
   }
 
   @Test

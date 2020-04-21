@@ -12,12 +12,13 @@
   See the License for the specific language governing permissions and
   limitations under the License. See accompanying LICENSE file.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <artifactId>ratis</artifactId>
     <groupId>org.apache.ratis</groupId>
-    <version>0.5.0-SNAPSHOT</version>
+    <version>0.6.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>ratis-metrics</artifactId>
@@ -33,6 +34,10 @@
       <artifactId>slf4j-api</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+    </dependency>
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <scope>test</scope>
@@ -44,7 +49,7 @@
     </dependency>
     <dependency>
       <artifactId>ratis-common</artifactId>
-       <groupId>org.apache.ratis</groupId>
+      <groupId>org.apache.ratis</groupId>
     </dependency>
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
@@ -57,12 +62,9 @@
       <type>test-jar</type>
     </dependency>
     <dependency>
-      <groupId>com.github.joshelser</groupId>
-      <artifactId>dropwizard-metrics-hadoop-metrics2-reporter</artifactId>
-    </dependency>
-    <dependency>
       <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-jvm</artifactId>
+      <optional>true</optional>
     </dependency>
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
@@ -73,6 +75,7 @@
           <artifactId>oncrpc</artifactId>
         </exclusion>
       </exclusions>
+      <optional>true</optional>
     </dependency>
   </dependencies>
 </project>

@@ -92,9 +92,9 @@ public enum TraditionalBinaryPrefix {
     s = s.trim();
     final int lastpos = s.length() - 1;
     final char lastchar = s.charAt(lastpos);
-    if (Character.isDigit(lastchar))
+    if (Character.isDigit(lastchar)) {
       return Long.parseLong(s);
-    else {
+    } else {
       long p;
       try {
         p = TraditionalBinaryPrefix.valueOf(lastchar).value;
@@ -140,7 +140,9 @@ public enum TraditionalBinaryPrefix {
     } else {
       //find traditional binary prefix
       int i = 0;
-      for(; i < values().length && n >= values()[i].value; i++);
+      while(i < values().length && n >= values()[i].value) {
+        i++;
+      }
       TraditionalBinaryPrefix prefix = values()[i - 1];
 
       if ((n & prefix.bitMask) == 0) {

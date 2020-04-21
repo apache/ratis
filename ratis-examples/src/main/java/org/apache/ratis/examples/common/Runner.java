@@ -19,12 +19,8 @@ package org.apache.ratis.examples.common;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
-import org.apache.log4j.Level;
-import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.examples.arithmetic.cli.Arithmetic;
 import org.apache.ratis.examples.filestore.cli.FileStore;
-import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.util.LogUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,11 +28,10 @@ import java.util.Optional;
 /**
  * Standalone arithmetic raft server.
  */
-public class Runner {
+public final class Runner {
 
-  static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
-    LogUtils.setLogLevel(RaftClient.LOG, Level.DEBUG);
+  private Runner() {
+
   }
 
   public static void main(String[] args) throws Exception {
@@ -61,8 +56,8 @@ public class Runner {
     try {
       jc.parse(newArgs);
       Optional<SubCommandBase> selectedCommand = commands.stream().filter(
-          command -> command.getClass().getSimpleName().toLowerCase()
-              .equals(jc.getParsedCommand())).findFirst();
+          command -> command.getClass().getSimpleName()
+              .equalsIgnoreCase(jc.getParsedCommand())).findFirst();
       if (selectedCommand.isPresent()) {
         selectedCommand.get().run();
       } else {
@@ -76,9 +71,9 @@ public class Runner {
   }
 
   private static List<SubCommandBase> initializeCommands(String command) {
-    if (command.equals(FileStore.class.getSimpleName().toLowerCase())) {
+    if (command.equalsIgnoreCase(FileStore.class.getSimpleName())) {
       return FileStore.getSubCommands();
-    } else if (command.equals(Arithmetic.class.getSimpleName().toLowerCase())) {
+    } else if (command.equalsIgnoreCase(Arithmetic.class.getSimpleName())) {
       return Arithmetic.getSubCommands();
     }
     return null;

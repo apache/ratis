@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.log4j.Level;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -30,6 +32,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 public class TestTimeDuration {
+  {
+    Log4jUtils.setLogLevel(TimeDuration.LOG, Level.DEBUG);
+  }
+
   @Test(timeout = 1000)
   public void testAbbreviation() {
     Arrays.asList(TimeUnit.values())
@@ -48,10 +54,10 @@ public class TestTimeDuration {
 
   @Test(timeout = 1000)
   public void testParse() {
-    assertEquals(1L, parse("1000000 ns", TimeUnit.MILLISECONDS));
-    assertEquals(10L, parse("10000000 nanos", TimeUnit.MILLISECONDS));
-    assertEquals(100L, parse("100000000 nanosecond", TimeUnit.MILLISECONDS));
-    assertEquals(1000L, parse("1000000000 nanoseconds", TimeUnit.MILLISECONDS));
+    assertEquals(1L, parse("1_000_000 ns", TimeUnit.MILLISECONDS));
+    assertEquals(10L, parse("10_000_000 nanos", TimeUnit.MILLISECONDS));
+    assertEquals(100L, parse("100_000_000 nanosecond", TimeUnit.MILLISECONDS));
+    assertEquals(1000L, parse("1_000_000_000 nanoseconds", TimeUnit.MILLISECONDS));
 
     assertEquals(1L, parse("1000 us", TimeUnit.MILLISECONDS));
     assertEquals(10L, parse("10000 μs", TimeUnit.MILLISECONDS));
@@ -123,35 +129,123 @@ public class TestTimeDuration {
   }
 
   @Test(timeout = 1000)
-  public void testMinus() {
+  public void testAddAndSubtract() {
     final TimeDuration oneSecond = TimeDuration.valueOf(1, TimeUnit.SECONDS);
     final TimeDuration tenSecond = TimeDuration.valueOf(10, TimeUnit.SECONDS);
     {
-      final TimeDuration d = oneSecond.minus(oneSecond);
+      final TimeDuration d = oneSecond.subtract(oneSecond);
       assertEquals(0, d.getDuration());
       assertEquals(TimeUnit.SECONDS, d.getUnit());
+
+      final TimeDuration sum = d.add(oneSecond);
+      assertEquals(1, sum.getDuration());
+      assertEquals(TimeUnit.SECONDS, sum.getUnit());
     }
     {
-      final TimeDuration d = tenSecond.minus(oneSecond);
+      final TimeDuration d = tenSecond.subtract(oneSecond);
       assertEquals(9, d.getDuration());
       assertEquals(TimeUnit.SECONDS, d.getUnit());
+
+      final TimeDuration sum = d.add(oneSecond);
+      assertEquals(10, sum.getDuration());
+      assertEquals(TimeUnit.SECONDS, sum.getUnit());
     }
     {
-      final TimeDuration d = oneSecond.minus(tenSecond);
+      final TimeDuration d = oneSecond.subtract(tenSecond);
       assertEquals(-9, d.getDuration());
       assertEquals(TimeUnit.SECONDS, d.getUnit());
+
+      final TimeDuration sum = d.add(tenSecond);
+      assertEquals(1, sum.getDuration());
+      assertEquals(TimeUnit.SECONDS, sum.getUnit());
     }
 
     final TimeDuration oneMS = TimeDuration.valueOf(1, TimeUnit.MILLISECONDS);
     {
-      final TimeDuration d = oneSecond.minus(oneMS);
+      final TimeDuration d = oneSecond.subtract(oneMS);
       assertEquals(999, d.getDuration());
       assertEquals(TimeUnit.MILLISECONDS, d.getUnit());
+
+      final TimeDuration sum = d.add(oneSecond);
+      assertEquals(1999, sum.getDuration());
+      assertEquals(TimeUnit.MILLISECONDS, sum.getUnit());
     }
     {
-      final TimeDuration d = oneMS.minus(oneSecond);
+      final TimeDuration d = oneMS.subtract(oneSecond);
       assertEquals(-999, d.getDuration());
       assertEquals(TimeUnit.MILLISECONDS, d.getUnit());
+
+      final TimeDuration sum = d.add(oneSecond);
+      assertEquals(1, sum.getDuration());
+      assertEquals(TimeUnit.MILLISECONDS, sum.getUnit());
     }
+  }
+
+  @Test(timeout = 1000)
+  public void testNegate() {
+    assertNegate(0);
+    assertNegate(1);
+    assertNegate(-1);
+    assertNegate(Long.MAX_VALUE);
+
+    Assert.assertEquals(
+        TimeDuration.valueOf(Long.MAX_VALUE, TimeUnit.SECONDS),
+        TimeDuration.valueOf(Long.MIN_VALUE, TimeUnit.SECONDS).negate());
+  }
+
+  private static void assertNegate(long n) {
+    Assert.assertEquals(
+        TimeDuration.valueOf(-n, TimeUnit.SECONDS),
+        TimeDuration.valueOf(n, TimeUnit.SECONDS).negate());
+    Assert.assertEquals(
+        TimeDuration.valueOf(n, TimeUnit.SECONDS),
+        TimeDuration.valueOf(-n, TimeUnit.SECONDS).negate());
+  }
+
+  @Test(timeout = 1000)
+  public void testMultiply() {
+    assertMultiply(0, TimeDuration.ONE_SECOND, TimeDuration.valueOf(0, TimeUnit.SECONDS));
+    assertMultiply(0.001, TimeDuration.ONE_SECOND, TimeDuration.ONE_MILLISECOND);
+    assertMultiply(0.001/60, TimeDuration.ONE_MINUTE, TimeDuration.ONE_MILLISECOND);
+    assertMultiply(100,
+        TimeDuration.valueOf(Long.MAX_VALUE / 10, TimeUnit.NANOSECONDS),
+        TimeDuration.valueOf(Long.MAX_VALUE / 100, TimeUnit.MICROSECONDS)
+    );
+    assertMultiply(1E-30,
+        TimeDuration.valueOf(1_000_000_000_000_000_000L, TimeUnit.DAYS),
+        TimeDuration.valueOf(86, TimeUnit.NANOSECONDS)
+    );
+  }
+
+  private static void assertMultiply(double multiplier, TimeDuration t, TimeDuration expected) {
+    assertMultiply(t         ,  multiplier, expected);
+    assertMultiply(t.negate(), -multiplier, expected);
+    assertMultiply(t.negate(),  multiplier, expected.negate());
+    assertMultiply(t         , -multiplier, expected.negate());
+  }
+
+  private static void assertMultiply(TimeDuration t, double multiplier, TimeDuration expected) {
+    final TimeDuration computed = t.multiply(multiplier);
+    TimeDuration.LOG.info("assertMultiply: {} x {} = {} ?= {}\n\n", t, multiplier, computed, expected);
+    Assert.assertEquals(expected.getUnit(), computed.getUnit());
+    final long d = Math.abs(computed.getDuration() - expected.getDuration());
+    Assert.assertTrue(d <= Math.abs(expected.getDuration()) * TimeDuration.ERROR_THRESHOLD);
+  }
+
+  @Test(timeout = 1000)
+  public void testHigherLower() {
+    final TimeUnit[] units = {TimeUnit.NANOSECONDS, TimeUnit.MICROSECONDS, TimeUnit.MILLISECONDS,
+        TimeUnit.SECONDS, TimeUnit.MINUTES, TimeUnit.HOURS, TimeUnit.DAYS};
+    for(int i = 1; i < units.length; i++) {
+      assertHigherLower(units[i-1], units[i]);
+    }
+
+    Assert.assertSame(TimeUnit.NANOSECONDS, TimeDuration.lowerUnit(TimeUnit.NANOSECONDS));
+    Assert.assertSame(TimeUnit.DAYS, TimeDuration.higherUnit(TimeUnit.DAYS));
+  }
+
+  private static void assertHigherLower(TimeUnit lower, TimeUnit higher) {
+    Assert.assertSame(lower, TimeDuration.lowerUnit(higher));
+    Assert.assertSame(higher, TimeDuration.higherUnit(lower));
   }
 }

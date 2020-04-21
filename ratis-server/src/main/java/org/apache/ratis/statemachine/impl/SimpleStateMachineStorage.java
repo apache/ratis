@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.statemachine.impl;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.FileInfo;
@@ -25,6 +24,7 @@ import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.StateMachineStorage;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.AtomicFileOutputStream;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.MD5FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,7 +97,7 @@ public class SimpleStateMachineStorage implements StateMachineStorage {
             .collect(Collectors.toList());
         for (File snapshotFile : snapshotFilesToBeCleaned) {
           LOG.info("Deleting old snapshot at {}", snapshotFile.getAbsolutePath());
-          FileUtils.deleteQuietly(snapshotFile);
+          FileUtils.deleteFileQuietly(snapshotFile);
         }
       }
     }

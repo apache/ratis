@@ -43,6 +43,8 @@ public interface GrpcUtil {
       Metadata.Key.of("exception-object-bin", Metadata.BINARY_BYTE_MARSHALLER);
   Metadata.Key<String> CALL_ID =
       Metadata.Key.of("call-id", Metadata.ASCII_STRING_MARSHALLER);
+  Metadata.Key<String> HEARTBEAT =
+      Metadata.Key.of("heartbeat", Metadata.ASCII_STRING_MARSHALLER);
 
   static StatusRuntimeException wrapException(Throwable t) {
     return wrapException(t, -1);
@@ -50,13 +52,22 @@ public interface GrpcUtil {
 
   static StatusRuntimeException wrapException(Throwable t, long callId) {
     t = JavaUtils.unwrapCompletionException(t);
+    Metadata trailers = new StatusRuntimeExceptionMetadataBuilder(t)
+        .addCallId(callId)
+        .build();
+    return wrapException(t, trailers);
+  }
 
-    Metadata trailers = new Metadata();
-    trailers.put(EXCEPTION_TYPE_KEY, t.getClass().getCanonicalName());
-    trailers.put(EXCEPTION_OBJECT_KEY, IOUtils.object2Bytes(t));
-    if (callId > 0) {
-      trailers.put(CALL_ID, String.valueOf(callId));
-    }
+  static StatusRuntimeException wrapException(Throwable t, long callId, boolean isHeartbeat) {
+    t = JavaUtils.unwrapCompletionException(t);
+    Metadata trailers = new StatusRuntimeExceptionMetadataBuilder(t)
+        .addCallId(callId)
+        .addIsHeartbeat(isHeartbeat)
+        .build();
+    return wrapException(t, trailers);
+  }
+
+  static StatusRuntimeException wrapException(Throwable t, Metadata trailers) {
     return new StatusRuntimeException(
         Status.INTERNAL.withCause(t).withDescription(t.getMessage()), trailers);
   }
@@ -122,6 +133,15 @@ public interface GrpcUtil {
     return -1;
   }
 
+  static boolean isHeartbeat(Throwable t) {
+    if (t instanceof StatusRuntimeException) {
+      final Metadata trailers = ((StatusRuntimeException)t).getTrailers();
+      String isHeartbeat = trailers != null ? trailers.get(HEARTBEAT) : null;
+      return isHeartbeat != null && Boolean.valueOf(isHeartbeat);
+    }
+    return false;
+  }
+
   static IOException unwrapIOException(Throwable t) {
     final IOException e;
     if (t instanceof StatusRuntimeException) {
@@ -152,5 +172,30 @@ public interface GrpcUtil {
 
   static void warn(Logger log, Supplier<String> message, Throwable t) {
     LogUtils.warn(log, message, unwrapThrowable(t), StatusRuntimeException.class, ServerNotReadyException.class);
+  }
+
+  class StatusRuntimeExceptionMetadataBuilder {
+    private Metadata trailers = new Metadata();
+
+    StatusRuntimeExceptionMetadataBuilder(Throwable t) {
+      trailers.put(EXCEPTION_TYPE_KEY, t.getClass().getCanonicalName());
+      trailers.put(EXCEPTION_OBJECT_KEY, IOUtils.object2Bytes(t));
+    }
+
+    StatusRuntimeExceptionMetadataBuilder addCallId(long callId) {
+      if (callId > 0) {
+        trailers.put(CALL_ID, String.valueOf(callId));
+      }
+      return this;
+    }
+
+    StatusRuntimeExceptionMetadataBuilder addIsHeartbeat(boolean isHeartbeat) {
+      trailers.put(HEARTBEAT, String.valueOf(isHeartbeat));
+      return this;
+    }
+
+    Metadata build() {
+      return trailers;
+    }
   }
 }

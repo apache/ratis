@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 public final class MetricRegistriesLoader {
   private static final Logger LOG = LoggerFactory.getLogger(MetricRegistries.class);
 
-  private static final String defaultClass
+  private static final String DEFAULT_CLASS
       = "org.apache.ratis.metrics.impl.MetricRegistriesImpl";
 
   private MetricRegistriesLoader() {
@@ -65,7 +65,7 @@ public final class MetricRegistriesLoader {
       return impl;
     } else if (availableImplementations.isEmpty()) {
       try {
-        return ReflectionUtils.newInstance((Class<MetricRegistries>)Class.forName(defaultClass));
+        return ReflectionUtils.newInstance((Class<MetricRegistries>)Class.forName(DEFAULT_CLASS));
       } catch (ClassNotFoundException e) {
         throw new RuntimeException(e);
       }

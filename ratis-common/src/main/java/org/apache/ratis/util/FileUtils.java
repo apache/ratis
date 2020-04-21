@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,9 +27,21 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.function.Supplier;
 
 public interface FileUtils {
   Logger LOG = LoggerFactory.getLogger(FileUtils.class);
+
+  int NUM_ATTEMPTS = 5;
+  TimeDuration SLEEP_TIME = TimeDuration.ONE_SECOND;
+
+  static <T> T attempt(CheckedSupplier<T, IOException> op, Supplier<?> name) throws IOException {
+    try {
+      return JavaUtils.attempt(op, NUM_ATTEMPTS, SLEEP_TIME, name, LOG);
+    } catch (InterruptedException e) {
+      throw IOUtils.toInterruptedIOException("Interrupted " + name.get(), e);
+    }
+  }
 
   static void truncateFile(File f, long target) throws IOException {
     final long original = f.length();
@@ -36,7 +49,8 @@ public interface FileUtils {
         () -> {
           try (FileOutputStream out = new FileOutputStream(f, true)) {
             out.getChannel().truncate(target);
-          }},
+          }
+        },
         () -> "FileOutputStream.getChannel().truncate " + f + " length: " + original + " -> " + target);
   }
 
@@ -66,10 +80,18 @@ public interface FileUtils {
         () -> "Files.move " + src + " to " + dst);
   }
 
-
   /** The same as passing f.toPath() to {@link #delete(Path)}. */
   static void deleteFile(File f) throws IOException {
     delete(f.toPath());
+  }
+
+  /** The same as passing f.toPath() to {@link #delete(Path)}. */
+  static void deleteFileQuietly(File f) {
+    try {
+      delete(f.toPath());
+    } catch (Exception ex) {
+      LOG.debug("File delete was not susccesful {}", f.getAbsoluteFile(), ex);
+    }
   }
 
   /**

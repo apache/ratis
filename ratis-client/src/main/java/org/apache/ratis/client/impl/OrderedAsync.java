@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.ClientRetryEvent;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.conf.RaftProperties;
@@ -36,43 +37,45 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.SlidingWindow;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 
 /** Send ordered asynchronous requests to a raft service. */
-class OrderedAsync {
-  static final Logger LOG = LoggerFactory.getLogger(OrderedAsync.class);
+public final class OrderedAsync {
+  public static final Logger LOG = LoggerFactory.getLogger(OrderedAsync.class);
 
   static class PendingOrderedRequest extends PendingClientRequest
       implements SlidingWindow.ClientSideRequest<RaftClientReply> {
-    private final Function<SlidingWindowEntry, RaftClientRequest> requestConstructor;
+    private final long callId;
     private final long seqNum;
+    private final AtomicReference<Function<SlidingWindowEntry, RaftClientRequest>> requestConstructor;
     private volatile boolean isFirst = false;
-    private volatile RaftClientRequest request;
 
-    PendingOrderedRequest(long seqNum, Function<SlidingWindowEntry, RaftClientRequest> requestConstructor) {
+    PendingOrderedRequest(long callId, long seqNum,
+        Function<SlidingWindowEntry, RaftClientRequest> requestConstructor) {
+      this.callId = callId;
       this.seqNum = seqNum;
-      this.requestConstructor = requestConstructor;
+      this.requestConstructor = new AtomicReference<>(requestConstructor);
     }
 
     @Override
     RaftClientRequest newRequestImpl() {
-      request = requestConstructor.apply(ProtoUtils.toSlidingWindowEntry(seqNum, isFirst));
-      return request;
-    }
-
-    RaftClientRequest getRequest() {
-      return request;
+      return Optional.ofNullable(requestConstructor.get())
+          .map(f -> f.apply(ProtoUtils.toSlidingWindowEntry(seqNum, isFirst)))
+          .orElse(null);
     }
 
     @Override
@@ -92,18 +95,30 @@ class OrderedAsync {
 
     @Override
     public void setReply(RaftClientReply reply) {
+      requestConstructor.set(null);
       getReplyFuture().complete(reply);
     }
 
     @Override
     public void fail(Throwable e) {
+      requestConstructor.set(null);
       getReplyFuture().completeExceptionally(e);
     }
 
     @Override
     public String toString() {
-      return "[seq=" + getSeqNum() + "]";
+      return "[cid=" + callId + ", seq=" + getSeqNum() + "]";
     }
+  }
+
+  static OrderedAsync newInstance(RaftClientImpl client, RaftProperties properties) {
+    final OrderedAsync ordered = new OrderedAsync(client, properties);
+    // send a dummy watch request to establish the connection
+    // TODO: this is a work around, it is better to fix the underlying RPC implementation
+    if (RaftClientConfigKeys.Async.Experimental.sendDummyRequest(properties)) {
+      ordered.send(RaftClientRequest.watchRequestType(), null, null);
+    }
+    return ordered;
   }
 
   private final RaftClientImpl client;
@@ -112,9 +127,9 @@ class OrderedAsync {
       = new ConcurrentHashMap<>();
   private final Semaphore requestSemaphore;
 
-  OrderedAsync(RaftClientImpl client, RaftProperties properties) {
+  private OrderedAsync(RaftClientImpl client, RaftProperties properties) {
     this.client = Objects.requireNonNull(client, "client == null");
-    this.requestSemaphore = new Semaphore(RaftClientConfigKeys.Async.maxOutstandingRequests(properties));
+    this.requestSemaphore = new Semaphore(RaftClientConfigKeys.Async.outstandingRequestsMax(properties));
   }
 
   private void resetSlidingWindow(RaftClientRequest request) {
@@ -134,12 +149,12 @@ class OrderedAsync {
     getSlidingWindow(request).fail(request.getSlidingWindowEntry().getSeqNum(), t);
   }
 
-  private void handleAsyncRetryFailure(RaftClientRequest request, int attemptCount, Throwable throwable) {
-    failAllAsyncRequests(request, client.noMoreRetries(request, attemptCount, throwable));
+  private void handleAsyncRetryFailure(ClientRetryEvent event) {
+    failAllAsyncRequests(event.getRequest(), client.noMoreRetries(event));
   }
 
   CompletableFuture<RaftClientReply> send(RaftClientRequest.Type type, Message message, RaftPeerId server) {
-    if (!type.is(TypeCase.WATCH)) {
+    if (!type.is(TypeCase.WATCH) && !type.is(TypeCase.STREAM)) {
       Objects.requireNonNull(message, "message == null");
     }
     try {
@@ -150,7 +165,7 @@ class OrderedAsync {
     }
 
     final long callId = RaftClientImpl.nextCallId();
-    final LongFunction<PendingOrderedRequest> constructor = seqNum -> new PendingOrderedRequest(seqNum,
+    final LongFunction<PendingOrderedRequest> constructor = seqNum -> new PendingOrderedRequest(callId, seqNum,
         slidingWindowEntry -> client.newRaftClientRequest(server, callId, message, type, slidingWindowEntry));
     return getSlidingWindow(server).submitNewRequest(constructor, this::sendRequestWithRetry
     ).getReplyFuture(
@@ -159,13 +174,18 @@ class OrderedAsync {
   }
 
   private void sendRequestWithRetry(PendingOrderedRequest pending) {
-    final RetryPolicy retryPolicy = client.getRetryPolicy();
     final CompletableFuture<RaftClientReply> f = pending.getReplyFuture();
     if (f.isDone()) {
       return;
     }
 
-    RaftClientRequest request = pending.newRequestImpl();
+    final RaftClientRequest request = pending.newRequestImpl();
+    if (request == null) { // already done
+      LOG.debug("{} newRequestImpl returns null", pending);
+      return;
+    }
+
+    final RetryPolicy retryPolicy = client.getRetryPolicy();
     sendRequest(pending).thenAccept(reply -> {
       if (f.isDone()) {
         return;
@@ -190,10 +210,17 @@ class OrderedAsync {
 
   private void scheduleWithTimeout(PendingOrderedRequest pending, RaftClientRequest request, RetryPolicy retryPolicy) {
     final int attempt = pending.getAttemptCount();
-    LOG.debug("schedule* attempt #{} with policy {} for {}", attempt, retryPolicy, request);
-    client.getScheduler().onTimeout(retryPolicy.getSleepTime(attempt, request),
-        () -> getSlidingWindow(request).retry(pending, this::sendRequestWithRetry),
-        LOG, () -> "Failed* to retry " + request);
+    final ClientRetryEvent event = new ClientRetryEvent(attempt, request);
+    final TimeDuration sleepTime = retryPolicy.handleAttemptFailure(event).getSleepTime();
+    LOG.debug("schedule* attempt #{} with sleep {} and policy {} for {}", attempt, sleepTime, retryPolicy, request);
+    scheduleWithTimeout(pending, sleepTime, getSlidingWindow(request));
+  }
+
+  private void scheduleWithTimeout(PendingOrderedRequest pending, TimeDuration sleepTime,
+      SlidingWindow.Client<PendingOrderedRequest, RaftClientReply> slidingWindow) {
+    client.getScheduler().onTimeout(sleepTime,
+        () -> slidingWindow.retry(pending, this::sendRequestWithRetry),
+        LOG, () -> "Failed* to retry " + pending);
   }
 
   private CompletableFuture<RaftClientReply> sendRequest(PendingOrderedRequest pending) {
@@ -214,8 +241,11 @@ class OrderedAsync {
       if (reply != null) {
         getSlidingWindow(request).receiveReply(
             request.getSlidingWindowEntry().getSeqNum(), reply, this::sendRequestWithRetry);
-      } else if (!retryPolicy.shouldRetry(attemptCount, request)) {
-        handleAsyncRetryFailure(request, attemptCount, replyException);
+      } else {
+        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, replyException);
+        if (!retryPolicy.handleAttemptFailure(event).shouldRetry()) {
+          handleAsyncRetryFailure(event);
+        }
       }
       return reply;
     }).exceptionally(e -> {
@@ -226,8 +256,9 @@ class OrderedAsync {
       }
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof IOException && !(e instanceof GroupMismatchException)) {
-        if (!retryPolicy.shouldRetry(attemptCount, request)) {
-          handleAsyncRetryFailure(request, attemptCount, e);
+        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, e);
+        if (!retryPolicy.handleAttemptFailure(event).shouldRetry()) {
+          handleAsyncRetryFailure(event);
         } else {
           if (e instanceof NotLeaderException) {
             NotLeaderException nle = (NotLeaderException)e;

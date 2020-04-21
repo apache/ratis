@@ -50,7 +50,6 @@ import org.apache.ratis.logservice.proto.MetaServiceProtos.MetaSMRequestProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
 import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
 import org.apache.ratis.metrics.RatisMetricRegistry;
-import org.apache.ratis.metrics.impl.RatisMetricRegistryImpl;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.*;
 
@@ -75,7 +74,7 @@ import org.slf4j.LoggerFactory;
 
 public class MetaStateMachine extends BaseStateMachine {
 
-    Logger LOG = LoggerFactory.getLogger(MetaStateMachine.class);
+    private static final Logger LOG = LoggerFactory.getLogger(MetaStateMachine.class);
 
 
     //Persisted map between log and RaftGroup
@@ -160,9 +159,8 @@ public class MetaStateMachine extends BaseStateMachine {
             case PINGREQUEST:
                 LogServicePingRequestProto pingRequest = req.getPingRequest();
                 RaftPeer peer = MetaServiceProtoUtil.toRaftPeer(pingRequest.getPeer());
-                if (peers.contains(peer)) {
-                    //Do Nothing, that's just heartbeat
-                } else {
+                //If Set<RaftPeer> contains peer then do nothing as that's just heartbeat else add the peer to the set.
+                if (!peers.contains(peer)) {
                     peers.add(peer);
                     avail.add(new PeerGroups(peer));
                     heartbeatInfo.put(peer,  System.currentTimeMillis());
@@ -215,7 +213,7 @@ public class MetaStateMachine extends BaseStateMachine {
                     e.printStackTrace();
                 }
             }
-            RaftProperties properties = new RaftProperties();
+
             MetaServiceProtos.MetaServiceRequestProto req = null;
             try {
                 req = MetaServiceProtos.MetaServiceRequestProto.parseFrom(request.getContent());
@@ -257,8 +255,8 @@ public class MetaStateMachine extends BaseStateMachine {
                     MetaServiceProtoUtil.toDeleteLogExceptionReplyProto(
                             new LogNotFoundException(logName.getName())).build().toByteString()));
         } else {
-            Collection<RaftPeer> peers = raftGroup.getPeers();
-            peers.stream().forEach(peer -> {
+            Collection<RaftPeer> raftPeers = raftGroup.getPeers();
+            raftPeers.stream().forEach(peer -> {
                 RaftClient client = RaftClient.newBuilder()
                         .setProperties(properties)
                         .setClientId(ClientId.randomId())
@@ -291,28 +289,11 @@ public class MetaStateMachine extends BaseStateMachine {
                 MetaServiceProtoUtil.toDeleteLogReplyProto().toByteString()));
     }
 
-//    private CompletableFuture<Message> processCloseLog(MetaServiceProtos.MetaServiceRequestProto logServiceRequestProto) {
-//        CloseLogRequestProto closeLog = logServiceRequestProto.getCloseLog();
-//        LogName logName = LogServiceProtoUtil.toLogName(closeLog.getLogName());
-//        // Need to check whether the file is opened if opened close it.
-//        // TODO need to handle exceptions while operating with files.
-//        return CompletableFuture.completedFuture(Message
-//                .valueOf(CloseLogReplyProto.newBuilder().build().toByteString()));
-//    }
 
-
-//    private CompletableFuture<Message> processGetStateRequest(
-//            MetaServiceProtos.MetaServiceRequestProto logServiceRequestProto) {
-//        MetaServiceProtos.GetStateRequestProto getState = logServiceRequestProto.getGetState();
-//        LogName logName = LogServiceProtoUtil.toLogName(getState.getLogName());
-//        return CompletableFuture.completedFuture(Message.valueOf(LogServiceProtoUtil
-//                .toGetStateReplyProto(true).toByteString()));
-//    }
-//
     private CompletableFuture<Message> processCreateLogRequest(
             MetaServiceProtos.MetaServiceRequestProto logServiceRequestProto) {
         LogName name;
-        try (final AutoCloseableLock writeLock = writeLock()) {
+        try (AutoCloseableLock writeLock = writeLock()) {
             CreateLogRequestProto createLog = logServiceRequestProto.getCreateLog();
             name = LogServiceProtoUtil.toLogName(createLog.getLogName());
             if(map.containsKey(name)) {
@@ -328,14 +309,16 @@ public class MetaStateMachine extends BaseStateMachine {
                         .build()
                         .toByteString()));
             } else {
-                List<PeerGroups> peerGroup = IntStream.range(0, 3).mapToObj(i -> avail.poll()).collect(Collectors.toList());
-                List<RaftPeer> peers = peerGroup.stream().map(obj -> obj.getPeer()).collect(Collectors.toList());
-                RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peers);
+                List<PeerGroups> peerGroup = IntStream.range(0, 3).mapToObj(i -> avail.poll())
+                    .collect(Collectors.toList());
+                List<RaftPeer> peersFromGroup =
+                    peerGroup.stream().map(obj -> obj.getPeer()).collect(Collectors.toList());
+                RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peersFromGroup);
                 peerGroup.stream().forEach(pg -> {
                     pg.getGroups().add(raftGroup);
                     avail.add(pg);
                 });
-                peers.forEach(i -> {
+                peersFromGroup.forEach(i -> {
                     RaftClient client = RaftClient.newBuilder().setProperties(properties)
                       .setRaftGroup(RaftGroup.valueOf(logServerGroupId, i)).build();
                     try {
@@ -399,10 +382,10 @@ public class MetaStateMachine extends BaseStateMachine {
 
 
     class PeerGroups implements Comparable{
-        RaftPeer peer;
-        Set<RaftGroup> groups = new HashSet<>();
+        private RaftPeer peer;
+        private Set<RaftGroup> groups = new HashSet<>();
 
-        public PeerGroups(RaftPeer peer) {
+        PeerGroups(RaftPeer peer) {
             this.peer = peer;
         }
 
@@ -433,9 +416,8 @@ public class MetaStateMachine extends BaseStateMachine {
                         if((now - heartbeatTimestamp) > failureDetectionPeriod) {
                             // Close the logs serve by peer if any.
                             if (peerLogs.containsKey(raftPeer)) {
-                                LOG.warn("Closing all logs hosted by peer {} because last heartbeat" +
-                                                " ({}ms) exceeds the threshold ({}ms)", raftPeer, now - heartbeatTimestamp,
-                                        failureDetectionPeriod);
+                                LOG.warn("Closing all logs hosted by peer {} because last heartbeat ({}ms) exceeds " +
+                                    "the threshold ({}ms)", raftPeer, now - heartbeatTimestamp, failureDetectionPeriod);
                                 peers.remove(raftPeer);
                                 Set<LogName> logNames = peerLogs.get(raftPeer);
                                 Iterator<LogName> itr = logNames.iterator();
@@ -453,7 +435,8 @@ public class MetaStateMachine extends BaseStateMachine {
                                                         toChangeStateRequestProto(logName, LogStream.State.CLOSED, true)
                                                         .toByteString());
                                         LogServiceProtos.ChangeStateReplyProto message =
-                                                LogServiceProtos.ChangeStateReplyProto.parseFrom(reply.getMessage().getContent());
+                                                LogServiceProtos.ChangeStateReplyProto.parseFrom(
+                                                    reply.getMessage().getContent());
                                         if(message.hasException()) {
                                             throw new IOException(message.getException().getErrorMsg());
                                         }
@@ -493,13 +476,16 @@ public class MetaStateMachine extends BaseStateMachine {
 
     // This method need to be used for testing only.
     public boolean checkPeersAreSame() {
-        if(!peers.equals(peerLogs.keySet())) return false;
-            if(!peers.equals(heartbeatInfo.keySet())) return false;
+        if(!peers.equals(peerLogs.keySet()) || !peers.equals(heartbeatInfo.keySet())) {
+            return false;
+        }
         Set<RaftPeer> availPeers = new HashSet<>();
         avail.stream().forEach(peerGroups -> {
             availPeers.add(peerGroups.getPeer());
         });
-        if(!peers.equals(availPeers)) return false;
+        if(!peers.equals(availPeers)) {
+            return false;
+        }
         return true;
     }
 }

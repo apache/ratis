@@ -103,7 +103,7 @@ public class ServerState implements Closeable {
     LOG.info("{}: {}", getMemberId(), configurationManager);
 
     // use full uuid string to create a subdirectory
-    final File dir = chooseStorageDir(RaftServerConfigKeys.storageDirs(prop),
+    final File dir = chooseStorageDir(RaftServerConfigKeys.storageDir(prop),
         group.getGroupId().getUuid().toString());
     storage = new RaftStorage(dir, RaftServerConstants.StartupOption.REGULAR,
         RaftServerConfigKeys.Log.corruptionPolicy(prop));
@@ -250,7 +250,7 @@ public class ServerState implements Closeable {
         Timestamp previous = lastNoLeaderTime;
         lastNoLeaderTime = null;
         suffix = ", leader elected after " + previous.elapsedTimeMs() + "ms";
-        server.getStateMachine().notifyLeaderChanged(server.getGroup().getGroupId(), newLeaderId);
+        server.getStateMachine().notifyLeaderChanged(getMemberId(), newLeaderId);
       }
       LOG.info("{}: change Leader from {} to {} at term {} for {}{}",
           getMemberId(), leaderId, newLeaderId, getCurrentTerm(), op, suffix);
@@ -433,7 +433,7 @@ public class ServerState implements Closeable {
   }
 
   public long getLastAppliedIndex() {
-    return stateMachineUpdater.getLastAppliedIndex();
+    return stateMachineUpdater.getStateMachineLastAppliedIndex();
   }
 
   boolean containsTermIndex(TermIndex ti) {

@@ -25,7 +25,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.slf4j.Logger;
@@ -34,16 +34,17 @@ import org.slf4j.LoggerFactory;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 public class RaftServerTestUtil {
   static final Logger LOG = LoggerFactory.getLogger(RaftServerTestUtil.class);
 
   public static void setWatchRequestsLogLevel(Level level) {
-    LogUtils.setLogLevel(WatchRequests.LOG, level);
+    Log4jUtils.setLogLevel(WatchRequests.LOG, level);
   }
   public static void setPendingRequestsLogLevel(Level level) {
-    LogUtils.setLogLevel(PendingRequests.LOG, level);
+    Log4jUtils.setLogLevel(PendingRequests.LOG, level);
   }
 
   public static void waitAndCheckNewConf(MiniRaftCluster cluster,
@@ -101,8 +102,18 @@ public class RaftServerTestUtil {
     return server.getRole().getRaftPeerRole();
   }
 
+  private static Optional<LeaderState> getLeaderState(RaftServerImpl server) {
+    return server.getRole().getLeaderState();
+  }
+
   public static Stream<LogAppender> getLogAppenders(RaftServerImpl server) {
-    return server.getRole().getLeaderState().map(LeaderState::getLogAppenders).orElse(null);
+    return getLeaderState(server).map(LeaderState::getLogAppenders).orElse(null);
+  }
+
+  public static void restartLogAppenders(RaftServerImpl server) {
+    final LeaderState leaderState = getLeaderState(server).orElseThrow(
+        () -> new IllegalStateException(server + " is not the leader"));
+    leaderState.getLogAppenders().forEach(leaderState::restartSender);
   }
 
   public static Logger getStateMachineUpdaterLog() {

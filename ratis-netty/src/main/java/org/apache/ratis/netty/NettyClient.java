@@ -31,7 +31,6 @@ import org.apache.ratis.util.NetUtils;
 
 import java.io.Closeable;
 import java.net.InetSocketAddress;
-import java.util.Objects;
 
 public class NettyClient implements Closeable {
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
@@ -64,7 +63,7 @@ public class NettyClient implements Closeable {
   }
 
   public ChannelFuture writeAndFlush(Object msg) {
-    lifeCycle.assertCurrentState(LifeCycle.State.RUNNING);
+    lifeCycle.assertCurrentState(LifeCycle.States.RUNNING);
     return channel.writeAndFlush(msg);
   }
 }

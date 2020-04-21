@@ -23,12 +23,12 @@ import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.metrics.RatisMetrics;
+import org.apache.ratis.server.impl.RaftServerMetrics;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.After;
 import org.junit.Assert;
@@ -51,7 +51,7 @@ import com.codahale.metrics.Gauge;
 @Ignore
 public class TestRaftServerSlownessDetection extends BaseTest {
   static {
-    LogUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
+    Log4jUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
   }
 
   public static final int NUM_SERVERS = 3;
@@ -89,10 +89,11 @@ public class TestRaftServerSlownessDetection extends BaseTest {
         .slownessTimeout(cluster.getProperties()).toIntExact(TimeUnit.MILLISECONDS);
     RaftServerImpl failedFollower = cluster.getFollowers().get(0);
 
-    RatisMetricRegistry ratisMetricRegistry = RatisMetrics.getMetricRegistryForHeartbeat(
-        leaderServer.getMemberId().toString());
-    SortedMap<String, Gauge> heartbeatElapsedTimeGauges = ratisMetricRegistry.getGauges((s, metric) ->
-        s.contains("lastHeartbeatElapsedTime"));
+    RatisMetricRegistry ratisMetricRegistry =
+        RaftServerMetrics.getRaftServerMetrics(leaderServer).getRegistry();
+    SortedMap<String, Gauge> heartbeatElapsedTimeGauges =
+        ratisMetricRegistry.getGauges((s, metric) ->
+            s.contains("lastHeartbeatElapsedTime"));
 
     String followerId = failedFollower.getId().toString();
     Gauge metric = heartbeatElapsedTimeGauges.entrySet().parallelStream().filter(e -> e.getKey().contains(

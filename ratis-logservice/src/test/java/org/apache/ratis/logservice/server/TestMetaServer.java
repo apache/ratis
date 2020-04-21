@@ -20,16 +20,17 @@ package org.apache.ratis.logservice.server;
 
 import org.apache.ratis.logservice.api.*;
 import org.apache.ratis.logservice.api.LogStream.State;
-import org.apache.ratis.logservice.client.LogServiceClient;
+import org.apache.ratis.logservice.api.LogServiceClient;
 import org.apache.ratis.logservice.common.LogAlreadyExistException;
 import org.apache.ratis.logservice.common.LogNotFoundException;
 import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.util.LogServiceCluster;
 import org.apache.ratis.logservice.util.TestUtils;
-import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerProxy;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -40,6 +41,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -49,6 +51,9 @@ import javax.management.ObjectName;
 import static org.junit.Assert.*;
 
 public class TestMetaServer {
+    static {
+        JVMMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    }
 
     static LogServiceCluster cluster = null;
     static List<LogServer> workers = null;
@@ -112,11 +117,11 @@ public class TestMetaServer {
                 LogStream logStream1 = client.createLog(LogName.of("testCloseLogOnNodeFailure"+i));
                 assertNotNull(logStream1);
             }
-            assertTrue(((MetaStateMachine)cluster.getMasters().get(0).metaStateMachine).checkPeersAreSame());
+            assertTrue(((MetaStateMachine)cluster.getMasters().get(0).getMetaStateMachine()).checkPeersAreSame());
             workers.get(0).close();
             peerClosed = true;
             Thread.sleep(90000);
-            assertTrue(((MetaStateMachine)cluster.getMasters().get(0).metaStateMachine).checkPeersAreSame());
+            assertTrue(((MetaStateMachine)cluster.getMasters().get(0).getMetaStateMachine()).checkPeersAreSame());
             for(int i = 0; i < 5; i++) {
                 LogStream logStream2 = client.getLog(LogName.of("testCloseLogOnNodeFailure"+i));
                 assertNotNull(logStream2);

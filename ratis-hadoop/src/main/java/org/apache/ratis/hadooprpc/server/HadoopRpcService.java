@@ -52,12 +52,13 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 
 /** Server side Hadoop RPC service. */
-public class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftServerProtocolPB>, PeerProxyMap<Proxy<RaftServerProtocolPB>>> {
+public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftServerProtocolPB>,
+    PeerProxyMap<Proxy<RaftServerProtocolPB>>> {
   public static final Logger LOG = LoggerFactory.getLogger(HadoopRpcService.class);
   static final String CLASS_NAME = HadoopRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
-  public static class Builder extends RaftServerRpc.Builder<Builder, HadoopRpcService> {
+  public static final class Builder extends RaftServerRpc.Builder<Builder, HadoopRpcService> {
     private Configuration conf;
 
     private Builder() {}

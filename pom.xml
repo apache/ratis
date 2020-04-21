@@ -24,7 +24,7 @@
 
   <artifactId>ratis</artifactId>
   <groupId>org.apache.ratis</groupId>
-  <version>0.5.0-SNAPSHOT</version>
+  <version>0.6.0-SNAPSHOT</version>
   <name>Apache Ratis</name>
   <packaging>pom</packaging>
   <description>
@@ -32,6 +32,34 @@
   </description>
   <url>https://ratis.apache.org/</url>
   <inceptionYear>2017</inceptionYear>
+
+  <distributionManagement>
+    <repository>
+      <id>${distMgmtStagingId}</id>
+      <name>${distMgmtStagingName}</name>
+      <url>${distMgmtStagingUrl}</url>
+    </repository>
+    <snapshotRepository>
+      <id>${distMgmtSnapshotsId}</id>
+      <name>${distMgmtSnapshotsName}</name>
+      <url>${distMgmtSnapshotsUrl}</url>
+    </snapshotRepository>
+  </distributionManagement>
+
+  <repositories>
+    <repository>
+      <id>${distMgmtSnapshotsId}</id>
+      <name>${distMgmtSnapshotsName}</name>
+      <url>${distMgmtSnapshotsUrl}</url>
+    </repository>
+    <repository>
+      <id>repository.jboss.org</id>
+      <url>https://repository.jboss.org/nexus/content/groups/public/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
 
   <licenses>
     <license>
@@ -57,12 +85,14 @@
     <module>ratis-replicated-map</module>
     <module>ratis-logservice</module>
     <module>ratis-metrics</module>
+    <module>ratis-tools</module>
+    <module>ratis-docs</module>
   </modules>
 
   <pluginRepositories>
     <pluginRepository>
       <id>apache.snapshots</id>
-      <url>http://repository.apache.org/snapshots/</url>
+      <url>https://repository.apache.org/snapshots/</url>
     </pluginRepository>
   </pluginRepositories>
 
@@ -175,6 +205,13 @@
     <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
     <wagon-ssh.version>1.0</wagon-ssh.version>
 
+    <distMgmtSnapshotsId>apache.snapshots.https</distMgmtSnapshotsId>
+    <distMgmtSnapshotsName>Apache Development Snapshot Repository</distMgmtSnapshotsName>
+    <distMgmtSnapshotsUrl>https://repository.apache.org/content/repositories/snapshots</distMgmtSnapshotsUrl>
+    <distMgmtStagingId>apache.staging.https</distMgmtStagingId>
+    <distMgmtStagingName>Apache Release Distribution Repository</distMgmtStagingName>
+    <distMgmtStagingUrl>https://repository.apache.org/service/local/staging/deploy/maven2</distMgmtStagingUrl>
+
     <shell-executable>bash</shell-executable>
 
     <hadoop.version>3.1.1</hadoop.version>
@@ -186,11 +223,11 @@
     <maven.min.version>3.3.9</maven.min.version>
 
     <!-- Contains all shaded thirdparty dependencies -->
-    <ratis.thirdparty.version>0.2.0</ratis.thirdparty.version>
+    <ratis.thirdparty.version>0.3.0</ratis.thirdparty.version>
 
     <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
-    <shaded.protobuf.version>3.5.0</shaded.protobuf.version>
-    <shaded.grpc.version>1.16.0</shaded.grpc.version>
+    <shaded.protobuf.version>3.10.0</shaded.protobuf.version>
+    <shaded.grpc.version>1.24.0</shaded.grpc.version>
 
 
     <!-- Test properties -->
@@ -199,12 +236,14 @@
     <!-- number of threads/forks to use when running tests in parallel, see parallel-tests profile -->
     <testsThreadCount>4</testsThreadCount>
 
-    <checkstyle.version>8.16</checkstyle.version>
+    <checkstyle.version>8.18</checkstyle.version>
 
     <!--metrics-->
     <dropwizard.version>3.2.5</dropwizard.version>
-    <dropwizard-metrics-hadoop-metrics2-reporter.version>0.1.2
-    </dropwizard-metrics-hadoop-metrics2-reporter.version>
+
+    <!-- commons lang version -->
+    <commons.lang.version>3.8.1</commons.lang.version>
+
   </properties>
 
   <dependencyManagement>
@@ -259,6 +298,18 @@
        <version>${project.version}</version>
        <type>test-jar</type>
        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-tools</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-tools</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+        <type>test-jar</type>
+        <scope>test</scope>
       </dependency>
       <dependency>
         <artifactId>ratis-grpc</artifactId>
@@ -316,11 +367,6 @@
         <type>test-jar</type>
         <scope>test</scope>
       </dependency>
-      <dependency>
-        <groupId>com.github.joshelser</groupId>
-        <artifactId>dropwizard-metrics-hadoop-metrics2-reporter</artifactId>
-        <version>${dropwizard-metrics-hadoop-metrics2-reporter.version}</version>
-      </dependency>
 
       <dependency>
         <artifactId>ratis-server</artifactId>
@@ -377,12 +423,18 @@
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
-        <version>1.7.10</version>
+        <version>1.7.29</version>
       </dependency>
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-log4j12</artifactId>
-        <version>1.7.10</version>
+        <scope>test</scope>
+        <version>1.7.29</version>
+      </dependency>
+      <dependency>
+        <groupId>log4j</groupId>
+        <artifactId>log4j</artifactId>
+        <version>1.2.17</version>
       </dependency>
 
       <dependency>

@@ -15,15 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.ratis.logservice.client;
+package org.apache.ratis.logservice.api;
 
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.logservice.api.LogInfo;
-import org.apache.ratis.logservice.api.LogName;
-import org.apache.ratis.logservice.api.LogServiceConfiguration;
-import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.impl.ArchivedLogStreamImpl;
@@ -54,8 +49,8 @@ public class LogServiceClient implements AutoCloseable {
 
 
     // the raft client for meta quorum. All DML operations are going using this client.
-    final private RaftClient client;
-    final private LogServiceConfiguration config;
+    private final RaftClient client;
+    private final LogServiceConfiguration config;
 
     /**
      * Constuctor. Build raft client for meta quorum
@@ -264,9 +259,9 @@ public class LogServiceClient implements AutoCloseable {
      * Updates a log with the new configuration object, overriding
      * the previous configuration.
      *
-     * @param config The new configuration object
+     * @param conf The new configuration object
      */
-    void updateConfiguration(LogName name, LogServiceConfiguration config) {
+    void updateConfiguration(LogName name, LogServiceConfiguration conf) {
       //TODO: write me
     }
 

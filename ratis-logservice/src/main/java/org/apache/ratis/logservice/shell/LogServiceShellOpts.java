@@ -21,5 +21,9 @@ import com.beust.jcommander.Parameter;
 
 public class LogServiceShellOpts {
   @Parameter(names = {"--meta-quorum", "-q"}, required = true)
-  public String metaQuorum;
+  private String metaQuorum;
+
+  public String getMetaQuorum() {
+    return metaQuorum;
+  }
 }

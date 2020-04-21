@@ -175,6 +175,8 @@ message AppendEntriesReplyProto {
   uint64 nextIndex = 3;
   AppendResult result = 4;
   uint64 followerCommit = 5;
+  uint64 matchIndex = 6;
+  bool isHearbeat = 7;
 }
 
 message InstallSnapshotRequestProto {
@@ -244,6 +246,12 @@ enum RaftPeerRole {
 message WriteRequestTypeProto {
 }
 
+message StreamRequestTypeProto {
+  uint64 streamId = 1;  // the id of this stream
+  uint64 messageId = 2; // the message id within a particular stream.
+  bool close = 3;       // close the stream?
+}
+
 message ReadRequestTypeProto {
 }
 
@@ -266,6 +274,7 @@ message RaftClientRequestProto {
     ReadRequestTypeProto read = 4;
     StaleReadRequestTypeProto staleRead = 5;
     WatchRequestTypeProto watch = 6;
+    StreamRequestTypeProto stream = 7;
   }
 }
 
@@ -290,6 +299,12 @@ message StateMachineExceptionProto {
   bytes stacktrace = 3;
 }
 
+message AlreadyClosedExceptionProto {
+  string exceptionClassName = 1;
+  string errorMsg = 2;
+  bytes stacktrace = 3;
+}
+
 message RaftClientReplyProto {
   RaftRpcReplyProto rpcReply = 1;
   ClientMessageEntryProto message = 2;
@@ -299,6 +314,7 @@ message RaftClientReplyProto {
     NotReplicatedExceptionProto notReplicatedException = 4;
     StateMachineExceptionProto stateMachineException = 5;
     LeaderNotReadyExceptionProto leaderNotReadyException = 6;
+    AlreadyClosedExceptionProto alreadyClosedException = 7;
   }
 
   uint64 logIndex = 14; // When the request is a write request and the reply is success, the log index of the transaction

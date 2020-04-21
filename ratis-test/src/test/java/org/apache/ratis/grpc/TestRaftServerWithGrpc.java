@@ -17,6 +17,17 @@
  */
 package org.apache.ratis.grpc;
 
+import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_READ_REQUEST;
+import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_STALE_READ_REQUEST;
+import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_WATCH_REQUEST;
+import static org.apache.ratis.server.impl.RaftServerMetrics.RAFT_CLIENT_WRITE_REQUEST;
+import static org.apache.ratis.server.impl.RaftServerMetrics.REQUEST_QUEUE_LIMIT_HIT_COUNTER;
+import static org.apache.ratis.server.impl.RaftServerMetrics.REQUEST_BYTE_SIZE;
+import static org.apache.ratis.server.impl.RaftServerMetrics.REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER;
+import static org.apache.ratis.server.impl.RaftServerMetrics.RESOURCE_LIMIT_HIT_COUNTER;
+
+import com.codahale.metrics.Gauge;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.log4j.Level;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
@@ -29,20 +40,25 @@ import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.client.GrpcClientProtocolClient;
 import org.apache.ratis.grpc.client.GrpcClientProtocolService;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.RaftPeerRole;
 import org.apache.ratis.protocol.AlreadyClosedException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.TimeoutIOException;
+import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.impl.RaftServerMetrics;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
-import org.apache.ratis.util.LogUtils;
+import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Before;
@@ -50,6 +66,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.channels.OverlappingFileLockException;
+import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -57,8 +74,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterWithGrpc.FactoryGet {
   {
-    LogUtils.setLogLevel(GrpcClientProtocolService.LOG, Level.ALL);
-    LogUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.ALL);
+    Log4jUtils.setLogLevel(GrpcClientProtocolService.LOG, Level.ALL);
+    Log4jUtils.setLogLevel(GrpcClientProtocolClient.LOG, Level.ALL);
   }
 
   @Before
@@ -119,7 +136,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
   @Test
   public void testLeaderRestart() throws Exception {
-    runWithNewCluster(3, this::runTestLeaderRestart);
+    runWithNewCluster(1, this::runTestLeaderRestart);
   }
 
   void runTestLeaderRestart(MiniRaftClusterWithGrpc cluster) throws Exception {
@@ -165,6 +182,101 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
           ExecutionException.class, TimeoutIOException.class);
     }
 
+  }
+
+  @Test
+  public void testRaftClientMetrics() throws Exception {
+    runWithNewCluster(3, this::testRaftClientRequestMetrics);
+  }
+
+  @Test
+  public void testRaftServerMetrics() throws Exception {
+    final RaftProperties p = getProperties();
+    RaftServerConfigKeys.Write.setElementLimit(p, 10);
+    RaftServerConfigKeys.Write.setByteLimit(p, SizeInBytes.valueOf(110));
+    try {
+      runWithNewCluster(3, this::testRequestMetrics);
+    } finally {
+      RaftServerConfigKeys.Write.setElementLimit(p, RaftServerConfigKeys.Write.ELEMENT_LIMIT_DEFAULT);
+      RaftServerConfigKeys.Write.setByteLimit(p, RaftServerConfigKeys.Write.BYTE_LIMIT_DEFAULT);
+    }
+  }
+
+  void testRequestMetrics(MiniRaftClusterWithGrpc cluster) throws Exception {
+
+    try (RaftClient client = cluster.createClient()) {
+      // send a request to make sure leader is ready
+      final CompletableFuture< RaftClientReply > f = client.sendAsync(new SimpleMessage("testing"));
+      Assert.assertTrue(f.get().isSuccess());
+    }
+
+    SimpleStateMachine4Testing stateMachine = SimpleStateMachine4Testing.get(cluster.getLeader());
+    stateMachine.blockFlushStateMachineData();
+
+    String message = "2nd Message";
+    // Block stateMachine flush data, so that 2nd request will not be
+    // completed, and so it will not be removed from pending request map.
+    cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry()).sendAsync(new SimpleMessage(message));
+
+   final SortedMap< String, Gauge > gaugeMap =
+        cluster.getLeader().getRaftServerMetrics().getRegistry()
+            .getGauges((s, metric) -> s.contains(REQUEST_BYTE_SIZE));
+
+    RaftTestUtil.waitFor(() -> (int) gaugeMap.get(gaugeMap.firstKey()).getValue() == message.length(),
+        300, 5000);
+
+
+    for (int i = 0; i < 10; i++) {
+      cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry()).sendAsync(new SimpleMessage(message));
+    }
+
+    // Because we have passed 11 requests, and the element queue size is 10.
+    RaftTestUtil.waitFor(() -> cluster.getLeader().getRaftServerMetrics().getCounter(REQUEST_QUEUE_LIMIT_HIT_COUNTER)
+        .getCount() == 1, 300, 5000);
+
+    stateMachine.unblockFlushStateMachineData();
+
+    // Send a message with 120, our byte size limit is 110, so it should fail
+    // and byte size counter limit will be hit.
+
+    cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry())
+        .sendAsync(new SimpleMessage(RandomStringUtils.random(120, true, false)));
+
+    RaftTestUtil.waitFor(() -> cluster.getLeader().getRaftServerMetrics()
+        .getCounter(REQUEST_BYTE_SIZE_LIMIT_HIT_COUNTER).getCount() == 1, 300, 5000);
+
+    Assert.assertEquals(2, cluster.getLeader().getRaftServerMetrics()
+        .getCounter(RESOURCE_LIMIT_HIT_COUNTER).getCount());
+  }
+
+
+  void testRaftClientRequestMetrics(MiniRaftClusterWithGrpc cluster) throws IOException,
+      ExecutionException, InterruptedException {
+    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+    RaftServerMetrics raftServerMetrics = leader.getRaftServerMetrics();
+
+    try (final RaftClient client = cluster.createClient()) {
+      final CompletableFuture<RaftClientReply> f1 = client.sendAsync(new SimpleMessage("testing"));
+      Assert.assertTrue(f1.get().isSuccess());
+      Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_WRITE_REQUEST).getCount() > 0);
+
+      final CompletableFuture<RaftClientReply> f2 = client.sendReadOnlyAsync(new SimpleMessage("testing"));
+      Assert.assertTrue(f2.get().isSuccess());
+      Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_READ_REQUEST).getCount() > 0);
+
+      final CompletableFuture<RaftClientReply> f3 = client.sendStaleReadAsync(new SimpleMessage("testing"),
+          0, leader.getId());
+      Assert.assertTrue(f3.get().isSuccess());
+      Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_STALE_READ_REQUEST).getCount() > 0);
+
+      final CompletableFuture<RaftClientReply> f4 = client.sendWatchAsync(0, RaftProtos.ReplicationLevel.ALL);
+      Assert.assertTrue(f4.get().isSuccess());
+      Assert.assertTrue(raftServerMetrics.getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, "-ALL")).getCount() > 0);
+
+      final CompletableFuture<RaftClientReply> f5 = client.sendWatchAsync(0, RaftProtos.ReplicationLevel.MAJORITY);
+      Assert.assertTrue(f5.get().isSuccess());
+      Assert.assertTrue(raftServerMetrics.getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, "")).getCount() > 0);
+    }
   }
 
   static RaftClientRequest newRaftClientRequest(RaftClient client, RaftPeerId serverId, long seqNum) {

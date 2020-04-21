@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,28 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.metrics;
+package org.apache.ratis.util.function;
 
-import org.apache.commons.configuration.SubsetConfiguration;
-import org.apache.hadoop.metrics2.AbstractMetric;
-import org.apache.hadoop.metrics2.MetricsRecord;
-import org.apache.hadoop.metrics2.MetricsSink;
-
-public class TestHadoop2MetricsSink implements MetricsSink {
-
-  public static final String RATIS_METRICS_RECORD_NAME = "test";
-  static Object lock = new Object();
-  static Iterable<AbstractMetric> metrics;
-
-  @Override public void putMetrics(MetricsRecord metricsRecord) {
-    if (metricsRecord.name().equals(RATIS_METRICS_RECORD_NAME)) {
-        TestHadoop2MetricsSink.metrics = metricsRecord.metrics();
-    }
-  }
-
-  @Override public void flush() {
-  }
-
-  @Override public void init(SubsetConfiguration subsetConfiguration) {
-  }
+/** BiFunction with a throws-clause. */
+@FunctionalInterface
+public interface CheckedBiFunction<LEFT, RIGHT, OUTPUT, THROWABLE extends Throwable> {
+  /**
+   * The same as {@link java.util.function.BiFunction#apply(Object, Object)}
+   * except that this method is declared with a throws-clause.
+   */
+  OUTPUT apply(LEFT left, RIGHT right) throws THROWABLE;
 }

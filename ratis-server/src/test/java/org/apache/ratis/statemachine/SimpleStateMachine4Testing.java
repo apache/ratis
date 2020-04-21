@@ -24,8 +24,9 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftGroupMemberId;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
@@ -50,6 +51,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -254,7 +256,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     LOG.debug("Taking a snapshot with t:{}, i:{}, file:{}", termIndex.getTerm(),
         termIndex.getIndex(), snapshotFile);
     try (SegmentedRaftLogOutputStream out = new SegmentedRaftLogOutputStream(snapshotFile, false,
-        segmentMaxSize, preallocatedSize, bufferSize)) {
+        segmentMaxSize, preallocatedSize, ByteBuffer.allocateDirect(bufferSize))) {
       for (final LogEntryProto entry : indexMap.values()) {
         if (entry.getIndex() > endIndex) {
           break;
@@ -307,8 +309,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
           updateLastAppliedTermIndex(entry.getTerm(), entry.getIndex());
         }
       }
+      // The end index is greater than last entry in indexMap as it also
+      // includes the configuration and metadata entries
       Preconditions.assertTrue(
-          !indexMap.isEmpty() && endIndex == indexMap.lastKey(),
+          !indexMap.isEmpty() && endIndex >= indexMap.lastKey(),
           "endIndex=%s, indexMap=%s", endIndex, indexMap);
       this.endIndexLastCkpt = endIndex;
       setLastAppliedTermIndex(snapshot.getTermIndex());
@@ -418,13 +422,17 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
     leaderElectionTimeoutInfo = roleInfoProto;
   }
 
-  @Override public void notifyNotLeader(Collection<TransactionContext> pendingEntries)
+  @Override
+  public void notifyNotLeader(Collection<TransactionContext> pendingEntries)
       throws IOException {
 
   }
 
-  @Override public void notifyLeader(RaftGroupId groupId, long lastCommittedIndex) {
-    notifiedAsLeader = true;
+  @Override
+  public void notifyLeaderChanged(RaftGroupMemberId groupMemberId, RaftPeerId raftPeerId) {
+    if (groupMemberId.getPeerId().equals(raftPeerId)) {
+      notifiedAsLeader = true;
+    }
   }
 
   public boolean isNotifiedAsLeader() {

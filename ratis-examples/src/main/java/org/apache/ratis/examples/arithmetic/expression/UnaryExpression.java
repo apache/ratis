@@ -32,8 +32,8 @@ public class UnaryExpression implements Expression {
   public enum Op implements UnaryOperator<Expression>, DoubleFunction<Expression> {
     NEG("~"), SQRT("√"), SQUARE("^2", POSTFIX_OP_TO_STRING);
 
-    final String symbol;
-    final BiFunction<Op, Expression, String> stringFunction;
+    private final String symbol;
+    private final BiFunction<Op, Expression, String> stringFunction;
 
     Op(String symbol) {
       this(symbol, PREFIX_OP_TO_STRING);
@@ -78,8 +78,8 @@ public class UnaryExpression implements Expression {
     }
   }
 
-  final Op op;
-  final Expression expression;
+  private final Op op;
+  private final Expression expression;
 
   UnaryExpression(byte[] buf, int offset) {
     Preconditions.assertTrue(buf[offset] == Type.UNARY.byteValue());
@@ -122,8 +122,12 @@ public class UnaryExpression implements Expression {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     UnaryExpression that = (UnaryExpression) o;
     return op == that.op &&
         Objects.equals(expression, that.expression);

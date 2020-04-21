@@ -66,7 +66,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
       final GrpcClientProtocolClient proxy = getProxies().getProxy(serverId);
       // Reuse the same grpc stream for all async calls.
       return proxy.getOrderedStreamObservers().onNext(request);
-    } catch (IOException e) {
+    } catch (Throwable e) {
       return JavaUtils.completeExceptionally(e);
     }
   }
@@ -90,7 +90,8 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
     final RaftPeerId serverId = request.getServerId();
     final GrpcClientProtocolClient proxy = getProxies().getProxy(serverId);
     if (request instanceof GroupManagementRequest) {
-      final GroupManagementRequestProto proto = ClientProtoUtils.toGroupManagementRequestProto((GroupManagementRequest)request);
+      final GroupManagementRequestProto proto = ClientProtoUtils.toGroupManagementRequestProto(
+          (GroupManagementRequest)request);
       return ClientProtoUtils.toRaftClientReply(proxy.groupAdd(proto));
     } else if (request instanceof SetConfigurationRequest) {
       final SetConfigurationRequestProto setConf = ClientProtoUtils.toSetConfigurationRequestProto(

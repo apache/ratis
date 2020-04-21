@@ -71,7 +71,7 @@ public interface CollectionUtils {
   static <INPUT, OUTPUT> Iterable<OUTPUT> as(
       Iterable<INPUT> iteration, Function<INPUT, OUTPUT> converter) {
     return () -> new Iterator<OUTPUT>() {
-      final Iterator<INPUT> i = iteration.iterator();
+      private final Iterator<INPUT> i = iteration.iterator();
       @Override
       public boolean hasNext() {
         return i.hasNext();
@@ -108,7 +108,7 @@ public interface CollectionUtils {
         () -> "Entry not found for key " + key + " in map " + name.get());
   }
 
-  public static <K, V> V computeIfAbsent(ConcurrentMap<K, V> map, K key, Supplier<V> supplier,
+  static <K, V> V computeIfAbsent(ConcurrentMap<K, V> map, K key, Supplier<V> supplier,
       Runnable actionIfAbsent) {
     V v = map.get(key);
     if (v != null) {
@@ -123,7 +123,7 @@ public interface CollectionUtils {
     return newValue;
   }
 
-  public static <K, V> V computeIfAbsent(ConcurrentMap<K, V> map, K key, Supplier<V> supplier) {
+  static <K, V> V computeIfAbsent(ConcurrentMap<K, V> map, K key, Supplier<V> supplier) {
     return computeIfAbsent(map, key, supplier, () -> {
     });
   }
