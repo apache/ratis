@@ -25,9 +25,9 @@ import org.apache.ratis.protocol.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftException;
-import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,11 +82,13 @@ public interface UnorderedAsync {
           f.complete(reply);
           return;
         }
-        RetryPolicy retryPolicy = client.getRetryPolicy();
+
         final Throwable cause = replyException != null ? replyException : e;
         final int causeCount = pending.incrementExceptionCount(cause);
         final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, causeCount, cause);
+        RetryPolicy retryPolicy = client.getRetryPolicy();
         final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
+        TimeDuration sleepTime = client.getEffectiveSleepTime(cause, action.getSleepTime());
         if (!action.shouldRetry()) {
           f.completeExceptionally(client.noMoreRetries(event));
           return;
@@ -103,8 +105,6 @@ public interface UnorderedAsync {
           if (e instanceof IOException) {
             if (e instanceof NotLeaderException) {
               client.handleNotLeaderException(request, (NotLeaderException) e, null);
-              retryPolicy = ((NotLeaderException) e).getSuggestedLeader() != null ?
-                  RetryPolicies.retryForeverNoSleep() : retryPolicy;
             } else if (e instanceof GroupMismatchException) {
               f.completeExceptionally(e);
               return;
@@ -120,7 +120,7 @@ public interface UnorderedAsync {
         }
 
         LOG.debug("schedule retry for attempt #{}, policy={}, request={}", attemptCount, retryPolicy, request);
-        client.getScheduler().onTimeout(action.getSleepTime(),
+        client.getScheduler().onTimeout(sleepTime,
             () -> sendRequestWithRetry(pending, client), LOG, () -> clientId + ": Failed~ to retry " + request);
       } catch (Throwable t) {
         LOG.error(clientId + ": Failed " + request, t);

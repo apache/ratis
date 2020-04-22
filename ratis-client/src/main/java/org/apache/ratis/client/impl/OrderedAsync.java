@@ -30,7 +30,6 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftException;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -198,12 +197,7 @@ public final class OrderedAsync {
     }).exceptionally(e -> {
       if (e instanceof CompletionException) {
         e = JavaUtils.unwrapCompletionException(e);
-        RetryPolicy retryPolicyToUse = retryPolicy;
-        if (e instanceof NotLeaderException) {
-          retryPolicyToUse = ((NotLeaderException) e).getSuggestedLeader() != null ?
-              RetryPolicies.retryForeverNoSleep() : retryPolicy;
-        }
-        scheduleWithTimeout(pending, request, retryPolicyToUse, e);
+        scheduleWithTimeout(pending, request, retryPolicy, e);
         return null;
       }
       f.completeExceptionally(e);
@@ -216,7 +210,8 @@ public final class OrderedAsync {
     final int attempt = pending.getAttemptCount();
     final ClientRetryEvent event = new ClientRetryEvent(attempt, request,
         pending.getExceptionCount(e), e);
-    final TimeDuration sleepTime = retryPolicy.handleAttemptFailure(event).getSleepTime();
+    final TimeDuration sleepTime = client.getEffectiveSleepTime(e,
+        retryPolicy.handleAttemptFailure(event).getSleepTime());
     LOG.debug("schedule* attempt #{} with sleep {} and policy {} for {}", attempt, sleepTime, retryPolicy, request);
     scheduleWithTimeout(pending, sleepTime, getSlidingWindow(request));
   }

@@ -31,6 +31,7 @@ import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutScheduler;
 
 import java.io.IOException;
@@ -125,6 +126,11 @@ final class RaftClientImpl implements RaftClient {
 
   RetryPolicy getRetryPolicy() {
     return retryPolicy;
+  }
+
+  TimeDuration getEffectiveSleepTime(Throwable t, TimeDuration sleepDefault) {
+    return t instanceof NotLeaderException && ((NotLeaderException) t).getSuggestedLeader() != null ?
+        TimeDuration.ZERO : sleepDefault;
   }
 
   TimeoutScheduler getScheduler() {
@@ -291,12 +297,14 @@ final class RaftClientImpl implements RaftClient {
       final int exceptionCount = ioe != null ? pending.incrementExceptionCount(ioe) : 0;
       ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, exceptionCount, ioe);
       final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
+      TimeDuration sleepTime = getEffectiveSleepTime(ioe, action.getSleepTime());
+
       if (!action.shouldRetry()) {
         throw (IOException)noMoreRetries(event);
       }
 
       try {
-        action.getSleepTime().sleep();
+        sleepTime.sleep();
       } catch (InterruptedException e) {
         throw new InterruptedIOException("retry policy=" + retryPolicy);
       }
