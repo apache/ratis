@@ -28,7 +28,6 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftException;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.IOUtils;
@@ -236,18 +235,8 @@ public final class OrderedAsync {
     int attemptCount = pending.getAttemptCount();
     return f.thenApply(reply -> {
       LOG.debug("{}: receive* {}", client.getId(), reply);
-      final RaftException replyException = reply != null? reply.getException(): null;
-      reply = client.handleLeaderException(request, reply, this::resetSlidingWindow);
-      if (reply != null) {
-        getSlidingWindow(request).receiveReply(
-            request.getSlidingWindowEntry().getSeqNum(), reply, this::sendRequestWithRetry);
-      } else {
-        final ClientRetryEvent event = new ClientRetryEvent(attemptCount,
-            request, pending.getExceptionCount(replyException), replyException);
-        if (!retryPolicy.handleAttemptFailure(event).shouldRetry()) {
-          handleAsyncRetryFailure(event);
-        }
-      }
+      getSlidingWindow(request).receiveReply(
+          request.getSlidingWindowEntry().getSeqNum(), reply, this::sendRequestWithRetry);
       return reply;
     }).exceptionally(e -> {
       if (LOG.isTraceEnabled()) {
