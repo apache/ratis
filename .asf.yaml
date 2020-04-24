@@ -16,8 +16,10 @@ github:
   description: "Open source Java implementation for Raft consensus protocol."
   homepage: http://ratis.incubator.apache.org/
   labels:
-    - Raft
-    - Consensus Protocol
+    - raft
+    - consensus-protocol
+    - consensus
+    - java
   enabled_merge_buttons:
     squash:  true
     merge:   false
