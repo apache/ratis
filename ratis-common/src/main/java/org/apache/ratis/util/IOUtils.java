@@ -134,6 +134,23 @@ public interface IOUtils {
     } while (buf.remaining() > 0);
   }
 
+  static long preallocate(FileChannel fc, long size, ByteBuffer fill) throws IOException {
+    Preconditions.assertSame(0, fill.position(), "fill.position");
+    Preconditions.assertSame(fill.capacity(), fill.limit(), "fill.limit");
+    final int remaining = fill.remaining();
+
+    long allocated = 0;
+    for(; allocated < size; ) {
+      final long required = size - allocated;
+      final int n = remaining < required? remaining: Math.toIntExact(required);
+      final ByteBuffer buffer = fill.slice();
+      buffer.limit(n);
+      IOUtils.writeFully(fc, buffer, fc.size());
+      allocated += n;
+    }
+    return allocated;
+  }
+
   /**
    * Similar to readFully(). Skips bytes in a loop.
    * @param in The InputStream to skip bytes from
@@ -191,11 +208,15 @@ public interface IOUtils {
 
   static <T> T readObject(InputStream in, Class<T> clazz) {
     try(ObjectInputStream oin = new ObjectInputStream(in)) {
-      return clazz.cast(oin.readObject());
+      final Object obj = oin.readObject();
+      try {
+        return clazz.cast(obj);
+      } catch (ClassCastException e) {
+        throw new IllegalStateException("Failed to cast to " + clazz + ", object="
+            + (obj instanceof Throwable? StringUtils.stringifyException((Throwable) obj): obj), e);
+      }
     } catch (IOException | ClassNotFoundException e) {
       throw new IllegalStateException("Failed to read an object.", e);
-    } catch (ClassCastException e) {
-      throw new IllegalStateException("Failed to cast the object to " + clazz, e);
     }
   }
 }

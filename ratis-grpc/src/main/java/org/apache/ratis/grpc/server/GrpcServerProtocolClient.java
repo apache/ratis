@@ -18,6 +18,7 @@
 package org.apache.ratis.grpc.server;
 
 import org.apache.ratis.grpc.GrpcTlsConfig;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NegotiationType;
@@ -46,9 +47,12 @@ public class GrpcServerProtocolClient implements Closeable {
   private final RaftServerProtocolServiceBlockingStub blockingStub;
   private final RaftServerProtocolServiceStub asyncStub;
   private static final Logger LOG = LoggerFactory.getLogger(GrpcServerProtocolClient.class);
+  //visible for using in log / error messages AND to use in instrumented tests
+  private final RaftPeerId raftPeerId;
 
   public GrpcServerProtocolClient(RaftPeer target, int flowControlWindow,
       TimeDuration requestTimeoutDuration, GrpcTlsConfig tlsConfig) {
+    raftPeerId = target.getId();
     NettyChannelBuilder channelBuilder =
         NettyChannelBuilder.forTarget(target.getAddress());
 
@@ -71,7 +75,8 @@ public class GrpcServerProtocolClient implements Closeable {
       try {
         channelBuilder.useTransportSecurity().sslContext(sslContextBuilder.build());
       } catch (Exception ex) {
-        throw new IllegalArgumentException("Failed to build SslContext, tlsConfig=" + tlsConfig, ex);
+        throw new IllegalArgumentException("Failed to build SslContext, peerId=" + raftPeerId
+            + ", tlsConfig=" + tlsConfig, ex);
       }
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
@@ -88,7 +93,7 @@ public class GrpcServerProtocolClient implements Closeable {
     try {
       channel.awaitTermination(5, TimeUnit.SECONDS);
     } catch (Exception e) {
-      LOG.error("Unexpected exception while waiting for channel termination", e);
+      LOG.error("Unexpected exception while waiting for channel termination, peerId={}", raftPeerId, e);
     }
   }
 

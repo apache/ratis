@@ -28,7 +28,11 @@ import java.util.Optional;
 /**
  * Standalone arithmetic raft server.
  */
-public class Runner {
+public final class Runner {
+
+  private Runner() {
+
+  }
 
   public static void main(String[] args) throws Exception {
     if (args.length == 0) {

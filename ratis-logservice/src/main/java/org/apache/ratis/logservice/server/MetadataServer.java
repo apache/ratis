@@ -74,12 +74,12 @@ public class MetadataServer extends BaseServer {
         this.lifeCycle = new LifeCycle(this.id);
         RaftProperties properties = new RaftProperties();
         if(opts.getWorkingDir() != null) {
-            RaftServerConfigKeys.setStorageDirs(properties,
+            RaftServerConfigKeys.setStorageDir(properties,
               Collections.singletonList(new File(opts.getWorkingDir())));
         } else {
           String path = getConfig().get(Constants.META_SERVER_WORKDIR_KEY);
           if (path != null) {
-            RaftServerConfigKeys.setStorageDirs(properties,
+            RaftServerConfigKeys.setStorageDir(properties,
               Collections.singletonList(new File(path)));
           }
         }

@@ -90,7 +90,8 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
     final RaftPeerId serverId = request.getServerId();
     final GrpcClientProtocolClient proxy = getProxies().getProxy(serverId);
     if (request instanceof GroupManagementRequest) {
-      final GroupManagementRequestProto proto = ClientProtoUtils.toGroupManagementRequestProto((GroupManagementRequest)request);
+      final GroupManagementRequestProto proto = ClientProtoUtils.toGroupManagementRequestProto(
+          (GroupManagementRequest)request);
       return ClientProtoUtils.toRaftClientReply(proxy.groupAdd(proto));
     } else if (request instanceof SetConfigurationRequest) {
       final SetConfigurationRequestProto setConf = ClientProtoUtils.toSetConfigurationRequestProto(

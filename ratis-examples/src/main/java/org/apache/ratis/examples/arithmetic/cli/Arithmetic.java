@@ -26,7 +26,10 @@ import java.util.List;
 /**
  * This class enumerates all the commands enqueued by Arithmetic state machine.
  */
-public class Arithmetic {
+public final class Arithmetic {
+  private Arithmetic() {
+  }
+
   public static List<SubCommandBase> getSubCommands() {
     List<SubCommandBase> commands = new ArrayList<>();
     commands.add(new Server());

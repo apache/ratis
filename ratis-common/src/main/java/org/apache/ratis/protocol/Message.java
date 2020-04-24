@@ -27,6 +27,7 @@ import java.util.function.Supplier;
 /**
  * The information clients append to the raft ring.
  */
+@FunctionalInterface
 public interface Message {
   static Message valueOf(ByteString bytes, Supplier<String> stringSupplier) {
     return new Message() {

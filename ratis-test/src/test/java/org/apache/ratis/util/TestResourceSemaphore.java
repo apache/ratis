@@ -18,26 +18,33 @@
 package org.apache.ratis.util;
 
 import org.apache.ratis.BaseTest;
+import org.apache.ratis.RaftTestUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.concurrent.TimeoutException;
+
+import static org.apache.ratis.util.ResourceSemaphore.ResourceAcquireStatus.FAILED_IN_BYTE_SIZE_LIMIT;
+import static org.apache.ratis.util.ResourceSemaphore.ResourceAcquireStatus.FAILED_IN_ELEMENT_LIMIT;
+import static org.apache.ratis.util.ResourceSemaphore.ResourceAcquireStatus.SUCCESS;
+
 public class TestResourceSemaphore extends BaseTest {
-  @Test(timeout = 1000)
-  public void testGroup() {
+  @Test(timeout = 5000)
+  public void testGroup() throws InterruptedException, TimeoutException {
     final ResourceSemaphore.Group g = new ResourceSemaphore.Group(3, 1);
 
     assertUsed(g, 0, 0);
-    assertAcquire(g, true, 1, 1);
+    assertAcquire(g, ResourceSemaphore.ResourceAcquireStatus.SUCCESS, 1, 1);
     assertUsed(g, 1, 1);
-    assertAcquire(g, false, 1, 1);
+    assertAcquire(g, FAILED_IN_BYTE_SIZE_LIMIT, 1, 1);
     assertUsed(g, 1, 1);
-    assertAcquire(g, false, 0, 1);
+    assertAcquire(g, FAILED_IN_BYTE_SIZE_LIMIT, 0, 1);
     assertUsed(g, 1, 1);
-    assertAcquire(g, true, 1, 0);
+    assertAcquire(g, SUCCESS, 1, 0);
     assertUsed(g, 2, 1);
-    assertAcquire(g, true, 1, 0);
+    assertAcquire(g, SUCCESS, 1, 0);
     assertUsed(g, 3, 1);
-    assertAcquire(g, false, 1, 0);
+    assertAcquire(g, FAILED_IN_ELEMENT_LIMIT, 1, 0);
     assertUsed(g, 3, 1);
 
     g.release(1, 1);
@@ -46,6 +53,27 @@ public class TestResourceSemaphore extends BaseTest {
     assertUsed(g, 0, 0);
     g.release(0, 0);
     assertUsed(g, 0, 0);
+
+    g.acquire(1, 1);
+    assertUsed(g, 1, 1);
+    final Thread t = new Thread(acquire(g, 1, 1));
+    t.start();
+    RaftTestUtil.waitFor(() -> Thread.State.WAITING == t.getState(), 100, 1000);
+    assertUsed(g, 2, 1);
+
+    g.release(0, 1);
+    RaftTestUtil.waitFor(() -> Thread.State.TERMINATED == t.getState(), 100, 1000);
+    assertUsed(g, 2, 1);
+
+    final Thread t1 = new Thread(acquire(g, 1, 1));
+    t1.start();
+    RaftTestUtil.waitFor(() -> Thread.State.WAITING == t1.getState(), 100, 1000);
+    assertUsed(g, 3, 1);
+
+    t1.interrupt();
+    RaftTestUtil.waitFor(() -> Thread.State.TERMINATED == t1.getState(), 100, 1000);
+    assertUsed(g, 2, 1);
+    g.release(2, 1);
 
     testFailureCase("release over limit-0", () -> g.release(1, 0), IllegalStateException.class);
     testFailureCase("release over limit-1", () -> g.release(0, 1), IllegalStateException.class);
@@ -58,8 +86,19 @@ public class TestResourceSemaphore extends BaseTest {
     }
   }
 
-  static void assertAcquire(ResourceSemaphore.Group g, boolean expected, int... permits) {
-    final boolean computed = g.tryAcquire(permits);
+  static void assertAcquire(ResourceSemaphore.Group g, ResourceSemaphore.ResourceAcquireStatus expected,
+      int... permits) {
+    final ResourceSemaphore.ResourceAcquireStatus computed = g.tryAcquire(permits);
     Assert.assertEquals(expected, computed);
+  }
+
+  static Runnable acquire(ResourceSemaphore.Group g, int... permits) {
+    return () -> {
+      try {
+        g.acquire(permits);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    };
   }
 }

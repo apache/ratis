@@ -42,6 +42,7 @@
         <include>org.apache.ratis:ratis-server</include>
         <include>org.apache.ratis:ratis-test</include>
         <include>org.apache.ratis:ratis-metrics</include>
+        <include>org.apache.ratis:ratis-tools</include>
         <include>org.apache.ratis:ratis-resource-bundle</include>
       </includes>
       <sources>

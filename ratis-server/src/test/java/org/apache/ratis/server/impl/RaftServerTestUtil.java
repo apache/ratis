@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 public class RaftServerTestUtil {
@@ -101,8 +102,18 @@ public class RaftServerTestUtil {
     return server.getRole().getRaftPeerRole();
   }
 
+  private static Optional<LeaderState> getLeaderState(RaftServerImpl server) {
+    return server.getRole().getLeaderState();
+  }
+
   public static Stream<LogAppender> getLogAppenders(RaftServerImpl server) {
-    return server.getRole().getLeaderState().map(LeaderState::getLogAppenders).orElse(null);
+    return getLeaderState(server).map(LeaderState::getLogAppenders).orElse(null);
+  }
+
+  public static void restartLogAppenders(RaftServerImpl server) {
+    final LeaderState leaderState = getLeaderState(server).orElseThrow(
+        () -> new IllegalStateException(server + " is not the leader"));
+    leaderState.getLogAppenders().forEach(leaderState::restartSender);
   }
 
   public static Logger getStateMachineUpdaterLog() {

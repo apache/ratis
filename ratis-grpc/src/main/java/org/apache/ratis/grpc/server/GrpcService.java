@@ -46,12 +46,13 @@ import java.util.function.Supplier;
 import static org.apache.ratis.thirdparty.io.netty.handler.ssl.SslProvider.OPENSSL;
 
 /** A grpc implementation of {@link RaftServerRpc}. */
-public class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient, PeerProxyMap<GrpcServerProtocolClient>> {
+public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocolClient,
+    PeerProxyMap<GrpcServerProtocolClient>> {
   static final Logger LOG = LoggerFactory.getLogger(GrpcService.class);
   public static final String GRPC_SEND_SERVER_REQUEST =
       GrpcService.class.getSimpleName() + ".sendRequest";
 
-  public static class Builder extends RaftServerRpc.Builder<Builder, GrpcService> {
+  public static final class Builder extends RaftServerRpc.Builder<Builder, GrpcService> {
     private GrpcTlsConfig tlsConfig;
 
     private Builder() {}

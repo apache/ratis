@@ -107,7 +107,7 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
                 factory)), false);
   }
 
-  private static class Invoker implements RpcInvocationHandler {
+  private static final class Invoker implements RpcInvocationHandler {
     private final Map<String, Message> returnTypes =
         new ConcurrentHashMap<String, Message>();
     private boolean isClosed = false;
@@ -117,6 +117,7 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
     private final String protocolName;
     private AtomicBoolean fallbackToSimpleAuth;
 
+    @SuppressWarnings("checkstyle:parameternumber")
     private Invoker(Class<?> protocol, InetSocketAddress addr,
         UserGroupInformation ticket, Configuration conf, SocketFactory factory,
         int rpcTimeout, RetryPolicy connectionRetryPolicy,
@@ -287,16 +288,15 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
    * Protobuf. Several methods on {@link org.apache.hadoop.ipc.Server and RPC}
    * use type Writable as a wrapper to work across multiple RpcEngine kinds.
    */
-  private static abstract class RpcMessageWithHeader<T extends GeneratedMessage>
-    implements RpcWrapper {
-    T requestHeader;
-    Message theRequest; // for clientSide, the request is here
-    byte[] theRequestRead; // for server side, the request is here
+  private abstract static class RpcMessageWithHeader<T extends GeneratedMessage> implements RpcWrapper {
+    private T requestHeader;
+    private Message theRequest; // for clientSide, the request is here
+    private byte[] theRequestRead; // for server side, the request is here
 
-    public RpcMessageWithHeader() {
+    RpcMessageWithHeader() {
     }
 
-    public RpcMessageWithHeader(T requestHeader, Message theRequest) {
+    RpcMessageWithHeader(T requestHeader, Message theRequest) {
       this.requestHeader = requestHeader;
       this.theRequest = theRequest;
     }
@@ -311,8 +311,8 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
 
     @Override
     public void readFields(DataInput in) throws IOException {
-      requestHeader = parseHeaderFrom(readVarintBytes(in));
-      theRequestRead = readMessageRequest(in);
+      this.requestHeader = parseHeaderFrom(readVarintBytes(in));
+      this.theRequestRead = readMessageRequest(in);
     }
 
     abstract T parseHeaderFrom(byte[] bytes) throws IOException;
@@ -328,12 +328,12 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
       return bytes;
     }
 
-    public T getMessageHeader() {
-      return requestHeader;
+    T getMessageHeader() {
+      return this.requestHeader;
     }
 
-    public byte[] getMessageBytes() {
-      return theRequestRead;
+    byte[] getMessageBytes() {
+      return this.theRequestRead;
     }
 
     @Override
@@ -353,13 +353,11 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
     }
   }
 
-  private static class RpcRequestWrapper
-  extends RpcMessageWithHeader<RequestHeaderProto> {
+  private static class RpcRequestWrapper extends RpcMessageWithHeader<RequestHeaderProto> {
     @SuppressWarnings("unused")
-    public RpcRequestWrapper() {}
+    RpcRequestWrapper() {}
 
-    public RpcRequestWrapper(
-        RequestHeaderProto requestHeader, Message theRequest) {
+    RpcRequestWrapper(RequestHeaderProto requestHeader, Message theRequest) {
       super(requestHeader, theRequest);
     }
 
@@ -370,14 +368,13 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
 
     @Override
     public String toString() {
-      return requestHeader.getDeclaringClassProtocolName() + "." +
-          requestHeader.getMethodName();
+      return getMessageHeader().getDeclaringClassProtocolName() + "." +
+          getMessageHeader().getMethodName();
     }
   }
 
   @InterfaceAudience.LimitedPrivate({"RPC"})
-  public static class RpcRequestMessageWrapper
-  extends RpcMessageWithHeader<RpcRequestHeaderProto> {
+  public static class RpcRequestMessageWrapper extends RpcMessageWithHeader<RpcRequestHeaderProto> {
     public RpcRequestMessageWrapper() {}
 
     public RpcRequestMessageWrapper(
@@ -392,8 +389,7 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
   }
 
   @InterfaceAudience.LimitedPrivate({"RPC"})
-  public static class RpcResponseMessageWrapper
-  extends RpcMessageWithHeader<RpcResponseHeaderProto> {
+  public static class RpcResponseMessageWrapper extends RpcMessageWithHeader<RpcResponseHeaderProto> {
     public RpcResponseMessageWrapper() {}
 
     public RpcResponseMessageWrapper(
@@ -404,7 +400,7 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
     @Override
     byte[] readMessageRequest(DataInput in) throws IOException {
       // error message contain no message body
-      switch (requestHeader.getStatus()) {
+      switch (getMessageHeader().getStatus()) {
         case ERROR:
         case FATAL:
           return null;
@@ -428,8 +424,8 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
    */
   @InterfaceAudience.LimitedPrivate({"RPC"}) // temporarily exposed
   public static class RpcResponseWrapper implements RpcWrapper {
-    Message theResponse; // for senderSide, the response is here
-    byte[] theResponseRead; // for receiver side, the response is here
+    private Message theResponse; // for senderSide, the response is here
+    private byte[] theResponseRead; // for receiver side, the response is here
 
     public RpcResponseWrapper() {
     }
@@ -492,6 +488,7 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
      * @param portRangeConfig A config parameter that can be used to restrict
      * the range of ports used when port is 0 (an ephemeral port)
      */
+    @SuppressWarnings("checkstyle:parameternumber")
     public Server(Class<?> protocolClass, Object protocolImpl,
         Configuration conf, String bindAddress, int port, int numHandlers,
         int numReaders, int queueSizePerHandler, boolean verbose,
@@ -552,12 +549,13 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
       public Writable call(RPC.Server server, String protocol,
           Writable writableRequest, long receiveTime) throws Exception {
         RpcRequestWrapper request = (RpcRequestWrapper) writableRequest;
-        RequestHeaderProto rpcRequest = request.requestHeader;
+        RequestHeaderProto rpcRequest = request.getMessageHeader();
         String methodName = rpcRequest.getMethodName();
         String protoName = rpcRequest.getDeclaringClassProtocolName();
         long clientVersion = rpcRequest.getClientProtocolVersion();
-        if (server.verbose)
+        if (server.verbose) {
           LOG.info("Call: protocol=" + protocol + ", method=" + methodName);
+        }
 
         ProtoClassProtoImpl protocolImpl = getProtocolImpl(server, protoName,
             clientVersion);
@@ -572,7 +570,7 @@ public class ProtobufRpcEngineShaded implements RpcEngine {
         }
         Message prototype = service.getRequestPrototype(methodDescriptor);
         Message param = prototype.newBuilderForType()
-            .mergeFrom(request.theRequestRead).build();
+            .mergeFrom(request.getMessageBytes()).build();
 
         Message result;
         long startTime = Time.now();

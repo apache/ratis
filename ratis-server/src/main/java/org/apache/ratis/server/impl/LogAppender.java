@@ -40,6 +40,7 @@ import java.nio.file.Path;
 import java.util.*;
 
 import static org.apache.ratis.server.impl.RaftServerConstants.DEFAULT_CALLID;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.LOG_APPENDER_INSTALL_SNAPSHOT_METRIC;
 import static org.apache.ratis.util.LifeCycle.State.CLOSED;
 import static org.apache.ratis.util.LifeCycle.State.CLOSING;
 import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
@@ -96,7 +97,7 @@ public class LogAppender {
     }
 
     boolean isRunning() {
-      return !lifeCycle.getCurrentState().isOneOf(CLOSING, CLOSED, EXCEPTION);
+      return !LifeCycle.States.CLOSING_OR_CLOSED_OR_EXCEPTION.contains(lifeCycle.getCurrentState());
     }
 
     void stop() {
@@ -427,6 +428,7 @@ public class LogAppender {
     if (reply != null) {
       follower.setSnapshotIndex(snapshot.getTermIndex().getIndex());
       LOG.info("{}: installSnapshot {} successfully", this, snapshot);
+      server.getRaftServerMetrics().getCounter(LOG_APPENDER_INSTALL_SNAPSHOT_METRIC).inc();
     }
     return reply;
   }
@@ -544,7 +546,7 @@ public class LogAppender {
     return followerIndex < raftLog.getNextIndex();
   }
 
-  private boolean shouldHeartbeat() {
+  protected boolean shouldHeartbeat() {
     return getHeartbeatRemainingTime() <= 0;
   }
 

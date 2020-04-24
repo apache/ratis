@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
+import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.proto.grpc.RaftServerProtocolServiceGrpc.RaftServerProtocolServiceImplBase;
@@ -82,8 +83,37 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
 
     abstract String replyToString(REPLY reply);
 
+    abstract boolean replyInOrder(REQUEST request);
+
+    StatusRuntimeException wrapException(Throwable e, REQUEST request) {
+      return GrpcUtil.wrapException(e, getCallId(request));
+    }
+
+    private void handleError(Throwable e, REQUEST request) {
+      GrpcUtil.warn(LOG, () -> getId() + ": Failed " + op + " request " + requestToString(request), e);
+      responseObserver.onError(wrapException(e, request));
+    }
+
+    private void handleReply(REPLY reply) {
+      if (!isClosed.get()) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("{}: reply {}", getId(), replyToString(reply));
+        }
+        responseObserver.onNext(reply);
+      }
+    }
+
     @Override
     public void onNext(REQUEST request) {
+      if (!replyInOrder(request)) {
+        try {
+          process(request).thenAccept(this::handleReply);
+        } catch (Throwable e) {
+          handleError(e, request);
+        }
+        return;
+      }
+
       final PendingServerRequest<REQUEST> current = new PendingServerRequest<>(request);
       final PendingServerRequest<REQUEST> previous = previousOnNext.getAndSet(current);
       final CompletableFuture<Void> previousFuture = Optional.ofNullable(previous)
@@ -91,18 +121,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
           .orElse(CompletableFuture.completedFuture(null));
       try {
         process(request).thenCombine(previousFuture, (reply, v) -> {
-          if (!isClosed.get()) {
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("{}: reply {}", getId(), replyToString(reply));
-            }
-            responseObserver.onNext(reply);
-          }
+          handleReply(reply);
           current.getFuture().complete(null);
           return null;
         });
       } catch (Throwable e) {
-        GrpcUtil.warn(LOG, () -> getId() + ": Failed " + op + " request " + requestToString(request), e);
-        responseObserver.onError(GrpcUtil.wrapException(e, getCallId(request)));
+        handleError(e, request);
         current.getFuture().completeExceptionally(e);
       }
     }
@@ -172,6 +196,16 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       String replyToString(AppendEntriesReplyProto reply) {
         return ServerProtoUtils.toString(reply);
       }
+
+      @Override
+      boolean replyInOrder(AppendEntriesRequestProto request) {
+        return request.getEntriesCount() != 0;
+      }
+
+      @Override
+      StatusRuntimeException wrapException(Throwable e, AppendEntriesRequestProto request) {
+        return GrpcUtil.wrapException(e, getCallId(request), request.getEntriesCount() == 0);
+      }
     };
   }
 
@@ -198,6 +232,11 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       @Override
       String replyToString(InstallSnapshotReplyProto reply) {
         return ServerProtoUtils.toString(reply);
+      }
+
+      @Override
+      boolean replyInOrder(InstallSnapshotRequestProto installSnapshotRequestProto) {
+        return true;
       }
     };
   }

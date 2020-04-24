@@ -158,10 +158,10 @@ public class TestCacheEviction extends BaseTest {
     final RaftPeerId peerId = RaftPeerId.valueOf("s0");
     final RaftGroupId groupId = RaftGroupId.randomId();
     final RaftGroupMemberId memberId = RaftGroupMemberId.valueOf(peerId, groupId);
-    final int maxCachedNum = RaftServerConfigKeys.Log.maxCachedSegmentNum(prop);
+    final int maxCachedNum = RaftServerConfigKeys.Log.segmentCacheNumMax(prop);
 
     File storageDir = getTestDir();
-    RaftServerConfigKeys.setStorageDirs(prop,  Collections.singletonList(storageDir));
+    RaftServerConfigKeys.setStorageDir(prop,  Collections.singletonList(storageDir));
     RaftStorage storage = new RaftStorage(storageDir, RaftServerConstants.StartupOption.REGULAR);
 
     RaftServerImpl server = Mockito.mock(RaftServerImpl.class);

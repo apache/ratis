@@ -23,6 +23,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.AlreadyExistsException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -231,5 +232,25 @@ public abstract class GroupManagementBaseTest extends BaseTest {
   static void printThreadCount(String type, String label) {
     System.out.println("| " + type + " | " + label + " | "
         + JavaUtils.getRootThreadGroup().activeCount() + " |");
+  }
+
+  @Test
+  public void testGroupAlreadyExists() throws Exception {
+    final MiniRaftCluster cluster = getCluster(1);
+    cluster.start();
+    final RaftPeer peer = cluster.getPeers().get(0);
+    final RaftPeerId peerId = peer.getId();
+    final RaftGroup group = RaftGroup.valueOf(cluster.getGroupId(), peer);
+    final RaftClient client = cluster.createClient();
+    Assert.assertEquals(group, cluster.getRaftServerImpl(peerId).getGroup());
+    try {
+      client.groupAdd(group, peer.getId());
+    } catch (IOException ex) {
+      // HadoopRPC throws RemoteException, which makes it hard to check if
+      // the exception is instance of AlreadyExistsException
+      Assert.assertTrue(ex.toString().contains(AlreadyExistsException.class.getCanonicalName()));
+    }
+    Assert.assertEquals(group, cluster.getRaftServerImpl(peerId).getGroup());
+    cluster.shutdown();
   }
 }

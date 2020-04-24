@@ -112,7 +112,7 @@ public class LogServer extends BaseServer {
 
         InetSocketAddress addr = new InetSocketAddress(opts.getHost(), opts.getPort());
         if(opts.getWorkingDir() != null) {
-            RaftServerConfigKeys.setStorageDirs(properties, Collections.singletonList(new File(opts.getWorkingDir())));
+            RaftServerConfigKeys.setStorageDir(properties, Collections.singletonList(new File(opts.getWorkingDir())));
         }
         String id = opts.getHost() +"_" +  opts.getPort();
         RaftPeer peer = new RaftPeer(RaftPeerId.valueOf(id), addr);

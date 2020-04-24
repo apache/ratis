@@ -31,16 +31,16 @@ public interface NetUtils {
 
   abstract class StaticResolution {
     /** Host -> resolved name */
-    private static Map<String, String> hostToResolved = new ConcurrentHashMap<>();
+    private static final Map<String, String> HOST_TO_RESOLVED = new ConcurrentHashMap<>();
 
     /** Adds a static resolution for host. */
     public static void put(String host, String resolvedName) {
-      hostToResolved.put(host, resolvedName);
+      HOST_TO_RESOLVED.put(host, resolvedName);
     }
 
     /** @return the resolved name, or null if the host is not found. */
     public static String get(String host) {
-      return hostToResolved.get(host);
+      return HOST_TO_RESOLVED.get(host);
     }
   }
 

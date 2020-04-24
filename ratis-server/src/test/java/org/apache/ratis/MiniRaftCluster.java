@@ -335,7 +335,7 @@ public abstract class MiniRaftCluster implements Closeable {
         LOG.info("Formatted directory {}", dir);
       }
       final RaftProperties prop = new RaftProperties(properties);
-      RaftServerConfigKeys.setStorageDirs(prop, Collections.singletonList(dir));
+      RaftServerConfigKeys.setStorageDir(prop, Collections.singletonList(dir));
       return newRaftServer(id, getStateMachineRegistry(properties), group, prop);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -646,6 +646,10 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public RaftClient createClient(RaftPeerId leaderId) {
     return createClient(leaderId, group);
+  }
+
+  public RaftClient createClient(RetryPolicy retryPolicy) {
+    return createClient(null, group, retryPolicy);
   }
 
   public RaftClient createClient(RaftPeerId leaderId, RetryPolicy retryPolicy) {

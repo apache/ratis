@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.metrics;
 
 import java.util.Optional;
 
+import com.codahale.metrics.Gauge;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
@@ -34,15 +35,21 @@ public class GrpcServerMetrics {
   private static final String RATIS_GRPC_METRICS_DESC = "Metrics for Ratis Grpc Log Appender";
 
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY =
-      "grpc_log_appender_follower_%s_latency";
+      "%s_latency";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS =
-      "grpc_log_appender_follower_%s_success_reply_count";
+      "%s_success_reply_count";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER =
-      "grpc_log_appender_follower_%s_not_leader_reply_count";
+      "%s_not_leader_reply_count";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY =
-      "grpc_log_appender_follower_%s_inconsistency_reply_count";
-  public static final String RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT = "grpc_log_appender_num_retries";
-  public static final String RATIS_GRPC_METRICS_REQUESTS_TOTAL = "grpc_log_appender_num_requests";
+      "%s_inconsistency_reply_count";
+  public static final String RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT =
+      "%s_append_entry_timeout_count";
+  public static final String RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT
+      = "%s_pending_log_requests_count";
+
+  public static final String RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT = "num_retries";
+  public static final String RATIS_GRPC_METRICS_REQUESTS_TOTAL = "num_requests";
+  public static final String RATIS_GRPC_INSTALL_SNAPSHOT_COUNT = "num_install_snapshot";
 
   public GrpcServerMetrics(String serverId) {
     MetricRegistryInfo info = new MetricRegistryInfo(serverId, RATIS_GRPC_METRICS_APP_NAME,
@@ -52,20 +59,23 @@ public class GrpcServerMetrics {
     registry = metricRegistry.orElseGet(() -> MetricRegistries.global().create(info));
   }
 
-  public Timer getGrpcLogAppenderLatencyTimer(String follower) {
-    return registry.timer(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY, follower));
+  public Timer getGrpcLogAppenderLatencyTimer(String follower,
+      boolean isHeartbeat) {
+    return registry.timer(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY + getHeartbeatSuffix(isHeartbeat),
+        follower));
   }
 
   public void onRequestRetry() {
     registry.counter(RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT).inc();
   }
 
-  public void onRequestCreate() {
-    registry.counter(RATIS_GRPC_METRICS_REQUESTS_TOTAL).inc();
+  public void onRequestCreate(boolean isHeartbeat) {
+    registry.counter(RATIS_GRPC_METRICS_REQUESTS_TOTAL + getHeartbeatSuffix(isHeartbeat)).inc();
   }
 
-  public void onRequestSuccess(String follower) {
-    registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS, follower)).inc();
+  public void onRequestSuccess(String follower, boolean isHearbeat) {
+    registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS + getHeartbeatSuffix(isHearbeat),
+        follower)).inc();
   }
 
   public void onRequestNotLeader(String follower) {
@@ -74,6 +84,24 @@ public class GrpcServerMetrics {
 
   public void onRequestInconsistency(String follower) {
     registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY, follower)).inc();
+  }
+
+  public void onRequestTimeout(String follower, boolean isHeartbeat) {
+    registry.counter(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT + getHeartbeatSuffix(isHeartbeat),
+        follower)).inc();
+  }
+
+  public void addPendingRequestsCount(String follower,
+      Gauge pendinglogQueueSize) {
+    registry.gauge(String.format(RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT, follower), () -> pendinglogQueueSize);
+  }
+
+  public void onInstallSnapshot() {
+    registry.counter(RATIS_GRPC_INSTALL_SNAPSHOT_COUNT).inc();
+  }
+
+  public static String getHeartbeatSuffix(boolean heartbeat) {
+    return heartbeat ? "_heartbeat" : "";
   }
 
   @VisibleForTesting

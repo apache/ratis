@@ -40,6 +40,14 @@ public class RaftClientRequest extends RaftClientMessage {
     return WRITE_DEFAULT;
   }
 
+  public static Type streamRequestType(long streamId, long messageId, boolean close) {
+    return new Type(StreamRequestTypeProto.newBuilder()
+        .setStreamId(streamId)
+        .setMessageId(messageId)
+        .setClose(close)
+        .build());
+  }
+
   public static Type readRequestType() {
     return DEFAULT_READ;
   }
@@ -75,6 +83,10 @@ public class RaftClientRequest extends RaftClientMessage {
       return watchRequestType(watch.getIndex(), watch.getReplication());
     }
 
+    public static Type valueOf(StreamRequestTypeProto stream) {
+      return streamRequestType(stream.getStreamId(), stream.getMessageId(), stream.getClose());
+    }
+
     /**
      * The type case of the proto.
      * Only the corresponding proto (must be non-null) is used.
@@ -90,6 +102,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
     private Type(WriteRequestTypeProto write) {
       this(WRITE, write);
+    }
+
+    private Type(StreamRequestTypeProto stream) {
+      this(STREAM, stream);
     }
 
     private Type(ReadRequestTypeProto read) {
@@ -117,6 +133,11 @@ public class RaftClientRequest extends RaftClientMessage {
       return (WriteRequestTypeProto)proto;
     }
 
+    public StreamRequestTypeProto getStream() {
+      Preconditions.assertTrue(is(STREAM), () -> "proto = " + proto);
+      return (StreamRequestTypeProto)proto;
+    }
+
     public ReadRequestTypeProto getRead() {
       Preconditions.assertTrue(is(READ));
       return (ReadRequestTypeProto)proto;
@@ -140,11 +161,17 @@ public class RaftClientRequest extends RaftClientMessage {
       return "Watch" + toString(w.getReplication()) + "(" + w.getIndex() + ")";
     }
 
+    public static String toString(StreamRequestTypeProto s) {
+      return "Stream" + s.getStreamId() + "-" + s.getMessageId() + (s.getClose()? "-close": "");
+    }
+
     @Override
     public String toString() {
       switch (typeCase) {
         case WRITE:
           return "RW";
+        case STREAM:
+          return toString(getStream());
         case READ:
           return "RO";
         case STALEREAD:
@@ -155,6 +182,12 @@ public class RaftClientRequest extends RaftClientMessage {
           throw new IllegalStateException("Unexpected request type: " + typeCase);
       }
     }
+  }
+
+  /** Convert the given request to a write request with the given message. */
+  public static RaftClientRequest toWriteRequest(RaftClientRequest r, Message message) {
+    return new RaftClientRequest(r.getClientId(), r.getServerId(), r.getRaftGroupId(),
+        r.getCallId(), message, RaftClientRequest.writeRequestType(), r.getSlidingWindowEntry());
   }
 
   private final long callId;

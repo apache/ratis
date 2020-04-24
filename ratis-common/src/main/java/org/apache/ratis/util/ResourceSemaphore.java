@@ -88,11 +88,18 @@ public class ResourceSemaphore extends Semaphore {
   /**
    * Track a group of resources with a list of {@link ResourceSemaphore}s.
    */
+
+  public enum ResourceAcquireStatus {
+    SUCCESS,
+    FAILED_IN_ELEMENT_LIMIT,
+    FAILED_IN_BYTE_SIZE_LIMIT
+  }
+
   public static class Group {
     private final List<ResourceSemaphore> resources;
 
     public Group(int... limits) {
-      Preconditions.assertTrue(limits.length > 1, () -> "limits.length = " + limits.length + " < 2");
+      Preconditions.assertTrue(limits.length >= 1, () -> "limits is empty");
       final List<ResourceSemaphore> list = new ArrayList<>(limits.length);
       for(int limit : limits) {
         list.add(new ResourceSemaphore(limit));
@@ -108,7 +115,7 @@ public class ResourceSemaphore extends Semaphore {
       return resources.get(i);
     }
 
-    protected boolean tryAcquire(int... permits) {
+    public ResourceAcquireStatus tryAcquire(int... permits) {
       Preconditions.assertTrue(permits.length == resources.size(),
           () -> "items.length = " + permits.length + " != resources.size() = " + resources.size());
       int i = 0;
@@ -118,15 +125,42 @@ public class ResourceSemaphore extends Semaphore {
           break;
         }
       }
+
+
       if (i == permits.length) {
-        return true; // successfully acquired all resources
+        return ResourceAcquireStatus.SUCCESS; // successfully acquired all resources
+      }
+
+      ResourceAcquireStatus acquireStatus;
+      if (i == 0) {
+        acquireStatus =  ResourceAcquireStatus.FAILED_IN_ELEMENT_LIMIT;
+      } else {
+        acquireStatus =  ResourceAcquireStatus.FAILED_IN_BYTE_SIZE_LIMIT;
       }
 
       // failed at i, releasing all previous resources
       for(i--; i >= 0; i--) {
         resources.get(i).release(permits[i]);
       }
-      return false;
+
+      return acquireStatus;
+    }
+
+    public void acquire(int... permits) throws InterruptedException {
+      Preconditions.assertTrue(permits.length == resources.size(),
+          () -> "items.length = " + permits.length + " != resources.size() = "
+              + resources.size());
+      int i = 0;
+      try {
+        for (; i < permits.length; i++) {
+          resources.get(i).acquire(permits[i]);
+        }
+      } catch (Throwable t) {
+        for (; --i >= 0;) {
+          resources.get(i).release(permits[i]);
+        }
+        throw t;
+      }
     }
 
     protected void release(int... permits) {

@@ -57,13 +57,10 @@ class FollowerState extends Daemon {
   private volatile Timestamp lastRpcTime = Timestamp.currentTime();
   private volatile boolean isRunning = true;
   private final AtomicInteger outstandingOp = new AtomicInteger();
-  private final RaftServerMetrics raftServerMetrics;
 
   FollowerState(RaftServerImpl server) {
     this.name = server.getMemberId() + "-" + getClass().getSimpleName();
     this.server = server;
-    raftServerMetrics = server.getRaftServerMetrics();
-    raftServerMetrics.addPeerCommitIndexGauge(server.getPeer());
   }
 
   void updateLastRpcTime(UpdateType type) {
@@ -110,7 +107,7 @@ class FollowerState extends Daemon {
           if (outstandingOp.get() == 0 && lastRpcTime.elapsedTimeMs() >= electionTimeout) {
             LOG.info("{}: change to CANDIDATE, lastRpcTime:{}ms, electionTimeout:{}ms",
                 this, lastRpcTime.elapsedTimeMs(), electionTimeout);
-            server.getLeaderElectionMetricsRegistry().onLeaderElectionTimeout(); // Update timeout metric counters.
+            server.getLeaderElectionMetrics().onLeaderElectionTimeout(); // Update timeout metric counters.
             // election timeout, should become a candidate
             server.changeToCandidate();
             break;

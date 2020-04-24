@@ -17,26 +17,32 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.ClientRetryEvent;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.client.api.StreamApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutScheduler;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -56,6 +62,7 @@ final class RaftClientImpl implements RaftClient {
   abstract static class PendingClientRequest {
     private final CompletableFuture<RaftClientReply> replyFuture = new CompletableFuture<>();
     private final AtomicInteger attemptCount = new AtomicInteger();
+    private final Map<Class<?>, Integer> exceptionCount = new ConcurrentHashMap<>();
 
     abstract RaftClientRequest newRequestImpl();
 
@@ -71,6 +78,14 @@ final class RaftClientImpl implements RaftClient {
     int getAttemptCount() {
       return attemptCount.get();
     }
+
+    int incrementExceptionCount(Throwable t) {
+      return exceptionCount.compute(t.getClass(), (k, v) -> v != null ? v + 1 : 1);
+    }
+
+    int getExceptionCount(Throwable t) {
+      return Optional.ofNullable(exceptionCount.get(t.getClass())).orElse(0);
+    }
   }
 
   private final ClientId clientId;
@@ -84,6 +99,7 @@ final class RaftClientImpl implements RaftClient {
   private final TimeoutScheduler scheduler;
 
   private final Supplier<OrderedAsync> orderedAsync;
+  private final Supplier<StreamApi> streamApi;
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
@@ -100,6 +116,7 @@ final class RaftClientImpl implements RaftClient {
     clientRpc.addServers(peers);
 
     this.orderedAsync = JavaUtils.memoize(() -> OrderedAsync.newInstance(this, properties));
+    this.streamApi = JavaUtils.memoize(() -> StreamImpl.newInstance(this, properties));
   }
 
   @Override
@@ -111,12 +128,22 @@ final class RaftClientImpl implements RaftClient {
     return retryPolicy;
   }
 
+  TimeDuration getEffectiveSleepTime(Throwable t, TimeDuration sleepDefault) {
+    return t instanceof NotLeaderException && ((NotLeaderException) t).getSuggestedLeader() != null ?
+        TimeDuration.ZERO : sleepDefault;
+  }
+
   TimeoutScheduler getScheduler() {
     return scheduler;
   }
 
   OrderedAsync getOrderedAsync() {
     return orderedAsync.get();
+  }
+
+  @Override
+  public StreamApi getStreamApi() {
+    return streamApi.get();
   }
 
   @Override
@@ -137,6 +164,14 @@ final class RaftClientImpl implements RaftClient {
   @Override
   public CompletableFuture<RaftClientReply> sendWatchAsync(long index, ReplicationLevel replication) {
     return UnorderedAsync.send(RaftClientRequest.watchRequestType(index, replication), this);
+  }
+
+  CompletableFuture<RaftClientReply> streamAsync(long streamId, long messageId, Message message) {
+    return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, false), message, null);
+  }
+
+  CompletableFuture<RaftClientReply> streamCloseAsync(long streamId, long messageId) {
+    return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, true), null, null);
   }
 
   private CompletableFuture<RaftClientReply> sendAsync(
@@ -239,11 +274,17 @@ final class RaftClientImpl implements RaftClient {
   }
 
   private RaftClientReply sendRequestWithRetry(Supplier<RaftClientRequest> supplier) throws IOException {
+    PendingClientRequest pending = new PendingClientRequest() {
+      @Override RaftClientRequest newRequestImpl() {
+        return null;
+      }
+    };
     for(int attemptCount = 1;; attemptCount++) {
       final RaftClientRequest request = supplier.get();
       IOException ioe = null;
       try {
         final RaftClientReply reply = sendRequest(request);
+
         if (reply != null) {
           return reply;
         }
@@ -252,23 +293,31 @@ final class RaftClientImpl implements RaftClient {
       } catch (IOException e) {
         ioe = e;
       }
-      if (!retryPolicy.shouldRetry(attemptCount, request)) {
-        throw (IOException)noMoreRetries(request, attemptCount, ioe);
+
+      final int exceptionCount = ioe != null ? pending.incrementExceptionCount(ioe) : 0;
+      ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, exceptionCount, ioe);
+      final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
+      TimeDuration sleepTime = getEffectiveSleepTime(ioe, action.getSleepTime());
+
+      if (!action.shouldRetry()) {
+        throw (IOException)noMoreRetries(event);
       }
 
       try {
-        retryPolicy.getSleepTime(attemptCount, request).sleep();
+        sleepTime.sleep();
       } catch (InterruptedException e) {
         throw new InterruptedIOException("retry policy=" + retryPolicy);
       }
     }
   }
 
-  Throwable noMoreRetries(RaftClientRequest request, int attemptCount, Throwable throwable) {
+  Throwable noMoreRetries(ClientRetryEvent event) {
+    final int attemptCount = event.getAttemptCount();
+    final Throwable throwable = event.getCause();
     if (attemptCount == 1 && throwable != null) {
       return throwable;
     }
-    return new RaftRetryFailureException(request, attemptCount, retryPolicy, throwable);
+    return new RaftRetryFailureException(event.getRequest(), attemptCount, retryPolicy, throwable);
   }
 
   private RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
@@ -348,7 +397,7 @@ final class RaftClientImpl implements RaftClient {
 
     Optional.ofNullable(handler).ifPresent(h -> h.accept(request));
 
-    if (ioe instanceof LeaderNotReadyException) {
+    if (ioe instanceof LeaderNotReadyException || ioe instanceof ResourceUnavailableException) {
       return;
     }
 
@@ -369,7 +418,7 @@ final class RaftClientImpl implements RaftClient {
             clientId, oldLeader, newLeader, ioe.getClass().getName());
         this.leaderId = newLeader;
       }
-      clientRpc.handleException(oldLeader, ioe, reconnect);
+      clientRpc.handleException(oldLeader, ioe, true);
     }
   }
 

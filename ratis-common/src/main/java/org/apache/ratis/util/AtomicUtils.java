@@ -22,15 +22,13 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Utilities related to atomic operations.
  */
-public final class AtomicUtils {
-  private AtomicUtils() {
-  }
+public interface AtomicUtils {
 
   /**
    * Updates a AtomicLong which is supposed to maintain the minimum values. This method is not
    * synchronized but is thread-safe.
    */
-  public static void updateMin(AtomicLong min, long value) {
+  static void updateMin(AtomicLong min, long value) {
     while (true) {
       long cur = min.get();
       if (value >= cur) {
@@ -47,7 +45,7 @@ public final class AtomicUtils {
    * Updates a AtomicLong which is supposed to maintain the maximum values. This method is not
    * synchronized but is thread-safe.
    */
-  public static void updateMax(AtomicLong max, long value) {
+  static void updateMax(AtomicLong max, long value) {
     while (true) {
       long cur = max.get();
       if (value <= cur) {

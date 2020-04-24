@@ -305,8 +305,8 @@ class SegmentedRaftLogCache {
     this.name = name + "-" + getClass().getSimpleName();
     this.closedSegments = new LogSegmentList(name);
     this.storage = storage;
-    maxCachedSegments = RaftServerConfigKeys.Log.maxCachedSegmentNum(properties);
     this.raftLogMetrics = raftLogMetrics;
+    this.maxCachedSegments = RaftServerConfigKeys.Log.segmentCacheNumMax(properties);
   }
 
   int getMaxCachedSegments() {

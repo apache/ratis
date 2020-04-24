@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
+import java.util.Optional;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.proto.RaftProtos.*;
@@ -26,8 +27,8 @@ import org.apache.ratis.util.ReflectionUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto
-    .ExceptionDetailsCase.LEADERNOTREADYEXCEPTION;
+import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.ALREADYCLOSEDEXCEPTION;
+import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.LEADERNOTREADYEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTLEADEREXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.NOTREPLICATEDEXCEPTION;
 import static org.apache.ratis.proto.RaftProtos.RaftClientReplyProto.ExceptionDetailsCase.STATEMACHINEEXCEPTION;
@@ -80,6 +81,8 @@ public interface ClientProtoUtils {
     switch (p.getTypeCase()) {
       case WRITE:
         return RaftClientRequest.Type.valueOf(p.getWrite());
+      case STREAM:
+        return RaftClientRequest.Type.valueOf(p.getStream());
       case READ:
         return RaftClientRequest.Type.valueOf(p.getRead());
       case STALEREAD:
@@ -117,6 +120,9 @@ public interface ClientProtoUtils {
     switch (type.getTypeCase()) {
       case WRITE:
         b.setWrite(type.getWrite());
+        break;
+      case STREAM:
+        b.setStream(type.getStream());
         break;
       case READ:
         b.setRead(type.getRead());
@@ -194,6 +200,28 @@ public interface ClientProtoUtils {
             .setServerId(ProtoUtils.toRaftGroupMemberIdProtoBuilder(lnre.getServerId()));
         b.setLeaderNotReadyException(lnreBuilder);
       }
+
+      final AlreadyClosedException ace = reply.getAlreadyClosedException();
+      if (ace != null) {
+        final Throwable t = ace.getCause() != null ? ace.getCause() : ace;
+        AlreadyClosedExceptionProto.Builder aceBuilder = AlreadyClosedExceptionProto.newBuilder()
+            .setExceptionClassName(t.getClass().getName())
+            .setErrorMsg(ace.getMessage())
+            .setStacktrace(ProtoUtils.writeObject2ByteString(ace.getStackTrace()));
+        b.setAlreadyClosedException(aceBuilder);
+      }
+
+      final RaftClientReplyProto serialized = b.build();
+      final RaftException e = reply.getException();
+      if (e != null) {
+        final RaftClientReply deserialized = toRaftClientReply(serialized);
+        if (!Optional.ofNullable(deserialized.getException())
+            .map(Object::getClass).filter(e.getClass()::equals).isPresent()) {
+          throw new AssertionError("Corruption while serializing reply= " + reply
+              + " but serialized=" + serialized + " and deserialized=" + deserialized, e);
+        }
+      }
+      return serialized;
     }
     return b.build();
   }
@@ -251,6 +279,10 @@ public interface ClientProtoUtils {
     } else if (replyProto.getExceptionDetailsCase().equals(LEADERNOTREADYEXCEPTION)) {
       LeaderNotReadyExceptionProto lnreProto = replyProto.getLeaderNotReadyException();
       e = new LeaderNotReadyException(ProtoUtils.toRaftGroupMemberId(lnreProto.getServerId()));
+    } else if (replyProto.getExceptionDetailsCase().equals(ALREADYCLOSEDEXCEPTION)) {
+      AlreadyClosedExceptionProto aceProto = replyProto.getAlreadyClosedException();
+      e = wrapAlreadyClosedException(aceProto.getExceptionClassName(),
+          aceProto.getErrorMsg(), aceProto.getStacktrace());
     } else {
       e = null;
     }
@@ -304,6 +336,27 @@ public interface ClientProtoUtils {
         (StackTraceElement[]) ProtoUtils.toObject(stackTraceBytes);
     sme.setStackTrace(stacktrace);
     return sme;
+  }
+
+  static AlreadyClosedException wrapAlreadyClosedException(
+      String className, String errorMsg, ByteString stackTraceBytes) {
+    AlreadyClosedException ace;
+    if (className == null) {
+      ace = new AlreadyClosedException(errorMsg);
+    } else {
+      try {
+        Class<?> clazz = Class.forName(className);
+        final Exception e = ReflectionUtils.instantiateException(
+            clazz.asSubclass(Exception.class), errorMsg, null);
+        ace = new AlreadyClosedException(errorMsg, e);
+      } catch (Exception e) {
+        ace = new AlreadyClosedException(className + ": " + errorMsg);
+      }
+    }
+    StackTraceElement[] stacktrace =
+        (StackTraceElement[]) ProtoUtils.toObject(stackTraceBytes);
+    ace.setStackTrace(stacktrace);
+    return ace;
   }
 
   static Message toMessage(final ClientMessageEntryProto p) {

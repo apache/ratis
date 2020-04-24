@@ -182,7 +182,7 @@ public class RaftServerProxy implements RaftServer {
     final Optional<RaftGroup> raftGroup = Optional.ofNullable(group);
     final Optional<RaftGroupId> raftGroupId = raftGroup.map(RaftGroup::getGroupId);
 
-    RaftServerConfigKeys.storageDirs(properties).parallelStream()
+    RaftServerConfigKeys.storageDir(properties).parallelStream()
         .forEach((dir) -> Optional.ofNullable(dir.listFiles())
             .map(Arrays::stream).orElse(Stream.empty())
             .filter(File::isDirectory)
@@ -384,8 +384,14 @@ public class RaftServerProxy implements RaftServer {
         }, implExecutor)
         .whenComplete((_1, throwable) -> {
           if (throwable != null) {
-            impls.remove(newGroup.getGroupId());
-            LOG.warn(getId() + ": Failed groupAdd* " + request, throwable);
+            if (!(throwable.getCause() instanceof AlreadyExistsException)) {
+              impls.remove(newGroup.getGroupId());
+              LOG.warn(getId() + ": Failed groupAdd* " + request, throwable);
+            } else {
+              if (LOG.isDebugEnabled()) {
+                LOG.debug(getId() + ": Failed groupAdd* " + request, throwable);
+              }
+            }
           }
         });
   }

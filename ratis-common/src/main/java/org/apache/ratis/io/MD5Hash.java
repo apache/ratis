@@ -189,13 +189,12 @@ public class MD5Hash {
     if (hex.length() != MD5_LEN*2) {
       throw new IllegalArgumentException("Wrong length: " + hex.length());
     }
-    byte[] md5digest = new byte[MD5_LEN];
+    this.digest = new byte[MD5_LEN];
     for (int i = 0; i < MD5_LEN; i++) {
       int j = i << 1;
-      md5digest[i] = (byte)(charToNibble(hex.charAt(j)) << 4 |
+      this.digest[i] = (byte)(charToNibble(hex.charAt(j)) << 4 |
           charToNibble(hex.charAt(j+1)));
     }
-    this.digest = md5digest;
   }
 
   private static int charToNibble(char c) {

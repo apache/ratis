@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -23,6 +23,8 @@ import java.util.Objects;
  * Size which may be constructed with a {@link TraditionalBinaryPrefix}.
  */
 public final class SizeInBytes {
+  public static final SizeInBytes ONE_KB = valueOf("1k");
+
   public static SizeInBytes valueOf(long size) {
     final String s = String.valueOf(size);
     return new SizeInBytes(size, s, s);

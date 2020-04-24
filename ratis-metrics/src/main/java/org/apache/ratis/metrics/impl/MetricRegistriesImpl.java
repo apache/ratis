@@ -17,12 +17,12 @@
  */
 package org.apache.ratis.metrics.impl;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 import org.apache.ratis.metrics.MetricRegistries;
@@ -39,7 +39,7 @@ public class MetricRegistriesImpl extends MetricRegistries {
 
   private static final Logger LOG = LoggerFactory.getLogger(MetricRegistriesImpl.class);
 
-  private List<Consumer<RatisMetricRegistry>> reporterRegistrations = new ArrayList<>();
+  private final List<Consumer<RatisMetricRegistry>> reporterRegistrations = new CopyOnWriteArrayList<>();
 
   private final MetricRegistryFactory factory;
 
@@ -57,7 +57,7 @@ public class MetricRegistriesImpl extends MetricRegistries {
   @Override
   public RatisMetricRegistry create(MetricRegistryInfo info) {
     return registries.put(info, () -> {
-      if (reporterRegistrations.size() == 0) {
+      if (reporterRegistrations.isEmpty()) {
         LOG.warn(
             "First MetricRegistry has been created without registering reporters. You may need to call" +
                 " MetricRegistries.global().addReportRegistration(...) before.");

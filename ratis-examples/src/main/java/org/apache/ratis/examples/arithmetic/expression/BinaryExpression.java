@@ -27,7 +27,7 @@ public class BinaryExpression implements Expression {
   public enum Op implements BinaryOperator<Expression> {
     ADD("+"), SUBTRACT("-"), MULT("*"), DIV("/");
 
-    final String symbol;
+    private final String symbol;
 
     Op(String symbol) {
       this.symbol = symbol;
@@ -38,20 +38,20 @@ public class BinaryExpression implements Expression {
     }
 
     @Override
-    public BinaryExpression apply(Expression left, Expression right) {
-      return new BinaryExpression(this, left, right);
+    public BinaryExpression apply(Expression l, Expression r) {
+      return new BinaryExpression(this, l, r);
     }
 
-    public BinaryExpression apply(double left, Expression right) {
-      return apply(new DoubleValue(left), right);
+    public BinaryExpression apply(double l, Expression r) {
+      return apply(new DoubleValue(l), r);
     }
 
-    public BinaryExpression apply(Expression left, double right) {
-      return apply(left, new DoubleValue(right));
+    public BinaryExpression apply(Expression l, double r) {
+      return apply(l, new DoubleValue(r));
     }
 
-    public BinaryExpression apply(double left, double right) {
-      return apply(new DoubleValue(left), new DoubleValue(right));
+    public BinaryExpression apply(double l, double r) {
+      return apply(new DoubleValue(l), new DoubleValue(r));
     }
 
     @Override
@@ -126,8 +126,12 @@ public class BinaryExpression implements Expression {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     BinaryExpression that = (BinaryExpression) o;
     return op == that.op &&
         Objects.equals(left, that.left) &&

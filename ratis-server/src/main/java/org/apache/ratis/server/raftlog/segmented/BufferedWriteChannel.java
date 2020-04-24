@@ -17,7 +17,13 @@
  */
 package org.apache.ratis.server.raftlog.segmented;
 
+import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.function.CheckedBiFunction;
+
+import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
@@ -26,53 +32,46 @@ import java.nio.channels.FileChannel;
  *
  * This class is NOT threadsafe.
  */
-public class BufferedWriteChannel extends BufferedChannelBase {
-  // The buffer used to write operations.
-  private final ByteBuffer writeBuffer;
-  // The absolute position of the next write operation.
-  private volatile long position;
-  /** Are all the data already flushed? */
-  private boolean flushed = true;
-
-  public BufferedWriteChannel(FileChannel fc, int writeCapacity)
-      throws IOException {
-    super(fc);
-    this.position = fc.position();
-    this.writeBuffer = ByteBuffer.allocateDirect(writeCapacity);
-  }
-
-  /**
-   * Write the specified byte.
-   * @param b the byte to be written
-   */
-  public void write(int b) throws IOException {
-    writeBuffer.put((byte) b);
-    if (writeBuffer.remaining() == 0) {
-      flushInternal();
+class BufferedWriteChannel implements Closeable {
+  static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer) throws IOException {
+    final RandomAccessFile raf = new RandomAccessFile(file, "rw");
+    final FileChannel fc = raf.getChannel();
+    if (append) {
+      fc.position(fc.size());
+    } else {
+      fc.truncate(0);
     }
-    flushed = false;
-    position++;
+    Preconditions.assertSame(fc.size(), fc.position(), "fc.position");
+    return new BufferedWriteChannel(fc, buffer);
   }
 
-  public void write(byte[] b) throws IOException {
+  private final FileChannel fileChannel;
+  private final ByteBuffer writeBuffer;
+  private boolean forced = true;
+
+  BufferedWriteChannel(FileChannel fileChannel, ByteBuffer byteBuffer) {
+    this.fileChannel = fileChannel;
+    this.writeBuffer = byteBuffer;
+  }
+
+  void write(byte[] b) throws IOException {
     int offset = 0;
     while (offset < b.length) {
       int toPut = Math.min(b.length - offset, writeBuffer.remaining());
       writeBuffer.put(b, offset, toPut);
       offset += toPut;
       if (writeBuffer.remaining() == 0) {
-        flushInternal();
+        flushBuffer();
       }
     }
-    flushed = false;
-    position += b.length;
   }
 
-  /**
-   * Get the position where the next write operation will begin writing from.
-   */
-  public long position() {
-    return position;
+  void preallocateIfNecessary(long size, CheckedBiFunction<FileChannel, Long, Long, IOException> preallocate)
+      throws IOException {
+    final long outstanding = writeBuffer.position() + size;
+    if (fileChannel.position() + outstanding > fileChannel.size()) {
+      preallocate.apply(fileChannel, outstanding);
+    }
   }
 
   /**
@@ -82,22 +81,19 @@ public class BufferedWriteChannel extends BufferedChannelBase {
    * @throws IOException if the write or sync operation fails.
    */
   void flush() throws IOException {
-    if (flushed) {
-      return; // flushed previously
+    flushBuffer();
+    if (!forced) {
+      fileChannel.force(false);
+      forced = true;
     }
-
-    flushInternal();
-    fileChannel.force(false);
-    flushed = true;
   }
 
   /**
-   * Write any data in the buffer to the file and advance the writeBufferPosition
-   * Callers are expected to synchronize appropriately
+   * Write any data in the buffer to the file.
    *
    * @throws IOException if the write fails.
    */
-  private void flushInternal() throws IOException {
+  private void flushBuffer() throws IOException {
     if (writeBuffer.position() == 0) {
       return; // nothing to flush
     }
@@ -107,11 +103,23 @@ public class BufferedWriteChannel extends BufferedChannelBase {
       fileChannel.write(writeBuffer);
     } while (writeBuffer.hasRemaining());
     writeBuffer.clear();
+    forced = false;
+  }
+
+  boolean isOpen() {
+    return fileChannel.isOpen();
   }
 
   @Override
   public void close() throws IOException {
-    fileChannel.close();
-    writeBuffer.clear();
+    if (!isOpen()) {
+      return;
+    }
+
+    try {
+      fileChannel.truncate(fileChannel.position());
+    } finally {
+      fileChannel.close();
+    }
   }
 }

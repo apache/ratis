@@ -257,11 +257,9 @@ public class MetaStateMachine extends BaseStateMachine {
         } else {
             Collection<RaftPeer> raftPeers = raftGroup.getPeers();
             raftPeers.stream().forEach(peer -> {
-                RaftClient client = RaftClient.newBuilder()
-                        .setProperties(properties)
-                        .setClientId(ClientId.randomId())
-                        .setRaftGroup(RaftGroup.valueOf(logServerGroupId, peer))
-                        .build();
+                RaftClient client = RaftClient.newBuilder().setProperties(properties)
+                    .setClientId(ClientId.randomId())
+                    .setRaftGroup(RaftGroup.valueOf(logServerGroupId, peer)).build();
                 try {
                     client.groupRemove(raftGroup.getGroupId(), true, peer.getId());
                 } catch (IOException e) {
@@ -309,8 +307,8 @@ public class MetaStateMachine extends BaseStateMachine {
                         .build()
                         .toByteString()));
             } else {
-                List<PeerGroups> peerGroup = IntStream.range(0, 3).mapToObj(i -> avail.poll())
-                    .collect(Collectors.toList());
+                List<PeerGroups> peerGroup =
+                    IntStream.range(0, 3).mapToObj(i -> avail.poll()).collect(Collectors.toList());
                 List<RaftPeer> peersFromGroup =
                     peerGroup.stream().map(obj -> obj.getPeer()).collect(Collectors.toList());
                 RaftGroup raftGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peersFromGroup);
@@ -318,15 +316,44 @@ public class MetaStateMachine extends BaseStateMachine {
                     pg.getGroups().add(raftGroup);
                     avail.add(pg);
                 });
-                peersFromGroup.forEach(i -> {
+                int provisionedPeers = 0;
+                Exception originalException = null;
+                for (RaftPeer peer : peers) {
                     RaftClient client = RaftClient.newBuilder().setProperties(properties)
-                      .setRaftGroup(RaftGroup.valueOf(logServerGroupId, i)).build();
+                        .setRaftGroup(RaftGroup.valueOf(logServerGroupId, peer)).build();
                     try {
-                        client.groupAdd(raftGroup, i.getId());
+                        client.groupAdd(raftGroup, peer.getId());
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        LOG.error("Failed to add Raft group ({}) for new Log({})",
+                            raftGroup.getGroupId(), name, e);
+                        originalException = e;
+                        break;
                     }
-                });
+                    provisionedPeers++;
+                }
+                // If we fail to add the group on all three peers, try to remove the group(s) which
+                // failed to be added.
+                if (provisionedPeers != peers.size()) {
+                    int tornDownPeers = 0;
+                    for (RaftPeer peer : peers) {
+                        if (tornDownPeers >= provisionedPeers) {
+                            break;
+                        }
+                        RaftClient client = RaftClient.newBuilder().setProperties(properties)
+                            .setRaftGroup(RaftGroup.valueOf(logServerGroupId, peer)).build();
+                        try {
+                            client.groupRemove(raftGroup.getGroupId(), true, peer.getId());
+                        } catch (IOException e) {
+                            LOG.error("Failed to clean up Raft group ({}) for peer ({}), "
+                                + "ignoring exception", raftGroup.getGroupId(), peer, e);
+                        }
+                        tornDownPeers++;
+                    }
+                    // Make sure to send the original exception back to the client.
+                    return CompletableFuture.completedFuture(Message.valueOf(
+                        MetaServiceProtoUtil.toCreateLogExceptionReplyProto(originalException)
+                            .build().toByteString()));
+                }
                 RaftClient client = RaftClient.newBuilder()
                         .setRaftGroup(currentGroup)
                         .setClientId(ClientId.randomId())
@@ -342,7 +369,10 @@ public class MetaStateMachine extends BaseStateMachine {
                 } catch (IOException e) {
                     LOG.error(
                         "Exception while registering raft group with Metadata Service during creation of log");
-                    e.printStackTrace();
+                    // Make sure to send the original exception back to the client.
+                    return CompletableFuture.completedFuture(Message.valueOf(
+                        MetaServiceProtoUtil.toCreateLogExceptionReplyProto(e).build()
+                            .toByteString()));
                 }
                 return CompletableFuture.completedFuture(Message.valueOf(MetaServiceProtoUtil
                         .toCreateLogReplyProto(new LogInfo((name), raftGroup)).build().toByteString()));

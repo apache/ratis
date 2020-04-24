@@ -80,6 +80,7 @@ public class GrpcClientProtocolClient implements Closeable {
   private final ManagedChannel channel;
 
   private final TimeDuration requestTimeoutDuration;
+  private final TimeDuration watchRequestTimeoutDuration;
   private final TimeoutScheduler scheduler = TimeoutScheduler.getInstance();
 
   private final RaftClientProtocolServiceBlockingStub blockingStub;
@@ -130,6 +131,8 @@ public class GrpcClientProtocolClient implements Closeable {
     asyncStub = RaftClientProtocolServiceGrpc.newStub(channel);
     adminBlockingStub = AdminProtocolServiceGrpc.newBlockingStub(channel);
     this.requestTimeoutDuration = RaftClientConfigKeys.Rpc.requestTimeout(properties);
+    this.watchRequestTimeoutDuration =
+        RaftClientConfigKeys.Rpc.watchRequestTimeout(properties);
   }
 
   String getName() {
@@ -261,7 +264,9 @@ public class GrpcClientProtocolClient implements Closeable {
   class AsyncStreamObservers {
     /** Request map: callId -> future */
     private final ReplyMap replies = new ReplyMap();
-    private final StreamObserver<RaftClientReplyProto> replyStreamObserver = new StreamObserver<RaftClientReplyProto>() {
+
+    private final StreamObserver<RaftClientReplyProto> replyStreamObserver
+        = new StreamObserver<RaftClientReplyProto>() {
       @Override
       public void onNext(RaftClientReplyProto proto) {
         final long callId = proto.getRpcReply().getCallId();
@@ -275,7 +280,7 @@ public class GrpcClientProtocolClient implements Closeable {
           }
           final LeaderNotReadyException lnre = reply.getLeaderNotReadyException();
           if (lnre != null) {
-            completeReplyExceptionally(lnre, NotLeaderException.class.getName());
+            completeReplyExceptionally(lnre, LeaderNotReadyException.class.getName());
             return;
           }
           handleReplyFuture(callId, f -> f.complete(reply));
@@ -316,14 +321,21 @@ public class GrpcClientProtocolClient implements Closeable {
         return f;
       }
 
-      scheduler.onTimeout(requestTimeoutDuration, () -> timeoutCheck(callId), LOG,
-          () -> "Timeout check failed for client request #" + callId);
+      if (RaftClientRequestProto.TypeCase.WATCH.equals(request.getType().getTypeCase())) {
+        scheduler.onTimeout(watchRequestTimeoutDuration, () ->
+                timeoutCheck(callId, watchRequestTimeoutDuration), LOG,
+            () -> "Timeout check failed for client request #" + callId);
+      } else {
+        scheduler.onTimeout(requestTimeoutDuration,
+            () -> timeoutCheck(callId, requestTimeoutDuration), LOG,
+            () -> "Timeout check failed for client request #" + callId);
+      }
       return f;
     }
 
-    private void timeoutCheck(long callId) {
+    private void timeoutCheck(long callId, TimeDuration timeOutDuration) {
       handleReplyFuture(callId, f -> f.completeExceptionally(
-          new TimeoutIOException("Request #" + callId + " timeout " + requestTimeoutDuration)));
+          new TimeoutIOException("Request #" + callId + " timeout " + timeOutDuration)));
     }
 
     private void handleReplyFuture(long callId, Consumer<CompletableFuture<RaftClientReply>> handler) {

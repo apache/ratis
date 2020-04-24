@@ -44,6 +44,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.LongStream;
 
+import com.codahale.metrics.Timer;
+
 /**
  * This class tracks the log entries that have been committed in a quorum and
  * applies them to the state machine. We let a separate thread do this work
@@ -69,6 +71,7 @@ class StateMachineUpdater implements Runnable {
   private final RaftLog raftLog;
 
   private final Long autoSnapshotThreshold;
+  private final boolean purgeUptoSnapshotIndex;
 
   private final Thread updater;
   private final RaftLogIndex appliedIndex;
@@ -100,6 +103,8 @@ class StateMachineUpdater implements Runnable {
         return numSnapshotFilesRetained;
       }
     };
+    this.purgeUptoSnapshotIndex = RaftServerConfigKeys.Log.purgeUptoSnapshotIndex(properties);
+
     updater = new Daemon(this);
   }
 
@@ -121,6 +126,7 @@ class StateMachineUpdater implements Runnable {
     state = State.STOP;
     try {
       stateMachine.close();
+      stateMachineMetrics.unregister();
     } catch(Throwable t) {
       LOG.warn(name + ": Failed to close " + stateMachine.getClass().getSimpleName() + " " + stateMachine, t);
     }
@@ -251,7 +257,9 @@ class StateMachineUpdater implements Runnable {
   private void takeSnapshot() {
     final long i;
     try {
+      Timer.Context takeSnapshotTimerContext = stateMachineMetrics.getTakeSnapshotTimer().time();
       i = stateMachine.takeSnapshot();
+      takeSnapshotTimerContext.stop();
 
       final long appliedIndex = getLastAppliedIndex();
       if (i > appliedIndex) {
@@ -269,8 +277,16 @@ class StateMachineUpdater implements Runnable {
       LOG.info("{}: Took a snapshot at index {}", name, i);
       snapshotIndex.updateIncreasingly(i, infoIndexChange);
 
-      final LongStream commitIndexStream = server.getCommitInfos().stream().mapToLong(CommitInfoProto::getCommitIndex);
-      final long purgeIndex = LongStream.concat(LongStream.of(i), commitIndexStream).min().orElse(i);
+      final long purgeIndex;
+      if (purgeUptoSnapshotIndex) {
+        // We can purge up to snapshot index even if all the peers do not have
+        // commitIndex up to this snapshot index.
+        purgeIndex = i;
+      } else {
+        final LongStream commitIndexStream = server.getCommitInfos().stream().mapToLong(
+            CommitInfoProto::getCommitIndex);
+        purgeIndex = LongStream.concat(LongStream.of(i), commitIndexStream).min().orElse(i);
+      }
       raftLog.purge(purgeIndex);
     }
   }
@@ -288,7 +304,11 @@ class StateMachineUpdater implements Runnable {
     return state == State.RUNNING && getLastAppliedIndex() - snapshotIndex.get() >= autoSnapshotThreshold;
   }
 
-  long getLastAppliedIndex() {
+  private long getLastAppliedIndex() {
     return appliedIndex.get();
+  }
+
+  long getStateMachineLastAppliedIndex() {
+    return stateMachine.getLastAppliedTermIndex().getIndex();
   }
 }

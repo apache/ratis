@@ -50,7 +50,7 @@ import java.util.function.Consumer;
  *
  * This class will be protected by the {@link SegmentedRaftLog}'s read-write lock.
  */
-class LogSegment implements Comparable<Long> {
+public class LogSegment implements Comparable<Long> {
   static final Logger LOG = LoggerFactory.getLogger(LogSegment.class);
 
   static long getEntrySize(LogEntryProto entry) {
@@ -89,7 +89,7 @@ class LogSegment implements Comparable<Long> {
     return new LogSegment(storage, false, start, end, raftLogMetrics);
   }
 
-  private static int readSegmentFile(File file, long start, long end,
+  public static int readSegmentFile(File file, long start, long end,
       boolean isOpen, CorruptionPolicy corruptionPolicy,
       RaftLogMetrics raftLogMetrics, Consumer<LogEntryProto> entryConsumer) throws
       IOException {
@@ -139,6 +139,13 @@ class LogSegment implements Comparable<Long> {
     });
     LOG.info("Successfully read {} entries from segment file {}", entryCount, file);
 
+    final int expectedEntryCount = Math.toIntExact(end - start + 1);
+    final boolean corrupted = entryCount != expectedEntryCount;
+    if (corrupted) {
+      LOG.warn("Segment file is corrupted: expected to have {} entries but only {} entries read successfully",
+          expectedEntryCount, entryCount);
+    }
+
     if (entryCount == 0) {
       // The segment does not have any entries, delete the file.
       FileUtils.deleteFile(file);
@@ -148,14 +155,29 @@ class LogSegment implements Comparable<Long> {
       FileUtils.truncateFile(file, segment.getTotalSize());
     }
 
-    Preconditions.assertTrue(start == segment.getStartIndex());
-    if (!segment.records.isEmpty()) {
-      Preconditions.assertTrue(start == segment.records.get(0).getTermIndex().getIndex());
-    }
-    if (!isOpen) {
-      Preconditions.assertTrue(segment.getEndIndex() == end);
+    try {
+      segment.assertSegment(start, entryCount, corrupted, end);
+    } catch (Exception e) {
+      throw new IllegalStateException("Failed to read segment file " + file, e);
     }
     return segment;
+  }
+
+  private void assertSegment(long expectedStart, int expectedEntryCount, boolean corrupted, long expectedEnd) {
+    Preconditions.assertSame(expectedStart, getStartIndex(), "Segment start index");
+    Preconditions.assertSame(expectedEntryCount, records.size(), "Number of records");
+
+    final long expectedLastIndex = expectedStart + expectedEntryCount - 1;
+    Preconditions.assertSame(expectedLastIndex, getEndIndex(), "Segment end index");
+
+    final LogRecord last = getLastRecord();
+    if (last != null) {
+      Preconditions.assertSame(expectedLastIndex, last.getTermIndex().getIndex(), "Index at the last record");
+      Preconditions.assertSame(expectedStart, records.get(0).getTermIndex().getIndex(), "Index at the first record");
+    }
+    if (!isOpen && !corrupted) {
+      Preconditions.assertSame(expectedEnd, expectedLastIndex, "End/last Index");
+    }
   }
 
   /**
@@ -192,7 +214,9 @@ class LogSegment implements Comparable<Long> {
 
   private volatile boolean isOpen;
   private long totalSize = SegmentedRaftLogFormat.getHeaderLength();
+  /** Segment start index, inclusive. */
   private final long startIndex;
+  /** Segment end index, inclusive. */
   private volatile long endIndex;
   private final RaftStorage storage;
   private RaftLogMetrics raftLogMetrics;
@@ -315,7 +339,7 @@ class LogSegment implements Comparable<Long> {
   /**
    * Remove records from the given index (inclusive)
    */
-  void truncate(long fromIndex) {
+  synchronized void truncate(long fromIndex) {
     Preconditions.assertTrue(fromIndex >= startIndex && fromIndex <= endIndex);
     for (long index = endIndex; index >= fromIndex; index--) {
       LogRecord removed = records.remove(Math.toIntExact(index - startIndex));
@@ -344,18 +368,18 @@ class LogSegment implements Comparable<Long> {
         (this.getEndIndex() < l ? -1 : 1);
   }
 
-  void clear() {
+  synchronized void clear() {
     records.clear();
     entryCache.clear();
     configEntries.clear();
     endIndex = startIndex - 1;
   }
 
-  public int getLoadingTimes() {
+  int getLoadingTimes() {
     return loadingTimes.get();
   }
 
-  void evictCache() {
+  synchronized void evictCache() {
     entryCache.clear();
   }
 

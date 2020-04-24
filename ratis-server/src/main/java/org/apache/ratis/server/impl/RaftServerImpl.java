@@ -55,7 +55,6 @@ import java.util.stream.Collectors;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
-import static org.apache.ratis.server.metrics.LeaderElectionMetrics.getLeaderElectionMetrics;
 import static org.apache.ratis.util.LifeCycle.State.NEW;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
@@ -88,7 +87,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
 
   private final RaftServerJmxAdapter jmxAdapter;
-  private final LeaderElectionMetrics leaderElectionMetricsRegistry;
+  private final LeaderElectionMetrics leaderElectionMetrics;
   private final RaftServerMetrics raftServerMetrics;
 
   private AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
@@ -115,7 +114,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     this.inProgressInstallSnapshotRequest = new AtomicReference<>(null);
 
     this.jmxAdapter = new RaftServerJmxAdapter();
-    this.leaderElectionMetricsRegistry = getLeaderElectionMetrics(this);
+    this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(this);
     this.raftServerMetrics = RaftServerMetrics.getRaftServerMetrics(this);
   }
 
@@ -273,6 +272,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       } catch (Exception ignored) {
         LOG.warn("{}: Failed to close state", getMemberId(), ignored);
       }
+      leaderElectionMetrics.unregister();
+      raftServerMetrics.unregister();
       if (deleteDirectory) {
         final RaftStorageDirectory dir = state.getStorage().getStorageDir();
         try {
@@ -422,7 +423,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
     // start election
     role.startLeaderElection(this);
-    leaderElectionMetricsRegistry.onNewLeaderElection();
+    leaderElectionMetrics.onNewLeaderElection();
   }
 
   @Override
@@ -474,9 +475,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return new NotLeaderException(getMemberId(), conf.getPeer(leaderId), peers);
   }
 
-  private LifeCycle.State assertLifeCycleState(LifeCycle.State... expected) throws ServerNotReadyException {
+  private LifeCycle.State assertLifeCycleState(Set<LifeCycle.State> expected) throws ServerNotReadyException {
     return lifeCycle.assertCurrentState((n, c) -> new ServerNotReadyException(
-        getMemberId() + " is not in " + Arrays.toString(expected) + ": current state is " + c),
+        getMemberId() + " is not in " + expected + ": current state is " + c),
         expected);
   }
 
@@ -495,7 +496,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private CompletableFuture<RaftClientReply> appendTransaction(
       RaftClientRequest request, TransactionContext context,
       RetryCache.CacheEntry cacheEntry) throws IOException {
-    assertLifeCycleState(RUNNING);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
     CompletableFuture<RaftClientReply> reply;
 
     final PendingRequest pending;
@@ -509,8 +510,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final LeaderState leaderState = role.getLeaderStateNonNull();
       final PendingRequests.Permit permit = leaderState.tryAcquirePendingRequest(request.getMessage());
       if (permit == null) {
-        return JavaUtils.completeExceptionally(new ResourceUnavailableException(
+        cacheEntry.failWithException(new ResourceUnavailableException(
             getMemberId() + ": Failed to acquire a pending write request for " + request));
+        return cacheEntry.getReplyFuture();
       }
       try {
         state.appendLog(context);
@@ -529,8 +531,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // put the request into the pending queue
       pending = leaderState.addPendingRequest(permit, request, context);
       if (pending == null) {
-        return JavaUtils.completeExceptionally(new ResourceUnavailableException(
+        cacheEntry.failWithException(new ResourceUnavailableException(
             getMemberId() + ": Failed to add a pending write request for " + request));
+        return cacheEntry.getReplyFuture();
       }
       leaderState.notifySenders();
     }
@@ -540,7 +543,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   @Override
   public CompletableFuture<RaftClientReply> submitClientRequestAsync(
       RaftClientRequest request) throws IOException {
-    assertLifeCycleState(RUNNING);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
     LOG.debug("{}: receive client request({})", getMemberId(), request);
     Timer timer = raftServerMetrics.getClientRequestTimer(request);
     final Timer.Context timerContext = (timer != null) ? timer.time() : null;
@@ -556,12 +559,26 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
       // let the state machine handle read-only request from client
       final StateMachine stateMachine = getStateMachine();
-      if (request.is(RaftClientRequestProto.TypeCase.READ)) {
+      RaftClientRequest.Type type = request.getType();
+      if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
+        if (type.getStream().getClose()) {
+          final CompletableFuture<RaftClientRequest> f = streamCloseAsync(request);
+          if (f.isCompletedExceptionally()) {
+            return f.thenApply(r -> null);
+          }
+          request = f.join();
+          type = request.getType();
+        }
+      }
+
+      if (type.is(RaftClientRequestProto.TypeCase.READ)) {
         // TODO: We might not be the leader anymore by the time this completes.
         // See the RAFT paper section 8 (last part)
         replyFuture =  processQueryFuture(stateMachine.query(request.getMessage()), request);
-      } else if (request.is(RaftClientRequestProto.TypeCase.WATCH)) {
+      } else if (type.is(RaftClientRequestProto.TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
+      } else if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
+        replyFuture = streamAsync(request);
       } else {
         // query the retry cache
         RetryCache.CacheQueryResult previousResult = retryCache.queryCache(
@@ -569,7 +586,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         if (previousResult.isRetry()) {
           // if the previous attempt is still pending or it succeeded, return its
           // future
-          raftServerMetrics.onRetryRequestCacheHit();
           replyFuture = previousResult.getEntry().getReplyFuture();
         } else {
           final RetryCache.CacheEntry cacheEntry = previousResult.getEntry();
@@ -616,6 +632,19 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
           new RaftClientReply(request, new StateMachineException(getMemberId(), e), getCommitInfos()));
     }
     return processQueryFuture(getStateMachine().queryStale(request.getMessage(), minIndex), request);
+  }
+
+  private CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
+    return role.getLeaderState()
+        .map(ls -> ls.streamAsync(request))
+        .orElseGet(() -> CompletableFuture.completedFuture(
+            new RaftClientReply(request, generateNotLeaderException(), getCommitInfos())));
+  }
+
+  private CompletableFuture<RaftClientRequest> streamCloseAsync(RaftClientRequest request) {
+    return role.getLeaderState()
+        .map(ls -> ls.streamCloseAsync(request))
+        .orElse(null);
   }
 
   CompletableFuture<RaftClientReply> processQueryFuture(
@@ -678,7 +707,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   @Override
   public CompletableFuture<RaftClientReply> setConfigurationAsync(SetConfigurationRequest request) throws IOException {
     LOG.info("{}: receive setConfiguration {}", getMemberId(), request);
-    assertLifeCycleState(RUNNING);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(request.getRequestorId(), request.getRaftGroupId());
 
     CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
@@ -764,7 +793,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         candidateId, candidateTerm, candidateLastEntry);
     LOG.debug("{}: receive requestVote({}, {}, {}, {})",
         getMemberId(), candidateId, candidateGroupId, candidateTerm, candidateLastEntry);
-    assertLifeCycleState(RUNNING);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
     assertGroup(candidateId, candidateGroupId);
 
     boolean voteGranted = false;
@@ -889,7 +918,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(),
         leaderId, leaderTerm, previous, leaderCommit, initializing, entries);
 
-    final LifeCycle.State currentState = assertLifeCycleState(STARTING, RUNNING);
+    final LifeCycle.State currentState = assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
     if (currentState == STARTING) {
       if (role.getCurrentRole() == null) {
         throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
@@ -913,19 +942,18 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
             + previous + ", " + leaderCommit + ", " + initializing
             + ", commits" + ProtoUtils.toString(commitInfos)
             + ", entries: " + ServerProtoUtils.toString(entries));
-    final List<CompletableFuture<Long>> futures;
 
     final long currentTerm;
     final long followerCommit = state.getLog().getLastCommittedIndex();
     final Optional<FollowerState> followerState;
-    Timer.Context timer = raftServerMetrics.getFollowerAppendEntryTimer().time();
+    Timer.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
     synchronized (this) {
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
         final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
             leaderId, getMemberId(), currentTerm, followerCommit, state.getNextIndex(), NOT_LEADER, callId,
-            RaftLog.INVALID_LOG_INDEX);
+            RaftLog.INVALID_LOG_INDEX, isHeartbeat);
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Not recognize {} (term={}) as leader, state: {} reply: {}",
               getMemberId(), leaderId, leaderTerm, state, ServerProtoUtils.toString(reply));
@@ -953,7 +981,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // back to leader so that the leader can update this follower's next index.
 
       AppendEntriesReplyProto inconsistencyReply = checkInconsistentAppendEntries(
-          leaderId, currentTerm, followerCommit, previous, callId, entries);
+          leaderId, currentTerm, followerCommit, previous, callId, isHeartbeat, entries);
       if (inconsistencyReply != null) {
         followerState.ifPresent(fs -> fs.updateLastRpcTime(FollowerState.UpdateType.APPEND_COMPLETE));
         return CompletableFuture.completedFuture(inconsistencyReply);
@@ -962,7 +990,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       state.updateConfiguration(entries);
     }
 
-    futures = state.getLog().append(entries);
+    final List<CompletableFuture<Long>> futures = entries.length == 0 ? Collections.emptyList()
+        : state.getLog().append(entries);
     commitInfos.forEach(commitInfoCache::update);
 
     if (!isHeartbeat) {
@@ -976,9 +1005,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         state.updateStatemachine(leaderCommit, currentTerm);
         final long n = isHeartbeat? state.getLog().getNextIndex(): entries[entries.length - 1].getIndex() + 1;
         final long matchIndex = entries.length != 0 ? entries[entries.length - 1].getIndex() :
-                previous != null ? previous.getIndex() : RaftLog.INVALID_LOG_INDEX;
+            RaftLog.INVALID_LOG_INDEX;
         reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getMemberId(), currentTerm,
-            state.getLog().getLastCommittedIndex(), n, SUCCESS, callId, matchIndex);
+            state.getLog().getLastCommittedIndex(), n, SUCCESS, callId, matchIndex,
+            isHeartbeat);
       }
       logAppendEntries(isHeartbeat, () ->
           getMemberId() + ": succeeded to handle AppendEntries. Reply: " + ServerProtoUtils.toString(reply));
@@ -988,7 +1018,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   private AppendEntriesReplyProto checkInconsistentAppendEntries(RaftPeerId leaderId, long currentTerm,
-      long followerCommit, TermIndex previous, long callId, LogEntryProto... entries) {
+      long followerCommit, TermIndex previous, long callId, boolean isHeartbeat, LogEntryProto... entries) {
     final long replyNextIndex = checkInconsistentAppendEntries(previous, entries);
     if (replyNextIndex == -1) {
       return null;
@@ -996,7 +1026,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     final AppendEntriesReplyProto reply = ServerProtoUtils.toAppendEntriesReplyProto(
         leaderId, getMemberId(), currentTerm, followerCommit, replyNextIndex, INCONSISTENCY, callId,
-        RaftLog.INVALID_LOG_INDEX);
+        RaftLog.INVALID_LOG_INDEX, isHeartbeat);
     LOG.info("{}: inconsistency entries. Reply:{}", getMemberId(), ServerProtoUtils.toString(reply));
     return reply;
   }
@@ -1015,9 +1045,16 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final long firstEntryIndex = entries[0].getIndex();
       final long snapshotIndex = state.getSnapshotIndex();
       if (snapshotIndex > 0 && snapshotIndex >= firstEntryIndex) {
-        LOG.info("{}: Failed appendEntries as latest snapshot ({}) already has the append entries (first index: {})",
-            getMemberId(), snapshotIndex, firstEntryIndex);
+        LOG.info("{}: Failed appendEntries: the first entry (index {}) is already in snapshot (snapshot index: {})",
+            getMemberId(), firstEntryIndex, snapshotIndex);
         return snapshotIndex + 1;
+      }
+
+      final long commitIndex =  state.getLog().getLastCommittedIndex();
+      if (commitIndex > 0 && commitIndex >= firstEntryIndex) {
+        LOG.info("{}: Failed appendEntries: the first entry (index {}) is already committed (commit index: {})",
+            getMemberId(), firstEntryIndex, commitIndex);
+        return commitIndex + 1;
       }
     }
 
@@ -1056,7 +1093,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     CodeInjectionForTesting.execute(INSTALL_SNAPSHOT, getId(),
         leaderId, request);
 
-    assertLifeCycleState(STARTING, RUNNING);
+    assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
     assertGroup(leaderId, leaderGroupId);
 
     // Check if install snapshot from Leader is enabled
@@ -1240,6 +1277,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final ClientId clientId = ClientId.valueOf(smLog.getClientId());
     final long callId = smLog.getCallId();
     final RetryCache.CacheEntry cacheEntry = retryCache.getOrCreateEntry(clientId, callId);
+    if (isLeader()) {
+      Preconditions.assertTrue(cacheEntry != null && !cacheEntry.isCompletedNormally(),
+              "retry cache entry should be pending: %s", cacheEntry);
+    }
     if (cacheEntry.isFailed()) {
       retryCache.refreshEntry(new RetryCache.CacheEntry(cacheEntry.getKey()));
     }
@@ -1331,8 +1372,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
   }
 
-  public LeaderElectionMetrics getLeaderElectionMetricsRegistry() {
-    return leaderElectionMetricsRegistry;
+  public LeaderElectionMetrics getLeaderElectionMetrics() {
+    return leaderElectionMetrics;
   }
 
   public RaftServerMetrics getRaftServerMetrics() {

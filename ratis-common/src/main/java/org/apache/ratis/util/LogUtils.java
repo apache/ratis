@@ -133,8 +133,8 @@ public interface LogUtils {
   static void infoOrTrace(Logger log, Supplier<String> message, Throwable t) {
     if (log.isTraceEnabled()) {
       log.trace(message.get(), t);
-    } else {
-      log.info("{}: {}", message.get(), t);
+    } else if (log.isInfoEnabled()) {
+      log.info("{}: {}", message.get(), String.valueOf(t));
     }
   }
 }

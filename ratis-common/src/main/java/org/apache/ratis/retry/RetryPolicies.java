@@ -17,15 +17,11 @@
  */
 package org.apache.ratis.retry;
 
-import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
-import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Preconditions;
 import org.apache.ratis.util.TimeDuration;
 
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.Map;
-import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * A collection of {@link RetryPolicy} implementations
@@ -60,8 +56,8 @@ public interface RetryPolicies {
     private RetryForeverNoSleep() {}
 
     @Override
-    public boolean shouldRetry(int attemptCount, RaftClientRequest request) {
-      return true;
+    public Action handleAttemptFailure(Event event) {
+      return RetryPolicy.RETRY_WITHOUT_SLEEP_ACTION;
     }
 
     @Override
@@ -74,8 +70,8 @@ public interface RetryPolicies {
     private NoRetry() {}
 
     @Override
-    public boolean shouldRetry(int attemptCount, RaftClientRequest request) {
-      return false;
+    public Action handleAttemptFailure(Event event) {
+      return RetryPolicy.NO_RETRY_ACTION;
     }
 
     @Override
@@ -89,18 +85,13 @@ public interface RetryPolicies {
     private final TimeDuration sleepTime;
 
     private RetryForeverWithSleep(TimeDuration sleepTime) {
-      Preconditions.assertTrue(!sleepTime.isNegative(), () -> "sleepTime = " + sleepTime.getDuration() + " < 0");
+      Preconditions.assertTrue(!sleepTime.isNegative(), () -> "sleepTime = " + sleepTime + " < 0");
       this.sleepTime = sleepTime;
     }
 
     @Override
-    public TimeDuration getSleepTime(int attemptCount, RaftClientRequest request) {
-      return sleepTime;
-    }
-
-    @Override
-    public boolean shouldRetry(int attemptCount, RaftClientRequest request) {
-      return true;
+    public Action handleAttemptFailure(Event event) {
+      return () -> sleepTime;
     }
 
     @Override
@@ -110,28 +101,20 @@ public interface RetryPolicies {
   }
 
   /** For any requests, keep retrying a limited number of attempts with a fixed sleep time between attempts. */
-  class RetryLimited implements RetryPolicy {
+  class RetryLimited extends RetryForeverWithSleep  {
     private final int maxAttempts;
-    private final TimeDuration sleepTime;
-
-    private String myString;
+    private final Supplier<String> myString;
 
     private RetryLimited(int maxAttempts, TimeDuration sleepTime) {
+      super(sleepTime);
+
       if (maxAttempts < 0) {
         throw new IllegalArgumentException("maxAttempts = " + maxAttempts+" < 0");
       }
-      if (sleepTime.isNegative()) {
-        throw new IllegalArgumentException(
-            "sleepTime = " + sleepTime.getDuration() + " < 0");
-      }
 
       this.maxAttempts = maxAttempts;
-      this.sleepTime = sleepTime;
-    }
-
-    @Override
-    public TimeDuration getSleepTime(int attemptCount, RaftClientRequest request) {
-      return shouldRetry(attemptCount, request) ? sleepTime: ZERO_MILLIS;
+      this.myString = JavaUtils.memoize(() -> getClass().getSimpleName()
+          + "(maxAttempts=" + maxAttempts + ", sleepTime=" + sleepTime + ")");
     }
 
     public int getMaxAttempts() {
@@ -139,73 +122,13 @@ public interface RetryPolicies {
     }
 
     @Override
-    public boolean shouldRetry(int attemptCount, RaftClientRequest request) {
-      return attemptCount < maxAttempts;
+    public Action handleAttemptFailure(Event event) {
+      return event.getAttemptCount() < maxAttempts? super.handleAttemptFailure(event): NO_RETRY_ACTION;
     }
 
     @Override
     public String toString() {
-      if (myString == null) {
-        myString = getClass().getSimpleName() + "(maxAttempts=" + maxAttempts
-            + ", sleepTime=" + sleepTime + ")";
-      }
-      return myString;
-    }
-  }
-
-  /**
-   * A {@link RaftClientRequest.Type} dependent {@link RetryPolicy}
-   * such that each type can be set to use an individual policy.
-   * When the policy is not set for a particular type,
-   * the {@link #retryForeverNoSleep()} policy is used as the default.
-   */
-  class RequestTypeDependentRetry implements RetryPolicy {
-    public static class Builder {
-      private final EnumMap<RaftClientRequestProto.TypeCase, RetryPolicy> map
-          = new EnumMap<>(RaftClientRequestProto.TypeCase.class);
-
-      /** Set the given policy for the given type. */
-      public Builder set(RaftClientRequestProto.TypeCase type, RetryPolicy policy) {
-        final RetryPolicy previous = map.put(type, policy);
-        Preconditions.assertNull(previous, () -> "The type " + type + " is already set to " + previous);
-        return this;
-      }
-
-      public RequestTypeDependentRetry build() {
-        return new RequestTypeDependentRetry(map);
-      }
-    }
-
-    public static Builder newBuilder() {
-      return new Builder();
-    }
-
-    private final Map<RaftClientRequestProto.TypeCase, RetryPolicy> map;
-
-    private RequestTypeDependentRetry(EnumMap<RaftClientRequestProto.TypeCase, RetryPolicy> map) {
-      this.map = Collections.unmodifiableMap(map);
-    }
-
-    @Override
-    public boolean shouldRetry(int attemptCount, RaftClientRequest request) {
-      return Optional.ofNullable(map.get(request.getType().getTypeCase()))
-          .orElse(retryForeverNoSleep())
-          .shouldRetry(attemptCount, request);
-    }
-
-    @Override
-    public TimeDuration getSleepTime(int attemptCount, RaftClientRequest request) {
-      return Optional.ofNullable(map.get(request.getType().getTypeCase()))
-          .orElse(retryForeverNoSleep())
-          .getSleepTime(attemptCount, request);
-    }
-
-    @Override
-    public String toString() {
-      final StringBuilder b = new StringBuilder(getClass().getSimpleName()).append("{");
-      map.forEach((key, value) -> b.append(key).append("->").append(value).append(", "));
-      b.setLength(b.length() - 2);
-      return b.append("}").toString();
+      return myString.get();
     }
   }
 }
