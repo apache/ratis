@@ -81,10 +81,10 @@ public interface ReflectionUtils {
     private static Map<String, WeakReference<Class<?>>> getClassMap() {
       Map<String, WeakReference<Class<?>>> map;
       synchronized (CLASSES) {
-        map = CLASSES.get(classLoader);
+        map = CLASSES.get(CLASS_LOADER);
         if (map == null) {
           map = Collections.synchronizedMap(new WeakHashMap<>());
-          CLASSES.put(classLoader, map);
+          CLASSES.put(CLASS_LOADER, map);
         }
       }
       return map;
@@ -92,7 +92,7 @@ public interface ReflectionUtils {
   }
 
   static ClassLoader getClassLoader() {
-    return Classes.classLoader;
+    return Classes.CLASS_LOADER;
   }
 
   /**
@@ -114,7 +114,7 @@ public interface ReflectionUtils {
 
     if (clazz == null) {
       try {
-        clazz = Class.forName(name, true, Classes.classLoader);
+        clazz = Class.forName(name, true, Classes.CLASS_LOADER);
       } catch (ClassNotFoundException e) {
         // Leave a marker that the class isn't found
         map.put(name, new WeakReference<>(Classes.NEGATIVE_CACHE_SENTINEL));
@@ -150,7 +150,7 @@ public interface ReflectionUtils {
    * Create an object for the given class using its default constructor.
    */
   static <T> T newInstance(Class<T> clazz) {
-    return newInstance(clazz, Classes.emptyArray);
+    return newInstance(clazz, Classes.EMPTY_ARRAY);
   }
 
   /**

@@ -48,20 +48,20 @@ public class AutoCloseableReadWriteLock {
 
   private void logLocking(StackTraceElement caller, boolean read, boolean acquire, Consumer<String> log) {
     if (caller != null && log != null) {
-      final int d = acquire? depth.getAndIncrement(): depth.decrementAndGet();
+      final int d = acquire ? depth.getAndIncrement() : depth.decrementAndGet();
       final StringBuilder b = new StringBuilder();
-      for(int i = 0; i < d; i++) {
+      for (int i = 0; i < d; i++) {
         b.append("  ");
       }
-      if (objectName != null) {
-        b.append(objectName).append(": ");
+      if (name != null) {
+        b.append(name).append(": ");
       }
-      b.append(read? "readLock ": "writeLock ")
-          .append(acquire ? "ACQUIRED ": "RELEASED ")
+      b.append(read ? "readLock " : "writeLock ")
+          .append(acquire ? "ACQUIRED " : "RELEASED ")
           .append(depth).append(" by ");
       final String className = caller.getClassName();
       final int i = className.lastIndexOf('.');
-      b.append(i >= 0? className.substring(i + 1): className).append(".").append(caller.getMethodName());
+      b.append(i >= 0 ? className.substring(i + 1) : className).append(".").append(caller.getMethodName());
       log.accept(b.toString());
     }
   }

@@ -1124,9 +1124,9 @@ public class RaftProperties {
     }
 
     for (int i = 0; i < resources.size(); i++) {
-      Resource ret = loadResource(props, res.get(i));
+      Resource ret = loadResource(properties, resources.get(i));
       if (ret != null) {
-        res.set(i, ret);
+        resources.set(i, ret);
       }
     }
   }

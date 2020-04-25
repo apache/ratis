@@ -30,7 +30,7 @@ public final class RaftGroup {
   private static final RaftGroup EMPTY_GROUP = new RaftGroup();
 
   public static RaftGroup emptyGroup() {
-    return emptyGroup;
+    return EMPTY_GROUP;
   }
 
   /** @return a group with the given id and peers. */
@@ -55,7 +55,7 @@ public final class RaftGroup {
 
   private RaftGroup(RaftGroupId groupId, Collection<RaftPeer> peers) {
     this.groupId = Objects.requireNonNull(groupId, "groupId == null");
-    Preconditions.assertTrue(!groupId.equals(emptyGroup.getGroupId()),
+    Preconditions.assertTrue(!groupId.equals(EMPTY_GROUP.getGroupId()),
         () -> "Group Id " + groupId + " is reserved for the empty group.");
 
     if (peers == null || peers.isEmpty()) {
