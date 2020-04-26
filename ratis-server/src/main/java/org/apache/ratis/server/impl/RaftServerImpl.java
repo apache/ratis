@@ -356,7 +356,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   Collection<CommitInfoProto> getCommitInfos() {
     final List<CommitInfoProto> infos = new ArrayList<>();
     // add the commit info of this server
-    infos.add(commitInfoCache.update(getPeer(), state.getLog().getLastCommittedIndex()));
+    infos.add(updateCommitInfoCache());
 
     // add the commit infos of other servers
     if (isLeader()) {
@@ -948,6 +948,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
   }
 
+  private CommitInfoProto updateCommitInfoCache() {
+    return commitInfoCache.update(getPeer(), state.getLog().getLastCommittedIndex());
+  }
+
   @SuppressWarnings("checkstyle:parameternumber")
   private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
       RaftPeerId leaderId, long leaderTerm, TermIndex previous, long leaderCommit, long callId, boolean initializing,
@@ -1019,6 +1023,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final AppendEntriesReplyProto reply;
       synchronized(this) {
         state.updateStatemachine(leaderCommit, currentTerm);
+        updateCommitInfoCache();
         final long n = isHeartbeat? state.getLog().getNextIndex(): entries[entries.length - 1].getIndex() + 1;
         final long matchIndex = entries.length != 0 ? entries[entries.length - 1].getIndex() :
             RaftLog.INVALID_LOG_INDEX;
