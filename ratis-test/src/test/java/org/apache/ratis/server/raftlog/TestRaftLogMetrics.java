@@ -127,7 +127,11 @@ public class TestRaftLogMetrics extends BaseTest
     final MetricsStateMachine stateMachine = MetricsStateMachine.get(server);
     final int expectedFlush = stateMachine.getFlushCount();
 
-    Assert.assertEquals(expectedFlush, tm.getCount());
+    JavaUtils.attemptRepeatedly(() -> {
+      Assert.assertEquals(expectedFlush, tm.getCount());
+      return null;
+    }, 50, HUNDRED_MILLIS, "expectedFlush == tm.getCount()", null);
+
     Assert.assertTrue(tm.getMeanRate() > 0);
 
     // Test jmx
