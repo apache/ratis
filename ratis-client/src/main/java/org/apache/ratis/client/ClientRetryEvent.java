@@ -15,11 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client;
+package org.apache.ratis.client.retry;
 
+import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
+import org.apache.ratis.util.TimeDuration;
 
 /** An {@link RetryPolicy.Event} specific to client request failure. */
 public class ClientRetryEvent implements RetryPolicy.Event {
@@ -27,18 +29,23 @@ public class ClientRetryEvent implements RetryPolicy.Event {
   private final int causeCount;
   private final RaftClientRequest request;
   private final Throwable cause;
+  private PendingClientRequest pending;
 
-  public ClientRetryEvent(int attemptCount, RaftClientRequest request, int causeCount,
-      Throwable cause) {
+  @VisibleForTesting
+  public ClientRetryEvent(int attemptCount, RaftClientRequest request, Throwable cause) {
+    this(attemptCount, request, attemptCount, cause);
+  }
+
+  public ClientRetryEvent(RaftClientRequest request, Throwable t, PendingClientRequest pending) {
+    this(pending.getAttemptCount(), request, pending.getExceptionCount(t), t);
+    this.pending = pending;
+  }
+
+  private ClientRetryEvent(int attemptCount, RaftClientRequest request, int causeCount, Throwable cause) {
     this.attemptCount = attemptCount;
     this.causeCount = causeCount;
     this.request = request;
     this.cause = cause;
-  }
-
-  @VisibleForTesting
-  public ClientRetryEvent(int attemptCount, RaftClientRequest request) {
-    this(attemptCount, request, 0, null);
   }
 
   @Override
@@ -58,6 +65,10 @@ public class ClientRetryEvent implements RetryPolicy.Event {
   @Override
   public Throwable getCause() {
     return cause;
+  }
+
+  boolean isRequestTimeout(TimeDuration timeout) {
+    return pending != null && pending.isRequestTimeout(timeout);
   }
 
   @Override

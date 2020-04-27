@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
-import org.apache.ratis.client.ClientRetryEvent;
+import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.conf.RaftProperties;
@@ -70,7 +70,7 @@ public final class OrderedAsync {
     }
 
     @Override
-    RaftClientRequest newRequestImpl() {
+    public RaftClientRequest newRequestImpl() {
       return Optional.ofNullable(requestConstructor.get())
           .map(f -> f.apply(ProtoUtils.toSlidingWindowEntry(seqNum, isFirst)))
           .orElse(null);
@@ -207,8 +207,7 @@ public final class OrderedAsync {
   private void scheduleWithTimeout(PendingOrderedRequest pending,
       RaftClientRequest request, RetryPolicy retryPolicy, Throwable e) {
     final int attempt = pending.getAttemptCount();
-    final ClientRetryEvent event = new ClientRetryEvent(attempt, request,
-        pending.getExceptionCount(e), e);
+    final ClientRetryEvent event = new ClientRetryEvent(request, e, pending);
     final TimeDuration sleepTime = client.getEffectiveSleepTime(e,
         retryPolicy.handleAttemptFailure(event).getSleepTime());
     LOG.debug("schedule* attempt #{} with sleep {} and policy {} for {}", attempt, sleepTime, retryPolicy, request);
@@ -232,7 +231,6 @@ public final class OrderedAsync {
     request = pending.newRequest();
     LOG.debug("{}: send* {}", client.getId(), request);
     f = client.getClientRpc().sendRequestAsync(request);
-    int attemptCount = pending.getAttemptCount();
     return f.thenApply(reply -> {
       LOG.debug("{}: receive* {}", client.getId(), reply);
       getSlidingWindow(request).receiveReply(
@@ -246,8 +244,8 @@ public final class OrderedAsync {
       }
       e = JavaUtils.unwrapCompletionException(e);
       if (e instanceof IOException && !(e instanceof GroupMismatchException)) {
-        final int exceptionCount = pending.incrementExceptionCount(e);
-        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, exceptionCount, e);
+        pending.incrementExceptionCount(e);
+        final ClientRetryEvent event = new ClientRetryEvent(request, e, pending);
         if (!retryPolicy.handleAttemptFailure(event).shouldRetry()) {
           handleAsyncRetryFailure(event);
         } else {
