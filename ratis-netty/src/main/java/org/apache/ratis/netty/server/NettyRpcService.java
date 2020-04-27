@@ -45,15 +45,19 @@ import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.ProtoUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.concurrent.TimeUnit;
 import java.util.Objects;
 
 /**
  * A netty server endpoint that acts as the communication layer.
  */
 public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy, NettyRpcProxy.PeerMap> {
+  public static final Logger LOG = LoggerFactory.getLogger(NettyRpcService.class);
   static final String CLASS_NAME = NettyRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
@@ -141,6 +145,12 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
   public void closeImpl() throws IOException {
     bossGroup.shutdownGracefully();
     workerGroup.shutdownGracefully();
+    try {
+      bossGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);
+      workerGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      LOG.error("Interrupt EventLoopGroup terminate", e);
+    }
     final ChannelFuture f = getChannel().close();
     super.closeImpl();
     f.syncUninterruptibly();
