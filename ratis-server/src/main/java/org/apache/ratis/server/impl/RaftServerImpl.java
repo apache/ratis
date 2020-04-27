@@ -447,8 +447,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       final RaftClientReply reply = new RaftClientReply(request, exception, getCommitInfos());
       return RetryCache.failWithReply(reply, entry);
     }
-    final LeaderState leaderState = role.getLeaderState().orElse(null);
-    if (leaderState == null || !leaderState.isReady()) {
+
+    if (!isLeaderReady()) {
       RetryCache.CacheEntry cacheEntry = retryCache.get(request.getClientId(), request.getCallId());
       if (cacheEntry != null && cacheEntry.isCompletedNormally()) {
         return cacheEntry.getReplyFuture();
@@ -462,16 +462,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   @VisibleForTesting
   public boolean isLeaderReady() {
-    if (!isLeader()) {
-      return false;
-    }
-
     final LeaderState leaderState = role.getLeaderState().orElse(null);
-    if (leaderState == null || !leaderState.isReady()) {
-      return false;
-    }
-
-    return true;
+    return leaderState != null && leaderState.isReady();
   }
 
   NotLeaderException generateNotLeaderException() {
