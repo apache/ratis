@@ -136,8 +136,10 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
           nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
-      JavaUtils.attemptRepeatedly(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
-          10, ONE_SECOND, "snapshotFile.exist", LOG);
+      JavaUtils.attemptRepeatedly(() -> {
+        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        return null;
+      }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
       logs = storageDirectory.getLogSegmentFiles();
     } finally {
       cluster.shutdown();
@@ -212,8 +214,10 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       LOG.info("{}: oldLeaderNextIndex = {}", leaderId, oldLeaderNextIndex);
       final List<File> snapshotFiles = RaftSnapshotBaseTest.getSnapshotFiles(cluster,
           oldLeaderNextIndex - SNAPSHOT_TRIGGER_THRESHOLD, oldLeaderNextIndex);
-      JavaUtils.attemptRepeatedly(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
-          10, ONE_SECOND, "snapshotFile.exist", LOG);
+      JavaUtils.attemptRepeatedly(() -> {
+        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        return null;
+      }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
     }
 
     final RaftPeerId followerId = cluster.getFollowers().get(0).getId();
