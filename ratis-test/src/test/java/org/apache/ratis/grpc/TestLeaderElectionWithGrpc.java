@@ -33,4 +33,9 @@ public class TestLeaderElectionWithGrpc
     MiniRaftClusterWithGrpc.sendServerRequestInjection.clear();
     BlockRequestHandlingInjection.getInstance().unblockAll();
   }
+
+  @Test
+  public void testDisconnectLeader() throws Exception {
+    super.testDisconnectLeader();
+  }
 }

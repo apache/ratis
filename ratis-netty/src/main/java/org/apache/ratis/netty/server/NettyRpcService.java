@@ -96,7 +96,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
 
   /** Constructs a netty server with the given port. */
   private NettyRpcService(RaftServer server) {
-    super(server::getId, id -> new NettyRpcProxy.PeerMap(id.toString()));
+    super(server::getId, id -> new NettyRpcProxy.PeerMap(id.toString(), server.getProperties()));
     this.server = server;
 
     final ChannelInitializer<SocketChannel> initializer
