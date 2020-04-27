@@ -69,7 +69,7 @@ public class TestExponentialBackoffRetry extends BaseTest {
 
       Assert.assertTrue(action.shouldRetry());
       Assert.assertTrue(randomizedDuration >= d * 0.5);
-      Assert.assertTrue(randomizedDuration < d * 1.5);
+      Assert.assertTrue(randomizedDuration <= d * 1.5);
     }
   }
 
