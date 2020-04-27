@@ -140,7 +140,8 @@ public class TestRetryPolicy extends BaseTest {
 
     RaftClientRequest[] requests = new RaftClientRequest[] {writeRequest, watchRequest};
     RaftClientImpl.PendingClientRequest pending = new RaftClientImpl.PendingClientRequest() {
-      @Override public RaftClientRequest newRequestImpl() {
+      @Override
+      public RaftClientRequest newRequestImpl() {
         return null;
       }
     };

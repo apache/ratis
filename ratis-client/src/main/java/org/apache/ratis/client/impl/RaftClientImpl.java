@@ -284,7 +284,8 @@ public final class RaftClientImpl implements RaftClient {
 
   private RaftClientReply sendRequestWithRetry(Supplier<RaftClientRequest> supplier) throws IOException {
     PendingClientRequest pending = new PendingClientRequest() {
-      @Override public RaftClientRequest newRequestImpl() {
+      @Override
+      public RaftClientRequest newRequestImpl() {
         return supplier.get();
       }
     };
