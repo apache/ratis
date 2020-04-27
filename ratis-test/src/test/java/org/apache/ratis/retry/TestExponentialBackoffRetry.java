@@ -45,7 +45,7 @@ public class TestExponentialBackoffRetry extends BaseTest {
     } catch (Throwable t) {
     }
 
-    // test policy with without max sleep
+    // test policy without max sleep
     retryPolicy = createPolicy(baseSleep, null,100);
     assertSleep(retryPolicy, baseSleep, null);
 
