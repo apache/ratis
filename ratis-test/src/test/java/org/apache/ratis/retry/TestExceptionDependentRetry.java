@@ -20,7 +20,7 @@ package org.apache.ratis.retry;
 
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
-import org.apache.ratis.client.ClientRetryEvent;
+import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
@@ -153,7 +153,7 @@ public class TestExceptionDependentRetry implements MiniRaftClusterWithGrpc.Fact
       long sleepTime) {
     for (int i = 0; i < retries + 1; i++) {
       RetryPolicy.Action action = exceptionDependentRetry
-          .handleAttemptFailure(new ClientRetryEvent(i, null, i, exception));
+          .handleAttemptFailure(new ClientRetryEvent(i, null, exception));
 
       final boolean expected = i < retries && i < maxAttempts;
       Assert.assertEquals(expected, action.shouldRetry());

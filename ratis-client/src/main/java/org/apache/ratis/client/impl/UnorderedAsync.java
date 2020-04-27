@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
-import org.apache.ratis.client.ClientRetryEvent;
+import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.client.impl.RaftClientImpl.PendingClientRequest;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.GroupMismatchException;
@@ -48,7 +48,7 @@ public interface UnorderedAsync {
     }
 
     @Override
-    RaftClientRequest newRequestImpl() {
+    public RaftClientRequest newRequestImpl() {
       return requestConstructor.get();
     }
   }
@@ -84,8 +84,8 @@ public interface UnorderedAsync {
         }
 
         final Throwable cause = replyException != null ? replyException : e;
-        final int causeCount = pending.incrementExceptionCount(cause);
-        final ClientRetryEvent event = new ClientRetryEvent(attemptCount, request, causeCount, cause);
+        pending.incrementExceptionCount(cause);
+        final ClientRetryEvent event = new ClientRetryEvent(request, cause, pending);
         RetryPolicy retryPolicy = client.getRetryPolicy();
         final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
         TimeDuration sleepTime = client.getEffectiveSleepTime(cause, action.getSleepTime());
