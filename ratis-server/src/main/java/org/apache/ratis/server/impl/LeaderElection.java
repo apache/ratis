@@ -247,7 +247,7 @@ class LeaderElection implements Runnable {
             server.changeToFollowerAndPersistMetadata(term, Result.DISCOVERED_A_NEW_TERM);
             return;
           case TIMEOUT: // should start another election
-            return;
+            continue;
           default: throw new IllegalArgumentException("Unable to process result " + r.result);
         }
       }
