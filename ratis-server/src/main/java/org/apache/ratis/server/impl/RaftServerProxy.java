@@ -382,7 +382,7 @@ public class RaftServerProxy implements RaftServer {
           Preconditions.assertTrue(started, () -> getId()+ ": failed to start a new impl: " + newImpl);
           return new RaftClientReply(request, newImpl.getCommitInfos());
         }, implExecutor)
-        .whenComplete((_1, throwable) -> {
+        .whenComplete((raftClientReply, throwable) -> {
           if (throwable != null) {
             if (!(throwable.getCause() instanceof AlreadyExistsException)) {
               impls.remove(newGroup.getGroupId());
@@ -400,7 +400,8 @@ public class RaftServerProxy implements RaftServer {
       RaftClientRequest request, RaftGroupId groupId, boolean deleteDirectory) {
     if (!request.getRaftGroupId().equals(groupId)) {
       return JavaUtils.completeExceptionally(new GroupMismatchException(
-          getId() + ": Request group id (" + request.getRaftGroupId() + ") does not match the given group id " + groupId));
+          getId() + ": Request group id (" + request.getRaftGroupId() + ") does not match the given group id " +
+              groupId));
     }
     final CompletableFuture<RaftServerImpl> f = impls.remove(groupId);
     if (f == null) {

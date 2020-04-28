@@ -72,8 +72,8 @@ class LeaderElection implements Runnable {
   enum Result {PASSED, REJECTED, TIMEOUT, DISCOVERED_A_NEW_TERM, SHUTDOWN}
 
   private static class ResultAndTerm {
-    final Result result;
-    final long term;
+    private final Result result;
+    private final long term;
 
     ResultAndTerm(Result result, long term) {
       this.result = result;
@@ -246,8 +246,9 @@ class LeaderElection implements Runnable {
             final long term = Math.max(r.term, state.getCurrentTerm());
             server.changeToFollowerAndPersistMetadata(term, Result.DISCOVERED_A_NEW_TERM);
             return;
-          case TIMEOUT:
-            // should start another election
+          case TIMEOUT: // should start another election
+            return;
+          default: throw new IllegalArgumentException("Unable to process result " + r.result);
         }
       }
     }

@@ -316,7 +316,8 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       Preconditions.assertTrue(entry.getTerm() >= lastTermIndex.getTerm(),
           "Entry term less than RaftLog's last term: %d, entry: %s", lastTermIndex.getTerm(), entry);
       Preconditions.assertTrue(entry.getIndex() == lastTermIndex.getIndex() + 1,
-          "Difference between entry index and RaftLog's last index %d greater than 1, entry: %s", lastTermIndex.getIndex(), entry);
+          "Difference between entry index and RaftLog's last index %d greater than 1, entry: %s",
+          lastTermIndex.getIndex(), entry);
     }
   }
 

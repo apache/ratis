@@ -371,6 +371,7 @@ public interface ServerProtoUtils {
     return builder.build();
   }
 
+  @SuppressWarnings("checkstyle:parameternumber")
   static InstallSnapshotRequestProto toInstallSnapshotRequestProto(
       RaftGroupMemberId requestorId, RaftPeerId replyId, String requestId, int requestIndex,
       long term, TermIndex lastTermIndex, List<FileChunkProto> chunks,
@@ -423,6 +424,7 @@ public interface ServerProtoUtils {
         .build();
   }
 
+  @SuppressWarnings("checkstyle:parameternumber")
   static AppendEntriesRequestProto toAppendEntriesRequestProto(
       RaftGroupMemberId requestorId, RaftPeerId replyId, long leaderTerm,
       List<LogEntryProto> entries, long leaderCommit, boolean initializing,

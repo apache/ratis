@@ -24,7 +24,6 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
@@ -88,7 +87,7 @@ public interface StateMachine extends Closeable {
    *
    * In the meanwhile, when the size of raft log outside of the latest snapshot
    * exceeds certain threshold, the RaftServer may choose to trigger a snapshot
-   * if {@link RaftServerConfigKeys.Snapshot#AUTO_TRIGGER_ENABLED_KEY} is enabled.
+   * if {@link org.apache.ratis.server.RaftServerConfigKeys.Snapshot#AUTO_TRIGGER_ENABLED_KEY} is enabled.
    *
    * The snapshot should include the latest raft configuration.
    *

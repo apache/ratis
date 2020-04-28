@@ -67,9 +67,9 @@ public class LeaderState {
       STEP_DOWN, UPDATE_COMMIT, CHECK_STAGING
     }
 
-    final Type type;
-    final long newTerm;
-    final Runnable handler;
+    private final Type type;
+    private final long newTerm;
+    private final Runnable handler;
 
     StateUpdateEvent(Type type, long newTerm, Runnable handler) {
       this.type = type;
@@ -90,6 +90,11 @@ public class LeaderState {
       }
       final StateUpdateEvent that = (StateUpdateEvent)obj;
       return this.type == that.type && this.newTerm == that.newTerm;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(type, newTerm);
     }
 
     @Override
@@ -126,7 +131,9 @@ public class LeaderState {
 
       if (e != null) {
         // remove duplicated events from the head.
-        for(; e.equals(queue.peek()); queue.poll());
+        while(e.equals(queue.peek())) {
+          queue.poll();
+        }
       }
       return e;
     }
@@ -175,9 +182,9 @@ public class LeaderState {
     }
   }
 
-  private final StateUpdateEvent UPDATE_COMMIT_EVENT =
+  private final StateUpdateEvent updateCommitEvent =
       new StateUpdateEvent(StateUpdateEvent.Type.UPDATE_COMMIT, -1, this::updateCommit);
-  private final StateUpdateEvent CHECK_STAGING_EVENT =
+  private final StateUpdateEvent checkStagingEvent =
       new StateUpdateEvent(StateUpdateEvent.Type.CHECK_STAGING, -1, this::checkStaging);
 
   private final String name;
@@ -298,11 +305,11 @@ public class LeaderState {
     // add the request to the pending queue
     final PendingRequest pending = pendingRequests.addConfRequest(request);
 
-    ConfigurationStagingState stagingState = new ConfigurationStagingState(
+    ConfigurationStagingState configurationStagingState = new ConfigurationStagingState(
         peersToBootStrap, new PeerConfiguration(peersInNewConf));
-    Collection<RaftPeer> newPeers = stagingState.getNewPeers();
+    Collection<RaftPeer> newPeers = configurationStagingState.getNewPeers();
     // set the staging state
-    this.stagingState = stagingState;
+    this.stagingState = configurationStagingState;
 
     if (newPeers.isEmpty()) {
       applyOldNewConf();
@@ -535,13 +542,13 @@ public class LeaderState {
   }
 
   void submitCheckStagingEvent() {
-    eventQueue.submit(CHECK_STAGING_EVENT);
+    eventQueue.submit(checkStagingEvent);
   }
 
   private void checkStaging() {
     if (!inStagingState()) {
       // it is possible that the bootstrapping is done. Then, fallback to UPDATE_COMMIT
-      UPDATE_COMMIT_EVENT.execute();
+      updateCommitEvent.execute();
     } else {
       final long committedIndex = server.getState().getLog()
           .getLastCommittedIndex();
@@ -561,7 +568,7 @@ public class LeaderState {
   }
 
   void submitUpdateCommitEvent() {
-    eventQueue.submit(UPDATE_COMMIT_EVENT);
+    eventQueue.submit(updateCommitEvent);
   }
 
   static class MinMajorityMax {

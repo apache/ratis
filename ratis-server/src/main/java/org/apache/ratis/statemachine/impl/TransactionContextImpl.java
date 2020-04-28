@@ -120,8 +120,8 @@ public class TransactionContextImpl implements TransactionContext {
   }
 
   @Override
-  public TransactionContext setStateMachineContext(Object stateMachineContext) {
-    this.stateMachineContext = stateMachineContext;
+  public TransactionContext setStateMachineContext(Object context) {
+    this.stateMachineContext = context;
     return this;
   }
 
@@ -139,8 +139,8 @@ public class TransactionContextImpl implements TransactionContext {
   }
 
   @Override
-  public TransactionContext setStateMachineLogEntryProto(StateMachineLogEntryProto smLogEntryProto) {
-    this.smLogEntryProto = smLogEntryProto;
+  public TransactionContext setStateMachineLogEntryProto(StateMachineLogEntryProto logEntryProto) {
+    this.smLogEntryProto = logEntryProto;
     return this;
   }
 
@@ -156,8 +156,8 @@ public class TransactionContextImpl implements TransactionContext {
   }
 
   @Override
-  public TransactionContext setShouldCommit(boolean shouldCommit) {
-    this.shouldCommit = shouldCommit;
+  public TransactionContext setShouldCommit(boolean sCommit) {
+    this.shouldCommit = sCommit;
     return this;
   }
 

@@ -423,11 +423,11 @@ class SegmentedRaftLogWorker implements Runnable {
 
     @Override
     void execute() throws IOException {
-      if (segments.toDelete != null) {
+      if (segments.getToDelete() != null) {
         Timer.Context purgeLogContext = raftLogMetrics.getRaftLogPurgeTimer().time();
-        for (SegmentFileInfo fileInfo : segments.toDelete) {
+        for (SegmentFileInfo fileInfo : segments.getToDelete()) {
           File delFile = storage.getStorageDir()
-                  .getClosedLogFile(fileInfo.startIndex, fileInfo.endIndex);
+                  .getClosedLogFile(fileInfo.getStartIndex(), fileInfo.getEndIndex());
           FileUtils.deleteFile(delFile);
         }
         purgeLogContext.stop();
@@ -592,7 +592,7 @@ class SegmentedRaftLogWorker implements Runnable {
   private class TruncateLog extends Task {
     private final TruncationSegments segments;
     private final long truncateIndex;
-    CompletableFuture<Void> stateMachineFuture = null;
+    private CompletableFuture<Void> stateMachineFuture = null;
 
     TruncateLog(TruncationSegments ts, long index) {
       this.segments = ts;
@@ -611,46 +611,46 @@ class SegmentedRaftLogWorker implements Runnable {
     void execute() throws IOException {
       freeSegmentedRaftLogOutputStream();
 
-      if (segments.toTruncate != null) {
-        File fileToTruncate = segments.toTruncate.isOpen ?
+      if (segments.getToTruncate() != null) {
+        File fileToTruncate = segments.getToTruncate().isOpen() ?
             storage.getStorageDir().getOpenLogFile(
-                segments.toTruncate.startIndex) :
+                segments.getToTruncate().getStartIndex()) :
             storage.getStorageDir().getClosedLogFile(
-                segments.toTruncate.startIndex,
-                segments.toTruncate.endIndex);
+                segments.getToTruncate().getStartIndex(),
+                segments.getToTruncate().getEndIndex());
         Preconditions.assertTrue(fileToTruncate.exists(),
             "File %s to be truncated does not exist", fileToTruncate);
-        FileUtils.truncateFile(fileToTruncate, segments.toTruncate.targetLength);
+        FileUtils.truncateFile(fileToTruncate, segments.getToTruncate().getTargetLength());
 
         // rename the file
         File dstFile = storage.getStorageDir().getClosedLogFile(
-            segments.toTruncate.startIndex, segments.toTruncate.newEndIndex);
+            segments.getToTruncate().getStartIndex(), segments.getToTruncate().getNewEndIndex());
         Preconditions.assertTrue(!dstFile.exists(),
             "Truncated file %s already exists ", dstFile);
         FileUtils.move(fileToTruncate, dstFile);
         LOG.info("{}: Truncated log file {} to length {} and moved it to {}", name,
-            fileToTruncate, segments.toTruncate.targetLength, dstFile);
+            fileToTruncate, segments.getToTruncate().getTargetLength(), dstFile);
 
         // update lastWrittenIndex
-        lastWrittenIndex = segments.toTruncate.newEndIndex;
+        lastWrittenIndex = segments.getToTruncate().getNewEndIndex();
       }
-      if (segments.toDelete != null && segments.toDelete.length > 0) {
-        long minStart = segments.toDelete[0].startIndex;
-        for (SegmentFileInfo del : segments.toDelete) {
+      if (segments.getToDelete() != null && segments.getToDelete().length > 0) {
+        long minStart = segments.getToDelete()[0].getStartIndex();
+        for (SegmentFileInfo del : segments.getToDelete()) {
           final File delFile;
-          if (del.isOpen) {
-            delFile = storage.getStorageDir().getOpenLogFile(del.startIndex);
+          if (del.isOpen()) {
+            delFile = storage.getStorageDir().getOpenLogFile(del.getStartIndex());
           } else {
             delFile = storage.getStorageDir()
-                .getClosedLogFile(del.startIndex, del.endIndex);
+                .getClosedLogFile(del.getStartIndex(), del.getEndIndex());
           }
           Preconditions.assertTrue(delFile.exists(),
               "File %s to be deleted does not exist", delFile);
           FileUtils.deleteFile(delFile);
           LOG.info("{}: Deleted log file {}", name, delFile);
-          minStart = Math.min(minStart, del.startIndex);
+          minStart = Math.min(minStart, del.getStartIndex());
         }
-        if (segments.toTruncate == null) {
+        if (segments.getToTruncate() == null) {
           lastWrittenIndex = minStart - 1;
         }
       }
@@ -663,10 +663,10 @@ class SegmentedRaftLogWorker implements Runnable {
 
     @Override
     long getEndIndex() {
-      if (segments.toTruncate != null) {
-        return segments.toTruncate.newEndIndex;
-      } else if (segments.toDelete.length > 0) {
-        return segments.toDelete[segments.toDelete.length - 1].endIndex;
+      if (segments.getToTruncate() != null) {
+        return segments.getToTruncate().getNewEndIndex();
+      } else if (segments.getToDelete().length > 0) {
+        return segments.getToDelete()[segments.getToDelete().length - 1].getEndIndex();
       }
       return RaftLog.INVALID_LOG_INDEX;
     }

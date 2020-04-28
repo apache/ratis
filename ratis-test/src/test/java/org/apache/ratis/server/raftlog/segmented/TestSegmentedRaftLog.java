@@ -549,8 +549,8 @@ public class TestSegmentedRaftLog extends BaseTest {
     final StateMachine sm = new BaseStateMachine() {
       @Override
       public CompletableFuture<?> writeStateMachineData(LogEntryProto entry) {
-        lifeCycle.transition(LifeCycle.State.STARTING);
-        lifeCycle.transition(LifeCycle.State.RUNNING);
+        getLifeCycle().transition(LifeCycle.State.STARTING);
+        getLifeCycle().transition(LifeCycle.State.RUNNING);
 
         return new CompletableFuture<>(); // the future never completes
       }
@@ -562,8 +562,8 @@ public class TestSegmentedRaftLog extends BaseTest {
 
         Assert.assertNotNull(entry);
 
-        lifeCycle.transition(LifeCycle.State.PAUSING);
-        lifeCycle.transition(LifeCycle.State.PAUSED);
+        getLifeCycle().transition(LifeCycle.State.PAUSING);
+        getLifeCycle().transition(LifeCycle.State.PAUSED);
       }
     };
 

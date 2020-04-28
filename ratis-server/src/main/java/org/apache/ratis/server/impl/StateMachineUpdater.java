@@ -261,10 +261,10 @@ class StateMachineUpdater implements Runnable {
       i = stateMachine.takeSnapshot();
       takeSnapshotTimerContext.stop();
 
-      final long appliedIndex = getLastAppliedIndex();
-      if (i > appliedIndex) {
+      final long lastAppliedIndex = getLastAppliedIndex();
+      if (i > lastAppliedIndex) {
         throw new StateMachineException(
-            "Bug in StateMachine: snapshot index = " + i + " > appliedIndex = " + appliedIndex
+            "Bug in StateMachine: snapshot index = " + i + " > appliedIndex = " + lastAppliedIndex
             + "; StateMachine class=" +  stateMachine.getClass().getName() + ", stateMachine=" + stateMachine);
       }
       stateMachine.getStateMachineStorage().cleanupOldSnapshots(snapshotRetentionPolicy);

@@ -86,9 +86,9 @@ public class RaftStorage implements Closeable {
   }
 
   private MetaFile writeMetaFile(long term, String votedFor) throws IOException {
-    MetaFile metaFile = new MetaFile(storageDir.getMetaFile());
-    metaFile.set(term, votedFor);
-    return metaFile;
+    MetaFile mFile = new MetaFile(storageDir.getMetaFile());
+    mFile.set(term, votedFor);
+    return mFile;
   }
 
   private void cleanMetaTmpFile() throws IOException {

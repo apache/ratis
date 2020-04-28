@@ -182,7 +182,7 @@ public class LogStateMachine extends BaseStateMachine {
 
   private void checkInitialization() throws IOException {
     if (this.log == null) {
-      ServerState serverState = proxy.getImpl(groupId).getState();
+      ServerState serverState = proxy.getImpl(getGroupId()).getState();
       this.log = serverState.getLog();
     }
   }
@@ -752,8 +752,8 @@ public class LogStateMachine extends BaseStateMachine {
   private RaftClient getClient() throws IOException {
     if (client == null) {
       try {
-        RaftServer raftServer = server.get();
-        client = RaftClient.newBuilder().setRaftGroup(getGroupFromGroupId(raftServer, groupId))
+        RaftServer raftServer = getServer().get();
+        client = RaftClient.newBuilder().setRaftGroup(getGroupFromGroupId(raftServer, getGroupId()))
             .setClientId(ClientId.randomId())
             .setProperties(raftServer.getProperties()).build();
       } catch (Exception e) {

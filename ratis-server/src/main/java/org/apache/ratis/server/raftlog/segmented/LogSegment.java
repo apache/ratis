@@ -51,6 +51,11 @@ import java.util.function.Consumer;
  * This class will be protected by the {@link SegmentedRaftLog}'s read-write lock.
  */
 public class LogSegment implements Comparable<Long> {
+
+  //TODO: This class needs to be made final to address checkstyle issue. However, TestCacheEviction fails as Mockito
+  // cannot spy final class. This problem can be fixed when stable version of Mockito 2.x is available which provides
+  // a feature to mock final class/method.
+
   static final Logger LOG = LoggerFactory.getLogger(LogSegment.class);
 
   static long getEntrySize(LogEntryProto entry) {
@@ -215,10 +220,10 @@ public class LogSegment implements Comparable<Long> {
   private volatile boolean isOpen;
   private long totalSize = SegmentedRaftLogFormat.getHeaderLength();
   /** Segment start index, inclusive. */
-  private final long startIndex;
+  private long startIndex;
   /** Segment end index, inclusive. */
   private volatile long endIndex;
-  private final RaftStorage storage;
+  private RaftStorage storage;
   private RaftLogMetrics raftLogMetrics;
   private final LogEntryLoader cacheLoader = new LogEntryLoader(raftLogMetrics);
   /** later replace it with a metric */

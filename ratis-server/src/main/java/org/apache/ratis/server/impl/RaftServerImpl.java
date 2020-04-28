@@ -80,7 +80,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   private final LifeCycle lifeCycle;
   private final ServerState state;
-  private final Supplier<RaftPeer> peerSupplier = JavaUtils.memoize(() -> new RaftPeer(getId(), getServerRpc().getInetSocketAddress()));
+  private final Supplier<RaftPeer> peerSupplier = JavaUtils.memoize(() ->
+      new RaftPeer(getId(), getServerRpc().getInetSocketAddress()));
   private final RoleInfo role;
 
   private final RetryCache retryCache;
@@ -124,11 +125,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   LogAppender newLogAppender(
-      LeaderState state, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
+      LeaderState leaderState, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
       boolean attendVote) {
     final FollowerInfo f = new FollowerInfo(getMemberId(), peer, lastRpcTime, nextIndex, attendVote,
         rpcSlownessTimeoutMs);
-    return getProxy().getFactory().newLogAppender(this, state, f);
+    return getProxy().getFactory().newLogAppender(this, leaderState, f);
   }
 
   RaftPeer getPeer() {
@@ -571,7 +572,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         return reply;
       }
       // let the state machine handle read-only request from client
-      final StateMachine stateMachine = getStateMachine();
       RaftClientRequest.Type type = request.getType();
       if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
         if (type.getStream().getClose()) {
@@ -644,7 +644,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       return CompletableFuture.completedFuture(
           new RaftClientReply(request, new StateMachineException(getMemberId(), e), getCommitInfos()));
     }
-    return processQueryFuture(getStateMachine().queryStale(request.getMessage(), minIndex), request);
+    return processQueryFuture(stateMachine.queryStale(request.getMessage(), minIndex), request);
   }
 
   private CompletableFuture<RaftClientReply> streamAsync(RaftClientRequest request) {
@@ -946,6 +946,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
   }
 
+  @SuppressWarnings("checkstyle:parameternumber")
   private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
       RaftPeerId leaderId, long leaderTerm, TermIndex previous, long leaderCommit, long callId, boolean initializing,
       List<CommitInfoProto> commitInfos, LogEntryProto... entries) {
@@ -1329,7 +1330,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   CompletableFuture<Message> applyLogToStateMachine(LogEntryProto next) {
-    final StateMachine stateMachine = getStateMachine();
     if (!next.hasStateMachineLogEntry()) {
       stateMachine.notifyIndexUpdate(next.getTerm(), next.getIndex());
     }
