@@ -460,6 +460,19 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return null;
   }
 
+  public boolean isLeaderReady() {
+    if (!isLeader()) {
+      return false;
+    }
+
+    final LeaderState leaderState = role.getLeaderState().orElse(null);
+    if (leaderState == null || !leaderState.isReady()) {
+      return false;
+    }
+
+    return true;
+  }
+
   NotLeaderException generateNotLeaderException() {
     if (lifeCycle.getCurrentState() != RUNNING) {
       return new NotLeaderException(getMemberId(), null, null);
