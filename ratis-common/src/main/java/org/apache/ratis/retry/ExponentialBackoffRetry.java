@@ -30,9 +30,9 @@ import java.util.concurrent.ThreadLocalRandom;
  * If sleep time calculated using the progression is s then randomness is added
  * in the range [s*0.5, s*1.5).
  */
-public class ExponentialBackoffRetry implements RetryPolicy {
+public final class ExponentialBackoffRetry implements RetryPolicy {
 
-  public static class Builder {
+  public static final class Builder {
 
     private Builder() {}
 

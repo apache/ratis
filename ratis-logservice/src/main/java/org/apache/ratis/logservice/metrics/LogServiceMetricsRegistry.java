@@ -22,7 +22,7 @@ import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 
-public class LogServiceMetricsRegistry {
+public final class LogServiceMetricsRegistry {
   public static final String RATIS_LOG_STATEMACHINE_METRICS = "log_statemachine";
   public static final String RATIS_LOG_SERVICE_METRICS = "ratis_log_service";
   public static final String RATIS_LOG_SERVICE_METRICS_DESC = "Ratis log service metrics";
@@ -56,6 +56,10 @@ public class LogServiceMetricsRegistry {
   private static RatisMetricRegistry create(MetricRegistryInfo info) {
     RatisMetricRegistry registry = MetricRegistries.global().create(info);
     return registry;
+  }
+
+  private LogServiceMetricsRegistry() {
+    throw new UnsupportedOperationException("no instances");
   }
 
 }
