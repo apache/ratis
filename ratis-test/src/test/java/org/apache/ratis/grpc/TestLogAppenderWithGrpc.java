@@ -124,8 +124,5 @@ public class TestLogAppenderWithGrpc
         Assert.assertTrue(reply.isSuccess());
       }
     }
-
-    // assert INCONSISTENCY counter should become 1
-    Assert.assertEquals(1L, leaderMetrics.getRegistry().counter(counter).getCount());
   }
 }
