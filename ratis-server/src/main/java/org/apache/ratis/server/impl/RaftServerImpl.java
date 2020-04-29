@@ -125,10 +125,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   LogAppender newLogAppender(
-      LeaderState leaderState, RaftPeer peer, Timestamp lastRpcTime, long nextIndex,
-      boolean attendVote) {
-    final FollowerInfo f = new FollowerInfo(getMemberId(), peer, lastRpcTime, nextIndex, attendVote,
-        rpcSlownessTimeoutMs);
+      LeaderState leaderState, FollowerInfo f) {
     return getProxy().getFactory().newLogAppender(this, leaderState, f);
   }
 
@@ -142,6 +139,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   int getMaxTimeoutMs() {
     return maxTimeoutMs;
+  }
+
+  int getRpcSlownessTimeoutMs() {
+    return rpcSlownessTimeoutMs;
   }
 
   int getRandomTimeoutMs() {
