@@ -41,6 +41,8 @@ public class MetricRegistriesImpl extends MetricRegistries {
 
   private final List<Consumer<RatisMetricRegistry>> reporterRegistrations = new CopyOnWriteArrayList<>();
 
+  private final List<Consumer<RatisMetricRegistry>> stopReporters = new CopyOnWriteArrayList<>();
+
   private final MetricRegistryFactory factory;
 
   private final RefCountingMap<MetricRegistryInfo, RatisMetricRegistry> registries;
@@ -70,6 +72,11 @@ public class MetricRegistriesImpl extends MetricRegistries {
 
   @Override
   public boolean remove(MetricRegistryInfo key) {
+    RatisMetricRegistry registry = registries.get(key);
+    if (registry != null) {
+      stopReporters.forEach(reg -> reg.accept(registry));
+    }
+
     return registries.remove(key) == null;
   }
 
@@ -94,7 +101,9 @@ public class MetricRegistriesImpl extends MetricRegistries {
   }
 
   @Override
-  public void addReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration) {
+  public void addReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration,
+      Consumer<RatisMetricRegistry> stopReporter) {
     this.reporterRegistrations.add(reporterRegistration);
+    this.stopReporters.add(stopReporter);
   }
 }

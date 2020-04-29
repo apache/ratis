@@ -92,5 +92,6 @@ public abstract class MetricRegistries {
    *
    * @param reporterRegistration Consumer to create the reporter for the registry.
    */
-  public abstract void addReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration);
+  public abstract void addReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration,
+      Consumer<RatisMetricRegistry> stopReporter);
 }

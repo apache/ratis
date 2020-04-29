@@ -240,6 +240,7 @@
 
     <!--metrics-->
     <dropwizard.version>3.2.5</dropwizard.version>
+    <prometheus.version>0.7.0</prometheus.version>
 
     <!-- commons lang version -->
     <commons.lang.version>3.8.1</commons.lang.version>
@@ -462,6 +463,12 @@
         <groupId>io.dropwizard.metrics</groupId>
         <artifactId>metrics-ganglia</artifactId>
         <version>${dropwizard.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.prometheus</groupId>
+        <artifactId>simpleclient_dropwizard</artifactId>
+        <version>${prometheus.version}</version>
       </dependency>
 
       <dependency>
