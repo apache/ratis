@@ -55,29 +55,16 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testHandleNotLeaderException() throws Exception {
-    runWithNewCluster(NUM_PEERS, cluster -> runTestHandleNotLeaderException(false, cluster));
+    runWithNewCluster(NUM_PEERS, cluster -> runTestHandleNotLeaderException(cluster));
   }
 
-  /**
-   * Test handle both IOException and NotLeaderException
-   */
-  @Test
-  public void testHandleNotLeaderAndIOException() throws Exception {
-    runWithNewCluster(NUM_PEERS, cluster -> runTestHandleNotLeaderException(true, cluster));
-  }
-
-  void runTestHandleNotLeaderException(boolean killNewLeader, CLUSTER cluster) throws Exception {
+  void runTestHandleNotLeaderException(CLUSTER cluster) throws Exception {
     final RaftPeerId oldLeader = RaftTestUtil.waitForLeader(cluster).getId();
     try(final RaftClient client = cluster.createClient(oldLeader)) {
       sendMessage("m1", client);
 
       // enforce leader change
       final RaftPeerId newLeader = RaftTestUtil.changeLeader(cluster, oldLeader);
-
-      if (killNewLeader) {
-        // kill the new leader
-        cluster.killServer(newLeader);
-      }
 
       final RaftClientRpc rpc = client.getClientRpc();
       JavaUtils.attemptRepeatedly(() -> assertNotLeaderException(newLeader, "m2", oldLeader, rpc, cluster),
