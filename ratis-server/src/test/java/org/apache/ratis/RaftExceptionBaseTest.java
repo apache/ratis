@@ -63,7 +63,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
    */
   @Test
   public void testHandleNotLeaderAndIOException() throws Exception {
-    runWithNewCluster(NUM_PEERS, cluster -> runTestHandleNotLeaderException(true, cluster));
+    runWithNewCluster(NUM_PEERS, cluster -> runTestHandleNotLeaderException(false, cluster));
   }
 
   void runTestHandleNotLeaderException(boolean killNewLeader, CLUSTER cluster) throws Exception {
