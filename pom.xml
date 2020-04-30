@@ -669,6 +669,7 @@
           <configuration>
             <failIfNoTests>false</failIfNoTests>
             <reuseForks>false</reuseForks>
+            <trimStackTrace>false</trimStackTrace>
             <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
             <argLine>-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError</argLine>
             <systemPropertyVariables>
