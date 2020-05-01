@@ -23,6 +23,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -150,6 +151,40 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         10, ONE_SECOND, "getLeaderId", LOG);
     LOG.info(cluster.printServers());
     Assert.assertEquals(leader.getId(), lastServerLeaderId);
+  }
+
+  protected void testDisconnectLeader() throws Exception {
+    try(final MiniRaftCluster cluster = newCluster(3)) {
+      cluster.start();
+
+      final RaftServerImpl leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.send(new RaftTestUtil.SimpleMessage("message"));
+        Thread.sleep(1000);
+        isolate(cluster, leader.getId());
+        RaftClientReply reply = client.send(new RaftTestUtil.SimpleMessage("message"));
+        Assert.assertNotEquals(reply.getReplierId(), leader.getId());
+        Assert.assertTrue(reply.isSuccess());
+      } finally {
+        deIsolate(cluster, leader.getId());
+      }
+
+      cluster.shutdown();
+    }
+  }
+
+  private void isolate(MiniRaftCluster cluster, RaftPeerId id) {
+    try {
+      BlockRequestHandlingInjection.getInstance().blockReplier(id.toString());
+      cluster.setBlockRequestsFrom(id.toString(), true);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  private void deIsolate(MiniRaftCluster cluster, RaftPeerId id) {
+    BlockRequestHandlingInjection.getInstance().unblockReplier(id.toString());
+    cluster.setBlockRequestsFrom(id.toString(), false);
   }
 
   @Test

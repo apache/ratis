@@ -26,6 +26,7 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.common.cache.Cache;
 import org.apache.ratis.thirdparty.com.google.common.cache.CacheBuilder;
+import org.apache.ratis.thirdparty.com.google.common.cache.CacheStats;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
@@ -154,6 +155,7 @@ public class RetryCache implements Closeable {
    */
   RetryCache(TimeDuration expirationTime) {
     cache = CacheBuilder.newBuilder()
+        .recordStats()
         .expireAfterWrite(expirationTime.getDuration(), expirationTime.getUnit())
         .build();
   }
@@ -209,8 +211,12 @@ public class RetryCache implements Closeable {
   }
 
   @VisibleForTesting
-  long size() {
+  public long size() {
     return cache.size();
+  }
+
+  public CacheStats stats() {
+    return cache.stats();
   }
 
   @VisibleForTesting

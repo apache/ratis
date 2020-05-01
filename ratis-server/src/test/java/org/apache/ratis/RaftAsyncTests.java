@@ -422,11 +422,8 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       FIVE_SECONDS.apply(f::get);
     }
 
-    final RetryPolicy r = event -> () -> {
-      final IllegalStateException e = new IllegalStateException("Unexpected getSleepTime: " + event);
-      setFirstException(e);
-      throw e;
-    };
+    // if sleep interval defined by retry policy is used the test will timeout
+    final RetryPolicy r = event -> () -> TimeDuration.valueOf(60, TimeUnit.SECONDS);
 
     try (final RaftClient client = cluster.createClient(followers.get(0).getId(), cluster.getGroup(), r)) {
       final CompletableFuture<RaftClientReply> f = client.sendAsync(new SimpleMessage("abc"));

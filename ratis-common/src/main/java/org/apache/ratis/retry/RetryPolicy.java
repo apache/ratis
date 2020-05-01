@@ -55,6 +55,11 @@ public interface RetryPolicy {
     /** @return the number of attempts tried so far. */
     int getAttemptCount();
 
+    /** @return the number of attempts for the event cause. */
+    default int getCauseCount() {
+      return 0;
+    }
+
     default Throwable getCause() {
       return null;
     }

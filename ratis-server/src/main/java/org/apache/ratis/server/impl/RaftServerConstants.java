@@ -19,13 +19,17 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.server.raftlog.RaftLog;
 
-public interface RaftServerConstants {
+public final class RaftServerConstants {
   /** @deprecated use {@link RaftLog#INVALID_LOG_INDEX}. */
   @Deprecated
-  long INVALID_LOG_INDEX = RaftLog.INVALID_LOG_INDEX;
-  long DEFAULT_CALLID = 0;
+  public static final long INVALID_LOG_INDEX = RaftLog.INVALID_LOG_INDEX;
+  public static final long DEFAULT_CALLID = 0;
 
-  enum StartupOption {
+  private RaftServerConstants() {
+    //Never constructed
+  }
+
+  public enum StartupOption {
     FORMAT("format"),
     REGULAR("regular");
 

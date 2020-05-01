@@ -65,7 +65,9 @@ class SegmentedRaftLogReader implements Closeable {
     public int read() throws IOException {
       checkLimit(1);
       int ret = super.read();
-      if (ret != -1) curPos++;
+      if (ret != -1) {
+        curPos++;
+      }
       return ret;
     }
 
@@ -73,7 +75,9 @@ class SegmentedRaftLogReader implements Closeable {
     public int read(byte[] data) throws IOException {
       checkLimit(data.length);
       int ret = super.read(data);
-      if (ret > 0) curPos += ret;
+      if (ret > 0) {
+        curPos += ret;
+      }
       return ret;
     }
 
@@ -81,7 +85,9 @@ class SegmentedRaftLogReader implements Closeable {
     public int read(byte[] data, int offset, int length) throws IOException {
       checkLimit(length);
       int ret = super.read(data, offset, length);
-      if (ret > 0) curPos += ret;
+      if (ret > 0) {
+        curPos += ret;
+      }
       return ret;
     }
 
@@ -126,7 +132,7 @@ class SegmentedRaftLogReader implements Closeable {
     }
   }
 
-  private static final int maxOpSize = 32 * 1024 * 1024;
+  private static final int MAX_OP_SIZE = 32 * 1024 * 1024;
 
   private final File file;
   private final LimitedInputStream limiter;
@@ -267,8 +273,8 @@ class SegmentedRaftLogReader implements Closeable {
    * @return The log entry, or null if we hit EOF.
    */
   private LogEntryProto decodeEntry() throws IOException {
-    limiter.setLimit(maxOpSize);
-    in.mark(maxOpSize);
+    limiter.setLimit(MAX_OP_SIZE);
+    in.mark(MAX_OP_SIZE);
 
     byte nextByte;
     try {
@@ -288,9 +294,9 @@ class SegmentedRaftLogReader implements Closeable {
     // Here, we verify that the Op size makes sense and that the
     // data matches its checksum before attempting to construct an Op.
     int entryLength = CodedInputStream.readRawVarint32(nextByte, in);
-    if (entryLength > maxOpSize) {
+    if (entryLength > MAX_OP_SIZE) {
       throw new IOException("Entry has size " + entryLength
-          + ", but maxOpSize = " + maxOpSize);
+          + ", but MAX_OP_SIZE = " + MAX_OP_SIZE);
     }
 
     final int varintLength = CodedOutputStream.computeUInt32SizeNoTag(
@@ -298,7 +304,7 @@ class SegmentedRaftLogReader implements Closeable {
     final int totalLength = varintLength + entryLength;
     checkBufferSize(totalLength);
     in.reset();
-    in.mark(maxOpSize);
+    in.mark(MAX_OP_SIZE);
     IOUtils.readFully(in, temp, 0, totalLength);
 
     // verify checksum
@@ -318,11 +324,11 @@ class SegmentedRaftLogReader implements Closeable {
   }
 
   private void checkBufferSize(int entryLength) {
-    Preconditions.assertTrue(entryLength <= maxOpSize);
+    Preconditions.assertTrue(entryLength <= MAX_OP_SIZE);
     int length = temp.length;
     if (length < entryLength) {
       while (length < entryLength) {
-        length = Math.min(length * 2, maxOpSize);
+        length = Math.min(length * 2, MAX_OP_SIZE);
       }
       temp = new byte[length];
     }

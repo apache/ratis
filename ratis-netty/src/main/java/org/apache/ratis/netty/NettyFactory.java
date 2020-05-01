@@ -42,6 +42,6 @@ public class NettyFactory extends ServerFactory.BaseFactory implements ClientFac
 
   @Override
   public NettyClientRpc newRaftClientRpc(ClientId clientId, RaftProperties properties) {
-    return new NettyClientRpc(clientId);
+    return new NettyClientRpc(clientId, properties);
   }
 }

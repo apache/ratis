@@ -175,6 +175,18 @@ public interface RaftServerConfigKeys {
       setInt(properties::setInt, PURGE_GAP_KEY, purgeGap, requireMin(1));
     }
 
+    // Config to allow purging up to the snapshot index even if some other
+    // peers are behind in their commit index.
+    String PURGE_UPTO_SNAPSHOT_INDEX_KEY = PREFIX + ".purge.upto.snapshot.index";
+    boolean PURGE_UPTO_SNAPSHOT_INDEX_DEFAULT = false;
+    static boolean purgeUptoSnapshotIndex(RaftProperties properties) {
+      return getBoolean(properties::getBoolean, PURGE_UPTO_SNAPSHOT_INDEX_KEY,
+          PURGE_UPTO_SNAPSHOT_INDEX_DEFAULT, getDefaultLog());
+    }
+    static void setPurgeUptoSnapshotIndex(RaftProperties properties, boolean shouldPurgeUptoSnapshotIndex) {
+      setBoolean(properties::setBoolean, PURGE_UPTO_SNAPSHOT_INDEX_KEY, shouldPurgeUptoSnapshotIndex);
+    }
+
     String SEGMENT_SIZE_MAX_KEY = PREFIX + ".segment.size.max";
     SizeInBytes SEGMENT_SIZE_MAX_DEFAULT = SizeInBytes.valueOf("8MB");
     static SizeInBytes segmentSizeMax(RaftProperties properties) {

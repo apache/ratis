@@ -90,6 +90,15 @@ public interface Preconditions {
         + name + " = " + object + " != null, class = " + object.getClass());
   }
 
+  static void assertNotNull(Object object, Supplier<String> message) {
+    assertTrue(object != null, message);
+  }
+
+  static void assertNotNull(Object object, String name) {
+    assertNotNull(object, () -> name + " is expected to not be null but "
+        + name + " = " + object + " == null, class = " + object.getClass());
+  }
+
   static <T> void assertUnique(Iterable<T> first) {
     assertUnique(first, Collections.emptyList());
   }

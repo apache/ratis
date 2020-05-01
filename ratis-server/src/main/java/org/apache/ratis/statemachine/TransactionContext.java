@@ -27,7 +27,6 @@ import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.Preconditions;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Objects;
 
 /**
@@ -42,7 +41,7 @@ import java.util.Objects;
  * a {@link TransactionContext} with the changes from the {@link StateMachine}.
  * The same context will be passed back to the {@link StateMachine}
  * via the {@link StateMachine#applyTransaction(TransactionContext)} call
- * or the {@link StateMachine#notifyNotLeader(Collection)} call.
+ * or the {@link StateMachine#notifyNotLeader(java.util.Collection)} call.
  *
  * In the second case, the {@link StateMachine} is a follower.
  * The {@link TransactionContext} will be a committed entry coming from

@@ -112,8 +112,10 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final long leaderLastIndex = cluster.getLeader().getState().getLog().getLastEntryTermIndex().getIndex();
     // make sure the restarted follower can catchup
     final ServerState followerState = cluster.getRaftServerImpl(followerId).getState();
-    JavaUtils.attemptRepeatedly(() -> followerState.getLastAppliedIndex() >= leaderLastIndex,
-        10, ONE_SECOND, "follower catchup", LOG);
+    JavaUtils.attemptRepeatedly(() -> {
+      Assert.assertTrue(followerState.getLastAppliedIndex() >= leaderLastIndex);
+      return null;
+    }, 10, ONE_SECOND, "follower catchup", LOG);
 
     // make sure the restarted peer's log segments is correct
     final RaftServerImpl follower = cluster.restartServer(followerId, false);
@@ -292,10 +294,14 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       cluster.restartServer(id, false);
       final RaftServerImpl server = cluster.getRaftServerImpl(id);
       final RaftLog raftLog = server.getState().getLog();
-      JavaUtils.attemptRepeatedly(() -> raftLog.getLastCommittedIndex() >= loggedCommitIndex,
-          10, HUNDRED_MILLIS, id + "(commitIndex >= loggedCommitIndex)", LOG);
-      JavaUtils.attemptRepeatedly(() -> server.getState().getLastAppliedIndex() >= loggedCommitIndex,
-          10, HUNDRED_MILLIS, id + "(lastAppliedIndex >= loggedCommitIndex)", LOG);
+      JavaUtils.attemptRepeatedly(() -> {
+        Assert.assertTrue(raftLog.getLastCommittedIndex() >= loggedCommitIndex);
+        return null;
+      }, 10, HUNDRED_MILLIS, id + "(commitIndex >= loggedCommitIndex)", LOG);
+      JavaUtils.attemptRepeatedly(() -> {
+        Assert.assertTrue(server.getState().getLastAppliedIndex() >= loggedCommitIndex);
+        return null;
+      }, 10, HUNDRED_MILLIS, id + "(lastAppliedIndex >= loggedCommitIndex)", LOG);
       LOG.info("{}: commitIndex={}, lastAppliedIndex={}",
           id, raftLog.getLastCommittedIndex(), server.getState().getLastAppliedIndex());
       cluster.killServer(id);

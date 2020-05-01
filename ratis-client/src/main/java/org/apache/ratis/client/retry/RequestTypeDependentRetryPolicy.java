@@ -17,11 +17,11 @@
  */
 package org.apache.ratis.client.retry;
 
-import org.apache.ratis.client.ClientRetryEvent;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.Preconditions;
+import org.apache.ratis.util.TimeDuration;
 
 import java.util.Collections;
 import java.util.EnumMap;
@@ -39,6 +39,7 @@ public final class RequestTypeDependentRetryPolicy implements RetryPolicy {
   public static class Builder {
     private final EnumMap<RaftProtos.RaftClientRequestProto.TypeCase, RetryPolicy> map
         = new EnumMap<>(RaftProtos.RaftClientRequestProto.TypeCase.class);
+    private TimeDuration timeout = null;
 
     /** Set the given policy for the given type. */
     public Builder set(RaftProtos.RaftClientRequestProto.TypeCase type, RetryPolicy policy) {
@@ -47,8 +48,13 @@ public final class RequestTypeDependentRetryPolicy implements RetryPolicy {
       return this;
     }
 
+    public Builder setTimeout(TimeDuration timeout) {
+      this.timeout = timeout;
+      return this;
+    }
+
     public RequestTypeDependentRetryPolicy build() {
-      return new RequestTypeDependentRetryPolicy(map);
+      return new RequestTypeDependentRetryPolicy(map, timeout);
     }
   }
 
@@ -57,10 +63,13 @@ public final class RequestTypeDependentRetryPolicy implements RetryPolicy {
   }
 
   private final Map<RaftProtos.RaftClientRequestProto.TypeCase, RetryPolicy> map;
+  private TimeDuration timeout;
   private final Supplier<String> myString;
 
-  private RequestTypeDependentRetryPolicy(EnumMap<RaftProtos.RaftClientRequestProto.TypeCase, RetryPolicy> map) {
+  private RequestTypeDependentRetryPolicy(
+      EnumMap<RaftProtos.RaftClientRequestProto.TypeCase, RetryPolicy> map, TimeDuration timeout) {
     this.map = Collections.unmodifiableMap(map);
+    this.timeout = timeout;
     this.myString = () -> {
       final StringBuilder b = new StringBuilder(getClass().getSimpleName()).append("{");
       map.forEach((key, value) -> b.append(key).append("->").append(value).append(", "));
@@ -75,6 +84,9 @@ public final class RequestTypeDependentRetryPolicy implements RetryPolicy {
       return RetryPolicies.retryForeverNoSleep().handleAttemptFailure(event);
     }
     final ClientRetryEvent clientEvent = (ClientRetryEvent) event;
+    if (timeout != null && clientEvent.isRequestTimeout(timeout)) {
+      return NO_RETRY_ACTION;
+    }
     return Optional.ofNullable(map.get(clientEvent.getRequest().getType().getTypeCase()))
         .orElse(RetryPolicies.retryForeverNoSleep())
         .handleAttemptFailure(event);

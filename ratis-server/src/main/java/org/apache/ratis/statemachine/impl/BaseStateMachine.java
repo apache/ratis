@@ -47,9 +47,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * Base implementation for StateMachines.
  */
 public class BaseStateMachine implements StateMachine {
-  protected final CompletableFuture<RaftServer> server = new CompletableFuture<>();
-  protected volatile RaftGroupId groupId;
-  protected final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
+  private final CompletableFuture<RaftServer> server = new CompletableFuture<>();
+  private volatile RaftGroupId groupId;
+  private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());
 
   private final AtomicReference<TermIndex> lastAppliedTermIndex = new AtomicReference<>();
 
@@ -63,15 +63,27 @@ public class BaseStateMachine implements StateMachine {
     return server.isDone()? server.join().getId(): null;
   }
 
+  public LifeCycle getLifeCycle() {
+    return lifeCycle;
+  }
+
+  public CompletableFuture<RaftServer> getServer() {
+    return server;
+  }
+
+  public RaftGroupId getGroupId() {
+    return groupId;
+  }
+
   @Override
   public LifeCycle.State getLifeCycleState() {
     return lifeCycle.getCurrentState();
   }
 
   @Override
-  public void initialize(RaftServer server, RaftGroupId groupId, RaftStorage storage) throws IOException {
-    this.groupId = groupId;
-    this.server.complete(server);
+  public void initialize(RaftServer raftServer, RaftGroupId raftGroupId, RaftStorage storage) throws IOException {
+    this.groupId = raftGroupId;
+    this.server.complete(raftServer);
     lifeCycle.setName("" + this);
   }
 

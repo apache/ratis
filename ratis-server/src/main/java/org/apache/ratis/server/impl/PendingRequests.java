@@ -144,7 +144,8 @@ class PendingRequests {
       return r;
     }
 
-    Collection<TransactionContext> setNotLeaderException(NotLeaderException nle, Collection<CommitInfoProto> commitInfos) {
+    Collection<TransactionContext> setNotLeaderException(NotLeaderException nle,
+                                                         Collection<CommitInfoProto> commitInfos) {
       synchronized (this) {
         resource.close();
         permits.clear();
@@ -236,7 +237,8 @@ class PendingRequests {
    * The leader state is stopped. Send NotLeaderException to all the pending
    * requests since they have not got applied to the state machine yet.
    */
-  Collection<TransactionContext> sendNotLeaderResponses(NotLeaderException nle, Collection<CommitInfoProto> commitInfos) {
+  Collection<TransactionContext> sendNotLeaderResponses(NotLeaderException nle,
+                                                        Collection<CommitInfoProto> commitInfos) {
     LOG.info("{}: sendNotLeaderResponses", name);
 
     final Collection<TransactionContext> transactions = pendingRequests.setNotLeaderException(nle, commitInfos);

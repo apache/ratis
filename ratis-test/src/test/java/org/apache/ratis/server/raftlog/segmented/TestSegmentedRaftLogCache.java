@@ -179,34 +179,34 @@ public class TestSegmentedRaftLogCache {
       // check TruncationSegments
       int currentNum= (int) (end / 100 + 1);
       if (currentNum < numOfSegments) {
-        Assert.assertEquals(1, ts.toDelete.length);
+        Assert.assertEquals(1, ts.getToDelete().length);
         numOfSegments = currentNum;
       } else {
-        Assert.assertEquals(0, ts.toDelete.length);
+        Assert.assertEquals(0, ts.getToDelete().length);
       }
     }
 
     // 230 entries remaining. truncate at the segment boundary
     TruncationSegments ts = cache.truncate(200);
     checkCache(0, 199, 100);
-    Assert.assertEquals(1, ts.toDelete.length);
-    Assert.assertEquals(200, ts.toDelete[0].startIndex);
-    Assert.assertEquals(229, ts.toDelete[0].endIndex);
-    Assert.assertEquals(0, ts.toDelete[0].targetLength);
-    Assert.assertFalse(ts.toDelete[0].isOpen);
-    Assert.assertNull(ts.toTruncate);
+    Assert.assertEquals(1, ts.getToDelete().length);
+    Assert.assertEquals(200, ts.getToDelete()[0].getStartIndex());
+    Assert.assertEquals(229, ts.getToDelete()[0].getEndIndex());
+    Assert.assertEquals(0, ts.getToDelete()[0].getTargetLength());
+    Assert.assertFalse(ts.getToDelete()[0].isOpen());
+    Assert.assertNull(ts.getToTruncate());
 
     // add another open segment and truncate it as a whole
     LogSegment newOpen = prepareLogSegment(200, 249, true);
     cache.addSegment(newOpen);
     ts = cache.truncate(200);
     checkCache(0, 199, 100);
-    Assert.assertEquals(1, ts.toDelete.length);
-    Assert.assertEquals(200, ts.toDelete[0].startIndex);
-    Assert.assertEquals(249, ts.toDelete[0].endIndex);
-    Assert.assertEquals(0, ts.toDelete[0].targetLength);
-    Assert.assertTrue(ts.toDelete[0].isOpen);
-    Assert.assertNull(ts.toTruncate);
+    Assert.assertEquals(1, ts.getToDelete().length);
+    Assert.assertEquals(200, ts.getToDelete()[0].getStartIndex());
+    Assert.assertEquals(249, ts.getToDelete()[0].getEndIndex());
+    Assert.assertEquals(0, ts.getToDelete()[0].getTargetLength());
+    Assert.assertTrue(ts.getToDelete()[0].isOpen());
+    Assert.assertNull(ts.getToTruncate());
 
     // add another open segment and truncate part of it
     newOpen = prepareLogSegment(200, 249, true);
@@ -214,11 +214,11 @@ public class TestSegmentedRaftLogCache {
     ts = cache.truncate(220);
     checkCache(0, 219, 100);
     Assert.assertNull(cache.getOpenSegment());
-    Assert.assertEquals(0, ts.toDelete.length);
-    Assert.assertTrue(ts.toTruncate.isOpen);
-    Assert.assertEquals(219, ts.toTruncate.newEndIndex);
-    Assert.assertEquals(200, ts.toTruncate.startIndex);
-    Assert.assertEquals(249, ts.toTruncate.endIndex);
+    Assert.assertEquals(0, ts.getToDelete().length);
+    Assert.assertTrue(ts.getToTruncate().isOpen());
+    Assert.assertEquals(219, ts.getToTruncate().getNewEndIndex());
+    Assert.assertEquals(200, ts.getToTruncate().getStartIndex());
+    Assert.assertEquals(249, ts.getToTruncate().getEndIndex());
   }
 
   @Test
@@ -234,8 +234,8 @@ public class TestSegmentedRaftLogCache {
     int purgeIndex = sIndex;
     // open segment should never be purged
     TruncationSegments ts = cache.purge(purgeIndex);
-    Assert.assertNull(ts.toTruncate);
-    Assert.assertEquals(end - start, ts.toDelete.length);
+    Assert.assertNull(ts.getToTruncate());
+    Assert.assertEquals(end - start, ts.getToDelete().length);
     Assert.assertEquals(sIndex, cache.getStartIndex());
   }
 
@@ -250,8 +250,8 @@ public class TestSegmentedRaftLogCache {
 
     // overlapped close segment will not purged.
     TruncationSegments ts = cache.purge(purgeIndex);
-    Assert.assertNull(ts.toTruncate);
-    Assert.assertEquals(end - start - 1, ts.toDelete.length);
+    Assert.assertNull(ts.getToTruncate());
+    Assert.assertEquals(end - start - 1, ts.getToDelete().length);
     Assert.assertEquals(1, cache.getNumOfSegments());
   }
 

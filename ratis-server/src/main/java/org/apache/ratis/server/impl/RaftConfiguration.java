@@ -33,14 +33,14 @@ import java.util.stream.Collectors;
  *
  * The objects of this class are immutable.
  */
-public class RaftConfiguration {
+public final class RaftConfiguration {
   /** Create a {@link Builder}. */
   public static Builder newBuilder() {
     return new Builder();
   }
 
   /** To build {@link RaftConfiguration} objects. */
-  public static class Builder {
+  public static final class Builder {
     private PeerConfiguration oldConf;
     private PeerConfiguration conf;
     private long logEntryIndex = RaftServerConstants.INVALID_LOG_INDEX;

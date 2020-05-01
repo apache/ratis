@@ -32,4 +32,10 @@ public class TestLeaderElectionWithNetty
     MiniRaftClusterWithNetty.sendServerRequest.clear();
     BlockRequestHandlingInjection.getInstance().unblockAll();
   }
+
+  @Test
+  public void testDisconnectLeader() throws Exception {
+    super.testDisconnectLeader();
+  }
+
 }

@@ -63,13 +63,21 @@ public class RaftStorageDirectory {
 
   public static class LogPathAndIndex {
     private final Path path;
-    public final long startIndex;
-    public final long endIndex;
+    private final long startIndex;
+    private final long endIndex;
 
     LogPathAndIndex(Path path, long startIndex, long endIndex) {
       this.path = path;
       this.startIndex = startIndex;
       this.endIndex = endIndex;
+    }
+
+    public long getStartIndex() {
+      return startIndex;
+    }
+
+    public long getEndIndex() {
+      return endIndex;
     }
 
     public Path getPath() {
@@ -359,8 +367,9 @@ public class RaftStorageDirectory {
    * Unlock storage.
    */
   public void unlock() throws IOException {
-    if (this.lock == null)
+    if (this.lock == null) {
       return;
+    }
     this.lock.release();
     lock.channel().close();
     lock = null;

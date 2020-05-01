@@ -288,7 +288,7 @@ public class ServerState implements Closeable {
    * If accept, update the current state.
    * @return true if the check passes
    */
-  boolean recognizeLeader(RaftPeerId leaderId, long leaderTerm) {
+  boolean recognizeLeader(RaftPeerId peerLeaderId, long leaderTerm) {
     final long current = currentTerm.get();
     if (leaderTerm < current) {
       return false;
@@ -298,7 +298,7 @@ public class ServerState implements Closeable {
       // leader and term later
       return true;
     }
-    return this.leaderId.equals(leaderId);
+    return this.leaderId.equals(peerLeaderId);
   }
 
   /**
@@ -364,16 +364,16 @@ public class ServerState implements Closeable {
     }
   }
 
-  boolean updateStatemachine(long majorityIndex, long currentTerm) {
-    if (log.updateLastCommitted(majorityIndex, currentTerm)) {
+  boolean updateStatemachine(long majorityIndex, long curTerm) {
+    if (log.updateLastCommitted(majorityIndex, curTerm)) {
       stateMachineUpdater.notifyUpdater();
       return true;
     }
     return false;
   }
 
-  void reloadStateMachine(long lastIndexInSnapshot, long currentTerm) {
-    log.updateLastCommitted(lastIndexInSnapshot, currentTerm);
+  void reloadStateMachine(long lastIndexInSnapshot, long curTerm) {
+    log.updateLastCommitted(lastIndexInSnapshot, curTerm);
     stateMachineUpdater.reloadStateMachine();
   }
 
