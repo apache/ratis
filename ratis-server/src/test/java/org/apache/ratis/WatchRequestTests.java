@@ -23,6 +23,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.protocol.NotLeaderException;
 import org.apache.ratis.protocol.NotReplicatedException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftRetryFailureException;
@@ -446,6 +447,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     final Logger LOG = p.log;
 
     CompletableFuture<RaftClientReply> watchReply;
+    // watch 1000 which will never be committed
+    // so client can not receive reply, and connection closed, throw TimeoutException
     watchReply = p.sendWatchRequest(1000);
 
     try {
@@ -457,8 +460,13 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
           ex.getCause().getClass());
       if (ex.getCause() != null) {
         if (ex.getCause().getCause() != null) {
-          Assert.assertEquals(TimeoutIOException.class,
-              ex.getCause().getCause().getClass());
+          // when client closed and throw TimeoutException,
+          // RaftClientImpl::handleIOException will random select a leader
+          // because suggested new leader is null.
+          // So it maybe sometimes throw NotLeaderException.
+          Assert.assertTrue(
+              ex.getCause().getCause().getClass() == TimeoutIOException.class ||
+              ex.getCause().getCause().getClass() == NotLeaderException.class);
         }
       }
     }
