@@ -51,9 +51,9 @@ public class NettyRpcProxy implements Closeable {
 
   public static class PeerMap extends PeerProxyMap<NettyRpcProxy> {
 
-    private static final EventLoopGroup group = initClientEventLoop();
+    private static final EventLoopGroup GROUP = initClientEventLoop();
     private final RaftProperties properties;
-    
+
     private static EventLoopGroup initClientEventLoop() {
       try {
         return new EpollEventLoopGroup();
@@ -69,9 +69,9 @@ public class NettyRpcProxy implements Closeable {
 
     @Override
     public NettyRpcProxy createProxyImpl(RaftPeer peer)
-            throws IOException {
+        throws IOException {
       try {
-        return new NettyRpcProxy(peer, properties, group);
+        return new NettyRpcProxy(peer, properties, GROUP);
       } catch (InterruptedException e) {
         throw IOUtils.toInterruptedIOException("Failed connecting to " + peer, e);
       }
@@ -80,7 +80,7 @@ public class NettyRpcProxy implements Closeable {
     @Override
     public void close() {
       super.close();
-      group.shutdownGracefully();
+      GROUP.shutdownGracefully();
     }
   }
 
@@ -174,7 +174,8 @@ public class NettyRpcProxy implements Closeable {
   private final Connection connection;
   private final TimeDuration requestTimeoutDuration;
 
-  public NettyRpcProxy(RaftPeer peer, RaftProperties properties, EventLoopGroup group) throws InterruptedException {
+  public NettyRpcProxy(RaftPeer peer, RaftProperties properties, EventLoopGroup group)
+      throws InterruptedException {
     this.peer = peer;
     this.connection = new Connection(group);
     this.requestTimeoutDuration = RaftClientConfigKeys.Rpc.requestTimeout(properties);
