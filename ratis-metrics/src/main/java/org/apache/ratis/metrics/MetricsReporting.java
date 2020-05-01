@@ -46,7 +46,7 @@ public final class MetricsReporting {
     return ratisMetricRegistry -> {
       ConsoleReporter reporter = ratisMetricRegistry.getConsoleReporter();
       if (reporter != null) {
-        reporter.stop();
+        reporter.close();
       }
     };
   }
@@ -67,7 +67,7 @@ public final class MetricsReporting {
     return registry -> {
       JmxReporter reporter = registry.getJmxReporter();
       if (reporter != null) {
-        reporter.stop();
+        reporter.close();
       }
     };
   }

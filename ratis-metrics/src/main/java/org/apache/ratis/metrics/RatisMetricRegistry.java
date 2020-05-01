@@ -19,7 +19,6 @@ package org.apache.ratis.metrics;
 
 import java.util.SortedMap;
 
-import io.prometheus.client.Collector;
 import com.codahale.metrics.ConsoleReporter;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
@@ -69,8 +68,4 @@ public interface RatisMetricRegistry {
   void setConsoleReporter(ConsoleReporter consoleReporter);
 
   ConsoleReporter getConsoleReporter();
-
-  void setPrometheusCollector(Collector prometheusCollector);
-
-  Collector getPrometheusCollector();
 }

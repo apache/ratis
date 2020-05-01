@@ -32,7 +32,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.MetricRegistry.MetricSupplier;
 import com.codahale.metrics.MetricSet;
 import com.codahale.metrics.Timer;
-import io.prometheus.client.Collector;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
@@ -47,7 +46,6 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
 
   private JmxReporter jmxReporter;
   private ConsoleReporter consoleReporter;
-  private Collector prometheusCollector;
 
   public RatisMetricRegistryImpl(MetricRegistryInfo info) {
     super();
@@ -142,15 +140,5 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
   @Override
   public ConsoleReporter getConsoleReporter() {
     return this.consoleReporter;
-  }
-
-  @Override
-  public void setPrometheusCollector(Collector prometheusCollector) {
-    this.prometheusCollector = prometheusCollector;
-  }
-
-  @Override
-  public Collector getPrometheusCollector() {
-    return this.prometheusCollector;
   }
 }
