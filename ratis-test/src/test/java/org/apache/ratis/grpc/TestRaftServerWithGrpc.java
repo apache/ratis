@@ -66,6 +66,7 @@ import org.junit.Test;
 
 import java.io.IOException;
 import java.nio.channels.OverlappingFileLockException;
+import java.util.Collections;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -101,6 +102,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // compared to leader. This helps in locking the raft storage directory to
     // be used by next raft server proxy instance.
     final StateMachine stateMachine = cluster.getLeader().getStateMachine();
+    RaftServerConfigKeys.setStorageDir(p, Collections.singletonList(cluster.getStorageDir(leaderId)));
     ServerImplUtils.newRaftServer(leaderId, cluster.getGroup(), gid -> stateMachine, p, null);
     // Close the server rpc for leader so that new raft server can be bound to it.
     cluster.getLeader().getServerRpc().close();
@@ -109,6 +111,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     // the leader. This step would fail as the raft storage has been locked by
     // the raft server proxy created earlier. Raft server proxy should close
     // the rpc server on failure.
+    RaftServerConfigKeys.setStorageDir(p, Collections.singletonList(cluster.getStorageDir(leaderId)));
     testFailureCase("start a new server with the same address",
         () -> ServerImplUtils.newRaftServer(leaderId, cluster.getGroup(), gid -> stateMachine, p, null).start(),
         IOException.class, OverlappingFileLockException.class);
