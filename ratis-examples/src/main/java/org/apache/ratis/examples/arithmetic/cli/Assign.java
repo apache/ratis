@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -43,12 +43,13 @@ public class Assign extends Client {
 
   private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+|\\d*\\.\\d+");
   private static final String VARIABLE_OR_NUMBER = String.format("(%s|%s)", NUMBER_PATTERN, Variable.PATTERN.pattern());
-  private static final Pattern BINARY_OPERATION_PATTERN = Pattern.compile(VARIABLE_OR_NUMBER + "\\s*([*+/-])\\s*" + VARIABLE_OR_NUMBER);
+  private static final Pattern BINARY_OPERATION_PATTERN = Pattern.compile(
+      VARIABLE_OR_NUMBER + "\\s*([*+/-])\\s*" + VARIABLE_OR_NUMBER);
   private static final Pattern UNARY_OPERATION_PATTERN = Pattern.compile("([√~-])" + VARIABLE_OR_NUMBER);
 
-  @Parameter(names = {
-      "--name"}, description = "Name of the variable to set", required = true)
-  String name;
+  @Parameter(names = {"--name"},
+      description = "Name of the variable to set", required = true)
+  private String name;
 
   @Parameter(names = {"--value"}, description = "Value to set", required = true)
   private String value;
@@ -62,21 +63,21 @@ public class Assign extends Client {
   }
 
   @VisibleForTesting
-  protected Expression createExpression(String value) {
-    if (NUMBER_PATTERN.matcher(value).matches()) {
-      return new DoubleValue(Double.valueOf(value));
-    } else if (Variable.PATTERN.matcher(value).matches()) {
-      return new Variable(value);
+  Expression createExpression(String val) {
+    if (NUMBER_PATTERN.matcher(val).matches()) {
+      return new DoubleValue(Double.parseDouble(val));
+    } else if (Variable.PATTERN.matcher(val).matches()) {
+      return new Variable(val);
     }
-    Matcher binaryMatcher = BINARY_OPERATION_PATTERN.matcher(value);
-    Matcher unaryMatcher = UNARY_OPERATION_PATTERN.matcher(value);
+    Matcher binaryMatcher = BINARY_OPERATION_PATTERN.matcher(val);
+    Matcher unaryMatcher = UNARY_OPERATION_PATTERN.matcher(val);
 
     if (binaryMatcher.matches()) {
       return createBinaryExpression(binaryMatcher);
     } else if (unaryMatcher.matches()) {
       return createUnaryExpression(unaryMatcher);
     } else {
-      throw new IllegalArgumentException("Invalid expression " + value + " Try something like: 'a+b' or '2'");
+      throw new IllegalArgumentException("Invalid expression " + val + " Try something like: 'a+b' or '2'");
     }
   }
 

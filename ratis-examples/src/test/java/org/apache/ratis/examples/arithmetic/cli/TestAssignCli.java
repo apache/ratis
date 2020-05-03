@@ -31,7 +31,7 @@ import static org.apache.ratis.examples.arithmetic.expression.UnaryExpression.Op
 
 public class TestAssignCli {
   @Test
-  public void createExpression() throws Exception {
+  public void createExpression() {
     Assert.assertEquals(
         new DoubleValue(2.0),
         new Assign().createExpression("2.0"));
