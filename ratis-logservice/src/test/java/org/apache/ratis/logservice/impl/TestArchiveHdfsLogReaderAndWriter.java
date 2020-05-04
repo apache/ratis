@@ -39,11 +39,9 @@ import org.apache.ratis.logservice.api.ArchiveLogReader;
 import org.apache.ratis.logservice.api.ArchiveLogWriter;
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.util.LogServiceUtils;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 
+@Ignore
 public class TestArchiveHdfsLogReaderAndWriter {
   static MiniDFSCluster cluster;
   static Configuration conf;
