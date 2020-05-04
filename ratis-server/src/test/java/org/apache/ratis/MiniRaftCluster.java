@@ -222,7 +222,7 @@ public abstract class MiniRaftCluster implements Closeable {
       () -> new File(BaseTest.getRootTestDir(),
           getClass().getSimpleName() + Integer.toHexString(ThreadLocalRandom.current().nextInt())));
 
-  private File getStorageDir(RaftPeerId id) {
+  public File getStorageDir(RaftPeerId id) {
     return new File(rootTestDir.get(), id.toString());
   }
 
