@@ -338,15 +338,15 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     }
     TermIndex lastTermIndex = getLastEntryTermIndex();
     if (lastTermIndex != null) {
-      long snapshotIndex = getSnapshotIndex();
-      long lastIndex = lastTermIndex.getIndex() > snapshotIndex ?
-          lastTermIndex.getIndex() : snapshotIndex;
+      long latestSnapshotIndex = getSnapshotIndex();
+      long lastIndex = lastTermIndex.getIndex() > latestSnapshotIndex ?
+          lastTermIndex.getIndex() : latestSnapshotIndex;
       Preconditions.assertTrue(entry.getTerm() >= lastTermIndex.getTerm(),
           "Entry term less than RaftLog's last term: %d, entry: %s", lastTermIndex.getTerm(), entry);
       Preconditions.assertTrue(entry.getIndex() == lastIndex + 1,
           "Difference between entry index and RaftLog's last index %d (or snapshot index %d) " +
               "is greater than 1, entry: %s",
-          lastTermIndex.getIndex(), snapshotIndex, entry);
+          lastTermIndex.getIndex(), latestSnapshotIndex, entry);
     }
   }
 
