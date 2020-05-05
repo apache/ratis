@@ -26,6 +26,7 @@ import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.protocol.AlreadyClosedException;
 import org.apache.ratis.protocol.NotReplicatedException;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftRetryFailureException;
 import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
@@ -456,8 +457,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       fail("runTestWatchRequestClientTimeout failed");
     } catch (Exception ex) {
       LOG.error("error occurred", ex);
-      Assert.assertEquals(AlreadyClosedException.class,
-          ex.getCause().getClass());
+      Assert.assertTrue(ex.getCause().getClass() == AlreadyClosedException.class ||
+          ex.getCause().getClass() == RaftRetryFailureException.class);
       if (ex.getCause() != null) {
         if (ex.getCause().getCause() != null) {
           Assert.assertEquals(TimeoutIOException.class,
