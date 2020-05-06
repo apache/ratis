@@ -18,6 +18,8 @@
 
 package org.apache.ratis.metrics;
 
+import org.apache.ratis.util.TimeDuration;
+
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
@@ -94,4 +96,16 @@ public abstract class MetricRegistries {
    */
   public abstract void addReporterRegistration(Consumer<RatisMetricRegistry> reporterRegistration,
       Consumer<RatisMetricRegistry> stopReporter);
+
+  /**
+   * Enable jmx reporter for the metricRegistry.
+   */
+  public abstract void enableJmxReporter();
+
+  /**
+   * Enable console reporter for the metricRegistry.
+   *
+   * @param consoleReportRate Console report rate.
+   */
+  public abstract void enableConsoleReporter(TimeDuration consoleReportRate);
 }

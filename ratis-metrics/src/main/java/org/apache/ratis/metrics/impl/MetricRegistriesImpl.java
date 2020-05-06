@@ -28,7 +28,9 @@ import java.util.function.Consumer;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryFactory;
 import org.apache.ratis.metrics.MetricRegistryInfo;
+import org.apache.ratis.metrics.MetricsReporting;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.util.TimeDuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,5 +107,19 @@ public class MetricRegistriesImpl extends MetricRegistries {
       Consumer<RatisMetricRegistry> stopReporter) {
     this.reporterRegistrations.add(reporterRegistration);
     this.stopReporters.add(stopReporter);
+  }
+
+  @Override
+  public void enableJmxReporter() {
+    addReporterRegistration(
+        MetricsReporting.jmxReporter(),
+        MetricsReporting.stopJmxReporter());
+  }
+
+  @Override
+  public void enableConsoleReporter(TimeDuration consoleReportRate) {
+    addReporterRegistration(
+        MetricsReporting.consoleReporter(consoleReportRate),
+        MetricsReporting.stopConsoleReporter());
   }
 }

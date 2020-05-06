@@ -30,14 +30,8 @@ public interface JVMMetrics {
   static void initJvmMetrics(TimeDuration consoleReportRate) {
     final MetricRegistries registries = MetricRegistries.global();
     JVMMetrics.addJvmMetrics(registries);
-
-    registries.addReporterRegistration(
-        MetricsReporting.consoleReporter(consoleReportRate),
-        MetricsReporting.stopConsoleReporter());
-
-    registries.addReporterRegistration(
-        MetricsReporting.jmxReporter(),
-        MetricsReporting.stopJmxReporter());
+    registries.enableConsoleReporter(consoleReportRate);
+    registries.enableJmxReporter();
   }
 
   static void addJvmMetrics(MetricRegistries registries) {
