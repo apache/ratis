@@ -222,6 +222,10 @@ public class GrpcLogAppender extends LogAppender {
     }
   }
 
+  private void increaseNextIndex(final long installedSnapshotIndex) {
+    getFollower().increaseNextIndex(installedSnapshotIndex + 1);
+  }
+
   /**
    * StreamObserver for handling responses from the follower
    */
@@ -325,9 +329,15 @@ public class GrpcLogAppender extends LogAppender {
     private final String name = getFollower().getName() + "-" + getClass().getSimpleName();
     private final Queue<Integer> pending;
     private final AtomicBoolean done = new AtomicBoolean(false);
+    private final boolean isNotificationOnly;
 
     InstallSnapshotResponseHandler() {
+      this(false);
+    }
+
+    InstallSnapshotResponseHandler(boolean notifyOnly) {
       pending = new LinkedList<>();
+      this.isNotificationOnly = notifyOnly;
     }
 
     synchronized void addPending(InstallSnapshotRequestProto request) {
@@ -346,7 +356,9 @@ public class GrpcLogAppender extends LogAppender {
 
     void close() {
       done.set(true);
-      GrpcLogAppender.this.notifyAppend();
+      if (!isNotificationOnly) {
+        GrpcLogAppender.this.notifyAppend();
+      }
     }
 
     synchronized boolean hasAllResponse() {
@@ -369,11 +381,7 @@ public class GrpcLogAppender extends LogAppender {
 
       switch (reply.getResult()) {
         case SUCCESS:
-          LOG.info("{}: Completed InstallSnapshot. Reply: {}", this);
-          removePending(reply);
-          break;
-        case NOTIFIED:
-          LOG.info("{}: Notified to InstallSnapshot.", this);
+          LOG.info("{}: Completed InstallSnapshot. Reply: {}", this, reply);
           removePending(reply);
           break;
         case IN_PROGRESS:
@@ -385,6 +393,7 @@ public class GrpcLogAppender extends LogAppender {
           LOG.info("{}: Already Installed Snapshot Index {}.", this, followerSnapshotIndex);
           getFollower().setSnapshotIndex(followerSnapshotIndex);
           updateCommitIndex(followerSnapshotIndex);
+          increaseNextIndex(followerSnapshotIndex);
           removePending(reply);
           break;
         case NOT_LEADER:
@@ -409,12 +418,17 @@ public class GrpcLogAppender extends LogAppender {
       GrpcUtil.warn(LOG, () -> this + ": Failed InstallSnapshot", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
       resetClient(null);
+      close();
     }
 
     @Override
     public void onCompleted() {
-      if (!firstResponseReceived) {
-        LOG.info("{}: follower responded installSnapshot COMPLETED/NOTIFIED", this);
+      if (!isNotificationOnly) {
+        LOG.info("{}: follower responded installSnapshot COMPLETED", this);
+      } else {
+        if (LOG.isDebugEnabled()) {
+          LOG.info("{}: follower responded installSnapshot COMPLETED", this);
+        }
       }
       close();
     }
@@ -481,7 +495,7 @@ public class GrpcLogAppender extends LogAppender {
     LOG.info("{}: followerNextIndex = {} but logStartIndex = {}, notify follower to install snapshot-{}",
         this, getFollower().getNextIndex(), getRaftLog().getStartIndex(), firstAvailableLogTermIndex);
 
-    final InstallSnapshotResponseHandler responseHandler = new InstallSnapshotResponseHandler();
+    final InstallSnapshotResponseHandler responseHandler = new InstallSnapshotResponseHandler(true);
     StreamObserver<InstallSnapshotRequestProto> snapshotRequestObserver = null;
     // prepare and enqueue the notify install snapshot request.
     final InstallSnapshotRequestProto request = createInstallSnapshotNotificationRequest(firstAvailableLogTermIndex);

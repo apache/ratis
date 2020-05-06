@@ -1242,11 +1242,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
               inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
             });
 
-        return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
-            currentTerm, InstallSnapshotResult.NOTIFIED, -1);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("{}: Snapshot Installation Request received and is in progress", getMemberId());
+        }
+      } else {
+        LOG.info("{}: Snapshot Installation by StateMachine is in progress.", getMemberId());
       }
 
-      LOG.info("{}: Snapshot Installation by StateMachine is in progress.", getMemberId());
       return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
           currentTerm, InstallSnapshotResult.IN_PROGRESS, -1);
     }
