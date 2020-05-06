@@ -91,6 +91,11 @@ public class RaftServerProxy implements RaftServer {
     }
 
     synchronized CompletableFuture<RaftServerImpl> remove(RaftGroupId groupId) {
+      if (!map.containsKey(groupId)) {
+        LOG.warn("{}: does not contain group: {}", getId(), groupId);
+        return null;
+      }
+
       final CompletableFuture<RaftServerImpl> future = map.remove(groupId);
       LOG.info("{}: remove {}", getId(), toString(groupId, future));
       return future;
