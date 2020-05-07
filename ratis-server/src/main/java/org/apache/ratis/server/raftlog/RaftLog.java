@@ -336,9 +336,9 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     if (entry.hasMetadataEntry()) {
       return;
     }
+    long latestSnapshotIndex = getSnapshotIndex();
     TermIndex lastTermIndex = getLastEntryTermIndex();
     if (lastTermIndex != null) {
-      long latestSnapshotIndex = getSnapshotIndex();
       long lastIndex = lastTermIndex.getIndex() > latestSnapshotIndex ?
           lastTermIndex.getIndex() : latestSnapshotIndex;
       Preconditions.assertTrue(entry.getTerm() >= lastTermIndex.getTerm(),
@@ -347,6 +347,11 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
           "Difference between entry index and RaftLog's last index %d (or snapshot index %d) " +
               "is greater than 1, entry: %s",
           lastTermIndex.getIndex(), latestSnapshotIndex, entry);
+    } else {
+      Preconditions.assertTrue(entry.getIndex() == latestSnapshotIndex + 1,
+          "Difference between entry index and RaftLog's latest snapshot index is greater than 1 " +
+              "and in between log entries are not present, entry: %s",
+          latestSnapshotIndex, entry);
     }
   }
 
