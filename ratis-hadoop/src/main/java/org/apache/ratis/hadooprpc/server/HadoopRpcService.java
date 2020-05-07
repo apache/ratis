@@ -18,7 +18,7 @@
 package org.apache.ratis.hadooprpc.server;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.ipc.ProtobufRpcEngineShaded;
+import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.ratis.hadooprpc.HadoopConfigKeys;
 import org.apache.ratis.hadooprpc.Proxy;
@@ -129,7 +129,7 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
     final BlockingService service
         = RaftServerProtocolService.newReflectiveBlockingService(
             new RaftServerProtocolServerSideTranslatorPB(serverProtocol));
-    RPC.setProtocolEngine(conf, RaftServerProtocolPB.class, ProtobufRpcEngineShaded.class);
+    RPC.setProtocolEngine(conf, RaftServerProtocolPB.class, ProtobufRpcEngine.class);
     return new RPC.Builder(conf)
         .setProtocol(RaftServerProtocolPB.class)
         .setInstance(service)
@@ -142,7 +142,7 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
 
   private void addRaftClientProtocol(RaftServer server, Configuration conf) {
     final Class<?> protocol = CombinedClientProtocolPB.class;
-    RPC.setProtocolEngine(conf, protocol, ProtobufRpcEngineShaded.class);
+    RPC.setProtocolEngine(conf, protocol, ProtobufRpcEngine.class);
 
     final BlockingService service = CombinedClientProtocolService.newReflectiveBlockingService(
         new CombinedClientProtocolServerSideTranslatorPB(server));

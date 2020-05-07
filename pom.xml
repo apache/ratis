@@ -416,12 +416,6 @@
         <version>${ratis.thirdparty.version}</version>
       </dependency>
 
-      <dependency>
-        <groupId>org.apache.ratis</groupId>
-        <artifactId>ratis-thirdparty-hadoop</artifactId>
-        <version>${ratis.thirdparty.version}</version>
-      </dependency>
-
       <!-- External dependencies -->
       <dependency>
         <groupId>org.slf4j</groupId>

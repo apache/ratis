@@ -18,7 +18,7 @@
 package org.apache.ratis.hadooprpc;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.ipc.ProtobufRpcEngineShaded;
+import org.apache.hadoop.ipc.ProtobufRpcEngine;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -30,7 +30,7 @@ public class Proxy<PROTOCOL> implements Closeable {
   public static <PROTOCOL> PROTOCOL getProxy(
       Class<PROTOCOL> clazz, String addressStr, Configuration conf)
       throws IOException {
-    RPC.setProtocolEngine(conf, clazz, ProtobufRpcEngineShaded.class);
+    RPC.setProtocolEngine(conf, clazz, ProtobufRpcEngine.class);
     return RPC.getProxy(clazz, RPC.getProtocolVersion(clazz),
         org.apache.ratis.util.NetUtils.createSocketAddr(addressStr),
         UserGroupInformation.getCurrentUser(),
