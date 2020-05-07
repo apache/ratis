@@ -78,6 +78,13 @@ public final class RaftServerMetrics extends RatisMetrics {
     return serverMetrics;
   }
 
+  public static void removeRaftServerMetrics(RaftServerImpl raftServer) {
+    String memberId = raftServer.getMemberId().toString();
+    if (metricsMap.containsKey(memberId)) {
+      metricsMap.remove(memberId);
+    }
+  }
+
   private RaftServerMetrics(RaftServerImpl server) {
     registry = getMetricRegistryForRaftServer(server.getMemberId().toString());
     commitInfoCache = server.getCommitInfoCache();

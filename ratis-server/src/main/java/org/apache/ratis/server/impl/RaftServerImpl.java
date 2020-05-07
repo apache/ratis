@@ -276,6 +276,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
       leaderElectionMetrics.unregister();
       raftServerMetrics.unregister();
+      RaftServerMetrics.removeRaftServerMetrics(this);
       if (deleteDirectory) {
         final RaftStorageDirectory dir = state.getStorage().getStorageDir();
         try {
