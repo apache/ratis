@@ -497,8 +497,8 @@ public class SegmentedRaftLog extends RaftLog {
     LogSegment openSegment = cache.getOpenSegment();
     if (openSegment != null && openSegment.getEndIndex() <= lastSnapshotIndex) {
       fileLogWorker.closeLogSegment(openSegment);
+      cache.clear();
     }
-    cache.clear();
   }
 
   @Override

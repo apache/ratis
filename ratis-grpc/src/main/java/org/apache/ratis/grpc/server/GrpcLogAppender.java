@@ -223,7 +223,7 @@ public class GrpcLogAppender extends LogAppender {
   }
 
   private void increaseNextIndex(final long installedSnapshotIndex) {
-    getFollower().increaseNextIndex(installedSnapshotIndex + 1);
+    getFollower().updateNextIndexToMax(installedSnapshotIndex + 1);
   }
 
   /**
@@ -423,12 +423,8 @@ public class GrpcLogAppender extends LogAppender {
 
     @Override
     public void onCompleted() {
-      if (!isNotificationOnly) {
+      if (!isNotificationOnly || LOG.isDebugEnabled()) {
         LOG.info("{}: follower responded installSnapshot COMPLETED", this);
-      } else {
-        if (LOG.isDebugEnabled()) {
-          LOG.info("{}: follower responded installSnapshot COMPLETED", this);
-        }
       }
       close();
     }

@@ -91,6 +91,10 @@ public class FollowerInfo {
     nextIndex.updateUnconditionally(old -> newNextIndex >= 0 ? newNextIndex : old, infoIndexChange);
   }
 
+  public void updateNextIndexToMax(long newNextIndex) {
+    nextIndex.updateToMax(newNextIndex, infoIndexChange);
+  }
+
   public void setSnapshotIndex(long snapshotIndex) {
     matchIndex.setUnconditionally(snapshotIndex, infoIndexChange);
     nextIndex.setUnconditionally(snapshotIndex + 1, infoIndexChange);
