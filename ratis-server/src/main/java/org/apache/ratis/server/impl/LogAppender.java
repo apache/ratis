@@ -120,14 +120,14 @@ public class LogAppender {
   }
 
   private final String name;
-  protected final RaftServerImpl server;
+  private final RaftServerImpl server;
   private final LeaderState leaderState;
-  protected final RaftLog raftLog;
-  protected final FollowerInfo follower;
+  private final RaftLog raftLog;
+  private final FollowerInfo follower;
 
   private final DataQueue<EntryWithData> buffer;
   private final int snapshotChunkMaxSize;
-  protected final long halfMinTimeoutMs;
+  private final long halfMinTimeoutMs;
 
   private final AppenderDaemon daemon;
 
@@ -146,6 +146,18 @@ public class LogAppender {
     final int bufferElementLimit = RaftServerConfigKeys.Log.Appender.bufferElementLimit(properties);
     this.buffer = new DataQueue<>(this, bufferByteLimit, bufferElementLimit, EntryWithData::getSerializedSize);
     this.daemon = new AppenderDaemon();
+  }
+
+  public RaftServerImpl getServer() {
+    return server;
+  }
+
+  public RaftLog getRaftLog() {
+    return raftLog;
+  }
+
+  public long getHalfMinTimeoutMs() {
+    return halfMinTimeoutMs;
   }
 
   @Override
@@ -480,7 +492,7 @@ public class LogAppender {
     }
   }
 
-  private void handleReply(AppendEntriesReplyProto reply) {
+  private void handleReply(AppendEntriesReplyProto reply) throws IllegalArgumentException {
     if (reply != null) {
       switch (reply.getResult()) {
         case SUCCESS:
@@ -508,6 +520,7 @@ public class LogAppender {
         case UNRECOGNIZED:
           LOG.warn("{}: received {}", this, reply.getResult());
           break;
+        default: throw new IllegalArgumentException("Unable to process result " + reply.getResult());
       }
     }
   }

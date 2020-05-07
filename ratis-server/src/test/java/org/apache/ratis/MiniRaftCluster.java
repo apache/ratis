@@ -222,7 +222,7 @@ public abstract class MiniRaftCluster implements Closeable {
       () -> new File(BaseTest.getRootTestDir(),
           getClass().getSimpleName() + Integer.toHexString(ThreadLocalRandom.current().nextInt())));
 
-  private File getStorageDir(RaftPeerId id) {
+  public File getStorageDir(RaftPeerId id) {
     return new File(rootTestDir.get(), id.toString());
   }
 
@@ -646,6 +646,10 @@ public abstract class MiniRaftCluster implements Closeable {
 
   public RaftClient createClient(RaftPeerId leaderId) {
     return createClient(leaderId, group);
+  }
+
+  public RaftClient createClient(RetryPolicy retryPolicy) {
+    return createClient(null, group, retryPolicy);
   }
 
   public RaftClient createClient(RaftPeerId leaderId, RetryPolicy retryPolicy) {

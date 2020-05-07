@@ -85,11 +85,11 @@ public class MetaFile {
    *
    * @throws IOException if the file cannot be written
    */
-  void writeFile(long term, String votedFor) throws IOException {
+  void writeFile(long givenTerm, String votedForInfo) throws IOException {
     AtomicFileOutputStream fos = new AtomicFileOutputStream(file);
     Properties properties = new Properties();
-    properties.setProperty(TERM_KEY, Long.toString(term));
-    properties.setProperty(VOTEDFOR_KEY, votedFor);
+    properties.setProperty(TERM_KEY, Long.toString(givenTerm));
+    properties.setProperty(VOTEDFOR_KEY, votedForInfo);
     try {
       properties.store(
           new BufferedWriter(new OutputStreamWriter(fos, StandardCharsets.UTF_8)), "");

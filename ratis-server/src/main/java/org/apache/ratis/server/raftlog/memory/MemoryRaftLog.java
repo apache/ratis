@@ -158,9 +158,9 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public List<CompletableFuture<Long>> appendImpl(LogEntryProto... entries) {
+  public List<CompletableFuture<Long>> appendImpl(LogEntryProto... logEntryProtos) {
     checkLogState();
-    if (entries == null || entries.length == 0) {
+    if (logEntryProtos == null || logEntryProtos.length == 0) {
       return Collections.emptyList();
     }
     try(AutoCloseableLock writeLock = writeLock()) {
@@ -173,26 +173,26 @@ public class MemoryRaftLog extends RaftLog {
       // the quorum of peers' disks.
       // TODO add a unit test for this
       boolean toTruncate = false;
-      int truncateIndex = (int) entries[0].getIndex();
+      int truncateIndex = (int) logEntryProtos[0].getIndex();
       int index = 0;
-      for (; truncateIndex < getNextIndex() && index < entries.length;
+      for (; truncateIndex < getNextIndex() && index < logEntryProtos.length;
            index++, truncateIndex++) {
         if (this.entries.get(truncateIndex).getTerm() !=
-            entries[index].getTerm()) {
+            logEntryProtos[index].getTerm()) {
           toTruncate = true;
           break;
         }
       }
       final List<CompletableFuture<Long>> futures;
       if (toTruncate) {
-        futures = new ArrayList<>(entries.length - index + 1);
+        futures = new ArrayList<>(logEntryProtos.length - index + 1);
         futures.add(truncate(truncateIndex));
       } else {
-        futures = new ArrayList<>(entries.length - index);
+        futures = new ArrayList<>(logEntryProtos.length - index);
       }
-      for (int i = index; i < entries.length; i++) {
-        this.entries.add(entries[i]);
-        futures.add(CompletableFuture.completedFuture(entries[i].getIndex()));
+      for (int i = index; i < logEntryProtos.length; i++) {
+        this.entries.add(logEntryProtos[i]);
+        futures.add(CompletableFuture.completedFuture(logEntryProtos[i].getIndex()));
       }
       return futures;
     }

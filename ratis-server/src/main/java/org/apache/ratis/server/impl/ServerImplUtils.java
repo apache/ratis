@@ -31,7 +31,10 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 /** Server utilities for internal use. */
-public class ServerImplUtils {
+public final class ServerImplUtils {
+  private ServerImplUtils() {
+    //Never constructed
+  }
   /** For the case that all {@link RaftServerImpl} objects share the same {@link StateMachine}. */
   public static RaftServerProxy newRaftServer(
       RaftPeerId id, RaftGroup group, StateMachine.Registry stateMachineRegistry,
@@ -42,7 +45,7 @@ public class ServerImplUtils {
     return proxy;
   }
 
-  private static RaftServerProxy newRaftServer(
+  public static RaftServerProxy newRaftServer(
       RaftPeerId id, StateMachine.Registry stateMachineRegistry, RaftProperties properties, Parameters parameters)
       throws IOException {
     final TimeDuration sleepTime = TimeDuration.valueOf(500, TimeUnit.MILLISECONDS);

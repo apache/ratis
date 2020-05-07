@@ -149,8 +149,10 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     LOG.info("nextIndex = {}", nextIndex);
     // wait for the snapshot to be done
     final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
-    JavaUtils.attemptRepeatedly(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
-        10, ONE_SECOND, "snapshotFile.exist", LOG);
+    JavaUtils.attemptRepeatedly(() -> {
+      Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+      return null;
+    }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
 
     // restart the peer and check if it can correctly load snapshot
     cluster.restart(false);
@@ -197,8 +199,11 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       final long nextIndex = cluster.getLeader().getState().getLog().getNextIndex();
       LOG.info("nextIndex = {}", nextIndex);
       final List<File> snapshotFiles = getSnapshotFiles(cluster, nextIndex - SNAPSHOT_TRIGGER_THRESHOLD, nextIndex);
-      JavaUtils.attemptRepeatedly(() -> snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists),
-          10, ONE_SECOND, "snapshotFile.exist", LOG);
+      JavaUtils.attemptRepeatedly(() -> {
+        Assert.assertTrue(snapshotFiles.stream().anyMatch(RaftSnapshotBaseTest::exists));
+        return null;
+      }, 10, ONE_SECOND, "snapshotFile.exist", LOG);
+      verifyTakeSnapshotMetric(cluster.getLeader());
       logs = storageDirectory.getLogSegmentFiles();
     } finally {
       cluster.shutdown();
@@ -230,10 +235,15 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       verifyInstallSnapshotMetric(cluster.getLeader());
       RaftServerTestUtil.waitAndCheckNewConf(cluster, change.allPeersInNewConf, 0, null);
 
+      Timer timer = getTakeSnapshotTimer(cluster.getLeader());
+      long count = timer.getCount();
+
       // restart the peer and check if it can correctly handle conf change
       cluster.restartServer(cluster.getLeader().getId(), false);
       assertLeaderContent(cluster);
-      verifyTakeSnapshotMetric(cluster.getLeader());
+
+      // verify that snapshot was taken when stopping the server
+      Assert.assertTrue(count < timer.getCount());
     } finally {
       cluster.shutdown();
     }
@@ -246,6 +256,11 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
   }
 
   private static void verifyTakeSnapshotMetric(RaftServerImpl leader) {
+    Timer timer = getTakeSnapshotTimer(leader);
+    Assert.assertTrue(timer.getCount() > 0);
+  }
+
+  private static Timer getTakeSnapshotTimer(RaftServerImpl leader) {
     MetricRegistryInfo info = new MetricRegistryInfo(leader.getMemberId().toString(),
         RATIS_APPLICATION_NAME_METRICS,
         RATIS_STATEMACHINE_METRICS, RATIS_STATEMACHINE_METRICS_DESC);
@@ -253,7 +268,6 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     Assert.assertTrue(opt.isPresent());
     RatisMetricRegistry metricRegistry = opt.get();
     Assert.assertNotNull(metricRegistry);
-    Timer timer = metricRegistry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER);
-    Assert.assertTrue(timer.getCount() > 0);
+    return metricRegistry.timer(STATEMACHINE_TAKE_SNAPSHOT_TIMER);
   }
 }

@@ -86,6 +86,7 @@
     <module>ratis-logservice</module>
     <module>ratis-metrics</module>
     <module>ratis-tools</module>
+    <module>ratis-docs</module>
   </modules>
 
   <pluginRepositories>
@@ -171,7 +172,7 @@
     <maven-antrun-plugin.version>1.7</maven-antrun-plugin.version>
     <maven-assembly-plugin.version>3.1.1</maven-assembly-plugin.version>
     <maven-bundle-plugin.version>2.5.3</maven-bundle-plugin.version>
-    <maven-checkstyle-plugin.version>3.0.0</maven-checkstyle-plugin.version>
+    <maven-checkstyle-plugin.version>3.1.0</maven-checkstyle-plugin.version>
     <maven-clean-plugin.version>3.0.0</maven-clean-plugin.version>
     <maven-clover2-plugin.version>3.3.0</maven-clover2-plugin.version>
     <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
@@ -187,7 +188,7 @@
     <maven-source-plugin.version>2.3</maven-source-plugin.version>
     <maven-stylus-skin.version>1.5</maven-stylus-skin.version>
     <maven-surefire-plugin.version>3.0.0-M1</maven-surefire-plugin.version>
-    <maven-remote-resources-plugin.version>1.5</maven-remote-resources-plugin.version>
+    <maven-remote-resources-plugin.version>1.6.0</maven-remote-resources-plugin.version>
     <protobuf-maven-plugin.version>0.5.1</protobuf-maven-plugin.version>
     <license-maven-plugin.version>1.19</license-maven-plugin.version>
     <copy-rename-maven-plugin.version>1.0</copy-rename-maven-plugin.version>
@@ -222,11 +223,11 @@
     <maven.min.version>3.3.9</maven.min.version>
 
     <!-- Contains all shaded thirdparty dependencies -->
-    <ratis.thirdparty.version>0.3.0</ratis.thirdparty.version>
+    <ratis.thirdparty.version>0.4.0</ratis.thirdparty.version>
 
     <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
-    <shaded.protobuf.version>3.10.0</shaded.protobuf.version>
-    <shaded.grpc.version>1.24.0</shaded.grpc.version>
+    <shaded.protobuf.version>3.11.0</shaded.protobuf.version>
+    <shaded.grpc.version>1.28.1</shaded.grpc.version>
 
 
     <!-- Test properties -->
@@ -242,6 +243,9 @@
 
     <!-- commons lang version -->
     <commons.lang.version>3.8.1</commons.lang.version>
+
+    <!-- LOG4J version -->
+    <log4j.version>1.2.17</log4j.version>
 
   </properties>
 
@@ -433,7 +437,7 @@
       <dependency>
         <groupId>log4j</groupId>
         <artifactId>log4j</artifactId>
-        <version>1.2.17</version>
+        <version>${log4j.version}</version>
       </dependency>
 
       <dependency>
@@ -665,6 +669,7 @@
           <configuration>
             <failIfNoTests>false</failIfNoTests>
             <reuseForks>false</reuseForks>
+            <trimStackTrace>false</trimStackTrace>
             <forkedProcessTimeoutInSeconds>600</forkedProcessTimeoutInSeconds>
             <argLine>-Xmx2048m -XX:+HeapDumpOnOutOfMemoryError</argLine>
             <systemPropertyVariables>
@@ -819,7 +824,7 @@
           </dependency>
         </dependencies>
         <configuration>
-          <configLocation>${basedir}/../dev-support/checkstyle.xml</configLocation>
+          <configLocation>dev-support/checkstyle.xml</configLocation>
           <failOnViolation>false</failOnViolation>
           <linkXRef>false</linkXRef>
         </configuration>

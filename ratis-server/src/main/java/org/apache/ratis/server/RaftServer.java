@@ -76,7 +76,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
       return ServerImplUtils.newRaftServer(
           serverId,
           group,
-          Objects.requireNonNull(stateMachineRegistry , "Neither 'stateMachine' nor 'setStateMachineRegistry' is initialized."),
+          Objects.requireNonNull(stateMachineRegistry , "Neither 'stateMachine' nor 'setStateMachineRegistry' " +
+              "is initialized."),
           Objects.requireNonNull(properties, "The 'properties' field is not initialized."),
           parameters);
     }

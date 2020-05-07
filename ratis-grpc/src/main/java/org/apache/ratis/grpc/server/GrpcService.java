@@ -96,6 +96,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         tlsConfig);
   }
 
+  @SuppressWarnings("checkstyle:ParameterNumber") // private constructor
   private GrpcService(RaftServer raftServer, Supplier<RaftPeerId> idSupplier, int port,
       SizeInBytes grpcMessageSizeMax, SizeInBytes appenderBufferSize,
       SizeInBytes flowControlWindow,TimeDuration requestTimeoutDuration, GrpcTlsConfig tlsConfig) {

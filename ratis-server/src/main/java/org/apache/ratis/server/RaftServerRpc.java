@@ -42,8 +42,8 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeabl
           "The 'server' field is not initialized.");
     }
 
-    public B setServer(RaftServer server) {
-      this.server = server;
+    public B setServer(RaftServer raftServer) {
+      this.server = raftServer;
       return getThis();
     }
 

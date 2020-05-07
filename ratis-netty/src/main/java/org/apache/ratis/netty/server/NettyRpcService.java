@@ -45,15 +45,19 @@ import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto;
 import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.ProtoUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.concurrent.TimeUnit;
 import java.util.Objects;
 
 /**
  * A netty server endpoint that acts as the communication layer.
  */
 public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy, NettyRpcProxy.PeerMap> {
+  public static final Logger LOG = LoggerFactory.getLogger(NettyRpcService.class);
   static final String CLASS_NAME = NettyRpcService.class.getSimpleName();
   public static final String SEND_SERVER_REQUEST = CLASS_NAME + ".sendServerRequest";
 
@@ -92,7 +96,7 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
 
   /** Constructs a netty server with the given port. */
   private NettyRpcService(RaftServer server) {
-    super(server::getId, id -> new NettyRpcProxy.PeerMap(id.toString()));
+    super(server::getId, id -> new NettyRpcProxy.PeerMap(id.toString(), server.getProperties()));
     this.server = server;
 
     final ChannelInitializer<SocketChannel> initializer
@@ -139,11 +143,17 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
 
   @Override
   public void closeImpl() throws IOException {
+    final ChannelFuture f = getChannel().close();
+    f.syncUninterruptibly();
     bossGroup.shutdownGracefully();
     workerGroup.shutdownGracefully();
-    final ChannelFuture f = getChannel().close();
+    try {
+      bossGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);
+      workerGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException e) {
+      LOG.error("Interrupt EventLoopGroup terminate", e);
+    }
     super.closeImpl();
-    f.syncUninterruptibly();
   }
 
   @Override

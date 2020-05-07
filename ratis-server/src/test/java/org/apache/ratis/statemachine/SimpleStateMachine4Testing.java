@@ -207,7 +207,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       RaftStorage raftStorage) throws IOException {
     LOG.info("Initializing " + this);
     this.groupId = groupId;
-    lifeCycle.startAndTransition(() -> {
+    getLifeCycle().startAndTransition(() -> {
       super.initialize(server, groupId, raftStorage);
       storage.init(raftStorage);
       loadSnapshot(storage.findLatestSnapshot());
@@ -222,8 +222,8 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public synchronized void pause() {
-    lifeCycle.transition(LifeCycle.State.PAUSING);
-    lifeCycle.transition(LifeCycle.State.PAUSED);
+    getLifeCycle().transition(LifeCycle.State.PAUSING);
+    getLifeCycle().transition(LifeCycle.State.PAUSED);
   }
 
   @Override
@@ -379,7 +379,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public void close() {
-    lifeCycle.checkStateAndClose(() -> {
+    getLifeCycle().checkStateAndClose(() -> {
       running = false;
       checkpointer.interrupt();
     });

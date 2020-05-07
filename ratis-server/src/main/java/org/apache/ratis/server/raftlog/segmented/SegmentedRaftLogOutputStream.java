@@ -36,14 +36,14 @@ import java.util.zip.Checksum;
 public class SegmentedRaftLogOutputStream implements Closeable {
   private static final Logger LOG = LoggerFactory.getLogger(SegmentedRaftLogOutputStream.class);
 
-  private static final ByteBuffer fill;
+  private static final ByteBuffer FILL;
   private static final int BUFFER_SIZE = 1024 * 1024; // 1 MB
   static {
-    fill = ByteBuffer.allocateDirect(BUFFER_SIZE);
-    for (int i = 0; i < fill.capacity(); i++) {
-      fill.put(SegmentedRaftLogFormat.getTerminator());
+    FILL = ByteBuffer.allocateDirect(BUFFER_SIZE);
+    for (int i = 0; i < FILL.capacity(); i++) {
+      FILL.put(SegmentedRaftLogFormat.getTerminator());
     }
-    fill.flip();
+    FILL.flip();
   }
 
   private final File file;
@@ -129,7 +129,7 @@ public class SegmentedRaftLogOutputStream implements Closeable {
   private long preallocate(FileChannel fc, long outstanding) throws IOException {
     final long actual = actualPreallocateSize(outstanding, segmentMaxSize - fc.size(), preallocatedSize);
     Preconditions.assertTrue(actual >= outstanding);
-    final long allocated = IOUtils.preallocate(fc, actual, fill);
+    final long allocated = IOUtils.preallocate(fc, actual, FILL);
     LOG.debug("Pre-allocated {} bytes for {}", allocated, this);
     return allocated;
   }

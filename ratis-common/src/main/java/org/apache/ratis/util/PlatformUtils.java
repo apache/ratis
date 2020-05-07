@@ -23,7 +23,7 @@ package org.apache.ratis.util;
 /**
  * Platform and architecture related utility methods.
  */
-public class PlatformUtils {
+public final class PlatformUtils {
 
   private PlatformUtils() {
     // Utility class, cannot instantiate
@@ -35,14 +35,14 @@ public class PlatformUtils {
    * Get the type of the operating system, as determined from parsing
    * the <code>os.name</code> property.
    */
-  private static final OSType osType = getOSType();
-  public static final boolean OTHER   = (osType == OSType.OS_TYPE_OTHER);
-  public static final boolean LINUX   = (osType == OSType.OS_TYPE_LINUX);
-  public static final boolean FREEBSD = (osType == OSType.OS_TYPE_FREEBSD);
-  public static final boolean MAC     = (osType == OSType.OS_TYPE_MAC);
-  public static final boolean SOLARIS = (osType == OSType.OS_TYPE_SOLARIS);
+  private static final OSType OS_TYPE = getOSType();
+  public static final boolean OTHER   = (OS_TYPE == OSType.OS_TYPE_OTHER);
+  public static final boolean LINUX   = (OS_TYPE == OSType.OS_TYPE_LINUX);
+  public static final boolean FREEBSD = (OS_TYPE == OSType.OS_TYPE_FREEBSD);
+  public static final boolean MAC     = (OS_TYPE == OSType.OS_TYPE_MAC);
+  public static final boolean SOLARIS = (OS_TYPE == OSType.OS_TYPE_SOLARIS);
   // Helper static vars for each platform
-  public static final boolean WINDOWS = (osType == OSType.OS_TYPE_WIN);
+  public static final boolean WINDOWS = (OS_TYPE == OSType.OS_TYPE_WIN);
 
   private static OSType getOSType() {
     String osName = System.getProperty("os.name");

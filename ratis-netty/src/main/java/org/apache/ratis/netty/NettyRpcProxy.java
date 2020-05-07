@@ -17,7 +17,10 @@
  */
 package org.apache.ratis.netty;
 
+import org.apache.ratis.client.RaftClientConfigKeys;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
@@ -31,6 +34,7 @@ import org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerRequestProto;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.apache.ratis.util.ProtoUtils;
+import org.apache.ratis.util.TimeDuration;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -38,22 +42,25 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 import static org.apache.ratis.proto.netty.NettyProtos.RaftNettyServerReplyProto.RaftNettyServerReplyCase.EXCEPTIONREPLY;
 
 public class NettyRpcProxy implements Closeable {
   public static class PeerMap extends PeerProxyMap<NettyRpcProxy> {
     private final EventLoopGroup group = new NioEventLoopGroup();
+    private final RaftProperties properties;
 
-    public PeerMap(String name) {
+    public PeerMap(String name, RaftProperties properties) {
       super(name);
+      this.properties = properties;
     }
 
     @Override
     public NettyRpcProxy createProxyImpl(RaftPeer peer)
-        throws IOException {
+            throws IOException {
       try {
-        return new NettyRpcProxy(peer, group);
+        return new NettyRpcProxy(peer, properties, group);
       } catch (InterruptedException e) {
         throw IOUtils.toInterruptedIOException("Failed connecting to " + peer, e);
       }
@@ -153,10 +160,12 @@ public class NettyRpcProxy implements Closeable {
 
   private final RaftPeer peer;
   private final Connection connection;
+  private final TimeDuration requestTimeoutDuration;
 
-  public NettyRpcProxy(RaftPeer peer, EventLoopGroup group) throws InterruptedException {
+  public NettyRpcProxy(RaftPeer peer, RaftProperties properties, EventLoopGroup group) throws InterruptedException {
     this.peer = peer;
     this.connection = new Connection(group);
+    this.requestTimeoutDuration = RaftClientConfigKeys.Rpc.requestTimeout(properties);
   }
 
   @Override
@@ -172,12 +181,14 @@ public class NettyRpcProxy implements Closeable {
 
     try {
       channelFuture.sync();
-      return reply.get();
+      return reply.get(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit());
     } catch (InterruptedException e) {
       throw IOUtils.toInterruptedIOException(ProtoUtils.toString(request)
           + " sending from " + peer + " is interrupted.", e);
     } catch (ExecutionException e) {
       throw IOUtils.toIOException(e);
+    } catch (TimeoutException e) {
+      throw new TimeoutIOException(e.getMessage(), e);
     }
   }
 }

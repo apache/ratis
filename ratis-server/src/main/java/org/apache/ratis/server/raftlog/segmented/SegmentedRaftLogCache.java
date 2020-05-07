@@ -55,11 +55,31 @@ class SegmentedRaftLogCache {
       return new SegmentFileInfo(ls.getStartIndex(), ls.getEndIndex(), ls.isOpen(), 0, 0);
     }
 
-    final long startIndex; // start index of the segment
-    final long endIndex; // original end index
-    final boolean isOpen;
-    final long targetLength; // position for truncation
-    final long newEndIndex; // new end index after the truncation
+    private final long startIndex; // start index of the segment
+    private final long endIndex; // original end index
+    private final boolean isOpen;
+    private final long targetLength; // position for truncation
+    private final long newEndIndex; // new end index after the truncation
+
+    public long getStartIndex() {
+      return startIndex;
+    }
+
+    public long getEndIndex() {
+      return endIndex;
+    }
+
+    public boolean isOpen() {
+      return isOpen;
+    }
+
+    public long getTargetLength() {
+      return targetLength;
+    }
+
+    public long getNewEndIndex() {
+      return newEndIndex;
+    }
 
     private SegmentFileInfo(long start, long end, boolean isOpen, long targetLength, long newEndIndex) {
       this.startIndex = start;
@@ -78,11 +98,19 @@ class SegmentedRaftLogCache {
   }
 
   static class TruncationSegments {
-    final SegmentFileInfo toTruncate; // name of the file to be truncated
-    final SegmentFileInfo[] toDelete; // names of the files to be deleted
+    private final SegmentFileInfo toTruncate; // name of the file to be truncated
+    private final SegmentFileInfo[] toDelete; // names of the files to be deleted
+
+    public SegmentFileInfo getToTruncate() {
+      return toTruncate;
+    }
+
+    public SegmentFileInfo[] getToDelete() {
+      return toDelete;
+    }
 
     TruncationSegments(SegmentFileInfo toTruncate,
-        List<SegmentFileInfo> toDelete) {
+                       List<SegmentFileInfo> toDelete) {
       this.toDelete = toDelete == null ? null :
           toDelete.toArray(new SegmentFileInfo[toDelete.size()]);
       this.toTruncate = toTruncate;
@@ -316,7 +344,7 @@ class SegmentedRaftLogCache {
   void loadSegment(LogPathAndIndex pi, boolean keepEntryInCache,
       Consumer<LogEntryProto> logConsumer) throws IOException {
     LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(),
-        pi.startIndex, pi.endIndex, pi.isOpen(), keepEntryInCache, logConsumer, raftLogMetrics);
+        pi.getStartIndex(), pi.getEndIndex(), pi.isOpen(), keepEntryInCache, logConsumer, raftLogMetrics);
     if (logSegment != null) {
       addSegment(logSegment);
     }
@@ -487,8 +515,8 @@ class SegmentedRaftLogCache {
   }
 
   static class TruncateIndices {
-    final int arrayIndex;
-    final long truncateIndex;
+    private final int arrayIndex;
+    private final long truncateIndex;
 
     TruncateIndices(int arrayIndex, long truncateIndex) {
       this.arrayIndex = arrayIndex;
