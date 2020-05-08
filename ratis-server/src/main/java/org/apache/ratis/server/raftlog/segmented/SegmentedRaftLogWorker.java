@@ -408,6 +408,12 @@ class SegmentedRaftLogWorker implements Runnable {
     return addIOTask(new TruncateLog(ts, index));
   }
 
+  void closeLogSegment(LogSegment segmentToClose) {
+    LOG.info("{}: Closing segment {} to index: {}", name,
+        segmentToClose.toString(), segmentToClose.getEndIndex());
+    addIOTask(new FinalizeLogSegment(segmentToClose));
+  }
+
   Task purge(TruncationSegments ts) {
     return addIOTask(new PurgeLog(ts, storage));
   }

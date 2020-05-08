@@ -492,6 +492,13 @@ public class SegmentedRaftLog extends RaftLog {
     // if the last index in snapshot is larger than the index of the last
     // log entry, we should delete all the log entries and their cache to avoid
     // gaps between log segments.
+
+    // Close open log segment if entries are already included in snapshot
+    LogSegment openSegment = cache.getOpenSegment();
+    if (openSegment != null && openSegment.getEndIndex() <= lastSnapshotIndex) {
+      fileLogWorker.closeLogSegment(openSegment);
+      cache.clear();
+    }
   }
 
   @Override

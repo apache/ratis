@@ -1052,7 +1052,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final TermIndex installSnapshot = inProgressInstallSnapshotRequest.get();
     if (installSnapshot != null) {
       LOG.info("{}: Failed appendEntries as snapshot ({}) installation is in progress", getMemberId(), installSnapshot);
-      return installSnapshot.getIndex();
+      return state.getNextIndex();
     }
 
     // Check that the first log entry is greater than the snapshot index in the latest snapshot.
@@ -1227,25 +1227,29 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         stateMachine.notifyInstallSnapshotFromLeader(getRoleInfoProto(), firstAvailableLogTermIndex)
             .whenComplete((reply, exception) -> {
               if (exception != null) {
-                LOG.error("{}: State Machine failed to install snapshot", getMemberId(), exception);
+                LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
+                    getMemberId(), exception.getMessage());
                 inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
                 return;
               }
 
               if (reply != null) {
+                LOG.info("{}: StateMachine successfully installed snapshot index {}. Reloading the StateMachine.",
+                    getMemberId(), reply.getIndex());
                 stateMachine.pause();
-                state.reloadStateMachine(reply.getIndex(), leaderTerm);
                 state.updateInstalledSnapshotIndex(reply);
+                state.reloadStateMachine(reply.getIndex(), leaderTerm);
               }
               inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
             });
 
-        return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
-            currentTerm, InstallSnapshotResult.SUCCESS, -1);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("{}: Snapshot Installation Request received and is in progress", getMemberId());
+        }
+      } else {
+        LOG.info("{}: Snapshot Installation by StateMachine is in progress.", getMemberId());
       }
 
-      LOG.info("{}: StateMachine installSnapshot is in progress: {}",
-          getMemberId(), inProgressInstallSnapshotRequest.get());
       return ServerProtoUtils.toInstallSnapshotReplyProto(leaderId, getMemberId(),
           currentTerm, InstallSnapshotResult.IN_PROGRESS, -1);
     }
