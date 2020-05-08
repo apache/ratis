@@ -145,8 +145,8 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
   public void closeImpl() throws IOException {
     final ChannelFuture f = getChannel().close();
     f.syncUninterruptibly();
-    bossGroup.shutdownGracefully();
-    workerGroup.shutdownGracefully();
+    bossGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
+    workerGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
     try {
       bossGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);
       workerGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);
