@@ -22,6 +22,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
+import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.StatusRuntimeException;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.*;
@@ -141,7 +142,12 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
     @Override
     public void onError(Throwable t) {
       GrpcUtil.warn(LOG, () -> getId() + ": installSnapshot onError, lastRequest: " + getPreviousRequestString(), t);
-      isClosed.compareAndSet(false, true);
+      if (isClosed.compareAndSet(false, true)) {
+        Status status = Status.fromThrowable(t);
+        if (status != null && status.getCode() != Status.Code.CANCELLED) {
+          responseObserver.onCompleted();
+        }
+      }
     }
   }
 
