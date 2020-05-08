@@ -23,11 +23,13 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.protocol.AlreadyClosedException;
 import org.apache.ratis.protocol.NotReplicatedException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftRetryFailureException;
 import org.apache.ratis.protocol.TimeoutIOException;
 import org.apache.ratis.retry.RetryPolicies;
+import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftServerImpl;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
@@ -113,13 +115,11 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       }
     }
 
-    CompletableFuture<RaftClientReply> sendWatchRequest(long logIndex)
+    CompletableFuture<RaftClientReply> sendWatchRequest(long logIndex, RetryPolicy policy)
         throws Exception {
 
       try (final RaftClient watchClient =
-          cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId(),
-          RetryPolicies.retryUpToMaximumCountWithFixedSleep(5,
-          TimeDuration.valueOf(5, TimeUnit.SECONDS)))) {
+          cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId(), policy)) {
 
         CompletableFuture<RaftClientReply> reply =
             watchClient.sendAsync(new RaftTestUtil.SimpleMessage("message"));
@@ -446,15 +446,19 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
     final Logger LOG = p.log;
 
     CompletableFuture<RaftClientReply> watchReply;
-    watchReply = p.sendWatchRequest(1000);
+    // watch 1000 which will never be committed
+    // so client can not receive reply, and connection closed, throw TimeoutException.
+    // We should not retry, because if retry, RaftClientImpl::handleIOException will random select a leader,
+    // then sometimes throw NotLeaderException.
+    watchReply = p.sendWatchRequest(1000, RetryPolicies.noRetry());
 
     try {
       watchReply.get();
       fail("runTestWatchRequestClientTimeout failed");
     } catch (Exception ex) {
       LOG.error("error occurred", ex);
-      Assert.assertEquals(RaftRetryFailureException.class,
-          ex.getCause().getClass());
+      Assert.assertTrue(ex.getCause().getClass() == AlreadyClosedException.class ||
+          ex.getCause().getClass() == RaftRetryFailureException.class);
       if (ex.getCause() != null) {
         if (ex.getCause().getCause() != null) {
           Assert.assertEquals(TimeoutIOException.class,
