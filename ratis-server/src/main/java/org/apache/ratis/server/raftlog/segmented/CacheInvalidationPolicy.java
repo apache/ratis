@@ -29,36 +29,42 @@ public interface CacheInvalidationPolicy {
    * Determine which log segments should evict their log entry cache
    * @param followerNextIndices the next indices of all the follower peers. Null
    *                            if the local peer is not a leader.
-   * @param localFlushedIndex the index that has been flushed to the local disk.
+   * @param safeEvictIndex the index up to which cache can be evicted. This
+   *                       index depends on two factors:
+   *                       1. the largest index belonging to a closed segment
+   *                       2. the latest snapshotIndex
+   *                       Logs with endIndex less than the max of these two
+   *                       indices can be evicted.
    * @param lastAppliedIndex the last index that has been applied to state machine
    * @param segments The list of log segments. The segments should be sorted in
    *                 ascending order according to log index.
    * @param maxCachedSegments the max number of segments with cached log entries
    * @return the log segments that should evict cache
    */
-  List<LogSegment> evict(long[] followerNextIndices, long localFlushedIndex,
+  List<LogSegment> evict(long[] followerNextIndices, long safeEvictIndex,
       long lastAppliedIndex, LogSegmentList segments, int maxCachedSegments);
 
   class CacheInvalidationPolicyDefault implements CacheInvalidationPolicy {
     @Override
     public List<LogSegment> evict(long[] followerNextIndices,
-        long localFlushedIndex, long lastAppliedIndex,
+        long safeEvictIndex, long lastAppliedIndex,
         LogSegmentList segments, final int maxCachedSegments) {
       try(AutoCloseableLock readLock = segments.readLock()) {
-        return evictImpl(followerNextIndices, localFlushedIndex, lastAppliedIndex, segments, maxCachedSegments);
+        return evictImpl(followerNextIndices, safeEvictIndex, lastAppliedIndex, segments, maxCachedSegments);
       }
     }
 
     private List<LogSegment> evictImpl(long[] followerNextIndices,
-        long localFlushedIndex, long lastAppliedIndex,
+        long safeEvictIndex, long lastAppliedIndex,
         LogSegmentList segments, final int maxCachedSegments) {
       List<LogSegment> result = new ArrayList<>();
       int safeIndex = segments.size() - 1;
       for (; safeIndex >= 0; safeIndex--) {
         LogSegment segment = segments.get(safeIndex);
         // a segment's cache can be invalidated only if it's close and all its
-        // entries have been flushed to the local disk
-        if (!segment.isOpen() && segment.getEndIndex() <= localFlushedIndex) {
+        // entries have been flushed to the local disk and the local disk
+        // segment is also closed.
+        if (!segment.isOpen() && segment.getEndIndex() <= safeEvictIndex) {
           break;
         }
       }
