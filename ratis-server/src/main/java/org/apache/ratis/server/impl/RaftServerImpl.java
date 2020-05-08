@@ -1238,7 +1238,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
                     getMemberId(), reply.getIndex());
                 stateMachine.pause();
                 state.updateInstalledSnapshotIndex(reply);
-                state.reloadStateMachine(reply.getIndex(), leaderTerm);
+                state.reloadStateMachine(reply.getIndex());
               }
               inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
             });
