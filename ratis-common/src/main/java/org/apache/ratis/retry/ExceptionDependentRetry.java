@@ -38,7 +38,7 @@ public final class ExceptionDependentRetry implements RetryPolicy {
         new TreeMap<>();
     private int maxAttempts = Integer.MAX_VALUE;
 
-    Builder setExceptionToPolicy(Class<? extends Throwable> exception,
+    public Builder setExceptionToPolicy(Class<? extends Throwable> exception,
         RetryPolicy retryPolicy) {
       Preconditions.assertTrue(retryPolicy != null, "Exception to policy should not be null");
       final RetryPolicy previous = exceptionNameToPolicyMap.put(exception.getName(), retryPolicy);
@@ -46,13 +46,13 @@ public final class ExceptionDependentRetry implements RetryPolicy {
       return this;
     }
 
-    Builder setDefaultPolicy(RetryPolicy retryPolicy) {
+    public Builder setDefaultPolicy(RetryPolicy retryPolicy) {
       Preconditions.assertTrue(retryPolicy != null, "Default Policy should not be null");
       this.defaultPolicy = retryPolicy;
       return this;
     }
 
-    Builder setMaxAttempts(int attempts) {
+    public Builder setMaxAttempts(int attempts) {
       this.maxAttempts = attempts;
       return this;
     }
