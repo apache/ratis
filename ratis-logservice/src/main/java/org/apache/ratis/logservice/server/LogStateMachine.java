@@ -485,6 +485,7 @@ public class LogStateMachine extends BaseStateMachine {
   @Override
   public void close() {
     reset();
+    LogServiceMetricsRegistry.unregister(metricRegistry);
   }
 
   @Override

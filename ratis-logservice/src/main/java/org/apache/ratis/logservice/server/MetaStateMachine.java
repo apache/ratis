@@ -518,4 +518,9 @@ public class MetaStateMachine extends BaseStateMachine {
         }
         return true;
     }
+
+    @Override
+    public void close() {
+      LogServiceMetricsRegistry.unregister(metricRegistry);
+    }
 }

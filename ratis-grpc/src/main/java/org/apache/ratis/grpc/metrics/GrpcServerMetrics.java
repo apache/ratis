@@ -26,8 +26,11 @@ import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 import com.codahale.metrics.Timer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GrpcServerMetrics {
+  static final Logger LOG = LoggerFactory.getLogger(GrpcServerMetrics.class);
   private final RatisMetricRegistry registry;
 
   private static final String RATIS_GRPC_METRICS_APP_NAME = "ratis_grpc";
@@ -57,6 +60,15 @@ public class GrpcServerMetrics {
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
 
     registry = metricRegistry.orElseGet(() -> MetricRegistries.global().create(info));
+  }
+
+  public void unregister() {
+    MetricRegistryInfo info = registry.getMetricRegistryInfo();
+    LOG.info("Unregistering GrpcServerMetrics Registry : {}", info.getName());
+    Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
+    if (metricRegistry.isPresent()) {
+      MetricRegistries.global().remove(info);
+    }
   }
 
   public Timer getGrpcLogAppenderLatencyTimer(String follower,
