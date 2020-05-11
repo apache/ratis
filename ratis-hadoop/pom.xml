@@ -28,10 +28,6 @@
       <artifactId>ratis-proto</artifactId>
       <groupId>org.apache.ratis</groupId>
     </dependency>
-    <dependency>
-      <artifactId>ratis-thirdparty-hadoop</artifactId>
-      <groupId>org.apache.ratis</groupId>
-    </dependency>
 
     <dependency>
       <artifactId>ratis-common</artifactId>
