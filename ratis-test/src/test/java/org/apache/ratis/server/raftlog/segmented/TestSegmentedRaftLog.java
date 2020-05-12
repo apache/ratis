@@ -274,7 +274,8 @@ public class TestSegmentedRaftLog extends BaseTest {
       } catch (IllegalStateException e) {
         ex = e;
       }
-      Assert.assertTrue(ex.getMessage().contains("and RaftLog's last index " + lastTermIndex.getIndex() + " greater than 1"));
+      Assert.assertTrue(ex.getMessage().contains("and RaftLog's last index " + lastTermIndex.getIndex()
+          + " (or snapshot index " + raftLog.getSnapshotIndex() + ") is greater than 1"));
     }
   }
 

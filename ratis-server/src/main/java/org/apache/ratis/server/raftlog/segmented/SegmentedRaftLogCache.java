@@ -342,10 +342,10 @@ class SegmentedRaftLogCache {
   }
 
   void loadSegment(LogPathAndIndex pi, boolean keepEntryInCache,
-      Consumer<LogEntryProto> logConsumer) throws IOException {
+      Consumer<LogEntryProto> logConsumer, long lastIndexInSnapshot) throws IOException {
     LogSegment logSegment = LogSegment.loadSegment(storage, pi.getPath().toFile(),
         pi.getStartIndex(), pi.getEndIndex(), pi.isOpen(), keepEntryInCache, logConsumer, raftLogMetrics);
-    if (logSegment != null) {
+    if (logSegment != null && logSegment.getEndIndex() > lastIndexInSnapshot) {
       addSegment(logSegment);
     }
   }

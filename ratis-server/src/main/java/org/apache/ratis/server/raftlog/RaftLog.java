@@ -71,6 +71,8 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
    * in the latest snapshot file.
    */
   private final RaftLogIndex commitIndex;
+  /** The last log index in snapshot */
+  private final RaftLogIndex snapshotIndex;
   private final RaftLogIndex purgeIndex;
   private final int purgeGap;
 
@@ -87,6 +89,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     this.name = memberId + "-" + getClass().getSimpleName();
     this.memberId = memberId;
     this.commitIndex = new RaftLogIndex("commitIndex", commitIndex);
+    this.snapshotIndex = new RaftLogIndex("snapshotIndex", commitIndex);
     this.purgeIndex = new RaftLogIndex("purgeIndex", LEAST_VALID_LOG_INDEX - 1);
     this.purgeGap = RaftServerConfigKeys.Log.purgeGap(properties);
 
@@ -96,6 +99,10 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   public long getLastCommittedIndex() {
     return commitIndex.get();
+  }
+
+  public long getSnapshotIndex() {
+    return snapshotIndex.get();
   }
 
   public void checkLogState() {
@@ -127,6 +134,24 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
       }
     }
     return false;
+  }
+
+  /**
+   * Update the last committed index and snapshotIndex with the last index in
+   * the snapshot.
+   * @param newSnapshotIndex the last index in the snapshot
+   */
+  public void updateSnapshotIndex(long newSnapshotIndex) {
+    try(AutoCloseableLock writeLock = writeLock()) {
+      final long oldSnapshotIndex = getSnapshotIndex();
+      if (oldSnapshotIndex < newSnapshotIndex) {
+        snapshotIndex.updateIncreasingly(newSnapshotIndex, infoIndexChange);
+      }
+      final long oldCommitIndex = getLastCommittedIndex();
+      if (oldCommitIndex < newSnapshotIndex) {
+        commitIndex.updateIncreasingly(newSnapshotIndex, traceIndexChange);
+      }
+    }
   }
 
   /**
@@ -311,13 +336,22 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     if (entry.hasMetadataEntry()) {
       return;
     }
+    long latestSnapshotIndex = getSnapshotIndex();
     TermIndex lastTermIndex = getLastEntryTermIndex();
     if (lastTermIndex != null) {
+      long lastIndex = lastTermIndex.getIndex() > latestSnapshotIndex ?
+          lastTermIndex.getIndex() : latestSnapshotIndex;
       Preconditions.assertTrue(entry.getTerm() >= lastTermIndex.getTerm(),
           "Entry term less than RaftLog's last term: %d, entry: %s", lastTermIndex.getTerm(), entry);
-      Preconditions.assertTrue(entry.getIndex() == lastTermIndex.getIndex() + 1,
-          "Difference between entry index and RaftLog's last index %d greater than 1, entry: %s",
-          lastTermIndex.getIndex(), entry);
+      Preconditions.assertTrue(entry.getIndex() == lastIndex + 1,
+          "Difference between entry index and RaftLog's last index %d (or snapshot index %d) " +
+              "is greater than 1, entry: %s",
+          lastTermIndex.getIndex(), latestSnapshotIndex, entry);
+    } else {
+      Preconditions.assertTrue(entry.getIndex() == latestSnapshotIndex + 1,
+          "Difference between entry index and RaftLog's latest snapshot index %d is greater than 1 " +
+              "and in between log entries are not present, entry: %s",
+          latestSnapshotIndex, entry);
     }
   }
 

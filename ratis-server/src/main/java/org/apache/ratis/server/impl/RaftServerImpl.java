@@ -1168,7 +1168,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         // update the committed index
         // re-load the state machine if this is the last chunk
         if (snapshotChunkRequest.getDone()) {
-          state.reloadStateMachine(lastIncludedIndex, leaderTerm);
+          state.reloadStateMachine(lastIncludedIndex);
         }
       } finally {
         updateLastRpcTime(FollowerState.UpdateType.INSTALL_SNAPSHOT_COMPLETE);
@@ -1238,7 +1238,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
                     getMemberId(), reply.getIndex());
                 stateMachine.pause();
                 state.updateInstalledSnapshotIndex(reply);
-                state.reloadStateMachine(reply.getIndex(), leaderTerm);
+                state.reloadStateMachine(reply.getIndex());
               }
               inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
             });

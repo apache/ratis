@@ -41,6 +41,7 @@ public class FollowerInfo {
   private final RaftLogIndex nextIndex;
   private final RaftLogIndex matchIndex = new RaftLogIndex("matchIndex", 0L);
   private final RaftLogIndex commitIndex = new RaftLogIndex("commitIndex", RaftLog.INVALID_LOG_INDEX);
+  private final RaftLogIndex snapshotIndex = new RaftLogIndex("snapshotIndex", 0L);
   private volatile boolean attendVote;
   private final int rpcSlownessTimeoutMs;
 
@@ -75,6 +76,10 @@ public class FollowerInfo {
     return commitIndex.updateToMax(newCommitIndex, debugIndexChange);
   }
 
+  long getSnapshotIndex() {
+    return snapshotIndex.get();
+  }
+
   public long getNextIndex() {
     return nextIndex.get();
   }
@@ -95,9 +100,10 @@ public class FollowerInfo {
     nextIndex.updateToMax(newNextIndex, infoIndexChange);
   }
 
-  public void setSnapshotIndex(long snapshotIndex) {
-    matchIndex.setUnconditionally(snapshotIndex, infoIndexChange);
-    nextIndex.setUnconditionally(snapshotIndex + 1, infoIndexChange);
+  public void setSnapshotIndex(long newSnapshotIndex) {
+    snapshotIndex.setUnconditionally(newSnapshotIndex, infoIndexChange);
+    matchIndex.setUnconditionally(newSnapshotIndex, infoIndexChange);
+    nextIndex.setUnconditionally(newSnapshotIndex + 1, infoIndexChange);
   }
 
   public String getName() {
