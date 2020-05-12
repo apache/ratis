@@ -349,7 +349,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
           lastTermIndex.getIndex(), latestSnapshotIndex, entry);
     } else {
       Preconditions.assertTrue(entry.getIndex() == latestSnapshotIndex + 1,
-          "Difference between entry index and RaftLog's latest snapshot index is greater than 1 " +
+          "Difference between entry index and RaftLog's latest snapshot index %d is greater than 1 " +
               "and in between log entries are not present, entry: %s",
           latestSnapshotIndex, entry);
     }
