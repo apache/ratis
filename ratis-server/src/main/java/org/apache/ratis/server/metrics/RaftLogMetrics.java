@@ -22,6 +22,7 @@ import java.util.Queue;
 
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.util.DataQueue;
 
 import com.codahale.metrics.Gauge;

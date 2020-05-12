@@ -16,13 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.server.metrics;
+package org.apache.ratis.metrics;
 
 import java.util.Optional;
 
-import org.apache.ratis.metrics.MetricRegistries;
-import org.apache.ratis.metrics.MetricRegistryInfo;
-import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

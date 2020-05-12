@@ -23,7 +23,8 @@ import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.api.LogServiceClient;
 import org.apache.ratis.logservice.common.LogAlreadyExistException;
 import org.apache.ratis.logservice.common.LogNotFoundException;
-import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
+import org.apache.ratis.logservice.metrics.LogServiceMetaDataMetrics;
+import org.apache.ratis.logservice.metrics.LogServiceMetrics;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.util.LogServiceCluster;
 import org.apache.ratis.logservice.util.TestUtils;
@@ -342,8 +343,8 @@ public class TestMetaServer {
     private Long getJMXCount(String metricName) throws Exception {
         for (MetadataServer master : cluster.getMasters()) {
             ObjectName oname =
-                new ObjectName(LogServiceMetricsRegistry.RATIS_LOG_SERVICE_METRICS, "name",
-                    LogServiceMetricsRegistry.getMetricRegistryForLogServiceMetaData(master.getId())
+                new ObjectName(LogServiceMetrics.RATIS_LOG_SERVICE_METRICS, "name",
+                    new LogServiceMetaDataMetrics(master.getId()).getRegistry()
                         .getMetricRegistryInfo().getName() + "." + metricName);
             try {
                 return (Long) ManagementFactory.getPlatformMBeanServer()

@@ -22,7 +22,7 @@ import static org.apache.ratis.server.metrics.RaftLogMetrics.RATIS_LOG_WORKER_ME
 
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.impl.ServerProtoUtils;
-import org.apache.ratis.server.metrics.RatisMetrics;
+import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.server.raftlog.RaftLogIOException;
