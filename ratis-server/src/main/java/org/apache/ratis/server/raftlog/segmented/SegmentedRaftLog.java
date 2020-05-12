@@ -225,7 +225,7 @@ public class SegmentedRaftLog extends RaftLog {
           .getOpenLogFile(openSegment.getStartIndex());
     }
     fileLogWorker.start(Math.max(cache.getEndIndex(), lastIndexInSnapshot),
-        Math.max(cache.getLastIndexInClosedSegments(), lastIndexInSnapshot),
+        Math.min(cache.getLastIndexInClosedSegments(), lastIndexInSnapshot),
         openSegmentFile);
   }
 

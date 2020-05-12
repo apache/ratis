@@ -556,7 +556,7 @@ class SegmentedRaftLogWorker implements Runnable {
         LOG.info("{}: Deleted empty log segment {}", name, openFile);
       }
       updateFlushedIndexIncreasingly();
-      updateSafeCacheEvitIndex(endIndex);
+      safeCacheEvictIndex.updateToMax(endIndex, traceIndexChange);
     }
 
     @Override
@@ -693,10 +693,6 @@ class SegmentedRaftLogWorker implements Runnable {
 
   long getFlushIndex() {
     return flushIndex.get();
-  }
-
-  void updateSafeCacheEvitIndex(long newIndex) {
-    safeCacheEvictIndex.updateToMax(newIndex, traceIndexChange);
   }
 
   long getSafeCacheEvictIndex() {
