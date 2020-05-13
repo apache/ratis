@@ -125,12 +125,12 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testLogServiceReadWrite() throws Exception {
-    RaftClient raftClient =
-        RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
-            .build();
-    LogName logName = LogName.of("log1");
-    // TODO need API to circumvent metadata service for testing
-    try (LogStream logStream = new MetricLogStream(logName, raftClient)) {
+    try (RaftClient raftClient =
+        RaftClient.newBuilder().setProperties(getProperties())
+            .setRaftGroup(cluster.getGroup()).build()) {
+      LogName logName = LogName.of("log1");
+      // TODO need API to circumvent metadata service for testing
+      LogStream logStream = new MetricLogStream(logName, raftClient);
       assertEquals("log1", logStream.getName().getName());
       assertEquals(State.OPEN, logStream.getState());
       assertEquals(0, logStream.getSize());
@@ -181,13 +181,13 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testReadAllRecords() throws Exception {
-    final RaftClient raftClient =
-        RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
-            .build();
-    final LogName logName = LogName.of("log1");
-    final int numRecords = 25;
-    // TODO need API to circumvent metadata service for testing
-    try (LogStream logStream = new MetricLogStream(logName, raftClient)) {
+    try (RaftClient raftClient =
+        RaftClient.newBuilder().setProperties(getProperties())
+            .setRaftGroup(cluster.getGroup()).build()) {
+      final LogName logName = LogName.of("log1");
+      final int numRecords = 25;
+      // TODO need API to circumvent metadata service for testing
+      LogStream logStream = new MetricLogStream(logName, raftClient);
       try (LogWriter writer = logStream.createWriter()) {
         LOG.info("Writing {} records", numRecords);
         // Write records 0 through 99 (inclusive)
@@ -222,13 +222,13 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testSeeking() throws Exception {
-    final RaftClient raftClient =
-        RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
-            .build();
-    final LogName logName = LogName.of("log1");
-    final int numRecords = 100;
-    // TODO need API to circumvent metadata service for testing
-    try (LogStream logStream = new MetricLogStream(logName, raftClient)) {
+    try (final RaftClient raftClient =
+        RaftClient.newBuilder().setProperties(getProperties())
+            .setRaftGroup(cluster.getGroup()).build()) {
+      final LogName logName = LogName.of("log1");
+      final int numRecords = 100;
+      // TODO need API to circumvent metadata service for testing
+      LogStream logStream = new MetricLogStream(logName, raftClient);
       try (LogWriter writer = logStream.createWriter()) {
         LOG.info("Writing {} records", numRecords);
         // Write records 0 through 99 (inclusive)
@@ -259,12 +259,12 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testSeekFromWrite() throws Exception {
-    final RaftClient raftClient =
-        RaftClient.newBuilder().setProperties(getProperties()).setRaftGroup(cluster.getGroup())
-            .build();
-    final LogName logName = LogName.of("log1");
-    final int numRecords = 10;
-    try (LogStream logStream = new MetricLogStream(logName, raftClient)) {
+    try (final RaftClient raftClient =
+        RaftClient.newBuilder().setProperties(getProperties())
+            .setRaftGroup(cluster.getGroup()).build()) {
+      final LogName logName = LogName.of("log1");
+      final int numRecords = 10;
+      LogStream logStream = new MetricLogStream(logName, raftClient);
       final List<Long> recordIds;
       try (LogWriter writer = logStream.createWriter()) {
         LOG.info("Writing {} records", numRecords);

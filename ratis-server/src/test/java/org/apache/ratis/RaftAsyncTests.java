@@ -199,47 +199,48 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
     int numMessages = RaftClientConfigKeys.Async.outstandingRequestsMax(getProperties());
     CompletableFuture[] futures = new CompletableFuture[numMessages + 1];
     final SimpleMessage[] messages = SimpleMessage.create(numMessages);
-    final RaftClient client = cluster.createClient();
-    //Set blockTransaction flag so that transaction blocks
-    cluster.getServers().stream()
-        .map(cluster::getRaftServerImpl)
-        .map(SimpleStateMachine4Testing::get)
-        .forEach(SimpleStateMachine4Testing::blockStartTransaction);
+    try (final RaftClient client = cluster.createClient()) {
+      //Set blockTransaction flag so that transaction blocks
+      cluster.getServers().stream()
+              .map(cluster::getRaftServerImpl)
+              .map(SimpleStateMachine4Testing::get)
+              .forEach(SimpleStateMachine4Testing::blockStartTransaction);
 
-    //Send numMessages which are blocked and do not release the client semaphore permits
-    AtomicInteger blockedRequestsCount = new AtomicInteger();
-    for (int i=0; i<numMessages; i++) {
-      blockedRequestsCount.getAndIncrement();
-      futures[i] = client.sendAsync(messages[i]);
-      blockedRequestsCount.decrementAndGet();
+      //Send numMessages which are blocked and do not release the client semaphore permits
+      AtomicInteger blockedRequestsCount = new AtomicInteger();
+      for (int i = 0; i < numMessages; i++) {
+        blockedRequestsCount.getAndIncrement();
+        futures[i] = client.sendAsync(messages[i]);
+        blockedRequestsCount.decrementAndGet();
+      }
+      Assert.assertEquals(0, blockedRequestsCount.get());
+
+      futures[numMessages] = CompletableFuture.supplyAsync(() -> {
+        blockedRequestsCount.incrementAndGet();
+        client.sendAsync(new SimpleMessage("n1"));
+        blockedRequestsCount.decrementAndGet();
+        return null;
+      });
+
+      //Allow the last msg to be sent
+      while (blockedRequestsCount.get() != 1) {
+        Thread.sleep(1000);
+      }
+      Assert.assertEquals(1, blockedRequestsCount.get());
+      //Since all semaphore permits are acquired the last message sent is in queue
+      RaftClientTestUtil.assertAsyncRequestSemaphore(client, 0, 1);
+
+      //Unset the blockTransaction flag so that semaphore permits can be released
+      cluster.getServers().stream()
+              .map(cluster::getRaftServerImpl)
+              .map(SimpleStateMachine4Testing::get)
+              .forEach(SimpleStateMachine4Testing::unblockStartTransaction);
+
+      for (int i = 0; i <= numMessages; i++) {
+        futures[i].join();
+      }
+      Assert.assertEquals(0, blockedRequestsCount.get());
     }
-    Assert.assertEquals(0, blockedRequestsCount.get());
-
-    futures[numMessages] = CompletableFuture.supplyAsync(() -> {
-      blockedRequestsCount.incrementAndGet();
-      client.sendAsync(new SimpleMessage("n1"));
-      blockedRequestsCount.decrementAndGet();
-      return null;
-    });
-
-    //Allow the last msg to be sent
-    while (blockedRequestsCount.get() != 1) {
-      Thread.sleep(1000);
-    }
-    Assert.assertEquals(1, blockedRequestsCount.get());
-    //Since all semaphore permits are acquired the last message sent is in queue
-    RaftClientTestUtil.assertAsyncRequestSemaphore(client, 0, 1);
-
-    //Unset the blockTransaction flag so that semaphore permits can be released
-    cluster.getServers().stream()
-        .map(cluster::getRaftServerImpl)
-        .map(SimpleStateMachine4Testing::get)
-        .forEach(SimpleStateMachine4Testing::unblockStartTransaction);
-
-    for(int i=0; i<=numMessages; i++){
-      futures[i].join();
-    }
-    Assert.assertEquals(0, blockedRequestsCount.get());
   }
 
   void runTestBasicAppendEntriesAsync(boolean killLeader) throws Exception {

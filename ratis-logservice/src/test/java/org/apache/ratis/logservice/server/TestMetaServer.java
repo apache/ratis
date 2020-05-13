@@ -39,6 +39,8 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,6 +57,8 @@ import javax.management.ObjectName;
 import static org.junit.Assert.*;
 
 public class TestMetaServer {
+    private static final Logger LOG = LoggerFactory.getLogger(TestMetaServer.class);
+
     static {
         JVMMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
     }
@@ -129,10 +133,12 @@ public class TestMetaServer {
     @Test
     public void testCreateAndGetLog() throws Exception {
         // This should be LogServiceStream ?
-        LogStream logStream1 = client.createLog(LogName.of("testCreateLog"));
-        assertNotNull(logStream1);
-        LogStream logStream2 = client.getLog(LogName.of("testCreateLog"));
-        assertNotNull(logStream2);
+        try (LogStream logStream1 = client.createLog(LogName.of("testCreateLog"))) {
+            assertNotNull(logStream1);
+        }
+        try (LogStream logStream2 = client.getLog(LogName.of("testCreateLog"))) {
+            assertNotNull(logStream2);
+        }
     }
 
     /**
@@ -144,8 +150,9 @@ public class TestMetaServer {
         boolean peerClosed = false;
         try {
             for(int i = 0; i < 5; i++) {
-                LogStream logStream1 = client.createLog(LogName.of("testCloseLogOnNodeFailure"+i));
-                assertNotNull(logStream1);
+                try (LogStream logStream1 = client.createLog(LogName.of("testCloseLogOnNodeFailure"+i))) {
+                    assertNotNull(logStream1);
+                }
             }
             assertTrue(((MetaStateMachine)cluster.getMasters().get(0).getMetaStateMachine()).checkPeersAreSame());
             workers.get(0).close();
@@ -153,9 +160,10 @@ public class TestMetaServer {
             Thread.sleep(90000);
             assertTrue(((MetaStateMachine)cluster.getMasters().get(0).getMetaStateMachine()).checkPeersAreSame());
             for(int i = 0; i < 5; i++) {
-                LogStream logStream2 = client.getLog(LogName.of("testCloseLogOnNodeFailure"+i));
-                assertNotNull(logStream2);
-                assertEquals(State.CLOSED, logStream2.getState());
+                try (LogStream logStream2 = client.getLog(LogName.of("testCloseLogOnNodeFailure"+i))) {
+                    assertNotNull(logStream2);
+                    assertEquals(State.CLOSED, logStream2.getState());
+                }
             }
         } finally {
             if(peerClosed) {
@@ -166,108 +174,111 @@ public class TestMetaServer {
     }
 
     @Test
-    public void testReadWritetoLog() throws IOException, InterruptedException {
-        LogStream stream = client.createLog(LogName.of("testReadWrite"));
-        LogWriter writer = stream.createWriter();
-        ByteBuffer testMessage =  ByteBuffer.wrap("Hello world!".getBytes());
-        List<LogInfo> listLogs = client.listLogs();
-        assert(listLogs.stream().filter(log -> log.getLogName().getName().startsWith("testReadWrite")).count() == 1);
-        List<LogServer> workers = cluster.getWorkers();
-        for(LogServer worker : workers) {
-             RaftServerImpl server = ((RaftServerProxy)worker.getServer())
-                     .getImpl(listLogs.get(0).getRaftGroup().getGroupId());
-        // TODO: perform all additional checks on state machine level
-        }
-        writer.write(testMessage);
-        for(LogServer worker : workers) {
-            RaftServerImpl server = ((RaftServerProxy)worker.getServer())
-                    .getImpl(listLogs.get(0).getRaftGroup().getGroupId());
-        }
+    public void testReadWritetoLog() throws Exception {
+        try (LogStream stream = client.createLog(LogName.of("testReadWrite"))) {
+            LogWriter writer = stream.createWriter();
+            ByteBuffer testMessage = ByteBuffer.wrap("Hello world!".getBytes());
+            List<LogInfo> listLogs = client.listLogs();
+            assert (listLogs.stream().filter(log -> log.getLogName().getName().startsWith("testReadWrite")).count() == 1);
+            List<LogServer> workers = cluster.getWorkers();
+            for (LogServer worker : workers) {
+                RaftServerImpl server = ((RaftServerProxy) worker.getServer())
+                        .getImpl(listLogs.get(0).getRaftGroup().getGroupId());
+                // TODO: perform all additional checks on state machine level
+            }
+            writer.write(testMessage);
+            for (LogServer worker : workers) {
+                RaftServerImpl server = ((RaftServerProxy) worker.getServer())
+                        .getImpl(listLogs.get(0).getRaftGroup().getGroupId());
+            }
 //        assert(stream.getSize() > 0); //TODO: Doesn't work
-        LogReader reader = stream.createReader();
-        ByteBuffer res = reader.readNext();
-        assert(res.array().length > 0);
+            LogReader reader = stream.createReader();
+            ByteBuffer res = reader.readNext();
+            assert (res.array().length > 0);
+        }
     }
 
     @Test
-    public void testLogArchival() throws IOException, InterruptedException {
+    public void testLogArchival() throws Exception {
         LogName logName = LogName.of("testArchivalLog");
-        LogStream logStream = client.createLog(logName);
-        LogWriter writer = logStream.createWriter();
-        List<LogInfo> listLogs = client.listLogs();
-        assert (listLogs.stream()
-            .filter(log -> log.getLogName().getName().startsWith(logName.getName())).count() == 1);
-        List<LogServer> workers = cluster.getWorkers();
-        List<ByteBuffer> records = TestUtils.getRandomData(100, 10);
-        writer.write(records);
-        client.closeLog(logName);
-        assertEquals(logStream.getState(), State.CLOSED);
-        client.archiveLog(logName);
-        int retry = 0;
-        while (logStream.getState() != State.ARCHIVED && retry <= 40) {
-            Thread.sleep(1000);
-            retry++;
-        }
-        assertEquals(logStream.getState(), State.ARCHIVED);
-        LogReader reader = logStream.createReader();
-        List<ByteBuffer> data = reader.readBulk(records.size());
-        assertEquals(records.size(), data.size());
-        reader.seek(1);
-        data = reader.readBulk(records.size());
-        assertEquals(records.size() - 1, data.size());
+        try (LogStream logStream = client.createLog(logName)) {
+            LogWriter writer = logStream.createWriter();
+            List<LogInfo> listLogs = client.listLogs();
+            assert (listLogs.stream()
+                    .filter(log -> log.getLogName().getName().startsWith(logName.getName())).count() == 1);
+            List<LogServer> workers = cluster.getWorkers();
+            List<ByteBuffer> records = TestUtils.getRandomData(100, 10);
+            writer.write(records);
+            client.closeLog(logName);
+            assertEquals(logStream.getState(), State.CLOSED);
+            client.archiveLog(logName);
+            int retry = 0;
+            while (logStream.getState() != State.ARCHIVED && retry <= 40) {
+                Thread.sleep(1000);
+                retry++;
+            }
+            assertEquals(logStream.getState(), State.ARCHIVED);
+            LogReader reader = logStream.createReader();
+            List<ByteBuffer> data = reader.readBulk(records.size());
+            assertEquals(records.size(), data.size());
+            reader.seek(1);
+            data = reader.readBulk(records.size());
+            assertEquals(records.size() - 1, data.size());
 
-        //Test ArchiveLogStream
-        LogServiceConfiguration config = LogServiceConfiguration.create();
-        LogStream archiveLogStream = client.getArchivedLog(logName);
-        reader = archiveLogStream.createReader();
-        data = reader.readBulk(records.size());
-        assertEquals(records.size(), data.size());
+            //Test ArchiveLogStream
+            LogServiceConfiguration config = LogServiceConfiguration.create();
+            LogStream archiveLogStream = client.getArchivedLog(logName);
+            reader = archiveLogStream.createReader();
+            data = reader.readBulk(records.size());
+            assertEquals(records.size(), data.size());
+        }
     }
 
     @Test
-    public void testLogExport() throws IOException, InterruptedException {
+    public void testLogExport() throws Exception {
         LogName logName = LogName.of("testLogExport");
-        LogStream logStream = client.createLog(logName);
-        LogWriter writer = logStream.createWriter();
-        List<LogInfo> listLogs = client.listLogs();
-        assert (listLogs.stream()
-            .filter(log -> log.getLogName().getName().startsWith(logName.getName())).count() == 1);
-        List<LogServer> workers = cluster.getWorkers();
-        List<ByteBuffer> records = TestUtils.getRandomData(100, 10);
-        writer.write(records);
-        String location1 = "target/tmp/export_1/";
-        String location2 = "target/tmp/export_2/";
-        deleteLocalDirectory(new File(location1));
-        deleteLocalDirectory(new File(location2));
-        int startPosition1 = 3;
-        int startPosition2 = 5;
-        client.exportLog(logName, location1, startPosition1);
-        client.exportLog(logName, location2, startPosition2);
-        List<ArchivalInfo> infos=client.getExportStatus(logName);
-        int count=0;
-        while (infos.size() > 1 && (
-            infos.get(0).getStatus() != ArchivalInfo.ArchivalStatus.COMPLETED
-                || infos.get(1).getStatus() != ArchivalInfo.ArchivalStatus.COMPLETED)
-            && count < 10) {
-            infos = client.getExportStatus(logName);
-            ;
-            Thread.sleep(1000);
-            count++;
+        try (LogStream logStream = client.createLog(logName)) {
+            LogWriter writer = logStream.createWriter();
+            List<LogInfo> listLogs = client.listLogs();
+            assert (listLogs.stream()
+                    .filter(log -> log.getLogName().getName().startsWith(logName.getName())).count() == 1);
+            List<LogServer> workers = cluster.getWorkers();
+            List<ByteBuffer> records = TestUtils.getRandomData(100, 10);
+            writer.write(records);
+            String location1 = "target/tmp/export_1/";
+            String location2 = "target/tmp/export_2/";
+            deleteLocalDirectory(new File(location1));
+            deleteLocalDirectory(new File(location2));
+            int startPosition1 = 3;
+            int startPosition2 = 5;
+            client.exportLog(logName, location1, startPosition1);
+            client.exportLog(logName, location2, startPosition2);
+            List<ArchivalInfo> infos = client.getExportStatus(logName);
+            int count = 0;
+            while (infos.size() > 1 && (
+                    infos.get(0).getStatus() != ArchivalInfo.ArchivalStatus.COMPLETED
+                            || infos.get(1).getStatus() != ArchivalInfo.ArchivalStatus.COMPLETED)
+                    && count < 10) {
+                infos = client.getExportStatus(logName);
+                ;
+                Thread.sleep(1000);
+                count++;
 
+            }
+
+            //Test ExportLogStream
+            LogStream exportLogStream = client.getExportLog(logName, location1);
+            LogReader reader = exportLogStream.createReader();
+            List<ByteBuffer> data = reader.readBulk(records.size());
+            assertEquals(records.size() - startPosition1, data.size());
+            reader.close();
+            exportLogStream = client.getExportLog(logName, location2);
+            reader = exportLogStream.createReader();
+            data = reader.readBulk(records.size());
+            assertEquals(records.size() - startPosition2, data.size());
+            reader.close();
+            writer.close();
         }
-
-        //Test ExportLogStream
-        LogStream exportLogStream = client.getExportLog(logName, location1);
-        LogReader reader = exportLogStream.createReader();
-        List<ByteBuffer> data = reader.readBulk(records.size());
-        assertEquals(records.size() - startPosition1, data.size());
-        reader.close();
-        exportLogStream = client.getExportLog(logName, location2);
-        reader = exportLogStream.createReader();
-        data = reader.readBulk(records.size());
-        assertEquals(records.size() - startPosition2, data.size());
-        reader.close();
-        writer.close();
     }
 
     boolean deleteLocalDirectory(File dir) {
@@ -289,31 +300,40 @@ public class TestMetaServer {
     @Test
     public void testDeleteLog() throws Exception {
         // This should be LogServiceStream ?
-        LogStream logStream1 = client.createLog(LogName.of("testDeleteLog"));
-        assertNotNull(logStream1);
-        client.deleteLog(LogName.of("testDeleteLog"));
-        testJMXCount(MetaServiceProtos.MetaServiceRequestProto.TypeCase.DELETELOG.name(),
-            (long) deleteCount.get());
-        try {
-          logStream1 = client.getLog(LogName.of("testDeleteLog"));
-            fail("Failed to throw LogNotFoundException");
-        } catch(Exception e) {
-            assert(e instanceof LogNotFoundException);
+        try (LogStream logStream1 = client.createLog(LogName.of("testDeleteLog"))) {
+            assertNotNull(logStream1);
+            client.deleteLog(LogName.of("testDeleteLog"));
+            testJMXCount(MetaServiceProtos.MetaServiceRequestProto.TypeCase.DELETELOG.name(),
+                    (long) deleteCount.get());
+            LogStream logStream2 = null;
+            try {
+                logStream2 = client.getLog(LogName.of("testDeleteLog"));
+                fail("Failed to throw LogNotFoundException");
+            } catch (Exception e) {
+                assert (e instanceof LogNotFoundException);
+            } finally {
+                if (logStream2 != null) {
+                    logStream2.close();
+                }
+            }
         }
-
-
     }
     /**
      * Test for getting not existing log. Should throw an exception
      * @throws IOException
      */
     @Test
-    public void testGetNotExistingLog() {
+    public void testGetNotExistingLog() throws Exception {
+        LogStream logStream = null;
         try {
-            LogStream log = client.getLog(LogName.of("no_such_log"));
+            logStream = client.getLog(LogName.of("no_such_log"));
             fail("LogNotFoundException was not thrown");
         } catch (IOException e) {
             assert(e instanceof LogNotFoundException);
+        } finally {
+            if (logStream != null) {
+               logStream.close();
+            }
         }
     }
 
@@ -323,13 +343,30 @@ public class TestMetaServer {
      */
     @Test
     public void testAlreadyExistLog() throws Exception {
-        LogStream logStream1 = client.createLog(LogName.of("test1"));
-        assertNotNull(logStream1);
+        try (LogStream logStream1 = client.createLog(LogName.of("test1"))) {
+            assertNotNull(logStream1);
+            LogStream logStream2 = null;
+            try {
+                logStream2 = client.createLog(LogName.of("test1"));
+                fail("Didn't fail with LogAlreadyExistException");
+            } catch (IOException e) {
+                assert (e instanceof LogAlreadyExistException);
+            } finally {
+                if (logStream2 != null) {
+                    logStream2.close();
+                }
+            }
+        }
+    }
+
+    private void createLogAndClose(String name) throws Exception {
+        LogStream logStream = null;
         try {
-            logStream1 = client.createLog(LogName.of("test1"));
-            fail("Didn't fail with LogAlreadyExistException");
-        } catch (IOException e) {
-            assert(e instanceof LogAlreadyExistException);
+            logStream = client.createLog(LogName.of(name));
+        } finally {
+            if (logStream != null) {
+                logStream.close();
+            }
         }
     }
 
@@ -339,13 +376,13 @@ public class TestMetaServer {
      */
     @Test
     public void testListLogs() throws Exception {
-        client.createLog(LogName.of("listLogTest1"));
-        client.createLog(LogName.of("listLogTest2"));
-        client.createLog(LogName.of("listLogTest3"));
-        client.createLog(LogName.of("listLogTest4"));
-        client.createLog(LogName.of("listLogTest5"));
-        client.createLog(LogName.of("listLogTest6"));
-        client.createLog(LogName.of("listLogTest7"));
+        createLogAndClose("listLogTest1");
+        createLogAndClose("listLogTest2");
+        createLogAndClose("listLogTest3");
+        createLogAndClose("listLogTest4");
+        createLogAndClose("listLogTest5");
+        createLogAndClose("listLogTest6");
+        createLogAndClose("listLogTest7");
         // Test jmx
 
         List<LogInfo> list = client.listLogs();
@@ -380,10 +417,19 @@ public class TestMetaServer {
     @Test
     public void testFinalClieanUp() throws Exception {
         IntStream.range(0, 10).forEach(i -> {
+            LogStream logStream = null;
             try {
-                client.createLog(LogName.of("CleanTest" + i));
+                logStream = client.createLog(LogName.of("CleanTest" + i));
             } catch (IOException e) {
                 throw new RuntimeException(e);
+            } finally {
+                if (logStream != null) {
+                    try {
+                        logStream.close();
+                    } catch (Exception ignored) {
+                        LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
+                    }
+                }
             }
         });
         List<LogInfo> list = client.listLogs();

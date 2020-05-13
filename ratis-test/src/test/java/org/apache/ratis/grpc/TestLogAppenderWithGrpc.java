@@ -62,33 +62,34 @@ public class TestLogAppenderWithGrpc
     cluster.start();
 
     // client and leader setup
-    RaftClient client = cluster.createClient(cluster.getGroup());
-    client.send(new RaftTestUtil.SimpleMessage("m"));
-    RaftServerImpl leader = waitForLeader(cluster);
-    long initialNextIndex = leader.getState().getNextIndex();
+    try (final RaftClient client = cluster.createClient(cluster.getGroup())) {
+      client.send(new RaftTestUtil.SimpleMessage("m"));
+      RaftServerImpl leader = waitForLeader(cluster);
+      long initialNextIndex = leader.getState().getNextIndex();
 
-    for (RaftServerImpl server : cluster.getFollowers()) {
-      // block the appends in the follower
-      ((SimpleStateMachine4Testing)server.getStateMachine()).blockWriteStateMachineData();
-    }
-    Collection<CompletableFuture<RaftClientReply>> futures = new ArrayList<>(maxAppends * 2);
-    for (int i = 0; i < maxAppends * 2; i++) {
-      futures.add(client.sendAsync(new RaftTestUtil.SimpleMessage("m")));
-    }
+      for (RaftServerImpl server : cluster.getFollowers()) {
+        // block the appends in the follower
+        ((SimpleStateMachine4Testing) server.getStateMachine()).blockWriteStateMachineData();
+      }
+      Collection<CompletableFuture<RaftClientReply>> futures = new ArrayList<>(maxAppends * 2);
+      for (int i = 0; i < maxAppends * 2; i++) {
+        futures.add(client.sendAsync(new RaftTestUtil.SimpleMessage("m")));
+      }
 
-    FIVE_SECONDS.sleep();
-    for (long nextIndex : leader.getFollowerNextIndices()) {
-      // Verify nextIndex does not progress due to pendingRequests limit
-      Assert.assertEquals(initialNextIndex + maxAppends, nextIndex);
-    }
-    ONE_SECOND.sleep();
-    for (RaftServerImpl server : cluster.getFollowers()) {
-      // unblock the appends in the follower
-      ((SimpleStateMachine4Testing)server.getStateMachine()).unblockWriteStateMachineData();
-    }
+      FIVE_SECONDS.sleep();
+      for (long nextIndex : leader.getFollowerNextIndices()) {
+        // Verify nextIndex does not progress due to pendingRequests limit
+        Assert.assertEquals(initialNextIndex + maxAppends, nextIndex);
+      }
+      ONE_SECOND.sleep();
+      for (RaftServerImpl server : cluster.getFollowers()) {
+        // unblock the appends in the follower
+        ((SimpleStateMachine4Testing) server.getStateMachine()).unblockWriteStateMachineData();
+      }
 
-    JavaUtils.allOf(futures).join();
-    cluster.shutdown();
+      JavaUtils.allOf(futures).join();
+      cluster.shutdown();
+    }
   }
 
   @Test

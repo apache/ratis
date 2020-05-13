@@ -89,44 +89,43 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
 
     cluster.getLeaderAndSendFirstMessage(true);
 
-    final RaftClient client = cluster.createClient(leaderId);
-    client.send(new RaftTestUtil.SimpleMessage("message"));
-    RaftClientReply reply = client.send(
-        new RaftTestUtil.SimpleMessage("message2"));
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      client.send(new RaftTestUtil.SimpleMessage("message"));
+      RaftClientReply reply = client.send(
+              new RaftTestUtil.SimpleMessage("message2"));
 
-    long logIndex = reply.getLogIndex();
-    //Confirm that followers have committed
-    RaftClientReply watchReply = client.sendWatch(
-        logIndex, RaftProtos.ReplicationLevel.ALL_COMMITTED);
-    watchReply.getCommitInfos().forEach(
-        val -> Assert.assertTrue(val.getCommitIndex() >= logIndex));
+      long logIndex = reply.getLogIndex();
+      //Confirm that followers have committed
+      RaftClientReply watchReply = client.sendWatch(
+              logIndex, RaftProtos.ReplicationLevel.ALL_COMMITTED);
+      watchReply.getCommitInfos().forEach(
+              val -> Assert.assertTrue(val.getCommitIndex() >= logIndex));
+      RaftServerImpl secondFollower = cluster.getFollowers().get(1);
+      // Second follower is blocked in apply transaction
+      Assert.assertTrue(
+              secondFollower.getState().getLastAppliedIndex()
+                      < logIndex);
 
-    RaftServerImpl secondFollower = cluster.getFollowers().get(1);
-    // Second follower is blocked in apply transaction
-    Assert.assertTrue(
-        secondFollower.getState().getLastAppliedIndex()
-            < logIndex);
+      // Now shutdown the follower in a separate thread
+      Thread t = new Thread(() -> secondFollower.shutdown(true));
+      t.start();
 
-    // Now shutdown the follower in a separate thread
-    Thread t = new Thread(() -> secondFollower.shutdown(true));
-    t.start();
+      // The second follower should still be blocked in apply transaction
+      Assert.assertTrue(
+              secondFollower.getState().getLastAppliedIndex()
+                      < logIndex);
 
-    // The second follower should still be blocked in apply transaction
-    Assert.assertTrue(
-        secondFollower.getState().getLastAppliedIndex()
-            < logIndex);
+      // Now unblock the second follower
+      ((StateMachineWithConditionalWait) secondFollower.getStateMachine())
+              .unBlockApplyTxn();
 
-    // Now unblock the second follower
-    ((StateMachineWithConditionalWait)secondFollower.getStateMachine())
-        .unBlockApplyTxn();
+      // Now wait for the thread
+      t.join(5000);
+      Assert.assertEquals(
+              secondFollower.getState().getLastAppliedIndex(),
+              logIndex);
 
-    // Now wait for the thread
-    t.join(5000);
-    Assert.assertEquals(
-        secondFollower.getState().getLastAppliedIndex(),
-        logIndex);
-
-    client.close();
-    cluster.shutdown();
+      cluster.shutdown();
+    }
   }
 }

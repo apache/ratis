@@ -65,20 +65,20 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
     final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage(false).getId();
     long oldLastApplied = cluster.getLeader().getState().getLastAppliedIndex();
 
-    final RaftClient client = cluster.createClient(leaderId);
-    final RaftClientRpc rpc = client.getClientRpc();
-    final long callId = 999;
-    RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, new SimpleMessage("message"));
-    assertReply(rpc.sendRequest(r), client, callId);
-
-    // retry with the same callId
-    for (int i = 0; i < 5; i++) {
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      final RaftClientRpc rpc = client.getClientRpc();
+      final long callId = 999;
+      RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
+              callId, new SimpleMessage("message"));
       assertReply(rpc.sendRequest(r), client, callId);
-    }
 
-    assertServer(cluster, client.getId(), callId, oldLastApplied);
-    client.close();
+      // retry with the same callId
+      for (int i = 0; i < 5; i++) {
+        assertReply(rpc.sendRequest(r), client, callId);
+      }
+
+      assertServer(cluster, client.getId(), callId, oldLastApplied);
+    }
   }
 
   public static RaftClient assertReply(RaftClientReply reply, RaftClient client, long callId) {
@@ -126,43 +126,43 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
     RaftTestUtil.waitForLeader(cluster);
     final RaftPeerId leaderId = cluster.getLeaderAndSendFirstMessage(false).getId();
 
-    final RaftClient client = cluster.createClient(leaderId);
-    RaftClientRpc rpc = client.getClientRpc();
-    final long callId = 999;
-    RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
-        callId, new SimpleMessage("message"));
-    assertReply(rpc.sendRequest(r), client, callId);
-    long oldLastApplied = cluster.getLeader().getState().getLastAppliedIndex();
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      RaftClientRpc rpc = client.getClientRpc();
+      final long callId = 999;
+      RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId,
+              callId, new SimpleMessage("message"));
+      assertReply(rpc.sendRequest(r), client, callId);
+      long oldLastApplied = cluster.getLeader().getState().getLastAppliedIndex();
 
-    // trigger the reconfiguration, make sure the original leader is kicked out
-    PeerChanges change = cluster.addNewPeers(2, true);
-    RaftPeer[] allPeers = cluster.removePeers(2, true,
-        asList(change.newPeers)).allPeersInNewConf;
-    // trigger setConfiguration
-    cluster.setConfiguration(allPeers);
+      // trigger the reconfiguration, make sure the original leader is kicked out
+      PeerChanges change = cluster.addNewPeers(2, true);
+      RaftPeer[] allPeers = cluster.removePeers(2, true,
+              asList(change.newPeers)).allPeersInNewConf;
+      // trigger setConfiguration
+      cluster.setConfiguration(allPeers);
 
-    final RaftPeerId newLeaderId = JavaUtils.attemptRepeatedly(() -> {
-      final RaftPeerId id = RaftTestUtil.waitForLeader(cluster).getId();
-      Assert.assertNotEquals(leaderId, id);
-      return id;
-    }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "wait for a leader different than " + leaderId, LOG);
-    Assert.assertNotEquals(leaderId, newLeaderId);
-    // same clientId and callId in the request
-    r = cluster.newRaftClientRequest(client.getId(), newLeaderId,
-        callId, new SimpleMessage("message"));
-    rpc.addServers(Arrays.asList(change.newPeers));
-    for (int i = 0; i < 10; i++) {
-      try {
-        assertReply(rpc.sendRequest(r), client, callId);
-        LOG.info("successfully sent out the retry request_" + i);
-      } catch (Exception e) {
-        LOG.info("hit exception while retrying the same request: " + r, e);
+      final RaftPeerId newLeaderId = JavaUtils.attemptRepeatedly(() -> {
+        final RaftPeerId id = RaftTestUtil.waitForLeader(cluster).getId();
+        Assert.assertNotEquals(leaderId, id);
+        return id;
+      }, 10, TimeDuration.valueOf(100, TimeUnit.MILLISECONDS), "wait for a leader different than " + leaderId, LOG);
+      Assert.assertNotEquals(leaderId, newLeaderId);
+      // same clientId and callId in the request
+      r = cluster.newRaftClientRequest(client.getId(), newLeaderId,
+              callId, new SimpleMessage("message"));
+      rpc.addServers(Arrays.asList(change.newPeers));
+      for (int i = 0; i < 10; i++) {
+        try {
+          assertReply(rpc.sendRequest(r), client, callId);
+          LOG.info("successfully sent out the retry request_" + i);
+        } catch (Exception e) {
+          LOG.info("hit exception while retrying the same request: " + r, e);
+        }
+        Thread.sleep(100);
       }
-      Thread.sleep(100);
-    }
 
-    // check the new leader and make sure the retry did not get committed
-    Assert.assertEquals(0, count(cluster.getLeader().getState().getLog(), oldLastApplied + 1));
-    client.close();
+      // check the new leader and make sure the retry did not get committed
+      Assert.assertEquals(0, count(cluster.getLeader().getState().getLog(), oldLastApplied + 1));
+    }
   }
 }
