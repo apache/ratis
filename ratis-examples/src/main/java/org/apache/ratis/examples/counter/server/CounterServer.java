@@ -1,14 +1,17 @@
 package org.apache.ratis.examples.counter.server;
 
-import org.apache.ratis.conf.*;
-import org.apache.ratis.examples.counter.*;
-import org.apache.ratis.grpc.*;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.server.*;
-import org.apache.ratis.util.*;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.examples.counter.CounterCommon;
+import org.apache.ratis.grpc.GrpcConfigKeys;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.util.NetUtils;
 
-import java.io.*;
-import java.util.*;
+import java.io.File;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.Scanner;
 
 /**
  * Simplest Ratis server, use a simple state machine {@link CounterStateMachine}

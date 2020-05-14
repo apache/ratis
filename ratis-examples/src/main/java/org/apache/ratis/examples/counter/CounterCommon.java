@@ -1,6 +1,9 @@
 package org.apache.ratis.examples.counter;
 
-import org.apache.ratis.protocol.*;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 
 import java.util.*;
 

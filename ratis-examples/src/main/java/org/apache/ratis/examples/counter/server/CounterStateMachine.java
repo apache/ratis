@@ -1,19 +1,29 @@
 package org.apache.ratis.examples.counter.server;
 
-import org.apache.ratis.proto.*;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.server.*;
-import org.apache.ratis.server.protocol.*;
-import org.apache.ratis.server.raftlog.*;
-import org.apache.ratis.server.storage.*;
-import org.apache.ratis.statemachine.*;
-import org.apache.ratis.statemachine.impl.*;
-import org.apache.ratis.util.*;
+import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.protocol.TermIndex;
+import org.apache.ratis.server.raftlog.RaftLog;
+import org.apache.ratis.server.storage.RaftStorage;
+import org.apache.ratis.statemachine.TransactionContext;
+import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
+import org.apache.ratis.statemachine.impl.SingleFileSnapshotInfo;
+import org.apache.ratis.util.JavaUtils;
 
-import java.io.*;
-import java.nio.charset.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.nio.charset.Charset;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * State machine implementation for Counter server application. This class

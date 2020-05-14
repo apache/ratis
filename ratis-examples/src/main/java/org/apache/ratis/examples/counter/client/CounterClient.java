@@ -1,14 +1,19 @@
 package org.apache.ratis.examples.counter.client;
 
-import org.apache.ratis.client.*;
-import org.apache.ratis.conf.*;
-import org.apache.ratis.examples.counter.*;
-import org.apache.ratis.grpc.*;
-import org.apache.ratis.protocol.*;
+import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.conf.Parameters;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.examples.counter.CounterCommon;
+import org.apache.ratis.grpc.GrpcFactory;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
 
-import java.io.*;
-import java.nio.charset.*;
-import java.util.concurrent.*;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Counter client application, this application sends specific number of
