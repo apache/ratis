@@ -40,7 +40,7 @@ import java.util.Scanner;
  * Run this application three times with three different parameter set-up a
  * ratis cluster which maintain a counter value replicated in each server memory
  */
-public class CounterServer {
+public final class CounterServer {
 
   private CounterServer(){
   }

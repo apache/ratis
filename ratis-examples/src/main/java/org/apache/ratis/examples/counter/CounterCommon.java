@@ -23,12 +23,14 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Common Constant across servers and client
  */
-public class CounterCommon {
+public final class CounterCommon {
   public static final List<RaftPeer> PEERS = new ArrayList<>(3);
 
   static {

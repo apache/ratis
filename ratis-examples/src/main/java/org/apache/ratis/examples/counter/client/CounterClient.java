@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
  * Parameter to this application indicate the number of INCREMENT command, if no
  * parameter found, application use default value which is 10
  */
-public class CounterClient {
+public final class CounterClient {
 
   private CounterClient(){
   }
