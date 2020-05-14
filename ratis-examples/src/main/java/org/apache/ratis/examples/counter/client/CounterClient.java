@@ -24,6 +24,10 @@ import java.util.concurrent.TimeUnit;
  * parameter found, application use default value which is 10
  */
 public class CounterClient {
+
+  private CounterClient(){
+  }
+
   public static void main(String[] args)
       throws IOException, InterruptedException {
     //indicate the number of INCREMENT command, set 10 if no parameter passed

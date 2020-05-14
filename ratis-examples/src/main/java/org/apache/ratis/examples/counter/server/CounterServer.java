@@ -24,6 +24,9 @@ import java.util.Scanner;
  */
 public class CounterServer {
 
+  private CounterServer(){
+  }
+
   public static void main(String[] args) throws IOException, InterruptedException {
     if (args.length < 1) {
       System.err.println("Usage: java -cp *.jar org.apache.ratis.examples.counter.server.CounterServer {serverIndex}");
