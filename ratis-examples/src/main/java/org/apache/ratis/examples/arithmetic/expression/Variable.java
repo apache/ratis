@@ -25,8 +25,7 @@ import org.apache.ratis.util.Preconditions;
 
 public class Variable implements Expression {
   static final int LENGTH_LIMIT = 32;
-  static final String REGEX = "[a-zA-Z]\\w*";
-  static final Pattern PATTERN = Pattern.compile(REGEX);
+  public static final Pattern PATTERN = Pattern.compile("[a-zA-Z]\\w*");
 
   static byte[] string2bytes(String s) {
     final byte[] stringBytes = s.getBytes(AssignmentMessage.UTF8);
