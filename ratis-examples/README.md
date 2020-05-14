@@ -19,8 +19,10 @@
 The repository can be complied using `mvn clean package -DskipTests` under the project root directory;
 see also [BUILDING.md](../BUILDING.md).
 
-All the scripts for running the examples are located in the [ratis-examples/src/main/bin](src/main/bin) directory;
+For the Example 1 and 2, All the scripts for running the examples are located in the [ratis-examples/src/main/bin](src/main/bin) directory;
 see below for the usage.
+
+Example 3 does not contain any script to run it refer to [Example 3 run section](#run-counter-server-and-client).
 
 ## Example 1: FileStore
 
@@ -114,7 +116,30 @@ Continue the server command example,
     ${BIN}/client.sh arithmetic assign --name c --value a+b --peers ${PEERS}
     ${BIN}/client.sh arithmetic get --name c --peers ${PEERS}
 
+## Example 3: Counter
+This example designed to be the simplest possible example and because of that 
+this example does not follow the scripts and command line parameters of previous
+examples.
+The Goal of this example is to maintain and replicate a counter value across 
+a cluster.
+`CounterServer` class contains the main method to run the server and you can run it 
+three times with three different parameters(1,2 and 3).
+all address and ports of the peers hardcoded in `CounterCommon`, so you don't 
+need any extra configuration to run this example on your localhost.
+`CounterClient` class contains the main method to run the client,the client sends 
+several INCREMENT command and after that, it sends a GET command and prints the 
+result which should be the value of the counter.
+'Counter State Machine' implemented in `CounterStateMachine` class.
+You can find more detail by reading these classes javaDocs.
+
+### Run Counter Server and Client
+run the client and servers by these commands from ratis-examples directory:
+for server: `java -cp target/*.jar org.apache.ratis.examples.counter.server.CounterServer {serverIndex}`
+replace {serverIndex} with 1, 2, or 3
+for client: `java -cp target/*.jar org.apache.ratis.examples.counter.client.CounterClient`
+
 ## Pre-Setup Vagrant Pseudo Cluster
+Note: This option is only available to Example 1 and 2
 One can see the interactions of a three server Ratis cluster with a load-generator running against it
 by using the `run_all_tests.sh` script found in [dev-support/vagrant/](../dev-support/vagrant).
 See the [dev-support/vagrant/README.md](../dev-support/vagrant/README.md) for more on dependencies and what is setup.
