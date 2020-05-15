@@ -34,9 +34,21 @@ public final class MetricsReporting {
   }
 
   public static Consumer<RatisMetricRegistry> consoleReporter(TimeDuration rate) {
-    return ratisMetricRegistry -> ConsoleReporter.forRegistry(ratisMetricRegistry.getDropWizardMetricRegistry())
-        .convertRatesTo(TimeUnit.SECONDS).convertDurationsTo(TimeUnit.MILLISECONDS).build()
-        .start(rate.getDuration(), rate.getUnit());
+    return ratisMetricRegistry -> {
+      ConsoleReporter reporter = ConsoleReporter.forRegistry(ratisMetricRegistry.getDropWizardMetricRegistry())
+          .convertRatesTo(TimeUnit.SECONDS).convertDurationsTo(TimeUnit.MILLISECONDS).build();
+      reporter.start(rate.getDuration(), rate.getUnit());
+      ratisMetricRegistry.setConsoleReporter(reporter);
+    };
+  }
+
+  public static Consumer<RatisMetricRegistry> stopConsoleReporter() {
+    return ratisMetricRegistry -> {
+      ConsoleReporter reporter = ratisMetricRegistry.getConsoleReporter();
+      if (reporter != null) {
+        reporter.close();
+      }
+    };
   }
 
   public static Consumer<RatisMetricRegistry> jmxReporter() {
@@ -44,7 +56,19 @@ public final class MetricsReporting {
       Builder builder =
           JmxReporter.forRegistry(registry.getDropWizardMetricRegistry());
       builder.inDomain(registry.getMetricRegistryInfo().getApplicationName());
-      builder.build().start();
+      JmxReporter reporter = builder.build();
+      reporter.start();
+
+      registry.setJmxReporter(reporter);
+    };
+  }
+
+  public static Consumer<RatisMetricRegistry> stopJmxReporter() {
+    return registry -> {
+      JmxReporter reporter = registry.getJmxReporter();
+      if (reporter != null) {
+        reporter.close();
+      }
     };
   }
 }

@@ -19,9 +19,11 @@ package org.apache.ratis.metrics;
 
 import java.util.SortedMap;
 
+import com.codahale.metrics.ConsoleReporter;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Histogram;
+import com.codahale.metrics.JmxReporter;
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.Metric;
 import com.codahale.metrics.MetricFilter;
@@ -58,4 +60,12 @@ public interface RatisMetricRegistry {
   MetricRegistryInfo getMetricRegistryInfo();
 
   void registerAll(String prefix, MetricSet metricSet);
+
+  void setJmxReporter(JmxReporter jmxReporter);
+
+  JmxReporter getJmxReporter();
+
+  void setConsoleReporter(ConsoleReporter consoleReporter);
+
+  ConsoleReporter getConsoleReporter();
 }
