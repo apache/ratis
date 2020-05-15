@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.management.ObjectName;
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -274,15 +275,26 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       } catch (Exception ignored) {
         LOG.warn("{}: Failed to close state", getMemberId(), ignored);
       }
-      leaderElectionMetrics.unregister();
-      raftServerMetrics.unregister();
-      RaftServerMetrics.removeRaftServerMetrics(this);
+      try {
+        leaderElectionMetrics.unregister();
+        raftServerMetrics.unregister();
+        RaftServerMetrics.removeRaftServerMetrics(this);
+      } catch (Exception ignored) {
+        LOG.warn("{}: Failed to unregister metric", getMemberId(), ignored);
+      }
       if (deleteDirectory) {
         final RaftStorageDirectory dir = state.getStorage().getStorageDir();
-        try {
-          FileUtils.deleteFully(dir.getRoot());
-        } catch(Exception ignored) {
-          LOG.warn("{}: Failed to remove RaftStorageDirectory {}", getMemberId(), dir, ignored);
+        for (int i = 0; i < FileUtils.NUM_ATTEMPTS; i ++) {
+          try {
+            FileUtils.deleteFully(dir.getRoot());
+            LOG.info("{}: Succeed to remove RaftStorageDirectory {}", getMemberId(), dir);
+            break;
+          } catch (NoSuchFileException e) {
+            LOG.warn("{}: Some file does not exist {}", getMemberId(), dir, e);
+          } catch (Exception ignored) {
+            LOG.error("{}: Failed to remove RaftStorageDirectory {}", getMemberId(), dir, ignored);
+            break;
+          }
         }
       }
     });
