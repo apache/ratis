@@ -210,8 +210,16 @@ public final class RaftServerMetrics extends RatisMetrics {
     registry.gauge(REQUEST_QUEUE_SIZE, () -> queueSize);
   }
 
+  boolean removeNumPendingRequestsGauge() {
+    return registry.remove(REQUEST_QUEUE_SIZE);
+  }
+
   void addNumPendingRequestsByteSize(Gauge byteSize) {
     registry.gauge(REQUEST_BYTE_SIZE, () -> byteSize);
+  }
+
+  boolean removeNumPendingRequestsByteSize() {
+    return registry.remove(REQUEST_BYTE_SIZE);
   }
 
   void onRequestByteSizeLimitHit() {

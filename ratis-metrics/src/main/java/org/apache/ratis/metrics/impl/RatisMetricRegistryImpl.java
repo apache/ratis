@@ -62,6 +62,11 @@ public class RatisMetricRegistryImpl implements RatisMetricRegistry {
     return metricRegistry.counter(getMetricName(name));
   }
 
+  @Override
+  public boolean remove(String name) {
+    return metricRegistry.remove(getMetricName(name));
+  }
+
   @Override public Gauge gauge(String name, MetricSupplier<Gauge> supplier) {
     return metricRegistry.gauge(getMetricName(name), supplier);
   }

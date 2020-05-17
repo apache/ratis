@@ -37,6 +37,8 @@ public interface RatisMetricRegistry {
 
   Counter counter(String name);
 
+  boolean remove(String name);
+
   Gauge gauge(String name, MetricRegistry.MetricSupplier<Gauge> supplier);
 
   Timer timer(String name, MetricRegistry.MetricSupplier<Timer> supplier);
