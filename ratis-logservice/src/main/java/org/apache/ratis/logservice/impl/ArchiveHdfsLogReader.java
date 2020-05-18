@@ -154,12 +154,12 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
         ret.add(buffer);
       }
 
-    } catch (EOFException eof) {
+    } catch (EOFException ignore) {
     } catch (Exception e) {
       throw new IOException(e);
-    } finally {
-      return ret;
     }
+
+    return ret;
   }
 
   @Override public int readBulk(ByteBuffer[] buffers) throws IOException {
@@ -171,7 +171,7 @@ public class ArchiveHdfsLogReader implements ArchiveLogReader {
         readNext(buffers[i]);
         count++;
       }
-    } catch (EOFException eof) {
+    } catch (EOFException ignore) {
 
     }
     return count;
