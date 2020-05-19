@@ -32,13 +32,13 @@ import java.util.function.Consumer;
 
 public interface RaftStorageTestUtils {
 
-  static String getLogFlushTimeMetric(RaftPeerId serverId) {
-    return getRaftLogFullMetric(serverId, RAFT_LOG_FLUSH_TIME);
+  static String getLogFlushTimeMetric(String memberId) {
+    return getRaftLogFullMetric(memberId, RAFT_LOG_FLUSH_TIME);
   }
 
-  static String getRaftLogFullMetric(RaftPeerId serverId, String metricName) {
+  static String getRaftLogFullMetric(String memberId, String metricName) {
     return RatisMetrics.RATIS_APPLICATION_NAME_METRICS + "." + RATIS_LOG_WORKER_METRICS
-        + "." + serverId + "." + metricName;
+        + "." + memberId + "." + metricName;
   }
 
   static void printLog(RaftLog log, Consumer<String> println) {

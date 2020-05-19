@@ -26,7 +26,7 @@ public interface SegmentedRaftLogTestUtils {
     Log4jUtils.setLogLevel(SegmentedRaftLogWorker.LOG, level);
   }
 
-  static String getLogFlushTimeMetric(RaftPeerId serverId) {
-    return SegmentedRaftLogWorker.class.getName() + "." + serverId + ".flush-time";
+  static String getLogFlushTimeMetric(String memberId) {
+    return SegmentedRaftLogWorker.class.getName() + "." + memberId + ".flush-time";
   }
 }

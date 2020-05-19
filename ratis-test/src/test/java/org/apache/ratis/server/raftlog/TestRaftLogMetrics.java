@@ -119,8 +119,8 @@ public class TestRaftLogMetrics extends BaseTest
   }
 
   static void assertFlushCount(RaftServerImpl server) throws Exception {
-    final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getId());
-    RatisMetricRegistry ratisMetricRegistry = new RaftLogMetrics((server.getId().toString())).getRegistry();
+    final String flushTimeMetric = RaftStorageTestUtils.getLogFlushTimeMetric(server.getMemberId().toString());
+    RatisMetricRegistry ratisMetricRegistry = new RaftLogMetrics(server.getMemberId().toString()).getRegistry();
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_FLUSH_TIME);
     Assert.assertNotNull(tm);
 
@@ -142,8 +142,8 @@ public class TestRaftLogMetrics extends BaseTest
   }
 
   static void assertRaftLogWritePathMetrics(RaftServerImpl server) throws Exception {
-    final String syncTimeMetric = RaftStorageTestUtils.getRaftLogFullMetric(server.getId(), RAFT_LOG_SYNC_TIME);
-    RatisMetricRegistry ratisMetricRegistry = new RaftLogMetrics((server.getId().toString())).getRegistry();
+    final String syncTimeMetric = RaftStorageTestUtils.getRaftLogFullMetric(server.getMemberId().toString(), RAFT_LOG_SYNC_TIME);
+    RatisMetricRegistry ratisMetricRegistry = new RaftLogMetrics(server.getMemberId().toString()).getRegistry();
 
     //Test sync count
     Timer tm = (Timer) ratisMetricRegistry.get(RAFT_LOG_SYNC_TIME);
