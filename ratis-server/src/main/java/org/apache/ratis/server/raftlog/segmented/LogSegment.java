@@ -147,7 +147,7 @@ public class LogSegment implements Comparable<Long> {
     });
     LOG.info("Successfully read {} entries from segment file {}", entryCount, file);
 
-    if (isOpen && end == INVALID_LOG_INDEX) {
+    if (isOpen) {
       end = segment.getEndIndex();
     }
 
