@@ -57,17 +57,26 @@ public class LogServiceClient implements AutoCloseable {
      * @param metaQuorum
      */
     public LogServiceClient(String metaQuorum) {
-        this(metaQuorum, LogServiceConfiguration.create());
+        this(metaQuorum, LogServiceConfiguration.create(), new RaftProperties());
+    }
+
+    /**
+     * Constuctor. Build raft client for meta quorum
+     * @param metaQuorum
+     * @param properties
+     */
+    public LogServiceClient(String metaQuorum, RaftProperties properties) {
+        this(metaQuorum, LogServiceConfiguration.create(), properties);
     }
 
     /**
      * Constuctor (with configuration). Build raft client for meta quorum
      * @param metaQuorum
      * @param config log serice configuration
+     * @param properties
      */
-    public LogServiceClient(String metaQuorum, LogServiceConfiguration config) {
+    public LogServiceClient(String metaQuorum, LogServiceConfiguration config, RaftProperties properties) {
         Set<RaftPeer> peers = getPeersFromQuorum(metaQuorum);
-        RaftProperties properties = new RaftProperties();
         RaftGroup meta = RaftGroup.valueOf(Constants.META_GROUP_ID, peers);
         client = RaftClient.newBuilder()
                 .setRaftGroup(meta)

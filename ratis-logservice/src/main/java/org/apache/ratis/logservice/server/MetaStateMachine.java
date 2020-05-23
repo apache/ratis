@@ -57,6 +57,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.storage.RaftStorage;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.AutoCloseableLock;
 import org.apache.ratis.util.Daemon;
@@ -118,6 +119,11 @@ public class MetaStateMachine extends BaseStateMachine {
         super.initialize(server, groupId, storage);
         peerHealthChecker = new Daemon(new PeerHealthChecker(),"peer-Health-Checker");
         peerHealthChecker.start();
+    }
+
+    @VisibleForTesting
+    public void setProperties(RaftProperties properties) {
+      this.properties = properties;
     }
 
     @Override
