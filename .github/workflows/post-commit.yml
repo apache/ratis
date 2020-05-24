@@ -49,6 +49,10 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
         - uses: actions/checkout@master
+        - run: ./dev-support/checks/sonar.sh
+          env:
+            SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         - run: ./dev-support/checks/unit.sh
         - uses: actions/upload-artifact@master
           if: always()
