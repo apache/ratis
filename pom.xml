@@ -718,6 +718,7 @@
           <configuration>
             <!-- Lets us define more exclusions in child-modules without overriding these -->
             <excludes combine.children="append">
+              <exclude>.github/*.md</exclude>
               <exclude>target/*</exclude>
             </excludes>
           </configuration>
