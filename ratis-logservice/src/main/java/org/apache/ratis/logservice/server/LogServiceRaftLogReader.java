@@ -126,7 +126,7 @@ public class LogServiceRaftLogReader implements  RaftLogReader{
     }
 
     // Make sure we don't read off the end of the Raft log
-    for (; currentRaftIndex < raftLog.getLastCommittedIndex(); currentRaftIndex++) {
+    for (; currentRaftIndex <= raftLog.getLastCommittedIndex(); currentRaftIndex++) {
       try {
         LogEntryProto entry = raftLog.get(currentRaftIndex);
         if (LOG.isTraceEnabled()) {
