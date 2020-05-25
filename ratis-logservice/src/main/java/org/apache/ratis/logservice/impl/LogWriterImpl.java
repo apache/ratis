@@ -69,6 +69,10 @@ public class LogWriterImpl implements LogWriter {
     try {
       RaftClientReply reply = raftClient.send(
           Message.valueOf(LogServiceProtoUtil.toAppendBBEntryLogRequestProto(parent.getName(), list).toByteString()));
+      if (reply.getException() != null) {
+        throw new IOException(reply.getException());
+      }
+
       AppendLogEntryReplyProto proto = AppendLogEntryReplyProto.parseFrom(reply.getMessage().getContent());
       if (proto.hasException()) {
         LogServiceException e = proto.getException();
@@ -87,6 +91,9 @@ public class LogWriterImpl implements LogWriter {
      try {
        RaftClientReply reply = raftClient.send(Message
            .valueOf(LogServiceProtoUtil.toSyncLogRequestProto(parent.getName()).toByteString()));
+       if (reply.getException() != null) {
+         throw new IOException(reply.getException());
+       }
 
        SyncLogReplyProto proto = SyncLogReplyProto.parseFrom(reply.getMessage().getContent());
        if (proto.hasException()) {

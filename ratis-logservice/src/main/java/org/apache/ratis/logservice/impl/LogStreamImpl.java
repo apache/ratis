@@ -110,6 +110,10 @@ public class LogStreamImpl implements LogStream {
     RaftClientReply reply = raftClient
         .sendReadOnly(Message.valueOf(LogServiceProtoUtil
             .toGetSizeRequestProto(name).toByteString()));
+    if (reply.getException() != null) {
+      throw new IOException(reply.getException());
+    }
+
     GetLogSizeReplyProto proto =
         GetLogSizeReplyProto.parseFrom(reply.getMessage().getContent());
     if (proto.hasException()) {
@@ -124,6 +128,10 @@ public class LogStreamImpl implements LogStream {
     RaftClientReply reply = raftClient
         .sendReadOnly(Message.valueOf(LogServiceProtoUtil
             .toGetLengthRequestProto(name).toByteString()));
+    if (reply.getException() != null) {
+      throw new IOException(reply.getException());
+    }
+
     GetLogLengthReplyProto proto =
         GetLogLengthReplyProto.parseFrom(reply.getMessage().getContent());
     if (proto.hasException()) {
@@ -149,6 +157,10 @@ public class LogStreamImpl implements LogStream {
       RaftClientReply reply = raftClient
           .sendReadOnly(Message.valueOf(LogServiceProtoUtil
               .toGetLastCommittedIndexRequestProto(name).toByteString()));
+      if (reply.getException() != null) {
+        throw new IOException(reply.getException());
+      }
+
       GetLogLastCommittedIndexReplyProto proto =
           GetLogLastCommittedIndexReplyProto.parseFrom(reply.getMessage().getContent());
       if (proto.hasException()) {
@@ -167,6 +179,10 @@ public class LogStreamImpl implements LogStream {
       RaftClientReply reply = raftClient
           .sendReadOnly(Message.valueOf(LogServiceProtoUtil
               .toGetStartIndexProto(name).toByteString()));
+      if (reply.getException() != null) {
+        throw new IOException(reply.getException());
+      }
+
       GetLogStartIndexReplyProto proto =
           GetLogStartIndexReplyProto.parseFrom(reply.getMessage().getContent());
       if (proto.hasException()) {

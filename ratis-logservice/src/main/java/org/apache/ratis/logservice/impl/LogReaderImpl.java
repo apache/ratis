@@ -80,6 +80,10 @@ public class LogReaderImpl implements LogReader {
           raftClient
               .sendReadOnly(Message.valueOf(LogServiceProtoUtil
                   .toReadLogRequestProto(parent.getName(), currentRecordId, 1).toByteString()));
+      if (reply.getException() != null) {
+        throw new IOException(reply.getException());
+      }
+
       ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
       if (proto.hasException()) {
         LogServiceException e = proto.getException();
@@ -106,6 +110,10 @@ public class LogReaderImpl implements LogReader {
     try {
       RaftClientReply reply = raftClient.sendReadOnly(Message.valueOf(LogServiceProtoUtil
           .toReadLogRequestProto(parent.getName(), currentRecordId, 1).toByteString()));
+      if (reply.getException() != null) {
+        throw new IOException(reply.getException());
+      }
+
       ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
       if (proto.hasException()) {
         LogServiceException e = proto.getException();
@@ -129,6 +137,10 @@ public class LogReaderImpl implements LogReader {
       RaftClientReply reply = raftClient
           .sendReadOnly(Message.valueOf(LogServiceProtoUtil
               .toReadLogRequestProto(parent.getName(), currentRecordId, numRecords).toByteString()));
+      if (reply.getException() != null) {
+        throw new IOException(reply.getException());
+      }
+
       ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
       if (proto.hasException()) {
         LogServiceException e = proto.getException();
@@ -156,6 +168,10 @@ public class LogReaderImpl implements LogReader {
     try {
       RaftClientReply reply = raftClient.sendReadOnly(Message.valueOf(LogServiceProtoUtil
           .toReadLogRequestProto(parent.getName(), currentRecordId, buffers.length).toByteString()));
+      if (reply.getException() != null) {
+        throw new IOException(reply.getException());
+      }
+
       ReadLogReplyProto proto = ReadLogReplyProto.parseFrom(reply.getMessage().getContent());
       if (proto.hasException()) {
         LogServiceException e = proto.getException();
