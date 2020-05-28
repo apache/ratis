@@ -44,7 +44,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-import static org.apache.ratis.server.raftlog.RaftLog.INVALID_LOG_INDEX;
 
 /**
  * In-memory cache for a log segment file. All the updates will be first written
