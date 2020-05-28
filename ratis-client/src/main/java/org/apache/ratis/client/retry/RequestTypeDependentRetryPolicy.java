@@ -37,24 +37,26 @@ import java.util.function.Supplier;
  */
 public final class RequestTypeDependentRetryPolicy implements RetryPolicy {
   public static class Builder {
-    private final EnumMap<RaftProtos.RaftClientRequestProto.TypeCase, RetryPolicy> map
-        = new EnumMap<>(RaftProtos.RaftClientRequestProto.TypeCase.class);
-    private TimeDuration timeout = null;
+    private final EnumMap<RaftProtos.RaftClientRequestProto.TypeCase, RetryPolicy>
+        retryPolicyMap = new EnumMap<>(RaftProtos.RaftClientRequestProto.TypeCase.class);
+    private EnumMap<RaftProtos.RaftClientRequestProto.TypeCase, TimeDuration>
+        timeoutMap = new EnumMap<>(RaftProtos.RaftClientRequestProto.TypeCase.class);
 
     /** Set the given policy for the given type. */
-    public Builder set(RaftProtos.RaftClientRequestProto.TypeCase type, RetryPolicy policy) {
-      final RetryPolicy previous = map.put(type, policy);
-      Preconditions.assertNull(previous, () -> "The type " + type + " is already set to " + previous);
+    public Builder setRetryPolicy(RaftProtos.RaftClientRequestProto.TypeCase type, RetryPolicy policy) {
+      final RetryPolicy previous = retryPolicyMap.put(type, policy);
+      Preconditions.assertNull(previous, () -> "The retryPolicy for type " + type + " is already set to " + previous);
       return this;
     }
 
-    public Builder setTimeout(TimeDuration timeout) {
-      this.timeout = timeout;
+    public Builder setTimeout(RaftProtos.RaftClientRequestProto.TypeCase type, TimeDuration timeout) {
+      final TimeDuration previous = timeoutMap.put(type, timeout);
+      Preconditions.assertNull(previous, () -> "The timeout for type " + type + " is already set to " + previous);
       return this;
     }
 
     public RequestTypeDependentRetryPolicy build() {
-      return new RequestTypeDependentRetryPolicy(map, timeout);
+      return new RequestTypeDependentRetryPolicy(retryPolicyMap, timeoutMap);
     }
   }
 
@@ -62,14 +64,15 @@ public final class RequestTypeDependentRetryPolicy implements RetryPolicy {
     return new Builder();
   }
 
-  private final Map<RaftProtos.RaftClientRequestProto.TypeCase, RetryPolicy> map;
-  private TimeDuration timeout;
+  private final Map<RaftProtos.RaftClientRequestProto.TypeCase, RetryPolicy> retryPolicyMap;
+  private final Map<RaftProtos.RaftClientRequestProto.TypeCase, TimeDuration> timeoutMap;
   private final Supplier<String> myString;
 
   private RequestTypeDependentRetryPolicy(
-      EnumMap<RaftProtos.RaftClientRequestProto.TypeCase, RetryPolicy> map, TimeDuration timeout) {
-    this.map = Collections.unmodifiableMap(map);
-    this.timeout = timeout;
+      EnumMap<RaftProtos.RaftClientRequestProto.TypeCase, RetryPolicy> map,
+      EnumMap<RaftProtos.RaftClientRequestProto.TypeCase, TimeDuration> timeoutMap) {
+    this.retryPolicyMap = Collections.unmodifiableMap(map);
+    this.timeoutMap = timeoutMap;
     this.myString = () -> {
       final StringBuilder b = new StringBuilder(getClass().getSimpleName()).append("{");
       map.forEach((key, value) -> b.append(key).append("->").append(value).append(", "));
@@ -84,10 +87,12 @@ public final class RequestTypeDependentRetryPolicy implements RetryPolicy {
       return RetryPolicies.retryForeverNoSleep().handleAttemptFailure(event);
     }
     final ClientRetryEvent clientEvent = (ClientRetryEvent) event;
+    final TimeDuration timeout = timeoutMap.get(clientEvent.getRequest().getType().getTypeCase());
     if (timeout != null && clientEvent.isRequestTimeout(timeout)) {
       return NO_RETRY_ACTION;
     }
-    return Optional.ofNullable(map.get(clientEvent.getRequest().getType().getTypeCase()))
+    return Optional.ofNullable(
+        retryPolicyMap.get(clientEvent.getRequest().getType().getTypeCase()))
         .orElse(RetryPolicies.retryForeverNoSleep())
         .handleAttemptFailure(event);
   }
