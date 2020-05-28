@@ -65,6 +65,7 @@ public interface IOUtils {
     try {
       return future.get();
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       throw toInterruptedIOException(name.get() + " interrupted.", e);
     } catch (ExecutionException e) {
       throw toIOException(e);
@@ -78,6 +79,7 @@ public interface IOUtils {
     try {
       return future.get(timeout.getDuration(), timeout.getUnit());
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       throw toInterruptedIOException(name.get() + " interrupted.", e);
     } catch (ExecutionException e) {
       throw toIOException(e);
@@ -194,7 +196,7 @@ public interface IOUtils {
       if (c != null) {
         try {
           c.close();
-        } catch(Throwable e) {
+        } catch(Exception e) {
           if (log != null && log.isDebugEnabled()) {
             log.debug("Exception in closing " + c, e);
           }

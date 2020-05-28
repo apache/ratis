@@ -164,8 +164,9 @@ public class GrpcLogAppender extends LogAppender {
       try {
         LOG.trace("{}: wait {}ms", this, waitTimeMs);
         wait(waitTimeMs);
-      } catch(InterruptedException ie) {
+      } catch (InterruptedException ie) {
         LOG.warn(this + ": Wait interrupted by " + ie);
+        Thread.currentThread().interrupt();
       }
     }
   }
@@ -278,7 +279,7 @@ public class GrpcLogAppender extends LogAppender {
 
       try {
         onNextImpl(reply);
-      } catch(Throwable t) {
+      } catch(Exception t) {
         LOG.error("Failed onNext request=" + request
             + ", reply=" + ServerProtoUtils.toString(reply), t);
       }
@@ -498,6 +499,7 @@ public class GrpcLogAppender extends LogAppender {
         try {
           wait();
         } catch (InterruptedException ignored) {
+          Thread.currentThread().interrupt();
         }
       }
     }
@@ -542,6 +544,7 @@ public class GrpcLogAppender extends LogAppender {
         try {
           wait();
         } catch (InterruptedException ignored) {
+          Thread.currentThread().interrupt();
         }
       }
     }

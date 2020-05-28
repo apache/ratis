@@ -679,6 +679,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
               try {
                 Thread.sleep(200);
               } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
               }
             }
           }

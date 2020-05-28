@@ -790,6 +790,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     } catch (InterruptedException e) {
       final String s = id + ": Interrupted when waiting for reply, request=" + request;
       LOG.info(s, e);
+      Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException(s, e);
     } catch (ExecutionException e) {
       final Throwable cause = e.getCause();
@@ -1009,7 +1010,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     try {
       return appendEntriesAsync(requestorId, r.getLeaderTerm(), previous, r.getLeaderCommit(),
           request.getCallId(), r.getInitializing(), r.getCommitInfosList(), entries);
-    } catch(Throwable t) {
+    } catch(Exception t) {
       LOG.error("{}: Failed appendEntriesAsync {}", getMemberId(), r, t);
       throw t;
     }
@@ -1206,9 +1207,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final InstallSnapshotReplyProto reply;
     try {
       reply = installSnapshotImpl(request);
-    } catch (Throwable t) {
-      LOG.error("{}: installSnapshot failed", getMemberId(), t);
-      throw t;
+    } catch (Exception e) {
+      LOG.error("{}: installSnapshot failed", getMemberId(), e);
+      throw e;
     }
     if (LOG.isInfoEnabled()) {
       LOG.info("{}: reply installSnapshot: {}", getMemberId(), ServerProtoUtils.toString(reply));
@@ -1536,7 +1537,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         CompletableFuture<Message> stateMachineFuture =
             stateMachine.applyTransaction(trx);
         return replyPendingRequest(next, stateMachineFuture);
-      } catch (Throwable e) {
+      } catch (Exception e) {
         LOG.error("{}: applyTransaction failed for index:{} proto:{}",
             getMemberId(), next.getIndex(), ServerProtoUtils.toString(next), e);
         throw e;

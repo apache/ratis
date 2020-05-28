@@ -123,7 +123,7 @@ public abstract class MiniRaftCluster implements Closeable {
             cluster.start();
           }
           testCase.accept(cluster);
-        } catch(Throwable t) {
+        } catch(Exception t) {
           LOG.info(cluster.printServers());
           LOG.error("Failed " + caller, t);
           throw t;
@@ -139,7 +139,7 @@ public abstract class MiniRaftCluster implements Closeable {
         try {
           cluster = getFactory().reuseCluster(numServers, getProperties());
           testCase.accept(cluster);
-        } catch(Throwable t) {
+        } catch(Exception t) {
           if (cluster != null) {
             LOG.info(cluster.printServers());
           }
@@ -725,8 +725,9 @@ public abstract class MiniRaftCluster implements Closeable {
       executor.shutdown();
       // just wait for a few seconds
       executor.awaitTermination(5, TimeUnit.SECONDS);
-    } catch(InterruptedException e) {
+    } catch (InterruptedException e) {
       LOG.warn("shutdown interrupted", e);
+      Thread.currentThread().interrupt();
     }
 
     Optional.ofNullable(timer.get()).ifPresent(Timer::cancel);

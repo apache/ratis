@@ -33,20 +33,20 @@ public interface RpcType {
     final Throwable fromSupportedRpcType;
     try { // Try parsing it as a SupportedRpcType
       return SupportedRpcType.valueOfIgnoreCase(rpcType);
-    } catch (Throwable t) {
-      fromSupportedRpcType = t;
+    } catch (Exception e) {
+      fromSupportedRpcType = e;
     }
 
     try {
       // Try using it as a class name
       return ReflectionUtils.newInstance(
           ReflectionUtils.getClass(rpcType, RpcType.class));
-    } catch(Throwable t) {
+    } catch(Exception e) {
       final IllegalArgumentException iae = new IllegalArgumentException(
           "Invalid " + RpcType.class.getSimpleName() + ": \"" + rpcType + "\" "
               + " cannot be used as a user-defined " + RpcType.class.getSimpleName()
               + " and it is not a " + SupportedRpcType.class.getSimpleName() + ".");
-      iae.addSuppressed(t);
+      iae.addSuppressed(e);
       iae.addSuppressed(fromSupportedRpcType);
       throw iae;
     }

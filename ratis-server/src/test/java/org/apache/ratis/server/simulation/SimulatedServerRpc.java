@@ -90,6 +90,7 @@ class SimulatedServerRpc implements RaftServerRpc {
       executor.shutdown();
       executor.awaitTermination(1000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException ignored) {
+      Thread.currentThread().interrupt();
     }
     clientHandler.shutdown();
     serverHandler.shutdown();

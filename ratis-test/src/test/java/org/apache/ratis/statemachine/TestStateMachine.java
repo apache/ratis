@@ -103,8 +103,8 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
           assertNull(context);
         }
         numApplied.incrementAndGet();
-      } catch (Throwable t) {
-        throwable.set(t);
+      } catch (Exception e) {
+        throwable.set(e);
       }
       return CompletableFuture.completedFuture(null);
     }

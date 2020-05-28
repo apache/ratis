@@ -275,7 +275,7 @@ public interface RaftTestUtil {
     final List<LogEntryProto> entries = getStateMachineLogEntries(log);
     try {
       assertLogEntries(entries, expectedTerm, expectedMessages);
-    } catch(Throwable t) {
+    } catch(Exception t) {
       throw new AssertionError("entries: " + entries, t);
     }
   }

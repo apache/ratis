@@ -108,8 +108,8 @@ public class TaskQueue {
       LOG.trace("{}: running {}", this, task);
       try {
         f.complete(task.get());
-      } catch (Throwable e) {
-        f.completeExceptionally(newThrowable.apply(e));
+      } catch (Throwable t) {
+        f.completeExceptionally(newThrowable.apply(t));
       }
 
       pollAndSubmit(executor);

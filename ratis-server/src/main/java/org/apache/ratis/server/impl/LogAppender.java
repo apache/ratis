@@ -77,7 +77,10 @@ public class LogAppender {
       }
       try {
         runAppenderImpl();
-      } catch (InterruptedException | InterruptedIOException e) {
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        LOG.info(this + " was interrupted: " + e);
+      } catch (InterruptedIOException e) {
         LOG.info(this + " was interrupted: " + e);
       } catch (RaftLogIOException e) {
         LOG.error(this + " failed RaftLog", e);

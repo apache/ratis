@@ -39,6 +39,7 @@ public interface FileUtils {
     try {
       return JavaUtils.attempt(op, NUM_ATTEMPTS, SLEEP_TIME, name, LOG);
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException("Interrupted " + name.get(), e);
     }
   }

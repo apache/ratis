@@ -122,9 +122,9 @@ public interface UnorderedAsync {
         LOG.debug("schedule retry for attempt #{}, policy={}, request={}", attemptCount, retryPolicy, request);
         client.getScheduler().onTimeout(sleepTime,
             () -> sendRequestWithRetry(pending, client), LOG, () -> clientId + ": Failed~ to retry " + request);
-      } catch (Throwable t) {
-        LOG.error(clientId + ": Failed " + request, t);
-        f.completeExceptionally(t);
+      } catch (Exception ex) {
+        LOG.error(clientId + ": Failed " + request, ex);
+        f.completeExceptionally(ex);
       }
     });
   }

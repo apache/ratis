@@ -314,7 +314,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
           f.join();
           Assert.assertTrue(step.get() == messages.length);
         }
-      } catch(Throwable t) {
+      } catch(Exception t) {
         if (exceptionInClientThread.compareAndSet(null, t)) {
           LOG.error(this + " failed", t);
         } else {

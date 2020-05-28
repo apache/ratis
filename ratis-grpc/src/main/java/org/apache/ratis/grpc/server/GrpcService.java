@@ -185,7 +185,8 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     super.closeImpl();
     try {
       s.awaitTermination();
-    } catch(InterruptedException e) {
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException(name + " failed", e);
     }
     LOG.info("{} successfully", name);

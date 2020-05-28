@@ -308,7 +308,7 @@ public class SegmentedRaftLog extends RaftLog {
         });
       }
       return new EntryWithData(entry, future);
-    } catch (Throwable e) {
+    } catch (Exception e) {
       final String err = getName() + ": Failed readStateMachineData for " +
           ServerProtoUtils.toLogEntryString(entry);
       LOG.error(err, e);
@@ -419,9 +419,9 @@ public class SegmentedRaftLog extends RaftLog {
         cache.appendEntry(entry);
       }
       return writeFuture;
-    } catch (Throwable throwable) {
-      LOG.error("{}: Failed to append {}", getName(), ServerProtoUtils.toLogEntryString(entry), throwable);
-      throw throwable;
+    } catch (Exception e) {
+      LOG.error("{}: Failed to append {}", getName(), ServerProtoUtils.toLogEntryString(entry), e);
+      throw e;
     } finally {
       context.stop();
     }

@@ -42,7 +42,7 @@ public class TestExponentialBackoffRetry extends BaseTest {
       // baseSleep should not be null
       createPolicy(null, null, 1);
       Assert.fail("Policy creation should have failed");
-    } catch (Throwable t) {
+    } catch (Exception e) {
     }
 
     // test policy without max sleep

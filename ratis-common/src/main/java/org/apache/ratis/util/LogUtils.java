@@ -56,13 +56,13 @@ public interface LogUtils {
     final OUTPUT output;
     try {
       output = supplier.get();
-    } catch (Throwable t) {
+    } catch (Exception e) {
       if (log.isTraceEnabled()) {
-        log.trace("Failed to " + name.get(), t);
+        log.trace("Failed to " + name.get(), e);
       } else if (log.isWarnEnabled()){
-        log.warn("Failed to " + name.get() + ": " + t);
+        log.warn("Failed to " + name.get() + ": " + e);
       }
-      final THROWABLE throwable = JavaUtils.cast(t);
+      final THROWABLE throwable = JavaUtils.cast(e);
       throw throwable;
     }
 

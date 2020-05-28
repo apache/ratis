@@ -67,7 +67,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
       final GrpcClientProtocolClient proxy = getProxies().getProxy(serverId);
       // Reuse the same grpc stream for all async calls.
       return proxy.getOrderedStreamObservers().onNext(request);
-    } catch (Throwable e) {
+    } catch (Exception e) {
       return JavaUtils.completeExceptionally(e);
     }
   }
@@ -79,9 +79,9 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
       final GrpcClientProtocolClient proxy = getProxies().getProxy(serverId);
       // Reuse the same grpc stream for all async calls.
       return proxy.getUnorderedAsyncStreamObservers().onNext(request);
-    } catch (Throwable t) {
-      LOG.error(clientId + ": XXX Failed " + request, t);
-      return JavaUtils.completeExceptionally(t);
+    } catch (Exception e) {
+      LOG.error(clientId + ": XXX Failed " + request, e);
+      return JavaUtils.completeExceptionally(e);
     }
   }
 
@@ -112,6 +112,7 @@ public class GrpcClientRpc extends RaftClientRpcWithProxy<GrpcClientProtocolClie
       try {
         return f.get();
       } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
         throw new InterruptedIOException(
             "Interrupted while waiting for response of request " + request);
       } catch (ExecutionException e) {

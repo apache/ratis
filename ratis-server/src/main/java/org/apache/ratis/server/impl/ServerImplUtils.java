@@ -56,6 +56,7 @@ public final class ServerImplUtils {
           () -> new RaftServerProxy(id, stateMachineRegistry, properties, parameters),
           5, sleepTime, "new RaftServerProxy", RaftServerProxy.LOG);
     } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
       throw IOUtils.toInterruptedIOException(
           "Interrupted when creating RaftServer " + id, e);
     }
