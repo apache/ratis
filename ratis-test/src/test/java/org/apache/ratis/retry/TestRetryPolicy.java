@@ -76,8 +76,8 @@ public class TestRetryPolicy extends BaseTest {
     final int n = 4;
     final TimeDuration writeSleep = HUNDRED_MILLIS;
     final RetryPolicies.RetryLimited writePolicy = RetryPolicies.retryUpToMaximumCountWithFixedSleep(n, writeSleep);
-    b.set(RaftClientRequestProto.TypeCase.WRITE, writePolicy);
-    b.set(RaftClientRequestProto.TypeCase.WATCH, RetryPolicies.noRetry());
+    b.setRetryPolicy(RaftClientRequestProto.TypeCase.WRITE, writePolicy);
+    b.setRetryPolicy(RaftClientRequestProto.TypeCase.WATCH, RetryPolicies.noRetry());
     final RetryPolicy policy = b.build();
     LOG.info("policy = {}", policy);
 
@@ -128,10 +128,11 @@ public class TestRetryPolicy extends BaseTest {
   public void testRequestTypeDependentRetryWithTimeout()
       throws InterruptedException {
     final RequestTypeDependentRetryPolicy.Builder b = RequestTypeDependentRetryPolicy.newBuilder();
-    b.set(RaftClientRequestProto.TypeCase.WRITE, RetryPolicies.retryForeverNoSleep());
-    b.set(RaftClientRequestProto.TypeCase.WATCH, RetryPolicies.retryForeverNoSleep());
+    b.setRetryPolicy(RaftClientRequestProto.TypeCase.WRITE, RetryPolicies.retryForeverNoSleep());
+    b.setRetryPolicy(RaftClientRequestProto.TypeCase.WATCH, RetryPolicies.retryForeverNoSleep());
     TimeDuration timeout = TimeDuration.valueOf(10, TimeUnit.MILLISECONDS);
-    final RetryPolicy policy = b.setTimeout(timeout).build();
+    final RetryPolicy policy = b.setTimeout(RaftClientRequestProto.TypeCase.WRITE, timeout)
+            .setTimeout(RaftClientRequestProto.TypeCase.WATCH, timeout).build();
     LOG.info("policy = {}", policy);
 
     final RaftClientRequest writeRequest = newRaftClientRequest(RaftClientRequest.writeRequestType());
@@ -172,8 +173,10 @@ public class TestRetryPolicy extends BaseTest {
     exceptionPolicyMap.put(ResourceUnavailableException.class, new Pair(5, 5));
     Pair defaultPolicy = new Pair(10, 2);
 
-    retryPolicy.set(RaftClientRequestProto.TypeCase.WRITE, buildExceptionBasedRetry(exceptionPolicyMap, defaultPolicy));
-    retryPolicy.set(RaftClientRequestProto.TypeCase.WATCH, buildExceptionBasedRetry(exceptionPolicyMap, defaultPolicy));
+      retryPolicy.setRetryPolicy(RaftClientRequestProto.TypeCase.WRITE,
+          buildExceptionBasedRetry(exceptionPolicyMap, defaultPolicy));
+      retryPolicy.setRetryPolicy(RaftClientRequestProto.TypeCase.WATCH,
+          buildExceptionBasedRetry(exceptionPolicyMap, defaultPolicy));
 
     final RetryPolicy policy = retryPolicy.build();
     LOG.info("policy = {}", policy);
