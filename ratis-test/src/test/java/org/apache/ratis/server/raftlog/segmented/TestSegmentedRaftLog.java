@@ -199,7 +199,7 @@ public class TestSegmentedRaftLog extends BaseTest {
       Assert.assertArrayEquals(entries, entriesFromLog);
       Assert.assertEquals(entries[entries.length - 1], getLastEntry(raftLog));
 
-      RatisMetricRegistry metricRegistryForLogWorker = new RaftLogMetrics((memberId.getPeerId().toString())).getRegistry();
+      RatisMetricRegistry metricRegistryForLogWorker = new RaftLogMetrics(memberId.toString()).getRegistry();
 
       Timer raftLogSegmentLoadLatencyTimer = metricRegistryForLogWorker.timer("segmentLoadLatency");
       Assert.assertTrue(raftLogSegmentLoadLatencyTimer.getMeanRate() > 0);
@@ -409,7 +409,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     int segmentSize = 200;
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
     long expectedIndex = segmentSize * (endTerm - startTerm - 2);
-    RatisMetricRegistry metricRegistryForLogWorker = new RaftLogMetrics((memberId.getPeerId().toString())).getRegistry();
+    RatisMetricRegistry metricRegistryForLogWorker = new RaftLogMetrics(memberId.toString()).getRegistry();
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
     Assert.assertTrue(metricRegistryForLogWorker.timer("purgeLog").getCount() > 0);
   }
