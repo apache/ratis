@@ -50,6 +50,7 @@ jobs:
     steps:
         - uses: actions/checkout@master
         - run: ./dev-support/checks/sonar.sh
+          if: github.repository == 'apache/incubator-ratis'
           env:
             SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
