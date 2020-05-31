@@ -87,10 +87,7 @@ class PendingRequests {
       this.resource = new RequestLimits(elementLimit, byteLimit);
       this.raftServerMetrics = raftServerMetrics;
 
-      raftServerMetrics.removeNumPendingRequestsGauge();
       raftServerMetrics.addNumPendingRequestsGauge(resource::getElementCount);
-
-      raftServerMetrics.removeNumPendingRequestsByteSize();
       raftServerMetrics.addNumPendingRequestsByteSize(resource::getByteSize);
     }
 
@@ -166,6 +163,13 @@ class PendingRequests {
         if (pending != null) {
           transactions.add(pending.setNotLeaderException(nle, commitInfos));
         }
+      }
+    }
+
+    void close() {
+      if (raftServerMetrics != null) {
+        raftServerMetrics.removeNumPendingRequestsGauge();
+        raftServerMetrics.removeNumPendingRequestsByteSize();
       }
     }
   }
@@ -249,5 +253,11 @@ class PendingRequests {
       pendingSetConf.setNotLeaderException(nle, commitInfos);
     }
     return transactions;
+  }
+
+  void close() {
+    if (pendingRequests != null) {
+      pendingRequests.close();
+    }
   }
 }
