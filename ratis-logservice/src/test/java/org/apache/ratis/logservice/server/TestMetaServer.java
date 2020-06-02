@@ -18,6 +18,8 @@
 
 package org.apache.ratis.logservice.server;
 
+import org.apache.ratis.client.RaftClientConfigKeys;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.logservice.api.*;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.api.LogServiceClient;
@@ -62,35 +64,53 @@ public class TestMetaServer {
     static AtomicInteger createCount = new AtomicInteger();
     static AtomicInteger deleteCount = new AtomicInteger();
     static AtomicInteger listCount = new AtomicInteger();
-    LogServiceClient client = new LogServiceClient(cluster.getMetaIdentity()){
-        @Override public LogStream createLog(LogName logName) throws IOException {
-            createCount.incrementAndGet();
-            return super.createLog(logName);
-        }
+    static LogServiceClient client = null;
 
-        @Override public void deleteLog(LogName logName) throws IOException {
-            deleteCount.incrementAndGet();
-            super.deleteLog(logName);
-        }
-
-        @Override public List<LogInfo> listLogs() throws IOException {
-            listCount.incrementAndGet();
-            return super.listLogs();
-        }
-
-    };
     @BeforeClass
     public static void beforeClass() {
         cluster = new LogServiceCluster(3);
         cluster.createWorkers(3);
         workers = cluster.getWorkers();
         assert(workers.size() == 3);
+
+        RaftProperties properties = new RaftProperties();
+        RaftClientConfigKeys.Rpc.setRequestTimeout(properties, TimeDuration.valueOf(15, TimeUnit.SECONDS));
+
+        cluster.getMasters().parallelStream().forEach(master ->
+            ((MetaStateMachine)master.getMetaStateMachine()).setProperties(properties));
+
+        client = new LogServiceClient(cluster.getMetaIdentity(), properties) {
+          @Override
+          public LogStream createLog(LogName logName) throws IOException {
+            createCount.incrementAndGet();
+            return super.createLog(logName);
+          }
+
+          @Override
+          public void deleteLog(LogName logName) throws IOException {
+            deleteCount.incrementAndGet();
+            super.deleteLog(logName);
+          }
+
+          @Override
+          public List<LogInfo> listLogs() throws IOException {
+            listCount.incrementAndGet();
+            return super.listLogs();
+          }
+        };
     }
 
     @AfterClass
     public static void afterClass() {
         if (cluster != null) {
           cluster.close();
+        }
+
+        if (client != null) {
+          try {
+            client.close();
+          } catch (Exception ignored) {
+          }
         }
     }
 
