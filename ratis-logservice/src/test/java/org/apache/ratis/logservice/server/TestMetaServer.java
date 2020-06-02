@@ -81,17 +81,20 @@ public class TestMetaServer {
             ((MetaStateMachine)master.getMetaStateMachine()).setProperties(properties));
 
         client = new LogServiceClient(cluster.getMetaIdentity(), properties) {
-          @Override public LogStream createLog(LogName logName) throws IOException {
+          @Override
+          public LogStream createLog(LogName logName) throws IOException {
             createCount.incrementAndGet();
             return super.createLog(logName);
           }
 
-          @Override public void deleteLog(LogName logName) throws IOException {
+          @Override
+          public void deleteLog(LogName logName) throws IOException {
             deleteCount.incrementAndGet();
             super.deleteLog(logName);
           }
 
-          @Override public List<LogInfo> listLogs() throws IOException {
+          @Override
+          public List<LogInfo> listLogs() throws IOException {
             listCount.incrementAndGet();
             return super.listLogs();
           }
