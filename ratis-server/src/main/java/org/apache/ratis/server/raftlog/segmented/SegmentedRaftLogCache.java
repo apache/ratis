@@ -138,10 +138,12 @@ public class SegmentedRaftLogCache {
     private final Object name;
     private final List<LogSegment> segments = new ArrayList<>();
     private final AutoCloseableReadWriteLock lock;
+    private long sizeInBytes;
 
     LogSegmentList(Object name) {
       this.name = name;
       this.lock = new AutoCloseableReadWriteLock(name);
+      this.sizeInBytes = 0;
     }
 
     AutoCloseableLock readLock() {
@@ -167,13 +169,7 @@ public class SegmentedRaftLogCache {
     }
 
     long sizeInBytes() {
-      try(AutoCloseableLock readLock = readLock()) {
-        long size = 0;
-        for (LogSegment segment : segments) {
-          size += segment.getTotalSize();
-        }
-        return size;
-      }
+      return sizeInBytes;
     }
 
     long countCached() {
@@ -236,6 +232,7 @@ public class SegmentedRaftLogCache {
 
     boolean add(LogSegment logSegment) {
       try(AutoCloseableLock writeLock = writeLock()) {
+        sizeInBytes += logSegment.getTotalSize();
         return segments.add(logSegment);
       }
     }
@@ -244,6 +241,7 @@ public class SegmentedRaftLogCache {
       try(AutoCloseableLock writeLock = writeLock()) {
         segments.forEach(LogSegment::clear);
         segments.clear();
+        sizeInBytes = 0;
       }
     }
 
@@ -263,6 +261,7 @@ public class SegmentedRaftLogCache {
               final SegmentFileInfo info = new SegmentFileInfo(openSegment.getStartIndex(),
                   oldEnd, true, openSegment.getTotalSize(), openSegment.getEndIndex());
               segments.add(openSegment);
+              sizeInBytes += openSegment.getTotalSize();
               clearOpenSegment.run();
               return new TruncationSegments(info, Collections.emptyList());
             }
@@ -271,12 +270,15 @@ public class SegmentedRaftLogCache {
           final LogSegment ts = segments.get(segmentIndex);
           final long oldEnd = ts.getEndIndex();
           final List<SegmentFileInfo> list = new ArrayList<>();
+          sizeInBytes -= ts.getTotalSize();
           ts.truncate(index);
+          sizeInBytes += ts.getTotalSize();
           final int size = segments.size();
           for(int i = size - 1;
               i >= (ts.numOfEntries() == 0? segmentIndex: segmentIndex + 1);
               i--) {
             LogSegment s = segments.remove(i);
+            sizeInBytes -= s.getTotalSize();
             final long endOfS = i == segmentIndex? oldEnd: s.getEndIndex();
             s.clear();
             list.add(new SegmentFileInfo(s.getStartIndex(), endOfS, false, 0, s.getEndIndex()));
@@ -302,10 +304,13 @@ public class SegmentedRaftLogCache {
             list.add(SegmentFileInfo.newClosedSegmentFileInfo(ls));
           }
           segments.clear();
+          sizeInBytes = 0;
         } else if (segmentIndex >= 0) {
           // we start to purge the closedSegments which do not overlap with index.
           for (int i = segmentIndex - 1; i >= 0; i--) {
-            list.add(SegmentFileInfo.newClosedSegmentFileInfo(segments.remove(i)));
+            LogSegment segment = segments.remove(i);
+            sizeInBytes -= segment.getTotalSize();
+            list.add(SegmentFileInfo.newClosedSegmentFileInfo(segment));
           }
         } else {
           throw new IllegalStateException("Unexpected gap in segments: binarySearch(" + index + ") returns "
