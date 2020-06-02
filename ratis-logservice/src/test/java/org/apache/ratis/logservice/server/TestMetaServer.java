@@ -76,7 +76,6 @@ public class TestMetaServer {
         RaftProperties properties = new RaftProperties();
         RaftClientConfigKeys.Rpc.setRequestTimeout(properties, TimeDuration.valueOf(15, TimeUnit.SECONDS));
 
-
         cluster.getMasters().parallelStream().forEach(master ->
             ((MetaStateMachine)master.getMetaStateMachine()).setProperties(properties));
 
