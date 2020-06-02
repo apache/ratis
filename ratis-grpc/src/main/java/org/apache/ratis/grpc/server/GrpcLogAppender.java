@@ -127,6 +127,7 @@ public class GrpcLogAppender extends LogAppender {
     }
 
     Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObserver::onCompleted);
+    grpcServerMetrics.unregister();
   }
 
   private long getWaitTimeMs() {

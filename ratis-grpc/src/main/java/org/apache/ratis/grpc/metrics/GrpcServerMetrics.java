@@ -17,19 +17,15 @@
  */
 package org.apache.ratis.grpc.metrics;
 
-import java.util.Optional;
-
 import com.codahale.metrics.Gauge;
-import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 
 import com.codahale.metrics.Timer;
 
-public class GrpcServerMetrics {
-  private final RatisMetricRegistry registry;
-
+public class GrpcServerMetrics extends RatisMetrics {
   private static final String RATIS_GRPC_METRICS_APP_NAME = "ratis_grpc";
   private static final String RATIS_GRPC_METRICS_COMP_NAME = "log_appender";
   private static final String RATIS_GRPC_METRICS_DESC = "Metrics for Ratis Grpc Log Appender";
@@ -52,11 +48,13 @@ public class GrpcServerMetrics {
   public static final String RATIS_GRPC_INSTALL_SNAPSHOT_COUNT = "num_install_snapshot";
 
   public GrpcServerMetrics(String serverId) {
-    MetricRegistryInfo info = new MetricRegistryInfo(serverId, RATIS_GRPC_METRICS_APP_NAME,
-        RATIS_GRPC_METRICS_COMP_NAME, RATIS_GRPC_METRICS_DESC);
-    Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
+    registry = getMetricRegistryForGrpcServer(serverId);
+  }
 
-    registry = metricRegistry.orElseGet(() -> MetricRegistries.global().create(info));
+  private RatisMetricRegistry getMetricRegistryForGrpcServer(String serverId) {
+    return create(new MetricRegistryInfo(serverId,
+        RATIS_GRPC_METRICS_APP_NAME,
+        RATIS_GRPC_METRICS_COMP_NAME, RATIS_GRPC_METRICS_DESC));
   }
 
   public Timer getGrpcLogAppenderLatencyTimer(String follower,

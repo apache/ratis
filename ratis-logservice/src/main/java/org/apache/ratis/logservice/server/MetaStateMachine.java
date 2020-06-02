@@ -38,7 +38,7 @@ import org.apache.ratis.logservice.common.Constants;
 import org.apache.ratis.logservice.common.LogAlreadyExistException;
 import org.apache.ratis.logservice.common.LogNotFoundException;
 import org.apache.ratis.logservice.common.NoEnoughWorkersException;
-import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
+import org.apache.ratis.logservice.metrics.LogServiceMetaDataMetrics;
 import org.apache.ratis.logservice.proto.LogServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos;
 import org.apache.ratis.logservice.proto.MetaServiceProtos.CreateLogRequestProto;
@@ -49,7 +49,6 @@ import org.apache.ratis.logservice.proto.MetaServiceProtos.LogServiceUnregisterL
 import org.apache.ratis.logservice.proto.MetaServiceProtos.MetaSMRequestProto;
 import org.apache.ratis.logservice.util.LogServiceProtoUtil;
 import org.apache.ratis.logservice.util.MetaServiceProtoUtil;
-import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.*;
 
@@ -103,7 +102,7 @@ public class MetaStateMachine extends BaseStateMachine {
 
     private RaftGroupId metadataGroupId;
     private RaftGroupId logServerGroupId;
-    private RatisMetricRegistry metricRegistry;
+    private LogServiceMetaDataMetrics logServiceMetaDataMetrics;
 
     public MetaStateMachine(RaftGroupId metadataGroupId, RaftGroupId logServerGroupId,
                             long failureDetectionPeriod) {
@@ -115,8 +114,7 @@ public class MetaStateMachine extends BaseStateMachine {
     @Override
     public void initialize(RaftServer server, RaftGroupId groupId, RaftStorage storage) throws IOException {
         this.raftServer = server;
-        this.metricRegistry = LogServiceMetricsRegistry
-            .createMetricRegistryForLogServiceMetaData(server.getId().toString());
+        this.logServiceMetaDataMetrics = new LogServiceMetaDataMetrics(server.getId().toString());
         super.initialize(server, groupId, storage);
         peerHealthChecker = new Daemon(new PeerHealthChecker(),"peer-Health-Checker");
         peerHealthChecker.start();
@@ -221,7 +219,7 @@ public class MetaStateMachine extends BaseStateMachine {
                 e.printStackTrace();
             }
             type = req.getTypeCase();
-            timerContext = metricRegistry.timer(type.name()).time();
+            timerContext = logServiceMetaDataMetrics.getTimer(type.name()).time();
             switch (type) {
 
             case CREATELOG:
@@ -517,5 +515,10 @@ public class MetaStateMachine extends BaseStateMachine {
             return false;
         }
         return true;
+    }
+
+    @Override
+    public void close() {
+      logServiceMetaDataMetrics.unregister();
     }
 }

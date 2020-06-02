@@ -20,6 +20,7 @@ package org.apache.ratis.server.metrics;
 
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.server.impl.RaftServerImpl;
 
 /**

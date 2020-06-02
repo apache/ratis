@@ -276,6 +276,7 @@ public class LeaderState {
     streamRequests.clear();
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
     logAppenderMetrics.unregister();
+    raftServerMetrics.unregister();
   }
 
   void notifySenders() {

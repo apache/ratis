@@ -23,6 +23,7 @@ import static org.apache.ratis.server.metrics.RaftLogMetrics.FOLLOWER_RPC_RESP_T
 
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 import org.apache.ratis.server.impl.FollowerInfo;
 

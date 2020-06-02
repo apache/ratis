@@ -44,7 +44,7 @@ import org.apache.ratis.logservice.api.LogStream;
 import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.api.LogWriter;
 import org.apache.ratis.logservice.impl.LogStreamImpl;
-import org.apache.ratis.logservice.metrics.LogServiceMetricsRegistry;
+import org.apache.ratis.logservice.metrics.LogServiceMetrics;
 import org.apache.ratis.logservice.server.LogStateMachine;
 import org.apache.ratis.logservice.util.TestUtils;
 import org.apache.ratis.metrics.JVMMetrics;
@@ -324,10 +324,9 @@ public abstract class LogServiceReadWriteBase<CLUSTER extends MiniRaftCluster>
   }
 
   private Long getJMXCount(String groupId, String metricName) throws Exception {
-    ObjectName oname = new ObjectName(LogServiceMetricsRegistry.RATIS_LOG_SERVICE_METRICS, "name",
-        LogServiceMetricsRegistry
-            .getMetricRegistryForLogService(groupId, cluster.getLeader().getId().toString())
-            .getMetricRegistryInfo().getName() + "." + metricName);
+    ObjectName oname = new ObjectName(LogServiceMetrics.RATIS_LOG_SERVICE_METRICS, "name",
+        new LogServiceMetrics(groupId, cluster.getLeader().getId().toString())
+            .getRegistry().getMetricRegistryInfo().getName() + "." + metricName);
     return (Long) ManagementFactory.getPlatformMBeanServer().getAttribute(oname, "Count");
   }
 }
