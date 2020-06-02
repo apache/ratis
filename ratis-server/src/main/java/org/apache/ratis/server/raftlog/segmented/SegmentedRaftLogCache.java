@@ -358,10 +358,9 @@ class SegmentedRaftLogCache {
     return closedSegments.countCached() > maxCachedSegments;
   }
 
-  void evictCache(long[] followerIndices, long flushedIndex,
-      long lastAppliedIndex) {
+  void evictCache(long[] followerIndices, long safeEvictIndex, long lastAppliedIndex) {
     List<LogSegment> toEvict = evictionPolicy.evict(followerIndices,
-        flushedIndex, lastAppliedIndex, closedSegments, maxCachedSegments);
+        safeEvictIndex, lastAppliedIndex, closedSegments, maxCachedSegments);
     for (LogSegment s : toEvict) {
       s.evictCache();
     }
@@ -483,6 +482,11 @@ class SegmentedRaftLogCache {
         (closedSegments.isEmpty() ?
             RaftLog.INVALID_LOG_INDEX:
             closedSegments.get(closedSegments.size() - 1).getEndIndex());
+  }
+
+  long getLastIndexInClosedSegments() {
+    return (closedSegments.isEmpty() ? RaftLog.INVALID_LOG_INDEX :
+        closedSegments.get(closedSegments.size() - 1).getEndIndex());
   }
 
   TermIndex getLastTermIndex() {

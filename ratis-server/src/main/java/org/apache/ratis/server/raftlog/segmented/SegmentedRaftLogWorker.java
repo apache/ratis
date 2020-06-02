@@ -158,6 +158,10 @@ class SegmentedRaftLogWorker implements Runnable {
   private long lastWrittenIndex;
   /** the largest index of the entry that has been flushed */
   private final RaftLogIndex flushIndex = new RaftLogIndex("flushIndex", 0);
+  /** the largest index of the entry in a closed segment */
+  /** the index up to which cache can be evicted - max of snapshotIndex and
+   * largest index in a closed segment */
+  private final RaftLogIndex safeCacheEvictIndex = new RaftLogIndex("safeCacheEvictIndex", 0);
 
   private final int forceSyncNum;
 
@@ -207,10 +211,11 @@ class SegmentedRaftLogWorker implements Runnable {
     this.writeBuffer = ByteBuffer.allocateDirect(bufferSize);
   }
 
-  void start(long latestIndex, File openSegmentFile) throws IOException {
+  void start(long latestIndex, long evictIndex, File openSegmentFile) throws IOException {
     LOG.trace("{} start(latestIndex={}, openSegmentFile={})", name, latestIndex, openSegmentFile);
     lastWrittenIndex = latestIndex;
     flushIndex.setUnconditionally(latestIndex, infoIndexChange);
+    safeCacheEvictIndex.setUnconditionally(evictIndex, infoIndexChange);
     if (openSegmentFile != null) {
       Preconditions.assertTrue(openSegmentFile.exists());
       allocateSegmentedRaftLogOutputStream(openSegmentFile, true);
@@ -237,6 +242,7 @@ class SegmentedRaftLogWorker implements Runnable {
     queue.clear();
     lastWrittenIndex = lastSnapshotIndex;
     flushIndex.setUnconditionally(lastSnapshotIndex, infoIndexChange);
+    safeCacheEvictIndex.setUnconditionally(lastSnapshotIndex, infoIndexChange);
     pendingFlushNum = 0;
   }
 
@@ -550,6 +556,7 @@ class SegmentedRaftLogWorker implements Runnable {
         LOG.info("{}: Deleted empty log segment {}", name, openFile);
       }
       updateFlushedIndexIncreasingly();
+      safeCacheEvictIndex.updateToMax(endIndex, traceIndexChange);
     }
 
     @Override
@@ -664,6 +671,7 @@ class SegmentedRaftLogWorker implements Runnable {
         IOUtils.getFromFuture(stateMachineFuture, () -> this + "-truncateStateMachineData");
       }
       flushIndex.setUnconditionally(lastWrittenIndex, infoIndexChange);
+      safeCacheEvictIndex.setUnconditionally(lastWrittenIndex, infoIndexChange);
       postUpdateFlushedIndex();
     }
 
@@ -685,6 +693,10 @@ class SegmentedRaftLogWorker implements Runnable {
 
   long getFlushIndex() {
     return flushIndex.get();
+  }
+
+  long getSafeCacheEvictIndex() {
+    return safeCacheEvictIndex.get();
   }
 
   private void freeSegmentedRaftLogOutputStream() {

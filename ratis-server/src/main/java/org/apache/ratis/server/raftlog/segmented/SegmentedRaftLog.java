@@ -225,6 +225,7 @@ public class SegmentedRaftLog extends RaftLog {
           .getOpenLogFile(openSegment.getStartIndex());
     }
     fileLogWorker.start(Math.max(cache.getEndIndex(), lastIndexInSnapshot),
+        Math.min(cache.getLastIndexInClosedSegments(), lastIndexInSnapshot),
         openSegmentFile);
   }
 
@@ -324,7 +325,8 @@ public class SegmentedRaftLog extends RaftLog {
       // TODO if the cache is hitting the maximum size and we cannot evict any
       // segment's cache, should block the new entry appending or new segment
       // allocation.
-      cache.evictCache(server.getFollowerNextIndices(), fileLogWorker.getFlushIndex(), server.getLastAppliedIndex());
+      cache.evictCache(server.getFollowerNextIndices(), fileLogWorker.getSafeCacheEvictIndex(),
+          server.getLastAppliedIndex());
     }
   }
 
