@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Base implementation for StateMachines.
  */
-public class BaseStateMachine implements StateMachine {
+public class BaseStateMachine implements StateMachine, StateMachine.DataApi {
   private final CompletableFuture<RaftServer> server = new CompletableFuture<>();
   private volatile RaftGroupId groupId;
   private final LifeCycle lifeCycle = new LifeCycle(getClass().getSimpleName());

@@ -549,7 +549,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     final LogEntryProto entry = prepareLogEntry(0, 0, null, true);
     final StateMachine sm = new BaseStateMachine() {
       @Override
-      public CompletableFuture<?> writeStateMachineData(LogEntryProto entry) {
+      public CompletableFuture<Void> write(LogEntryProto entry) {
         getLifeCycle().transition(LifeCycle.State.STARTING);
         getLifeCycle().transition(LifeCycle.State.RUNNING);
 

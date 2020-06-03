@@ -81,9 +81,9 @@ public class TestRaftLogMetrics extends BaseTest
     }
 
     @Override
-    public CompletableFuture<Void> flushStateMachineData(long index) {
+    public CompletableFuture<Void> flush(long index) {
       flushCount.incrementAndGet();
-      return super.flushStateMachineData(index);
+      return super.data().flush(index);
     }
   }
 

@@ -355,7 +355,7 @@ class SegmentedRaftLogWorker implements Runnable {
       final Timer.Context timerContext = logFlushTimer.time();
       try {
         final CompletableFuture<Void> f = stateMachine != null ?
-            stateMachine.flushStateMachineData(lastWrittenIndex) :
+            stateMachine.data().flush(lastWrittenIndex) :
             CompletableFuture.completedFuture(null);
         if (stateMachineDataPolicy.isSync()) {
           stateMachineDataPolicy.getFromFuture(f, () -> this + "-flushStateMachineData");
@@ -464,7 +464,7 @@ class SegmentedRaftLogWorker implements Runnable {
       } else {
         try {
           // this.entry != entry iff the entry has state machine data
-          this.stateMachineFuture = stateMachine.writeStateMachineData(entry);
+          this.stateMachineFuture = stateMachine.data().write(entry);
         } catch (Throwable e) {
           LOG.error(name + ": writeStateMachineData failed for index " + entry.getIndex()
               + ", entry=" + ServerProtoUtils.toLogEntryString(entry, stateMachine::toStateMachineLogEntryString), e);
@@ -616,7 +616,7 @@ class SegmentedRaftLogWorker implements Runnable {
         // protected. This is to make sure that stateMachine can determine which
         // indexes to truncate as stateMachine calls would happen in the sequence
         // of log operations.
-        stateMachineFuture = stateMachine.truncateStateMachineData(truncateIndex);
+        stateMachineFuture = stateMachine.data().truncate(truncateIndex);
       }
     }
 
