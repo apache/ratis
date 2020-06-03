@@ -173,7 +173,7 @@ public class LogAppender {
     return daemon.isRunning();
   }
 
-  void stopAppender() {
+  public void stopAppender() {
     daemon.stop();
   }
 

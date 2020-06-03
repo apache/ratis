@@ -125,9 +125,14 @@ public class TestLogAppenderWithGrpc
       }
     }
 
-    // assert INCONSISTENCY counter >= 1
-    // If old LogAppender die before new LogAppender start, INCONSISTENCY equal to 1,
-    // else INCONSISTENCY greater than 1
-    Assert.assertTrue(leaderMetrics.getRegistry().counter(counter).getCount() >= 1L);
+    final RaftServerImpl newLeader = waitForLeader(cluster);
+    if (leader == newLeader) {
+      final GrpcServerMetrics newleaderMetrics = new GrpcServerMetrics(leader.getMemberId().toString());
+
+      // assert INCONSISTENCY counter >= 1
+      // If old LogAppender die before new LogAppender start, INCONSISTENCY equal to 1,
+      // else INCONSISTENCY greater than 1
+      Assert.assertTrue(newleaderMetrics.getRegistry().counter(counter).getCount() >= 1L);
+    }
   }
 }
