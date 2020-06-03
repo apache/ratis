@@ -165,6 +165,13 @@ class PendingRequests {
         }
       }
     }
+
+    void close() {
+      if (raftServerMetrics != null) {
+        raftServerMetrics.removeNumPendingRequestsGauge();
+        raftServerMetrics.removeNumPendingRequestsByteSize();
+      }
+    }
   }
 
   private PendingRequest pendingSetConf;
@@ -246,5 +253,11 @@ class PendingRequests {
       pendingSetConf.setNotLeaderException(nle, commitInfos);
     }
     return transactions;
+  }
+
+  void close() {
+    if (pendingRequests != null) {
+      pendingRequests.close();
+    }
   }
 }

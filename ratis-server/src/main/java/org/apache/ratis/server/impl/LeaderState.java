@@ -277,6 +277,9 @@ public class LeaderState {
     server.getServerRpc().notifyNotLeader(server.getMemberId().getGroupId());
     logAppenderMetrics.unregister();
     raftServerMetrics.unregister();
+    if (pendingRequests != null) {
+      pendingRequests.close();
+    }
   }
 
   void notifySenders() {
