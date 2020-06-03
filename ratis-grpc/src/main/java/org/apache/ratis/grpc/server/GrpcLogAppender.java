@@ -127,7 +127,6 @@ public class GrpcLogAppender extends LogAppender {
     }
 
     Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObserver::onCompleted);
-    grpcServerMetrics.unregister();
   }
 
   private long getWaitTimeMs() {
@@ -154,6 +153,12 @@ public class GrpcLogAppender extends LogAppender {
         LOG.warn(this + ": Wait interrupted by " + ie);
       }
     }
+  }
+
+  @Override
+  public void stopAppender() {
+    grpcServerMetrics.unregister();
+    super.stopAppender();
   }
 
   @Override
