@@ -306,7 +306,7 @@ public class SegmentedRaftLog extends RaftLog {
     try {
       CompletableFuture<ByteString> future = null;
       if (stateMachine != null) {
-        future = stateMachine.readStateMachineData(entry).exceptionally(ex -> {
+        future = stateMachine.data().read(entry).exceptionally(ex -> {
           stateMachine.notifyLogFailed(ex, entry);
           return null;
         });

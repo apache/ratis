@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -50,6 +50,53 @@ public interface StateMachine extends Closeable {
 
   /** A registry to support different state machines in multi-raft environment. */
   interface Registry extends Function<RaftGroupId, StateMachine> {
+  }
+
+  interface DataApi {
+    DataApi DEFAULT = new DataApi() {};
+
+    /**
+     * Read asynchronously the state machine data from this state machine.
+     *
+     * @return a future for the read task.
+     */
+    default CompletableFuture<ByteString> read(LogEntryProto entry) {
+      return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Write asynchronously the state machine data in the given log entry to this state machine.
+     *
+     * @return a future for the write task
+     */
+    default CompletableFuture<?> write(LogEntryProto entry) {
+      return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Flush the state machine data till the given log index.
+     *
+     * @param logIndex The log index to flush.
+     * @return a future for the flush task.
+     */
+    default CompletableFuture<Void> flush(long logIndex) {
+      return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Truncates asynchronously the state machine data to the given log index.
+     * It is a noop if the corresponding log entry does not have state machine data.
+     *
+     * @param logIndex The last log index after truncation.
+     * @return a future for truncate task.
+     */
+    default CompletableFuture<Void> truncate(long logIndex) {
+      return CompletableFuture.completedFuture(null);
+    }
+  }
+
+  default DataApi data() {
+    return this instanceof DataApi? (DataApi)this : DataApi.DEFAULT;
   }
 
   /**
@@ -133,31 +180,7 @@ public interface StateMachine extends Closeable {
    * should be rejected.
    * @throws IOException thrown by the state machine while validation
    */
-  TransactionContext startTransaction(RaftClientRequest request)
-      throws IOException;
-
-  /**
-   * Write asynchronously the state machine data to this state machine. The call
-   * to stateMachine is made with the RaftLog lock held. All the stateMachineData
-   * calls are sequential and in order of the corresponding log operations.
-   * The operation must be lightweight and should be used to determine the task
-   * to be performed. The task if heavy should be performed inside the CompletableFuture.
-   * @return a future for the write task if the state machine data should be sync'ed;
-   *         otherwise, return null.
-   */
-  default CompletableFuture<?> writeStateMachineData(LogEntryProto entry) {
-    return null;
-  }
-
-  /**
-   * Read asynchronously the state machine data to this state machine.
-   *
-   * @return a future for the read task if the state machine data should be read
-   *         otherwise, return null.
-   */
-  default CompletableFuture<ByteString> readStateMachineData(LogEntryProto entry) {
-    return null;
-  }
+  TransactionContext startTransaction(RaftClientRequest request) throws IOException;
 
   /**
    * This is called before the transaction passed from the StateMachine is appended to the raft log.
@@ -247,31 +270,6 @@ public interface StateMachine extends Closeable {
   }
 
   /**
-   * Flush the state machine data till the log index provided.
-   * @param index log Index
-   * @return a future for the flush task, null otherwise
-   */
-  default CompletableFuture<Void> flushStateMachineData(long index) {
-    return CompletableFuture.completedFuture(null);
-  }
-
-  /**
-   * Truncates asynchronously the associated state machine data starting from the given log
-   * index from the state machine. It will be a no op if the corresponding log entry does not
-   * have associated stateMachineData. The call to stateMachine is made with the RaftLog
-   * lock held. All the stateMachineData calls are sequential and in order of the
-   * corresponding log operations. The operation must be lightweight and should be used
-   * to determine the truncation task to be performed. The task if heavy should
-   * be performed inside the CompletableFuture.
-   * @param index log Index starting from which the stateMachineData will be truncated.
-   * @return a combined future for the remove task for all the log entries starting from
-   *         given logIndex, null otherwise
-   */
-  default CompletableFuture<Void> truncateStateMachineData(long index) {
-    return CompletableFuture.completedFuture(null);
-  }
-
-  /**
    * Notify the Follower's state machine that the leader has purged entries
    * from its log and hence to catch up, the Follower state machine would have
    * to install the latest snapshot.
@@ -304,7 +302,7 @@ public interface StateMachine extends Closeable {
   /**
    * Converts the proto object into a useful log string to add information about state machine data.
    * @param proto state machine proto
-   * @return
+   * @return the string representation of the proto.
    */
   default String toStateMachineLogEntryString(RaftProtos.StateMachineLogEntryProto proto) {
     return ServerProtoUtils.toStateMachineLogEntryString(proto, null);
