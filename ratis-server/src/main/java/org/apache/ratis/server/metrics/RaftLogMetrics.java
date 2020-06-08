@@ -132,8 +132,7 @@ public class RaftLogMetrics extends RatisMetrics {
       registry.counter(METADATA_LOG_ENTRY_COUNT).inc();
     } else if (proto.hasStateMachineLogEntry()) {
       registry.counter(STATE_MACHINE_LOG_ENTRY_COUNT).inc();
-    } else {
-    }
+    } 
   }
 
   public void onRaftLogCacheMiss() {
