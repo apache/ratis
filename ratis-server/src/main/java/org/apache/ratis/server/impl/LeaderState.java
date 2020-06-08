@@ -652,11 +652,17 @@ public class LeaderState {
       // the log gets purged after the statemachine does a snapshot
       final TermIndex[] entriesToCommit = raftLog.getEntries(
           oldLastCommitted + 1, majority + 1);
+
       if (server.getState().updateStatemachine(majority, currentTerm)) {
         watchRequests.update(ReplicationLevel.MAJORITY, majority);
         logMetadata(majority);
         commitIndexChanged();
       }
+
+      for (TermIndex entry : entriesToCommit) {
+        raftLog.raftLogMetrics.onLogEntryCommit(raftLog.get(entry.getIndex()));
+      }
+
       checkAndUpdateConfiguration(entriesToCommit);
     }
 

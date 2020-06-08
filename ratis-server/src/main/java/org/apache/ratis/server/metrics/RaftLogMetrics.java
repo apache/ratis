@@ -67,6 +67,11 @@ public class RaftLogMetrics extends RatisMetrics {
   public static final String RAFT_LOG_PURGE_METRIC = "purgeLog";
   public static final String LOG_APPENDER_INSTALL_SNAPSHOT_METRIC = "numInstallSnapshot";
 
+  // Log Entry metrics
+  public static final String METADATA_LOG_ENTRY_COUNT = "metadataLogEntryCount";
+  public static final String CONFIG_LOG_ENTRY_COUNT = "configLogEntryCount";
+  public static final String STATE_MACHINE_LOG_ENTRY_COUNT = "stateMachineLogEntryCount";
+
   //////////////////////////////
   // Raft Log Read Path Metrics
   /////////////////////////////
@@ -118,6 +123,17 @@ public class RaftLogMetrics extends RatisMetrics {
 
   public void onRaftLogCacheHit() {
     registry.counter(RAFT_LOG_CACHE_HIT_COUNT).inc();
+  }
+
+  public void onLogEntryCommit(LogEntryProto proto) {
+    if (proto.hasConfigurationEntry()) {
+      registry.counter(CONFIG_LOG_ENTRY_COUNT).inc();
+    } else if (proto.hasMetadataEntry()) {
+      registry.counter(METADATA_LOG_ENTRY_COUNT).inc();
+    } else if (proto.hasStateMachineLogEntry()) {
+      registry.counter(STATE_MACHINE_LOG_ENTRY_COUNT).inc();
+    } else {
+    }
   }
 
   public void onRaftLogCacheMiss() {
