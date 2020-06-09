@@ -83,7 +83,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
   private final Runner runner = new Runner(this::getName);
   private final OpenCloseState state;
-  public final RaftLogMetrics raftLogMetrics;
+  private final RaftLogMetrics raftLogMetrics;
 
   private volatile LogEntryProto lastMetadataEntry = null;
 
@@ -98,6 +98,8 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
     this.state = new OpenCloseState(getName());
   }
+
+  public RaftLogMetrics getRaftLogMetrics(){ return raftLogMetrics; }
 
   public long getLastCommittedIndex() {
     return commitIndex.get();
