@@ -662,7 +662,7 @@ public class LeaderState {
 
       try {
         for (TermIndex entry : entriesToCommit) {
-          raftLog.raftLogMetrics.onLogEntryCommit(raftLog.get(entry.getIndex()));
+          raftLog.getRaftLogMetrics().onLogEntryCommit(raftLog.get(entry.getIndex()));
         }
       } catch (RaftLogIOException e) {
         LOG.error("Caught exception reading from RaftLog", e);

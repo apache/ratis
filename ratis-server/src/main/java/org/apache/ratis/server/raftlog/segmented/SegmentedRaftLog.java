@@ -280,13 +280,13 @@ public class SegmentedRaftLog extends RaftLog {
       }
       final LogEntryProto entry = segment.getEntryFromCache(record.getTermIndex());
       if (entry != null) {
-        raftLogMetrics.onRaftLogCacheHit();
+        getRaftLogMetrics().onRaftLogCacheHit();
         return entry;
       }
     }
 
     // the entry is not in the segment's cache. Load the cache without holding the lock.
-    raftLogMetrics.onRaftLogCacheMiss();
+    getRaftLogMetrics().onRaftLogCacheMiss();
     checkAndEvictCache();
     return segment.loadCache(record);
   }
@@ -514,7 +514,7 @@ public class SegmentedRaftLog extends RaftLog {
     }
     fileLogWorker.close();
     storage.close();
-    raftLogMetrics.unregister();
+    getRaftLogMetrics().unregister();
   }
 
   SegmentedRaftLogCache getRaftLogCache() {
