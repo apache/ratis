@@ -99,7 +99,9 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     this.state = new OpenCloseState(getName());
   }
 
-  public RaftLogMetrics getRaftLogMetrics(){ return raftLogMetrics; }
+  public RaftLogMetrics getRaftLogMetrics() {
+    return raftLogMetrics;
+  }
 
   public long getLastCommittedIndex() {
     return commitIndex.get();
