@@ -24,6 +24,8 @@ import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
 import org.apache.ratis.util.DataQueue;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+
 
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.MetricRegistry;
@@ -132,7 +134,7 @@ public class RaftLogMetrics extends RatisMetrics {
       registry.counter(METADATA_LOG_ENTRY_COUNT).inc();
     } else if (proto.hasStateMachineLogEntry()) {
       registry.counter(STATE_MACHINE_LOG_ENTRY_COUNT).inc();
-    } 
+    }
   }
 
   public void onRaftLogCacheMiss() {
