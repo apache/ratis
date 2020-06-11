@@ -142,63 +142,63 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
   void runTestReconfTwice(CLUSTER cluster) throws Exception {
       final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
-      final RaftClient client = cluster.createClient(leaderId);
+      try (final RaftClient client = cluster.createClient(leaderId)) {
 
-      // submit some msgs before reconf
-      for (int i = 0; i < STAGING_CATCHUP_GAP * 2; i++) {
-        RaftClientReply reply = client.send(new SimpleMessage("m" + i));
-        Assert.assertTrue(reply.isSuccess());
-      }
-
-      final AtomicBoolean reconf1 = new AtomicBoolean(false);
-      final AtomicBoolean reconf2 = new AtomicBoolean(false);
-      final AtomicReference<RaftPeer[]> finalPeers = new AtomicReference<>(null);
-      final AtomicReference<RaftPeer[]> deadPeers = new AtomicReference<>(null);
-      CountDownLatch latch = new CountDownLatch(1);
-      Thread clientThread = new Thread(() -> {
-        try {
-          PeerChanges c1 = cluster.addNewPeers(2, true);
-          LOG.info("Start changing the configuration: {}",
-              asList(c1.allPeersInNewConf));
-
-          RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
-          reconf1.set(reply.isSuccess());
-
-          PeerChanges c2 = cluster.removePeers(2, true, asList(c1.newPeers));
-          finalPeers.set(c2.allPeersInNewConf);
-          deadPeers.set(c2.removedPeers);
-
-          LOG.info("Start changing the configuration again: {}",
-              asList(c2.allPeersInNewConf));
-          reply = client.setConfiguration(c2.allPeersInNewConf);
-          reconf2.set(reply.isSuccess());
-
-          latch.countDown();
-          client.close();
-        } catch(Exception ignored) {
-          LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
+        // submit some msgs before reconf
+        for (int i = 0; i < STAGING_CATCHUP_GAP * 2; i++) {
+          RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+          Assert.assertTrue(reply.isSuccess());
         }
-      });
-      clientThread.start();
 
-      latch.await();
-      Assert.assertTrue(reconf1.get());
-      Assert.assertTrue(reconf2.get());
-      waitAndCheckNewConf(cluster, finalPeers.get(), 2, null);
-      final RaftPeerId leader2 = RaftTestUtil.waitForLeader(cluster).getId();
+        final AtomicBoolean reconf1 = new AtomicBoolean(false);
+        final AtomicBoolean reconf2 = new AtomicBoolean(false);
+        final AtomicReference<RaftPeer[]> finalPeers = new AtomicReference<>(null);
+        final AtomicReference<RaftPeer[]> deadPeers = new AtomicReference<>(null);
+        CountDownLatch latch = new CountDownLatch(1);
+        Thread clientThread = new Thread(() -> {
+          try {
+            PeerChanges c1 = cluster.addNewPeers(2, true);
+            LOG.info("Start changing the configuration: {}",
+                    asList(c1.allPeersInNewConf));
 
-      // check configuration manager's internal state
-      // each reconf will generate two configurations: (old, new) and (new)
-      cluster.getServerAliveStream().forEach(server -> {
-        ConfigurationManager confManager =
-            (ConfigurationManager) Whitebox.getInternalState(server.getState(),
-                "configurationManager");
+            RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
+            reconf1.set(reply.isSuccess());
+
+            PeerChanges c2 = cluster.removePeers(2, true, asList(c1.newPeers));
+            finalPeers.set(c2.allPeersInNewConf);
+            deadPeers.set(c2.removedPeers);
+
+            LOG.info("Start changing the configuration again: {}",
+                    asList(c2.allPeersInNewConf));
+            reply = client.setConfiguration(c2.allPeersInNewConf);
+            reconf2.set(reply.isSuccess());
+
+            latch.countDown();
+          } catch (Exception ignored) {
+            LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
+          }
+        });
+        clientThread.start();
+
+        latch.await();
+        Assert.assertTrue(reconf1.get());
+        Assert.assertTrue(reconf2.get());
+        waitAndCheckNewConf(cluster, finalPeers.get(), 2, null);
+        final RaftPeerId leader2 = RaftTestUtil.waitForLeader(cluster).getId();
+
+        // check configuration manager's internal state
         // each reconf will generate two configurations: (old, new) and (new)
-        // each leader change generates one configuration.
-        // expectedConf = 1 (init) + 2*2 (two conf changes) + #leader
-        final int expectedConf = leader2.equals(leaderId)? 6: 7;
-        Assert.assertEquals(server.getId() + ": " + confManager, expectedConf, confManager.numOfConf());
-      });
+        cluster.getServerAliveStream().forEach(server -> {
+          ConfigurationManager confManager =
+                  (ConfigurationManager) Whitebox.getInternalState(server.getState(),
+                          "configurationManager");
+          // each reconf will generate two configurations: (old, new) and (new)
+          // each leader change generates one configuration.
+          // expectedConf = 1 (init) + 2*2 (two conf changes) + #leader
+          final int expectedConf = leader2.equals(leaderId) ? 6 : 7;
+          Assert.assertEquals(server.getId() + ": " + confManager, expectedConf, confManager.numOfConf());
+        });
+      }
   }
 
   @Test
@@ -258,39 +258,39 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
   void runTestBootstrapReconf(CLUSTER cluster) throws Exception {
       RaftTestUtil.waitForLeader(cluster);
       final RaftPeerId leaderId = cluster.getLeader().getId();
-      final RaftClient client = cluster.createClient(leaderId);
+      try (final RaftClient client = cluster.createClient(leaderId)) {
 
-      // submit some msgs before reconf
-      for (int i = 0; i < STAGING_CATCHUP_GAP * 2; i++) {
-        RaftClientReply reply = client.send(new SimpleMessage("m" + i));
-        Assert.assertTrue(reply.isSuccess());
-      }
-
-      PeerChanges c1 = cluster.addNewPeers(2, true);
-      LOG.info("Start changing the configuration: {}",
-          asList(c1.allPeersInNewConf));
-      final AtomicReference<Boolean> success = new AtomicReference<>();
-
-      Thread clientThread = new Thread(() -> {
-        try {
-          RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
-          success.set(reply.isSuccess());
-          client.close();
-        } catch (IOException ioe) {
-          LOG.error("FAILED", ioe);
+        // submit some msgs before reconf
+        for (int i = 0; i < STAGING_CATCHUP_GAP * 2; i++) {
+          RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+          Assert.assertTrue(reply.isSuccess());
         }
-      });
-      clientThread.start();
 
-      Thread.sleep(5000);
-      LOG.info(cluster.printServers());
-      assertSuccess(success);
+        PeerChanges c1 = cluster.addNewPeers(2, true);
+        LOG.info("Start changing the configuration: {}",
+                asList(c1.allPeersInNewConf));
+        final AtomicReference<Boolean> success = new AtomicReference<>();
 
-      final RaftLog leaderLog = cluster.getLeader().getState().getLog();
-      for (RaftPeer newPeer : c1.newPeers) {
-        Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
-            cluster.getRaftServerImpl(newPeer.getId()).getState().getLog()
-                .getEntries(0, Long.MAX_VALUE));
+        Thread clientThread = new Thread(() -> {
+          try {
+            RaftClientReply reply = client.setConfiguration(c1.allPeersInNewConf);
+            success.set(reply.isSuccess());
+          } catch (IOException ioe) {
+            LOG.error("FAILED", ioe);
+          }
+        });
+        clientThread.start();
+
+        Thread.sleep(5000);
+        LOG.info(cluster.printServers());
+        assertSuccess(success);
+
+        final RaftLog leaderLog = cluster.getLeader().getState().getLog();
+        for (RaftPeer newPeer : c1.newPeers) {
+          Assert.assertArrayEquals(leaderLog.getEntries(0, Long.MAX_VALUE),
+                  cluster.getRaftServerImpl(newPeer.getId()).getState().getLog()
+                          .getEntries(0, Long.MAX_VALUE));
+        }
       }
   }
 
@@ -577,26 +577,29 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       AtomicBoolean success = new AtomicBoolean(false);
       final RaftPeerId leaderId = cluster.getPeers().iterator().next().getId();
       new Thread(() -> {
-        final RaftClient client = cluster.createClient(leaderId);
-        final RaftClientRpc sender = client.getClientRpc();
-        final RaftClientRequest request = cluster.newRaftClientRequest(
-            client.getId(), leaderId, new SimpleMessage("test"));
-        while (!success.get()) {
-          try {
-            final RaftClientReply reply = sender.sendRequest(request);
-            success.set(reply.isSuccess());
-            if (reply.getException() != null && reply.getException() instanceof LeaderNotReadyException) {
-              caughtNotReady.set(true);
-            }
-          } catch (IOException e) {
-            LOG.info("Hit other IOException", e);
-          }
-          if (!success.get()) {
+        try (final RaftClient client = cluster.createClient(leaderId)) {
+          final RaftClientRpc sender = client.getClientRpc();
+          final RaftClientRequest request = cluster.newRaftClientRequest(
+                  client.getId(), leaderId, new SimpleMessage("test"));
+          while (!success.get()) {
             try {
-              Thread.sleep(200);
-            } catch (InterruptedException ignored) {
+              final RaftClientReply reply = sender.sendRequest(request);
+              success.set(reply.isSuccess());
+              if (reply.getException() != null && reply.getException() instanceof LeaderNotReadyException) {
+                caughtNotReady.set(true);
+              }
+            } catch (IOException e) {
+              LOG.info("Hit other IOException", e);
+            }
+            if (!success.get()) {
+              try {
+                Thread.sleep(200);
+              } catch (InterruptedException ignored) {
+              }
             }
           }
+        } catch (Exception ignored) {
+          LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
         }
       }).start();
 

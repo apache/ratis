@@ -185,9 +185,10 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
       for(RaftGroupId gid : registry.keySet()) {
         final RaftGroup newGroup = RaftGroup.valueOf(gid, cluster.getPeers());
         LOG.info("add new group: " + newGroup);
-        final RaftClient client = cluster.createClient(newGroup);
-        for(RaftPeer p : newGroup.getPeers()) {
-          client.groupAdd(newGroup, p.getId());
+        try (final RaftClient client = cluster.createClient(newGroup)) {
+          for (RaftPeer p : newGroup.getPeers()) {
+            client.groupAdd(newGroup, p.getId());
+          }
         }
       }
 

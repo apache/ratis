@@ -184,13 +184,14 @@ public class TestExceptionDependentRetry implements MiniRaftClusterWithGrpc.Fact
       builder.setDefaultPolicy(RetryPolicies.retryForeverNoSleep());
 
       // create a client with the exception dependent policy
-      RaftClient client = cluster.createClient(builder.build());
-      client.sendAsync(new RaftTestUtil.SimpleMessage("1")).get();
+      try (final RaftClient client = cluster.createClient(builder.build())) {
+        client.sendAsync(new RaftTestUtil.SimpleMessage("1")).get();
 
-      leader = cluster.getLeader();
-      ((SimpleStateMachine4Testing)leader.getStateMachine()).blockWriteStateMachineData();
+        leader = cluster.getLeader();
+        ((SimpleStateMachine4Testing) leader.getStateMachine()).blockWriteStateMachineData();
 
-      client.sendAsync(new RaftTestUtil.SimpleMessage("2")).get();
+        client.sendAsync(new RaftTestUtil.SimpleMessage("2")).get();
+      }
       Assert.fail("Test should have failed.");
     } catch (ExecutionException e) {
       RaftRetryFailureException rrfe = (RaftRetryFailureException) e.getCause();

@@ -105,39 +105,39 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
     cluster.getLeaderAndSendFirstMessage(true);
     long oldLastApplied = cluster.getLeader().getState().getLastAppliedIndex();
 
-    final RaftClient client = cluster.createClient(leaderId);
-    final RaftClientRpc rpc = client.getClientRpc();
-    final long callId = 999;
-    final SimpleMessage message = new SimpleMessage("message");
-    final RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId, callId, message);
-    RaftClientReply reply = rpc.sendRequest(r);
-    Assert.assertFalse(reply.isSuccess());
-    Assert.assertNotNull(reply.getStateMachineException());
-
-    // retry with the same callId
-    for (int i = 0; i < 5; i++) {
-      reply = rpc.sendRequest(r);
-      Assert.assertEquals(client.getId(), reply.getClientId());
-      Assert.assertEquals(callId, reply.getCallId());
+    try (final RaftClient client = cluster.createClient(leaderId)) {
+      final RaftClientRpc rpc = client.getClientRpc();
+      final long callId = 999;
+      final SimpleMessage message = new SimpleMessage("message");
+      final RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), leaderId, callId, message);
+      RaftClientReply reply = rpc.sendRequest(r);
       Assert.assertFalse(reply.isSuccess());
       Assert.assertNotNull(reply.getStateMachineException());
-    }
 
-    long leaderApplied = cluster.getLeader().getState().getLastAppliedIndex();
-    // make sure retry cache has the entry
-    for (RaftServerImpl server : cluster.iterateServerImpls()) {
-      LOG.info("check server " + server.getId());
-      if (server.getState().getLastAppliedIndex() < leaderApplied) {
-        Thread.sleep(1000);
+      // retry with the same callId
+      for (int i = 0; i < 5; i++) {
+        reply = rpc.sendRequest(r);
+        Assert.assertEquals(client.getId(), reply.getClientId());
+        Assert.assertEquals(callId, reply.getCallId());
+        Assert.assertFalse(reply.isSuccess());
+        Assert.assertNotNull(reply.getStateMachineException());
       }
-      Assert.assertNotNull(
-          RaftServerTestUtil.getRetryEntry(server, client.getId(), callId));
-      final RaftLog log = server.getState().getLog();
-      RaftTestUtil.logEntriesContains(log, oldLastApplied + 1, log.getNextIndex(), message);
-    }
 
-    client.close();
-    cluster.shutdown();
+      long leaderApplied = cluster.getLeader().getState().getLastAppliedIndex();
+      // make sure retry cache has the entry
+      for (RaftServerImpl server : cluster.iterateServerImpls()) {
+        LOG.info("check server " + server.getId());
+        if (server.getState().getLastAppliedIndex() < leaderApplied) {
+          Thread.sleep(1000);
+        }
+        Assert.assertNotNull(
+                RaftServerTestUtil.getRetryEntry(server, client.getId(), callId));
+        final RaftLog log = server.getState().getLog();
+        RaftTestUtil.logEntriesContains(log, oldLastApplied + 1, log.getNextIndex(), message);
+      }
+
+      cluster.shutdown();
+    }
   }
 
   @Test
@@ -150,31 +150,31 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
     cluster.getLeaderAndSendFirstMessage(true);
     // turn on the preAppend failure switch
     failPreAppend = true;
-    final RaftClient client = cluster.createClient(oldLeader.getId());
-    final RaftClientRpc rpc = client.getClientRpc();
-    final long callId = 999;
-    final SimpleMessage message = new SimpleMessage("message");
-    RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), oldLeader.getId(), callId, message);
-    RaftClientReply reply = rpc.sendRequest(r);
-    Objects.requireNonNull(reply.getStateMachineException());
+    try (final RaftClient client = cluster.createClient(oldLeader.getId())) {
+      final RaftClientRpc rpc = client.getClientRpc();
+      final long callId = 999;
+      final SimpleMessage message = new SimpleMessage("message");
+      RaftClientRequest r = cluster.newRaftClientRequest(client.getId(), oldLeader.getId(), callId, message);
+      RaftClientReply reply = rpc.sendRequest(r);
+      Objects.requireNonNull(reply.getStateMachineException());
 
-    final RetryCache.CacheEntry oldEntry = RaftServerTestUtil.getRetryEntry(oldLeader, client.getId(), callId);
-    Assert.assertNotNull(oldEntry);
-    Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(oldEntry));
+      final RetryCache.CacheEntry oldEntry = RaftServerTestUtil.getRetryEntry(oldLeader, client.getId(), callId);
+      Assert.assertNotNull(oldEntry);
+      Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(oldEntry));
 
-    // At this point of time the old leader would have stepped down. wait for leader election to complete
-    final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
-    // retry
-    r = cluster.newRaftClientRequest(client.getId(), leader.getId(), callId, message);
-    reply = rpc.sendRequest(r);
-    Objects.requireNonNull(reply.getStateMachineException());
+      // At this point of time the old leader would have stepped down. wait for leader election to complete
+      final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
+      // retry
+      r = cluster.newRaftClientRequest(client.getId(), leader.getId(), callId, message);
+      reply = rpc.sendRequest(r);
+      Objects.requireNonNull(reply.getStateMachineException());
 
-    RetryCache.CacheEntry currentEntry = RaftServerTestUtil.getRetryEntry(
-        leader, client.getId(), callId);
-    Assert.assertNotNull(currentEntry);
-    Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(currentEntry));
-    Assert.assertNotEquals(oldEntry, currentEntry);
-    failPreAppend = false;
-    client.close();
+      RetryCache.CacheEntry currentEntry = RaftServerTestUtil.getRetryEntry(
+              leader, client.getId(), callId);
+      Assert.assertNotNull(currentEntry);
+      Assert.assertTrue(RaftServerTestUtil.isRetryCacheEntryFailed(currentEntry));
+      Assert.assertNotEquals(oldEntry, currentEntry);
+      failPreAppend = false;
+    }
   }
 }

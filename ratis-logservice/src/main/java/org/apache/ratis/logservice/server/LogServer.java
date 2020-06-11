@@ -176,6 +176,7 @@ public class LogServer extends BaseServer {
 
 
     public void close() throws IOException {
+        metaClient.close();
         raftServer.close();
         daemon.interrupt();
     }

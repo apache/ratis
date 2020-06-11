@@ -237,16 +237,14 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       futures.add(f);
 
       final SimpleMessage m = messages[i];
-      try (final RaftClient client = cluster.createClient()) {
-        new Thread(() -> {
-          try {
-            Assert.assertTrue(client.send(m).isSuccess());
-          } catch (IOException e) {
-            throw new IllegalStateException("Failed to send " + m, e);
-          }
-          f.complete(null);
-        }).start();
-      }
+      new Thread(() -> {
+        try (final RaftClient client = cluster.createClient()) {
+          Assert.assertTrue(client.send(m).isSuccess());
+        } catch (IOException e) {
+          throw new IllegalStateException("Failed to send " + m, e);
+        }
+        f.complete(null);
+      }).start();
     }
     JavaUtils.allOf(futures).get();
 

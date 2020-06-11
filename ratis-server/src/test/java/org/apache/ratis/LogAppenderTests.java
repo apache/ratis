@@ -43,6 +43,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.List;
@@ -51,8 +52,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import com.codahale.metrics.Gauge;
 
@@ -172,23 +171,40 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     final int numMsgs = 10;
     final int numClients = 5;
     final RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
+    List<RaftClient> clients = new ArrayList<>();
 
-    // start several clients and write concurrently
-    final CountDownLatch latch = new CountDownLatch(1);
-    final List<Sender> senders = Stream.iterate(0, i -> i+1).limit(numClients)
-        .map(i -> new Sender(cluster.createClient(leaderId), numMsgs, latch))
-        .collect(Collectors.toList());
-    senders.forEach(Thread::start);
+    try {
+      List<Sender> senders = new ArrayList<>();
 
-    latch.countDown();
+      // start several clients and write concurrently
+      final CountDownLatch latch = new CountDownLatch(1);
 
-    for (Sender s : senders) {
-      s.join();
-      final Exception e = s.exception.get();
-      if (e != null) {
-        throw e;
+      for (int i = 0; i < numClients; i ++) {
+        RaftClient client = cluster.createClient(leaderId);
+        clients.add(client);
+        senders.add(new Sender(client, numMsgs, latch));
       }
-      Assert.assertTrue(s.succeed.get());
+
+      senders.forEach(Thread::start);
+
+      latch.countDown();
+
+      for (Sender s : senders) {
+        s.join();
+        final Exception e = s.exception.get();
+        if (e != null) {
+          throw e;
+        }
+        Assert.assertTrue(s.succeed.get());
+      }
+    } finally {
+      for (int i = 0; i < clients.size(); i ++) {
+        try {
+          clients.get(i).close();
+        } catch (Exception ignored) {
+          LOG.warn(ignored.getClass().getSimpleName() + " is ignored", ignored);
+        }
+      }
     }
 
     final ServerState leaderState = cluster.getLeader().getState();
