@@ -27,6 +27,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
+import org.apache.ratis.server.raftlog.RaftLogIOException;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.*;
 import org.slf4j.Logger;
@@ -652,11 +653,21 @@ public class LeaderState {
       // the log gets purged after the statemachine does a snapshot
       final TermIndex[] entriesToCommit = raftLog.getEntries(
           oldLastCommitted + 1, majority + 1);
+
       if (server.getState().updateStatemachine(majority, currentTerm)) {
         watchRequests.update(ReplicationLevel.MAJORITY, majority);
         logMetadata(majority);
         commitIndexChanged();
       }
+
+      try {
+        for (TermIndex entry : entriesToCommit) {
+          raftLog.getRaftLogMetrics().onLogEntryCommit(raftLog.get(entry.getIndex()));
+        }
+      } catch (RaftLogIOException e) {
+        LOG.error("Caught exception reading from RaftLog", e);
+      }
+
       checkAndUpdateConfiguration(entriesToCommit);
     }
 

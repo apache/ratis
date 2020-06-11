@@ -30,6 +30,9 @@ import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_TASK_ENQUE
 import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_TASK_EXECUTION_TIME;
 import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_TASK_QUEUE_TIME;
 import static org.apache.ratis.server.metrics.RaftLogMetrics.RAFT_LOG_WORKER_QUEUE_SIZE;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.METADATA_LOG_ENTRY_COUNT;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.CONFIG_LOG_ENTRY_COUNT;
+import static org.apache.ratis.server.metrics.RaftLogMetrics.STATE_MACHINE_LOG_ENTRY_COUNT;
 import static org.apache.ratis.metrics.RatisMetrics.RATIS_APPLICATION_NAME_METRICS;
 
 import com.codahale.metrics.Timer;
@@ -115,6 +118,17 @@ public class TestRaftLogMetrics extends BaseTest
       // We have already waited enough for follower metrics to populate.
       assertRaftLogWritePathMetrics(f);
     }
+
+    // Wait for commits to happen on leader
+    JavaUtils.attempt(() -> assertCommitCount(cluster.getLeader(), numMsg), 10, HUNDRED_MILLIS, cluster.getLeader().getId() + "-assertCommitCount", null);
+  }
+
+  static void assertCommitCount(RaftServerImpl server, int expectedMsgs) throws  Exception {
+    RatisMetricRegistry rlm = server.getState().getLog().getRaftLogMetrics().getRegistry();
+    long metaCount = rlm.counter(METADATA_LOG_ENTRY_COUNT).getCount();
+    long configCount = rlm.counter(CONFIG_LOG_ENTRY_COUNT).getCount();
+    long stmCount = rlm.counter(STATE_MACHINE_LOG_ENTRY_COUNT).getCount();
+    Assert.assertTrue(stmCount + configCount + metaCount == expectedMsgs);
   }
 
   static void assertFlushCount(RaftServerImpl server) throws Exception {

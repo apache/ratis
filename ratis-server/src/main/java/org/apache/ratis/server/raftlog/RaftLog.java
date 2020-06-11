@@ -25,6 +25,7 @@ import org.apache.ratis.protocol.StateMachineException;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.server.impl.ServerProtoUtils;
+import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -82,6 +83,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
   private final Runner runner = new Runner(this::getName);
   private final OpenCloseState state;
+  private final RaftLogMetrics raftLogMetrics;
 
   private volatile LogEntryProto lastMetadataEntry = null;
 
@@ -92,9 +94,13 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
     this.snapshotIndex = new RaftLogIndex("snapshotIndex", commitIndex);
     this.purgeIndex = new RaftLogIndex("purgeIndex", LEAST_VALID_LOG_INDEX - 1);
     this.purgeGap = RaftServerConfigKeys.Log.purgeGap(properties);
-
+    this.raftLogMetrics = new RaftLogMetrics(memberId.toString());
     this.maxBufferSize = RaftServerConfigKeys.Log.Appender.bufferByteLimit(properties).getSizeInt();
     this.state = new OpenCloseState(getName());
+  }
+
+  public RaftLogMetrics getRaftLogMetrics() {
+    return raftLogMetrics;
   }
 
   public long getLastCommittedIndex() {
