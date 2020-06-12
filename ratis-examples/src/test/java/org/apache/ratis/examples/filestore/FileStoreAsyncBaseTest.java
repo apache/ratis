@@ -59,8 +59,8 @@ public abstract class FileStoreAsyncBaseTest<CLUSTER extends MiniRaftCluster>
     final FileStoreClient client = new FileStoreClient(cluster.getGroup(), getProperties());
     final ExecutorService executor = Executors.newFixedThreadPool(20);
 
-    testSingleFile("foo", SizeInBytes.valueOf("10M"), executor, client);
-    testMultipleFiles("file", 100, SizeInBytes.valueOf("1M"), executor, client);
+    testSingleFile("foo", SizeInBytes.valueOf("2M"), executor, client);
+    testMultipleFiles("file", 20, SizeInBytes.valueOf("1M"), executor, client);
 
     executor.shutdown();
     client.close();

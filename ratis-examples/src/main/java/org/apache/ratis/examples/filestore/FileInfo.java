@@ -224,6 +224,13 @@ abstract class FileInfo {
     }
 
     private int write(long offset, ByteString data, boolean close) throws IOException {
+      // If leader finish write data with offset = 4096 and writeSize become 8192,
+      // and 2 follower has not written the data with offset = 4096,
+      // then start a leader election. So client will retry send the data with offset = 4096,
+      // then offset < writeSize in leader.
+      if (offset < writeSize) {
+        return data.size();
+      }
       if (offset != writeSize) {
         throw new IOException("Offset/size mismatched: offset = " + offset
             + " != writeSize = " + writeSize + ", path=" + getRelativePath());
