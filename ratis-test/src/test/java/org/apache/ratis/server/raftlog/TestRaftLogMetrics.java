@@ -86,7 +86,7 @@ public class TestRaftLogMetrics extends BaseTest
     @Override
     public CompletableFuture<Void> flush(long index) {
       flushCount.incrementAndGet();
-      return super.data().flush(index);
+      return CompletableFuture.completedFuture(null);
     }
   }
 
@@ -125,10 +125,8 @@ public class TestRaftLogMetrics extends BaseTest
 
   static void assertCommitCount(RaftServerImpl server, int expectedMsgs) throws  Exception {
     RatisMetricRegistry rlm = server.getState().getLog().getRaftLogMetrics().getRegistry();
-    long metaCount = rlm.counter(METADATA_LOG_ENTRY_COUNT).getCount();
-    long configCount = rlm.counter(CONFIG_LOG_ENTRY_COUNT).getCount();
     long stmCount = rlm.counter(STATE_MACHINE_LOG_ENTRY_COUNT).getCount();
-    Assert.assertTrue(stmCount + configCount + metaCount == expectedMsgs);
+    Assert.assertTrue(stmCount == expectedMsgs);
   }
 
   static void assertFlushCount(RaftServerImpl server) throws Exception {
