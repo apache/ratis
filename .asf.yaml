@@ -24,5 +24,8 @@ github:
     squash:  true
     merge:   false
     rebase:  false
-  notifications:
-    jira_options: worklog label link
+notifications:
+  commits:      commits@ratis.apache.org
+  issues:       dev@ratis.apache.org
+  pullrequests: dev@ratis.apache.org
+  jira_options: link label worklog
