@@ -75,8 +75,8 @@ public abstract class FileStoreBaseTest<CLUSTER extends MiniRaftCluster>
     final CheckedSupplier<FileStoreClient, IOException> newClient =
         () -> new FileStoreClient(cluster.getGroup(), getProperties());
 
-    testSingleFile("foo", SizeInBytes.valueOf("10M"), newClient);
-    testMultipleFiles("file", 100, SizeInBytes.valueOf("1M"), newClient);
+    testSingleFile("foo", SizeInBytes.valueOf("2M"), newClient);
+    testMultipleFiles("file", 20, SizeInBytes.valueOf("1M"), newClient);
 
     cluster.shutdown();
   }
