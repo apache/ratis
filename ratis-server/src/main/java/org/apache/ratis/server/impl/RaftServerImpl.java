@@ -1038,7 +1038,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         updateCommitInfoCache();
         final long n = isHeartbeat? state.getLog().getNextIndex(): entries[entries.length - 1].getIndex() + 1;
         final long matchIndex = entries.length != 0 ? entries[entries.length - 1].getIndex() :
-            RaftLog.INVALID_LOG_INDEX;
+            state.getLog().getNextIndex() - 1;
         reply = ServerProtoUtils.toAppendEntriesReplyProto(leaderId, getMemberId(), currentTerm,
             state.getLog().getLastCommittedIndex(), n, SUCCESS, callId, matchIndex,
             isHeartbeat);
