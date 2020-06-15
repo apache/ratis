@@ -1140,6 +1140,8 @@ public class RaftProperties {
 
       DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
       docBuilderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
       //ignore all comments inside the xml file
       docBuilderFactory.setIgnoringComments(true);
 
@@ -1312,6 +1314,8 @@ public class RaftProperties {
       StreamResult result = new StreamResult(out);
       TransformerFactory transFactory = TransformerFactory.newInstance();
       transFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+      transFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+      transFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
       Transformer transformer = transFactory.newTransformer();
 
       // Important to not hold Configuration log while writing result, since
@@ -1329,9 +1333,11 @@ public class RaftProperties {
   private synchronized Document asXmlDocument() throws IOException {
     Document doc;
     try {
-      DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
-      documentBuilderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-      doc = documentBuilderFactory.newDocumentBuilder().newDocument();
+      DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+      docBuilderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+      docBuilderFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+      doc = docBuilderFactory.newDocumentBuilder().newDocument();
     } catch (ParserConfigurationException pe) {
       throw new IOException(pe);
     }
