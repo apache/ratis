@@ -345,8 +345,8 @@ public class LeaderState {
         .exceptionally(e -> exception2RaftClientReply(request, e));
   }
 
-  CompletableFuture<RaftClientRequest> streamCloseAsync(RaftClientRequest request) {
-    return streamRequests.streamCloseAsync(request)
+  CompletableFuture<RaftClientRequest> streamEndOfRequestAsync(RaftClientRequest request) {
+    return streamRequests.streamEndOfRequestAsync(request)
         .thenApply(bytes -> RaftClientRequest.toWriteRequest(request, Message.valueOf(bytes)));
   }
 

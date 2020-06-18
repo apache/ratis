@@ -175,8 +175,8 @@ public final class RaftClientImpl implements RaftClient {
     return UnorderedAsync.send(RaftClientRequest.watchRequestType(index, replication), this);
   }
 
-  CompletableFuture<RaftClientReply> streamAsync(long streamId, long messageId, Message message) {
-    return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, false), message, null);
+  CompletableFuture<RaftClientReply> streamAsync(long streamId, long messageId, Message message, boolean endOfRequest) {
+    return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, endOfRequest), message, null);
   }
 
   CompletableFuture<RaftClientReply> streamCloseAsync(long streamId, long messageId) {

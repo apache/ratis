@@ -249,7 +249,7 @@ message WriteRequestTypeProto {
 message StreamRequestTypeProto {
   uint64 streamId = 1;  // the id of this stream
   uint64 messageId = 2; // the message id within a particular stream.
-  bool close = 3;       // close the stream?
+  bool endOfRequest = 3;// Is this the end-of-request?
 }
 
 message ReadRequestTypeProto {

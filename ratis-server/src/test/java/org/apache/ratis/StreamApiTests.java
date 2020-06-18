@@ -58,20 +58,27 @@ public abstract class StreamApiTests<CLUSTER extends MiniRaftCluster> extends Ba
     RaftTestUtil.waitForLeader(cluster);
 
     // stream multiple parts
-    final int numParts = 5;
+    final int numParts = 9;
+    final int endOfRequest = 6;
     final StringBuilder key = new StringBuilder();
     try(RaftClient client = cluster.createClient();
         MessageOutputStream out = client.getStreamApi().stream()) {
-      for (int i = 0; i < numParts; i++) {
+      for (int i = 1; i <= numParts; i++) {
         key.append(i);
-        out.sendAsync(new SimpleMessage(i + ""));
+        out.sendAsync(new SimpleMessage(i + ""), i == endOfRequest);
       }
     }
 
     // check if all the parts are streamed as a single message.
+    final String k = key.toString();
     try(RaftClient client = cluster.createClient()) {
-      final RaftClientReply reply = client.sendReadOnly(new SimpleMessage(key.toString()));
-      Assert.assertTrue(reply.isSuccess());
+      final String k1 = k.substring(0, endOfRequest);
+      final RaftClientReply r1= client.sendReadOnly(new SimpleMessage(k1));
+      Assert.assertTrue(r1.isSuccess());
+
+      final String k2 = k.substring(endOfRequest);
+      final RaftClientReply r2 = client.sendReadOnly(new SimpleMessage(k2));
+      Assert.assertTrue(r2.isSuccess());
     }
   }
 
