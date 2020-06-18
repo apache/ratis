@@ -49,8 +49,8 @@ public final class StreamImpl implements StreamApi {
     }
 
     @Override
-    public CompletableFuture<RaftClientReply> sendAsync(Message message) {
-      return client.streamAsync(id, messageId.getAndIncrement(), message);
+    public CompletableFuture<RaftClientReply> sendAsync(Message message, boolean endOfRequest) {
+      return client.streamAsync(id, messageId.getAndIncrement(), message, endOfRequest);
     }
 
     @Override

@@ -69,7 +69,7 @@ class StreamRequests {
 
   private static class PendingStream {
     private final Key key;
-    private long nextId = 0;
+    private long nextId = -1;
     private ByteString bytes = ByteString.EMPTY;
 
     PendingStream(Key key) {
@@ -77,7 +77,9 @@ class StreamRequests {
     }
 
     synchronized CompletableFuture<ByteString> append(long messageId, Message message) {
-      if (messageId != nextId) {
+      if (nextId == -1) {
+        nextId = messageId;
+      } else if (messageId != nextId) {
         return JavaUtils.completeExceptionally(new StreamException(
             "Unexpected message id in " + key + ": messageId = " + messageId + " != nextId = " + nextId));
       }
@@ -94,15 +96,8 @@ class StreamRequests {
   static class StreamMap {
     private final ConcurrentMap<Key, PendingStream> map = new ConcurrentHashMap<>();
 
-    PendingStream add(Key key) {
-      final PendingStream pending = new PendingStream(key);
-      final PendingStream previous = map.put(key, pending);
-      Preconditions.assertNull(previous, "previous");
-      return pending;
-    }
-
-    PendingStream get(Key key) {
-      return map.get(key);
+    PendingStream computeIfAbsent(Key key) {
+      return map.computeIfAbsent(key, PendingStream::new);
     }
 
     PendingStream remove(Key key) {
@@ -123,15 +118,15 @@ class StreamRequests {
 
   CompletableFuture<?> streamAsync(RaftClientRequest request) {
     final StreamRequestTypeProto stream = request.getType().getStream();
-    Preconditions.assertTrue(!stream.getClose());
+    Preconditions.assertTrue(!stream.getEndOfRequest());
     final Key key = new Key(request.getClientId(), stream.getStreamId());
-    final PendingStream pending = stream.getMessageId() == 0? streams.add(key): streams.get(key);
+    final PendingStream pending = streams.computeIfAbsent(key);
     return pending.append(stream.getMessageId(), request.getMessage());
   }
 
-  CompletableFuture<ByteString> streamCloseAsync(RaftClientRequest request) {
+  CompletableFuture<ByteString> streamEndOfRequestAsync(RaftClientRequest request) {
     final StreamRequestTypeProto stream = request.getType().getStream();
-    Preconditions.assertTrue(stream.getClose());
+    Preconditions.assertTrue(stream.getEndOfRequest());
     final Key key = new Key(request.getClientId(), stream.getStreamId());
 
     final PendingStream pending = streams.remove(key);

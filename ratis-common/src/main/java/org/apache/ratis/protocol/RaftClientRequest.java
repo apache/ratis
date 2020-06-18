@@ -40,11 +40,11 @@ public class RaftClientRequest extends RaftClientMessage {
     return WRITE_DEFAULT;
   }
 
-  public static Type streamRequestType(long streamId, long messageId, boolean close) {
+  public static Type streamRequestType(long streamId, long messageId, boolean endOfRequest) {
     return new Type(StreamRequestTypeProto.newBuilder()
         .setStreamId(streamId)
         .setMessageId(messageId)
-        .setClose(close)
+        .setEndOfRequest(endOfRequest)
         .build());
   }
 
@@ -84,7 +84,7 @@ public class RaftClientRequest extends RaftClientMessage {
     }
 
     public static Type valueOf(StreamRequestTypeProto stream) {
-      return streamRequestType(stream.getStreamId(), stream.getMessageId(), stream.getClose());
+      return streamRequestType(stream.getStreamId(), stream.getMessageId(), stream.getEndOfRequest());
     }
 
     /**
@@ -162,7 +162,7 @@ public class RaftClientRequest extends RaftClientMessage {
     }
 
     public static String toString(StreamRequestTypeProto s) {
-      return "Stream" + s.getStreamId() + "-" + s.getMessageId() + (s.getClose()? "-close": "");
+      return "Stream" + s.getStreamId() + "-" + s.getMessageId() + (s.getEndOfRequest()? "-eor": "");
     }
 
     @Override
