@@ -48,6 +48,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -94,6 +95,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   private AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
 
+  private AtomicBoolean finishStart;
+
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
     LOG.info("{}: new RaftServerImpl for {} with {}", id, group, stateMachine);
@@ -118,6 +121,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     this.jmxAdapter = new RaftServerJmxAdapter();
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(this);
     this.raftServerMetrics = RaftServerMetrics.getRaftServerMetrics(this);
+
+    this.finishStart = new AtomicBoolean(false);
   }
 
   private RetryCache initRetryCache(RaftProperties prop) {
@@ -192,6 +197,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     registerMBean(getId(), getMemberId().getGroupId(), jmxAdapter, jmxAdapter);
     state.start();
+    finishStart.compareAndSet(false, true);
     return true;
   }
 
@@ -946,11 +952,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     CodeInjectionForTesting.execute(APPEND_ENTRIES, getId(),
         leaderId, leaderTerm, previous, leaderCommit, initializing, entries);
 
-    final LifeCycle.State currentState = assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
-    if (currentState == STARTING) {
-      if (role.getCurrentRole() == null) {
-        throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
-      }
+    assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
+    if (!finishStart.get()) {
+      throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
     }
     assertGroup(leaderId, leaderGroupId);
 
