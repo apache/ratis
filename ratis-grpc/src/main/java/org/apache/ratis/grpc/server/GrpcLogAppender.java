@@ -362,9 +362,7 @@ public class GrpcLogAppender extends LogAppender {
 
     void close() {
       done.set(true);
-      if (!isNotificationOnly) {
-        GrpcLogAppender.this.notifyAppend();
-      }
+      GrpcLogAppender.this.notifyAppend();
     }
 
     synchronized boolean hasAllResponse() {
@@ -413,7 +411,6 @@ public class GrpcLogAppender extends LogAppender {
         default:
           break;
       }
-      notifyAppend();
     }
 
     @Override
