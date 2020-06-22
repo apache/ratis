@@ -199,6 +199,9 @@ class LeaderElection implements Runnable {
       final long electionTerm;
       final RaftConfiguration conf;
       synchronized (server) {
+        if (!shouldRun()) {
+          break;
+        }
         electionTerm = state.initElection();
         conf = state.getRaftConf();
         state.persistMetadata();
