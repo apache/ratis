@@ -95,7 +95,12 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   private AtomicReference<TermIndex> inProgressInstallSnapshotRequest;
 
-  private AtomicBoolean finishStart;
+  // To avoid append entry before complete start() method
+  // For example, if thread1 start(), but before thread1 startAsFollower(), thread2 receive append entry
+  // request, and change state to RUNNING by lifeCycle.compareAndTransition(STARTING, RUNNING),
+  // then thread1 execute lifeCycle.transition(RUNNING) in startAsFollower(),
+  // So happens IllegalStateException: ILLEGAL TRANSITION: RUNNING -> RUNNING,
+  private AtomicBoolean startComplete;
 
   RaftServerImpl(RaftGroup group, StateMachine stateMachine, RaftServerProxy proxy) throws IOException {
     final RaftPeerId id = proxy.getId();
@@ -122,7 +127,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     this.leaderElectionMetrics = LeaderElectionMetrics.getLeaderElectionMetrics(this);
     this.raftServerMetrics = RaftServerMetrics.getRaftServerMetrics(this);
 
-    this.finishStart = new AtomicBoolean(false);
+    this.startComplete = new AtomicBoolean(false);
   }
 
   private RetryCache initRetryCache(RaftProperties prop) {
@@ -197,7 +202,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
     registerMBean(getId(), getMemberId().getGroupId(), jmxAdapter, jmxAdapter);
     state.start();
-    finishStart.compareAndSet(false, true);
+    startComplete.compareAndSet(false, true);
     return true;
   }
 
@@ -953,7 +958,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         leaderId, leaderTerm, previous, leaderCommit, initializing, entries);
 
     assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
-    if (!finishStart.get()) {
+    if (!startComplete.get()) {
       throw new ServerNotReadyException(getMemberId() + ": The server role is not yet initialized.");
     }
     assertGroup(leaderId, leaderGroupId);
