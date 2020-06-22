@@ -95,7 +95,7 @@ class GrpcServerProtocolService extends RaftServerProtocolServiceImplBase {
       responseObserver.onError(wrapException(e, request));
     }
 
-    private void handleReply(REPLY reply) {
+    private synchronized void handleReply(REPLY reply) {
       if (!isClosed.get()) {
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: reply {}", getId(), replyToString(reply));
