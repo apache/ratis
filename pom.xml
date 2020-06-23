@@ -227,7 +227,7 @@
 
     <!-- Need these for the protobuf compiler. *MUST* match what is in ratis-thirdparty -->
     <shaded.protobuf.version>3.11.0</shaded.protobuf.version>
-    <shaded.grpc.version>1.28.1</shaded.grpc.version>
+    <shaded.grpc.version>1.29.0</shaded.grpc.version>
 
 
     <!-- Test properties -->
