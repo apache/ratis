@@ -1251,24 +1251,29 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         LOG.info("{}: notifyInstallSnapshot: nextIndex is {} but the leader's first available index is {}.",
             getMemberId(), state.getLog().getNextIndex(), firstAvailableLogIndex);
 
-        stateMachine.notifyInstallSnapshotFromLeader(getRoleInfoProto(), firstAvailableLogTermIndex)
-            .whenComplete((reply, exception) -> {
-              if (exception != null) {
-                LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
-                    getMemberId(), exception.getMessage());
-                inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
-                return;
-              }
+        try {
+          stateMachine.notifyInstallSnapshotFromLeader(getRoleInfoProto(), firstAvailableLogTermIndex)
+              .whenComplete((reply, exception) -> {
+                if (exception != null) {
+                  LOG.warn("{}: Failed to notify StateMachine to InstallSnapshot. Exception: {}",
+                      getMemberId(), exception.getMessage());
+                  inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
+                  return;
+                }
 
-              if (reply != null) {
-                LOG.info("{}: StateMachine successfully installed snapshot index {}. Reloading the StateMachine.",
-                    getMemberId(), reply.getIndex());
-                stateMachine.pause();
-                state.updateInstalledSnapshotIndex(reply);
-                state.reloadStateMachine(reply.getIndex());
-              }
-              inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
-            });
+                if (reply != null) {
+                  LOG.info("{}: StateMachine successfully installed snapshot index {}. Reloading the StateMachine.",
+                      getMemberId(), reply.getIndex());
+                  stateMachine.pause();
+                  state.updateInstalledSnapshotIndex(reply);
+                  state.reloadStateMachine(reply.getIndex());
+                }
+                inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
+              });
+        } catch (Throwable t) {
+          inProgressInstallSnapshotRequest.compareAndSet(firstAvailableLogTermIndex, null);
+          throw t;
+        }
 
         if (LOG.isDebugEnabled()) {
           LOG.debug("{}: Snapshot Installation Request received and is in progress", getMemberId());
