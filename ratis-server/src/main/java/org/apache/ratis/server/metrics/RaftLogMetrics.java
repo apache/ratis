@@ -23,6 +23,7 @@ import java.util.Queue;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.metrics.RatisMetrics;
+import org.apache.ratis.server.raftlog.segmented.SegmentedRaftLogCache;
 import org.apache.ratis.util.DataQueue;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 
@@ -55,6 +56,12 @@ public class RaftLogMetrics extends RatisMetrics {
   public static final String RAFT_LOG_CACHE_MISS_COUNT = "cacheMissCount";
   // Count of RaftLogCache Hits
   public static final String RAFT_LOG_CACHE_HIT_COUNT = "cacheHitCount";
+  // Number of SegmentedRaftLogCache::closedSegments
+  public static final String RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM = "closedSegmentsNum";
+  // Size of SegmentedRaftLogCache::closedSegments in bytes
+  public static final String RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES = "closedSegmentsSizeInBytes";
+  // Size of SegmentedRaftLogCache::openSegment in bytes
+  public static final String RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES = "openSegmentSizeInBytes";
   // Total time taken to append a raft log entry
   public static final String RAFT_LOG_APPEND_ENTRY_LATENCY = "appendEntryLatency";
   // Time spent by a Raft log operation in the queue.
@@ -100,6 +107,24 @@ public class RaftLogMetrics extends RatisMetrics {
     registry.gauge(RAFT_LOG_DATA_QUEUE_SIZE, () -> () -> {
       //q.size() is O(1) operation
       return queue.size();
+    });
+  }
+
+  public void addClosedSegmentsNum(SegmentedRaftLogCache cache) {
+    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_NUM, () -> () -> {
+      return cache.getCachedSegmentNum();
+    });
+  }
+
+  public void addClosedSegmentsSizeInBytes(SegmentedRaftLogCache cache) {
+    registry.gauge(RAFT_LOG_CACHE_CLOSED_SEGMENTS_SIZE_IN_BYTES, () -> () -> {
+      return cache.getClosedSegmentsSizeInBytes();
+    });
+  }
+
+  public void addOpenSegmentSizeInBytes(SegmentedRaftLogCache cache) {
+    registry.gauge(RAFT_LOG_CACHE_OPEN_SEGMENT_SIZE_IN_BYTES, () -> () -> {
+      return cache.getOpenSegmentSizeInBytes();
     });
   }
 
