@@ -101,7 +101,7 @@ public class LifeCycle {
     }
 
     /** Is the given transition valid? */
-    static boolean isValid(State from, State to) {
+    public static boolean isValid(State from, State to) {
       return PREDECESSORS.get(to).contains(from);
     }
 

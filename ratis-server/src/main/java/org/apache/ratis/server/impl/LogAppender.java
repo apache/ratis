@@ -61,8 +61,10 @@ public class LogAppender {
 
     void start() {
       // The life cycle state could be already closed due to server shutdown.
-      if (lifeCycle.compareAndTransition(NEW, STARTING)) {
-        daemon.start();
+      synchronized (lifeCycle) {
+        if (lifeCycle.compareAndTransition(NEW, STARTING)) {
+          daemon.start();
+        }
       }
     }
 
@@ -71,7 +73,7 @@ public class LogAppender {
         if (!isRunning()) {
           return;
         }
-        lifeCycle.transition(RUNNING);
+        transLifeCycle(RUNNING);
       }
       try {
         runAppenderImpl();
@@ -79,19 +81,21 @@ public class LogAppender {
         LOG.info(this + " was interrupted: " + e);
       } catch (RaftLogIOException e) {
         LOG.error(this + " failed RaftLog", e);
-        lifeCycle.transition(EXCEPTION);
+        transLifeCycle(EXCEPTION);
       } catch (IOException e) {
         LOG.error(this + " failed IOException", e);
-        lifeCycle.transition(EXCEPTION);
+        transLifeCycle(EXCEPTION);
       } catch (Throwable e) {
         LOG.error(this + " unexpected exception", e);
-        lifeCycle.transition(EXCEPTION);
+        transLifeCycle(EXCEPTION);
       } finally {
-        if (!lifeCycle.compareAndTransition(CLOSING, CLOSED)) {
-          lifeCycle.transitionIfNotEqual(EXCEPTION);
-        }
-        if (lifeCycle.getCurrentState() == EXCEPTION) {
-          leaderState.restartSender(LogAppender.this);
+        synchronized (lifeCycle) {
+          if (!lifeCycle.compareAndTransition(CLOSING, CLOSED)) {
+            lifeCycle.transitionIfNotEqual(EXCEPTION);
+          }
+          if (lifeCycle.getCurrentState() == EXCEPTION) {
+            leaderState.restartSender(LogAppender.this);
+          }
         }
       }
     }
@@ -102,13 +106,13 @@ public class LogAppender {
 
     void stop() {
       synchronized (lifeCycle) {
-        if (!isRunning()) {
+        if (LifeCycle.States.CLOSING_OR_CLOSED.contains(lifeCycle.getCurrentState())) {
           return;
         }
         if (lifeCycle.compareAndTransition(NEW, CLOSED)) {
           return;
         }
-        lifeCycle.transition(CLOSING);
+        transLifeCycle(CLOSING);
       }
       daemon.interrupt();
     }
@@ -116,6 +120,16 @@ public class LogAppender {
     @Override
     public String toString() {
       return name;
+    }
+
+    private boolean transLifeCycle(LifeCycle.State to) {
+      synchronized (lifeCycle) {
+        if (LifeCycle.State.isValid(lifeCycle.getCurrentState(), to)) {
+          lifeCycle.transition(to);
+          return true;
+        }
+        return false;
+      }
     }
   }
 
