@@ -1,0 +1,17 @@
+namespace org.apache.ratis.examples.datatransfer.flatbufs;
+
+table TransferMsg {
+partId: uint32;
+data: [byte];
+}
+
+table TransferReply {
+partId: uint32;
+message: string;
+}
+
+rpc_service FileTransfer{
+SendData(TransferMsg):TransferReply (streaming: "bidi");
+}
+
+root_type TransferMsg;
