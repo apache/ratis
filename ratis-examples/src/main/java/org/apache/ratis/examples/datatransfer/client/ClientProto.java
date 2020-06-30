@@ -1,3 +1,21 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ratis.examples.datatransfer.client;
 
 import org.apache.ratis.proto.ExamplesProtos.TransferReplyProto;
@@ -17,78 +35,86 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 public class ClientProto {
-    private FileTransferExampleServiceGrpc.FileTransferExampleServiceStub asyncStubProto;
-    final long[] recv = new long[1];
-    int partId = 0;
-    private final Semaphore available = new Semaphore(3000, true);
+  private FileTransferExampleServiceGrpc.FileTransferExampleServiceStub asyncStubProto;
+  private final long[] recv = new long[1];
+  private int partId = 0;
+  private final Semaphore available = new Semaphore(3000, true);
 
-    public ClientProto(Channel channel){
-        asyncStubProto = FileTransferExampleServiceGrpc.newStub(channel);
-        recv[0] = 0;
+  public long[] getRecv() {
+    return recv;
+  }
+
+  public int getPartId(){
+    return partId;
+  }
+
+  public ClientProto(Channel channel){
+    asyncStubProto = FileTransferExampleServiceGrpc.newStub(channel);
+    recv[0] = 0;
+  }
+
+  public void execProto(int reps) throws Exception{
+    System.out.println("Starting streaming with Protobuffers");
+
+    StreamObserver<TransferMsgProto> requestObserver = asyncStubProto.sendData(new StreamObserver<TransferReplyProto>(){
+
+      @Override
+      public void onNext(TransferReplyProto msg) {
+        available.release();
+        recv[0]++;
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        Status status = Status.fromThrowable(t);
+        System.out.println(status);
+        System.out.println("Finished streaming with errors");
+      }
+
+      @Override
+      public void onCompleted() {
+        System.out.println("Finished streaming");
+      }
+    });
+    try{
+      int i = 0;
+      ByteBuffer bf = ByteBuffer.allocate(1024*1024);
+      if(bf.hasArray()){
+        Arrays.fill(bf.array(), (byte) 'a');
+      }
+      while(i < reps) {
+        partId++;
+        available.acquire();
+        TransferMsgProto msg = TransferMsgProto.newBuilder().
+            setPartId(partId).
+            setData(UnsafeByteOperations.unsafeWrap(bf)).build();
+        requestObserver.onNext(msg);
+        i++;
+      }
+
+    } catch (Exception e){
+      System.out.println(e);
     }
-
-    public void execProto(int reps) throws Exception{
-        System.out.println("Starting streaming with Protobuffers");
-
-        StreamObserver<TransferMsgProto> requestObserver = asyncStubProto.sendData(new StreamObserver<TransferReplyProto>(){
-
-            @Override
-            public void onNext(TransferReplyProto msg) {
-                available.release();
-                recv[0]++;
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                Status status = Status.fromThrowable(t);
-                System.out.println(status);
-                System.out.println("Finished streaming with errors");
-            }
-
-            @Override
-            public void onCompleted() {
-                System.out.println("Finished streaming");
-            }
-        });
-        try{
-            int i = 0;
-            ByteBuffer bf = ByteBuffer.allocate(1024*1024);
-            if(bf.hasArray()){
-                Arrays.fill(bf.array(), (byte) 'a');
-            }
-            while(i < reps) {
-                partId++;
-                available.acquire();
-                TransferMsgProto msg = TransferMsgProto.newBuilder().
-                        setPartId(partId).
-                        setData(UnsafeByteOperations.unsafeWrap(bf)).build();
-                requestObserver.onNext(msg);
-                i++;
-            }
-
-        } catch (Exception e){
-            System.out.println(e);
-        }
-        requestObserver.onCompleted();
-        Thread.sleep(1000*100);
-        if(recv[0] == partId){
-            System.out.println("Transfer Successfull....");
-        } else{
-            System.out.println("Some error occurred...");
-        }
+    requestObserver.onCompleted();
+    Thread.sleep(1000*100);
+    if(recv[0] == partId){
+      System.out.println("Transfer Successfull....");
+    } else{
+      System.out.println("Some error occurred...");
     }
+  }
 
-    public static void main(String[] args) throws Exception{
-        int times = 100000;
-        if(args.length != 0){
-            times = Integer.parseInt(args[0]);
-        }
-        String target = "localhost:50051";
-        ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
-        ClientProto c = new ClientProto(channel);
-        c.execProto(times);
-        channel.shutdown();
-        channel.awaitTermination(1, TimeUnit.SECONDS);
+  public static void main(String[] args) throws Exception{
+    int times = 100000;
+    if(args.length != 0){
+      times = Integer.parseInt(args[0]);
     }
+    String target = "localhost:50051";
+    ManagedChannel channel = ManagedChannelBuilder.forTarget(target).usePlaintext().build();
+    ClientProto c = new ClientProto(channel);
+    c.execProto(times);
+    channel.shutdown();
+    channel.awaitTermination(1, TimeUnit.SECONDS);
+  }
 
 }
