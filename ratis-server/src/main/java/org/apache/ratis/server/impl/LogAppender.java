@@ -73,7 +73,7 @@ public class LogAppender {
         if (!isRunning()) {
           return;
         }
-        transLifeCycle(RUNNING);
+        transitionLifeCycle(RUNNING);
       }
       try {
         runAppenderImpl();
@@ -81,13 +81,13 @@ public class LogAppender {
         LOG.info(this + " was interrupted: " + e);
       } catch (RaftLogIOException e) {
         LOG.error(this + " failed RaftLog", e);
-        transLifeCycle(EXCEPTION);
+        transitionLifeCycle(EXCEPTION);
       } catch (IOException e) {
         LOG.error(this + " failed IOException", e);
-        transLifeCycle(EXCEPTION);
+        transitionLifeCycle(EXCEPTION);
       } catch (Throwable e) {
         LOG.error(this + " unexpected exception", e);
-        transLifeCycle(EXCEPTION);
+        transitionLifeCycle(EXCEPTION);
       } finally {
         synchronized (lifeCycle) {
           if (!lifeCycle.compareAndTransition(CLOSING, CLOSED)) {
@@ -112,7 +112,7 @@ public class LogAppender {
         if (lifeCycle.compareAndTransition(NEW, CLOSED)) {
           return;
         }
-        transLifeCycle(CLOSING);
+        transitionLifeCycle(CLOSING);
       }
       daemon.interrupt();
     }
@@ -122,7 +122,7 @@ public class LogAppender {
       return name;
     }
 
-    private boolean transLifeCycle(LifeCycle.State to) {
+    private boolean transitionLifeCycle(LifeCycle.State to) {
       synchronized (lifeCycle) {
         if (LifeCycle.State.isValid(lifeCycle.getCurrentState(), to)) {
           lifeCycle.transition(to);
