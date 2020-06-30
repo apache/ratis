@@ -95,6 +95,9 @@ public class TestRaftServerJmx extends BaseTest {
       public String getRole() { return null; }
       @Override
       public List<String> getFollowers() { return null; }
+      @Override
+      public List<String> getGroups() { return null; }
+
     };
     final RaftPeerId id = RaftPeerId.valueOf(name);
     final RaftGroupId groupId = RaftGroupId.randomId();

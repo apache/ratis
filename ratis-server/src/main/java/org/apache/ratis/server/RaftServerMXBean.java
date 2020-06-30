@@ -54,5 +54,9 @@ public interface RaftServerMXBean {
    */
   List<String> getFollowers();
 
+  /**
+   * Gets the Groups of the Server.
+   */
+  List<String> getGroups();
 
 }

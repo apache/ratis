@@ -1462,5 +1462,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       return role.getLeaderState().map(LeaderState::getFollowers).orElse(Collections.emptyList())
           .stream().map(RaftPeer::toString).collect(Collectors.toList());
     }
+
+    @Override
+    public List<String> getGroups() {
+      return proxy.getGroupIds().stream().map(RaftGroupId::toString)
+          .collect(Collectors.toList());
+    }
   }
 }
