@@ -162,6 +162,10 @@ public class LeaderState {
       return senders.stream();
     }
 
+    List<LogAppender> getSenders() {
+      return senders;
+    }
+
     void forEach(Consumer<LogAppender> action) {
       senders.forEach(action);
     }
@@ -400,9 +404,10 @@ public class LeaderState {
   }
 
   void updateFollowerCommitInfos(CommitInfoCache cache, List<CommitInfoProto> protos) {
-    senders.stream().map(LogAppender::getFollower)
-        .map(f -> cache.update(f.getPeer(), f.getCommitIndex()))
-        .forEach(protos::add);
+    for (LogAppender sender : senders.getSenders()) {
+      FollowerInfo info = sender.getFollower();
+      protos.add(cache.update(info.getPeer(), info.getCommitIndex()));
+    }
   }
 
   AppendEntriesRequestProto newAppendEntriesRequestProto(RaftPeerId targetId,
