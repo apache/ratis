@@ -123,8 +123,8 @@ public class CombinedClientProtocolClientSideTranslatorPB
       byte[] reply = getProtocol().sendClient(null, req)
           .getResponse().toByteArray();
 
-      PROTO_REP reply_proto = byteToProto.apply(reply);
-      return repToProto.apply(reply_proto);
+      PROTO_REP replyProto = byteToProto.apply(reply);
+      return repToProto.apply(replyProto);
     } catch (ServiceException se) {
       LOG.trace("Failed to handle " + request, se);
       throw new IOException(se);
