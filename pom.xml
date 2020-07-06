@@ -229,6 +229,7 @@
     <shaded.protobuf.version>3.11.0</shaded.protobuf.version>
     <shaded.grpc.version>1.29.0</shaded.grpc.version>
 
+    <hadoop.protobuf.version>2.5.0</hadoop.protobuf.version>
 
     <!-- Test properties -->
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>

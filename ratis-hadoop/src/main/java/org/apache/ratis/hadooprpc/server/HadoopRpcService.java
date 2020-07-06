@@ -30,20 +30,22 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
-import org.apache.ratis.proto.hadoop.HadoopProtos.CombinedClientProtocolService;
-import org.apache.ratis.proto.hadoop.HadoopProtos.RaftServerProtocolService;
+import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.HadoopServerProtocolService;
+import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.HadoopClientProtocolService;
+import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ServerOps;
+import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ServerRequestProto;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerRpcWithProxy;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
-import org.apache.ratis.thirdparty.com.google.protobuf.BlockingService;
-import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
-import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
+import com.google.protobuf.BlockingService;
+import com.google.protobuf.ByteString;
+import org.apache.ratis.thirdparty.com.google.protobuf.GeneratedMessageV3;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.util.CodeInjectionForTesting;
 import org.apache.ratis.util.PeerProxyMap;
-import org.apache.ratis.util.ProtoUtils;
 import org.apache.ratis.util.function.CheckedFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -127,7 +129,7 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
     final InetSocketAddress address = HadoopConfigKeys.Ipc.address(conf);
 
     final BlockingService service
-        = RaftServerProtocolService.newReflectiveBlockingService(
+        = HadoopServerProtocolService.newReflectiveBlockingService(
             new RaftServerProtocolServerSideTranslatorPB(serverProtocol));
     RPC.setProtocolEngine(conf, RaftServerProtocolPB.class, ProtobufRpcEngine.class);
     return new RPC.Builder(conf)
@@ -144,7 +146,7 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
     final Class<?> protocol = CombinedClientProtocolPB.class;
     RPC.setProtocolEngine(conf, protocol, ProtobufRpcEngine.class);
 
-    final BlockingService service = CombinedClientProtocolService.newReflectiveBlockingService(
+    final BlockingService service = HadoopClientProtocolService.newReflectiveBlockingService(
         new CombinedClientProtocolServerSideTranslatorPB(server));
     ipcServer.addProtocol(RPC.RpcKind.RPC_PROTOCOL_BUFFER, protocol, service);
   }
@@ -164,35 +166,41 @@ public final class HadoopRpcService extends RaftServerRpcWithProxy<Proxy<RaftSer
   public AppendEntriesReplyProto appendEntries(
       AppendEntriesRequestProto request) throws IOException {
     return processRequest(request, request.getServerRequest().getReplyId(),
-        proxy -> proxy.appendEntries(null, request));
+        ServerOps.appendEntries,
+        AppendEntriesReplyProto::parseFrom);
   }
 
   @Override
   public InstallSnapshotReplyProto installSnapshot(
       InstallSnapshotRequestProto request) throws IOException {
     return processRequest(request, request.getServerRequest().getReplyId(),
-        proxy -> proxy.installSnapshot(null, request));
+        ServerOps.installSnapshot, InstallSnapshotReplyProto::parseFrom);
   }
 
   @Override
   public RequestVoteReplyProto requestVote(
       RequestVoteRequestProto request) throws IOException {
     return processRequest(request, request.getServerRequest().getReplyId(),
-        proxy -> proxy.requestVote(null, request));
+        ServerOps.requestVote, RequestVoteReplyProto::parseFrom);
   }
 
-  private <REQUEST, REPLY> REPLY processRequest(
-      REQUEST request, ByteString replyId,
-      CheckedFunction<RaftServerProtocolPB, REPLY, ServiceException> f)
+  private <REQUEST extends GeneratedMessageV3, REPLY> REPLY processRequest(
+      REQUEST request, org.apache.ratis.thirdparty.com.google.protobuf.ByteString replyId,
+      ServerOps type, CheckedFunction<byte[], REPLY, InvalidProtocolBufferException> func)
       throws IOException {
     CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, getId(), null, request);
+    ServerRequestProto p = ServerRequestProto.newBuilder()
+        .setRequest(ByteString.copyFrom(request.toByteArray()))
+        .setType(type)
+        .build();
 
     final RaftServerProtocolPB proxy = getProxies().getProxy(
         RaftPeerId.valueOf(replyId)).getProtocol();
     try {
-      return f.apply(proxy);
-    } catch (ServiceException se) {
-      throw ProtoUtils.toIOException(se);
+      byte[] replyBytes = proxy.sendServer(null, p).getResponse().toByteArray();
+      return func.apply(replyBytes);
+    } catch (Exception se) {
+      throw new IOException(se);
     }
   }
 }

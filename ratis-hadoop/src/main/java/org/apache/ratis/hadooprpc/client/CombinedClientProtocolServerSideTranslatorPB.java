@@ -18,13 +18,18 @@
 package org.apache.ratis.hadooprpc.client;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 
+import com.google.protobuf.ByteString;
+import com.google.protobuf.ServiceException;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ClientReplyProto;
+import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ClientRequestProto;
+import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ClientOps;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.thirdparty.com.google.protobuf.RpcController;
-import org.apache.ratis.thirdparty.com.google.protobuf.ServiceException;
+import com.google.protobuf.RpcController;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.proto.RaftProtos.SetConfigurationRequestProto;
@@ -33,6 +38,7 @@ import org.apache.ratis.proto.RaftProtos.GroupListRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupListReplyProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
+import org.apache.ratis.thirdparty.com.google.protobuf.GeneratedMessageV3;
 
 
 @InterfaceAudience.Private
@@ -45,68 +51,70 @@ public class CombinedClientProtocolServerSideTranslatorPB
   }
 
   @Override
-  public RaftClientReplyProto submitClientRequest(
-      RpcController unused, RaftClientRequestProto proto)
-      throws ServiceException {
+  public ClientReplyProto sendClient(RpcController unused, ClientRequestProto req) throws ServiceException {
+    ByteBuffer buf = req.getRequest().asReadOnlyByteBuffer();
+    GeneratedMessageV3 response = null;
+    ClientOps type = req.getType();
+    try {
+      switch (type) {
+      case groupInfo:
+        response = groupInfo(GroupInfoRequestProto.parseFrom(buf));
+        break;
+      case groupList:
+        response = groupList(GroupListRequestProto.parseFrom(buf));
+        break;
+      case groupManagement:
+        response = groupManagement(GroupManagementRequestProto.parseFrom(buf));
+        break;
+      case setConfiguration:
+        response = setConfiguration(SetConfigurationRequestProto.parseFrom(buf));
+        break;
+      case submitClientRequest:
+        response = submitClientRequest(RaftClientRequestProto.parseFrom(buf));
+        break;
+      default:
+      }
+    } catch(IOException ioe) {
+      throw new ServiceException(ioe);
+    }
+    return ClientReplyProto.newBuilder()
+        .setType(type)
+        .setResponse(ByteString.copyFrom(response.toByteArray()))
+        .build();
+  }
+
+  public RaftClientReplyProto submitClientRequest(RaftClientRequestProto proto)
+      throws IOException {
     final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(proto);
-    try {
-      final RaftClientReply reply = impl.submitClientRequest(request);
-      return ClientProtoUtils.toRaftClientReplyProto(reply);
-    } catch(IOException ioe) {
-      throw new ServiceException(ioe);
-    }
+    final RaftClientReply reply = impl.submitClientRequest(request);
+    return ClientProtoUtils.toRaftClientReplyProto(reply);
   }
 
-  @Override
-  public RaftClientReplyProto setConfiguration(
-      RpcController unused, SetConfigurationRequestProto proto)
-      throws ServiceException {
-    final SetConfigurationRequest request;
-    try {
-      request = ClientProtoUtils.toSetConfigurationRequest(proto);
-      final RaftClientReply reply = impl.setConfiguration(request);
-      return ClientProtoUtils.toRaftClientReplyProto(reply);
-    } catch(IOException ioe) {
-      throw new ServiceException(ioe);
-    }
+  public RaftClientReplyProto setConfiguration(SetConfigurationRequestProto proto)
+      throws IOException {
+    final SetConfigurationRequest request = ClientProtoUtils.toSetConfigurationRequest(proto);
+    final RaftClientReply reply = impl.setConfiguration(request);
+    return ClientProtoUtils.toRaftClientReplyProto(reply);
   }
 
-  @Override
-  public RaftClientReplyProto groupManagement(RpcController controller, GroupManagementRequestProto proto)
-      throws ServiceException {
-    final GroupManagementRequest request;
-    try {
-      request = ClientProtoUtils.toGroupManagementRequest(proto);
-      final RaftClientReply reply = impl.groupManagement(request);
-      return ClientProtoUtils.toRaftClientReplyProto(reply);
-    } catch(IOException ioe) {
-      throw new ServiceException(ioe);
-    }
+  public RaftClientReplyProto groupManagement(GroupManagementRequestProto proto)
+      throws IOException {
+    final GroupManagementRequest request = ClientProtoUtils.toGroupManagementRequest(proto);
+    final RaftClientReply reply = impl.groupManagement(request);
+    return ClientProtoUtils.toRaftClientReplyProto(reply);
   }
 
-  @Override
-  public GroupListReplyProto groupList(
-      RpcController controller, GroupListRequestProto proto)
-    throws ServiceException {
-    final GroupListRequest request;
-    try {
-      request = ClientProtoUtils.toGroupListRequest(proto);
-      final GroupListReply reply = impl.getGroupList(request);
-      return ClientProtoUtils.toGroupListReplyProto(reply);
-    } catch (IOException ioe) {
-      throw new ServiceException(ioe);
-    }
+  public GroupListReplyProto groupList(GroupListRequestProto proto)
+    throws IOException {
+    final GroupListRequest request = ClientProtoUtils.toGroupListRequest(proto);
+    final GroupListReply reply = impl.getGroupList(request);
+    return ClientProtoUtils.toGroupListReplyProto(reply);
   }
 
-  @Override
-  public GroupInfoReplyProto groupInfo(RpcController controller, GroupInfoRequestProto proto) throws ServiceException {
-    final GroupInfoRequest request;
-    try {
-      request = ClientProtoUtils.toGroupInfoRequest(proto);
-      final GroupInfoReply reply = impl.getGroupInfo(request);
-      return ClientProtoUtils.toGroupInfoReplyProto(reply);
-    } catch (IOException ioe) {
-      throw new ServiceException(ioe);
-    }
+  public GroupInfoReplyProto groupInfo(GroupInfoRequestProto proto)
+      throws IOException {
+    final GroupInfoRequest request = ClientProtoUtils.toGroupInfoRequest(proto);
+    final GroupInfoReply reply = impl.getGroupInfo(request);
+    return ClientProtoUtils.toGroupInfoReplyProto(reply);
   }
 }
