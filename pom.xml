@@ -254,6 +254,12 @@
     <dependencies>
       <!-- Internal dependencies -->
       <dependency>
+        <artifactId>ratis-docs</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+
+      <dependency>
         <artifactId>ratis-client</artifactId>
         <groupId>org.apache.ratis</groupId>
         <version>${project.version}</version>

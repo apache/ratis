@@ -37,7 +37,6 @@
         <include>org.apache.ratis:ratis-logservice</include>
         <include>org.apache.ratis:ratis-netty</include>
         <include>org.apache.ratis:ratis-proto</include>
-        <include>org.apache.ratis:ratis-docs</include>
         <include>org.apache.ratis:ratis-replicated-map</include>
         <include>org.apache.ratis:ratis-server</include>
         <include>org.apache.ratis:ratis-test</include>
@@ -70,6 +69,13 @@
         <include>NOTICE</include>
       </includes>
       <fileMode>0644</fileMode>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-docs/target/classes/docs
+      </directory>
+      <outputDirectory>docs</outputDirectory>
+      <fileMode>0644</fileMode>
+      <directoryMode>0755</directoryMode>
     </fileSet>
     <!-- Include dev support tools -->
     <fileSet>
