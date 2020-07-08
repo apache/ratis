@@ -69,6 +69,7 @@
   </licenses>
 
   <modules>
+    <module>ratis-docs</module>
     <module>ratis-proto</module>
     <module>ratis-common</module>
     <module>ratis-client</module>
@@ -80,13 +81,12 @@
 
     <module>ratis-test</module>
 
-    <module>ratis-assembly</module>
     <module>ratis-examples</module>
     <module>ratis-replicated-map</module>
     <module>ratis-logservice</module>
     <module>ratis-metrics</module>
     <module>ratis-tools</module>
-    <module>ratis-docs</module>
+    <module>ratis-assembly</module>
   </modules>
 
   <pluginRepositories>
@@ -253,6 +253,12 @@
   <dependencyManagement>
     <dependencies>
       <!-- Internal dependencies -->
+      <dependency>
+        <artifactId>ratis-docs</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+
       <dependency>
         <artifactId>ratis-client</artifactId>
         <groupId>org.apache.ratis</groupId>
