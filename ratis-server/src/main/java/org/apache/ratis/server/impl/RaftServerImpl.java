@@ -785,7 +785,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   private boolean shouldWithholdVotes(long candidateTerm) {
-    if (state.getCurrentTerm() < candidateTerm) {
+    if (state.getCurrentTerm() >= candidateTerm) {
       return false;
     } else if (isLeader()) {
       return true;
