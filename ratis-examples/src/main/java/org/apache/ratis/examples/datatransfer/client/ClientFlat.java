@@ -18,15 +18,15 @@
 
 package org.apache.ratis.examples.datatransfer.client;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-import io.grpc.Channel;
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.Status;
-import io.grpc.stub.StreamObserver;
-import org.apache.ratis.examples.datatransfer.flatbufs.FileTransferGrpc;
-import org.apache.ratis.examples.datatransfer.flatbufs.TransferMsg;
-import org.apache.ratis.examples.datatransfer.flatbufs.TransferReply;
+import org.apache.ratis.thirdparty.com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.ratis.thirdparty.io.grpc.Channel;
+import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
+import org.apache.ratis.thirdparty.io.grpc.ManagedChannelBuilder;
+import org.apache.ratis.thirdparty.io.grpc.Status;
+import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
+import org.apache.ratis.flatbufs.FileTransferGrpc;
+import org.apache.ratis.flatbufs.TransferMsg;
+import org.apache.ratis.flatbufs.TransferReply;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -88,7 +88,7 @@ public class ClientFlat {
         available.acquire();
         FlatBufferBuilder builder = new FlatBufferBuilder();
         bf.position(0).limit(bf.capacity());
-        int dataOff = TransferMsg.createDataVector(builder, bf);
+        int dataOff = builder.createString(bf);
         int off = TransferMsg.createTransferMsg(builder, partId, dataOff);
         builder.finish(off);
         TransferMsg msg = TransferMsg.getRootAsTransferMsg(builder.dataBuffer());

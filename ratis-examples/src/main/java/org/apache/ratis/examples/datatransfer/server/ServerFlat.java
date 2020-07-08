@@ -18,8 +18,9 @@
 
 package org.apache.ratis.examples.datatransfer.server;
 
-import io.grpc.BindableService;
-import io.grpc.ServerBuilder;
+import org.apache.ratis.thirdparty.io.grpc.BindableService;
+import org.apache.ratis.thirdparty.io.grpc.ServerBuilder;
+import org.apache.ratis.thirdparty.io.grpc.Server;
 
 public final class ServerFlat {
   private ServerFlat(){
@@ -28,7 +29,7 @@ public final class ServerFlat {
   public static void main( String[] args ) throws Exception {
     BindableService service;
     service = (BindableService) new FileTransferFlatbufs();
-    io.grpc.Server svr = ServerBuilder.forPort(50051)
+    Server svr = ServerBuilder.forPort(50051)
         .addService(service)
         .build();
     svr.start();

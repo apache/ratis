@@ -18,12 +18,12 @@
 
 package org.apache.ratis.examples.datatransfer.server;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-import io.grpc.Status;
-import org.apache.ratis.examples.datatransfer.flatbufs.FileTransferGrpc;
-import org.apache.ratis.examples.datatransfer.flatbufs.TransferMsg;
-import org.apache.ratis.examples.datatransfer.flatbufs.TransferReply;
-import io.grpc.stub.StreamObserver;
+import org.apache.ratis.thirdparty.com.google.flatbuffers.FlatBufferBuilder;
+import org.apache.ratis.thirdparty.io.grpc.Status;
+import org.apache.ratis.flatbufs.FileTransferGrpc;
+import org.apache.ratis.flatbufs.TransferMsg;
+import org.apache.ratis.flatbufs.TransferReply;
+import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 
 public class FileTransferFlatbufs extends FileTransferGrpc.FileTransferImplBase {
   @Override
