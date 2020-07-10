@@ -30,6 +30,7 @@ import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.server.RaftPeerRoleTracker;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
@@ -294,6 +295,21 @@ public class RaftServerProxy implements RaftServer {
   @Override
   public LifeCycle.State getLifeCycleState() {
     return lifeCycle.getCurrentState();
+  }
+
+  @Override
+  public RoleTrackerReference registerRoleTracker(RaftGroupId groupId, RaftPeerRoleTracker roleTracker) {
+    RoleTrackerReference trackerReference = new RoleTrackerReference(roleTracker);
+    impls.get(groupId).whenComplete((srv_impl, err) -> {
+      if (err != null) {
+        trackerReference.completeExceptionally(err);
+      } else {
+        srv_impl.addRoleTracker(roleTracker);
+        trackerReference.registeredToServer(srv_impl);
+        trackerReference.complete(null);
+      }
+    });
+    return trackerReference;
   }
 
   @Override

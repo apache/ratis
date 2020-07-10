@@ -21,6 +21,7 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
+import org.apache.ratis.server.RaftPeerRoleTracker;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerMXBean;
 import org.apache.ratis.server.RaftServerRpc;
@@ -45,6 +46,7 @@ import java.nio.file.NoSuchFileException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -85,6 +87,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   private final Supplier<RaftPeer> peerSupplier = JavaUtils.memoize(() ->
       new RaftPeer(getId(), getServerRpc().getInetSocketAddress()));
   private final RoleInfo role;
+  private final List<RaftPeerRoleTracker> roleTrackers = new CopyOnWriteArrayList<>();
 
   private final RetryCache retryCache;
   private final CommitInfoCache commitInfoCache = new CommitInfoCache();
@@ -335,6 +338,30 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return commitInfoCache;
   }
 
+  /** Adds a new tracker to receive peer state changes for this server-impl. */
+  public void addRoleTracker(RaftPeerRoleTracker roleTracker) {
+    Preconditions.assertNotNull(roleTracker, "roleTracker");
+    roleTrackers.add(roleTracker);
+  }
+
+  /** Removes an existing tracker from this server-impl. */
+  public void removeRoleTracker(RaftPeerRoleTracker roleTracker) {
+    Preconditions.assertNotNull(roleTracker, "roleTracker");
+    roleTrackers.remove(roleTracker);
+  }
+
+  private void fireRoleTransitionBegin(RaftPeerRole oldRole, RaftPeerRole newRole) {
+    for (RaftPeerRoleTracker tracker : roleTrackers) {
+      tracker.transitioning(oldRole, newRole);
+    }
+  }
+
+  private void fireRoleTransitionComplete(RaftPeerRole newRole) {
+    for (RaftPeerRoleTracker tracker : roleTrackers) {
+      tracker.transitioned(newRole);
+    }
+  }
+
   /**
    * Change the server state to Follower if this server is in a different role or force is true.
    * @param newTerm The new term.
@@ -345,6 +372,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final RaftPeerRole old = role.getCurrentRole();
     final boolean metadataUpdated = state.updateCurrentTerm(newTerm);
 
+    fireRoleTransitionBegin(old, RaftPeerRole.FOLLOWER);
     if (old != RaftPeerRole.FOLLOWER || force) {
       setRole(RaftPeerRole.FOLLOWER, reason);
       if (old == RaftPeerRole.LEADER) {
@@ -356,6 +384,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
       role.startFollowerState(this);
     }
+    fireRoleTransitionComplete(RaftPeerRole.FOLLOWER);
     return metadataUpdated;
   }
 
@@ -367,9 +396,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   synchronized void changeToLeader() {
     Preconditions.assertTrue(isCandidate());
+    fireRoleTransitionBegin(role.getCurrentRole(), RaftPeerRole.LEADER);
     role.shutdownLeaderElection();
     setRole(RaftPeerRole.LEADER, "changeToLeader");
     state.becomeLeader();
+    fireRoleTransitionComplete(RaftPeerRole.LEADER);
 
     // start sending AppendEntries RPC to followers
     final LogEntryProto e = role.startLeaderState(this, getProxy().getProperties());
@@ -442,11 +473,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   synchronized void changeToCandidate() {
     Preconditions.assertTrue(isFollower());
+    fireRoleTransitionBegin(role.getCurrentRole(), RaftPeerRole.CANDIDATE);
     role.shutdownFollowerState();
     setRole(RaftPeerRole.CANDIDATE, "changeToCandidate");
     if (state.shouldNotifyExtendedNoLeader()) {
       stateMachine.notifyExtendedNoLeader(getRoleInfoProto());
     }
+    fireRoleTransitionComplete(RaftPeerRole.CANDIDATE);
     // start election
     role.startLeaderElection(this);
     leaderElectionMetrics.onNewLeaderElection();

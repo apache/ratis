@@ -21,6 +21,7 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.server.impl.RoleTrackerReference;
 import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
@@ -57,6 +58,10 @@ public interface RaftServer extends Closeable, RpcType.Get,
   void start() throws IOException;
 
   LifeCycle.State getLifeCycleState();
+
+  /** Adds a new tracker to receive peer state changes for this server. */
+  /** @return a closeable reference that keeps the tracker alive until closed. */
+  RoleTrackerReference registerRoleTracker(RaftGroupId groupId, RaftPeerRoleTracker roleTracker);
 
   /** @return a {@link Builder}. */
   static Builder newBuilder() {
