@@ -140,7 +140,7 @@ class SimulatedRequestReply<REQUEST extends RaftRpcMessage, REPLY extends RaftRp
 
         final EventQueue<REQUEST, REPLY> reqQ = queues.get(request.getRequestorId());
         if (reqQ != null) {
-          // discard request for testing
+          // Doing a busy wait here until got request from requestor which was not blocked.
           if (reqQ.blockTakeRequestFrom.get()) {
             continue;
           }
