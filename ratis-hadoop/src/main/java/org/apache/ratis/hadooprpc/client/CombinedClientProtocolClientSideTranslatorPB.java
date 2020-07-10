@@ -26,14 +26,7 @@ import org.apache.ratis.hadooprpc.Proxy;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ClientRequestProto;
 import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.ClientOps;
-import org.apache.ratis.protocol.GroupInfoReply;
-import org.apache.ratis.protocol.GroupInfoRequest;
-import org.apache.ratis.protocol.GroupListReply;
-import org.apache.ratis.protocol.GroupListRequest;
-import org.apache.ratis.protocol.GroupManagementRequest;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.com.google.protobuf
     .GeneratedMessageV3;
 import org.apache.ratis.thirdparty.com.google.protobuf
@@ -74,6 +67,16 @@ public class CombinedClientProtocolClientSideTranslatorPB
         ClientProtoUtils::toSetConfigurationRequestProto,
         ClientProtoUtils::toRaftClientReply,
         ClientOps.setConfiguration,
+        RaftProtos.RaftClientReplyProto::parseFrom);
+  }
+
+  @Override
+  public RaftClientReply transferLeadership(TransferLeadershipRequest request)
+      throws IOException {
+    return handleRequest(request,
+        ClientProtoUtils::toTransferLeadershipRequestProto,
+        ClientProtoUtils::toRaftClientReply,
+        ClientOps.transferLeadership,
         RaftProtos.RaftClientReplyProto::parseFrom);
   }
 

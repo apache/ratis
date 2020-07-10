@@ -19,6 +19,7 @@ package org.apache.ratis.grpc.client;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 import org.apache.ratis.proto.RaftProtos.RaftClientReplyProto;
@@ -143,6 +144,14 @@ public class GrpcClientProtocolService extends RaftClientProtocolServiceImplBase
       StreamObserver<RaftClientReplyProto> responseObserver) {
     final SetConfigurationRequest request = ClientProtoUtils.toSetConfigurationRequest(proto);
     GrpcUtil.asyncCall(responseObserver, () -> protocol.setConfigurationAsync(request),
+        ClientProtoUtils::toRaftClientReplyProto);
+  }
+
+  @Override
+  public void transferLeadership(RaftProtos.TransferLeadershipRequestProto proto,
+                                 StreamObserver<RaftClientReplyProto> responseObserver) {
+    final TransferLeadershipRequest request = ClientProtoUtils.toTransferLeadershipRequest(proto);
+    GrpcUtil.asyncCall(responseObserver, () -> protocol.transferLeadershipAsync(request),
         ClientProtoUtils::toRaftClientReplyProto);
   }
 

@@ -28,6 +28,10 @@ service RaftClientProtocolService {
   rpc setConfiguration(ratis.common.SetConfigurationRequestProto)
       returns(ratis.common.RaftClientReplyProto) {}
 
+
+  rpc transferLeadership(ratis.common.TransferLeadershipRequestProto)
+      returns(ratis.common.RaftClientReplyProto) {}
+      
   // A client-to-server stream RPC to ordered async requests
   rpc ordered(stream ratis.common.RaftClientRequestProto)
       returns (stream ratis.common.RaftClientReplyProto) {}
@@ -40,6 +44,9 @@ service RaftClientProtocolService {
 service RaftServerProtocolService {
   rpc requestVote(ratis.common.RequestVoteRequestProto)
       returns(ratis.common.RequestVoteReplyProto) {}
+
+  rpc timeoutNow(ratis.common.TimeoutNowRequestProto)
+      returns(ratis.common.TimeoutNowReplyProto) {}
 
   rpc appendEntries(stream ratis.common.AppendEntriesRequestProto)
       returns(stream ratis.common.AppendEntriesReplyProto) {}

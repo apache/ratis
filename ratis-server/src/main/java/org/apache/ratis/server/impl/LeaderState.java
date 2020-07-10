@@ -732,7 +732,7 @@ public class LeaderState {
     notifySenders();
   }
 
-  private List<FollowerInfo> getFollowerInfos(List<RaftPeerId> followerIDs) {
+  public List<FollowerInfo> getFollowerInfos(List<RaftPeerId> followerIDs) {
     List<FollowerInfo> followerInfos = new ArrayList<>();
     for (int i = 0; i < followerIDs.size(); i++) {
       RaftPeerId id = followerIDs.get(i);

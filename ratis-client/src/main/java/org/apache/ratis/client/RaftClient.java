@@ -100,6 +100,9 @@ public interface RaftClient extends Closeable {
   /** Send getGroupInfo request to the given server.*/
   GroupInfoReply getGroupInfo(RaftGroupId group, RaftPeerId server) throws IOException;
 
+  /** Transfer leadership to the given server.*/
+  RaftClientReply transferLeadership(RaftGroupId group, RaftPeerId target) throws IOException;
+
   /** @return a {@link Builder}. */
   static Builder newBuilder() {
     return new Builder();

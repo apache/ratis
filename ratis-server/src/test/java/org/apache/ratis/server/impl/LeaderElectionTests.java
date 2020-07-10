@@ -41,6 +41,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -91,6 +92,36 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     }
     SegmentedRaftLogTestUtils.setRaftLogWorkerLogLevel(Level.INFO);
     cluster.shutdown();
+  }
+
+  @Test
+  public void testTransferLeader() throws Exception {
+    try(final MiniRaftCluster cluster = newCluster(3)) {
+      cluster.start();
+
+      final RaftServerImpl leader = waitForLeader(cluster);
+      try (RaftClient client = cluster.createClient(leader.getId())) {
+        client.send(new RaftTestUtil.SimpleMessage("message"));
+        Thread.sleep(1000);
+
+        List<RaftServerImpl> followers = cluster.getFollowers();
+        Assert.assertEquals(followers.size(), 2);
+        RaftServerImpl target = followers.get(0);
+
+        RaftClientReply reply = client.transferLeadership(leader.getGroup().getGroupId(), target.getId());
+        assertTrue(reply.isSuccess());
+        Thread.sleep(1000);
+
+        final RaftServerImpl newLeader = waitForLeader(cluster);
+        assertTrue(newLeader.getId() == target.getId());
+
+        reply = client.send(new RaftTestUtil.SimpleMessage("message"));
+        Assert.assertNotEquals(reply.getReplierId(), leader.getId());
+        Assert.assertTrue(reply.isSuccess());
+      }
+
+      cluster.shutdown();
+    }
   }
 
   @Test

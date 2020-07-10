@@ -38,6 +38,7 @@ import org.apache.ratis.proto.RaftProtos.GroupListRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupListReplyProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
+import org.apache.ratis.proto.RaftProtos.TransferLeadershipRequestProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.GeneratedMessageV3;
 
 
@@ -71,6 +72,9 @@ public class CombinedClientProtocolServerSideTranslatorPB
         break;
       case submitClientRequest:
         response = submitClientRequest(RaftClientRequestProto.parseFrom(buf));
+        break;
+      case transferLeadership:
+        response = transferLeadership(TransferLeadershipRequestProto.parseFrom(buf));
         break;
       default:
       }
@@ -116,5 +120,12 @@ public class CombinedClientProtocolServerSideTranslatorPB
     final GroupInfoRequest request = ClientProtoUtils.toGroupInfoRequest(proto);
     final GroupInfoReply reply = impl.getGroupInfo(request);
     return ClientProtoUtils.toGroupInfoReplyProto(reply);
+  }
+
+  public RaftClientReplyProto transferLeadership(TransferLeadershipRequestProto proto)
+      throws IOException {
+    final TransferLeadershipRequest request = ClientProtoUtils.toTransferLeadershipRequest(proto);
+    final RaftClientReply reply = impl.transferLeadership(request);
+    return ClientProtoUtils.toRaftClientReplyProto(reply);
   }
 }

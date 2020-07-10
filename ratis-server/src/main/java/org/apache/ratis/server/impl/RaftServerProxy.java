@@ -28,6 +28,8 @@ import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
+import org.apache.ratis.proto.RaftProtos.TimeoutNowReplyProto;
+import org.apache.ratis.proto.RaftProtos.TimeoutNowRequestProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.RaftServer;
@@ -351,6 +353,12 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
+  public RaftClientReply transferLeadership(TransferLeadershipRequest request)
+      throws IOException {
+    return getImpl(request.getRaftGroupId()).transferLeadership(request);
+  }
+
+  @Override
   public RaftClientReply groupManagement(GroupManagementRequest request) throws IOException {
     return RaftServerImpl.waitForReply(getId(), request, groupManagementAsync(request),
         e -> new RaftClientReply(request, e, null));
@@ -451,8 +459,18 @@ public class RaftServerProxy implements RaftServer {
   }
 
   @Override
+  public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request) {
+    return submitRequest(request.getRaftGroupId(), impl -> impl.transferLeadershipAsync(request));
+  }
+
+  @Override
   public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) throws IOException {
     return getImpl(request.getServerRequest()).requestVote(request);
+  }
+
+  @Override
+  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException {
+    return getImpl(request.getServerRequest()).timeoutNow(request);
   }
 
   @Override

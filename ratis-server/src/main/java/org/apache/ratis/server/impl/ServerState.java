@@ -318,19 +318,19 @@ public class ServerState implements Closeable {
     return false;
   }
 
-  boolean isLogUpToDate(TermIndex candidateLastEntry) {
+  int compareLog(TermIndex candidateLastEntry) {
     TermIndex local = log.getLastEntryTermIndex();
     // need to take into account snapshot
     SnapshotInfo snapshot = server.getStateMachine().getLatestSnapshot();
      if (local == null && snapshot == null) {
-      return true;
+      return -1;
     } else if (candidateLastEntry == null) {
-      return false;
+      return 1;
     }
     if (local == null || (snapshot != null && snapshot.getIndex() > local.getIndex())) {
       local = snapshot.getTermIndex();
     }
-    return local.compareTo(candidateLastEntry) <= 0;
+    return local.compareTo(candidateLastEntry);
   }
 
   @Override
@@ -409,6 +409,18 @@ public class ServerState implements Closeable {
 
   SnapshotInfo getLatestSnapshot() {
     return server.getStateMachine().getLatestSnapshot();
+  }
+
+  TermIndex getLastEntry() {
+    TermIndex lastEntry = getLog().getLastEntryTermIndex();
+    if (lastEntry == null) {
+      // lastEntry may need to be derived from snapshot
+      SnapshotInfo snapshot = getLatestSnapshot();
+      if (snapshot != null) {
+        lastEntry = snapshot.getTermIndex();
+      }
+    }
+    return  lastEntry;
   }
 
   public long getLatestInstalledSnapshotIndex() {

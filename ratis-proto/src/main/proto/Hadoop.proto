@@ -39,11 +39,17 @@ service CombinedClientProtocolService {
 
   rpc groupInfo(ratis.common.GroupInfoRequestProto)
       returns(ratis.common.GroupInfoReplyProto);
+
+  rpc transferLeadership(ratis.common.TransferLeadershipRequestProto)
+      returns(ratis.common.RaftClientReplyProto);
 }
 
 service RaftServerProtocolService {
   rpc requestVote(ratis.common.RequestVoteRequestProto)
       returns(ratis.common.RequestVoteReplyProto);
+
+  rpc timeoutNow(ratis.common.TimeoutNowRequestProto)
+      returns(ratis.common.TimeoutNowReplyProto);
 
   rpc appendEntries(ratis.common.AppendEntriesRequestProto)
       returns(ratis.common.AppendEntriesReplyProto);

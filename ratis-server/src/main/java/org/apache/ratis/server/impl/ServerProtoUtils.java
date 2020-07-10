@@ -320,6 +320,13 @@ public interface ServerProtoUtils {
         .build();
   }
 
+  static TimeoutNowReplyProto toTimeoutNowReplyProto(
+      RaftPeerId requestorId, RaftGroupMemberId replyId, boolean success) {
+    return TimeoutNowReplyProto.newBuilder()
+        .setServerReply(toRaftRpcReplyProtoBuilder(requestorId, replyId, success))
+        .build();
+  }
+
   static RaftRpcRequestProto.Builder toRaftRpcRequestProtoBuilder(
       RaftGroupMemberId requestorId, RaftPeerId replyId) {
     return ClientProtoUtils.toRaftRpcRequestProtoBuilder(
@@ -333,6 +340,17 @@ public interface ServerProtoUtils {
         .setCandidateTerm(term);
     if (lastEntry != null) {
       b.setCandidateLastEntry(toTermIndexProto(lastEntry));
+    }
+    return b.build();
+  }
+
+  static TimeoutNowRequestProto toTimeoutNowRequestProto(
+      RaftGroupMemberId requestorId, RaftPeerId replyId, long term, TermIndex lastEntry) {
+    final TimeoutNowRequestProto.Builder b = TimeoutNowRequestProto.newBuilder()
+        .setServerRequest(toRaftRpcRequestProtoBuilder(requestorId, replyId))
+        .setLeaderTerm(term);
+    if (lastEntry != null) {
+      b.setLeaderLastEntry(toTermIndexProto(lastEntry));
     }
     return b.build();
   }

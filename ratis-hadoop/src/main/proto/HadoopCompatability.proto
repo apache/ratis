@@ -34,6 +34,7 @@ enum ServerOps {
   requestVote = 1;
   appendEntries = 2;
   installSnapshot = 3;
+  timeoutNow = 4;
 }
 
 message ServerRequestProto {
@@ -52,6 +53,7 @@ enum ClientOps {
     groupManagement = 3;
     groupList = 4;
     groupInfo = 5;
+    transferLeadership = 6;
 }
 
 message ClientRequestProto {

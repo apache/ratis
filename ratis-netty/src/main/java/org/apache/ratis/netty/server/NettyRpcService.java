@@ -173,6 +173,23 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
               .setRequestVoteReply(reply)
               .build();
 
+        case TIMEOUTNOWREQUEST:
+          final TimeoutNowRequestProto timeoutNowRequest = proto.getTimeoutNowRequest();
+          rpcRequest = timeoutNowRequest.getServerRequest();
+          final TimeoutNowReplyProto timeoutNowReply = server.timeoutNow(timeoutNowRequest);
+          return RaftNettyServerReplyProto.newBuilder()
+              .setTimeoutNowReply(timeoutNowReply)
+              .build();
+
+        case TRANSFERLEADERSHIPREQUEST:
+          final TransferLeadershipRequestProto transferLeadershipRequest = proto.getTransferLeadershipRequest();
+          rpcRequest = transferLeadershipRequest.getRpcRequest();
+          final RaftClientReply transferLeadershipReply = server.transferLeadership(
+              ClientProtoUtils.toTransferLeadershipRequest(transferLeadershipRequest));
+          return RaftNettyServerReplyProto.newBuilder()
+              .setRaftClientReply(ClientProtoUtils.toRaftClientReplyProto(transferLeadershipReply))
+              .build();
+
         case APPENDENTRIESREQUEST:
           final AppendEntriesRequestProto appendEntriesRequest = proto.getAppendEntriesRequest();
           rpcRequest = appendEntriesRequest.getServerRequest();
@@ -269,6 +286,18 @@ public final class NettyRpcService extends RaftServerRpcWithProxy<NettyRpcProxy,
         .build();
     final RaftRpcRequestProto serverRequest = request.getServerRequest();
     return sendRaftNettyServerRequestProto(serverRequest, proto).getRequestVoteReply();
+  }
+
+
+  @Override
+  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException {
+    CodeInjectionForTesting.execute(SEND_SERVER_REQUEST, getId(), null, request);
+
+    final RaftNettyServerRequestProto proto = RaftNettyServerRequestProto.newBuilder()
+        .setTimeoutNowRequest(request)
+        .build();
+    final RaftRpcRequestProto serverRequest = request.getServerRequest();
+    return sendRaftNettyServerRequestProto(serverRequest, proto).getTimeoutNowReply();
   }
 
   @Override

@@ -205,4 +205,13 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     final RaftPeerId target = RaftPeerId.valueOf(request.getServerRequest().getReplyId());
     return getProxies().getProxy(target).requestVote(request);
   }
+
+  @Override
+  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException {
+    CodeInjectionForTesting.execute(GRPC_SEND_SERVER_REQUEST, getId(),
+        null, request);
+
+    final RaftPeerId target = RaftPeerId.valueOf(request.getServerRequest().getReplyId());
+    return getProxies().getProxy(target).timeoutNow(request);
+  }
 }

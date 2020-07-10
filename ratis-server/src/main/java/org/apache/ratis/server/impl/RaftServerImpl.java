@@ -71,6 +71,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
+  static final String TIMEOUT_NOW = CLASS_NAME + ".timeoutNow";
 
   private final RaftServerProxy proxy;
   private final StateMachine stateMachine;
@@ -735,6 +736,90 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   @Override
+  public RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException {
+    return waitForReply(request, transferLeadershipAsync(request));
+  }
+
+  private CompletableFuture<RaftClientReply> logAndReturnTransferLeadership(
+      TransferLeadershipRequest request, String msg) {
+    final StateMachineException e = new StateMachineException(msg);
+    LOG.warn(msg);
+    return CompletableFuture.completedFuture(
+        new RaftClientReply(request, e, getCommitInfos()));
+  }
+
+  @Override
+  public CompletableFuture<RaftClientReply> transferLeadershipAsync(TransferLeadershipRequest request)
+      throws IOException {
+    LOG.info("{}: receive transferLeadership {}", getMemberId(), request);
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(request.getRequestorId(), request.getRaftGroupId());
+
+    CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
+    if (reply != null) {
+      return reply;
+    }
+
+    synchronized (this) {
+      reply = checkLeaderState(request, null);
+      if (reply != null) {
+        return reply;
+      }
+
+      final RaftConfiguration current = getRaftConf();
+      final LeaderState leaderState = role.getLeaderStateNonNull();
+      // make sure there is no raft reconfiguration in progress
+      if (!current.isStable() || leaderState.inStagingState() || !state.isConfCommitted()) {
+        return logAndReturnTransferLeadership(request,
+            getMemberId() + " refused to transfer leadership to peer " + request.getTarget() +
+                " when raft reconfiguration in progress.");
+      }
+
+      if (request.getTarget().equals(this.getId())) {
+        return logAndReturnTransferLeadership(request,
+            getMemberId() + " transferred leadership to self.");
+      }
+
+      if (!this.getRaftConf().contains(request.getTarget())) {
+        return logAndReturnTransferLeadership(request,
+            getMemberId() + " refused to transfer leadership to peer " + request.getTarget() +
+                " as it is not in " + getRaftConf());
+      }
+
+      List<FollowerInfo> followerInfos = leaderState.getFollowerInfos(Arrays.asList(request.getTarget()));
+      if (followerInfos.size() == 0) {
+        return logAndReturnTransferLeadership(request,
+            getMemberId() + " refused to transfer leadership to peer " + request.getTarget() +
+                " as can not find it in followers.");
+      }
+
+      TermIndex lastEntry = state.getLastEntry();
+
+      if (followerInfos.get(0).getCommitIndex() < lastEntry.getIndex()) {
+        return logAndReturnTransferLeadership(request,
+            getMemberId() + " refused to transfer leadership to peer " + request.getTarget() +
+                " as it's committed index:" + followerInfos.get(0).getCommitIndex() +
+                " less than leader's index:" + lastEntry.getIndex());
+      }
+
+      final TimeoutNowRequestProto r = createTimeoutNowRequest(
+          request.getTarget(), state.getCurrentTerm(), lastEntry);
+      TimeoutNowReplyProto replyProto = getServerRpc().timeoutNow(r);
+      if (!replyProto.getServerReply().getSuccess()) {
+        return logAndReturnTransferLeadership(request,
+            getMemberId() + " failed to transfer leadership to peer " + request.getTarget() +
+                " which reject it");
+      }
+
+      return CompletableFuture.completedFuture(
+          new RaftClientReply(
+              request,
+              Message.valueOf("leader accept transfer and follower start to trigger election"),
+              getCommitInfos()));
+    }
+  }
+
+  @Override
   public RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException {
     return waitForReply(request, setConfigurationAsync(request));
   }
@@ -846,7 +931,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       } else if (state.recognizeCandidate(candidateId, candidateTerm)) {
         final boolean termUpdated = changeToFollower(candidateTerm, true, "recognizeCandidate:" + candidateId);
         // see Section 5.4.1 Election restriction
-        if (state.isLogUpToDate(candidateLastEntry) && fs != null) {
+        if (state.compareLog(candidateLastEntry) <= 0 && fs != null) {
           state.grantVote(candidateId);
           voteGranted = true;
         }
@@ -1129,6 +1214,41 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return reply;
   }
 
+  @Override
+  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) throws IOException {
+    final RaftRpcRequestProto r = request.getServerRequest();
+    final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
+    final RaftGroupId leaderGroupId = ProtoUtils.toRaftGroupId(r.getRaftGroupId());
+    final long leaderTerm = request.getLeaderTerm();
+    final TermIndex leaderLastEntry = ServerProtoUtils.toTermIndex(request.getLeaderLastEntry());
+
+    CodeInjectionForTesting.execute(TIMEOUT_NOW, getId(),
+        leaderId, leaderTerm, leaderLastEntry);
+
+    LOG.debug("{}: receive timeoutNow from:{}, leaderLastEntry:{},",
+        getMemberId(), leaderId, request.getLeaderLastEntry());
+
+    assertLifeCycleState(LifeCycle.States.RUNNING);
+    assertGroup(leaderId, leaderGroupId);
+
+    synchronized (this) {
+      if (!isFollower()) {
+        LOG.warn("{} refused TimeoutNowRequest from {}, because role is:{}",
+            getMemberId(), leaderId, role.getCurrentRole());
+        return ServerProtoUtils.toTimeoutNowReplyProto(leaderId, getMemberId(), false);
+      }
+
+      if (state.compareLog(leaderLastEntry) < 0) {
+        LOG.warn("{} refused TimeoutNowRequest from {}, because lastEntry:{} less than leaderEntry:{}",
+            getMemberId(), leaderId, leaderLastEntry, state.getLastEntry());
+        return ServerProtoUtils.toTimeoutNowReplyProto(leaderId, getMemberId(), false);
+      }
+
+      changeToCandidate();
+      return ServerProtoUtils.toTimeoutNowReplyProto(leaderId, getMemberId(), true);
+    }
+  }
+
   private InstallSnapshotReplyProto installSnapshotImpl(InstallSnapshotRequestProto request) throws IOException {
     final RaftRpcRequestProto r = request.getServerRequest();
     final RaftPeerId leaderId = RaftPeerId.valueOf(r.getRequestorId());
@@ -1308,6 +1428,11 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   synchronized RequestVoteRequestProto createRequestVoteRequest(
       RaftPeerId targetId, long term, TermIndex lastEntry) {
     return ServerProtoUtils.toRequestVoteRequestProto(getMemberId(), targetId, term, lastEntry);
+  }
+
+  synchronized TimeoutNowRequestProto createTimeoutNowRequest(
+      RaftPeerId targetId, long term, TermIndex lastEntry) {
+    return ServerProtoUtils.toTimeoutNowRequestProto(getMemberId(), targetId, term, lastEntry);
   }
 
   public void submitUpdateCommitEvent() {

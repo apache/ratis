@@ -100,6 +100,13 @@ public class GrpcServerProtocolClient implements Closeable {
     return r;
   }
 
+  public TimeoutNowReplyProto timeoutNow(TimeoutNowRequestProto request) {
+    TimeoutNowReplyProto r =
+        blockingStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
+            .timeoutNow(request);
+    return r;
+  }
+
   StreamObserver<AppendEntriesRequestProto> appendEntries(
       StreamObserver<AppendEntriesReplyProto> responseHandler) {
     return asyncStub.appendEntries(responseHandler);

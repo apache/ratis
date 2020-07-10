@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,12 +17,16 @@
  */
 package org.apache.ratis.protocol;
 
-import java.io.IOException;
+public class TransferLeadershipRequest extends RaftClientRequest {
+  private final RaftPeerId target;
 
-public interface RaftClientProtocol {
-  RaftClientReply submitClientRequest(RaftClientRequest request) throws IOException;
+  public TransferLeadershipRequest(
+      ClientId clientId, RaftPeerId serverId, RaftGroupId groupId, long callId, RaftPeerId target) {
+    super(clientId, serverId, groupId, callId, readRequestType());
+    this.target = target;
+  }
 
-  RaftClientReply setConfiguration(SetConfigurationRequest request) throws IOException;
-
-  RaftClientReply transferLeadership(TransferLeadershipRequest request) throws IOException;
+  public RaftPeerId getTarget() {
+    return target;
+  }
 }

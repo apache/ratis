@@ -277,6 +277,14 @@ public final class RaftClientImpl implements RaftClient {
     return (GroupInfoReply)reply;
   }
 
+  @Override
+  public RaftClientReply transferLeadership(RaftGroupId raftGroupId, RaftPeerId target) throws IOException {
+    Objects.requireNonNull(target, "target == null");
+    final long callId = nextCallId();
+    return sendRequestWithRetry(() -> new TransferLeadershipRequest(
+        clientId, leaderId, groupId, callId, target));
+  }
+
   private void addServers(Stream<RaftPeer> peersInNewConf) {
     clientRpc.addServers(
         peersInNewConf.filter(p -> !peers.contains(p))::iterator);
