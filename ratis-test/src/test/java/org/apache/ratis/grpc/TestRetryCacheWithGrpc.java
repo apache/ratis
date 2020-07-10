@@ -31,10 +31,12 @@ import org.apache.ratis.server.impl.RaftServerProxy;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TestRetryCacheWithGrpc
@@ -45,6 +47,11 @@ public class TestRetryCacheWithGrpc
   public void testRetryOnResourceUnavailableException()
       throws InterruptedException, IOException {
     RaftProperties properties = new RaftProperties();
+
+    // make sure leadership check won't affect the test
+    RaftServerConfigKeys.Rpc.setTimeoutMin(properties, TimeDuration.valueOf(1, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMax(properties, TimeDuration.valueOf(2, TimeUnit.SECONDS));
+
     properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
     RaftServerConfigKeys.Write.setElementLimit(properties, 1);

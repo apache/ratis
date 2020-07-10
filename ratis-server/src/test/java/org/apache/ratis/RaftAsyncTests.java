@@ -367,7 +367,17 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testAppendEntriesTimeout() throws Exception {
+    // make sure leadership check won't affect the test
+    final TimeDuration oldTimeoutMin = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
+    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    final TimeDuration oldTimeoutMax = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
+    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(20, TimeUnit.SECONDS));
+
     runWithNewCluster(NUM_SERVERS, this::runTestAppendEntriesTimeout);
+
+    // reset for the other tests
+    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), oldTimeoutMin);
+    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), oldTimeoutMax);
   }
 
   void runTestAppendEntriesTimeout(CLUSTER cluster) throws Exception {
