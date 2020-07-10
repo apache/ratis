@@ -33,6 +33,7 @@ import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -40,6 +41,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
@@ -54,6 +56,11 @@ public class TestLogAppenderWithGrpc
   public void testPendingLimits() throws IOException, InterruptedException {
     int maxAppends = 10;
     RaftProperties properties = new RaftProperties();
+
+    // make sure leadership check won't affect the test
+    RaftServerConfigKeys.Rpc.setTimeoutMin(properties, TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMax(properties, TimeDuration.valueOf(20, TimeUnit.SECONDS));
+
     properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
     GrpcConfigKeys.Server.setLeaderOutstandingAppendsMax(properties, maxAppends);

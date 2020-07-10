@@ -22,6 +22,7 @@ import org.apache.ratis.RaftBasicTests;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.impl.BlockRequestHandlingInjection;
 import org.apache.ratis.server.impl.RaftServerTestUtil;
 import org.apache.ratis.server.protocol.TermIndex;
@@ -67,7 +68,17 @@ public class TestRaftWithGrpc
 
   @Test
   public void testUpdateViaHeartbeat() throws Exception {
+    // make sure leadership check won't affect the test
+    final TimeDuration oldTimeoutMin = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
+    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    final TimeDuration oldTimeoutMax = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
+    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(20, TimeUnit.SECONDS));
+
     runWithNewCluster(NUM_SERVERS, this::runTestUpdateViaHeartbeat);
+
+    // reset for the other tests
+    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), oldTimeoutMin);
+    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), oldTimeoutMax);
   }
 
   void runTestUpdateViaHeartbeat(MiniRaftClusterWithGrpc cluster) throws Exception {

@@ -511,6 +511,8 @@ public class LeaderState {
               event.execute();
             } else if (inStagingState()) {
               checkStaging();
+            } else {
+              checkLeadership();
             }
           }
         }
@@ -785,6 +787,46 @@ public class LeaderState {
       lists.add(listForOld);
     }
     return lists;
+  }
+
+  /**
+   * See the thesis section 6.2: A leader in Raft steps down
+   * if an election timeout elapses without a successful
+   * round of heartbeats to a majority of its cluster.
+   */
+  private void checkLeadership() {
+    // The initial value of lastRpcResponseTime in FollowerInfo is set by
+    // LeaderState::addSenders(), which is fake and used to trigger an
+    // immediate round of AppendEntries request. To ensure that leader
+    // is stable, just ignore the check if become leader soon.
+    if (server.getRole().getRoleElapsedTimeMs() < 3 * server.getMaxTimeoutMs()) {
+      return;
+    }
+
+    final List<RaftPeerId> activePeers = senders.stream()
+        .filter(sender -> sender.getFollower()
+                                .getLastRpcResponseTime()
+                                .elapsedTimeMs() <= server.getMaxTimeoutMs())
+        .map(sender -> sender.getFollower().getPeer().getId())
+        .collect(Collectors.toList());
+
+    final RaftConfiguration conf = server.getRaftConf();
+
+    if (conf.hasMajority(activePeers, server.getId())) {
+      // leadership check passed
+      return;
+    }
+
+    List<FollowerInfo> followers = senders.stream()
+        .map(LogAppender::getFollower).collect(Collectors.toList());
+
+    LOG.warn(this + ": Lost leadership on term: " + currentTerm
+        + ". Election timeout: " + server.getMaxTimeoutMs() + "ms"
+        + ". In charge for: " + server.getRole().getRoleElapsedTimeMs() + "ms"
+        + ". Conf: " + conf + ". Followers: " + followers);
+
+    // become follower of next term.
+    stepDown(currentTerm + 1);
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {
