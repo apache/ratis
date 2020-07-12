@@ -40,6 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.management.ObjectName;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.*;
@@ -71,6 +72,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   static final String REQUEST_VOTE = CLASS_NAME + ".requestVote";
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
+
+  static final String GROUP_REMOVE_DETAILS_FILE = "group_remove_details";
+  static final String GROUP_REMOVE_PROPERTY_KEY = "originalGroupName";
 
   private final RaftServerProxy proxy;
   private final StateMachine stateMachine;
@@ -258,6 +262,44 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return RaftGroup.valueOf(getMemberId().getGroupId(), getRaftConf().getPeers());
   }
 
+  /**
+   * This removes the group from the server.
+   * If the flag is set to false, the directory is renamed to a random uuid
+   * along with {@value GROUP_REMOVE_DETAILS_FILE} which holds the information
+   * about its original group.
+   * If the flag is true, the group is permanently deleted.
+   * @param deleteDirectory
+   */
+  public void groupRemove(boolean deleteDirectory) {
+    final RaftStorageDirectory dir = state.getStorage().getStorageDir();
+
+    /* Do not delete the directory here irrespective of the flag.
+    Shutdown is triggered inorder to avoid any locked files. */
+    shutdown(false);
+
+    /* The group is renamed to a random uuid and a properties file is stored. */
+    if (!deleteDirectory) {
+      try {
+        File randomGroupUUIDDir = new File(
+            dir.getRoot().getParent(), UUID.randomUUID().toString());
+        FileUtils.moveDirectory(dir.getRoot().toPath(),
+            randomGroupUUIDDir.toPath());
+        File propertiesFile = new File(randomGroupUUIDDir,
+            GROUP_REMOVE_DETAILS_FILE);
+        FileUtils.createPropertiesFile(propertiesFile,
+            new HashMap<String, String>() {{
+              put(GROUP_REMOVE_PROPERTY_KEY, dir.getRoot().getName());
+            }});
+      } catch (IOException e) {
+        LOG.warn("{}: Failed to rename group {}", getMemberId(),
+            dir.getRoot().getName(), e);
+      }
+    }
+
+    /* Since the group is renamed or needs to be deleted. */
+    deleteStorageDir();
+  }
+
   public void shutdown(boolean deleteDirectory) {
     lifeCycle.checkStateAndClose(() -> {
       LOG.info("{}: shutdown", getMemberId());
@@ -294,21 +336,28 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         LOG.warn("{}: Failed to unregister metric", getMemberId(), ignored);
       }
       if (deleteDirectory) {
-        final RaftStorageDirectory dir = state.getStorage().getStorageDir();
-        for (int i = 0; i < FileUtils.NUM_ATTEMPTS; i ++) {
-          try {
-            FileUtils.deleteFully(dir.getRoot());
-            LOG.info("{}: Succeed to remove RaftStorageDirectory {}", getMemberId(), dir);
-            break;
-          } catch (NoSuchFileException e) {
-            LOG.warn("{}: Some file does not exist {}", getMemberId(), dir, e);
-          } catch (Exception ignored) {
-            LOG.error("{}: Failed to remove RaftStorageDirectory {}", getMemberId(), dir, ignored);
-            break;
-          }
-        }
+        deleteStorageDir();
       }
     });
+  }
+
+  /**
+   * Deletes the files from storage
+   */
+  public void deleteStorageDir() {
+    final RaftStorageDirectory dir = state.getStorage().getStorageDir();
+    for (int i = 0; i < FileUtils.NUM_ATTEMPTS; i ++) {
+      try {
+        FileUtils.deleteFully(dir.getRoot());
+        LOG.info("{}: Succeed to remove RaftStorageDirectory {}", getMemberId(), dir);
+        break;
+      } catch (NoSuchFileException e) {
+        LOG.warn("{}: Some file does not exist {}", getMemberId(), dir, e);
+      } catch (Exception ignored) {
+        LOG.error("{}: Failed to remove RaftStorageDirectory {}", getMemberId(), dir, ignored);
+        break;
+      }
+    }
   }
 
   public boolean isAlive() {

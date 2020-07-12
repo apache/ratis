@@ -255,4 +255,48 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       cluster.shutdown();
     }
   }
+  
+  @Test
+  public void testGroupRemove() throws Exception {
+    final MiniRaftCluster cluster1 = getCluster(1);
+    final MiniRaftCluster cluster2 = getCluster(3);
+    cluster1.start();
+    final RaftPeer peer1 = cluster1.getPeers().get(0);
+    final RaftPeerId peerId1 = peer1.getId();
+    final RaftGroup group1 = RaftGroup.valueOf(cluster1.getGroupId(), peer1);
+    final RaftGroup group2 = RaftGroup.valueOf(cluster2.getGroupId(), peer1);
+    try (final RaftClient client = cluster1.createClient()) {
+      Assert.assertEquals(group1,
+          cluster1.getRaftServerImpl(peerId1).getGroup());
+      try {
+        // Group2 is added to one of the peerId in Group1
+        client.groupAdd(group2, peerId1);
+        List<RaftGroupId> groupIds1 = cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIds1.size(), 2);
+
+        // Group2 is removed from the peerId of Group1
+        client.groupRemove(group2.getGroupId(), false, peerId1);
+
+        // The size is 1 since the cluster1 hasn't been restarted
+        Assert.assertEquals(cluster1.getServer(peerId1).getGroupIds().size(),
+            1);
+
+        cluster1.restart(false);
+
+        List<RaftGroupId> groupIdsAfterRestart =
+            cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIdsAfterRestart.size(), groupIds1.size());
+        groupIds1.retainAll(groupIdsAfterRestart);
+        Assert.assertEquals(groupIds1.size(), 1);
+
+      } catch (IOException ex) {
+        // HadoopRPC throws RemoteException, which makes it hard to check if
+        // the exception is instance of AlreadyExistsException
+        Assert.assertFalse(ex.toString().contains(
+            AlreadyExistsException.class.getCanonicalName()));
+      } finally {
+        cluster1.shutdown();
+      }
+    }
+  }
 }

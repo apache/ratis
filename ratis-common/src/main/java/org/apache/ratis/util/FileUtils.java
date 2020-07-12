@@ -21,12 +21,17 @@ import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Map;
+import java.util.Properties;
 import java.util.function.Supplier;
 
 public interface FileUtils {
@@ -83,6 +88,63 @@ public interface FileUtils {
   /** The same as passing f.toPath() to {@link #delete(Path)}. */
   static void deleteFile(File f) throws IOException {
     delete(f.toPath());
+  }
+
+  /**
+   * Moves the directory. Is any file is locked, the exception is caught
+   * and logged and proceeds to other files.
+   * @param source
+   * @param dest
+   * @throws IOException
+   */
+  static void moveDirectory(Path source, Path dest) throws IOException {
+    LOG.trace("moveDirectory source: {} dest: {}", source, dest);
+    Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
+      @Override
+      public FileVisitResult preVisitDirectory(Path dir,
+          BasicFileAttributes attrs) throws IOException {
+        Path targetPath = dest.resolve(source.relativize(dir));
+        if (!Files.exists(targetPath)) {
+          createDirectories(targetPath);
+        }
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+        try {
+          move(file, dest.resolve(source.relativize(file)));
+        } catch (IOException e) {
+          LOG.info("Files.moveDirectory: could not delete {}",
+              file.getFileName());
+        }
+        return FileVisitResult.CONTINUE;
+      }
+    });
+  }
+
+  /**
+   * Creates a file and writes property output from a Map.
+   * @param file The output file that needs to written
+   * @param map Map to read the key and values
+   * @throws IOException
+   */
+  static void createPropertiesFile(File file, Map map) throws IOException {
+    AtomicFileOutputStream fos = new AtomicFileOutputStream(file);
+    Properties properties = new Properties();
+    map.forEach((key, value) -> {
+      properties.setProperty(key.toString(), value.toString());
+    });
+    try {
+      properties.store(
+          new BufferedWriter(new OutputStreamWriter(fos, StandardCharsets.UTF_8)), "");
+      fos.close();
+      fos = null;
+    } finally {
+      if (fos != null) {
+        fos.abort();
+      }
+    }
   }
 
   /** The same as passing f.toPath() to {@link #delete(Path)}. */
