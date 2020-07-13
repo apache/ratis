@@ -39,4 +39,4 @@ for client: `java -cp target/ratis-experiments-0.6.0-SNAPSHOT.jar org.apache.rat
 replace noOfReps with the number of times you want to transfer data(defaults to 100,000).
 
 ### Findings:
-Current releases with GRPC, do not provide zero-copy semantics in Java and have similar performance characteristics as compared to protobufs.
+Current releases of flatbuffers with GRPC, do not provide zero-copy semantics in Java and have similar performance characteristics as compared to protobufs.
