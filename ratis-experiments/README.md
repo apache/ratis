@@ -40,3 +40,4 @@ replace noOfReps with the number of times you want to transfer data(defaults to 
 
 ### Findings:
 Current releases of flatbuffers with GRPC, do not provide zero-copy semantics in Java and have similar performance characteristics as compared to protobufs.
+Clarified in [project issue](https://github.com/google/flatbuffers/issues/6023).
