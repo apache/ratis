@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.examples.datatransfer.client;
+package org.apache.ratis.experiments.flatbuffers.client;
 
 import org.apache.ratis.proto.ExamplesProtos.TransferReplyProto;
 import org.apache.ratis.proto.ExamplesProtos.TransferMsgProto;
@@ -38,6 +38,7 @@ public class ClientProto {
   private FileTransferExampleServiceGrpc.FileTransferExampleServiceStub asyncStubProto;
   private final long[] recv = new long[1];
   private int partId = 0;
+  // semaphore to manage current outbound data
   private final Semaphore available = new Semaphore(3000, true);
 
   public long[] getRecv() {
@@ -78,6 +79,7 @@ public class ClientProto {
     });
     try{
       int i = 0;
+      // allocate a byte buffer containing message data.
       ByteBuffer bf = ByteBuffer.allocate(1024*1024);
       if(bf.hasArray()){
         Arrays.fill(bf.array(), (byte) 'a');
@@ -85,6 +87,9 @@ public class ClientProto {
       while(i < reps) {
         partId++;
         available.acquire();
+        // using unsafewrap operations
+        // creates a ByteString refrencing buffer data. Avoids Copying.
+        // Something similar is missing in flatbuffers.
         TransferMsgProto msg = TransferMsgProto.newBuilder().
             setPartId(partId).
             setData(UnsafeByteOperations.unsafeWrap(bf)).build();

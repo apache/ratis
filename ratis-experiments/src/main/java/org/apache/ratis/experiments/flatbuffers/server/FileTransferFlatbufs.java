@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.examples.datatransfer.server;
+package org.apache.ratis.experiments.flatbuffers.server;
 
 import org.apache.ratis.thirdparty.com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Status;

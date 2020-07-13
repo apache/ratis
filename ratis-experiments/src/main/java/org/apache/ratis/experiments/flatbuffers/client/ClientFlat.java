@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.examples.datatransfer.client;
+package org.apache.ratis.experiments.flatbuffers.client;
 
 import org.apache.ratis.thirdparty.com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Channel;
@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 public class ClientFlat {
 
   private FileTransferGrpc.FileTransferStub asyncStubFlat;
+  // semaphore to manage current outbound data
   private final Semaphore available = new Semaphore(3000, true);
 
   private final long[] recv = new long[1];
@@ -79,6 +80,7 @@ public class ClientFlat {
     });
     try{
       int i = 0;
+      // allocate a byte buffer containing message data.
       ByteBuffer bf = ByteBuffer.allocateDirect(1024*1024);
       if(bf.hasArray()){
         Arrays.fill(bf.array(), (byte) 'a');
@@ -86,9 +88,13 @@ public class ClientFlat {
       while(i < reps) {
         partId++;
         available.acquire();
+        // start a builder and reset position of databuffer to 0.
         FlatBufferBuilder builder = new FlatBufferBuilder();
         bf.position(0).limit(bf.capacity());
+        // create string of the message data
+        // the datacopy happens here, significant CPU time spent.
         int dataOff = builder.createString(bf);
+        // Use flatbuffers generated message builder.
         int off = TransferMsg.createTransferMsg(builder, partId, dataOff);
         builder.finish(off);
         TransferMsg msg = TransferMsg.getRootAsTransferMsg(builder.dataBuffer());
