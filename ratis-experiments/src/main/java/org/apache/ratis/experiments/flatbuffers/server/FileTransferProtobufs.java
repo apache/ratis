@@ -19,8 +19,8 @@ package org.apache.ratis.experiments.flatbuffers.server;
 
 import org.apache.ratis.thirdparty.io.grpc.Status;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
-import org.apache.ratis.proto.ExamplesProtos.TransferReplyProto;
-import org.apache.ratis.proto.ExamplesProtos.TransferMsgProto;
+import org.apache.ratis.proto.ExperimentsProtos.TransferReplyProto;
+import org.apache.ratis.proto.ExperimentsProtos.TransferMsgProto;
 import org.apache.ratis.proto.FileTransferExampleServiceGrpc;
 
 public class FileTransferProtobufs extends FileTransferExampleServiceGrpc.FileTransferExampleServiceImplBase {

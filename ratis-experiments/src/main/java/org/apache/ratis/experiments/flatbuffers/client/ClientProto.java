@@ -18,8 +18,8 @@
 
 package org.apache.ratis.experiments.flatbuffers.client;
 
-import org.apache.ratis.proto.ExamplesProtos.TransferReplyProto;
-import org.apache.ratis.proto.ExamplesProtos.TransferMsgProto;
+import org.apache.ratis.proto.ExperimentsProtos.TransferReplyProto;
+import org.apache.ratis.proto.ExperimentsProtos.TransferMsgProto;
 
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannelBuilder;

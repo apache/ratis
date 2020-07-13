@@ -14,12 +14,12 @@
 
 # Apache Ratis Experiments
 
-#### Building and Running The Examples
+#### Building and Running The Experiments
 
 The repository can be complied using `mvn clean package -DskipTests -DbuildExp` under the project root directory;
 see also [BUILDING.md](../BUILDING.md).
 
-This module contains the experiments carried out while building the project. 
+This module has been created to house experimental projects.
 Details for running the experiment are provided below.
 
 ## Flatbuffers
@@ -30,7 +30,7 @@ The Client creates a 1MB buffer, fills it with data and transfers it over GRPC.
 ### Run Datatransfer Server and Client
 There two pairs of Server and Client: (ClientProto, ServerProto) and (ClientFlat,ServerFlat).
 
-run the client and servers by these commands from ratis-examples directory:
+run the client and servers by these commands from ratis-experiments directory:
 
 for server: `java -cp target/ratis-experiments-0.6.0-SNAPSHOT.jar org.apache.ratis.experiments.flatbuffers.server.ServerFlat`
 
@@ -40,4 +40,4 @@ replace noOfReps with the number of times you want to transfer data(defaults to 
 
 ### Findings:
 Current releases of flatbuffers with GRPC, do not provide zero-copy semantics in Java and have similar performance characteristics as compared to protobufs.
-Clarified in [project issue](https://github.com/google/flatbuffers/issues/6023).
+Clarified in [flatbuffers issue #6023](https://github.com/google/flatbuffers/issues/6023).

@@ -138,21 +138,6 @@ for server: `java -cp target/*.jar org.apache.ratis.examples.counter.server.Coun
 replace {serverIndex} with 1, 2, or 3
 for client: `java -cp target/*.jar org.apache.ratis.examples.counter.client.CounterClient`
 
-## Example 4: Data Transfer 
-This program was developed to test the efficiency of flatbuffers vs protobuffers in terms of buffer copying.
-The Client creates a 1MB buffer, fills it with junk data and transfers it over GRPC.
-
-### Run Datatransfer Server and Client
-There two pairs of Server and Client: (ClientProto, ServerProto) and (ClientFlat,ServerFlat).
-
-run the client and servers by these commands from ratis-examples directory:
-
-for server: `java -cp target/ratis-examples-0.6.0-SNAPSHOT.jar org.apache.ratis.examples.datatransfer.server.ServerFlat`
-
-for client: `java -cp target/ratis-examples-0.6.0-SNAPSHOT.jar org.apache.ratis.examples.datatransfer.client.ClientFlat {numberOfReps}`
-
-replace noOfReps with the number of times you want to transfer data(defaults to 100,000).
-
 ## Pre-Setup Vagrant Pseudo Cluster
 Note: This option is only available to Example 1 and 2
 One can see the interactions of a three server Ratis cluster with a load-generator running against it
