@@ -25,6 +25,10 @@ import org.apache.ratis.flatbufs.TransferMsg;
 import org.apache.ratis.flatbufs.TransferReply;
 import org.apache.ratis.thirdparty.io.grpc.stub.StreamObserver;
 
+/**
+ * Server code responding to messages of flatbuffer based Client.
+ */
+
 public class FileTransferFlatbufs extends FileTransferGrpc.FileTransferImplBase {
   @Override
   public StreamObserver<TransferMsg> sendData(final StreamObserver<TransferReply> responseObserver){

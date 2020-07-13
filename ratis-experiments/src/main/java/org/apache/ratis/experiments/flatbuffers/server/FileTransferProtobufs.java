@@ -23,6 +23,10 @@ import org.apache.ratis.proto.ExperimentsProtos.TransferReplyProto;
 import org.apache.ratis.proto.ExperimentsProtos.TransferMsgProto;
 import org.apache.ratis.proto.FileTransferExampleServiceGrpc;
 
+/**
+ * Server code responding to messages of protobuffers based Client.
+ */
+
 public class FileTransferProtobufs extends FileTransferExampleServiceGrpc.FileTransferExampleServiceImplBase {
   @Override
   public StreamObserver<TransferMsgProto> sendData(final StreamObserver<TransferReplyProto> responseObserver) {

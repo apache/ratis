@@ -34,6 +34,13 @@ import java.util.Arrays;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Sets up a client to send protobuf messages over GRPC to server.
+ * Uses a semaphore to manage current outbound data
+ * Uses UnsafeByteOperations to avoid data copy during message creation.
+ *
+ */
+
 public class ClientProto {
   private FileTransferExampleServiceGrpc.FileTransferExampleServiceStub asyncStubProto;
   private final long[] recv = new long[1];

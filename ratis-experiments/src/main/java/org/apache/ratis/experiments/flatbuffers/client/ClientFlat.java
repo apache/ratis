@@ -33,7 +33,11 @@ import java.util.Arrays;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-
+/**
+ * Sets up a client to send flatbuffers messages over GRPC to Server.
+ * Uses a semaphore to manage current outbound data
+ * Uses a flatbuffer builder interface to create message.
+ */
 
 public class ClientFlat {
 
