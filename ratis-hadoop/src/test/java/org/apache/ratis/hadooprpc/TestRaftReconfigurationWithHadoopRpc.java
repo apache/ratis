@@ -32,9 +32,6 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.IPC_CLIENT_CONN
 public class TestRaftReconfigurationWithHadoopRpc
     extends RaftReconfigurationBaseTest<MiniRaftClusterWithHadoopRpc>
     implements MiniRaftClusterWithHadoopRpc.Factory.Get {
-  static {
-    ((Log4JLogger) Client.LOG).getLogger().setLevel(Level.ERROR);
-  }
 
   @Override
   public MiniRaftClusterWithHadoopRpc newCluster(int numPeers) {

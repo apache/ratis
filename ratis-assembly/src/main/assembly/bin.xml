@@ -70,6 +70,13 @@
       </includes>
       <fileMode>0644</fileMode>
     </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/../ratis-docs/target/classes/docs
+      </directory>
+      <outputDirectory>docs</outputDirectory>
+      <fileMode>0644</fileMode>
+      <directoryMode>0755</directoryMode>
+    </fileSet>
     <!-- Include dev support tools -->
     <fileSet>
       <directory>${project.basedir}/../dev-support</directory>

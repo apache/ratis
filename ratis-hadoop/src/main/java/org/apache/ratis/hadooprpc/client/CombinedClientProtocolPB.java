@@ -22,7 +22,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.ipc.ProtocolInfo;
 import org.apache.hadoop.security.KerberosInfo;
 import org.apache.ratis.hadooprpc.HadoopConstants;
-import org.apache.ratis.proto.hadoop.HadoopProtos.CombinedClientProtocolService;
+import org.apache.ratis.proto.hadoop.HadoopCompatibilityProtos.HadoopClientProtocolService;
 
 @InterfaceAudience.Private
 @InterfaceStability.Unstable
@@ -33,5 +33,5 @@ import org.apache.ratis.proto.hadoop.HadoopProtos.CombinedClientProtocolService;
     protocolName = HadoopConstants.COMBINED_CLIENT_PROTOCOL_NAME,
     protocolVersion = 1)
 public interface CombinedClientProtocolPB extends
-    CombinedClientProtocolService.BlockingInterface {
+    HadoopClientProtocolService.BlockingInterface {
 }
