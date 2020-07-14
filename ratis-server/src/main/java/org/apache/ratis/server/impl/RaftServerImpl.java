@@ -430,6 +430,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         ls.getLogAppenders().map(LogAppender::getFollower).forEach(f ->
             leader.addFollowerInfo(ServerProtoUtils.toServerRpcProto(
                 f.getPeer(), f.getLastRpcResponseTime().elapsedTimeMs())));
+        leader.setTerm(ls.getCurrentTerm());
         roleInfo.setLeaderInfo(leader);
       });
       break;
