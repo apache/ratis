@@ -20,7 +20,7 @@ The repository can be complied using `mvn clean package -DskipTests -DbuildExp` 
 see also [BUILDING.md](../BUILDING.md).
 
 This module has been created to house experimental projects.
-Details for running the experiment are provided below.
+Details for running the experiment are mentioned below.
 
 ## Flatbuffers
 
