@@ -14,13 +14,19 @@
 
 # Apache Ratis Experiments
 
-#### Building and Running The Experiments
+This module has been created to house experimental projects.
+Details for running the experiment are mentioned below. 
 
+### Building and Running The Experiments
+
+#### Requirements
+The flatbuffers compiler(flatc) is required for building this module. 
+You can refer to this [link](https://rwinslow.com/posts/how-to-install-flatbuffers/) for instructions on how to build from flatbuffers source.
+
+#### Build Commands
 The repository can be complied using `mvn clean package -DskipTests -DbuildExp` under the project root directory;
 see also [BUILDING.md](../BUILDING.md).
 
-This module has been created to house experimental projects.
-Details for running the experiment are mentioned below.
 
 ## Flatbuffers
 
