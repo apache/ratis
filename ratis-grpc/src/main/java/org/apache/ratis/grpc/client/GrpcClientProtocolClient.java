@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.grpc.client;
 
+import me.dinowernli.grpc.prometheus.MonitoringClientInterceptor;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
@@ -59,6 +60,7 @@ import org.apache.ratis.util.TimeoutScheduler;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import me.dinowernli.grpc.prometheus.Configuration;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -123,9 +125,15 @@ public class GrpcClientProtocolClient implements Closeable {
     } else {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
+
+    MonitoringClientInterceptor monitoringInterceptor =
+        MonitoringClientInterceptor.create(Configuration.cheapMetricsOnly());
+
     channel = channelBuilder.flowControlWindow(flowControlWindow.getSizeInt())
         .maxInboundMessageSize(maxMessageSize.getSizeInt())
+        .intercept((org.apache.ratis.thirdparty.io.grpc.ClientInterceptor)monitoringInterceptor)
         .build();
+
     blockingStub = RaftClientProtocolServiceGrpc.newBlockingStub(channel);
     asyncStub = RaftClientProtocolServiceGrpc.newStub(channel);
     adminBlockingStub = AdminProtocolServiceGrpc.newBlockingStub(channel);

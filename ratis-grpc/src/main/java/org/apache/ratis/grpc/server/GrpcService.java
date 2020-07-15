@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.grpc.server;
 
+import me.dinowernli.grpc.prometheus.Configuration;
+import me.dinowernli.grpc.prometheus.MonitoringServerInterceptor;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.client.GrpcClientProtocolService;
@@ -27,6 +29,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerRpcWithProxy;
+import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Server;
@@ -111,13 +114,16 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer);
 
+    MonitoringServerInterceptor monitoringInterceptor =
+        MonitoringServerInterceptor.create(Configuration.cheapMetricsOnly());
+
     NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forPort(port)
         .withChildOption(ChannelOption.SO_REUSEADDR, true)
         .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
         .flowControlWindow(flowControlWindow.getSizeInt())
-        .addService(new GrpcServerProtocolService(idSupplier, raftServer))
-        .addService(clientProtocolService)
-        .addService(new GrpcAdminProtocolService(raftServer));
+        .addService(ServerInterceptors.intercept(new GrpcServerProtocolService(idSupplier, raftServer), (org.apache.ratis.thirdparty.io.grpc.ServerInterceptor)monitoringInterceptor))
+        .addService(ServerInterceptors.intercept(clientProtocolService, (org.apache.ratis.thirdparty.io.grpc.ServerInterceptor)monitoringInterceptor))
+        .addService(ServerInterceptors.intercept(new GrpcAdminProtocolService(raftServer), (org.apache.ratis.thirdparty.io.grpc.ServerInterceptor)monitoringInterceptor));
 
     if (tlsConfig != null) {
       SslContextBuilder sslContextBuilder =
