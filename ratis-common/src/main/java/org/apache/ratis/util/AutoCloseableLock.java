@@ -40,8 +40,13 @@ public final class AutoCloseableLock implements AutoCloseable {
   }
 
   public static AutoCloseableLock acquire(final Lock lock, Runnable preUnlock) {
-    lock.lock();
-    return new AutoCloseableLock(lock, preUnlock);
+    try {
+      lock.lock();
+      return new AutoCloseableLock(lock, preUnlock);
+    } catch (Throwable t) {
+      lock.unlock();
+      throw t;
+    }
   }
 
   private final Lock underlying;
