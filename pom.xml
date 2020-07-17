@@ -298,6 +298,11 @@
         <scope>test</scope>
       </dependency>
       <dependency>
+        <artifactId>ratis-experiments</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
        <artifactId>ratis-metrics</artifactId>
        <groupId>org.apache.ratis</groupId>
        <version>${project.version}</version>
@@ -844,6 +849,17 @@
   </build>
 
   <profiles>
+    <profile>
+      <id>experiments-build</id>
+      <activation>
+        <property>
+          <name>buildExp</name>
+        </property>
+      </activation>
+      <modules>
+        <module>ratis-experiments</module>
+      </modules>
+    </profile>
     <profile>
       <id>os.linux</id>
       <activation>
