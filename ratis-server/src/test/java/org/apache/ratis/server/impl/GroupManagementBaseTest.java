@@ -29,6 +29,8 @@ import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.function.CheckedBiConsumer;
@@ -39,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -259,6 +262,8 @@ public abstract class GroupManagementBaseTest extends BaseTest {
   @Test
   public void testGroupRemove() throws Exception {
     final MiniRaftCluster cluster1 = getCluster(1);
+    RaftServerConfigKeys.setRemovedGroupsDir(cluster1.getProperties(),
+        Files.createTempDirectory("groups").toFile());
     final MiniRaftCluster cluster2 = getCluster(3);
     cluster1.start();
     final RaftPeer peer1 = cluster1.getPeers().get(0);
@@ -277,25 +282,22 @@ public abstract class GroupManagementBaseTest extends BaseTest {
         // Group2 is removed from the peerId of Group1
         client.groupRemove(group2.getGroupId(), false, peerId1);
 
+        groupIds1 = cluster1.getServer(peerId1).getGroupIds();
         // The size is 1 since the cluster1 hasn't been restarted
-        Assert.assertEquals(cluster1.getServer(peerId1).getGroupIds().size(),
-            1);
+        Assert.assertEquals(groupIds1.size(), 1);
 
         cluster1.restart(false);
 
         List<RaftGroupId> groupIdsAfterRestart =
             cluster1.getServer(peerId1).getGroupIds();
-        Assert.assertEquals(groupIdsAfterRestart.size(), groupIds1.size());
-        groupIds1.retainAll(groupIdsAfterRestart);
-        Assert.assertEquals(groupIds1.size(), 1);
+        Assert.assertEquals(groupIds1.size(), groupIdsAfterRestart.size());
 
       } catch (IOException ex) {
-        // HadoopRPC throws RemoteException, which makes it hard to check if
-        // the exception is instance of AlreadyExistsException
-        Assert.assertFalse(ex.toString().contains(
-            AlreadyExistsException.class.getCanonicalName()));
+        Assert.fail();
       } finally {
         cluster1.shutdown();
+        FileUtils.deleteFully(RaftServerConfigKeys.getRemovedGroupsDir(
+            cluster1.getProperties()));
       }
     }
   }
