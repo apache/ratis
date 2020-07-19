@@ -73,7 +73,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   static final String APPEND_ENTRIES = CLASS_NAME + ".appendEntries";
   static final String INSTALL_SNAPSHOT = CLASS_NAME + ".installSnapshot";
 
-
   private final RaftServerProxy proxy;
   private final StateMachine stateMachine;
   private final int minTimeoutMs;
@@ -343,7 +342,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
     });
   }
-
 
   public boolean isAlive() {
     return !lifeCycle.getCurrentState().isClosingOrClosed();

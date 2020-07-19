@@ -86,7 +86,7 @@ public interface FileUtils {
   }
 
   /**
-   * Moves the directory. Is any file is locked, the exception is caught
+   * Moves the directory. If any file is locked, the exception is caught
    * and logged and continues to other files.
    * @param source
    * @param dest
