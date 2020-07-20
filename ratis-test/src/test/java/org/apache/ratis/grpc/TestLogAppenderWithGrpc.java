@@ -58,8 +58,8 @@ public class TestLogAppenderWithGrpc
     RaftProperties properties = new RaftProperties();
 
     // make sure leadership check won't affect the test
-    RaftServerConfigKeys.Rpc.setTimeoutMin(properties, TimeDuration.valueOf(10, TimeUnit.SECONDS));
-    RaftServerConfigKeys.Rpc.setTimeoutMax(properties, TimeDuration.valueOf(20, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMin(properties, TimeDuration.valueOf(5, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMax(properties, TimeDuration.valueOf(10, TimeUnit.SECONDS));
 
     properties.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);

@@ -369,9 +369,9 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   public void testAppendEntriesTimeout() throws Exception {
     // make sure leadership check won't affect the test
     final TimeDuration oldTimeoutMin = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
-    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(5, TimeUnit.SECONDS));
     final TimeDuration oldTimeoutMax = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
-    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(20, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(10, TimeUnit.SECONDS));
 
     runWithNewCluster(NUM_SERVERS, this::runTestAppendEntriesTimeout);
 
@@ -410,6 +410,49 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
     //reset for the other tests
     RaftServerConfigKeys.RetryCache.setExpiryTime(getProperties(), oldExpiryTime);
+  }
+
+  @Test
+  public void testCheckLeadershipFailure() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestCheckLeadershipFailure);
+  }
+
+  void runTestCheckLeadershipFailure(CLUSTER cluster) throws Exception {
+    LOG.info("Running testCheckLeadershipFailure");
+
+    waitForLeader(cluster);
+    RaftServerImpl prevLeader = cluster.getLeader();
+    long termOfPrevLeader = prevLeader.getState().getCurrentTerm();
+    LOG.info("Previous Leader is elected on term {}", termOfPrevLeader);
+
+    try (final RaftClient client = cluster.createClient()) {
+      // block append entries request
+      cluster.getServerAliveStream()
+          .filter(impl -> !impl.isLeader())
+          .map(SimpleStateMachine4Testing::get)
+          .forEach(SimpleStateMachine4Testing::blockWriteStateMachineData);
+
+      // trigger append entries request
+      client.sendAsync(new SimpleMessage("abc"));
+
+      // default max election timeout is 300ms, 1s is long enough to
+      // trigger failure of LeaderState::checkLeadership()
+      Thread.sleep(1000);
+
+      // unblock append entries request
+      cluster.getServerAliveStream()
+          .filter(impl -> impl.getProxy().getId() != prevLeader.getProxy().getId())
+          .map(SimpleStateMachine4Testing::get)
+          .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
+    }
+
+    waitForLeader(cluster);
+    RaftServerImpl currLeader = cluster.getLeader();
+    long termOfCurrLeader = currLeader.getState().getCurrentTerm();
+    LOG.info("Current Leader is elected on term {}", termOfCurrLeader);
+
+    // leader on termOfPrevLeader should step-down.
+    Assert.assertTrue(termOfPrevLeader < termOfCurrLeader);
   }
 
   @Test

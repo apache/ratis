@@ -797,9 +797,10 @@ public class LeaderState {
   private void checkLeadership() {
     // The initial value of lastRpcResponseTime in FollowerInfo is set by
     // LeaderState::addSenders(), which is fake and used to trigger an
-    // immediate round of AppendEntries request. To ensure that leader
-    // is stable, just ignore the check if become leader soon.
-    if (server.getRole().getRoleElapsedTimeMs() < 3 * server.getMaxTimeoutMs()) {
+    // immediate round of AppendEntries request. Since candidates collect
+    // votes from majority before becoming leader, without seeing higher term,
+    // ideally, A leader is legal for election timeout if become leader soon.
+    if (server.getRole().getRoleElapsedTimeMs() < server.getMaxTimeoutMs()) {
       return;
     }
 

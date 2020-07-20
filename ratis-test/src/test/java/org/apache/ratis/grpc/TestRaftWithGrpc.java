@@ -70,9 +70,9 @@ public class TestRaftWithGrpc
   public void testUpdateViaHeartbeat() throws Exception {
     // make sure leadership check won't affect the test
     final TimeDuration oldTimeoutMin = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
-    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(10, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(5, TimeUnit.SECONDS));
     final TimeDuration oldTimeoutMax = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
-    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(20, TimeUnit.SECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(10, TimeUnit.SECONDS));
 
     runWithNewCluster(NUM_SERVERS, this::runTestUpdateViaHeartbeat);
 
