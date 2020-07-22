@@ -270,7 +270,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   public void groupRemove(boolean deleteDirectory) {
     final RaftStorageDirectory dir = state.getStorage().getStorageDir();
 
-    /* Shutdown is triggered first inorder to avoid any locked files. */
+    /* Shutdown is triggered here inorder to avoid any locked files. */
     shutdown(deleteDirectory);
 
     if(!deleteDirectory && RaftServerConfigKeys.moveRemovedGroupsEnabled
