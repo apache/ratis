@@ -50,9 +50,21 @@ public interface RaftServerConfigKeys {
     setFiles(properties::setFiles, STORAGE_DIR_KEY, storageDir);
   }
 
-  String REMOVED_GROUPS_DIR_KEY = STORAGE_DIR_KEY + ".removed.groups.dir";
+  String MOVE_REMOVED_GROUPS_ENABLED_KEY = PREFIX
+      + ".move.removed.groups.enabled";
+  boolean MOVE_REMOVED_GROUPS_ENABLED_DEFAULT = false;
+  static boolean moveRemovedGroupsEnabled(RaftProperties properties) {
+    return getBoolean(properties::getBoolean, MOVE_REMOVED_GROUPS_ENABLED_KEY,
+        MOVE_REMOVED_GROUPS_ENABLED_DEFAULT, getDefaultLog());
+  }
+  static void setMoveRemovedGroupsEnabled(RaftProperties properties,
+      boolean shouldMoveRemovedGroups) {
+    setBoolean(properties::setBoolean, MOVE_REMOVED_GROUPS_ENABLED_KEY,
+        shouldMoveRemovedGroups);
+  }
+      String REMOVED_GROUPS_DIR_KEY = PREFIX + ".removed.groups.dir";
   File REMOVED_GROUPS_DIR_DEFAULT = new File("/tmp/raft-server/removed-groups/");
-  static File getRemovedGroupsDir(RaftProperties properties) {
+  static File removedGroupsDir(RaftProperties properties) {
     return getFile(properties::getFile, REMOVED_GROUPS_DIR_KEY,
         REMOVED_GROUPS_DIR_DEFAULT, getDefaultLog());
   }

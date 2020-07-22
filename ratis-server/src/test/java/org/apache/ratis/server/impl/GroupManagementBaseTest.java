@@ -264,6 +264,8 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     final MiniRaftCluster cluster1 = getCluster(1);
     RaftServerConfigKeys.setRemovedGroupsDir(cluster1.getProperties(),
         Files.createTempDirectory("groups").toFile());
+    RaftServerConfigKeys.setMoveRemovedGroupsEnabled(cluster1.getProperties(),
+        true);
     final MiniRaftCluster cluster2 = getCluster(3);
     cluster1.start();
     final RaftPeer peer1 = cluster1.getPeers().get(0);
@@ -296,7 +298,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
         Assert.fail();
       } finally {
         cluster1.shutdown();
-        FileUtils.deleteFully(RaftServerConfigKeys.getRemovedGroupsDir(
+        FileUtils.deleteFully(RaftServerConfigKeys.removedGroupsDir(
             cluster1.getProperties()));
       }
     }

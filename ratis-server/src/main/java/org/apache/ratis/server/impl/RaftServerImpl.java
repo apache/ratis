@@ -262,21 +262,23 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   /**
    * This removes the group from the server.
    * If the flag is set to false, the directory is moved to
-   * {@link RaftServerConfigKeys#REMOVED_GROUPS_DIR_KEY} location.
+   * {@link RaftServerConfigKeys#REMOVED_GROUPS_DIR_KEY} location only if
+   * {@link RaftServerConfigKeys#MOVE_REMOVED_GROUPS_ENABLED_KEY} is enabled.
    * If the flag is true, the group is permanently deleted.
    * @param deleteDirectory
    */
   public void groupRemove(boolean deleteDirectory) {
     final RaftStorageDirectory dir = state.getStorage().getStorageDir();
 
-    /* Do not delete the directory here irrespective of the flag.
-    Shutdown is triggered inorder to avoid any locked files. */
-    shutdown(false);
-    if(!deleteDirectory) {
+    /* Shutdown is triggered first inorder to avoid any locked files. */
+    shutdown(deleteDirectory);
+
+    if(!deleteDirectory && RaftServerConfigKeys.moveRemovedGroupsEnabled
+        (proxy.getProperties())) {
       try {
         /* Create path with current group in REMOVED_GROUPS_DIR_KEY location */
         File toBeRemovedGroupFolder = new File(RaftServerConfigKeys
-            .getRemovedGroupsDir(proxy.getProperties()),
+            .removedGroupsDir(proxy.getProperties()),
             dir.getRoot().getName());
 
         FileUtils.moveDirectory(dir.getRoot().toPath(),
