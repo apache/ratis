@@ -62,6 +62,7 @@ public interface RaftServerConfigKeys {
     setBoolean(properties::setBoolean, MOVE_REMOVED_GROUPS_ENABLED_KEY,
         shouldMoveRemovedGroups);
   }
+
   String REMOVED_GROUPS_DIR_KEY = PREFIX + ".removed.groups.dir";
   File REMOVED_GROUPS_DIR_DEFAULT = new File("/tmp/raft-server/removed-groups/");
   static File removedGroupsDir(RaftProperties properties) {
