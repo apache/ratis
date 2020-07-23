@@ -1,5 +1,9 @@
 package org.apache.ratis.experiments.nettyzerocopy.server;
 
+import org.apache.ratis.experiments.nettyzerocopy.RequestData;
+import org.apache.ratis.experiments.nettyzerocopy.RequestDecoder;
+import org.apache.ratis.experiments.nettyzerocopy.ResponseData;
+import org.apache.ratis.experiments.nettyzerocopy.ResponseEncoder;
 import org.apache.ratis.flatbufs.TransferMsg;
 import org.apache.ratis.proto.netty.NettyProtos;
 import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
@@ -20,12 +24,13 @@ public class Server {
   EventLoopGroup workerGroup = new NioEventLoopGroup();
 
   private ChannelInboundHandler getClientHandler(){
-    return new SimpleChannelInboundHandler<TransferMsgProto>(){
+    return new ChannelInboundHandlerAdapter(){
       @Override
-      protected void channelRead0(ChannelHandlerContext ctx, TransferMsgProto proto) {
-        final TransferReplyProto reply = TransferReplyProto.newBuilder()
-            .setPartId(proto.getId())
-            .setMessage("OK").build();
+      public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        final ResponseData reply = new ResponseData();
+        RequestData req = (RequestData)msg;
+        System.out.println(req.getDataId());
+        reply.setId(req.getDataId());
         ctx.writeAndFlush(reply);
       }
     };
@@ -36,27 +41,27 @@ public class Server {
       public void initChannel(SocketChannel ch)
           throws Exception {
         ChannelPipeline p = ch.pipeline();
-        p.addLast(new ProtobufVarint32FrameDecoder());
-        p.addLast(new ProtobufDecoder(TransferMsgProto.getDefaultInstance()));
-        p.addLast(new ProtobufVarint32LengthFieldPrepender());
-        p.addLast(new ProtobufEncoder());
+        p.addLast(new RequestDecoder());
+        p.addLast(new ResponseEncoder());
         p.addLast(getClientHandler());
       }
     };
   }
 
-  public void setupServer(){
+  public void setupServer() throws InterruptedException {
     int port = 50053;
     String host = "localhost";
-    new ServerBootstrap()
-        .group(bossGroup, workerGroup)
+    ServerBootstrap b = new ServerBootstrap();
+    b.group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)
         .childHandler(getInitializer())
-        .bind(port)
-        .syncUninterruptibly();
+        .option(ChannelOption.SO_BACKLOG, 128)
+        .childOption(ChannelOption.SO_KEEPALIVE, true);
+
+    b.bind(port).sync();
   }
 
-  public static void main(String args[]){
+  public static void main(String args[]) throws InterruptedException {
     Server s = new Server();
     s.setupServer();
   }

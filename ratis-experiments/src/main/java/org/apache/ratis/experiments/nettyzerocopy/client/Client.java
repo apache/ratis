@@ -18,6 +18,10 @@
 
 package org.apache.ratis.experiments.nettyzerocopy.client;
 
+import org.apache.ratis.experiments.nettyzerocopy.RequestData;
+import org.apache.ratis.experiments.nettyzerocopy.RequestEncoder;
+import org.apache.ratis.experiments.nettyzerocopy.ResponseData;
+import org.apache.ratis.experiments.nettyzerocopy.ResponseDecoder;
 import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
@@ -35,30 +39,29 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 public class Client{
-  int times = 100000;
+  int times = 100;
   Channel channel;
   EventLoopGroup workerGroup = new NioEventLoopGroup();
 
   private ChannelInboundHandler getClientHandler(){
-    return new SimpleChannelInboundHandler<TransferReply>(){
+    return new SimpleChannelInboundHandler<ResponseData>(){
       @Override
-      protected void channelRead0(ChannelHandlerContext ctx, TransferReply proto) {
-        if(proto.getId() == times){
+      protected void channelRead0(ChannelHandlerContext ctx, ResponseData reply) {
+        if(reply.getId() == times){
           ctx.close();
         }
       }
     };
   }
+
   private ChannelInitializer<SocketChannel> getInitializer(){
     return new ChannelInitializer<SocketChannel>(){
       @Override
       public void initChannel(SocketChannel ch)
           throws Exception {
         ChannelPipeline p = ch.pipeline();
-        p.addLast(new ProtobufVarint32FrameDecoder());
-        p.addLast(new ProtobufDecoder(TransferReplyProto.getDefaultInstance()));
-        p.addLast(new ProtobufVarint32LengthFieldPrepender());
-        p.addLast(new ProtobufEncoder());
+        p.addLast(new RequestEncoder());
+        p.addLast(new ResponseDecoder());
         p.addLast(getClientHandler());
       }
     };
@@ -75,20 +78,23 @@ public class Client{
       Arrays.fill(bf.array(), (byte) 'a');
     }
     while(i < times){
-      TransferMsgProto msg = TransferMsgProto.newBuilder().
-          setPartId(i).
-          setData(UnsafeByteOperations.unsafeWrap(bf)).build();
+      RequestData msg = new RequestData();
+      msg.setDataId(i);
+      //bf.position(0).limit(bf.capacity());
+      //msg.setBuff(bf.slice());
       transferMessage(msg);
+      i++;
     }
   }
 
   public void setupClient() throws Exception{
     String host = "localhost";
-    int port = 50051;
+    int port = 50053;
     channel = (new Bootstrap())
         .group(workerGroup)
         .channel(NioSocketChannel.class)
         .handler(getInitializer())
+        .option(ChannelOption.SO_KEEPALIVE, true)
         .connect(host, port)
         .sync()
         .channel();
