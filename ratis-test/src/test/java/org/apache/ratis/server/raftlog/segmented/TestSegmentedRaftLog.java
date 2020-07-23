@@ -522,19 +522,20 @@ public class TestSegmentedRaftLog extends BaseTest {
 
       sm.blockFlushStateMachineData();
       raftLog.appendEntry(entries.get(next++));
-      {
-        sm.blockWriteStateMachineData();
-        final Thread t = startAppendEntryThread(raftLog, entries.get(next++));
-        TimeUnit.SECONDS.sleep(1);
-        Assert.assertTrue(t.isAlive());
-        sm.unblockWriteStateMachineData();
-        t.join();
-      }
+
+      sm.blockWriteStateMachineData();
+      final Thread t = startAppendEntryThread(raftLog, entries.get(next++));
+      TimeUnit.SECONDS.sleep(1);
+      Assert.assertTrue(t.isAlive());
+      sm.unblockWriteStateMachineData();
+
       assertIndices(raftLog, flush, next);
       TimeUnit.SECONDS.sleep(1);
       assertIndices(raftLog, flush, next);
       sm.unblockFlushStateMachineData();
       assertIndicesMultipleAttempts(raftLog, flush + 2, next);
+
+      t.join();
     }
   }
 
@@ -588,7 +589,13 @@ public class TestSegmentedRaftLog extends BaseTest {
   }
 
   static Thread startAppendEntryThread(RaftLog raftLog, LogEntryProto entry) {
-    final Thread t = new Thread(() -> raftLog.appendEntry(entry));
+    final Thread t = new Thread(() -> {
+      try {
+        raftLog.appendEntry(entry).get();
+      } catch (Throwable e) {
+        // just ignore
+      }
+    });
     t.start();
     return t;
   }

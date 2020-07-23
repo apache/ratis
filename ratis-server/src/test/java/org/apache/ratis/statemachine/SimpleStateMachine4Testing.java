@@ -61,6 +61,8 @@ import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -77,6 +79,7 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       = "raft.test.simple.state.machine.take.snapshot";
   private static final boolean RAFT_TEST_SIMPLE_STATE_MACHINE_TAKE_SNAPSHOT_DEFAULT = false;
   private boolean notifiedAsLeader;
+  private final Executor executor = Executors.newCachedThreadPool();
 
   public static SimpleStateMachine4Testing get(RaftServerImpl s) {
     return (SimpleStateMachine4Testing)s.getStateMachine();
@@ -358,20 +361,26 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Void> write(LogEntryProto entry) {
-    blocking.await(Blocking.Type.WRITE_STATE_MACHINE_DATA);
-    return CompletableFuture.completedFuture(null);
+    return CompletableFuture.supplyAsync(() -> {
+      blocking.await(Blocking.Type.WRITE_STATE_MACHINE_DATA);
+      return null;
+    }, executor);
   }
 
   @Override
   public CompletableFuture<ByteString> read(LogEntryProto entry) {
-    blocking.await(Blocking.Type.READ_STATE_MACHINE_DATA);
-    return CompletableFuture.completedFuture(STATE_MACHINE_DATA);
+    return CompletableFuture.supplyAsync(() -> {
+      blocking.await(Blocking.Type.READ_STATE_MACHINE_DATA);
+      return null;
+    }, executor);
   }
 
   @Override
   public CompletableFuture<Void> flush(long index) {
-    blocking.await(Blocking.Type.FLUSH_STATE_MACHINE_DATA);
-    return CompletableFuture.completedFuture(null);
+    return CompletableFuture.supplyAsync(() -> {
+      blocking.await(Blocking.Type.FLUSH_STATE_MACHINE_DATA);
+      return null;
+    }, executor);
   }
 
   @Override
