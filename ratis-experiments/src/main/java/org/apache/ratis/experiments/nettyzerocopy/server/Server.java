@@ -4,20 +4,12 @@ import org.apache.ratis.experiments.nettyzerocopy.RequestData;
 import org.apache.ratis.experiments.nettyzerocopy.RequestDecoder;
 import org.apache.ratis.experiments.nettyzerocopy.ResponseData;
 import org.apache.ratis.experiments.nettyzerocopy.ResponseEncoder;
-import org.apache.ratis.flatbufs.TransferMsg;
-import org.apache.ratis.proto.netty.NettyProtos;
-import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketChannel;
-import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufDecoder;
-import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufEncoder;
-import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
-import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
-import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
-import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
+
 
 public class Server {
   EventLoopGroup bossGroup = new NioEventLoopGroup();
@@ -29,7 +21,6 @@ public class Server {
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         final ResponseData reply = new ResponseData();
         RequestData req = (RequestData)msg;
-        System.out.println(req.getDataId());
         reply.setId(req.getDataId());
         ctx.writeAndFlush(reply);
       }

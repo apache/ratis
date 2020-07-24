@@ -22,18 +22,11 @@ import org.apache.ratis.experiments.nettyzerocopy.RequestData;
 import org.apache.ratis.experiments.nettyzerocopy.RequestEncoder;
 import org.apache.ratis.experiments.nettyzerocopy.ResponseData;
 import org.apache.ratis.experiments.nettyzerocopy.ResponseDecoder;
-import org.apache.ratis.thirdparty.com.google.protobuf.UnsafeByteOperations;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
-import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufDecoder;
-import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufEncoder;
-import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
-import org.apache.ratis.thirdparty.io.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
-import org.apache.ratis.proto.ExperimentsProtos.TransferMsgProto;
-import org.apache.ratis.proto.ExperimentsProtos.TransferReplyProto;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -44,9 +37,11 @@ public class Client{
   EventLoopGroup workerGroup = new NioEventLoopGroup();
 
   private ChannelInboundHandler getClientHandler(){
-    return new SimpleChannelInboundHandler<ResponseData>(){
+    return new ChannelInboundHandlerAdapter(){
       @Override
-      protected void channelRead0(ChannelHandlerContext ctx, ResponseData reply) {
+      public void channelRead(ChannelHandlerContext ctx, Object msg) {
+        final ResponseData reply = (ResponseData)msg;
+        System.out.println(reply.getId());
         if(reply.getId() == times){
           ctx.close();
         }
@@ -71,20 +66,22 @@ public class Client{
     channel.writeAndFlush(msg);
   }
 
-  public void startTransfer(){
-    int i = 0;
+  public void startTransfer() throws InterruptedException {
+    int cur = 1;
     ByteBuffer bf = ByteBuffer.allocateDirect(1024*1024);
-    if(bf.hasArray()){
-      Arrays.fill(bf.array(), (byte) 'a');
+    for (int i = 0; i < bf.capacity(); i++) {
+      bf.put((byte)'a');
     }
-    while(i < times){
+    bf.flip();
+    while(cur <= times){
       RequestData msg = new RequestData();
-      msg.setDataId(i);
-      //bf.position(0).limit(bf.capacity());
-      //msg.setBuff(bf.slice());
+      msg.setDataId(cur);
+      bf.position(0).limit(bf.capacity());
+      msg.setBuff(bf.slice());
       transferMessage(msg);
-      i++;
+      cur++;
     }
+    System.out.println("Done....");
   }
 
   public void setupClient() throws Exception{

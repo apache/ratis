@@ -12,7 +12,8 @@ public class ResponseDecoder
     extends ReplayingDecoder<ResponseData> {
 
   @Override
-  protected void decode(ChannelHandlerContext channelHandlerContext, ByteBuf byteBuf, List<Object> list) throws Exception {
+  protected void decode(ChannelHandlerContext channelHandlerContext,
+                        ByteBuf byteBuf, List<Object> list) throws Exception {
     ResponseData reply = new ResponseData();
     reply.setId(byteBuf.readInt());
     list.add(reply);
