@@ -163,8 +163,8 @@ public interface JavaUtils {
           throw t;
         }
         if (log != null && log.isWarnEnabled()) {
-          log.warn("FAILED \"" + name.get() + "\", attempt #" + i + "/" + numAttempts
-              + ": " + t + ", sleep " + sleepTime + " and then retry.", t);
+          log.warn("FAILED \"{}\", attempt #{}/{}: {}, sleep {} and then "
+              + "retry.", name.get(), i, numAttempts, t, sleepTime, t);
         }
       }
 

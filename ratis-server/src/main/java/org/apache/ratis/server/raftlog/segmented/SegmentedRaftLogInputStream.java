@@ -119,7 +119,7 @@ public class SegmentedRaftLogInputStream implements Closeable {
         try {
           init();
         } catch (Throwable e) {
-          LOG.error("caught exception initializing " + this, e);
+          LOG.error("caught exception initializing {}", this, e);
           throw IOUtils.asIOException(e);
         }
     }
@@ -196,7 +196,7 @@ public class SegmentedRaftLogInputStream implements Closeable {
       // read the header, initialize the inputstream
       in.init();
     } catch (EOFException e) {
-      LOG.warn("Log file " + file + " has no valid header", e);
+      LOG.warn("Log file {} has no valid header", file, e);
       return new LogValidation(0, INVALID_LOG_INDEX, true);
     }
 
@@ -231,7 +231,7 @@ public class SegmentedRaftLogInputStream implements Closeable {
         if (hitError) {
           LogEntryProto entry = in.nextEntry();
           index = entry != null ? entry.getIndex() : INVALID_LOG_INDEX;
-          LOG.warn("After resync, position is " + in.getPosition());
+          LOG.warn("After resync, position is {}", in.getPosition());
         } else {
           index = in.scanNextEntry();
         }
@@ -242,8 +242,8 @@ public class SegmentedRaftLogInputStream implements Closeable {
         }
       } catch (Throwable t) {
         LOG.warn("Caught exception after scanning through {} ops from {}"
-            + " while determining its valid length. Position was "
-            + lastPos, numValid, in, t);
+            + " while determining its valid length. Position was {}",
+            numValid, in, lastPos, t);
         hitError = true;
         continue;
       }

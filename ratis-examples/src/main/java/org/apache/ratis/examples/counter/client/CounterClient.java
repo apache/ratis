@@ -59,7 +59,7 @@ public final class CounterClient {
     ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     //send INCREMENT commands concurrently
-    System.out.printf("Sending %d increment command...\n", increment);
+    System.out.printf("Sending %d increment command...%n", increment);
     for (int i = 0; i < increment; i++) {
       executorService.submit(() ->
           raftClient.send(Message.valueOf("INCREMENT")));

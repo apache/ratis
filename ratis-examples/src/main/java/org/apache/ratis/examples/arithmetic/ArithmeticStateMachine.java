@@ -98,8 +98,8 @@ public class ArithmeticStateMachine extends BaseStateMachine {
         new BufferedOutputStream(new FileOutputStream(snapshotFile)))) {
       out.writeObject(copy);
     } catch(IOException ioe) {
-      LOG.warn("Failed to write snapshot file \"" + snapshotFile
-          + "\", last applied index=" + last);
+      LOG.warn("Failed to write snapshot file \"{}\", last applied index={}",
+          snapshotFile, last);
     }
 
     return last.getIndex();

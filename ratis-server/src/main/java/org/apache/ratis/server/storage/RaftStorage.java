@@ -81,8 +81,8 @@ public class RaftStorage implements Closeable {
   private void format() throws IOException {
     storageDir.clearDirectory();
     metaFile = writeMetaFile(MetaFile.DEFAULT_TERM, MetaFile.EMPTY_VOTEFOR);
-    LOG.info("Storage directory " + storageDir.getRoot()
-        + " has been successfully formatted.");
+    LOG.info("Storage directory {} has been successfully formatted.",
+        storageDir.getRoot());
   }
 
   private MetaFile writeMetaFile(long term, String votedFor) throws IOException {
@@ -134,7 +134,7 @@ public class RaftStorage implements Closeable {
     try (FileOutputStream fio = new FileOutputStream(confFile)) {
       conf.writeTo(fio);
     } catch (Exception e) {
-      LOG.error("Failed writing configuration to file:" + confFile, e);
+      LOG.error("Failed writing configuration to file:{}", confFile, e);
     }
   }
 
@@ -144,7 +144,7 @@ public class RaftStorage implements Closeable {
       LogEntryProto confProto = LogEntryProto.newBuilder().mergeFrom(fio).build();
       return ServerProtoUtils.toRaftConfiguration(confProto);
     } catch (Exception e) {
-      LOG.error("Failed reading configuration from file:" + confFile, e);
+      LOG.error("Failed reading configuration from file:{}", confFile, e);
       return null;
     }
   }

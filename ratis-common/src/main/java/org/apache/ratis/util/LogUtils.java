@@ -38,15 +38,15 @@ public interface LogUtils {
       op.run();
     } catch (Throwable t) {
       if (log.isTraceEnabled()) {
-        log.trace("Failed to " + opName.get(), t);
+        log.trace("Failed to {}", opName.get(), t);
       } else if (log.isWarnEnabled()){
-        log.warn("Failed to " + opName.get() + ": " + t);
+        log.warn("Failed to {}: {}", opName.get(), t);
       }
       throw t;
     }
 
     if (log.isTraceEnabled()) {
-      log.trace("Successfully ran " + opName.get());
+      log.trace("Successfully ran {}", opName.get());
     }
   }
 
@@ -58,16 +58,16 @@ public interface LogUtils {
       output = supplier.get();
     } catch (Throwable t) {
       if (log.isTraceEnabled()) {
-        log.trace("Failed to " + name.get(), t);
+        log.trace("Failed to {}", name.get(), t);
       } else if (log.isWarnEnabled()){
-        log.warn("Failed to " + name.get() + ": " + t);
+        log.warn("Failed to {}: {}", name.get(), t);
       }
       final THROWABLE throwable = JavaUtils.cast(t);
       throw throwable;
     }
 
     if (log.isTraceEnabled()) {
-      log.trace("Successfully supplied " + name.get() + ": " + output);
+      log.trace("Successfully supplied {}: {}", name.get(), output);
     }
     return output;
   }
@@ -119,7 +119,7 @@ public interface LogUtils {
     if (log.isWarnEnabled()) {
       if (ReflectionUtils.isInstance(t, exceptionClasses)) {
         // do not print stack trace for known exceptions.
-        log.warn(message.get() + ": " + t);
+        log.warn("{}: {}", message.get(), t);
       } else {
         log.warn(message.get(), t);
       }

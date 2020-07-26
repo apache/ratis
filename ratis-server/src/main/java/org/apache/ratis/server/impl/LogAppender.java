@@ -78,15 +78,15 @@ public class LogAppender {
       try {
         runAppenderImpl();
       } catch (InterruptedException | InterruptedIOException e) {
-        LOG.info(this + " was interrupted: " + e);
+        LOG.info("{} was interrupted: {}", this, e);
       } catch (RaftLogIOException e) {
-        LOG.error(this + " failed RaftLog", e);
+        LOG.error("{} failed RaftLog", this, e);
         transitionLifeCycle(EXCEPTION);
       } catch (IOException e) {
-        LOG.error(this + " failed IOException", e);
+        LOG.error("{} failed IOException", this, e);
         transitionLifeCycle(EXCEPTION);
       } catch (Throwable e) {
-        LOG.error(this + " unexpected exception", e);
+        LOG.error("{} unexpected exception", this, e);
         transitionLifeCycle(EXCEPTION);
       } finally {
         synchronized (lifeCycle) {

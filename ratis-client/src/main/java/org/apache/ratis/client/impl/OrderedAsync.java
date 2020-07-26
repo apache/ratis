@@ -238,7 +238,7 @@ public final class OrderedAsync {
       return reply;
     }).exceptionally(e -> {
       if (LOG.isTraceEnabled()) {
-        LOG.trace(client.getId() + ": Failed* " + request, e);
+        LOG.trace("{} : Failed* {}", client.getId(), request, e);
       } else {
         LOG.debug("{}: Failed* {} with {}", client.getId(), request, e);
       }

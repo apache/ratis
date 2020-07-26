@@ -105,8 +105,8 @@ public class CounterStateMachine extends BaseStateMachine {
         new BufferedOutputStream(new FileOutputStream(snapshotFile)))) {
       out.writeObject(counter);
     } catch (IOException ioe) {
-      LOG.warn("Failed to write snapshot file \"" + snapshotFile
-          + "\", last applied index=" + last);
+      LOG.warn("Failed to write snapshot file \"{}\", last applied index={}",
+          snapshotFile, last);
     }
 
     //return the index of the stored snapshot (which is the last applied one)
@@ -202,7 +202,7 @@ public class CounterStateMachine extends BaseStateMachine {
 
     //if leader, log the incremented value and it's log index
     if (trx.getServerRole() == RaftProtos.RaftPeerRole.LEADER) {
-      LOG.info("{}: Increment to {}", index, counter.toString());
+      LOG.info("{}: Increment to {}", index, counter);
     }
 
     return f;

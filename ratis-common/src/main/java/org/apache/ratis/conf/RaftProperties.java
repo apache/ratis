@@ -911,8 +911,8 @@ public class RaftProperties {
     try {
       return Pattern.compile(valString);
     } catch (PatternSyntaxException pse) {
-      LOG.warn("Regular expression '" + valString + "' for property '" +
-               name + "' not valid. Using default", pse);
+      LOG.warn("Regular expression {} for property {} not valid. Using default",
+          valString, name, pse);
       return defaultValue;
     }
   }
@@ -1088,7 +1088,7 @@ public class RaftProperties {
 
   private Document parse(DocumentBuilder builder, URL url)
       throws IOException, SAXException {
-    LOG.debug("parsing URL " + url);
+    LOG.debug("parsing URL {}", url);
     if (url == null) {
       return null;
     }
@@ -1104,7 +1104,7 @@ public class RaftProperties {
 
   private Document parse(DocumentBuilder builder, InputStream is,
       String systemId) throws IOException, SAXException {
-    LOG.debug("parsing input stream " + is);
+    LOG.debug("parsing input stream {}", is);
     if (is == null) {
       return null;
     }
@@ -1146,7 +1146,7 @@ public class RaftProperties {
       try {
           docBuilderFactory.setXIncludeAware(true);
       } catch (UnsupportedOperationException e) {
-        LOG.error("Failed to set setXIncludeAware(true) for parser " + docBuilderFactory + ":" + e, e);
+        LOG.error("Failed to set setXIncludeAware(true) for parser {}:{}", docBuilderFactory, e, e);
       }
       DocumentBuilder builder = docBuilderFactory.newDocumentBuilder();
       Document doc = null;
@@ -1257,7 +1257,7 @@ public class RaftProperties {
       return null;
     } catch (IOException | DOMException | SAXException |
         ParserConfigurationException e) {
-      LOG.error("error parsing conf " + name, e);
+      LOG.error("error parsing conf {}", name, e);
       throw new RuntimeException(e);
     }
   }
@@ -1277,8 +1277,7 @@ public class RaftProperties {
           updatingResource.put(attr, source);
         }
       } else if (!value.equals(prop.getProperty(attr))) {
-        LOG.warn(name+":an attempt to override final parameter: "+attr
-            +";  Ignoring.");
+        LOG.warn("{}:an attempt to override final parameter: {};  Ignoring.", name, attr);
       }
     }
     if (finalParameter && attr != null) {

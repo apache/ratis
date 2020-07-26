@@ -292,7 +292,7 @@ public class GrpcClientStreamer implements Closeable {
 
     @Override
     public void onError(Throwable t) {
-      LOG.warn(this + " onError", t);
+      LOG.warn("{} onError", this, t);
       if (active) {
         synchronized (GrpcClientStreamer.this) {
           handleError(t, this);

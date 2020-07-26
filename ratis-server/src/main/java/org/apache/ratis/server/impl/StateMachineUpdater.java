@@ -128,7 +128,8 @@ class StateMachineUpdater implements Runnable {
       stateMachine.close();
       stateMachineMetrics.unregister();
     } catch(Throwable t) {
-      LOG.warn(name + ": Failed to close " + stateMachine.getClass().getSimpleName() + " " + stateMachine, t);
+      LOG.warn("{}: Failed to close {} {}",
+          name, stateMachine.getClass().getSimpleName(), stateMachine, t);
     }
   }
 
@@ -269,7 +270,7 @@ class StateMachineUpdater implements Runnable {
       }
       stateMachine.getStateMachineStorage().cleanupOldSnapshots(snapshotRetentionPolicy);
     } catch (IOException e) {
-      LOG.error(name + ": Failed to take snapshot", e);
+      LOG.error("{}: Failed to take snapshot", name, e);
       return;
     }
 

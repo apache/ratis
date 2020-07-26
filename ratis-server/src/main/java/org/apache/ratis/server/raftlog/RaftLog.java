@@ -252,7 +252,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
         return false;
       }
     } catch(RaftLogIOException e) {
-      LOG.error("Failed to get log entry for index " + newCommitIndex, e);
+      LOG.error("Failed to get log entry for index {}", newCommitIndex, e);
     }
     return true;
   }
@@ -386,7 +386,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
         purgeIndex.updateToMax(purged, infoIndexChange);
       }
       if (e != null) {
-        LOG.warn(getName() + ": Failed to purge " + suggestedIndex, e);
+        LOG.warn("{}: Failed to purge {}", getName(), suggestedIndex, e);
       }
     });
   }
