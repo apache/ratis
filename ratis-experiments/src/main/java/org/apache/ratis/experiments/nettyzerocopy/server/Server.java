@@ -1,9 +1,6 @@
 package org.apache.ratis.experiments.nettyzerocopy.server;
 
-import org.apache.ratis.experiments.nettyzerocopy.RequestData;
-import org.apache.ratis.experiments.nettyzerocopy.RequestDecoder;
-import org.apache.ratis.experiments.nettyzerocopy.ResponseData;
-import org.apache.ratis.experiments.nettyzerocopy.ResponseEncoder;
+import org.apache.ratis.experiments.nettyzerocopy.*;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
@@ -32,7 +29,7 @@ public class Server {
       public void initChannel(SocketChannel ch)
           throws Exception {
         ChannelPipeline p = ch.pipeline();
-        p.addLast(new RequestDecoder());
+        p.addLast(new RequestDecoderComposite());
         p.addLast(new ResponseEncoder());
         p.addLast(getClientHandler());
       }

@@ -32,18 +32,26 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 public class Client{
-  int times = 100;
+  int times = 1000;
   Channel channel;
   EventLoopGroup workerGroup = new NioEventLoopGroup();
+
+  private void closeClient() throws InterruptedException {
+    try {
+      channel.closeFuture().sync();
+    } finally {
+      workerGroup.shutdownGracefully();
+    }
+  }
 
   private ChannelInboundHandler getClientHandler(){
     return new ChannelInboundHandlerAdapter(){
       @Override
-      public void channelRead(ChannelHandlerContext ctx, Object msg) {
+      public void channelRead(ChannelHandlerContext ctx, Object msg) throws InterruptedException {
         final ResponseData reply = (ResponseData)msg;
-        System.out.println(reply.getId());
         if(reply.getId() == times){
-          ctx.close();
+          System.out.println("Received all messages, closing client.");
+          closeClient();
         }
       }
     };
