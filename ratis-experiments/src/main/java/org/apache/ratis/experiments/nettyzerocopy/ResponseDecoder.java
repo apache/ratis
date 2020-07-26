@@ -5,7 +5,6 @@ import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ReplayingDecoder;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 
 public class ResponseDecoder

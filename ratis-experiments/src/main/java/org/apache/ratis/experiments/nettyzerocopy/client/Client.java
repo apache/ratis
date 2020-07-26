@@ -29,12 +29,23 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 public class Client{
-  int times = 1000;
-  Channel channel;
-  EventLoopGroup workerGroup = new NioEventLoopGroup();
+  private final int times = 1000;
+  private Channel channel;
+  private final EventLoopGroup workerGroup = new NioEventLoopGroup();
+
+  public int getTimes() {
+    return times;
+  }
+
+  public EventLoopGroup getWorkerGroup() {
+    return workerGroup;
+  }
+
+  public Channel getChannel() {
+    return channel;
+  }
 
   private void closeClient() throws InterruptedException {
     try {
@@ -105,7 +116,7 @@ public class Client{
         .channel();
   }
 
-  public static void main(String args[]) throws Exception{
+  public static void main(String[] args) throws Exception{
       Client c = new Client();
       c.setupClient();
       c.startTransfer();

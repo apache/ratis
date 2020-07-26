@@ -9,8 +9,16 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketCh
 
 
 public class Server {
-  EventLoopGroup bossGroup = new NioEventLoopGroup();
-  EventLoopGroup workerGroup = new NioEventLoopGroup();
+  private EventLoopGroup bossGroup = new NioEventLoopGroup();
+  private EventLoopGroup workerGroup = new NioEventLoopGroup();
+
+  public EventLoopGroup getBossGroup(){
+    return bossGroup;
+  }
+
+  public EventLoopGroup getWorkerGroup() {
+    return workerGroup;
+  }
 
   private ChannelInboundHandler getClientHandler(){
     return new ChannelInboundHandlerAdapter(){
@@ -49,7 +57,7 @@ public class Server {
     b.bind(port).sync();
   }
 
-  public static void main(String args[]) throws InterruptedException {
+  public static void main(String[] args) throws InterruptedException {
     Server s = new Server();
     s.setupServer();
   }
