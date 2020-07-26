@@ -202,7 +202,7 @@ public class CounterStateMachine extends BaseStateMachine {
 
     //if leader, log the incremented value and it's log index
     if (trx.getServerRole() == RaftProtos.RaftPeerRole.LEADER) {
-      LOG.info("{}: Increment to {}", index, counter);
+      LOG.info("{}: Increment to {}", index, counter.toString());
     }
 
     return f;

@@ -340,7 +340,7 @@ public class RaftStorageDirectory {
         throw new OverlappingFileLockException();
       }
       file.write(jvmName.getBytes(StandardCharsets.UTF_8));
-      LOG.info("Lock on {} acquired by nodename {}", lockF, jvmName);
+      LOG.info("Lock on {} acquired by nodename {}", lockF.toString(), jvmName);
     } catch (OverlappingFileLockException oe) {
       // Cannot read from the locked file on Windows.
       LOG.error("It appears that another process "
@@ -350,7 +350,7 @@ public class RaftStorageDirectory {
     } catch(IOException e) {
       LOG.error("Failed to acquire lock on {}. "
           + "If this storage directory is mounted via NFS, "
-          + "ensure that the appropriate nfs lock services are running.", lockF, e);
+          + "ensure that the appropriate nfs lock services are running.", lockF.toString(), e);
       file.close();
       throw e;
     }

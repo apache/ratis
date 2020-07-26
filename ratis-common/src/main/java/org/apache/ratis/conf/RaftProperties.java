@@ -911,7 +911,7 @@ public class RaftProperties {
     try {
       return Pattern.compile(valString);
     } catch (PatternSyntaxException pse) {
-      LOG.warn("Regular expression {} for property {} not valid. Using default",
+      LOG.warn("Regular expression '{}' for property {} not valid. Using default",
           valString, name, pse);
       return defaultValue;
     }
