@@ -145,9 +145,13 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
       future.complete(null);
     }
 
+    CompletableFuture<Void> getFuture(Type type) {
+      return maps.getOrDefault(type, CompletableFuture.completedFuture(null));
+    }
+
     void await(Type type) {
       try {
-        maps.getOrDefault(type, CompletableFuture.completedFuture(null)).get();
+        getFuture(type).get();
       } catch(InterruptedException | ExecutionException e) {
         throw new IllegalStateException("Failed to await " + type, e);
       }
@@ -358,20 +362,18 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
 
   @Override
   public CompletableFuture<Void> write(LogEntryProto entry) {
-    blocking.await(Blocking.Type.WRITE_STATE_MACHINE_DATA);
-    return CompletableFuture.completedFuture(null);
+    return blocking.getFuture(Blocking.Type.WRITE_STATE_MACHINE_DATA);
   }
 
   @Override
   public CompletableFuture<ByteString> read(LogEntryProto entry) {
-    blocking.await(Blocking.Type.READ_STATE_MACHINE_DATA);
-    return CompletableFuture.completedFuture(STATE_MACHINE_DATA);
+    return blocking.getFuture(Blocking.Type.READ_STATE_MACHINE_DATA)
+                   .thenApply((v) -> null);
   }
 
   @Override
   public CompletableFuture<Void> flush(long index) {
-    blocking.await(Blocking.Type.FLUSH_STATE_MACHINE_DATA);
-    return CompletableFuture.completedFuture(null);
+    return blocking.getFuture(Blocking.Type.FLUSH_STATE_MACHINE_DATA);
   }
 
   @Override
