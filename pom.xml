@@ -202,7 +202,6 @@
     <build-helper-maven-plugin.version>1.9</build-helper-maven-plugin.version>
     <exec-maven-plugin.version>1.6.0</exec-maven-plugin.version>
     <findbugs.version>3.0.0</findbugs.version>
-    <native-maven-plugin.version>1.0-alpha-8</native-maven-plugin.version>
     <wagon-ssh.version>1.0</wagon-ssh.version>
 
     <distMgmtSnapshotsId>apache.snapshots.https</distMgmtSnapshotsId>
@@ -296,6 +295,11 @@
         <version>${project.version}</version>
         <type>test-jar</type>
         <scope>test</scope>
+      </dependency>
+      <dependency>
+        <artifactId>ratis-experiments</artifactId>
+        <groupId>org.apache.ratis</groupId>
+        <version>${project.version}</version>
       </dependency>
       <dependency>
        <artifactId>ratis-metrics</artifactId>
@@ -549,11 +553,6 @@
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>findbugs-maven-plugin</artifactId>
           <version>${findbugs.version}</version>
-        </plugin>
-        <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>native-maven-plugin</artifactId>
-          <version>${native-maven-plugin.version}</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -844,6 +843,17 @@
   </build>
 
   <profiles>
+    <profile>
+      <id>experiments-build</id>
+      <activation>
+        <property>
+          <name>buildExp</name>
+        </property>
+      </activation>
+      <modules>
+        <module>ratis-experiments</module>
+      </modules>
+    </profile>
     <profile>
       <id>os.linux</id>
       <activation>

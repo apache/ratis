@@ -195,7 +195,7 @@ public class TestExceptionDependentRetry implements MiniRaftClusterWithGrpc.Fact
       Assert.fail("Test should have failed.");
     } catch (ExecutionException e) {
       RaftRetryFailureException rrfe = (RaftRetryFailureException) e.getCause();
-      Assert.assertEquals(6, rrfe.getAttemptCount());
+      Assert.assertEquals(16, rrfe.getAttemptCount());
     } finally {
       ((SimpleStateMachine4Testing)leader.getStateMachine()).unblockWriteStateMachineData();
       cluster.shutdown();
