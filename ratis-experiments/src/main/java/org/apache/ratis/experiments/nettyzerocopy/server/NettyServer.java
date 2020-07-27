@@ -28,7 +28,11 @@ import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketChannel;
 
-
+/**
+ * A server program that handles messages from Client
+ * using {@link RequestDecoderComposite}, allowing for
+ * zero-copy on the server.
+ */
 public class NettyServer {
   private EventLoopGroup bossGroup = new NioEventLoopGroup();
   private EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -41,7 +45,12 @@ public class NettyServer {
     return workerGroup;
   }
 
-  private ChannelInboundHandler getClientHandler(){
+  /**
+   * Casts inbound message as {@link RequestDataComposite}
+   * because a NIO CompositeByteBuf interface is needed to allow for zero-copy.
+   * @return ChannelInboundHandler
+   */
+  private ChannelInboundHandler getServerHandler(){
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
@@ -52,6 +61,7 @@ public class NettyServer {
       }
     };
   }
+
   private ChannelInitializer<SocketChannel> getInitializer(){
     return new ChannelInitializer<SocketChannel>(){
       @Override
@@ -60,7 +70,7 @@ public class NettyServer {
         ChannelPipeline p = ch.pipeline();
         p.addLast(new RequestDecoderComposite());
         p.addLast(new ResponseEncoder());
-        p.addLast(getClientHandler());
+        p.addLast(getServerHandler());
       }
     };
   }

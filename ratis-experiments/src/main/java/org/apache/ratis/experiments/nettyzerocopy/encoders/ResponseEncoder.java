@@ -26,6 +26,11 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncode
 import java.nio.ByteBuffer;
 import java.util.List;
 
+/**
+ * Encoder class for {@link ResponseData}
+ * Writes ID of the response to the outbound message.
+ */
+
 public class ResponseEncoder
     extends MessageToMessageEncoder<ResponseData> {
 

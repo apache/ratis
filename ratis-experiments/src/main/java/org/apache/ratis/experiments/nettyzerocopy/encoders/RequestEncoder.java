@@ -26,6 +26,11 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncode
 import java.nio.ByteBuffer;
 import java.util.List;
 
+
+/**
+ * Encoder class for {@link RequestData}
+ * Writes ID, Length of the buffer and buffer to the outbound message.
+ */
 public class RequestEncoder
     extends MessageToMessageEncoder<RequestData> {
 

@@ -30,6 +30,11 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.nio.ByteBuffer;
 
+/**
+ * A client program the utilizes Netty async-I/O to
+ * stream 10,000 messages using {@link RequestEncoder}
+ * with zero-copy semantics.
+ */
 public class NettyClient {
   private final int times = 10000;
   private Channel channel;
@@ -54,9 +59,14 @@ public class NettyClient {
 
   public void timeClient(){
     long endTime = System.nanoTime();
-    System.out.printf("Time taken by Client to send %d messages is %f seconds\n", times, (double)(endTime - startTime)/(1000*1000*1000));
+    System.out.printf("Time taken by Client to send %d messages is %f seconds\n",
+        times, (double)(endTime - startTime)/(1000*1000*1000));
   }
 
+  /**
+   * Closes client worker, invoked on program completion
+   * @throws InterruptedException
+   */
   private void closeClient() throws InterruptedException {
     try {
       channel.closeFuture().sync();
@@ -65,7 +75,11 @@ public class NettyClient {
     }
   }
 
-  private ChannelInboundHandler getServerHandler(){
+  /**
+   * Client handler for server messages.
+   * @return ChannelInboundHandler
+   */
+  private ChannelInboundHandler getClientHandler(){
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws InterruptedException {
@@ -87,7 +101,7 @@ public class NettyClient {
         ChannelPipeline p = ch.pipeline();
         p.addLast(new RequestEncoder());
         p.addLast(new ResponseDecoder());
-        p.addLast(getServerHandler());
+        p.addLast(getClientHandler());
       }
     };
   }

@@ -24,6 +24,13 @@ import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import java.util.List;
 
+/**
+ * A decoder extending generic {@link ByteToMessageDecoder}
+ * Reads from inbound message and checks if the message is valid.
+ * If yes creates a {@link RequestData} instance and writes to inbound list.
+ * Not zero-copy. Utilizes MERGE_CUMULATOR which copies inbound message to continuous buffer.
+ */
+
 public class RequestDecoder extends ByteToMessageDecoder {
   @Override
   protected void decode(ChannelHandlerContext ctx,

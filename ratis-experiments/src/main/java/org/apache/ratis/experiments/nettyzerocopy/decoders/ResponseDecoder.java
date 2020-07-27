@@ -26,6 +26,10 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.ReplayingDecoder;
 
 import java.util.List;
 
+/**
+ * A decoder from incoming {@link ResponseData} messages from server.
+ */
+
 public class ResponseDecoder
     extends ReplayingDecoder<ResponseData> {
 

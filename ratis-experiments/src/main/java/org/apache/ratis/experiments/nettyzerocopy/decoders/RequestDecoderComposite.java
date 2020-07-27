@@ -18,13 +18,19 @@
 
 package org.apache.ratis.experiments.nettyzerocopy.decoders;
 
-//import org.apache.ratis.experiments.nettyzerocopy.decoders.RequestDecoder;
 import org.apache.ratis.experiments.nettyzerocopy.objects.RequestDataComposite;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 
 import java.util.List;
+
+/**
+ * A decoder extending generic {@link ByteToMessageDecoder}
+ * Reads from inbound message and checks if the message is valid.
+ * If yes creates a {@link RequestDecoderComposite} instance and writes to inbound list.
+ * zero-copy semantics. Utilizes COMPOSITE_CUMULATOR which creates a composite buffer of inbound messages.
+ */
 
 public class RequestDecoderComposite extends RequestDecoder {
 
