@@ -29,10 +29,8 @@ import org.apache.ratis.protocol.RaftGroup;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
-import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.function.CheckedBiConsumer;
 import org.junit.Assert;
 import org.junit.Test;
@@ -59,12 +57,6 @@ public abstract class GroupManagementBaseTest extends BaseTest {
   }
 
   static final RaftProperties prop = new RaftProperties();
-
-  static {
-    // make sure leadership check won't affect the test
-    RaftServerConfigKeys.Rpc.setTimeoutMin(prop, TimeDuration.valueOf(2, TimeUnit.SECONDS));
-    RaftServerConfigKeys.Rpc.setTimeoutMax(prop, TimeDuration.valueOf(4, TimeUnit.SECONDS));
-  }
 
   public abstract MiniRaftCluster.Factory<? extends MiniRaftCluster> getClusterFactory();
 

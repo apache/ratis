@@ -418,7 +418,9 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
    */
   @Test
   public void testOverlappedSetConfRequests() throws Exception {
-    // make sure leadership check won't affect the test
+    // Make sure leadership check won't affect the test.
+    // logSyncDelay.setDelayMs() blocks RaftServerImpl::appendEntriesAsync(),
+    // which will disable heartbeats.
     final TimeDuration oldTimeoutMin = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
     RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(2, TimeUnit.SECONDS));
     final TimeDuration oldTimeoutMax = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());

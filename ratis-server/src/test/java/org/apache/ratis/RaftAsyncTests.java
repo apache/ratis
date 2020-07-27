@@ -36,7 +36,9 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicies.RetryLimited;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.server.impl.DelayLocalExecutionInjection;
 import org.apache.ratis.server.impl.RaftServerImpl;
+import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.statemachine.SimpleStateMachine4Testing;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
@@ -70,6 +72,9 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
   }
 
   public static final int NUM_SERVERS = 3;
+
+  private static final DelayLocalExecutionInjection logSyncDelay =
+      new DelayLocalExecutionInjection(RaftLog.LOG_SYNC);
 
   {
     getProperties().setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
@@ -367,17 +372,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
 
   @Test
   public void testAppendEntriesTimeout() throws Exception {
-    // make sure leadership check won't affect the test
-    final TimeDuration oldTimeoutMin = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
-    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(5, TimeUnit.SECONDS));
-    final TimeDuration oldTimeoutMax = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
-    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(10, TimeUnit.SECONDS));
-
     runWithNewCluster(NUM_SERVERS, this::runTestAppendEntriesTimeout);
-
-    // reset for the other tests
-    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), oldTimeoutMin);
-    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), oldTimeoutMax);
   }
 
   void runTestAppendEntriesTimeout(CLUSTER cluster) throws Exception {
@@ -430,7 +425,7 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       cluster.getServerAliveStream()
           .filter(impl -> !impl.isLeader())
           .map(SimpleStateMachine4Testing::get)
-          .forEach(SimpleStateMachine4Testing::blockWriteStateMachineData);
+          .forEach(peer -> logSyncDelay.setDelayMs(peer.getId().toString(), 1000));
 
       // trigger append entries request
       client.sendAsync(new SimpleMessage("abc"));
@@ -438,12 +433,9 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       // default max election timeout is 300ms, 1s is long enough to
       // trigger failure of LeaderState::checkLeadership()
       Thread.sleep(1000);
-
+    } finally {
       // unblock append entries request
-      cluster.getServerAliveStream()
-          .filter(impl -> impl.getProxy().getId() != prevLeader.getProxy().getId())
-          .map(SimpleStateMachine4Testing::get)
-          .forEach(SimpleStateMachine4Testing::unblockWriteStateMachineData);
+      logSyncDelay.clear();
     }
 
     waitForLeader(cluster);
