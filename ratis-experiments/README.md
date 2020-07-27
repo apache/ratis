@@ -28,7 +28,7 @@ The repository can be complied using `mvn clean package -DskipTests -DbuildExp` 
 see also [BUILDING.md](../BUILDING.md).
 
 
-## Flatbuffers
+## Zero-copy semantics - Flatbuffers
 
 This program was developed to test the efficiency of flatbuffers vs protobuffers in terms of intermediate buffer copying.
 The Client creates a 1MB buffer, fills it with data and transfers it over GRPC.
@@ -38,12 +38,29 @@ There two pairs of Server and Client: (ClientProto, ServerProto) and (ClientFlat
 
 run the client and servers by these commands from ratis-experiments directory:
 
-for server: `java -cp target/ratis-experiments-0.6.0-SNAPSHOT.jar org.apache.ratis.experiments.flatbuffers.server.ServerFlat`
+for server: `java -cp target/ratis-experiments-1.1.0-SNAPSHOT.jar org.apache.ratis.experiments.flatbuffers.server.ServerFlat`
 
-for client: `java -cp target/ratis-experiments-0.6.0-SNAPSHOT.jar org.apache.ratis.experiments.flatbuffers.client.ClientFlat {numberOfReps}`
+for client: `java -cp target/ratis-experiments-1.1.0-SNAPSHOT.jar org.apache.ratis.experiments.flatbuffers.client.ClientFlat {numberOfReps}`
 
 replace noOfReps with the number of times you want to transfer data(defaults to 100,000).
 
 ### Findings:
 Current releases of flatbuffers with GRPC, do not provide zero-copy semantics in Java and have similar performance characteristics as compared to protobufs.
 Clarified in [flatbuffers issue #6023](https://github.com/google/flatbuffers/issues/6023).
+
+## Zero-copy semantics - Netty
+
+The program was developed to test ability of Netty to avoid intermediate buffer copies created while serialization/deserialization. 
+The Client creates a 1MB buffer, fills it with data and transfers it 10,000 times to a NettyServer instance over TCP.
+
+### Running Server and Client
+The code for each(Client and Server) can be found in NettyZeroCopy submodule. Each of the necessary classes have been provided under encoders, decoders and objects.
+
+Run the client and servers by these commands from ratis-experiments directory:
+
+for server: `java -cp target/ratis-experiments-1.1.0-SNAPSHOT.jar org.apache.ratis.experiments.nettyzerocopy.server.NettyServer`
+
+for client: `java -cp target/ratis-experiments-1.1.0-SNAPSHOT.jar org.apache.ratis.experiments.nettyzerocopy.client.NettyClient`
+
+### Findings:
+Zero-copy semantics were achieved using Netty with significant performance improvements over GRPC. 
