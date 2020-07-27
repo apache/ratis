@@ -1,5 +1,6 @@
-package org.apache.ratis.experiments.nettyzerocopy;
+package org.apache.ratis.experiments.nettyzerocopy.encoders;
 
+import org.apache.ratis.experiments.nettyzerocopy.objects.RequestData;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;

@@ -1,6 +1,9 @@
 package org.apache.ratis.experiments.nettyzerocopy.server;
 
-import org.apache.ratis.experiments.nettyzerocopy.*;
+import org.apache.ratis.experiments.nettyzerocopy.decoders.RequestDecoderComposite;
+import org.apache.ratis.experiments.nettyzerocopy.encoders.ResponseEncoder;
+import org.apache.ratis.experiments.nettyzerocopy.objects.RequestDataComposite;
+import org.apache.ratis.experiments.nettyzerocopy.objects.ResponseData;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
@@ -25,7 +28,7 @@ public class Server {
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         final ResponseData reply = new ResponseData();
-        RequestData req = (RequestData)msg;
+        RequestDataComposite req = (RequestDataComposite)msg;
         reply.setId(req.getDataId());
         ctx.writeAndFlush(reply);
       }

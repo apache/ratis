@@ -1,4 +1,4 @@
-package org.apache.ratis.experiments.nettyzerocopy;
+package org.apache.ratis.experiments.nettyzerocopy.objects;
 
 import java.nio.ByteBuffer;
 
