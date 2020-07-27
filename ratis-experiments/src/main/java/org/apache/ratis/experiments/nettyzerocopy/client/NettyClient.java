@@ -30,10 +30,11 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.nio.ByteBuffer;
 
-public class Client{
-  private final int times = 1000;
+public class NettyClient {
+  private final int times = 10000;
   private Channel channel;
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
+  private long startTime;
 
   public int getTimes() {
     return times;
@@ -47,6 +48,15 @@ public class Client{
     return channel;
   }
 
+  public long getStartTime() {
+    return startTime;
+  }
+
+  public void timeClient(){
+    long endTime = System.nanoTime();
+    System.out.printf("Time taken by Client to send %d messages is %f seconds\n", times, (double)(endTime - startTime)/(1000*1000*1000));
+  }
+
   private void closeClient() throws InterruptedException {
     try {
       channel.closeFuture().sync();
@@ -55,13 +65,14 @@ public class Client{
     }
   }
 
-  private ChannelInboundHandler getClientHandler(){
+  private ChannelInboundHandler getServerHandler(){
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws InterruptedException {
         final ResponseData reply = (ResponseData)msg;
         if(reply.getId() == times){
           System.out.println("Received all messages, closing client.");
+          timeClient();
           closeClient();
         }
       }
@@ -76,7 +87,7 @@ public class Client{
         ChannelPipeline p = ch.pipeline();
         p.addLast(new RequestEncoder());
         p.addLast(new ResponseDecoder());
-        p.addLast(getClientHandler());
+        p.addLast(getServerHandler());
       }
     };
   }
@@ -92,6 +103,7 @@ public class Client{
       bf.put((byte)'a');
     }
     bf.flip();
+    startTime = System.nanoTime();
     while(cur <= times){
       RequestData msg = new RequestData();
       msg.setDataId(cur);
@@ -100,7 +112,7 @@ public class Client{
       transferMessage(msg);
       cur++;
     }
-    System.out.println("Done....");
+    System.out.println("Sent all messages.");
   }
 
   public void setupClient() throws Exception{
@@ -117,7 +129,7 @@ public class Client{
   }
 
   public static void main(String[] args) throws Exception{
-      Client c = new Client();
+      NettyClient c = new NettyClient();
       c.setupClient();
       c.startTransfer();
   }
