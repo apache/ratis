@@ -115,9 +115,7 @@ public class SnapshotManager {
         if (!digest.equals(expectedDigest)) {
           LOG.warn("The snapshot md5 digest {} does not match expected {}",
               digest, expectedDigest);
-          // rename the temp snapshot file to .corrupt
-//          NativeIO.renameTo(tmpSnapshotFile, // TODO:
-//              dir.getCorruptSnapshotFile(lastIncludedTerm, lastIncludedIndex));
+          //TODO: rename the temp snapshot file to .corrupt
           throw new IOException("MD5 mismatch for snapshot-" + lastIncludedIndex
               + " installation");
         } else {
