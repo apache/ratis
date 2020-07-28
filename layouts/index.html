@@ -126,6 +126,7 @@
             <p>The source tarball contains detailed instruction about how can it be built.</p>
 
             <p>The binaries are also uploaded to the maven central for convenience. (See the getting started guide for more details)</p>
+            <p>1.0.0 is GA release for Apache Ratis</p>
             <table class="table table-striped">
                 <thead>
                 <tr>
@@ -135,7 +136,7 @@
                     <th>Announcement</th>
                 </tr>
                 </thead>
-                {{range first 4 (where .Site.Pages ".Params.type" "release")}}
+                {{range first 5 (where .Site.Pages ".Params.type" "release")}}
                 <tr>
                     <td>{{.File.BaseFileName }}</td>
                     <td>{{dateFormat "2006 Jan 2 " .Date}}</td>
