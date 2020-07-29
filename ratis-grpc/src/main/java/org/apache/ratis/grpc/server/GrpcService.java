@@ -17,11 +17,10 @@
  */
 package org.apache.ratis.grpc.server;
 
-import me.dinowernli.grpc.prometheus.Configuration;
-import me.dinowernli.grpc.prometheus.MonitoringServerInterceptor;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.client.GrpcClientProtocolService;
+import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
@@ -114,16 +113,15 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer);
 
-    MonitoringServerInterceptor monitoringInterceptor =
-        MonitoringServerInterceptor.create(Configuration.cheapMetricsOnly());
+    MetricServerInterceptor monitoringInterceptor = new MetricServerInterceptor(getClass().getSimpleName() + "_" + Integer.toString(port));
 
     NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forPort(port)
         .withChildOption(ChannelOption.SO_REUSEADDR, true)
         .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
         .flowControlWindow(flowControlWindow.getSizeInt())
-        .addService(ServerInterceptors.intercept(new GrpcServerProtocolService(idSupplier, raftServer), (org.apache.ratis.thirdparty.io.grpc.ServerInterceptor)monitoringInterceptor))
-        .addService(ServerInterceptors.intercept(clientProtocolService, (org.apache.ratis.thirdparty.io.grpc.ServerInterceptor)monitoringInterceptor))
-        .addService(ServerInterceptors.intercept(new GrpcAdminProtocolService(raftServer), (org.apache.ratis.thirdparty.io.grpc.ServerInterceptor)monitoringInterceptor));
+        .addService(ServerInterceptors.intercept(new GrpcServerProtocolService(idSupplier, raftServer), monitoringInterceptor))
+        .addService(ServerInterceptors.intercept(clientProtocolService, monitoringInterceptor))
+        .addService(ServerInterceptors.intercept(new GrpcAdminProtocolService(raftServer), monitoringInterceptor));
 
     if (tlsConfig != null) {
       SslContextBuilder sslContextBuilder =

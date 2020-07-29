@@ -17,13 +17,13 @@
  */
 package org.apache.ratis.grpc.client;
 
-import me.dinowernli.grpc.prometheus.MonitoringClientInterceptor;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.GrpcUtil;
+import org.apache.ratis.grpc.metrics.intercept.client.MetricClientInterceptor;
 import org.apache.ratis.proto.RaftProtos.GroupInfoReplyProto;
 import org.apache.ratis.proto.RaftProtos.GroupInfoRequestProto;
 import org.apache.ratis.proto.RaftProtos.GroupListReplyProto;
@@ -126,12 +126,11 @@ public class GrpcClientProtocolClient implements Closeable {
       channelBuilder.negotiationType(NegotiationType.PLAINTEXT);
     }
 
-    MonitoringClientInterceptor monitoringInterceptor =
-        MonitoringClientInterceptor.create(Configuration.cheapMetricsOnly());
+    MetricClientInterceptor monitoringInterceptor = new MetricClientInterceptor(getName());
 
     channel = channelBuilder.flowControlWindow(flowControlWindow.getSizeInt())
         .maxInboundMessageSize(maxMessageSize.getSizeInt())
-        .intercept((org.apache.ratis.thirdparty.io.grpc.ClientInterceptor)monitoringInterceptor)
+        .intercept(monitoringInterceptor)
         .build();
 
     blockingStub = RaftClientProtocolServiceGrpc.newBlockingStub(channel);
