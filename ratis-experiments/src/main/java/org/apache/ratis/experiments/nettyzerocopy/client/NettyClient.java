@@ -60,7 +60,7 @@ public class NettyClient {
   public void timeClient(){
     long endTime = System.nanoTime();
     System.out.printf("Time taken by Client to send %d messages is %f seconds\n",
-        times, (double)(endTime - startTime)/(1000*1000*1000));
+        times, (endTime - startTime)/(1_000_000_000.0));
   }
 
   /**
