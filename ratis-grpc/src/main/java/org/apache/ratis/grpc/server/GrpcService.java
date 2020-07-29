@@ -113,15 +113,21 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer);
 
-    MetricServerInterceptor monitoringInterceptor = new MetricServerInterceptor(getClass().getSimpleName() + "_" + Integer.toString(port));
+    MetricServerInterceptor monitoringInterceptor = new MetricServerInterceptor(
+        getClass().getSimpleName() + "_" + Integer.toString(port)
+    );
 
     NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forPort(port)
         .withChildOption(ChannelOption.SO_REUSEADDR, true)
         .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
         .flowControlWindow(flowControlWindow.getSizeInt())
-        .addService(ServerInterceptors.intercept(new GrpcServerProtocolService(idSupplier, raftServer), monitoringInterceptor))
+        .addService(ServerInterceptors.intercept(
+            new GrpcServerProtocolService(idSupplier, raftServer),
+            monitoringInterceptor))
         .addService(ServerInterceptors.intercept(clientProtocolService, monitoringInterceptor))
-        .addService(ServerInterceptors.intercept(new GrpcAdminProtocolService(raftServer), monitoringInterceptor));
+        .addService(ServerInterceptors.intercept(
+            new GrpcAdminProtocolService(raftServer),
+            monitoringInterceptor));
 
     if (tlsConfig != null) {
       SslContextBuilder sslContextBuilder =

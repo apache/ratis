@@ -60,7 +60,6 @@ import org.apache.ratis.util.TimeoutScheduler;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import me.dinowernli.grpc.prometheus.Configuration;
 
 import java.io.Closeable;
 import java.io.IOException;
