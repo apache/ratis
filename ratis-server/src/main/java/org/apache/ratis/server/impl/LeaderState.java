@@ -831,8 +831,8 @@ public class LeaderState {
         + ". In charge for: " + server.getRole().getRoleElapsedTimeMs() + "ms"
         + ". Conf: " + conf + ". Followers: " + followers);
 
-    // become follower of next term.
-    stepDown(currentTerm + 1);
+    // step down as follower
+    stepDown(currentTerm);
   }
 
   void replyPendingRequest(long logIndex, RaftClientReply reply) {

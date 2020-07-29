@@ -433,6 +433,12 @@ public abstract class RaftAsyncTests<CLUSTER extends MiniRaftCluster> extends Ba
       // default max election timeout is 300ms, 1s is long enough to
       // trigger failure of LeaderState::checkLeadership()
       Thread.sleep(1000);
+
+      // previous leader should not there.
+      cluster.getServerAliveStream()
+          .forEach(impl -> Assert.assertTrue(!impl.isLeader()
+              || impl.getState().getCurrentTerm() > termOfPrevLeader));
+
     } finally {
       // unblock append entries request
       logSyncDelay.clear();
