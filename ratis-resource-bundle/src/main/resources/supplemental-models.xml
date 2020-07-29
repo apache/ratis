@@ -1154,8 +1154,22 @@ under the License.
   </supplement>
   <supplement>
     <project>
-      <groupId>log4j</groupId>
-      <artifactId>log4j</artifactId>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-1.2-api</artifactId>
+
+      <licenses>
+        <license>
+          <name>Apache License, Version 2.0</name>
+          <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+          <distribution>repo</distribution>
+        </license>
+      </licenses>
+    </project>
+  </supplement>
+  <supplement>
+    <project>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j-impl</artifactId>
 
       <licenses>
         <license>
@@ -2206,24 +2220,6 @@ under the License.
           <distribution>repo</distribution>
           <comments>
             Copyright (c) 2004-2013 QOS.ch
-          </comments>
-        </license>
-      </licenses>
-    </project>
-  </supplement>
-  <supplement>
-    <project>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <name>SLF4J LOG4J-12 Binding</name>
-
-      <licenses>
-        <license>
-          <name>MIT License</name>
-          <url>http://www.opensource.org/licenses/mit-license.php</url>
-          <distribution>repo</distribution>
-          <comments>
-            Copyright (c) 2004-2008 QOS.ch
           </comments>
         </license>
       </licenses>

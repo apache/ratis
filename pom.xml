@@ -244,9 +244,8 @@
     <!-- commons lang version -->
     <commons.lang.version>3.8.1</commons.lang.version>
 
-    <!-- LOG4J version -->
-    <log4j.version>1.2.17</log4j.version>
-
+    <!-- LOG4J2 version -->
+    <log4j2.version>2.11.0</log4j2.version>
   </properties>
 
   <dependencyManagement>
@@ -434,15 +433,14 @@
         <version>1.7.29</version>
       </dependency>
       <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>slf4j-log4j12</artifactId>
-        <scope>test</scope>
-        <version>1.7.29</version>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-slf4j-impl</artifactId>
+        <version>${log4j2.version}</version>
       </dependency>
       <dependency>
-        <groupId>log4j</groupId>
-        <artifactId>log4j</artifactId>
-        <version>${log4j.version}</version>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-1.2-api</artifactId>
+        <version>${log4j2.version}</version>
       </dependency>
 
       <dependency>
