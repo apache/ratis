@@ -43,7 +43,7 @@ public class MetricClientCallListener<S> extends ForwardingClientCallListener<S>
 
   @Override
   public void onClose(Status status, Metadata metadata) {
-    metrics.rpcHandled(metricNamePrefix + "_" + status.getCode().toString());
+    metrics.rpcReceived(metricNamePrefix + "_" + status.getCode().toString());
     super.onClose(status, metadata);
   }
 }

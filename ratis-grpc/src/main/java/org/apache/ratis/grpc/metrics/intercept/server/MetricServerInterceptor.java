@@ -25,6 +25,12 @@ import org.apache.ratis.thirdparty.io.grpc.ServerCallHandler;
 import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.thirdparty.io.grpc.ServerInterceptor;
 
+/**
+ * An implementation of a server interceptor.
+ * Intercepts the inbound/outbound messages and increments metrics accordingly
+ * before handling them.
+ */
+
 public class MetricServerInterceptor implements ServerInterceptor {
   private final String identifier;
   private final MessageMetrics metrics;

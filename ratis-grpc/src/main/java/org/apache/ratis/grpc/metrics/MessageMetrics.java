@@ -36,15 +36,29 @@ public class MessageMetrics extends RatisMetrics {
     );
   }
 
+  /**
+   * Increments the count of RPCs that are started.
+   * Both client and server use this.
+   * @param rpcType
+   */
   public void rpcStarted(String rpcType){
     registry.counter(rpcType + "_started_total").inc();
   }
 
+  /**
+   * Increments the count of RPCs that were started and got completed.
+   * Both client and server use this.
+   * @param rpcType
+   */
   public void rpcCompleted(String rpcType){
     registry.counter(rpcType + "_completed_total").inc();
   }
 
-  public void rpcHandled(String rpcType){
+  /**
+   * increments the count of RPCs recived on the server.
+   * @param rpcType
+   */
+  public void rpcReceived(String rpcType){
     registry.counter(rpcType + "_received_executed").inc();
   }
 

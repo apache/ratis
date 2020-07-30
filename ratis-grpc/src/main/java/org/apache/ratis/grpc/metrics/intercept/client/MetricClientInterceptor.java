@@ -21,6 +21,12 @@ package org.apache.ratis.grpc.metrics.intercept.client;
 import org.apache.ratis.grpc.metrics.MessageMetrics;
 import org.apache.ratis.thirdparty.io.grpc.*;
 
+/**
+ * An implementation of a client interceptor.
+ * Intercepts the messages and increments metrics accordingly
+ * before sending them.
+ */
+
 public class MetricClientInterceptor implements ClientInterceptor {
   private final String identifier;
   private final MessageMetrics metrics;
