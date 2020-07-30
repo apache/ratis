@@ -114,6 +114,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
     this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer);
 
     MetricServerInterceptor monitoringInterceptor = new MetricServerInterceptor(
+        idSupplier,
         getClass().getSimpleName() + "_" + Integer.toString(port)
     );
 
