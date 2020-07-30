@@ -24,8 +24,10 @@ import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.grpc.MiniRaftClusterWithGrpc;
 import org.apache.ratis.hadooprpc.MiniRaftClusterWithHadoopRpc;
 import org.apache.ratis.netty.MiniRaftClusterWithNetty;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.util.TimeDuration;
 import org.junit.AfterClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 @RunWith(Parameterized.class)
@@ -121,6 +124,11 @@ public abstract class ParameterizedBaseTest extends BaseTest {
       Class<S> stateMachineClass, int clusterSize, Class<?>... clusterClasses)
       throws IOException {
     final RaftProperties prop = new RaftProperties();
+
+    // avoid flaky behaviour in CI environment
+    RaftServerConfigKeys.Rpc.setTimeoutMin(prop, TimeDuration.valueOf(300, TimeUnit.MILLISECONDS));
+    RaftServerConfigKeys.Rpc.setTimeoutMax(prop, TimeDuration.valueOf(600, TimeUnit.MILLISECONDS));
+
     prop.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         stateMachineClass, StateMachine.class);
     return getMiniRaftClusters(prop, clusterSize, clusterClasses);
