@@ -40,6 +40,10 @@ public class MetricServerInterceptor implements ServerInterceptor {
   private final Supplier<RaftPeerId> peerIdSupplier;
   private final String defaultIdentifier;
 
+  public MessageMetrics getMetrics() {
+    return metrics;
+  }
+
   public MetricServerInterceptor(Supplier<RaftPeerId> idSupplier, String defaultIdentifier){
     this.peerIdSupplier = idSupplier;
     this.identifier = null;

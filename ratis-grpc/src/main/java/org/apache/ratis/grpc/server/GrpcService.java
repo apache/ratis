@@ -88,6 +88,12 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   private final GrpcClientProtocolService clientProtocolService;
 
+  private final MetricServerInterceptor serverInterceptor;
+
+  public MetricServerInterceptor getServerInterceptor() {
+    return serverInterceptor;
+  }
+
   private GrpcService(RaftServer server, GrpcTlsConfig tlsConfig) {
     this(server, server::getId,
         GrpcConfigKeys.Server.port(server.getProperties()),
@@ -113,7 +119,7 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer);
 
-    MetricServerInterceptor monitoringInterceptor = new MetricServerInterceptor(
+    this.serverInterceptor = new MetricServerInterceptor(
         idSupplier,
         getClass().getSimpleName() + "_" + Integer.toString(port)
     );
@@ -124,11 +130,11 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
         .flowControlWindow(flowControlWindow.getSizeInt())
         .addService(ServerInterceptors.intercept(
             new GrpcServerProtocolService(idSupplier, raftServer),
-            monitoringInterceptor))
-        .addService(ServerInterceptors.intercept(clientProtocolService, monitoringInterceptor))
+            serverInterceptor))
+        .addService(ServerInterceptors.intercept(clientProtocolService, serverInterceptor))
         .addService(ServerInterceptors.intercept(
             new GrpcAdminProtocolService(raftServer),
-            monitoringInterceptor));
+            serverInterceptor));
 
     if (tlsConfig != null) {
       SslContextBuilder sslContextBuilder =
