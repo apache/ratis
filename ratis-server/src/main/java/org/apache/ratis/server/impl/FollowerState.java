@@ -86,7 +86,7 @@ class FollowerState extends Daemon {
     return outstandingOp.get();
   }
 
-  boolean shouldWithholdVotes() {
+  boolean isCurrentLeaderValid() {
     return lastRpcTime.elapsedTime().compareTo(server.properties().minRpcTimeout()) < 0;
   }
 
