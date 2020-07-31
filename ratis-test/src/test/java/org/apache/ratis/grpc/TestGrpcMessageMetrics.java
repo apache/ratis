@@ -34,7 +34,7 @@ import org.junit.Test;
 import java.util.concurrent.TimeUnit;
 
 public class TestGrpcMessageMetrics extends BaseTest
-    implements MiniRaftClusterWithSimulatedRpc.FactoryGet {
+    implements MiniRaftClusterWithGrpc.FactoryGet {
   static {
     JVMMetrics.initJvmMetrics(TimeDuration.valueOf(10, TimeUnit.SECONDS));
   }
@@ -67,7 +67,7 @@ public class TestGrpcMessageMetrics extends BaseTest
     String serverId = server.getId().toString();
     GrpcService service = (GrpcService)(server.getProxy().getServerRpc());
     RatisMetricRegistry registry = service.getServerInterceptor().getMetrics().getRegistry();
-    String counter_prefix = serverId + "_" + "ratis.grpc.RaftServerProtocolService";
+    String counter_prefix = serverId + "_" + "ratis_grpc_RaftServerProtocolService";
     Assert.assertTrue(registry.counter(counter_prefix + "_" + "requestVote" + "_OK_completed_total").getCount() > 0);
     Assert.assertTrue(registry.counter(counter_prefix + "_" + "appendEntries" + "_OK_completed_total").getCount() > 0);
   }
