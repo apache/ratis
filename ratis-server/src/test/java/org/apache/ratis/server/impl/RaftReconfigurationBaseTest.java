@@ -418,8 +418,20 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
    */
   @Test
   public void testOverlappedSetConfRequests() throws Exception {
+    // Make sure leadership check won't affect the test.
+    // logSyncDelay.setDelayMs() blocks RaftServerImpl::appendEntriesAsync(),
+    // which will disable heartbeats.
+    final TimeDuration oldTimeoutMin = RaftServerConfigKeys.Rpc.timeoutMin(getProperties());
+    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), TimeDuration.valueOf(2, TimeUnit.SECONDS));
+    final TimeDuration oldTimeoutMax = RaftServerConfigKeys.Rpc.timeoutMax(getProperties());
+    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), TimeDuration.valueOf(4, TimeUnit.SECONDS));
+
     // originally 3 peers
     runWithNewCluster(3, this::runTestOverlappedSetConfRequests);
+
+    // reset for the other tests
+    RaftServerConfigKeys.Rpc.setTimeoutMin(getProperties(), oldTimeoutMin);
+    RaftServerConfigKeys.Rpc.setTimeoutMax(getProperties(), oldTimeoutMax);
   }
 
   void runTestOverlappedSetConfRequests(CLUSTER cluster) throws Exception {
