@@ -56,8 +56,6 @@ public class TestGrpcMessageMetrics extends BaseTest
     waitForLeader(cluster);
     try (final RaftClient client = cluster.createClient()) {
       CompletableFuture<RaftClientReply> replyFuture =  client.sendAsync(new RaftTestUtil.SimpleMessage("abc"));
-      TimeDuration.valueOf(5 , TimeUnit.SECONDS).sleep();
-      Assert.assertTrue(!replyFuture.isDone());
     }
     // Wait for commits to happen on leader
     JavaUtils.attempt(() -> assertMessageCount(cluster.getLeader()), 100, HUNDRED_MILLIS, cluster.getLeader().getId() + "-assertMessageCount", null);
@@ -69,6 +67,5 @@ public class TestGrpcMessageMetrics extends BaseTest
     RatisMetricRegistry registry = service.getServerInterceptor().getMetrics().getRegistry();
     String counter_prefix = serverId + "_" + "ratis.grpc.RaftServerProtocolService";
     Assert.assertTrue(registry.counter(counter_prefix + "_" + "requestVote" + "_OK_completed_total").getCount() > 0);
-    Assert.assertTrue(registry.counter(counter_prefix + "_" + "appendEntries" + "_OK_completed_total").getCount() > 0);
   }
 }
