@@ -69,6 +69,5 @@ public class TestGrpcMessageMetrics extends BaseTest
     RatisMetricRegistry registry = service.getServerInterceptor().getMetrics().getRegistry();
     String counter_prefix = serverId + "_" + "ratis.grpc.RaftServerProtocolService";
     Assert.assertTrue(registry.counter(counter_prefix + "_" + "requestVote" + "_OK_completed_total").getCount() > 0);
-    Assert.assertTrue(registry.counter(counter_prefix + "_" + "appendEntries" + "_OK_completed_total").getCount() > 0);
   }
 }
