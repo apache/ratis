@@ -25,13 +25,14 @@ import org.apache.ratis.grpc.server.GrpcService;
 import org.apache.ratis.metrics.JVMMetrics;
 import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.server.impl.RaftServerImpl;
-import org.apache.ratis.server.simulation.MiniRaftClusterWithSimulatedRpc;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.ratis.RaftTestUtil.waitForLeader;
 
 public class TestGrpcMessageMetrics extends BaseTest
     implements MiniRaftClusterWithGrpc.FactoryGet {
@@ -52,13 +53,12 @@ public class TestGrpcMessageMetrics extends BaseTest
   static void sendMessages(MiniRaftCluster cluster) throws Exception {
     int numMsg = 5;
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numMsg);
-
+    waitForLeader(cluster);
     try (final RaftClient client = cluster.createClient()) {
       for (RaftTestUtil.SimpleMessage message : messages) {
-        client.sendAsync(message);
+        client.send(message);
       }
     }
-
     // Wait for commits to happen on leader
     JavaUtils.attempt(() -> assertMessageCount(cluster.getLeader()), 100, HUNDRED_MILLIS, cluster.getLeader().getId() + "-assertMessageCount", null);
   }
