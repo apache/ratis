@@ -50,17 +50,17 @@ public class TestGrpcMessageMetrics extends BaseTest
   }
 
   static void sendMessages(MiniRaftCluster cluster) throws Exception {
-    int numMsg = 2;
+    int numMsg = 5;
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numMsg);
 
     try (final RaftClient client = cluster.createClient()) {
       for (RaftTestUtil.SimpleMessage message : messages) {
-        client.send(message);
+        client.sendAsync(message);
       }
     }
 
     // Wait for commits to happen on leader
-    JavaUtils.attempt(() -> assertMessageCount(cluster.getLeader()), 50, HUNDRED_MILLIS, cluster.getLeader().getId() + "-assertMessageCount", null);
+    JavaUtils.attempt(() -> assertMessageCount(cluster.getLeader()), 100, HUNDRED_MILLIS, cluster.getLeader().getId() + "-assertMessageCount", null);
   }
 
   static void assertMessageCount(RaftServerImpl server) throws  Exception {
