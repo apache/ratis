@@ -231,6 +231,10 @@ public class SimpleStateMachine4Testing extends BaseStateMachine {
   public synchronized void reinitialize() throws IOException {
     LOG.info("Reinitializing " + this);
     loadSnapshot(storage.findLatestSnapshot());
+    if (getLifeCycleState() == LifeCycle.State.PAUSED) {
+      getLifeCycle().transition(LifeCycle.State.STARTING);
+      getLifeCycle().transition(LifeCycle.State.RUNNING);
+    }
   }
 
   @Override
