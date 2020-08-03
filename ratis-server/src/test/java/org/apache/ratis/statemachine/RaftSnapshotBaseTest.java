@@ -238,8 +238,8 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       cluster.setConfiguration(change.allPeersInNewConf);
 
       for (String newPeer : newPeers) {
-        RaftServerImpl s3 = cluster.getRaftServerImpl(RaftPeerId.valueOf(newPeer));
-        SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s3);
+        RaftServerImpl s = cluster.getRaftServerImpl(RaftPeerId.valueOf(newPeer));
+        SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s);
         Assert.assertTrue(simpleStateMachine.getLifeCycleState() == LifeCycle.State.RUNNING);
       }
 
