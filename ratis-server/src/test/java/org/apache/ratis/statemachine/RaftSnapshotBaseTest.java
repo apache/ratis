@@ -45,6 +45,7 @@ import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.statemachine.impl.SimpleStateMachineStorage;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.Log4jUtils;
 import org.junit.After;
 import org.junit.Assert;
@@ -230,10 +231,17 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
       }
 
       // add two more peers
+      String[] newPeers = new String[]{"s3", "s4"};
       MiniRaftCluster.PeerChanges change = cluster.addNewPeers(
-          new String[]{"s3", "s4"}, true);
+          newPeers, true);
       // trigger setConfiguration
       cluster.setConfiguration(change.allPeersInNewConf);
+
+      for (String newPeer : newPeers) {
+        RaftServerImpl s = cluster.getRaftServerImpl(RaftPeerId.valueOf(newPeer));
+        SimpleStateMachine4Testing simpleStateMachine = SimpleStateMachine4Testing.get(s);
+        Assert.assertTrue(simpleStateMachine.getLifeCycleState() == LifeCycle.State.RUNNING);
+      }
 
       // Verify installSnapshot counter on leader before restart.
       verifyInstallSnapshotMetric(cluster.getLeader());
