@@ -89,9 +89,7 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
       // send more messages and check last reply
       final RaftClientReply reply = sendMessages(numMessages, cluster);
       for(CommitInfoProto i : reply.getCommitInfos()) {
-        if (RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
-          Assert.assertTrue(i.getCommitIndex() <= maxCommit);
-        } else {
+        if (!RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
           Assert.assertTrue(i.getCommitIndex() > maxCommit);
         }
       }
