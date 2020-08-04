@@ -93,7 +93,9 @@ public interface FileUtils {
    * @throws IOException
    */
   static void moveDirectory(Path source, Path dest) throws IOException {
-    LOG.trace("moveDirectory source: {} dest: {}", source, dest);
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("moveDirectory source: {} dest: {}", source, dest);
+    }
     createDirectories(dest);
     Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
       @Override

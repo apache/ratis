@@ -197,7 +197,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
 
           final RaftClientReply r;
           try (final RaftClient client = cluster.createClient(p.getId(), g)) {
-            r = client.groupRemove(g.getGroupId(), true, p.getId());
+            r = client.groupRemove(g.getGroupId(), true, false, p.getId());
           }
           Assert.assertTrue(r.isSuccess());
           Assert.assertFalse(root.exists());
@@ -260,12 +260,10 @@ public abstract class GroupManagementBaseTest extends BaseTest {
   }
   
   @Test
-  public void testGroupRemove() throws Exception {
+  public void testGroupRemoveWhenRename() throws Exception {
     final MiniRaftCluster cluster1 = getCluster(1);
     RaftServerConfigKeys.setRemovedGroupsDir(cluster1.getProperties(),
         Files.createTempDirectory("groups").toFile());
-    RaftServerConfigKeys.setMoveRemovedGroupsEnabled(cluster1.getProperties(),
-        true);
     final MiniRaftCluster cluster2 = getCluster(3);
     cluster1.start();
     final RaftPeer peer1 = cluster1.getPeers().get(0);
@@ -276,20 +274,65 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       Assert.assertEquals(group1,
           cluster1.getRaftServerImpl(peerId1).getGroup());
       try {
-        // Group2 is added to one of the peerId in Group1
+
+        // Group2 is added to one of the peers in Group1
         client.groupAdd(group2, peerId1);
         List<RaftGroupId> groupIds1 = cluster1.getServer(peerId1).getGroupIds();
         Assert.assertEquals(groupIds1.size(), 2);
 
-        // Group2 is removed from the peerId of Group1
-        client.groupRemove(group2.getGroupId(), false, peerId1);
+        // Group2 is renamed from the peer1 of Group1
+        client.groupRemove(group2.getGroupId(), false, true, peerId1);
 
         groupIds1 = cluster1.getServer(peerId1).getGroupIds();
-        // The size is 1 since the cluster1 hasn't been restarted
         Assert.assertEquals(groupIds1.size(), 1);
-
         cluster1.restart(false);
 
+        List<RaftGroupId> groupIdsAfterRestart =
+            cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIds1.size(), groupIdsAfterRestart.size());
+
+        File renamedGroup = new File(RaftServerConfigKeys.removedGroupsDir(
+            cluster1.getProperties()), group2.getGroupId().getUuid().toString());
+        Assert.assertTrue(renamedGroup.isDirectory());
+
+      } catch (IOException ex) {
+        Assert.fail();
+      } finally {
+        cluster1.shutdown();
+        // Clean up
+        FileUtils.deleteFully(RaftServerConfigKeys.removedGroupsDir(
+            cluster1.getProperties()));
+      }
+    }
+  }
+
+  @Test
+  public void testGroupRemoveWhenDelete() throws Exception {
+    final MiniRaftCluster cluster1 = getCluster(1);
+        RaftServerConfigKeys.setRemovedGroupsDir(cluster1.getProperties(),
+            Files.createTempDirectory("groups").toFile());
+    final MiniRaftCluster cluster2 = getCluster(3);
+    cluster1.start();
+    final RaftPeer peer1 = cluster1.getPeers().get(0);
+    final RaftPeerId peerId1 = peer1.getId();
+    final RaftGroup group1 = RaftGroup.valueOf(cluster1.getGroupId(), peer1);
+    final RaftGroup group2 = RaftGroup.valueOf(cluster2.getGroupId(), peer1);
+    try (final RaftClient client = cluster1.createClient()) {
+      Assert.assertEquals(group1,
+          cluster1.getRaftServerImpl(peerId1).getGroup());
+      try {
+
+        // Group2 is added again to one of the peers in Group1
+        client.groupAdd(group2, peerId1);
+        List<RaftGroupId> groupIds1 = cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIds1.size(), 2);
+
+        // Group2 is deleted from the peer1 of Group1
+        client.groupRemove(group2.getGroupId(), true, false, peerId1);
+
+        groupIds1 = cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIds1.size(), 1);
+        cluster1.restart(false);
         List<RaftGroupId> groupIdsAfterRestart =
             cluster1.getServer(peerId1).getGroupIds();
         Assert.assertEquals(groupIds1.size(), groupIdsAfterRestart.size());
@@ -303,4 +346,5 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       }
     }
   }
+
 }

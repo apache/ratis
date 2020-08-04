@@ -157,7 +157,8 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
           GroupMismatchException.class);
 
       testFailureCase("groupRemove(..) with another group id",
-          () -> client.groupRemove(anotherGroup.getGroupId(), false, clusterGroup.getPeers().iterator().next().getId()),
+          () -> client.groupRemove(anotherGroup.getGroupId(), false, false,
+              clusterGroup.getPeers().iterator().next().getId()),
           GroupMismatchException.class);
     }
   }

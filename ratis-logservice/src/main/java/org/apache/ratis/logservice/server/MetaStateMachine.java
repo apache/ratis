@@ -263,7 +263,7 @@ public class MetaStateMachine extends BaseStateMachine {
             raftPeers.stream().forEach(peer -> {
                 try (RaftClient client = RaftClient.newBuilder().setProperties(properties)
                     .setClientId(ClientId.randomId()).setRaftGroup(RaftGroup.valueOf(logServerGroupId, peer)).build()){
-                    client.groupRemove(raftGroup.getGroupId(), true, peer.getId());
+                    client.groupRemove(raftGroup.getGroupId(), true, false, peer.getId());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -338,7 +338,7 @@ public class MetaStateMachine extends BaseStateMachine {
                         }
                         try (RaftClient client = RaftClient.newBuilder().setProperties(properties)
                             .setRaftGroup(RaftGroup.valueOf(logServerGroupId, peer)).build()) {
-                            client.groupRemove(raftGroup.getGroupId(), true, peer.getId());
+                            client.groupRemove(raftGroup.getGroupId(), true, false, peer.getId());
                         } catch (IOException e) {
                             LOG.error("Failed to clean up Raft group ({}) for peer ({}), "
                                 + "ignoring exception", raftGroup.getGroupId(), peer, e);
