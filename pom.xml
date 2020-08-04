@@ -87,6 +87,8 @@
     <module>ratis-metrics</module>
     <module>ratis-tools</module>
     <module>ratis-assembly</module>
+    <module>ratis-experiments</module>
+    <module>ratis-datastream</module>
   </modules>
 
   <pluginRepositories>
