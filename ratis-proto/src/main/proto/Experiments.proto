@@ -15,48 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server;
+syntax = "proto3";
+option java_package = "org.apache.ratis.proto";
+option java_outer_classname = "ExperimentsProtos";
+option java_generate_equals_and_hash = true;
+package ratis.experiments;
 
-import java.util.List;
+message TransferMsgProto {
+    uint32 partId = 1;
+    bytes data = 2;
+}
 
-/**
- * JMX information about the state of the current raft cluster.
- */
-public interface RaftServerMXBean {
+message TransferReplyProto {
+    uint32 partId = 1;
+    string message = 2;
+}
 
-  /**
-   * Identifier of the current server.
-   */
-  String getId();
-
-  /**
-   * Identifier of the leader node.
-   */
-  String getLeaderId();
-
-  /**
-   * Latest RAFT term.
-   */
-  long getCurrentTerm();
-
-  /**
-   * Cluster identifier.
-   */
-  String getGroupId();
-
-  /**
-   * RAFT Role of the server.
-   */
-  String getRole();
-
-  /**
-   * Addresses of the followers, only for leaders
-   */
-  List<String> getFollowers();
-
-  /**
-   * Gets the Groups of the Server.
-   */
-  List<String> getGroups();
-
+service FileTransferExampleService {
+    rpc sendData(stream TransferMsgProto) returns (stream TransferReplyProto);
 }

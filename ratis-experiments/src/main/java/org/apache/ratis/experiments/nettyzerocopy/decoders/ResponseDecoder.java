@@ -15,48 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server;
+
+package org.apache.ratis.experiments.nettyzerocopy.decoders;
+
+
+import org.apache.ratis.experiments.nettyzerocopy.objects.ResponseData;
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
+import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
+import org.apache.ratis.thirdparty.io.netty.handler.codec.ReplayingDecoder;
 
 import java.util.List;
 
 /**
- * JMX information about the state of the current raft cluster.
+ * A decoder from incoming {@link ResponseData} messages from server.
  */
-public interface RaftServerMXBean {
 
-  /**
-   * Identifier of the current server.
-   */
-  String getId();
+public class ResponseDecoder
+    extends ReplayingDecoder<ResponseData> {
 
-  /**
-   * Identifier of the leader node.
-   */
-  String getLeaderId();
-
-  /**
-   * Latest RAFT term.
-   */
-  long getCurrentTerm();
-
-  /**
-   * Cluster identifier.
-   */
-  String getGroupId();
-
-  /**
-   * RAFT Role of the server.
-   */
-  String getRole();
-
-  /**
-   * Addresses of the followers, only for leaders
-   */
-  List<String> getFollowers();
-
-  /**
-   * Gets the Groups of the Server.
-   */
-  List<String> getGroups();
-
+  @Override
+  protected void decode(ChannelHandlerContext channelHandlerContext,
+                        ByteBuf byteBuf, List<Object> list) throws Exception {
+    ResponseData reply = new ResponseData();
+    reply.setId(byteBuf.readInt());
+    list.add(reply);
+  }
 }

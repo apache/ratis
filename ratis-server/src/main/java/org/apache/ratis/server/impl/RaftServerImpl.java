@@ -461,6 +461,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         ls.getLogAppenders().map(LogAppender::getFollower).forEach(f ->
             leader.addFollowerInfo(ServerProtoUtils.toServerRpcProto(
                 f.getPeer(), f.getLastRpcResponseTime().elapsedTimeMs())));
+        leader.setTerm(ls.getCurrentTerm());
         roleInfo.setLeaderInfo(leader);
       });
       break;
@@ -1492,6 +1493,12 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     public List<String> getFollowers() {
       return role.getLeaderState().map(LeaderState::getFollowers).orElse(Collections.emptyList())
           .stream().map(RaftPeer::toString).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<String> getGroups() {
+      return proxy.getGroupIds().stream().map(RaftGroupId::toString)
+          .collect(Collectors.toList());
     }
   }
 }

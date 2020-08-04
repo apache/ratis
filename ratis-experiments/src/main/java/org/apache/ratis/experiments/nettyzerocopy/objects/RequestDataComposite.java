@@ -15,48 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server;
 
-import java.util.List;
+package org.apache.ratis.experiments.nettyzerocopy.objects;
 
-/**
- * JMX information about the state of the current raft cluster.
- */
-public interface RaftServerMXBean {
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 
-  /**
-   * Identifier of the current server.
-   */
-  String getId();
+public class RequestDataComposite {
+  private int dataId;
+  private ByteBuf buff;
 
-  /**
-   * Identifier of the leader node.
-   */
-  String getLeaderId();
+  public ByteBuf getBuff() {
+    return buff;
+  }
 
-  /**
-   * Latest RAFT term.
-   */
-  long getCurrentTerm();
+  public int getDataId() {
+    return dataId;
+  }
 
-  /**
-   * Cluster identifier.
-   */
-  String getGroupId();
+  public void setDataId(int dataId) {
+    this.dataId = dataId;
+  }
 
-  /**
-   * RAFT Role of the server.
-   */
-  String getRole();
-
-  /**
-   * Addresses of the followers, only for leaders
-   */
-  List<String> getFollowers();
-
-  /**
-   * Gets the Groups of the Server.
-   */
-  List<String> getGroups();
-
+  public void setBuff(ByteBuf buff) {
+    this.buff = buff;
+  }
 }
