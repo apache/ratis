@@ -723,6 +723,9 @@ public abstract class MiniRaftCluster implements Closeable {
 
     Optional.ofNullable(timer.get()).ifPresent(Timer::cancel);
     ExitUtils.assertNotTerminated();
+
+    servers.clear();
+    
     LOG.info(getClass().getSimpleName() + " shutdown completed");
   }
 
