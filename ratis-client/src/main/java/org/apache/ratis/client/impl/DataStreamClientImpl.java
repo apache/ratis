@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
-import org.apache.ratis.client.ClientStreamApi;
+import org.apache.ratis.client.RaftClientStream;
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.datastream.DataStreamApi;
 import org.apache.ratis.conf.RaftProperties;
@@ -32,11 +32,11 @@ public class DataStreamClientImpl implements DataStreamClient {
   private ClientId clientId;
   private RaftProperties properties;
   private DataStreamApi streamApi;
-  private ClientStreamApi networkTransferApi;
+  private RaftClientStream networkTransferApi;
 
   public DataStreamClientImpl(ClientId clientId,
                               RaftProperties properties,
-                              ClientStreamApi networkTransferApi){
+                              RaftClientStream networkTransferApi){
     this.clientId = clientId;
     this.properties = properties;
     this.networkTransferApi = networkTransferApi;
@@ -53,17 +53,12 @@ public class DataStreamClientImpl implements DataStreamClient {
   }
 
   @Override
-  public ClientStreamApi getNetworkTransferApi() {
+  public RaftClientStream getNetworkTransferApi() {
     return networkTransferApi;
   }
 
   @Override
   public CompletableFuture<DataStreamReply> sendAsync(DataStreamRequest request){
-    return new CompletableFuture<DataStreamReply>();
-  }
-
-  @Override
-  public CompletableFuture<DataStreamReply> setReply(DataStreamReply reply){
     return new CompletableFuture<DataStreamReply>();
   }
 

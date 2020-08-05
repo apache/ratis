@@ -37,10 +37,4 @@ public interface DataStreamServer {
    * Poll the queue and trigger streaming for messages in relay queue.
    */
   CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request);
-
-  /**
-   * receive a reply from the client and set the necessary future.
-   * Invoked by the Netty Client associated with the object.
-   */
-  CompletableFuture<DataStreamReply> setReply(DataStreamReply reply);
 }

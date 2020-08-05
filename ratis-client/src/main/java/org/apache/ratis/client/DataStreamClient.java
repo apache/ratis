@@ -22,7 +22,7 @@ import org.apache.ratis.datastream.DataStreamApi;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.SupportedStreamType;
+import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.datastream.objects.DataStreamReply;
 import org.apache.ratis.datastream.objects.DataStreamRequest;
 import org.apache.ratis.protocol.ClientId;
@@ -46,7 +46,7 @@ public interface DataStreamClient {
   DataStreamApi getDataStreamApi();
 
   /** Return Network transfer Api instance. */
-  ClientStreamApi getNetworkTransferApi();
+  RaftClientStream getNetworkTransferApi();
 
   /**
    * send to server via streaming.
@@ -54,16 +54,10 @@ public interface DataStreamClient {
    */
   CompletableFuture<DataStreamReply> sendAsync(DataStreamRequest request);
 
-  /**
-   * receive a reply from the client and set the necessary future.
-   * Invoked by the Netty Client associated with the object.
-   */
-  CompletableFuture<DataStreamReply> setReply(DataStreamReply reply);
-
   /** To build {@link DataStreamClient} objects */
   class Builder {
     private ClientId clientId;
-    private ClientStreamApi networkTransferApi;
+    private RaftClientStream networkTransferApi;
     private RaftProperties properties;
     private Parameters parameters;
 
@@ -75,9 +69,9 @@ public interface DataStreamClient {
       }
       if (properties != null) {
         if (networkTransferApi == null) {
-          final SupportedStreamType streamType = RaftConfigKeys.DataStream.type(properties, LOG::debug);
-          networkTransferApi = StreamClientFactory.cast(streamType.newFactory(parameters))
-                                         .newClientStreamApi(clientId, properties);
+          final SupportedDataStreamType streamType = RaftConfigKeys.DataStream.type(properties, LOG::debug);
+          networkTransferApi = DataStreamClientFactory.cast(streamType.newFactory(parameters))
+                                         .newRaftClientStream(clientId, properties);
         }
       }
       return new DataStreamClientImpl(clientId, properties, networkTransferApi);
@@ -93,7 +87,7 @@ public interface DataStreamClient {
       return this;
     }
 
-    public Builder setNetworkTransferApi(ClientStreamApi networkTransferApi){
+    public Builder setNetworkTransferApi(RaftClientStream networkTransferApi){
       this.networkTransferApi = networkTransferApi;
       return this;
     }

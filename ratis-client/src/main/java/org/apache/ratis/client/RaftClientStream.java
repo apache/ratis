@@ -16,11 +16,23 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.datastream;
+package org.apache.ratis.client;
 
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.datastream.objects.DataStreamReply;
+import org.apache.ratis.datastream.objects.DataStreamRequest;
+import org.apache.ratis.util.JavaUtils;
 
-public interface StreamFactory {
-  SupportedStreamType getStreamType();
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * An api interface for to stream from client to server.
+ */
+public interface RaftClientStream {
+
+  /** Async call to send a request. */
+  default CompletableFuture<DataStreamReply> sendRequestAsync(DataStreamRequest request) {
+    throw new UnsupportedOperationException(getClass() + " does not support "
+        + JavaUtils.getCurrentStackTraceElement().getMethodName());
+  }
+
 }

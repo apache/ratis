@@ -18,21 +18,23 @@
 
 package org.apache.ratis.client;
 
-import org.apache.ratis.datastream.objects.DataStreamReply;
-import org.apache.ratis.datastream.objects.DataStreamRequest;
-import org.apache.ratis.util.JavaUtils;
-
-import java.util.concurrent.CompletableFuture;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.DataStreamFactory;
+import org.apache.ratis.protocol.ClientId;
 
 /**
- * An api interface for to stream from client to server.
+ * A factory to create streaming client.
  */
-public interface ClientStreamApi {
+public interface DataStreamClientFactory extends DataStreamFactory {
 
-  /** Async call to send a request. */
-  default CompletableFuture<DataStreamReply> sendRequestAsync(DataStreamRequest request) {
-    throw new UnsupportedOperationException(getClass() + " does not support "
-        + JavaUtils.getCurrentStackTraceElement().getMethodName());
+  static DataStreamClientFactory cast(DataStreamFactory dataStreamFactory) {
+    if (dataStreamFactory instanceof DataStreamClientFactory) {
+      return (DataStreamClientFactory) dataStreamFactory;
+    }
+    throw new ClassCastException("Cannot cast " + dataStreamFactory.getClass()
+        + " to " + ClientFactory.class
+        + "; stream type is " + dataStreamFactory.getStreamType());
   }
 
+  RaftClientStream newRaftClientStream(ClientId clientId, RaftProperties properties);
 }

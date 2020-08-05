@@ -18,34 +18,31 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.ClientId;
-import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
-public enum SupportedStreamType implements StreamFactory {
+public enum SupportedDataStreamType implements DataStreamFactory {
   NETTY("org.apache.ratis.netty.NettyDataStreamFactory");
 
   private final String factoryClassName;
 
   private static final Class<?>[] ARG_CLASSES = {Parameters.class};
 
-  public static SupportedStreamType valueOfIgnoreCase(String s) {
+  public static SupportedDataStreamType valueOfIgnoreCase(String s) {
     return valueOf(s.toUpperCase());
   }
 
-  SupportedStreamType(String factoryClassName) {
+  SupportedDataStreamType(String factoryClassName) {
     this.factoryClassName = factoryClassName;
   }
 
   @Override
-  public SupportedStreamType getStreamType(){
+  public SupportedDataStreamType getStreamType(){
     return valueOf(this.factoryClassName.toUpperCase());
   }
 
-  public StreamFactory newFactory(Parameters parameters) {
-    final Class<? extends StreamFactory> clazz = ReflectionUtils.getClass(
-        factoryClassName, StreamFactory.class);
+  public DataStreamFactory newFactory(Parameters parameters) {
+    final Class<? extends DataStreamFactory> clazz = ReflectionUtils.getClass(
+        factoryClassName, DataStreamFactory.class);
     return ReflectionUtils.newInstance(clazz, ARG_CLASSES, parameters);
   }
 }

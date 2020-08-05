@@ -15,24 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ratis.datastream;
 
-import org.apache.ratis.datastream.objects.DataStreamReply;
-import java.nio.ByteBuffer;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-
-public interface OutboundDataStream extends AutoCloseable {
-  CompletableFuture<DataStreamReply> sendAsync(ByteBuffer buf, long streamId, long packetId);
-
-  CompletableFuture<DataStreamReply> closeAsync();
-
-  default void close() throws Exception {
-    try {
-      closeAsync().get();
-    } catch (ExecutionException e) {
-      final Throwable cause = e.getCause();
-      throw cause instanceof Exception? (Exception)cause: e;
-    }
-  }
+public interface DataStreamFactory {
+  SupportedDataStreamType getStreamType();
 }

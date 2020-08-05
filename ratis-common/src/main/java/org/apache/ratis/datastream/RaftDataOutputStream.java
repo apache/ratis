@@ -15,27 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ratis.datastream;
 
-package org.apache.ratis.client;
+import org.apache.ratis.datastream.objects.DataStreamReply;
+import java.nio.ByteBuffer;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.DataStreamApi;
-import org.apache.ratis.datastream.StreamFactory;
-import org.apache.ratis.protocol.ClientId;
+public interface RaftDataOutputStream extends AutoCloseable {
+  CompletableFuture<DataStreamReply> sendAsync(ByteBuffer buf, long streamId, long packetId);
 
-/**
- * A factory to create streaming client.
- */
-public interface StreamClientFactory extends StreamFactory {
+  CompletableFuture<DataStreamReply> closeAsync();
 
-  static StreamClientFactory cast(StreamFactory streamFactory) {
-    if (streamFactory instanceof StreamClientFactory) {
-      return (StreamClientFactory)streamFactory;
+  default void close() throws Exception {
+    try {
+      closeAsync().get();
+    } catch (ExecutionException e) {
+      final Throwable cause = e.getCause();
+      throw cause instanceof Exception? (Exception)cause: e;
     }
-    throw new ClassCastException("Cannot cast " + streamFactory.getClass()
-        + " to " + ClientFactory.class
-        + "; stream type is " + streamFactory.getStreamType());
   }
-
-  ClientStreamApi newClientStreamApi(ClientId clientId, RaftProperties properties);
 }

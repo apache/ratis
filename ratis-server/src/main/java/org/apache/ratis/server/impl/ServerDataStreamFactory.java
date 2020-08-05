@@ -17,10 +17,10 @@
  */
 package org.apache.ratis.server.impl;
 
-import org.apache.ratis.datastream.StreamFactory;
+import org.apache.ratis.datastream.DataStreamFactory;
 import org.apache.ratis.server.RaftServer;
 
-public interface ServerStreamFactory extends StreamFactory {
+public interface ServerDataStreamFactory extends DataStreamFactory {
   /**
    * Server implementation for streaming in Raft group
    */
