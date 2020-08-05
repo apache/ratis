@@ -28,6 +28,7 @@ import org.apache.ratis.proto.RaftProtos.FileChunkProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
 import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.MD5FileUtil;
@@ -115,7 +116,8 @@ public class SnapshotManager {
         if (!digest.equals(expectedDigest)) {
           LOG.warn("The snapshot md5 digest {} does not match expected {}",
               digest, expectedDigest);
-          //TODO: rename the temp snapshot file to .corrupt
+          // rename the temp snapshot file to .corrupt
+          renameFileToCorrupt(tmpSnapshotFile);
           throw new IOException("MD5 mismatch for snapshot-" + lastIncludedIndex
               + " installation");
         } else {
@@ -130,5 +132,13 @@ public class SnapshotManager {
       dir.getStateMachineDir().delete();
       tmpDir.renameTo(dir.getStateMachineDir());
     }
+  }
+
+  // Rename a file by appending .corrupt to file name. This function does not guarantee
+  // that the rename operation is successful.
+  @VisibleForTesting
+  static void renameFileToCorrupt(File tmpSnapshotFile) {
+    File corruptedTempFile = new File(tmpSnapshotFile.getPath() + ".corrupt");
+    tmpSnapshotFile.renameTo(corruptedTempFile);
   }
 }
