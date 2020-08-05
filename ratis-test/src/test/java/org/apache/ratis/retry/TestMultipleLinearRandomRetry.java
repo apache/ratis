@@ -60,6 +60,7 @@ public class TestMultipleLinearRandomRetry extends BaseTest {
 
   @Test
   public void testMultipleLinearRandomRetry() {
+    double precision = 0.00000001;
     final int[] counts = {10, 20, 30};
     final TimeDuration[] times = {HUNDRED_MILLIS, ONE_SECOND, FIVE_SECONDS};
     final MultipleLinearRandomRetry r = assertLegalInput("[10x100ms, 20x1s, 30x5s]", "100ms,10, 1s,20, 5s,30");
@@ -74,7 +75,7 @@ public class TestMultipleLinearRandomRetry extends BaseTest {
         final long d = expected.getDuration();
         LOG.info("times[{},{}] = {}, randomized={}", i, j, times[i], randomized);
         Assert.assertTrue(randomized.getDuration() >= d*0.5);
-        Assert.assertTrue(randomized.getDuration() < d*1.5);
+        Assert.assertTrue(randomized.getDuration() < (d*1.5 + precision));
       }
     }
 
