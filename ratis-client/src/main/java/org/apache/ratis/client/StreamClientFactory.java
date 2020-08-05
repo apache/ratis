@@ -18,9 +18,9 @@
 
 package org.apache.ratis.client;
 
-import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.objects.StreamFactory;
+import org.apache.ratis.datastream.DataStreamApi;
+import org.apache.ratis.datastream.StreamFactory;
 import org.apache.ratis.protocol.ClientId;
 
 /**
@@ -37,8 +37,5 @@ public interface StreamClientFactory extends StreamFactory {
         + "; stream type is " + streamFactory.getStreamType());
   }
 
-  /**
-   * Creates a new instance of #{@link DataStreamApi}
-   */
-  DataStreamApi newDataStreamApi(ClientId clientId, RaftProperties properties);
+  ClientStreamApi newClientStreamApi(ClientId clientId, RaftProperties properties);
 }

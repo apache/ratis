@@ -16,9 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.datastream.objects;
+package org.apache.ratis.datastream;
 
-import org.apache.ratis.datastream.SupportedStreamType;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
 
 public interface StreamFactory {
   SupportedStreamType getStreamType();

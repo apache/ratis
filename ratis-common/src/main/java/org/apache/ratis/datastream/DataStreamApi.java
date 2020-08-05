@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.api;
+package org.apache.ratis.datastream;
 
 import org.apache.ratis.datastream.objects.DataStreamReply;
 import org.apache.ratis.util.SizeInBytes;

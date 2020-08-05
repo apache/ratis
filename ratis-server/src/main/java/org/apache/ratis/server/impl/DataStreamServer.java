@@ -1,4 +1,4 @@
-package org.apache.ratis.datastream.server;
+package org.apache.ratis.server.impl;
 
 import org.apache.ratis.datastream.objects.DataStreamReply;
 import org.apache.ratis.datastream.objects.DataStreamRequest;
@@ -11,11 +11,10 @@ import java.util.concurrent.CompletableFuture;
  * It will have an associated Netty client, server for streaming and listening.
  */
 public interface DataStreamServer {
-
   /**
    * Invoked from the server to persist data and add to relay queue.
    */
-  boolean persistAndAdd(DataStreamRequest request);
+  boolean handleRequest(DataStreamRequest request);
 
   /**
    * Poll the queue and trigger streaming for messages in relay queue.
@@ -26,5 +25,5 @@ public interface DataStreamServer {
    * receive a reply from the client and set the necessary future.
    * Invoked by the Netty Client associated with the object.
    */
-  void setFuture(DataStreamReply reply);
+  CompletableFuture<DataStreamReply> setReply(DataStreamReply reply);
 }

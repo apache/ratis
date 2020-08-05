@@ -18,8 +18,9 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.datastream.objects.StreamFactory;
-import org.apache.ratis.rpc.RpcFactory;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.ReflectionUtils;
 
 public enum SupportedStreamType implements StreamFactory {
