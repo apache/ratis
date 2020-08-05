@@ -118,7 +118,7 @@ public class SnapshotManager {
           LOG.warn("The snapshot md5 digest {} does not match expected {}",
               digest, expectedDigest);
           // rename the temp snapshot file to .corrupt
-          renameFileToCorrupt(tmpSnapshotFile);
+          FileUtils.renameFileToCorrupt(tmpSnapshotFile);
           throw new CorruptedFileException(
               tmpSnapshotFile, "MD5 mismatch for snapshot-" + lastIncludedIndex
               + " installation");
@@ -134,13 +134,5 @@ public class SnapshotManager {
       dir.getStateMachineDir().delete();
       tmpDir.renameTo(dir.getStateMachineDir());
     }
-  }
-
-  // Rename a file by appending .corrupt to file name. This function does not guarantee
-  // that the rename operation is successful.
-  @VisibleForTesting
-  static void renameFileToCorrupt(File tmpSnapshotFile) {
-    File corruptedTempFile = new File(tmpSnapshotFile.getPath() + ".corrupt");
-    tmpSnapshotFile.renameTo(corruptedTempFile);
   }
 }

@@ -15,17 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.storage;
+package org.apache.ratis.util;
 
 import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
-import org.apache.ratis.util.FileUtils;
 import org.junit.Test;
 
 /** Test methods of SnapshotManager. */
-public class SnapshotManagerTest {
+public class FileUtilsTest {
 
   @Test
   public void testRenameToCorrupt() throws IOException {
@@ -34,7 +33,7 @@ public class SnapshotManagerTest {
     if (corruptFile.exists()) {
       FileUtils.deleteFully(corruptFile);
     }
-    SnapshotManager.renameFileToCorrupt(srcFile);
+    FileUtils.renameFileToCorrupt(srcFile);
     srcFile.deleteOnExit();
     corruptFile.deleteOnExit();
     assertTrue(corruptFile.exists());

@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -143,5 +144,12 @@ public interface FileUtils {
         return FileVisitResult.CONTINUE;
       }
     });
+  }
+
+  // Rename a file by appending .corrupt to file name. This function does not guarantee
+  // that the rename operation is successful.
+  static void renameFileToCorrupt(File tmpSnapshotFile) {
+    File corruptedTempFile = new File(tmpSnapshotFile.getPath() + ".corrupt");
+    tmpSnapshotFile.renameTo(corruptedTempFile);
   }
 }
