@@ -22,6 +22,7 @@ import static org.apache.ratis.conf.ConfUtils.printAll;
 import static org.apache.ratis.conf.ConfUtils.set;
 
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.SupportedStreamType;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.rpc.SupportedRpcType;
 
@@ -42,6 +43,22 @@ public interface RaftConfigKeys {
     }
 
     static void setType(RaftProperties properties, RpcType type) {
+      set(properties::set, TYPE_KEY, type.name());
+    }
+  }
+
+  interface DataStream {
+    String PREFIX = RaftConfigKeys.PREFIX + ".datastream";
+
+    String TYPE_KEY = PREFIX + ".type";
+    String TYPE_DEFAULT = SupportedStreamType.NETTY.name();
+
+    static SupportedStreamType type(RaftProperties properties, Consumer<String> logger) {
+      final String t = get(properties::get, TYPE_KEY, TYPE_DEFAULT, logger);
+      return SupportedStreamType.valueOfIgnoreCase(t);
+    }
+
+    static void setType(RaftProperties properties, SupportedStreamType type) {
       set(properties::set, TYPE_KEY, type.name());
     }
   }

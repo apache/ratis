@@ -107,6 +107,23 @@ public interface RaftClientConfigKeys {
     }
   }
 
+  interface DataStream {
+    String PREFIX = RaftClientConfigKeys.PREFIX + ".datastream";
+
+    String SUBMESSAGE_SIZE_KEY = PREFIX + ".submessage-size";
+    SizeInBytes SUBMESSAGE_SIZE_DEFAULT = SizeInBytes.valueOf("1MB");
+    static SizeInBytes submessageSize(RaftProperties properties) {
+      return getSizeInBytes(properties::getSizeInBytes,
+          SUBMESSAGE_SIZE_KEY, SUBMESSAGE_SIZE_DEFAULT, getDefaultLog());
+    }
+    static void setSubmessageSize(RaftProperties properties, SizeInBytes submessageSize) {
+      setSizeInBytes(properties::set, SUBMESSAGE_SIZE_KEY, submessageSize, requireMin(SizeInBytes.ONE_KB));
+    }
+    static void setSubmessageSize(RaftProperties properties) {
+      setSubmessageSize(properties, SUBMESSAGE_SIZE_DEFAULT);
+    }
+  }
+
   static void main(String[] args) {
     printAll(RaftClientConfigKeys.class);
   }
