@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
+import org.apache.ratis.util.FileUtils;
 import org.junit.Test;
 
 /** Test methods of SnapshotManager. */
@@ -31,7 +32,7 @@ public class SnapshotManagerTest {
     File srcFile = File.createTempFile("snapshot.1_20", null);
     File corruptFile = new File(srcFile.getPath() + ".corrupt");
     if (corruptFile.exists()) {
-      corruptFile.delete();
+      FileUtils.deleteFully(corruptFile);
     }
     SnapshotManager.renameFileToCorrupt(srcFile);
     srcFile.deleteOnExit();

@@ -22,6 +22,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 
+import org.apache.ratis.io.CorruptedFileException;
 import org.apache.ratis.io.MD5Hash;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.proto.RaftProtos.FileChunkProto;
@@ -118,7 +119,8 @@ public class SnapshotManager {
               digest, expectedDigest);
           // rename the temp snapshot file to .corrupt
           renameFileToCorrupt(tmpSnapshotFile);
-          throw new IOException("MD5 mismatch for snapshot-" + lastIncludedIndex
+          throw new CorruptedFileException(
+              tmpSnapshotFile, "MD5 mismatch for snapshot-" + lastIncludedIndex
               + " installation");
         } else {
           MD5FileUtil.saveMD5File(tmpSnapshotFile, digest);
