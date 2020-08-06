@@ -52,9 +52,4 @@ public class DataStreamClientImpl implements DataStreamClient {
     return streamApi;
   }
 
-  @Override
-  public CompletableFuture<DataStreamReply> sendAsync(DataStreamRequest request){
-    return new CompletableFuture<DataStreamReply>();
-  }
-
 }

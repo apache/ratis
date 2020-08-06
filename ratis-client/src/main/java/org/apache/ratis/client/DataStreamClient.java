@@ -49,7 +49,6 @@ public interface DataStreamClient {
    * send to server via streaming.
    * Return a completable future.
    */
-  CompletableFuture<DataStreamReply> sendAsync(DataStreamRequest request);
 
   /** To build {@link DataStreamClient} objects */
   class Builder {
