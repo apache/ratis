@@ -15,24 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.api;
 
-import org.apache.ratis.datastream.objects.DataStreamReply;
-import java.nio.ByteBuffer;
+package org.apache.ratis.client;
+
+import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.DataStreamRequest;
+import org.apache.ratis.util.JavaUtils;
+
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
-public interface RaftDataOutputStream extends AutoCloseable {
-  CompletableFuture<DataStreamReply> sendAsync(ByteBuffer buf);
+/**
+ * An api interface for to stream from client to server.
+ */
+public interface DataStreamClientRpc {
 
-  CompletableFuture<DataStreamReply> closeAsync();
-
-  default void close() throws Exception {
-    try {
-      closeAsync().get();
-    } catch (ExecutionException e) {
-      final Throwable cause = e.getCause();
-      throw cause instanceof Exception? (Exception)cause: e;
-    }
+  /** Async call to send a request. */
+  default CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
+    throw new UnsupportedOperationException(getClass() + " does not support "
+        + JavaUtils.getCurrentStackTraceElement().getMethodName());
   }
+
 }

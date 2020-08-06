@@ -15,11 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ratis.server;
 
-package org.apache.ratis.datastream.objects;
-
-public interface DataStreamRequest {
-  long getStreamId();
-  long getMessageOffset();
-  long getDataLength();
+/**
+ * A server interface handling incoming streams
+ * Relays those streams to other servers after persisting
+ */
+public interface DataStreamServerRpc {
 }

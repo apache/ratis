@@ -17,29 +17,25 @@
  */
 package org.apache.ratis.client.impl;
 
-import org.apache.ratis.client.RaftClientStream;
+import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.objects.DataStreamReply;
-import org.apache.ratis.datastream.objects.DataStreamRequest;
 import org.apache.ratis.protocol.ClientId;
-
-import java.util.concurrent.CompletableFuture;
 
 public class DataStreamClientImpl implements DataStreamClient {
 
-  private ClientId clientId;
-  private RaftProperties properties;
-  private DataStreamApi streamApi;
-  private RaftClientStream networkTransferApi;
+  private final ClientId clientId;
+  private final RaftProperties properties;
+  private final DataStreamClientRpc dataStreamClientRpc;
+  private final DataStreamApi dataStreamApi = null; //TODO need an impl
 
   public DataStreamClientImpl(ClientId clientId,
                               RaftProperties properties,
-                              RaftClientStream networkTransferApi){
+                              DataStreamClientRpc dataStreamClientRpc){
     this.clientId = clientId;
     this.properties = properties;
-    this.networkTransferApi = networkTransferApi;
+    this.dataStreamClientRpc = dataStreamClientRpc;
   }
 
   @Override
@@ -49,7 +45,7 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamApi getDataStreamApi(){
-    return streamApi;
+    return dataStreamApi;
   }
 
 }

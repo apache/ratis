@@ -15,26 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.impl;
 
-import org.apache.ratis.datastream.objects.DataStreamReply;
-import org.apache.ratis.datastream.objects.DataStreamRequest;
+package org.apache.ratis.protocol;
 
-import java.util.concurrent.CompletableFuture;
-
-/**
- * A server interface handling incoming streams
- * Relays those streams to other servers after persisting
- * It will have an associated Netty client, server for streaming and listening.
- */
-public interface DataStreamServer {
-  /**
-   * Invoked from the server to persist data and add to relay queue.
-   */
-  boolean handleRequest(DataStreamRequest request);
-
-  /**
-   * Poll the queue and trigger streaming for messages in relay queue.
-   */
-  CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request);
+public interface DataStreamRequest extends DataStreamMessage {
 }

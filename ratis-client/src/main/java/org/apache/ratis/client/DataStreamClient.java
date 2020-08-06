@@ -23,13 +23,9 @@ import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
-import org.apache.ratis.datastream.objects.DataStreamReply;
-import org.apache.ratis.datastream.objects.DataStreamRequest;
 import org.apache.ratis.protocol.ClientId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * A client interface that sends request to the streaming pipeline.
@@ -53,7 +49,7 @@ public interface DataStreamClient {
   /** To build {@link DataStreamClient} objects */
   class Builder {
     private ClientId clientId;
-    private RaftClientStream raftClientStream;
+    private DataStreamClientRpc dataStreamClientRpc;
     private RaftProperties properties;
     private Parameters parameters;
 
@@ -64,13 +60,13 @@ public interface DataStreamClient {
         clientId = ClientId.randomId();
       }
       if (properties != null) {
-        if (raftClientStream == null) {
-          final SupportedDataStreamType streamType = RaftConfigKeys.DataStream.type(properties, LOG::debug);
-          raftClientStream = DataStreamClientFactory.cast(streamType.newFactory(parameters))
-                                         .newRaftClientStream(clientId, properties);
+        if (dataStreamClientRpc == null) {
+          final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
+          dataStreamClientRpc = DataStreamClientFactory.cast(type.newFactory(parameters))
+              .newDataStreamClientRpc(clientId, properties);
         }
       }
-      return new DataStreamClientImpl(clientId, properties, raftClientStream);
+      return new DataStreamClientImpl(clientId, properties, dataStreamClientRpc);
     }
 
     public Builder setClientId(ClientId clientId) {
@@ -83,8 +79,8 @@ public interface DataStreamClient {
       return this;
     }
 
-    public Builder setRaftClientStream(RaftClientStream networkTransferApi){
-      this.raftClientStream = networkTransferApi;
+    public Builder setDataStreamClientRpc(DataStreamClientRpc dataStreamClientRpc){
+      this.dataStreamClientRpc = dataStreamClientRpc;
       return this;
     }
 

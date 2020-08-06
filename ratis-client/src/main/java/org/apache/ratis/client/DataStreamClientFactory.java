@@ -33,8 +33,8 @@ public interface DataStreamClientFactory extends DataStreamFactory {
     }
     throw new ClassCastException("Cannot cast " + dataStreamFactory.getClass()
         + " to " + ClientFactory.class
-        + "; stream type is " + dataStreamFactory.getStreamType());
+        + "; stream type is " + dataStreamFactory.getDataStreamType());
   }
 
-  RaftClientStream newRaftClientStream(ClientId clientId, RaftProperties properties);
+  DataStreamClientRpc newDataStreamClientRpc(ClientId clientId, RaftProperties properties);
 }

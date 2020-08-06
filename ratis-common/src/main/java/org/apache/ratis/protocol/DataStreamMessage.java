@@ -16,23 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.client;
+package org.apache.ratis.protocol;
 
-import org.apache.ratis.datastream.objects.DataStreamReply;
-import org.apache.ratis.datastream.objects.DataStreamRequest;
-import org.apache.ratis.util.JavaUtils;
+public interface DataStreamMessage extends RaftRpcMessage {
+  long getStreamId();
 
-import java.util.concurrent.CompletableFuture;
+  long getDataOffset();
 
-/**
- * An api interface for to stream from client to server.
- */
-public interface RaftClientStream {
-
-  /** Async call to send a request. */
-  default CompletableFuture<DataStreamReply> sendRequestAsync(DataStreamRequest request) {
-    throw new UnsupportedOperationException(getClass() + " does not support "
-        + JavaUtils.getCurrentStackTraceElement().getMethodName());
-  }
-
+  long getDataLength();
 }

@@ -36,7 +36,7 @@ public enum SupportedDataStreamType implements DataStreamFactory {
   }
 
   @Override
-  public SupportedDataStreamType getStreamType(){
+  public SupportedDataStreamType getDataStreamType() {
     return valueOf(this.factoryClassName.toUpperCase());
   }
 

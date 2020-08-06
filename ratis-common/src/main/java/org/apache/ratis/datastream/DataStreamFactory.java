@@ -19,5 +19,5 @@
 package org.apache.ratis.datastream;
 
 public interface DataStreamFactory {
-  SupportedDataStreamType getStreamType();
+  SupportedDataStreamType getDataStreamType();
 }

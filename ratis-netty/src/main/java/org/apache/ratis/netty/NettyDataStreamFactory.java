@@ -17,31 +17,31 @@
  */
 package org.apache.ratis.netty;
 
-import org.apache.ratis.client.RaftClientStream;
+import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamClientFactory;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.server.impl.DataStreamServer;
-import org.apache.ratis.server.impl.ServerDataStreamFactory;
+import org.apache.ratis.server.DataStreamServerRpc;
+import org.apache.ratis.server.DataStreamServerFactory;
 
-public class NettyDataStreamFactory implements ServerDataStreamFactory, DataStreamClientFactory {
+public class NettyDataStreamFactory implements DataStreamServerFactory, DataStreamClientFactory {
   public NettyDataStreamFactory(Parameters parameters){}
 
   @Override
-  public SupportedDataStreamType getStreamType() {
+  public SupportedDataStreamType getDataStreamType() {
     return SupportedDataStreamType.NETTY;
   }
 
   @Override
-  public RaftClientStream newRaftClientStream(ClientId clientId, RaftProperties properties) {
+  public DataStreamClientRpc newDataStreamClientRpc(ClientId clientId, RaftProperties properties) {
     return null;
   }
 
   @Override
-  public DataStreamServer newDataStreamServer(RaftServer server) {
+  public DataStreamServerRpc newDataStreamServerRpc(RaftServer server) {
     return null;
   }
 }

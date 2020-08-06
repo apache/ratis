@@ -15,14 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.impl;
 
-import org.apache.ratis.datastream.DataStreamFactory;
-import org.apache.ratis.server.RaftServer;
+package org.apache.ratis.protocol;
 
-public interface ServerDataStreamFactory extends DataStreamFactory {
-  /**
-   * Server implementation for streaming in Raft group
-   */
-  DataStreamServer newDataStreamServer(RaftServer server);
+import java.nio.ByteBuffer;
+
+public interface DataStreamReply extends DataStreamMessage {
+  ByteBuffer getResponse();
 }

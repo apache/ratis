@@ -15,19 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.api;
+package org.apache.ratis.server;
 
-/**
- * An interface for streaming data.
- * Associated with it's implementation will be a client.
- */
+import org.apache.ratis.datastream.DataStreamFactory;
 
-public interface DataStreamApi {
-
+public interface DataStreamServerFactory extends DataStreamFactory {
   /**
-   * Create a new stream for a new streamToRatis invocation
-   * allows multiple stream from a single client.
+   * Server implementation for streaming in Raft group
    */
-  DataStreamOutput stream();
-
+  DataStreamServerRpc newDataStreamServerRpc(RaftServer server);
 }
