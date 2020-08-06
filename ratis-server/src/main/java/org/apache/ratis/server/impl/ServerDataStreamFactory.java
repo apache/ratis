@@ -24,5 +24,5 @@ public interface ServerDataStreamFactory extends DataStreamFactory {
   /**
    * Server implementation for streaming in Raft group
    */
-  DataStreamServer newServerStreamApi(RaftServer server);
+  DataStreamServer newDataStreamServer(RaftServer server);
 }

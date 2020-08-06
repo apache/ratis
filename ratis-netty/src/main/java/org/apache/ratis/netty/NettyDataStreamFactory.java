@@ -41,7 +41,7 @@ public class NettyDataStreamFactory implements ServerDataStreamFactory, DataStre
   }
 
   @Override
-  public DataStreamServer newServerStreamApi(RaftServer server) {
+  public DataStreamServer newDataStreamServer(RaftServer server) {
     return null;
   }
 }

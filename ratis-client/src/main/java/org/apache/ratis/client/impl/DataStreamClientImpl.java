@@ -19,7 +19,7 @@ package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClientStream;
 import org.apache.ratis.client.DataStreamClient;
-import org.apache.ratis.datastream.DataStreamApi;
+import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.objects.DataStreamReply;
 import org.apache.ratis.datastream.objects.DataStreamRequest;
@@ -50,11 +50,6 @@ public class DataStreamClientImpl implements DataStreamClient {
   @Override
   public DataStreamApi getDataStreamApi(){
     return streamApi;
-  }
-
-  @Override
-  public RaftClientStream getNetworkTransferApi() {
-    return networkTransferApi;
   }
 
   @Override

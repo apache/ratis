@@ -15,24 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.datastream;
+package org.apache.ratis.client.api;
 
-import org.apache.ratis.datastream.objects.DataStreamReply;
-import java.nio.ByteBuffer;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+/**
+ * An interface for streaming data.
+ * Associated with it's implementation will be a client.
+ */
 
-public interface RaftDataOutputStream extends AutoCloseable {
-  CompletableFuture<DataStreamReply> sendAsync(ByteBuffer buf, long streamId, long packetId);
+public interface DataStreamApi {
 
-  CompletableFuture<DataStreamReply> closeAsync();
+  /**
+   * Create a new stream for a new streamToRatis invocation
+   * allows multiple stream from a single client.
+   */
+  RaftDataOutputStream newStream();
 
-  default void close() throws Exception {
-    try {
-      closeAsync().get();
-    } catch (ExecutionException e) {
-      final Throwable cause = e.getCause();
-      throw cause instanceof Exception? (Exception)cause: e;
-    }
-  }
 }

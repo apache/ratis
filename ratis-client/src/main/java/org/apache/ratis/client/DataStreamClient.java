@@ -18,7 +18,7 @@
 package org.apache.ratis.client;
 
 import org.apache.ratis.RaftConfigKeys;
-import org.apache.ratis.datastream.DataStreamApi;
+import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -45,9 +45,6 @@ public interface DataStreamClient {
   /** Return Streamer Api instance. */
   DataStreamApi getDataStreamApi();
 
-  /** Return Network transfer Api instance. */
-  RaftClientStream getNetworkTransferApi();
-
   /**
    * send to server via streaming.
    * Return a completable future.
@@ -57,7 +54,7 @@ public interface DataStreamClient {
   /** To build {@link DataStreamClient} objects */
   class Builder {
     private ClientId clientId;
-    private RaftClientStream networkTransferApi;
+    private RaftClientStream raftClientStream;
     private RaftProperties properties;
     private Parameters parameters;
 
@@ -68,13 +65,13 @@ public interface DataStreamClient {
         clientId = ClientId.randomId();
       }
       if (properties != null) {
-        if (networkTransferApi == null) {
+        if (raftClientStream == null) {
           final SupportedDataStreamType streamType = RaftConfigKeys.DataStream.type(properties, LOG::debug);
-          networkTransferApi = DataStreamClientFactory.cast(streamType.newFactory(parameters))
+          raftClientStream = DataStreamClientFactory.cast(streamType.newFactory(parameters))
                                          .newRaftClientStream(clientId, properties);
         }
       }
-      return new DataStreamClientImpl(clientId, properties, networkTransferApi);
+      return new DataStreamClientImpl(clientId, properties, raftClientStream);
     }
 
     public Builder setClientId(ClientId clientId) {
@@ -87,8 +84,8 @@ public interface DataStreamClient {
       return this;
     }
 
-    public Builder setNetworkTransferApi(RaftClientStream networkTransferApi){
-      this.networkTransferApi = networkTransferApi;
+    public Builder setRaftClientStream(RaftClientStream networkTransferApi){
+      this.raftClientStream = networkTransferApi;
       return this;
     }
 
