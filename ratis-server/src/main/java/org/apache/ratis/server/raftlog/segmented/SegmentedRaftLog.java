@@ -508,7 +508,7 @@ public class SegmentedRaftLog extends RaftLog {
   public void close() throws IOException {
     try(AutoCloseableLock writeLock = writeLock()) {
       super.close();
-      cache.clear();
+      cache.close();
     }
     fileLogWorker.close();
     storage.close();

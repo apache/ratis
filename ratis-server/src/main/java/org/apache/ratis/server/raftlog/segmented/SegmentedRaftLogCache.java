@@ -652,7 +652,7 @@ public class SegmentedRaftLogCache {
     return closedSegments.isEmpty() && openSegment == null;
   }
 
-  void clear() {
+  void close() {
     if (openSegment != null) {
       openSegment.clear();
       clearOpenSegment();
