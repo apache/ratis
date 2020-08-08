@@ -233,10 +233,10 @@ public class LogServiceProtoUtil {
 
   public static AppendLogEntryReplyProto toAppendLogReplyProto(List<Long> ids, Throwable t) {
     AppendLogEntryReplyProto.Builder builder = AppendLogEntryReplyProto.newBuilder();
-    if (t!= null) {
+    if (t != null) {
       builder.setException(toLogException(t));
-    } else if (ids != null){
-      for(long id: ids) {
+    } else if (ids != null) {
+      for (long id: ids) {
         builder.addRecordId(id);
       }
     }
