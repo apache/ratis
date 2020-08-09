@@ -62,14 +62,14 @@ public class MetricServerInterceptor implements ServerInterceptor {
       Metadata requestHeaders,
       ServerCallHandler<R, S> next) {
     MethodDescriptor<R, S> method = call.getMethodDescriptor();
-    if(identifier == null){
+    if (identifier == null) {
       try {
         identifier = peerIdSupplier.get().toString();
-      } catch (Exception e){
+      } catch (Exception e) {
         identifier = defaultIdentifier;
       }
-      metrics = new MessageMetrics(identifier, "server");
     }
+    metrics = new MessageMetrics(identifier, "server");
     String metricNamePrefix = getMethodMetricPrefix(method);
     ServerCall<R,S> monitoringCall = new MetricServerCall<>(call, metricNamePrefix, metrics);
     return new MetricServerCallListener<>(
