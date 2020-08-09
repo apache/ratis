@@ -69,7 +69,11 @@ public class MetricServerInterceptor implements ServerInterceptor {
         identifier = defaultIdentifier;
       }
     }
-    metrics = new MessageMetrics(identifier, "server");
+    else{
+         if(metrics == null){
+            metrics = new MessageMetrics(identifier, "server");
+         }
+    }
     String metricNamePrefix = getMethodMetricPrefix(method);
     ServerCall<R,S> monitoringCall = new MetricServerCall<>(call, metricNamePrefix, metrics);
     return new MetricServerCallListener<>(
