@@ -1,10 +1,9 @@
 package org.apache.ratis.client.impl;
 
 import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.DataStreamClientFactory;
 import org.apache.ratis.client.DataStreamClientRpc;
-import org.apache.ratis.client.RaftClientConfigKeys;
-import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -22,8 +21,8 @@ import java.util.concurrent.CompletableFuture;
  * allows client to create streams and send asynchronously.
  */
 
-public class DataStreamImpl implements DataStreamApi {
-  public static final Logger LOG = LoggerFactory.getLogger(DataStreamImpl.class);
+public class DataStreamClientImpl implements DataStreamClient {
+  public static final Logger LOG = LoggerFactory.getLogger(DataStreamClientImpl.class);
 
   private DataStreamClientRpc dataStreamClientRpc;
   private OrderedStreamAsync orderedStreamAsync;
@@ -32,7 +31,7 @@ public class DataStreamImpl implements DataStreamApi {
   private Parameters parameters;
   private long streamId = 0;
 
-  public DataStreamImpl(RaftClientImpl client, RaftProperties properties, Parameters parameters) {
+  public DataStreamClientImpl(RaftClientImpl client, RaftProperties properties, Parameters parameters) {
     this.client = Objects.requireNonNull(client, "client == null");
     this.properties = properties;
     this.parameters = parameters;
@@ -70,5 +69,10 @@ public class DataStreamImpl implements DataStreamApi {
   public DataStreamOutput stream() {
     streamId++;
     return new DataStreamOutputImpl(streamId);
+  }
+
+  @Override
+  public RaftClientImpl getRaftClient() {
+    return client;
   }
 }
