@@ -22,6 +22,7 @@ import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.client.impl.RaftClientImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.RaftPeer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,11 +34,14 @@ public interface DataStreamClient {
 
   Logger LOG = LoggerFactory.getLogger(DataStreamClient.class);
 
-  /** Return Client id. */
-  RaftClientImpl getRaftClient();
+  /** Return the rpc client instance **/
+  DataStreamClientRpc getClientRpc();
 
   /** Return Streamer Api instance. */
   DataStreamOutput stream();
+
+  /** add information of the raft peers to communicate with */
+  void addPeers(Iterable<RaftPeer> peers);
 
   /**
    * send to server via streaming.
@@ -46,18 +50,18 @@ public interface DataStreamClient {
 
   /** To build {@link DataStreamClient} objects */
   class Builder {
-    private RaftClientImpl client;
+    private RaftPeer communicationPeer;
     private RaftProperties properties;
     private Parameters parameters;
 
     private Builder() {}
 
     public DataStreamClientImpl build(){
-      return new DataStreamClientImpl(client, properties, parameters);
+      return new DataStreamClientImpl(communicationPeer, properties, parameters);
     }
 
-    public Builder setClient(RaftClientImpl client) {
-      this.client = client;
+    public Builder setCommunicationPeer(RaftPeer peer) {
+      this.communicationPeer = peer;
       return this;
     }
 
@@ -71,5 +75,4 @@ public interface DataStreamClient {
       return this;
     }
   }
-
 }

@@ -119,7 +119,7 @@ public class ClientFlat {
   }
 
   public static void main(String[] args) throws Exception{
-    int times = 10000;
+    int times = 100000;
     if(args.length != 0){
       times = Integer.parseInt(args[0]);
     }

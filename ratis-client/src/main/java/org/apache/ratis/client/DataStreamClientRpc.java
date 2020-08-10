@@ -35,4 +35,8 @@ public interface DataStreamClientRpc {
         + JavaUtils.getCurrentStackTraceElement().getMethodName());
   }
 
+  void startClient() throws InterruptedException;
+
+  void closeClient();
+
 }

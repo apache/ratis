@@ -8,24 +8,29 @@ import org.apache.ratis.netty.encoders.DataStreamRequestClientEncoder;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyImpl;
 import org.apache.ratis.protocol.DataStreamRequest;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
+import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
+import org.apache.ratis.util.NetUtils;
 
+import java.net.InetSocketAddress;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 
 public class NettyClientStreamRpc implements DataStreamClientRpc {
-  private RaftClientImpl raftClient;
+  private RaftPeer server;
   private RaftProperties raftProperties;
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private Channel channel;
   private Queue<CompletableFuture<DataStreamReply>> replies
       = new LinkedList<>();
 
-  public NettyClientStreamRpc(RaftClientImpl client, RaftProperties properties){
-    this.raftClient = client;
+  public NettyClientStreamRpc(RaftPeer server, RaftProperties properties){
+    this.server = server;
     this.raftProperties = properties;
   }
 
@@ -57,5 +62,23 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     replies.offer(f);
     channel.writeAndFlush(request);
     return f;
+  }
+
+  @Override
+  public void startClient() throws InterruptedException {
+    final InetSocketAddress address = NetUtils.createSocketAddr(server.getAddress());
+    channel = (new Bootstrap())
+        .group(workerGroup)
+        .channel(NioSocketChannel.class)
+        .handler(getInitializer())
+        .option(ChannelOption.SO_KEEPALIVE, true)
+        .connect(address)
+        .sync()
+        .channel();
+  }
+
+  @Override
+  public void closeClient(){
+    channel.close().syncUninterruptibly();
   }
 }
