@@ -38,5 +38,4 @@ public interface DataStreamClientRpc {
   void startClient() throws InterruptedException;
 
   void closeClient();
-
 }

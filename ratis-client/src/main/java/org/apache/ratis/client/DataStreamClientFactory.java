@@ -18,10 +18,8 @@
 
 package org.apache.ratis.client;
 
-import org.apache.ratis.client.impl.RaftClientImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.DataStreamFactory;
-import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeer;
 
 /**
