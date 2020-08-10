@@ -171,7 +171,6 @@ public class MemoryRaftLog extends RaftLog {
       // truncation in the next appendEntries RPC, leader may think entry 7 has
       // been committed but in the system the entry has not been committed to
       // the quorum of peers' disks.
-      // TODO add a unit test for this
       boolean toTruncate = false;
       int truncateIndex = (int) logEntryProtos[0].getIndex();
       int index = 0;

@@ -53,7 +53,7 @@ interface RaftLogSequentialOps {
     /**
      * Run the given operation sequentially.
      * This method can be invoked by different threads but only one thread at any given time is allowed.
-     * The same thread can call this methed multiple times.
+     * The same thread can call this method multiple times.
      *
      * @throws IllegalStateException if this runner is already running another operation.
      */
