@@ -181,12 +181,12 @@ class StateMachineUpdater implements Runnable {
         } else {
           final String s = this + ": the StateMachineUpdater is wrongly interrupted";
           LOG.error(s, e);
-          server.shutdown(false);
+          server.shutdown();
         }
       } catch (Throwable t) {
         final String s = this + ": the StateMachineUpdater hits Throwable";
         LOG.error(s, t);
-        server.shutdown(false);
+        server.shutdown();
       }
     }
   }

@@ -30,6 +30,7 @@ import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServerConfigKeys;
+import org.apache.ratis.util.FileUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
@@ -41,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -202,7 +204,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
 
           final RaftClientReply r;
           try (final RaftClient client = cluster.createClient(p.getId(), g)) {
-            r = client.groupRemove(g.getGroupId(), true, p.getId());
+            r = client.groupRemove(g.getGroupId(), true, false, p.getId());
           }
           Assert.assertTrue(r.isSuccess());
           Assert.assertFalse(root.exists());
@@ -263,4 +265,93 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       cluster.shutdown();
     }
   }
+
+  @Test
+  public void testGroupRemoveWhenRename() throws Exception {
+    final MiniRaftCluster cluster1 = getCluster(1);
+    RaftServerConfigKeys.setRemovedGroupsDir(cluster1.getProperties(),
+        Files.createTempDirectory("groups").toFile());
+    final MiniRaftCluster cluster2 = getCluster(3);
+    cluster1.start();
+    final RaftPeer peer1 = cluster1.getPeers().get(0);
+    final RaftPeerId peerId1 = peer1.getId();
+    final RaftGroup group1 = RaftGroup.valueOf(cluster1.getGroupId(), peer1);
+    final RaftGroup group2 = RaftGroup.valueOf(cluster2.getGroupId(), peer1);
+    try (final RaftClient client = cluster1.createClient()) {
+      Assert.assertEquals(group1,
+          cluster1.getRaftServerImpl(peerId1).getGroup());
+      try {
+
+        // Group2 is added to one of the peers in Group1
+        client.groupAdd(group2, peerId1);
+        List<RaftGroupId> groupIds1 = cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIds1.size(), 2);
+
+        // Group2 is renamed from the peer1 of Group1
+        client.groupRemove(group2.getGroupId(), false, true, peerId1);
+
+        groupIds1 = cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIds1.size(), 1);
+        cluster1.restart(false);
+
+        List<RaftGroupId> groupIdsAfterRestart =
+            cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIds1.size(), groupIdsAfterRestart.size());
+
+        File renamedGroup = new File(RaftServerConfigKeys.removedGroupsDir(
+            cluster1.getProperties()), group2.getGroupId().getUuid().toString());
+        Assert.assertTrue(renamedGroup.isDirectory());
+
+      } catch (IOException ex) {
+        Assert.fail();
+      } finally {
+        cluster1.shutdown();
+        // Clean up
+        FileUtils.deleteFully(RaftServerConfigKeys.removedGroupsDir(
+            cluster1.getProperties()));
+      }
+    }
+  }
+
+  @Test
+  public void testGroupRemoveWhenDelete() throws Exception {
+    final MiniRaftCluster cluster1 = getCluster(1);
+        RaftServerConfigKeys.setRemovedGroupsDir(cluster1.getProperties(),
+            Files.createTempDirectory("groups").toFile());
+    final MiniRaftCluster cluster2 = getCluster(3);
+    cluster1.start();
+    final RaftPeer peer1 = cluster1.getPeers().get(0);
+    final RaftPeerId peerId1 = peer1.getId();
+    final RaftGroup group1 = RaftGroup.valueOf(cluster1.getGroupId(), peer1);
+    final RaftGroup group2 = RaftGroup.valueOf(cluster2.getGroupId(), peer1);
+    try (final RaftClient client = cluster1.createClient()) {
+      Assert.assertEquals(group1,
+          cluster1.getRaftServerImpl(peerId1).getGroup());
+      try {
+
+        // Group2 is added again to one of the peers in Group1
+        client.groupAdd(group2, peerId1);
+        List<RaftGroupId> groupIds1 = cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIds1.size(), 2);
+
+        // Group2 is deleted from the peer1 of Group1
+        client.groupRemove(group2.getGroupId(), true, false, peerId1);
+
+        groupIds1 = cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIds1.size(), 1);
+        cluster1.restart(false);
+        List<RaftGroupId> groupIdsAfterRestart =
+            cluster1.getServer(peerId1).getGroupIds();
+        Assert.assertEquals(groupIds1.size(), groupIdsAfterRestart.size());
+
+      } catch (IOException ex) {
+        Assert.fail();
+      } finally {
+        cluster1.shutdown();
+        FileUtils.deleteFully(RaftServerConfigKeys.removedGroupsDir(
+            cluster1.getProperties()));
+      }
+    }
+  }
+
 }

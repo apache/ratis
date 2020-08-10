@@ -109,7 +109,7 @@ public class RaftServerProxy implements RaftServer {
       }
       isClosed = true;
       map.values().parallelStream().map(CompletableFuture::join)
-          .forEach(impl -> impl.shutdown(false));
+          .forEach(RaftServerImpl::shutdown);
     }
 
     synchronized List<RaftGroupId> getGroupIds() {
@@ -369,7 +369,8 @@ public class RaftServerProxy implements RaftServer {
     }
     final GroupManagementRequest.Remove remove = request.getRemove();
     if (remove != null) {
-      return groupRemoveAsync(request, remove.getGroupId(), remove.isDeleteDirectory());
+      return groupRemoveAsync(request, remove.getGroupId(),
+          remove.isDeleteDirectory(), remove.isRenameDirectory());
     }
     return JavaUtils.completeExceptionally(new UnsupportedOperationException(
         getId() + ": Request not supported " + request));
@@ -402,7 +403,8 @@ public class RaftServerProxy implements RaftServer {
   }
 
   private CompletableFuture<RaftClientReply> groupRemoveAsync(
-      RaftClientRequest request, RaftGroupId groupId, boolean deleteDirectory) {
+      RaftClientRequest request, RaftGroupId groupId, boolean deleteDirectory,
+      boolean renameDirectory) {
     if (!request.getRaftGroupId().equals(groupId)) {
       return JavaUtils.completeExceptionally(new GroupMismatchException(
           getId() + ": Request group id (" + request.getRaftGroupId() + ") does not match the given group id " +
@@ -415,7 +417,7 @@ public class RaftServerProxy implements RaftServer {
     }
     return f.thenApply(impl -> {
       final Collection<CommitInfoProto> commitInfos = impl.getCommitInfos();
-      impl.shutdown(deleteDirectory);
+      impl.groupRemove(deleteDirectory, renameDirectory);
       impl.getStateMachine().notifyGroupRemove();
       return new RaftClientReply(request, commitInfos);
     });
