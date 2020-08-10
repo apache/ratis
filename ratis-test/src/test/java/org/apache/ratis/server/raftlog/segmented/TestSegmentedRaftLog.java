@@ -572,7 +572,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     };
 
     RaftServerImpl server = mock(RaftServerImpl.class);
-    doNothing().when(server).shutdown(false);
+    doNothing().when(server).shutdown();
     Throwable ex = null; // TimeoutIOException
     try (SegmentedRaftLog raftLog = new SegmentedRaftLog(memberId, server, sm, null, storage, -1, properties)) {
       raftLog.open(RaftLog.INVALID_LOG_INDEX, null);

@@ -271,7 +271,7 @@ class SegmentedRaftLogWorker implements Runnable {
       } else {
         LOG.error("Failed to add IO task {}", task, t);
         if (server != null) {
-          server.shutdown(false);
+          server.shutdown();
         }
       }
     }
@@ -337,7 +337,7 @@ class SegmentedRaftLogWorker implements Runnable {
           LOG.error("{} hit exception", Thread.currentThread().getName(), t);
           // Shutdown raft group instead of terminating jvm.
           if (server != null) {
-            server.shutdown(false);
+            server.shutdown();
           }
         }
       }
