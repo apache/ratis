@@ -49,18 +49,18 @@ public interface DataStreamClient {
 
   /** To build {@link DataStreamClient} objects */
   class Builder {
-    private RaftPeer communicationPeer;
+    private RaftPeer raftServer;
     private RaftProperties properties;
     private Parameters parameters;
 
     private Builder() {}
 
     public DataStreamClientImpl build(){
-      return new DataStreamClientImpl(communicationPeer, properties, parameters);
+      return new DataStreamClientImpl(raftServer, properties, parameters);
     }
 
     public Builder setCommunicationPeer(RaftPeer peer) {
-      this.communicationPeer = peer;
+      this.raftServer = peer;
       return this;
     }
 

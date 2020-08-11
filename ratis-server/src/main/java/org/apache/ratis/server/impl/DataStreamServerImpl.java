@@ -22,10 +22,10 @@ import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DataStreamServerFactory;
 import org.apache.ratis.server.DataStreamServerRpc;
-import org.apache.ratis.server.RaftServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,13 +33,13 @@ public class DataStreamServerImpl implements DataStreamServer {
   public static final Logger LOG = LoggerFactory.getLogger(DataStreamServerImpl.class);
 
   private DataStreamServerRpc serverRpc;
-  private RaftServer raftServer;
+  private RaftPeer raftServer;
   private Parameters parameters;
   private RaftProperties properties;
 
   DataStreamServerImpl(RaftProperties properties,
                        Parameters parameters,
-                       RaftServer server){
+                       RaftPeer server){
     this.raftServer = server;
     this.parameters = parameters;
     this.properties = properties;

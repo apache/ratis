@@ -18,11 +18,10 @@
 
 package org.apache.ratis.netty.server;
 
-import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.decoders.DataStreamRequestDecoder;
 import org.apache.ratis.netty.encoders.DataStreamReplyEncoder;
+import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
-import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
@@ -30,6 +29,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
+import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,12 +38,12 @@ import java.util.concurrent.TimeUnit;
 public class NettyServerStreamRpc implements DataStreamServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyServerStreamRpc.class);
 
-  private RaftServer raftServer;
+  private RaftPeer raftServer;
   private EventLoopGroup bossGroup = new NioEventLoopGroup();
   private EventLoopGroup workerGroup = new NioEventLoopGroup();
   private ChannelFuture channelFuture;
 
-  NettyServerStreamRpc(RaftServer server){
+  public NettyServerStreamRpc(RaftPeer server){
     this.raftServer = server;
     setupServer();
   }
@@ -71,7 +71,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   }
 
   public void setupServer(){
-    final int port = NettyConfigKeys.Server.port(raftServer.getProperties());
+    final int port = NetUtils.createSocketAddr(raftServer.getAddress()).getPort();
     channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)

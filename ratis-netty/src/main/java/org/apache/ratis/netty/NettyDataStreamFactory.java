@@ -23,8 +23,8 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.netty.client.NettyClientStreamRpc;
+import org.apache.ratis.netty.server.NettyServerStreamRpc;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.DataStreamServerFactory;
 
@@ -42,7 +42,7 @@ public class NettyDataStreamFactory implements DataStreamServerFactory, DataStre
   }
 
   @Override
-  public DataStreamServerRpc newDataStreamServerRpc(RaftServer server) {
-    return null;
+  public DataStreamServerRpc newDataStreamServerRpc(RaftPeer server) {
+    return new NettyServerStreamRpc(server);
   }
 }
