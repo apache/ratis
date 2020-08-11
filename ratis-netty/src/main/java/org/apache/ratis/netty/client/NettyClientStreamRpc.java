@@ -21,7 +21,7 @@ package org.apache.ratis.netty.client;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.netty.decoders.DataStreamReplyDecoder;
-import org.apache.ratis.netty.encoders.DataStreamRequestClientEncoder;
+import org.apache.ratis.netty.encoders.DataStreamRequestEncoder;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyImpl;
 import org.apache.ratis.protocol.DataStreamRequest;
@@ -66,7 +66,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       public void initChannel(SocketChannel ch)
           throws Exception {
         ChannelPipeline p = ch.pipeline();
-        p.addLast(new DataStreamRequestClientEncoder());
+        p.addLast(new DataStreamRequestEncoder());
         p.addLast(new DataStreamReplyDecoder());
         p.addLast(getClientHandler());
       }

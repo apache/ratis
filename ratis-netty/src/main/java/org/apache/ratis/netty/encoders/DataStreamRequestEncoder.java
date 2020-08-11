@@ -26,7 +26,7 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncode
 import java.nio.ByteBuffer;
 import java.util.List;
 
-public class DataStreamRequestClientEncoder
+public class DataStreamRequestEncoder
     extends MessageToMessageEncoder<DataStreamRequestClient> {
 
   // marker:ansh

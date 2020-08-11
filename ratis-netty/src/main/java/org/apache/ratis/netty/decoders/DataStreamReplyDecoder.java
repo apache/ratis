@@ -26,9 +26,11 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import java.util.List;
 
 public class DataStreamReplyDecoder extends ByteToMessageDecoder {
+
   @Override
   protected void decode(ChannelHandlerContext channelHandlerContext,
                         ByteBuf byteBuf, List<Object> list) throws Exception {
+
     if(byteBuf.readableBytes() >= 24){
       long streamId = byteBuf.readLong();
       long dataOffset = byteBuf.readLong();
