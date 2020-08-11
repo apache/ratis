@@ -22,4 +22,14 @@ package org.apache.ratis.server;
  * Relays those streams to other servers after persisting
  */
 public interface DataStreamServerRpc {
+  /**
+   * start server
+   */
+  void startServer();
+
+  /**
+   * shutdown server
+   */
+  void closeServer();
+
 }
