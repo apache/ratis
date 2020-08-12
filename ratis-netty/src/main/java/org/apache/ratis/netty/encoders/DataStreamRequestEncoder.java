@@ -29,13 +29,10 @@ import java.util.List;
 public class DataStreamRequestEncoder
     extends MessageToMessageEncoder<DataStreamRequestClient> {
 
-  // marker:ansh
-  private ByteBuffer bb = ByteBuffer.allocateDirect(24);
-
   @Override
   protected void encode(ChannelHandlerContext channelHandlerContext,
                         DataStreamRequestClient requestData, List<Object> list) throws Exception {
-    bb.position(0);
+    ByteBuffer bb = ByteBuffer.allocateDirect(24);
     bb.putLong(requestData.getStreamId());
     bb.putLong(requestData.getDataOffset());
     bb.putLong(requestData.getDataLength());

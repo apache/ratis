@@ -65,10 +65,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         DataStreamRequestServer req = (DataStreamRequestServer)msg;
-        CompositeByteBuf cbb = (CompositeByteBuf)req.getBuf();
-        for(int i = 0; i < cbb.nioBufferCount(); i++){
-          fileChannel.write(cbb.component(i).nioBuffer());
+        ByteBuffer[] bfs = req.getBuf().nioBuffers();
+        for(int i = 0; i < bfs.length; i++){
+          fileChannel.write(bfs[i]);
         }
+        req.getBuf().release();
         DataStreamReply reply = new DataStreamReplyImpl(req.getStreamId(),
                                                         req.getDataOffset(),
                                                         ByteBuffer.wrap("OK".getBytes()));

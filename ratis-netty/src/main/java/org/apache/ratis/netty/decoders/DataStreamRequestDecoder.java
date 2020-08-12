@@ -20,9 +20,11 @@ package org.apache.ratis.netty.decoders;
 
 import org.apache.ratis.protocol.DataStreamRequestServer;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
+import org.apache.ratis.thirdparty.io.netty.buffer.CompositeByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 
+import java.nio.ByteBuffer;
 import java.util.List;
 
 public class DataStreamRequestDecoder extends ByteToMessageDecoder {
@@ -35,15 +37,16 @@ public class DataStreamRequestDecoder extends ByteToMessageDecoder {
   protected void decode(ChannelHandlerContext channelHandlerContext,
                         ByteBuf byteBuf,
                         List<Object> list) throws Exception {
-
     if(byteBuf.readableBytes() >= 24){
       long streamId = byteBuf.readLong();
       long dataOffset = byteBuf.readLong();
       long dataLength = byteBuf.readLong();
       if(byteBuf.readableBytes() >= dataLength){
+        ByteBuf bf = byteBuf.slice(byteBuf.readerIndex(), (int)dataLength);
+        bf.retain();
         DataStreamRequestServer req = new DataStreamRequestServer(streamId,
             dataOffset,
-            byteBuf.slice(byteBuf.readerIndex(), (int)dataLength));
+            bf);
         byteBuf.readerIndex(byteBuf.readerIndex() + (int)dataLength);
         byteBuf.markReaderIndex();
         list.add(req);

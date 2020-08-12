@@ -56,11 +56,17 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     this.raftProperties = properties;
   }
 
+  synchronized CompletableFuture<DataStreamReply> pollReply() {
+    return replies.poll();
+  }
+
   private ChannelInboundHandler getClientHandler(){
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws InterruptedException {
         final DataStreamReplyImpl reply = (DataStreamReplyImpl) msg;
+        CompletableFuture<DataStreamReply> f = pollReply();
+        f.complete(reply);
       }
     };
   }

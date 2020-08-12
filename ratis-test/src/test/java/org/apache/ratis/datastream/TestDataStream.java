@@ -66,6 +66,11 @@ public class TestDataStream extends BaseTest {
       futures.add(stream.streamAsync(bf));
       i++;
     }
+    try {
+      Thread.sleep(1000*3);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
     shutDownSetup();
     for(i = 0; i < futures.size(); i++){
       Assert.assertTrue(futures.get(i).isDone());
