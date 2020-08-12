@@ -20,9 +20,13 @@ package org.apache.ratis.netty.server;
 
 import org.apache.ratis.netty.decoders.DataStreamRequestDecoder;
 import org.apache.ratis.netty.encoders.DataStreamReplyEncoder;
+import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.DataStreamReplyImpl;
+import org.apache.ratis.protocol.DataStreamRequestServer;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
+import org.apache.ratis.thirdparty.io.netty.buffer.CompositeByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
@@ -33,6 +37,11 @@ import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.concurrent.TimeUnit;
 
 public class NettyServerStreamRpc implements DataStreamServerRpc {
@@ -42,6 +51,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private EventLoopGroup bossGroup = new NioEventLoopGroup();
   private EventLoopGroup workerGroup = new NioEventLoopGroup();
   private ChannelFuture channelFuture;
+  private RandomAccessFile stream;
+  private FileChannel fileChannel;
+
 
   public NettyServerStreamRpc(RaftPeer server){
     this.raftServer = server;
@@ -52,7 +64,15 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        // what should be done on server side??
+        DataStreamRequestServer req = (DataStreamRequestServer)msg;
+        CompositeByteBuf cbb = (CompositeByteBuf)req.getBuf();
+        for(int i = 0; i < cbb.nioBufferCount(); i++){
+          fileChannel.write(cbb.component(i).nioBuffer());
+        }
+        DataStreamReply reply = new DataStreamReplyImpl(req.getStreamId(),
+                                                        req.getDataOffset(),
+                                                        ByteBuffer.wrap("OK".getBytes()));
+        ctx.writeAndFlush(reply);
       }
     };
   }
@@ -79,6 +99,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .childHandler(getInitializer())
         .childOption(ChannelOption.SO_KEEPALIVE, true)
         .bind(port);
+    try {
+      stream = new RandomAccessFile("client-data-stream", "rw");
+      fileChannel = stream.getChannel();
+    } catch (FileNotFoundException e){
+      LOG.info("exception cause is {}", e.getCause());
+    }
   }
 
   private Channel getChannel() {
@@ -93,6 +119,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   @Override
   public void closeServer() {
     final ChannelFuture f = getChannel().close();
+    try {
+      stream.close();
+      fileChannel.close();
+    } catch (IOException e){
+      LOG.info("Unable to close file on server");
+    }
     f.syncUninterruptibly();
     bossGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
     workerGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
