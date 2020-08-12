@@ -42,10 +42,8 @@ public interface DataStreamClient {
   /** add information of the raft peers to communicate with */
   void addPeers(Iterable<RaftPeer> peers);
 
-  /**
-   * send to server via streaming.
-   * Return a completable future.
-   */
+  /** close the client */
+  void close();
 
   /** To build {@link DataStreamClient} objects */
   class Builder {
@@ -59,7 +57,7 @@ public interface DataStreamClient {
       return new DataStreamClientImpl(raftServer, properties, parameters);
     }
 
-    public Builder setCommunicationPeer(RaftPeer peer) {
+    public Builder setRaftServer(RaftPeer peer) {
       this.raftServer = peer;
       return this;
     }

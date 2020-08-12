@@ -25,4 +25,9 @@ public interface DataStreamServer {
    * Get network interface for server.
    */
   DataStreamServerRpc getServerRpc();
+
+  /**
+   * close server.
+   */
+  void close();
 }

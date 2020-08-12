@@ -26,12 +26,15 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyImpl;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.util.NetUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.util.LinkedList;
@@ -39,6 +42,8 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 
 public class NettyClientStreamRpc implements DataStreamClientRpc {
+  public static final Logger LOG = LoggerFactory.getLogger(NettyClientStreamRpc.class);
+
   private RaftPeer server;
   private RaftProperties raftProperties;
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -82,16 +87,21 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   }
 
   @Override
-  public void startClient() throws InterruptedException {
+  public void startClient() {
     final InetSocketAddress address = NetUtils.createSocketAddr(server.getAddress());
-    channel = (new Bootstrap())
-        .group(workerGroup)
-        .channel(NioSocketChannel.class)
-        .handler(getInitializer())
-        .option(ChannelOption.SO_KEEPALIVE, true)
-        .connect(address)
-        .sync()
-        .channel();
+    try {
+      channel = (new Bootstrap())
+          .group(workerGroup)
+          .channel(NioSocketChannel.class)
+          .handler(getInitializer())
+          .option(ChannelOption.SO_KEEPALIVE, true)
+          .connect(address)
+          .sync()
+          .channel();
+      System.out.println(channel);
+    } catch (Exception e){
+      LOG.info("Exception {}", e.getCause());
+    }
   }
 
   @Override

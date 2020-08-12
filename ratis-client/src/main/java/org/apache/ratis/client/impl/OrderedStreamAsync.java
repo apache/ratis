@@ -112,6 +112,7 @@ public class OrderedStreamAsync {
                             RaftProperties properties){
     this.dataStreamClientRpc = dataStreamClientRpc;
     this.requestSemaphore = new Semaphore(RaftClientConfigKeys.Async.outstandingRequestsMax(properties)*2);
+    this.slidingWindow = new SlidingWindow.Client<>("sliding");
   }
 
   private void resetSlidingWindow(RaftClientRequest request) {

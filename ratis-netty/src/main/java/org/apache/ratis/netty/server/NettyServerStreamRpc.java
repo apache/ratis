@@ -77,6 +77,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .channel(NioServerSocketChannel.class)
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(getInitializer())
+        .childOption(ChannelOption.SO_KEEPALIVE, true)
         .bind(port);
   }
 

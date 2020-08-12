@@ -24,7 +24,7 @@ import org.apache.ratis.server.impl.ServerFactory;
 public interface DataStreamServerFactory extends DataStreamFactory {
 
   static DataStreamServerFactory cast(DataStreamFactory dataStreamFactory) {
-    if (dataStreamFactory instanceof ServerFactory) {
+    if (dataStreamFactory instanceof DataStreamFactory) {
       return (DataStreamServerFactory)dataStreamFactory;
     }
     throw new ClassCastException("Cannot cast " + dataStreamFactory.getClass()

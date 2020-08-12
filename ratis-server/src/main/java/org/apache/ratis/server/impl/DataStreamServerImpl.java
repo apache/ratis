@@ -37,9 +37,9 @@ public class DataStreamServerImpl implements DataStreamServer {
   private Parameters parameters;
   private RaftProperties properties;
 
-  DataStreamServerImpl(RaftProperties properties,
-                       Parameters parameters,
-                       RaftPeer server){
+  public DataStreamServerImpl(RaftPeer server,
+                      RaftProperties properties,
+                       Parameters parameters){
     this.raftServer = server;
     this.parameters = parameters;
     this.properties = properties;
@@ -53,5 +53,10 @@ public class DataStreamServerImpl implements DataStreamServer {
   @Override
   public DataStreamServerRpc getServerRpc() {
     return serverRpc;
+  }
+
+  @Override
+  public void close(){
+    serverRpc.closeServer();
   }
 }
