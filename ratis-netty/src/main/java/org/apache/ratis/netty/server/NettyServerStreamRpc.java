@@ -26,7 +26,6 @@ import org.apache.ratis.protocol.DataStreamRequestServer;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
-import org.apache.ratis.thirdparty.io.netty.buffer.CompositeByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
