@@ -23,10 +23,6 @@ import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 
-<<<<<<< HEAD
-import java.nio.ByteBuffer;
-=======
->>>>>>> master
 import java.util.List;
 
 public class DataStreamRequestDecoder extends ByteToMessageDecoder {
