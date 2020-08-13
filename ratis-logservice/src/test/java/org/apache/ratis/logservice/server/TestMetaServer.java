@@ -120,7 +120,7 @@ public class TestMetaServer {
 
     @Before
     public void before() {
-        //ensure workers before each test
+        // ensure workers before each test
         if (workers.size() < 3) {
             cluster.createWorkers(3 - workers.size());
         }

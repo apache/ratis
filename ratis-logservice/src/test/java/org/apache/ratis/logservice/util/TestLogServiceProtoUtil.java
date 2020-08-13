@@ -20,22 +20,26 @@ package org.apache.ratis.logservice.util;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.ratis.logservice.api.LogName;
 import org.apache.ratis.logservice.api.LogStream;
+import org.apache.ratis.logservice.api.LogStream.State;
 import org.apache.ratis.logservice.proto.LogServiceProtos.*;
-import org.junit.Ignore;
+import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.junit.Test;
 
 public class TestLogServiceProtoUtil {
 
-
   @Test
   public void testAppendRequest() {
     LogName name = LogName.of("test");
-    List<byte[]> entries = new ArrayList<byte[]>();
+    List<byte[]> entries = new ArrayList<>();
     byte[] e1 = new byte[] {1,1};
     byte[] e2 = new byte[] {2,2};
     entries.add(e1);
@@ -47,20 +51,45 @@ public class TestLogServiceProtoUtil {
     assertEquals(2, request.getDataCount());
     assertTrue(TestUtils.equals(e1, request.getData(0).toByteArray()));
     assertTrue(TestUtils.equals(e2, request.getData(1).toByteArray()));
-
   }
 
   @Test
   public void testAppendReply() {
-    List<byte[]> entries = new ArrayList<byte[]>();
-    byte[] e1 = new byte[] {1,1};
-    byte[] e2 = new byte[] {2,2};
-    entries.add(e1);
-    entries.add(e2);
+    List<Long> ids = Arrays.asList(1L, 2L, 3L);
+    IOException ioException = new IOException("test");
 
-    AppendLogEntryReplyProto proto =
+    StackTraceElement[] trace = ioException.getStackTrace();
+    StringBuffer buf = new StringBuffer();
+    for (StackTraceElement el: trace) {
+      buf.append(el.toString()).append("\n");
+    }
+    String strace = buf.toString();
+    LogServiceException expectedLogServiceException =
+        LogServiceException.newBuilder()
+            .setExceptionClassName("java.io.IOException")
+            .setErrorMsg("test")
+            .setStacktrace(ByteString.copyFrom(strace, Charset.defaultCharset()))
+            .build();
+
+    AppendLogEntryReplyProto proto1 =
+        LogServiceProtoUtil.toAppendLogReplyProto(ids, null);
+    assertEquals(LogServiceException.getDefaultInstance(), proto1.getException());
+    assertEquals(ids, proto1.getRecordIdList());
+
+    AppendLogEntryReplyProto proto2 =
+        LogServiceProtoUtil.toAppendLogReplyProto(null, ioException);
+    assertEquals(expectedLogServiceException, proto2.getException());
+    assertEquals(Collections.EMPTY_LIST, proto2.getRecordIdList());
+
+    AppendLogEntryReplyProto proto3 =
+        LogServiceProtoUtil.toAppendLogReplyProto(ids, ioException);
+    assertEquals(expectedLogServiceException, proto3.getException());
+    assertEquals(Collections.EMPTY_LIST, proto3.getRecordIdList());
+
+    AppendLogEntryReplyProto proto4 =
         LogServiceProtoUtil.toAppendLogReplyProto(null, null);
-    //TODO finish test
+    assertEquals(LogServiceException.getDefaultInstance(), proto4.getException());
+    assertEquals(Collections.EMPTY_LIST, proto4.getRecordIdList());
   }
 
   @Test
@@ -74,12 +103,11 @@ public class TestLogServiceProtoUtil {
     assertEquals(name.getName(), request.getLogName().getName());
     assertEquals(100, request.getStartRecordId());
     assertEquals(5, request.getNumRecords());
-
   }
 
   @Test
   public void testReadReply() {
-    List<byte[]> entries = new ArrayList<byte[]>();
+    List<byte[]> entries = new ArrayList<>();
     byte[] e1 = new byte[] {1,1};
     byte[] e2 = new byte[] {2,2};
     entries.add(e1);
@@ -95,7 +123,6 @@ public class TestLogServiceProtoUtil {
 
   @Test
   public void testGetLengthReply() {
-
     long len = 100;
     GetLogLengthReplyProto proto =
         LogServiceProtoUtil.toGetLogLengthReplyProto(len, null);
@@ -120,7 +147,6 @@ public class TestLogServiceProtoUtil {
 
   @Test
   public void testGetStartIndexReply() {
-
     long index = 100;
     GetLogStartIndexReplyProto proto =
         LogServiceProtoUtil.toGetLogStartIndexReplyProto(index, null);
@@ -137,19 +163,37 @@ public class TestLogServiceProtoUtil {
 
   @Test
   public void testSyncReply() {
+    IOException ioException = new IOException("test");
 
-    SyncLogReplyProto proto =
+    StackTraceElement[] trace = ioException.getStackTrace();
+    StringBuffer buf = new StringBuffer();
+    for (StackTraceElement el: trace) {
+      buf.append(el.toString()).append("\n");
+    }
+    String strace = buf.toString();
+    LogServiceException expectedLogServiceException =
+        LogServiceException.newBuilder()
+            .setExceptionClassName("java.io.IOException")
+            .setErrorMsg("test")
+            .setStacktrace(ByteString.copyFrom(strace, Charset.defaultCharset()))
+            .build();
+
+    SyncLogReplyProto proto1 =
         LogServiceProtoUtil.toSyncLogReplyProto(0, null);
-    //TODO finish test
-  }
+    assertEquals(LogServiceException.getDefaultInstance(), proto1.getException());
+    assertEquals(0, proto1.getLastRecordId());
 
+    SyncLogReplyProto proto2 =
+        LogServiceProtoUtil.toSyncLogReplyProto(1, ioException);
+    assertEquals(expectedLogServiceException, proto2.getException());
+    assertEquals(0, proto2.getLastRecordId());
+  }
 
   @Test
   public void testListLogsReply() {
 
     //TODO finish test
   }
-
 
   //GET STATE
   @Test
@@ -158,16 +202,20 @@ public class TestLogServiceProtoUtil {
     LogServiceRequestProto proto = LogServiceProtoUtil.toGetStateRequestProto(name);
     GetStateRequestProto request = proto.getGetState();
     assertEquals(name.getName(), request.getLogName().getName());
-    //TODO finish
   }
 
   @Test
-  @Ignore
   public void testGetStateReply() {
-    LogStream logStream = null;
-    GetStateReplyProto proto = LogServiceProtoUtil.toGetStateReplyProto(LogStream.State.OPEN);
-    //TODO finish
-
+    GetStateReplyProto protoOpen = LogServiceProtoUtil.toGetStateReplyProto(LogStream.State.OPEN);
+    assertEquals(LogStreamState.OPEN, protoOpen.getState());
+    GetStateReplyProto protoClosed = LogServiceProtoUtil.toGetStateReplyProto(State.CLOSED);
+    assertEquals(LogStreamState.CLOSED, protoClosed.getState());
+    GetStateReplyProto protoArchiving= LogServiceProtoUtil.toGetStateReplyProto(LogStream.State.ARCHIVING);
+    assertEquals(LogStreamState.ARCHIVING, protoArchiving.getState());
+    GetStateReplyProto protoArchived = LogServiceProtoUtil.toGetStateReplyProto(State.ARCHIVED);
+    assertEquals(LogStreamState.ARCHIVED, protoArchived.getState());
+    GetStateReplyProto protoDeleted = LogServiceProtoUtil.toGetStateReplyProto(LogStream.State.DELETED);
+    assertEquals(LogStreamState.DELETED, protoDeleted.getState());
   }
 
 
@@ -179,6 +227,6 @@ public class TestLogServiceProtoUtil {
         LogStream.State.CLOSED);
     ChangeStateLogRequestProto request = proto.getChangeState();
     assertEquals(name.getName(), request.getLogName().getName());
-    //TODO finish
+    assertEquals(LogStreamState.CLOSED, request.getState());
   }
 }

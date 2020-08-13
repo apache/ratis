@@ -183,4 +183,11 @@ public interface FileUtils {
       }
     });
   }
+
+  // Rename a file by appending .corrupt to file name. This function does not guarantee
+  // that the rename operation is successful.
+  static void renameFileToCorrupt(File tmpSnapshotFile) {
+    File corruptedTempFile = new File(tmpSnapshotFile.getPath() + ".corrupt");
+    tmpSnapshotFile.renameTo(corruptedTempFile);
+  }
 }
