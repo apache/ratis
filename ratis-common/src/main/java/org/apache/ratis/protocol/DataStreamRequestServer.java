@@ -19,7 +19,6 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
-import org.apache.ratis.thirdparty.io.netty.buffer.CompositeByteBuf;
 
 public class DataStreamRequestServer implements DataStreamRequest {
   private long streamId;

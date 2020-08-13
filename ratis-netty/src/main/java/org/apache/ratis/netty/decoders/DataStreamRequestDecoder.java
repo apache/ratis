@@ -20,11 +20,9 @@ package org.apache.ratis.netty.decoders;
 
 import org.apache.ratis.protocol.DataStreamRequestServer;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
-import org.apache.ratis.thirdparty.io.netty.buffer.CompositeByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 
 public class DataStreamRequestDecoder extends ByteToMessageDecoder {
