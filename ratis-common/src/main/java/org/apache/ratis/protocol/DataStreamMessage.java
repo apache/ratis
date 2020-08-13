@@ -18,7 +18,7 @@
 
 package org.apache.ratis.protocol;
 
-public interface DataStreamMessage extends RaftRpcMessage {
+public interface DataStreamMessage{
   long getStreamId();
 
   long getDataOffset();

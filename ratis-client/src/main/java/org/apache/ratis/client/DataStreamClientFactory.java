@@ -20,7 +20,7 @@ package org.apache.ratis.client;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.DataStreamFactory;
-import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.RaftPeer;
 
 /**
  * A factory to create streaming client.
@@ -36,5 +36,5 @@ public interface DataStreamClientFactory extends DataStreamFactory {
         + "; stream type is " + dataStreamFactory.getDataStreamType());
   }
 
-  DataStreamClientRpc newDataStreamClientRpc(ClientId clientId, RaftProperties properties);
+  DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties);
 }

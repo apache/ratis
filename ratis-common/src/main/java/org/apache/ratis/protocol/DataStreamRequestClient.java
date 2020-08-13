@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,26 +16,38 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.client;
+package org.apache.ratis.protocol;
 
-import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.DataStreamRequest;
-import org.apache.ratis.util.JavaUtils;
+import java.nio.ByteBuffer;
 
-import java.util.concurrent.CompletableFuture;
+public class DataStreamRequestClient implements DataStreamRequest{
+  private long streamId;
+  private long dataOffset;
+  private ByteBuffer buf;
 
-/**
- * An api interface for to stream from client to server.
- */
-public interface DataStreamClientRpc {
-
-  /** Async call to send a request. */
-  default CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
-    throw new UnsupportedOperationException(getClass() + " does not support "
-        + JavaUtils.getCurrentStackTraceElement().getMethodName());
+  public DataStreamRequestClient(long streamId, long dataOffset,
+                                 ByteBuffer buf){
+    this.streamId = streamId;
+    this.dataOffset = dataOffset;
+    this.buf = buf;
   }
 
-  void startClient();
+  @Override
+  public long getStreamId() {
+    return streamId;
+  }
 
-  void closeClient();
+  @Override
+  public long getDataOffset() {
+    return dataOffset;
+  }
+
+  @Override
+  public long getDataLength() {
+    return buf.capacity();
+  }
+
+  public ByteBuffer getBuf() {
+    return buf;
+  }
 }

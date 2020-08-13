@@ -15,19 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.api;
+package org.apache.ratis.server;
 
 /**
- * An interface for streaming data.
- * Associated with it's implementation will be a client.
+ * Interface for streaming server.
  */
-
-public interface DataStreamApi {
+public interface DataStreamServer {
+  /**
+   * Get network interface for server.
+   */
+  DataStreamServerRpc getServerRpc();
 
   /**
-   * Create a new stream for a new streamToRatis invocation
-   * allows multiple stream from a single client.
+   * close server.
    */
-  DataStreamOutput stream();
-
+  void close();
 }
