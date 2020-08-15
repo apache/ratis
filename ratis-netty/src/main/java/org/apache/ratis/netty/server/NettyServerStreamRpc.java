@@ -91,14 +91,14 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   }
 
   public void setupServer(){
-    final int port = NetUtils.createSocketAddr(raftServer.getAddress()).getPort();
     channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(getInitializer())
         .childOption(ChannelOption.SO_KEEPALIVE, true)
-        .bind(port);
+        .localAddress(NetUtils.createSocketAddr(raftServer.getAddress()))
+        .bind();
     try {
       stream = new RandomAccessFile("client-data-stream", "rw");
       fileChannel = stream.getChannel();
