@@ -85,6 +85,45 @@ public interface FileUtils {
     delete(f.toPath());
   }
 
+  /**
+   * Moves the directory. If any file is locked, the exception is caught
+   * and logged and continues to other files.
+   * @param source
+   * @param dest
+   * @throws IOException
+   */
+  static void moveDirectory(Path source, Path dest) throws IOException {
+    if (LOG.isTraceEnabled()) {
+      LOG.trace("moveDirectory source: {} dest: {}", source, dest);
+    }
+    createDirectories(dest);
+    Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
+      @Override
+      public FileVisitResult preVisitDirectory(Path dir,
+          BasicFileAttributes attrs) throws IOException {
+        Path targetPath = dest.resolve(source.relativize(dir));
+        if (!Files.exists(targetPath)) {
+          createDirectories(targetPath);
+        }
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+        try {
+          move(file, dest.resolve(source.relativize(file)));
+        } catch (IOException e) {
+          LOG.info("Files.moveDirectory: could not delete {}",
+              file.getFileName());
+        }
+        return FileVisitResult.CONTINUE;
+      }
+    });
+
+    /* Delete the source since all the files has been moved. */
+    deleteFully(source);
+  }
+
   /** The same as passing f.toPath() to {@link #delete(Path)}. */
   static void deleteFileQuietly(File f) {
     try {
@@ -143,5 +182,12 @@ public interface FileUtils {
         return FileVisitResult.CONTINUE;
       }
     });
+  }
+
+  // Rename a file by appending .corrupt to file name. This function does not guarantee
+  // that the rename operation is successful.
+  static void renameFileToCorrupt(File tmpSnapshotFile) {
+    File corruptedTempFile = new File(tmpSnapshotFile.getPath() + ".corrupt");
+    tmpSnapshotFile.renameTo(corruptedTempFile);
   }
 }

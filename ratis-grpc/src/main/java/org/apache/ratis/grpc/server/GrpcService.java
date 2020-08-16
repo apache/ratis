@@ -20,6 +20,7 @@ package org.apache.ratis.grpc.server;
 import org.apache.ratis.grpc.GrpcConfigKeys;
 import org.apache.ratis.grpc.GrpcTlsConfig;
 import org.apache.ratis.grpc.client.GrpcClientProtocolService;
+import org.apache.ratis.grpc.metrics.intercept.server.MetricServerInterceptor;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.SupportedRpcType;
@@ -27,6 +28,7 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
 import org.apache.ratis.server.impl.RaftServerRpcWithProxy;
+import org.apache.ratis.thirdparty.io.grpc.ServerInterceptors;
 import org.apache.ratis.thirdparty.io.grpc.netty.GrpcSslContexts;
 import org.apache.ratis.thirdparty.io.grpc.netty.NettyServerBuilder;
 import org.apache.ratis.thirdparty.io.grpc.Server;
@@ -86,6 +88,12 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
   private final GrpcClientProtocolService clientProtocolService;
 
+  private final MetricServerInterceptor serverInterceptor;
+
+  public MetricServerInterceptor getServerInterceptor() {
+    return serverInterceptor;
+  }
+
   private GrpcService(RaftServer server, GrpcTlsConfig tlsConfig) {
     this(server, server::getId,
         GrpcConfigKeys.Server.port(server.getProperties()),
@@ -111,13 +119,22 @@ public final class GrpcService extends RaftServerRpcWithProxy<GrpcServerProtocol
 
     this.clientProtocolService = new GrpcClientProtocolService(idSupplier, raftServer);
 
+    this.serverInterceptor = new MetricServerInterceptor(
+        idSupplier,
+        getClass().getSimpleName() + "_" + Integer.toString(port)
+    );
+
     NettyServerBuilder nettyServerBuilder = NettyServerBuilder.forPort(port)
         .withChildOption(ChannelOption.SO_REUSEADDR, true)
         .maxInboundMessageSize(grpcMessageSizeMax.getSizeInt())
         .flowControlWindow(flowControlWindow.getSizeInt())
-        .addService(new GrpcServerProtocolService(idSupplier, raftServer))
-        .addService(clientProtocolService)
-        .addService(new GrpcAdminProtocolService(raftServer));
+        .addService(ServerInterceptors.intercept(
+            new GrpcServerProtocolService(idSupplier, raftServer),
+            serverInterceptor))
+        .addService(ServerInterceptors.intercept(clientProtocolService, serverInterceptor))
+        .addService(ServerInterceptors.intercept(
+            new GrpcAdminProtocolService(raftServer),
+            serverInterceptor));
 
     if (tlsConfig != null) {
       SslContextBuilder sslContextBuilder =

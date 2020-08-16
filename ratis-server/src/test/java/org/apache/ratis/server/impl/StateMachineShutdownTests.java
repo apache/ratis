@@ -107,7 +107,7 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
                       < logIndex);
 
       // Now shutdown the follower in a separate thread
-      Thread t = new Thread(() -> secondFollower.shutdown(true));
+      Thread t = new Thread(() -> secondFollower.groupRemove(true, false));
       t.start();
 
       // The second follower should still be blocked in apply transaction

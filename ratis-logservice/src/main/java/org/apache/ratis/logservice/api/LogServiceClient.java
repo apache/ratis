@@ -72,7 +72,7 @@ public class LogServiceClient implements AutoCloseable {
     /**
      * Constuctor (with configuration). Build raft client for meta quorum
      * @param metaQuorum
-     * @param config log serice configuration
+     * @param config log service configuration
      * @param properties
      */
     public LogServiceClient(String metaQuorum, LogServiceConfiguration config, RaftProperties properties) {

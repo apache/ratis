@@ -46,7 +46,7 @@ public class ServerOpts {
   @Parameter(names = {"-d", "--dir"}, description = "Working directory")
   private String workingDir = null;
 
-  @Parameter(names = {"-q", "--metaQuorum"}, description = "Metadata Service Quorum")
+  @Parameter(names = {"-q", "--metaQuorum"}, description = "Metadata Service Quorum", required = true)
   private String metaQuorum = null;
 
   @Parameter(names = {"--metadataServerGroupId"}, description = "UUID corresponding to the RAFT metadata servers group",

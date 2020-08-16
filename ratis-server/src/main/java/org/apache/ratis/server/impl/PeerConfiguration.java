@@ -90,11 +90,8 @@ class PeerConfiguration {
       if (contains(other)) {
         num++;
       }
-      if (num > size() / 2) {
-        return true;
-      }
     }
-    return false;
+    return num > size() / 2;
   }
 
   @Override

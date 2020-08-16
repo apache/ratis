@@ -50,7 +50,7 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
 
     List<RaftPeer> peers = cluster.getPeers();
 
-    //Multi-raft with the second group
+    // Multi-raft with the second group
     RaftGroup group2 = RaftGroup.valueOf(RaftGroupId.randomId(), peers);
     for(RaftPeer peer : peers) {
       try(final RaftClient client = cluster.createClient(peer.getId())) {
@@ -89,9 +89,7 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
       // send more messages and check last reply
       final RaftClientReply reply = sendMessages(numMessages, cluster);
       for(CommitInfoProto i : reply.getCommitInfos()) {
-        if (RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
-          Assert.assertTrue(i.getCommitIndex() <= maxCommit);
-        } else {
+        if (!RaftPeerId.valueOf(i.getServer().getId()).equals(killedFollower)) {
           Assert.assertTrue(i.getCommitIndex() > maxCommit);
         }
       }

@@ -50,6 +50,16 @@ public interface RaftServerConfigKeys {
     setFiles(properties::setFiles, STORAGE_DIR_KEY, storageDir);
   }
 
+  String REMOVED_GROUPS_DIR_KEY = PREFIX + ".removed.groups.dir";
+  File REMOVED_GROUPS_DIR_DEFAULT = new File("/tmp/raft-server/removed-groups/");
+  static File removedGroupsDir(RaftProperties properties) {
+    return getFile(properties::getFile, REMOVED_GROUPS_DIR_KEY,
+        REMOVED_GROUPS_DIR_DEFAULT, getDefaultLog());
+  }
+  static void setRemovedGroupsDir(RaftProperties properties, File removedGroupsStorageDir) {
+    setFile(properties::setFile, REMOVED_GROUPS_DIR_KEY, removedGroupsStorageDir);
+  }
+
   String SLEEP_DEVIATION_THRESHOLD_KEY = PREFIX + ".sleep.deviation.threshold";
   int SLEEP_DEVIATION_THRESHOLD_DEFAULT = 300;
   static int sleepDeviationThreshold(RaftProperties properties) {
