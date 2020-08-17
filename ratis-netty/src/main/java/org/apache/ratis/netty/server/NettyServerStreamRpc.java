@@ -36,6 +36,7 @@ import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -52,6 +53,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private ChannelFuture channelFuture;
   private RandomAccessFile stream;
   private FileChannel fileChannel;
+  private File file = new File("client-data-stream");
 
 
   public NettyServerStreamRpc(RaftPeer server){
@@ -100,7 +102,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .localAddress(NetUtils.createSocketAddr(raftServer.getAddress()))
         .bind();
     try {
-      stream = new RandomAccessFile("client-data-stream", "rw");
+      stream = new RandomAccessFile(file, "rw");
       fileChannel = stream.getChannel();
     } catch (FileNotFoundException e){
       LOG.info("exception cause is {}", e.getCause());
@@ -121,6 +123,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     final ChannelFuture f = getChannel().close();
     try {
       stream.close();
+      file.delete();
       fileChannel.close();
     } catch (IOException e){
       LOG.info("Unable to close file on server");
