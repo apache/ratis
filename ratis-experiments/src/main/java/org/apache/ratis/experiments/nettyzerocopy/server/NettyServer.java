@@ -56,6 +56,7 @@ public class NettyServer {
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         final ResponseData reply = new ResponseData();
         RequestDataComposite req = (RequestDataComposite)msg;
+        req.getBuff().release();
         reply.setId(req.getDataId());
         ctx.writeAndFlush(reply);
       }

@@ -50,6 +50,7 @@ public class RequestDecoderComposite extends RequestDecoder {
         //System.out.printf("msg id and buflen %d and %d bytes\n", id, buflen, msg.readableBytes());
         try {
           ByteBuf bf = msg.slice(msg.readerIndex(), buflen);
+          bf.retain();
           req.setBuff(bf);
         } catch (Exception e) {
           System.out.println(e);
