@@ -79,7 +79,8 @@ public class TestDataStream extends BaseTest {
     }
     bf.flip();
     int i = 0;
-    while(i < 2){
+
+    while(i < 1000){
       bf.position(0).limit(bf.capacity());
       futures.add(stream.streamAsync(bf));
       i++;
