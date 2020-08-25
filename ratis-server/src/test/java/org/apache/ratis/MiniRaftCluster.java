@@ -624,8 +624,16 @@ public abstract class MiniRaftCluster implements Closeable {
     return getRaftServerImpl(servers.get(id));
   }
 
+  public RaftServerImpl getRaftServerImpl(RaftPeerId id, RaftGroupId groupId) {
+    return getRaftServerImpl(servers.get(id), groupId);
+  }
+
   public RaftServerImpl getRaftServerImpl(RaftServerProxy proxy) {
     return RaftServerTestUtil.getRaftServerImpl(proxy, getGroupId());
+  }
+
+  public RaftServerImpl getRaftServerImpl(RaftServerProxy proxy, RaftGroupId groupId) {
+    return RaftServerTestUtil.getRaftServerImpl(proxy, groupId);
   }
 
   public List<RaftPeer> getPeers() {
