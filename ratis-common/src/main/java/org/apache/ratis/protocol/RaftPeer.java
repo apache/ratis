@@ -42,23 +42,31 @@ public class RaftPeer {
   private final RaftPeerId id;
   /** The address of the peer. */
   private final String address;
+  /** The priority of the peer. */
+  private final int priority;
 
   private final Supplier<RaftPeerProto> raftPeerProto;
 
   /** Construct a peer with the given id and a null address. */
   public RaftPeer(RaftPeerId id) {
-    this(id, (String)null);
+    this(id, (String)null, 0);
   }
 
   /** Construct a peer with the given id and address. */
   public RaftPeer(RaftPeerId id, InetSocketAddress address) {
-    this(id, address == null ? null : NetUtils.address2String(address));
+    this(id, address == null ? null : NetUtils.address2String(address), 0);
   }
 
   /** Construct a peer with the given id and address. */
   public RaftPeer(RaftPeerId id, String address) {
+    this(id, address, 0);
+  }
+
+  /** Construct a peer with the given id, address, priority. */
+  public RaftPeer(RaftPeerId id, String address, int priority) {
     this.id = Objects.requireNonNull(id, "id == null");
     this.address = address;
+    this.priority = priority;
     this.raftPeerProto = JavaUtils.memoize(this::buildRaftPeerProto);
   }
 
@@ -68,6 +76,7 @@ public class RaftPeer {
     if (getAddress() != null) {
       builder.setAddress(getAddress());
     }
+    builder.setPriority(priority);
     return builder.build();
   }
 
@@ -81,13 +90,18 @@ public class RaftPeer {
     return address;
   }
 
+  /** @return The priority of the peer. */
+  public int getPriority() {
+    return priority;
+  }
+
   public RaftPeerProto getRaftPeerProto() {
     return raftPeerProto.get();
   }
 
   @Override
   public String toString() {
-    return id + ":" + address;
+    return id + ":" + address + ":" + priority;
   }
 
   @Override

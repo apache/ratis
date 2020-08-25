@@ -24,6 +24,7 @@ package ratis.common;
 message RaftPeerProto {
   bytes id = 1;      // id of the peer
   string address = 2; // e.g. IP address, hostname etc.
+  uint32 priority = 3; // priority of the peer
 }
 
 message RaftGroupIdProto {

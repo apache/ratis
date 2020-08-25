@@ -72,7 +72,7 @@ public interface ProtoUtils {
   }
 
   static RaftPeer toRaftPeer(RaftPeerProto p) {
-    return new RaftPeer(RaftPeerId.valueOf(p.getId()), p.getAddress());
+    return new RaftPeer(RaftPeerId.valueOf(p.getId()), p.getAddress(), p.getPriority());
   }
 
   static List<RaftPeer> toRaftPeers(List<RaftPeerProto> protos) {

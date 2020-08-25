@@ -47,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.List;
 
 import static java.util.Arrays.asList;
 import static org.apache.ratis.server.impl.RaftServerTestUtil.waitAndCheckNewConf;
@@ -67,6 +68,52 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
   {
     RaftServerConfigKeys.setStagingCatchupGap(getProperties(), STAGING_CATCHUP_GAP);
+  }
+
+  private void checkPriority(CLUSTER cluster, RaftGroupId groupId, List<RaftPeer> peersWithPriority)
+      throws InterruptedException {
+    RaftTestUtil.waitForLeader(cluster, groupId);
+
+    for (int i = 0; i < peersWithPriority.size(); i ++) {
+      RaftPeerId peerId = peersWithPriority.get(i).getId();
+      RaftServerImpl server = cluster.getRaftServerImpl(peerId, groupId);
+      RaftConfiguration conf = server.getState().getRaftConf();
+
+      for (int j = 0; j < peersWithPriority.size(); j ++) {
+        int priorityInConf = conf.getPeer(peersWithPriority.get(j).getId()).getPriority();
+        Assert.assertEquals(priorityInConf, peersWithPriority.get(j).getPriority());
+      }
+    }
+  }
+
+  @Test
+  public void testRestorePriority() throws Exception {
+    runWithNewCluster(3, cluster -> {
+      // Add groups
+      List<RaftPeer> peers = cluster.getPeers();
+
+      List<RaftPeer> peersWithPriority = new ArrayList<>();
+      for (int i = 0; i < peers.size(); i++) {
+        RaftPeer peer = peers.get(i);
+        peersWithPriority.add(new RaftPeer(peer.getId(), peer.getAddress(), i));
+      }
+
+      final RaftGroup newGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peersWithPriority);
+      LOG.info("add new group: " + newGroup);
+      try (final RaftClient client = cluster.createClient(newGroup)) {
+        for (RaftPeer p : newGroup.getPeers()) {
+          client.groupAdd(newGroup, p.getId());
+        }
+      }
+
+      RaftGroupId groupId = newGroup.getGroupId();
+
+      checkPriority(cluster, groupId, peersWithPriority);
+
+      cluster.restart(false);
+
+      checkPriority(cluster, groupId, peersWithPriority);
+    });
   }
 
   /**
