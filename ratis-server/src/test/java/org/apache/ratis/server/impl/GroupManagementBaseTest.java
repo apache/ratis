@@ -43,12 +43,14 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 public abstract class GroupManagementBaseTest extends BaseTest {
@@ -72,6 +74,56 @@ public abstract class GroupManagementBaseTest extends BaseTest {
 
   public MiniRaftCluster getCluster(int peerNum) throws IOException {
     return getClusterFactory().newCluster(peerNum, prop);
+  }
+
+  @Test
+  public void testMultiGroupWithPriority() throws Exception {
+    final MiniRaftCluster cluster = getCluster(0);
+    LOG.info("Start testMultiGroup" + cluster.printServers());
+
+    // Start server with null group
+    final List<RaftPeerId> ids = Arrays.stream(MiniRaftCluster.generateIds(3, 0))
+        .map(RaftPeerId::valueOf).collect(Collectors.toList());
+    ids.forEach(id -> cluster.putNewServer(id, null, true));
+    LOG.info("putNewServer: " + cluster.printServers());
+
+    cluster.start();
+
+    // Make sure that there are no leaders.
+    TimeUnit.SECONDS.sleep(1);
+    LOG.info("start: " + cluster.printServers());
+    Assert.assertNull(cluster.getLeader());
+
+    // Add groups
+    List<RaftPeer> peers = cluster.getPeers();
+    int groupNum = 3;
+    Random r = new Random(1);
+    for (int k = 0; k < groupNum; k ++) {
+      int suggestedLeaderIndex = r.nextInt(peers.size());
+
+      List<RaftPeer> peersWithPriority = new ArrayList<>();
+      for (int i = 0; i < peers.size(); i++) {
+        RaftPeer peer = peers.get(i);
+        if (i == suggestedLeaderIndex) {
+          peersWithPriority.add(new RaftPeer(peer.getId(), peer.getAddress(), 2));
+        } else {
+          peersWithPriority.add(new RaftPeer(peer.getId(), peer.getAddress(), 1));
+        }
+      }
+
+      final RaftGroup newGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peersWithPriority);
+      LOG.info("add new group: " + newGroup);
+      try (final RaftClient client = cluster.createClient(newGroup)) {
+        for (RaftPeer p : newGroup.getPeers()) {
+          client.groupAdd(newGroup, p.getId());
+        }
+      }
+
+      JavaUtils.attempt(() -> {
+        RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
+        Assert.assertTrue(leader.getId() == peers.get(suggestedLeaderIndex).getId());
+      }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
+    }
   }
 
   @Test
