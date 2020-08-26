@@ -48,6 +48,12 @@ public class RaftClientRequest extends RaftClientMessage {
         .build());
   }
 
+  public static Type pauseUnpauseType(boolean pause) {
+    return new Type(
+        PauseUnpauseRequestProto.newBuilder().setPause(pause).build()
+    );
+  }
+
   public static Type readRequestType() {
     return DEFAULT_READ;
   }
@@ -87,6 +93,10 @@ public class RaftClientRequest extends RaftClientMessage {
       return streamRequestType(stream.getStreamId(), stream.getMessageId(), stream.getEndOfRequest());
     }
 
+    public static Type valueOf(PauseUnpauseRequestProto request) {
+      return pauseUnpauseType(request.getPause());
+    }
+
     /**
      * The type case of the proto.
      * Only the corresponding proto (must be non-null) is used.
@@ -120,6 +130,10 @@ public class RaftClientRequest extends RaftClientMessage {
       this(WATCH, watch);
     }
 
+    private Type(PauseUnpauseRequestProto request) {
+      this(PAUSEUNPAUSE, request);
+    }
+
     public boolean is(RaftClientRequestProto.TypeCase tCase) {
       return getTypeCase().equals(tCase);
     }
@@ -151,6 +165,11 @@ public class RaftClientRequest extends RaftClientMessage {
     public WatchRequestTypeProto getWatch() {
       Preconditions.assertTrue(is(WATCH));
       return (WatchRequestTypeProto)proto;
+    }
+
+    public PauseUnpauseRequestProto getPauseUnpause() {
+      Preconditions.assertTrue(is(PAUSEUNPAUSE));
+      return (PauseUnpauseRequestProto)proto;
     }
 
     public static String toString(ReplicationLevel replication) {

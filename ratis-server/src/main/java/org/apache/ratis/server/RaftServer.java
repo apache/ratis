@@ -19,11 +19,14 @@ package org.apache.ratis.server;
 
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.PauseUnpauseReplyProto;
+import org.apache.ratis.proto.RaftProtos.PauseUnpauseRequestProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.server.impl.ServerImplUtils;
 import org.apache.ratis.server.protocol.RaftServerAsynchronousProtocol;
+import org.apache.ratis.server.protocol.RaftServerPauseUnpauseProtocol;
 import org.apache.ratis.server.protocol.RaftServerProtocol;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.util.LifeCycle;
@@ -36,7 +39,7 @@ import java.util.Objects;
 public interface RaftServer extends Closeable, RpcType.Get,
     RaftServerProtocol, RaftServerAsynchronousProtocol,
     RaftClientProtocol, RaftClientAsynchronousProtocol,
-    AdminProtocol, AdminAsynchronousProtocol {
+    AdminProtocol, AdminAsynchronousProtocol, RaftServerPauseUnpauseProtocol {
 
   /** @return the server ID. */
   RaftPeerId getId();

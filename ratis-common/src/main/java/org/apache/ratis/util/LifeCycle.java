@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.thirdparty.com.google.common.collect.ImmutableSet;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
@@ -82,6 +83,10 @@ public class LifeCycle {
       return States.CLOSING_OR_CLOSED.contains(this);
     }
 
+    public boolean isPausingOrPaused() {
+      return States.PAUSING_OR_PAUSED.contains(this);
+    }
+
     static void put(State key, Map<State, List<State>> map, State... values) {
       map.put(key, Collections.unmodifiableList(Arrays.asList(values)));
     }
@@ -130,6 +135,9 @@ public class LifeCycle {
 
     public static final Set<State> CLOSING_OR_CLOSED_OR_EXCEPTION
         = Collections.unmodifiableSet(EnumSet.of(State.CLOSING, State.CLOSED, State.EXCEPTION));
+
+    public static final Set<State> PAUSING_OR_PAUSED
+        = Collections.unmodifiableSet(EnumSet.of(State.PAUSING, State.PAUSED));
 
     private States() {
       // no instances
@@ -218,6 +226,15 @@ public class LifeCycle {
           State.NEW: State.EXCEPTION);
       throw t;
     }
+  }
+
+  public State checkStateAndPause() {
+    assertCurrentState(ImmutableSet.of(State.RUNNING));
+    if (compareAndTransition(State.RUNNING, State.PAUSING)) {
+      return State.PAUSING;
+    }
+
+    return null;
   }
 
   /**

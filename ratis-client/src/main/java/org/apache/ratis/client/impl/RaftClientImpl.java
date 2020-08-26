@@ -22,6 +22,8 @@ import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.api.StreamApi;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.PauseUnpauseReplyProto;
+import org.apache.ratis.proto.RaftProtos.PauseUnpauseRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
@@ -218,7 +220,7 @@ public final class RaftClientImpl implements RaftClient {
 
   private RaftClientReply send(RaftClientRequest.Type type, Message message, RaftPeerId server)
       throws IOException {
-    if (!type.is(TypeCase.WATCH)) {
+    if (!type.is(TypeCase.WATCH) && !type.is(TypeCase.PAUSEUNPAUSE)) {
       Objects.requireNonNull(message, "message == null");
     }
 
@@ -277,6 +279,17 @@ public final class RaftClientImpl implements RaftClient {
     final RaftClientReply reply = sendRequest(new GroupInfoRequest(clientId, server, rgi, nextCallId()));
     Preconditions.assertTrue(reply instanceof GroupInfoReply, () -> "Unexpected reply: " + reply);
     return (GroupInfoReply)reply;
+  }
+
+  @Override
+  public PauseUnpauseReplyProto pause(
+      PauseUnpauseRequestProto request, RaftPeerId server) throws IOException {
+    final RaftClientReply reply = sendPause(server);
+    return null;
+  }
+
+  private RaftClientReply sendPause(RaftPeerId server) throws IOException {
+    return send(RaftClientRequest.pauseUnpauseType(true), null, server);
   }
 
   private void addServers(Stream<RaftPeer> peersInNewConf) {

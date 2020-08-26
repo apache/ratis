@@ -25,6 +25,8 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.PauseUnpauseReplyProto;
+import org.apache.ratis.proto.RaftProtos.PauseUnpauseRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
@@ -354,6 +356,13 @@ public class RaftServerProxy implements RaftServer {
   public RaftClientReply groupManagement(GroupManagementRequest request) throws IOException {
     return RaftServerImpl.waitForReply(getId(), request, groupManagementAsync(request),
         e -> new RaftClientReply(request, e, null));
+  }
+
+  @Override
+  public RaftClientReply requestPauseUnpause(PauseUnpauseRequestProto request) throws IOException {
+    if (lifeCycle.checkStateAndPause() != null) {
+      return new RaftClientReply();
+    }
   }
 
   @Override

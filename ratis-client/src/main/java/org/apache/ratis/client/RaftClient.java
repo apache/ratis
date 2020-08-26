@@ -22,6 +22,8 @@ import org.apache.ratis.client.api.StreamApi;
 import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.PauseUnpauseReplyProto;
+import org.apache.ratis.proto.RaftProtos.PauseUnpauseRequestProto;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
@@ -100,6 +102,8 @@ public interface RaftClient extends Closeable {
 
   /** Send getGroupInfo request to the given server.*/
   GroupInfoReply getGroupInfo(RaftGroupId group, RaftPeerId server) throws IOException;
+
+  PauseUnpauseReplyProto pause(PauseUnpauseRequestProto request, RaftPeerId server) throws IOException;
 
   /** @return a {@link Builder}. */
   static Builder newBuilder() {

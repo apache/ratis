@@ -21,6 +21,7 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
+import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.protocol.GroupInfoRequest;
@@ -177,6 +178,9 @@ class SimulatedServerRpc implements RaftServerRpc {
             server.getGroupInfo((GroupInfoRequest) request));
       } else if (request instanceof SetConfigurationRequest) {
         future = server.setConfigurationAsync((SetConfigurationRequest) request);
+      } else if (request.getType().is(TypeCase.PAUSEUNPAUSE)) {
+        future = CompletableFuture.completedFuture(
+            server.requestPauseUnpause(request.getType().getPauseUnpause()));
       } else {
         future = server.submitClientRequestAsync(request);
       }

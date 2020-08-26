@@ -218,6 +218,14 @@ message ClientMessageEntryProto {
   bytes content = 1;
 }
 
+message PauseUnpauseRequestProto {
+  bool pause = 1;
+}
+
+message PauseUnpauseReplyProto {
+  bool success = 15;
+}
+
 enum ReplicationLevel {
   /** Committed at the leader and replicated to the majority of peers. */
   MAJORITY = 0;
@@ -275,6 +283,7 @@ message RaftClientRequestProto {
     StaleReadRequestTypeProto staleRead = 5;
     WatchRequestTypeProto watch = 6;
     StreamRequestTypeProto stream = 7;
+    PauseUnpauseRequestProto pauseUnpause = 8;
   }
 }
 
