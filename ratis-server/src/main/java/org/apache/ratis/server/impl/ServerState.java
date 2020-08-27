@@ -324,8 +324,12 @@ public class ServerState implements Closeable {
     SnapshotInfo snapshot = server.getStateMachine().getLatestSnapshot();
     if (local == null && snapshot == null) {
       // If the lastEntry of candidate is null, the proto will transfer an empty TermIndexProto,
-      // then term and index of candidateLastEntry will both be 0
-      if (candidateLastEntry.getTerm() == 0 && candidateLastEntry.getIndex() == 0) {
+      // then term and index of candidateLastEntry will both be 0.
+      // Besides, candidateLastEntry comes from proto now, it never be null.
+      // But we still check candidateLastEntry == null here,
+      // to avoid candidateLastEntry did not come from proto in future.
+      if (candidateLastEntry == null ||
+          (candidateLastEntry.getTerm() == 0 && candidateLastEntry.getIndex() == 0)) {
         return 0;
       }
       return -1;

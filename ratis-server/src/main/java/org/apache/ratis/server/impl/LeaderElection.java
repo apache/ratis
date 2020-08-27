@@ -298,7 +298,13 @@ class LeaderElection implements Runnable {
     while (waitForNum > 0 && shouldRun(electionTerm)) {
       final TimeDuration waitTime = timeout.elapsedTime().apply(n -> -n);
       if (waitTime.isNonPositive()) {
-        return logAndReturn(Result.TIMEOUT, responses, exceptions, -1);
+        if (conf.hasMajority(votedPeers, server.getId())) {
+          // if some higher priority peer did not response when timeout, but candidate get majority,
+          // candidate pass vote
+          return logAndReturn(Result.PASSED, responses, exceptions, -1);
+        } else {
+          return logAndReturn(Result.TIMEOUT, responses, exceptions, -1);
+        }
       }
 
       try {
@@ -330,7 +336,11 @@ class LeaderElection implements Runnable {
           return logAndReturn(Result.REJECTED, responses, exceptions, -1);
         }
 
-        higherPriorityPeers.remove(replierId);
+        // remove higher priority peer, so that we check higherPriorityPeers empty to make sure
+        // all higher priority peers have replied
+        if (higherPriorityPeers.contains(replierId)) {
+          higherPriorityPeers.remove(replierId);
+        }
 
         if (r.getServerReply().getSuccess()) {
           votedPeers.add(replierId);
