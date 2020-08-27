@@ -136,9 +136,25 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       Assert.assertTrue(leader.getId() != peers.get(suggestedLeaderIndex).getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
 
+    // send request so that suggested leader's log lag behind new leader's,
+    // when suggested leader rejoin cluster, it will catch up log first.
+    try (final RaftClient client = cluster.createClient(newGroup)) {
+      for (int i = 0; i < 10; i ++) {
+        RaftClientReply reply = client.send(new RaftTestUtil.SimpleMessage("m" + i));
+        Assert.assertTrue(reply.isSuccess());
+      }
+    }
+
     BlockRequestHandlingInjection.getInstance().unblockRequestor(suggestedLeader);
     BlockRequestHandlingInjection.getInstance().unblockReplier(suggestedLeader);
     cluster.setBlockRequestsFrom(suggestedLeader, false);
+
+    // suggested leader with highest priority rejoin cluster, then current leader will yield
+    // leadership to suggested leader when suggested leader catch up the log.
+    JavaUtils.attempt(() -> {
+      RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
+      Assert.assertTrue(leader.getId() == peers.get(suggestedLeaderIndex).getId());
+    }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
 
     cluster.shutdown();
   }
