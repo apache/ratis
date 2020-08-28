@@ -246,7 +246,7 @@ public class SegmentedRaftLog extends RaftLog {
         // entries to the state machine
         boolean keepEntryInCache = (paths.size() - i++) <= cache.getMaxCachedSegments();
         final Timer.Context loadSegmentContext = getRaftLogMetrics().getRaftLogLoadSegmentTimer().time();
-        cache.loadSegment(pi, keepEntryInCache, logConsumer, lastIndexInSnapshot);
+        cache.loadSegment(pi, keepEntryInCache, logConsumer);
         loadSegmentContext.stop();
       }
 
