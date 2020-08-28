@@ -22,7 +22,6 @@ import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.protocol.TermIndex;
-import org.apache.ratis.statemachine.SnapshotInfo;
 import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.util.Daemon;
 import org.apache.ratis.util.LifeCycle;
@@ -210,14 +209,7 @@ class LeaderElection implements Runnable {
       }
       LOG.info("{}: begin an election at term {} for {}", this, electionTerm, conf);
 
-      TermIndex lastEntry = state.getLog().getLastEntryTermIndex();
-      if (lastEntry == null) {
-        // lastEntry may need to be derived from snapshot
-        SnapshotInfo snapshot = state.getLatestSnapshot();
-        if (snapshot != null) {
-          lastEntry = snapshot.getTermIndex();
-        }
-      }
+      TermIndex lastEntry = state.getLastEntry();
 
       final ResultAndTerm r;
       final Collection<RaftPeer> others = conf.getOtherPeers(server.getId());

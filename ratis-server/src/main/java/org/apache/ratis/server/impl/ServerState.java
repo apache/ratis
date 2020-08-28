@@ -278,6 +278,19 @@ public class ServerState implements Closeable {
     return log;
   }
 
+  public TermIndex getLastEntry() {
+    TermIndex lastEntry = getLog().getLastEntryTermIndex();
+    if (lastEntry == null) {
+      // lastEntry may need to be derived from snapshot
+      SnapshotInfo snapshot = getLatestSnapshot();
+      if (snapshot != null) {
+        lastEntry = snapshot.getTermIndex();
+      }
+    }
+
+    return lastEntry;
+  }
+
   void appendLog(TransactionContext operation) throws StateMachineException {
     log.append(currentTerm.get(), operation);
     Objects.requireNonNull(operation.getLogEntry());

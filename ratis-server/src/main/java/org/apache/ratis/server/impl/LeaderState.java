@@ -803,6 +803,8 @@ public class LeaderState {
     final RaftConfiguration conf = server.getRaftConf();
     int leaderPriority = conf.getPeer(server.getId()).getPriority();
 
+    TermIndex leaderLastEntry = server.getState().getLastEntry();
+
     for (LogAppender logAppender : senders.getSenders()) {
       FollowerInfo followerInfo = logAppender.getFollower();
       RaftPeerId followerID = followerInfo.getPeer().getId();
@@ -812,11 +814,21 @@ public class LeaderState {
         continue;
       }
 
-      if (followerInfo.getCommitIndex() >= raftLog.getLastCommittedIndex()) {
+      if (leaderLastEntry == null) {
         LOG.info("{} stepDown leadership on term:{} because follower's priority:{} is higher than leader's:{} " +
-                "and follower's log index:{} catch up with leader's:{}",
-            this, currentTerm, followerPriority, leaderPriority, followerInfo.getCommitIndex(),
-            raftLog.getLastCommittedIndex());
+                "and leader's lastEntry is null",
+            this, currentTerm, followerPriority, leaderPriority);
+
+        // step down as follower
+        stepDown(currentTerm);
+        return;
+      }
+
+      if (followerInfo.getMatchIndex() >= leaderLastEntry.getIndex()) {
+        LOG.info("{} stepDown leadership on term:{} because follower's priority:{} is higher than leader's:{} " +
+                "and follower's lastEntry index:{} catch up with leader's:{}",
+            this, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
+            leaderLastEntry.getIndex());
 
         // step down as follower
         stepDown(currentTerm);
