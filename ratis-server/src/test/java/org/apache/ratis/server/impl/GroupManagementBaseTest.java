@@ -112,6 +112,8 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     final RaftGroup newGroup = RaftGroup.valueOf(RaftGroupId.randomId(), peersWithPriority);
     LOG.info("add new group: " + newGroup);
     try (final RaftClient client = cluster.createClient(newGroup)) {
+      // Before request, client try leader with the highest priority
+      Assert.assertTrue(client.getLeaderId() == peersWithPriority.get(suggestedLeaderIndex).getId());
       for (RaftPeer p : newGroup.getPeers()) {
         client.groupAdd(newGroup, p.getId());
       }
