@@ -485,6 +485,18 @@ public class LeaderState {
     }
   }
 
+  private synchronized void stepDown(long term, TermIndex lastEntry) {
+    ServerState state = server.getState();
+    TermIndex currLastEntry = state.getLastEntry();
+    if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
+      LOG.warn("{} can not stepDown because currLastEntry:{} did not match lastEntry:{}",
+          this, currLastEntry, lastEntry);
+      return;
+    }
+
+    stepDown(term);
+  }
+
   private void prepare() {
     synchronized (server) {
       if (running) {
@@ -820,7 +832,7 @@ public class LeaderState {
             this, currentTerm, followerPriority, leaderPriority);
 
         // step down as follower
-        stepDown(currentTerm);
+        stepDown(currentTerm, server.getState().getLastEntry());
         return;
       }
 
@@ -831,7 +843,7 @@ public class LeaderState {
             leaderLastEntry.getIndex());
 
         // step down as follower
-        stepDown(currentTerm);
+        stepDown(currentTerm, server.getState().getLastEntry());
         return;
       }
     }
