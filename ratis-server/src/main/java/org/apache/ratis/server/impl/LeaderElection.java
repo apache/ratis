@@ -348,7 +348,11 @@ class LeaderElection implements Runnable {
       waitForNum--;
     }
     // received all the responses
-    return logAndReturn(Result.REJECTED, responses, exceptions, -1);
+    if (conf.hasMajority(votedPeers, server.getId())) {
+      return logAndReturn(Result.PASSED, responses, exceptions, -1);
+    } else {
+      return logAndReturn(Result.REJECTED, responses, exceptions, -1);
+    }
   }
 
   @Override
