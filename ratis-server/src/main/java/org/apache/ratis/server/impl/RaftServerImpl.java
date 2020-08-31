@@ -59,6 +59,8 @@ import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendRe
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
 import static org.apache.ratis.util.LifeCycle.State.NEW;
+import static org.apache.ratis.util.LifeCycle.State.PAUSED;
+import static org.apache.ratis.util.LifeCycle.State.PAUSING;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
@@ -356,6 +358,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   public boolean isLeader() {
     return role.isLeader();
+  }
+
+  public boolean isActive() {
+    return !lifeCycle.getCurrentState().isPausingOrPaused();
   }
 
   /**
@@ -1169,6 +1175,25 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       LOG.info("{}: reply installSnapshot: {}", getMemberId(), ServerProtoUtils.toString(reply));
     }
     return reply;
+  }
+
+  @Override
+  public PauseReplyProto pause(PauseRequestProto request) throws IOException {
+    // TODO: should pause() be limited on only working for a follower?
+    if (!lifeCycle.compareAndTransition(RUNNING, PAUSING)) {
+      return PauseReplyProto.newBuilder().setSuccess(false).build();
+    }
+
+    // Now the state of lifeCycle should be PAUSING, which will prevent future other operations.
+    // Pause() should pause ongoing operations:
+    //  a. call {@link StateMachine#pause()}.
+    synchronized (this) {
+      // TODO: any other operations that needs to be paused?
+      stateMachine.pause();
+    }
+
+    lifeCycle.compareAndTransition(PAUSING, PAUSED);
+    return PauseReplyProto.newBuilder().setSuccess(true).build();
   }
 
   private InstallSnapshotReplyProto installSnapshotImpl(InstallSnapshotRequestProto request) throws IOException {

@@ -147,6 +147,13 @@ message RequestVoteReplyProto {
   bool shouldShutdown = 3;
 }
 
+message PauseRequestProto {
+}
+
+message PauseReplyProto{
+  bool success = 1;
+}
+
 message CommitInfoProto {
   RaftPeerProto server = 1;
   uint64 commitIndex = 2;

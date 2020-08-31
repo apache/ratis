@@ -27,6 +27,8 @@ import org.apache.ratis.client.impl.RaftClientTestUtil;
 import org.apache.ratis.metrics.MetricRegistries;
 import org.apache.ratis.metrics.MetricRegistryInfo;
 import org.apache.ratis.metrics.RatisMetricRegistry;
+import org.apache.ratis.proto.RaftProtos.PauseReplyProto;
+import org.apache.ratis.proto.RaftProtos.PauseRequestProto;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.RaftServer;
@@ -36,6 +38,8 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.util.ExitUtils;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LifeCycle;
+import org.apache.ratis.util.LifeCycle.State;
 import org.apache.ratis.util.Log4jUtils;
 import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.Timestamp;
@@ -335,6 +339,22 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   @Test
   public void testWithLoad() throws Exception {
     runWithNewCluster(NUM_SERVERS, cluster -> testWithLoad(10, 300, false, cluster, LOG));
+  }
+
+  @Test
+  public void testPauseFollowers() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestPauseFollowers);
+  }
+
+  void runTestPauseFollowers(CLUSTER cluster) throws Exception {
+    // wait leader be elected.
+    waitForLeader(cluster);
+    List<RaftServerImpl> followers = cluster.getFollowers();
+    Assert.assertTrue(followers.size() >= 1);
+    RaftServerImpl follower = followers.get(0);
+    PauseReplyProto replyProto = follower.pause(PauseRequestProto.newBuilder().build());
+    Assert.assertTrue(replyProto.getSuccess());
+    Assert.assertFalse(follower.isActive());
   }
 
   static void testWithLoad(final int numClients, final int numMessages,
