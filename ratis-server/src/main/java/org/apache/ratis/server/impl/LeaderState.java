@@ -485,6 +485,18 @@ public class LeaderState {
     }
   }
 
+  private synchronized void stepDown(long term, TermIndex lastEntry) {
+    ServerState state = server.getState();
+    TermIndex currLastEntry = state.getLastEntry();
+    if (ServerState.compareLog(currLastEntry, lastEntry) != 0) {
+      LOG.warn("{} can not stepDown because currLastEntry:{} did not match lastEntry:{}",
+          this, currLastEntry, lastEntry);
+      return;
+    }
+
+    stepDown(term);
+  }
+
   private void prepare() {
     synchronized (server) {
       if (running) {
@@ -517,6 +529,7 @@ public class LeaderState {
             } else if (inStagingState()) {
               checkStaging();
             } else {
+              yieldLeaderToHigherPriorityPeer();
               checkLeadership();
             }
           }
@@ -794,12 +807,58 @@ public class LeaderState {
     return lists;
   }
 
+  private void yieldLeaderToHigherPriorityPeer() {
+    if (!server.getRole().isLeader()) {
+      return;
+    }
+
+    final RaftConfiguration conf = server.getRaftConf();
+    int leaderPriority = conf.getPeer(server.getId()).getPriority();
+
+    TermIndex leaderLastEntry = server.getState().getLastEntry();
+
+    for (LogAppender logAppender : senders.getSenders()) {
+      FollowerInfo followerInfo = logAppender.getFollower();
+      RaftPeerId followerID = followerInfo.getPeer().getId();
+      int followerPriority = conf.getPeer(followerID).getPriority();
+
+      if (followerPriority <= leaderPriority) {
+        continue;
+      }
+
+      if (leaderLastEntry == null) {
+        LOG.info("{} stepDown leadership on term:{} because follower's priority:{} is higher than leader's:{} " +
+                "and leader's lastEntry is null",
+            this, currentTerm, followerPriority, leaderPriority);
+
+        // step down as follower
+        stepDown(currentTerm, server.getState().getLastEntry());
+        return;
+      }
+
+      if (followerInfo.getMatchIndex() >= leaderLastEntry.getIndex()) {
+        LOG.info("{} stepDown leadership on term:{} because follower's priority:{} is higher than leader's:{} " +
+                "and follower's lastEntry index:{} catch up with leader's:{}",
+            this, currentTerm, followerPriority, leaderPriority, followerInfo.getMatchIndex(),
+            leaderLastEntry.getIndex());
+
+        // step down as follower
+        stepDown(currentTerm, server.getState().getLastEntry());
+        return;
+      }
+    }
+  }
+
   /**
    * See the thesis section 6.2: A leader in Raft steps down
    * if an election timeout elapses without a successful
    * round of heartbeats to a majority of its cluster.
    */
   private void checkLeadership() {
+    if (!server.getRole().isLeader()) {
+      return;
+    }
+
     // The initial value of lastRpcResponseTime in FollowerInfo is set by
     // LeaderState::addSenders(), which is fake and used to trigger an
     // immediate round of AppendEntries request. Since candidates collect

@@ -880,7 +880,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         // see Section 5.4.1 Election restriction
         RaftPeer candidate = getRaftConf().getPeer(candidateId);
         if (fs != null && candidate != null) {
-          int compare = state.compareLog(candidateLastEntry);
+          int compare = ServerState.compareLog(state.getLastEntry(), candidateLastEntry);
           int priority = getRaftConf().getPeer(getId()).getPriority();
           LOG.info("{} priority:{} candidate:{} candidatePriority:{} compare:{}",
               this, priority, candidate, candidate.getPriority(), compare);
