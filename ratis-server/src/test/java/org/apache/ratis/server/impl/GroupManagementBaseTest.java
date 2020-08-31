@@ -158,6 +158,12 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       Assert.assertTrue(leader.getId() == peers.get(suggestedLeaderIndex).getId());
     }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
 
+    cluster.killServer(peers.get(suggestedLeaderIndex).getId());
+    JavaUtils.attempt(() -> {
+      RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster, newGroup.getGroupId());
+      Assert.assertTrue(leader.getId() != peers.get(suggestedLeaderIndex).getId());
+    }, 10, TimeDuration.valueOf(1, TimeUnit.SECONDS), "testMultiGroupWithPriority", LOG);
+
     cluster.shutdown();
   }
 
