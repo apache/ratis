@@ -383,6 +383,7 @@ public class LeaderState {
       watchRequests.update(ReplicationLevel.MAJORITY_COMMITTED, m.majority);
       watchRequests.update(ReplicationLevel.MAJORITY, m.max);
     });
+    notifySenders();
   }
 
   private void applyOldNewConf() {
