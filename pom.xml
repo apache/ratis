@@ -839,6 +839,23 @@
           <includeReports>false</includeReports>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>buildnumber-maven-plugin</artifactId>
+        <version>1.4</version>
+        <executions>
+          <execution>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>create-metadata</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>target/classes</outputDirectory>
+              <outputName>ratis-version.properties</outputName>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
