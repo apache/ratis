@@ -552,7 +552,7 @@ public class LeaderState {
       long committed) {
     Preconditions.assertTrue(!follower.isAttendingVote());
     final Timestamp progressTime = Timestamp.currentTime().addTimeMs(-server.getMaxTimeoutMs());
-    final Timestamp timeoutTime = Timestamp.currentTime().addTimeMs(-3*server.getMaxTimeoutMs());
+    final Timestamp timeoutTime = Timestamp.currentTime().addTimeMs(-3L * server.getMaxTimeoutMs());
     if (follower.getLastRpcResponseTime().compareTo(timeoutTime) < 0) {
       LOG.debug("{} detects a follower {} timeout ({}) for bootstrapping", this, follower, timeoutTime);
       return BootStrapProgress.NOPROGRESS;

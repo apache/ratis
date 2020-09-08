@@ -57,7 +57,7 @@ public abstract class Client extends SubCommandBase {
     RaftServerConfigKeys.Log.setPreallocatedSize(raftProperties,
         SizeInBytes.valueOf(raftSegmentPreallocatedSize));
     RaftServerConfigKeys.Log.setSegmentSizeMax(raftProperties,
-        SizeInBytes.valueOf(1 * 1024 * 1024 * 1024));
+        SizeInBytes.valueOf(1 * 1024 * 1024 * 1024L));
 
     RaftServerConfigKeys.Log.setSegmentCacheNumMax(raftProperties, 2);
 

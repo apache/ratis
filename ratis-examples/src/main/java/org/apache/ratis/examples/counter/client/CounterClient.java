@@ -67,7 +67,7 @@ public final class CounterClient {
 
     //shutdown the executor service and wait until they finish their work
     executorService.shutdown();
-    executorService.awaitTermination(increment * 500, TimeUnit.MILLISECONDS);
+    executorService.awaitTermination(increment * 500L, TimeUnit.MILLISECONDS);
 
     //send GET command and print the response
     RaftClientReply count = raftClient.sendReadOnly(Message.valueOf("GET"));
