@@ -876,6 +876,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     boolean shouldShutdown = false;
     final RequestVoteReplyProto reply;
     synchronized (this) {
+      // Check life cycle state again to avoid the PAUSING/PAUSED state.
+      assertLifeCycleState(LifeCycle.States.RUNNING);
       final FollowerState fs = role.getFollowerState().orElse(null);
       if (shouldWithholdVotes(candidateTerm)) {
         LOG.info("{}-{}: Withhold vote from candidate {} with term {}. State: leader={}, term={}, lastRpcElapsed={}",
@@ -1025,7 +1027,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   @SuppressWarnings("checkstyle:parameternumber")
   private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
       RaftPeerId leaderId, long leaderTerm, TermIndex previous, long leaderCommit, long callId, boolean initializing,
-      List<CommitInfoProto> commitInfos, LogEntryProto... entries) {
+      List<CommitInfoProto> commitInfos, LogEntryProto... entries) throws IOException {
     final boolean isHeartbeat = entries.length == 0;
     logAppendEntries(isHeartbeat,
         () -> getMemberId() + ": receive appendEntries(" + leaderId + ", " + leaderTerm + ", "
@@ -1038,6 +1040,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final Optional<FollowerState> followerState;
     Timer.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
     synchronized (this) {
+      // Check life cycle state again to avoid the PAUSING/PAUSED state.
+      assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
