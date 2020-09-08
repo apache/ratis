@@ -62,7 +62,7 @@ public class LogSegment implements Comparable<Long> {
 
   static long getEntrySize(LogEntryProto entry) {
     final int serialized = ServerProtoUtils.removeStateMachineData(entry).getSerializedSize();
-    return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4;
+    return serialized + CodedOutputStream.computeUInt32SizeNoTag(serialized) + 4L;
   }
 
   static class LogRecord {

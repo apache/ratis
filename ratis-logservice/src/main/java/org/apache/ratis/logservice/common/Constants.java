@@ -58,7 +58,7 @@ public final class Constants {
     public static final long DEFAULT_RPC_TIMEOUT = 100000;// 100 sec (?)
 
     public static final String RATIS_RAFT_SEGMENT_SIZE_KEY = "ratis.raft.segment.size";
-    public static final long DEFAULT_RATIS_RAFT_SEGMENT_SIZE = 32 * 1024 *1024;// 32MB
+    public static final long DEFAULT_RATIS_RAFT_SEGMENT_SIZE = 32 * 1024 * 1024L;// 32MB
 
     public static final String LOG_SERVICE_HEARTBEAT_INTERVAL_KEY =
             "logservice.heartbeat.interval"; // in ms
