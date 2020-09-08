@@ -163,7 +163,7 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
         Thread.sleep(1000);
         isolate(cluster, leader.getId());
         RaftClientReply reply = client.send(new RaftTestUtil.SimpleMessage("message"));
-        Assert.assertNotEquals(reply.getReplierId(), leader.getId());
+        Assert.assertNotEquals(reply.getReplierId(), leader.getId().toString());
         Assert.assertTrue(reply.isSuccess());
       } finally {
         deIsolate(cluster, leader.getId());
