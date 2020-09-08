@@ -246,7 +246,7 @@ public class SegmentedRaftLog extends RaftLog {
         // entries to the state machine
         boolean keepEntryInCache = (paths.size() - i++) <= cache.getMaxCachedSegments();
         final Timer.Context loadSegmentContext = getRaftLogMetrics().getRaftLogLoadSegmentTimer().time();
-        cache.loadSegment(pi, keepEntryInCache, logConsumer, lastIndexInSnapshot);
+        cache.loadSegment(pi, keepEntryInCache, logConsumer);
         loadSegmentContext.stop();
       }
 
@@ -257,8 +257,7 @@ public class SegmentedRaftLog extends RaftLog {
       if (!cache.isEmpty() && cache.getEndIndex() < lastIndexInSnapshot) {
         LOG.warn("End log index {} is smaller than last index in snapshot {}",
             cache.getEndIndex(), lastIndexInSnapshot);
-        cache.clear();
-        // TODO purge all segment files
+        purgeImpl(lastIndexInSnapshot);
       }
     }
   }
@@ -487,7 +486,7 @@ public class SegmentedRaftLog extends RaftLog {
   @Override
   public void syncWithSnapshot(long lastSnapshotIndex) {
     fileLogWorker.syncWithSnapshot(lastSnapshotIndex);
-    // TODO purge log files and normal/tmp/corrupt snapshot files
+    // TODO purge normal/tmp/corrupt snapshot files
     // if the last index in snapshot is larger than the index of the last
     // log entry, we should delete all the log entries and their cache to avoid
     // gaps between log segments.
@@ -496,8 +495,8 @@ public class SegmentedRaftLog extends RaftLog {
     LogSegment openSegment = cache.getOpenSegment();
     if (openSegment != null && openSegment.getEndIndex() <= lastSnapshotIndex) {
       fileLogWorker.closeLogSegment(openSegment);
-      cache.clear();
     }
+    purgeImpl(lastSnapshotIndex);
   }
 
   @Override
@@ -509,7 +508,7 @@ public class SegmentedRaftLog extends RaftLog {
   public void close() throws IOException {
     try(AutoCloseableLock writeLock = writeLock()) {
       super.close();
-      cache.clear();
+      cache.close();
     }
     fileLogWorker.close();
     storage.close();
