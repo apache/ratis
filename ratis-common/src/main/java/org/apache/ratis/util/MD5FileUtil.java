@@ -150,9 +150,10 @@ public abstract class MD5FileUtil {
     File md5File = getDigestFileForFile(dataFile);
     String md5Line = digestString + " *" + dataFile.getName() + "\n";
 
-    AtomicFileOutputStream afos = new AtomicFileOutputStream(md5File);
-    afos.write(md5Line.getBytes(StandardCharsets.UTF_8));
-    afos.close();
+    try (AtomicFileOutputStream afos
+         = new AtomicFileOutputStream(md5File)) {
+      afos.write(md5Line.getBytes(StandardCharsets.UTF_8));
+    }
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("Saved MD5 " + digestString + " to " + md5File);
