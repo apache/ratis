@@ -79,7 +79,7 @@ public class CombinedClientProtocolServerSideTranslatorPB
     }
     return ClientReplyProto.newBuilder()
         .setType(type)
-        .setResponse(ByteString.copyFrom(response.toByteArray()))
+        .setResponse(response == null ? ByteString.EMPTY : ByteString.copyFrom(response.toByteArray()))
         .build();
   }
 
