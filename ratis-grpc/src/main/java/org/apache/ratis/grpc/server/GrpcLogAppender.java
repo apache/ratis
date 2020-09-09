@@ -407,7 +407,11 @@ public class GrpcLogAppender extends LogAppender {
           LOG.error("{}: Configuration Mismatch ({}): Leader {} has it set to {} but follower {} has it set to {}",
               this, RaftServerConfigKeys.Log.Appender.INSTALL_SNAPSHOT_ENABLED_KEY,
               getServer().getId(), installSnapshotEnabled, getFollowerId(), !installSnapshotEnabled);
+          break;
         case UNRECOGNIZED:
+          LOG.error("Unrecongnized the reply result {}: Leader is {}, follower is {}",
+              reply.getResult(), getServer().getId(), getFollowerId());
+          break;
         default:
           break;
       }
