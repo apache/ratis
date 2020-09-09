@@ -409,6 +409,8 @@ public class GrpcLogAppender extends LogAppender {
               getServer().getId(), installSnapshotEnabled, getFollowerId(), !installSnapshotEnabled);
           break;
         case UNRECOGNIZED:
+          LOG.error("Unrecongnized the reply result {}: Leader is {}, follower is {}",
+              reply.getResult(), getServer().getId(), getFollowerId());
           break;
         default:
           break;
