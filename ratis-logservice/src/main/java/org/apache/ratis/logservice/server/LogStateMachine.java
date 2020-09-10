@@ -623,12 +623,15 @@ public class LogStateMachine extends BaseStateMachine {
         loc = archiveLog.getLocation();
         ArchivalInfo exportInfo =
             exportMap.putIfAbsent(loc, new ArchivalInfo(loc));
-        if (exportInfo != null && exportInfo.getLastArchivedIndex() == archiveLog
-            .getLastArchivedRaftIndex()) {
-          throw new IllegalStateException("Export of " + logName + "for the given location " + loc
-              + "is already present and in " + exportInfo.getStatus());
+        if (exportInfo != null) {
+          if (exportInfo.getLastArchivedIndex() == archiveLog
+              .getLastArchivedRaftIndex()) {
+            throw new IllegalStateException("Export of " + logName + "for the given location " + loc
+                + "is already present and in " + exportInfo.getStatus());
+          } else {
+            exportInfo.updateArchivalInfo(archiveLog);
+          }
         }
-        exportInfo.updateArchivalInfo(archiveLog);
       }
       if (loc == null) {
         throw new IllegalArgumentException(isArchivalRequest ?
