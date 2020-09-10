@@ -342,6 +342,7 @@ public class SegmentedRaftLog extends RaftLog {
       return cache.getTermIndices(startIndex, endIndex);
     }
   }
+  
 
   @Override
   public TermIndex getLastEntryTermIndex() {
