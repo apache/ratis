@@ -95,7 +95,7 @@ public class ServerState implements Closeable {
   ServerState(RaftPeerId id, RaftGroup group, RaftProperties prop,
               RaftServerImpl server, StateMachine stateMachine)
       throws IOException {
-    this.memberId = RaftGroupMemberId.valueOf(id, group.getGroupId());
+    this.memberId = RaftGroupMemberId.valueOf(id, group.getGroupId(), group.getPeers().size());
     this.server = server;
     RaftConfiguration initialConf = RaftConfiguration.newBuilder()
         .setConf(group.getPeers()).build();

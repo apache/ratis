@@ -25,6 +25,10 @@ import java.util.Objects;
  * This is a value-based class.
  */
 public final class RaftGroupMemberId {
+  public static RaftGroupMemberId valueOf(RaftPeerId peerId, RaftGroupId groupId, int numMembers) {
+    return new RaftGroupMemberId(peerId, groupId, numMembers);
+  }
+
   public static RaftGroupMemberId valueOf(RaftPeerId peerId, RaftGroupId groupId) {
     return new RaftGroupMemberId(peerId, groupId);
   }
@@ -32,6 +36,12 @@ public final class RaftGroupMemberId {
   private final RaftPeerId peerId;
   private final RaftGroupId groupId;
   private final String name;
+
+  private RaftGroupMemberId(RaftPeerId peerId, RaftGroupId groupId, int numMembers) {
+    this.peerId = Objects.requireNonNull(peerId, "peerId == null");
+    this.groupId = Objects.requireNonNull(groupId, "groupId == null");
+    this.name = "p:" + peerId + "@g:" + groupId + "@s:" + numMembers;
+  }
 
   private RaftGroupMemberId(RaftPeerId peerId, RaftGroupId groupId) {
     this.peerId = Objects.requireNonNull(peerId, "peerId == null");
