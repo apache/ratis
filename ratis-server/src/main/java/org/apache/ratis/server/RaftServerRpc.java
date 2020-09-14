@@ -71,6 +71,6 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeabl
   }
 
   default PauseReplyProto pause(PauseRequestProto request) throws IOException {
-    throw new UnsupportedOperationException("pause() is not supported!");
+    throw new UnsupportedOperationException("pause is not supported");
   }
 }

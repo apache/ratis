@@ -1183,21 +1183,19 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   @Override
   public PauseReplyProto pause(PauseRequestProto request) throws IOException {
-    assertLifeCycleState(LifeCycle.States.RUNNING);
     // TODO: should pause() be limited on only working for a follower?
-    if (!lifeCycle.compareAndTransition(RUNNING, PAUSING)) {
-      return PauseReplyProto.newBuilder().setSuccess(false).build();
-    }
 
     // Now the state of lifeCycle should be PAUSING, which will prevent future other operations.
     // Pause() should pause ongoing operations:
     //  a. call {@link StateMachine#pause()}.
     synchronized (this) {
+      if (!lifeCycle.compareAndTransition(RUNNING, PAUSING)) {
+        return PauseReplyProto.newBuilder().setSuccess(false).build();
+      }
       // TODO: any other operations that needs to be paused?
       stateMachine.pause();
+      lifeCycle.compareAndTransition(PAUSING, PAUSED);
     }
-
-    lifeCycle.compareAndTransition(PAUSING, PAUSED);
     return PauseReplyProto.newBuilder().setSuccess(true).build();
   }
 
