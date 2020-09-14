@@ -19,6 +19,7 @@ package org.apache.ratis;
 
 import com.codahale.metrics.Gauge;
 
+import java.util.Set;
 import org.apache.log4j.Level;
 import org.apache.ratis.RaftTestUtil.SimpleMessage;
 import org.apache.ratis.client.RaftClient;
@@ -181,8 +182,8 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     final long term = leader.getState().getCurrentTerm();
 
     List<RaftServerImpl> followers = cluster.getFollowers();
-    final RaftServerImpl followerToSendLog = followers.get(0);
-    for (int i = 1; i < NUM_SERVERS - 1; i++) {
+    final List<RaftServerImpl> followersToSendLog = followers.subList(0, followers.size() / 2);
+    for (int i = followers.size() / 2; i < NUM_SERVERS - 1; i++) {
       RaftServerImpl follower = followers.get(i);
       cluster.killServer(follower.getId());
     }
@@ -191,22 +192,27 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     RaftTestUtil.sendMessageInNewThread(cluster, leaderId, messages);
 
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
-    RaftLog followerLog = followerToSendLog.getState().getLog();
-    Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, messages));
+    for (RaftServerImpl followerToSendLog : followersToSendLog) {
+      RaftLog followerLog = followerToSendLog.getState().getLog();
+      Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, messages));
+    }
 
     LOG.info(String.format("killing old leader: %s", leaderId.toString()));
     cluster.killServer(leaderId);
 
-    for (int i = 1; i < 3; i++) {
+    for (int i = followers.size() / 2; i < NUM_SERVERS - 1; i++) {
       RaftServerImpl follower = followers.get(i);
       LOG.info(String.format("restarting follower: %s", follower.getId().toString()));
-      cluster.restartServer(follower.getId(), false );
+      cluster.restartServer(follower.getId(), false);
     }
 
     Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) * 5);
     // confirm the server with log is elected as new leader.
     final RaftPeerId newLeaderId = waitForLeader(cluster).getId();
-    Assert.assertEquals(followerToSendLog.getId(), newLeaderId);
+    Set<RaftPeerId> followersToSendLogIds =
+        followersToSendLog.stream().map(f -> f.getId()).collect(Collectors.toSet());
+
+    Assert.assertTrue(followersToSendLogIds.contains(newLeaderId));
 
     cluster.getServerAliveStream().map(s -> s.getState().getLog())
         .forEach(log -> RaftTestUtil.assertLogEntries(log, term, messages));
