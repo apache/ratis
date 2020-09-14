@@ -97,10 +97,18 @@ public interface RaftTestUtil {
       exception.set(ise);
     };
 
-    final RaftServerImpl leader = JavaUtils.attemptRepeatedly(() -> {
+    final RaftServerImpl leader = JavaUtils.attemptRepeatedly((Integer i) -> {
       RaftServerImpl l = cluster.getLeader(groupId, handleNoLeaders, handleMultipleLeaders);
       if (l != null && !l.isLeaderReady()) {
-        throw new IllegalStateException("Leader: "+ l.getMemberId() +  " not ready");
+        if (i == numAttempts / 2) {
+          try {
+            cluster.restart(false);
+          } catch (IOException e) {
+            throw new IllegalStateException("Leader: "+ l.getMemberId() +  " not ready");
+          }
+        } else {
+          throw new IllegalStateException("Leader: "+ l.getMemberId() +  " not ready");
+        }
       }
       return l;
     }, numAttempts, sleepTime, name, LOG);

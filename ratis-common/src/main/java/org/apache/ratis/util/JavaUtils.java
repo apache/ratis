@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.util;
 
+import org.apache.ratis.util.function.CheckedFunction;
 import org.apache.ratis.util.function.CheckedRunnable;
 import org.apache.ratis.util.function.CheckedSupplier;
 import org.slf4j.Logger;
@@ -144,6 +145,49 @@ public interface JavaUtils {
       int numAttempts, TimeDuration sleepTime, String name, Logger log)
       throws THROWABLE, InterruptedException {
     return attempt(supplier, numAttempts, sleepTime, () -> name, log);
+  }
+
+  /**
+   * Attempt to get a return value from the given function multiple times.
+   * Pass the current attempt to allow the function decide whether take
+   * actions. E.g. restart cluster.
+   */
+  static <RETURN, THROWABLE extends Throwable> RETURN attemptRepeatedly(
+      CheckedFunction<Integer, RETURN, THROWABLE> function,
+      int numAttempts, TimeDuration sleepTime, String name, Logger log)
+      throws THROWABLE, InterruptedException {
+    return attempt(function, numAttempts, sleepTime, () -> name, log);
+  }
+
+  /**
+   * Attempt to get a return value from the given function multiple times.
+   * Pass the current attempt to allow the function decide whether take
+   * actions. E.g. restart cluster.
+   */
+  static <RETURN, THROWABLE extends Throwable> RETURN attempt(
+      CheckedFunction<Integer, RETURN, THROWABLE> function,
+      int numAttempts, TimeDuration sleepTime, Supplier<?> name, Logger log)
+      throws THROWABLE, InterruptedException {
+    Objects.requireNonNull(function, "supplier == null");
+    Preconditions.assertTrue(numAttempts > 0, () -> "numAttempts = " + numAttempts + " <= 0");
+    Preconditions.assertTrue(!sleepTime.isNegative(), () -> "sleepTime = " + sleepTime + " < 0");
+
+    for(int i = 1; i <= numAttempts; i++) {
+      try {
+        return function.apply(i);
+      } catch (Throwable t) {
+        if (i == numAttempts) {
+          throw t;
+        }
+        if (log != null && log.isWarnEnabled()) {
+          log.warn("FAILED \"" + name.get() + "\", attempt #" + i + "/" + numAttempts
+              + ": " + t + ", sleep " + sleepTime + " and then retry.", t);
+        }
+      }
+
+      sleepTime.sleep();
+    }
+    throw new IllegalStateException("BUG: this line should be unreachable.");
   }
 
   /** Attempt to get a return value from the given supplier multiple times. */
