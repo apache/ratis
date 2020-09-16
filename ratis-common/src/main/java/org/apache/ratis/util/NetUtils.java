@@ -123,7 +123,7 @@ public interface NetUtils {
   }
 
   static String address2String(InetSocketAddress address) {
-    final StringBuilder b = new StringBuilder(address.getHostName());
+    final StringBuilder b = new StringBuilder(address.getAddress().getHostAddress());
     if (address.getAddress() instanceof Inet6Address) {
       b.insert(0, '[').append(']');
     }
