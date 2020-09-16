@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.server.raftlog;
 
-import org.apache.ratis.protocol.RaftException;
+import org.apache.ratis.protocol.exceptions.RaftException;
 
 /**
  * Exception while reading/writing RaftLog

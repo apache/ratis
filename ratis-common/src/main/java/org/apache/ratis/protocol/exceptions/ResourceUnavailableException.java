@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.protocol.RaftException;
-
 /**
  * A particular resource is unavailable.
  */

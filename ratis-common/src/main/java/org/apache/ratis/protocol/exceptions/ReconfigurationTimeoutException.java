@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.protocol.RaftException;
-
 public class ReconfigurationTimeoutException extends RaftException {
   public ReconfigurationTimeoutException(String message) {
     super(message);

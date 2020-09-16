@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.protocol.RaftException;
 import org.apache.ratis.protocol.RaftGroupMemberId;
 
 public class StateMachineException extends RaftException {

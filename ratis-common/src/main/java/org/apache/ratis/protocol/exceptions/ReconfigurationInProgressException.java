@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.protocol.RaftException;
-
 public class ReconfigurationInProgressException extends RaftException {
   public ReconfigurationInProgressException(String message) {
     super(message);

@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.protocol.RaftException;
-
 /**
  * This exception indicates the failure of a stale-read.
  */

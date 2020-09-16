@@ -18,7 +18,6 @@
 package org.apache.ratis.protocol.exceptions;
 
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
-import org.apache.ratis.protocol.RaftException;
 
 public class NotReplicatedException extends RaftException {
   private final long callId;

@@ -18,7 +18,6 @@
 package org.apache.ratis.protocol.exceptions;
 
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftException;
 import org.apache.ratis.retry.RetryPolicy;
 
 /**

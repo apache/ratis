@@ -24,7 +24,7 @@ import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftException;
+import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.TimeDuration;

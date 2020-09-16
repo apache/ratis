@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.protocol.RaftException;
-
 /**
  * This exception indicates that the group id in the request does not match
  * server's group id.
