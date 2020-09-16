@@ -18,7 +18,6 @@
 package org.apache.ratis.protocol.exceptions;
 
 import org.apache.ratis.protocol.RaftGroupMemberId;
-import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
 
 /**
  * This exception is sent from the server to a client. The server has just
