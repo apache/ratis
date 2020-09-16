@@ -38,7 +38,7 @@ public abstract class SubCommandBase {
 
   private static final Logger LOG = LoggerFactory.getLogger(SubCommandBase.class);
 
-  static Pattern IPV6_PATTERN = Pattern.compile(Stream.of("(",
+  static Pattern IPV6PATTERN = Pattern.compile(Stream.of("(",
     "([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|",          // 2001:0250:0207:0001:0000:0000:0000:ff02
     "([0-9a-fA-F]{1,4}:){1,7}:|",                         // 1::
     "([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|",         // 2001::ff02
@@ -96,7 +96,7 @@ public abstract class SubCommandBase {
 
   private static RaftPeer parseRaftPeer(String address) {
     try {
-      if (IPV6_PATTERN.matcher(address).find()) {
+      if (IPV6PATTERN.matcher(address).find()) {
         String id = address.substring(0, address.indexOf(":"));
         String host = address.substring(address.indexOf("[") + 1, address.lastIndexOf("]"));
         String port = address.substring(address.lastIndexOf(":") + 1);

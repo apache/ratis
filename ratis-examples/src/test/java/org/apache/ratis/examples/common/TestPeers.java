@@ -62,7 +62,7 @@ public class TestPeers {
   @Test
   public void testPatternIpv6() {
     Assert.assertEquals(
-      Arrays.stream(ipv6Address).filter(s -> SubCommandBase.IPV6_PATTERN.matcher(s).find()).count(),
+      Arrays.stream(ipv6Address).filter(s -> SubCommandBase.IPV6PATTERN.matcher(s).find()).count(),
       ipv6Address.length);
   }
 
