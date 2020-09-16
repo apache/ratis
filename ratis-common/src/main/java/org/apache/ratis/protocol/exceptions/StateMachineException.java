@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,22 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-import java.io.IOException;
+import org.apache.ratis.protocol.RaftException;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 
-/**
- * Signals that an attempt to create a file at a given pathname has failed
- * because another file already existed at that path.
- */
-public class AlreadyExistsException extends IOException {
-  private static final long serialVersionUID = 1L;
+public class StateMachineException extends RaftException {
+  public StateMachineException(RaftGroupMemberId serverId, Throwable cause) {
+    // cause.getMessage is added to this exception message as the exception received through
+    // RPC call contains similar message but Simulated RPC doesn't. Adding the message
+    // from cause to this exception makes it consistent across simulated and other RPC implementations.
+    super(cause.getClass().getName() + " from Server " + serverId + ": " + cause.getMessage(), cause);
+  }
 
-  public AlreadyExistsException(String msg) {
+  public StateMachineException(String msg) {
     super(msg);
   }
 
-  public AlreadyExistsException(Throwable cause) {
-    super(cause);
+  public StateMachineException(String message, Throwable cause) {
+    super(message, cause);
   }
 }

@@ -15,13 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
+
+import org.apache.ratis.protocol.RaftException;
 
 /**
- * The server is not ready yet.
+ * This exception indicates the failure of a stale-read.
  */
-public class ServerNotReadyException extends RaftException {
-  public ServerNotReadyException(String message) {
+public class StaleReadException extends RaftException {
+  public StaleReadException(String message) {
     super(message);
   }
 }

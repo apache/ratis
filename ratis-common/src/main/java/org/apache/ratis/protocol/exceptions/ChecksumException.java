@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,24 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
 
-import org.apache.ratis.retry.RetryPolicy;
+package org.apache.ratis.protocol.exceptions;
 
-/**
- * Retry failure as per the {@link RetryPolicy} defined.
- */
-public class RaftRetryFailureException extends RaftException {
+import java.io.IOException;
 
-  private final int attemptCount;
-
-  public RaftRetryFailureException(
-      RaftClientRequest request, int attemptCount, RetryPolicy retryPolicy, Throwable cause) {
-    super("Failed " + request + " for " + attemptCount + " attempts with " + retryPolicy, cause);
-    this.attemptCount = attemptCount;
+/** Thrown for checksum errors. */
+public class ChecksumException extends IOException {
+  private static final long serialVersionUID = 1L;
+  private long pos;
+  public ChecksumException(String description, long pos) {
+    super(description);
+    this.pos = pos;
   }
 
-  public int getAttemptCount() {
-    return attemptCount;
+  public long getPos() {
+    return pos;
   }
 }

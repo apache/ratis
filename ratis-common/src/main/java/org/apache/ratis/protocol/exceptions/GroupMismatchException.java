@@ -15,13 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
+
+import org.apache.ratis.protocol.RaftException;
 
 /**
- * This exception indicates the failure of a stale-read.
+ * This exception indicates that the group id in the request does not match
+ * server's group id.
  */
-public class StaleReadException extends RaftException {
-  public StaleReadException(String message) {
+public class GroupMismatchException extends RaftException {
+  public GroupMismatchException(String message) {
     super(message);
   }
 }

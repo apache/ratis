@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,23 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-/**
- * This exception is sent from the server to a client. The server has just
- * become the current leader, but has not committed its first place-holder
- * log entry yet. Thus the leader cannot accept any new client requests since
- * it cannot determine whether a request is just a retry.
- */
-public class LeaderNotReadyException extends ServerNotReadyException {
-  private final RaftGroupMemberId serverId;
+import org.apache.ratis.protocol.RaftException;
 
-  public LeaderNotReadyException(RaftGroupMemberId id) {
-    super(id + " is in LEADER state but not ready yet.");
-    this.serverId = id;
-  }
-
-  public RaftGroupMemberId getServerId() {
-    return serverId;
+public class ReconfigurationTimeoutException extends RaftException {
+  public ReconfigurationTimeoutException(String message) {
+    super(message);
   }
 }

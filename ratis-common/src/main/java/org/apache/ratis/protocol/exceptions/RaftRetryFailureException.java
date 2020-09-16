@@ -15,32 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftException;
+import org.apache.ratis.retry.RetryPolicy;
 
-public class NotReplicatedException extends RaftException {
-  private final long callId;
-  private final ReplicationLevel requiredReplication;
-  private final long logIndex;
+/**
+ * Retry failure as per the {@link RetryPolicy} defined.
+ */
+public class RaftRetryFailureException extends RaftException {
 
-  public NotReplicatedException(long callId, ReplicationLevel requiredReplication, long logIndex) {
-    super("Request with call Id " + callId + " and log index " + logIndex
-        + " is not yet replicated to " + requiredReplication);
-    this.callId = callId;
-    this.requiredReplication = requiredReplication;
-    this.logIndex = logIndex;
+  private final int attemptCount;
+
+  public RaftRetryFailureException(
+      RaftClientRequest request, int attemptCount, RetryPolicy retryPolicy, Throwable cause) {
+    super("Failed " + request + " for " + attemptCount + " attempts with " + retryPolicy, cause);
+    this.attemptCount = attemptCount;
   }
 
-  public long getCallId() {
-    return callId;
-  }
-
-  public ReplicationLevel getRequiredReplication() {
-    return requiredReplication;
-  }
-
-  public long getLogIndex() {
-    return logIndex;
+  public int getAttemptCount() {
+    return attemptCount;
   }
 }

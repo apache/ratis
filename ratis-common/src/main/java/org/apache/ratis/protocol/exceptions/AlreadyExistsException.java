@@ -15,14 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
+
+import java.io.IOException;
 
 /**
- * This exception indicates that the group id in the request does not match
- * server's group id.
+ * Signals that an attempt to create a file at a given pathname has failed
+ * because another file already existed at that path.
  */
-public class GroupMismatchException extends RaftException {
-  public GroupMismatchException(String message) {
-    super(message);
+public class AlreadyExistsException extends IOException {
+  private static final long serialVersionUID = 1L;
+
+  public AlreadyExistsException(String msg) {
+    super(msg);
+  }
+
+  public AlreadyExistsException(Throwable cause) {
+    super(cause);
   }
 }

@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.protocol.AlreadyClosedException;
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
