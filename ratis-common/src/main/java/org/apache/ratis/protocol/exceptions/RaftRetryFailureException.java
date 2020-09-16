@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,22 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-import java.io.IOException;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.retry.RetryPolicy;
 
 /**
- * Signals that an attempt to create a file at a given pathname has failed
- * because another file already existed at that path.
+ * Retry failure as per the {@link RetryPolicy} defined.
  */
-public class AlreadyExistsException extends IOException {
-  private static final long serialVersionUID = 1L;
+public class RaftRetryFailureException extends RaftException {
 
-  public AlreadyExistsException(String msg) {
-    super(msg);
+  private final int attemptCount;
+
+  public RaftRetryFailureException(
+      RaftClientRequest request, int attemptCount, RetryPolicy retryPolicy, Throwable cause) {
+    super("Failed " + request + " for " + attemptCount + " attempts with " + retryPolicy, cause);
+    this.attemptCount = attemptCount;
   }
 
-  public AlreadyExistsException(Throwable cause) {
-    super(cause);
+  public int getAttemptCount() {
+    return attemptCount;
   }
 }

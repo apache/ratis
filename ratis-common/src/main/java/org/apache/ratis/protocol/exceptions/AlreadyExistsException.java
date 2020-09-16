@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,23 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
+
+import java.io.IOException;
 
 /**
- * This exception is sent from the server to a client. The server has just
- * become the current leader, but has not committed its first place-holder
- * log entry yet. Thus the leader cannot accept any new client requests since
- * it cannot determine whether a request is just a retry.
+ * Signals that an attempt to create a file at a given pathname has failed
+ * because another file already existed at that path.
  */
-public class LeaderNotReadyException extends ServerNotReadyException {
-  private final RaftGroupMemberId serverId;
+public class AlreadyExistsException extends IOException {
+  private static final long serialVersionUID = 1L;
 
-  public LeaderNotReadyException(RaftGroupMemberId id) {
-    super(id + " is in LEADER state but not ready yet.");
-    this.serverId = id;
+  public AlreadyExistsException(String msg) {
+    super(msg);
   }
 
-  public RaftGroupMemberId getServerId() {
-    return serverId;
+  public AlreadyExistsException(Throwable cause) {
+    super(cause);
   }
 }

@@ -18,8 +18,8 @@
 package org.apache.ratis.grpc;
 
 import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.protocol.ServerNotReadyException;
-import org.apache.ratis.protocol.TimeoutIOException;
+import org.apache.ratis.protocol.exceptions.ServerNotReadyException;
+import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.apache.ratis.thirdparty.io.grpc.ManagedChannel;
 import org.apache.ratis.thirdparty.io.grpc.Metadata;
 import org.apache.ratis.thirdparty.io.grpc.Status;

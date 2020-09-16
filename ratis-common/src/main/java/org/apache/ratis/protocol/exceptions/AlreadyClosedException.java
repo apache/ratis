@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,13 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
 /**
- * This exception indicates the failure of a stale-read.
+ * The corresponding object is already closed.
  */
-public class StaleReadException extends RaftException {
-  public StaleReadException(String message) {
+public class AlreadyClosedException extends RaftException {
+  public AlreadyClosedException(String message) {
     super(message);
+  }
+
+  public AlreadyClosedException(String message, Throwable t) {
+    super(message, t);
   }
 }

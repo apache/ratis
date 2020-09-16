@@ -18,7 +18,7 @@
 package org.apache.ratis.server.raftlog.segmented;
 
 import org.apache.ratis.io.CorruptedFileException;
-import org.apache.ratis.protocol.ChecksumException;
+import org.apache.ratis.protocol.exceptions.ChecksumException;
 import org.apache.ratis.server.impl.RaftServerConstants;
 import org.apache.ratis.server.metrics.RaftLogMetrics;
 import org.apache.ratis.thirdparty.com.google.protobuf.CodedInputStream;

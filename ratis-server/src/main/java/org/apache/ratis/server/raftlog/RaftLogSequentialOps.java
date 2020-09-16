@@ -18,7 +18,7 @@
 package org.apache.ratis.server.raftlog;
 
 import org.apache.ratis.proto.RaftProtos.LogEntryProto;
-import org.apache.ratis.protocol.StateMachineException;
+import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.server.impl.RaftConfiguration;
 import org.apache.ratis.statemachine.TransactionContext;
 import org.apache.ratis.util.Preconditions;

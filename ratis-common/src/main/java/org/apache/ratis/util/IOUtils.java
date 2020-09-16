@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.protocol.AlreadyClosedException;
-import org.apache.ratis.protocol.TimeoutIOException;
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
+import org.apache.ratis.protocol.exceptions.TimeoutIOException;
 import org.slf4j.Logger;
 
 import java.io.ByteArrayInputStream;

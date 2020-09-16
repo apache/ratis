@@ -15,21 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ratis.protocol.exceptions;
 
-package org.apache.ratis.protocol;
-
-import java.io.IOException;
-
-/** Thrown for checksum errors. */
-public class ChecksumException extends IOException {
-  private static final long serialVersionUID = 1L;
-  private long pos;
-  public ChecksumException(String description, long pos) {
-    super(description);
-    this.pos = pos;
-  }
-
-  public long getPos() {
-    return pos;
+/**
+ * This exception indicates the failure of a stale-read.
+ */
+public class StaleReadException extends RaftException {
+  public StaleReadException(String message) {
+    super(message);
   }
 }

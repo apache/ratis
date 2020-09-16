@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,14 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
+
+import java.io.IOException;
 
 /**
- * This exception indicates that the group id in the request does not match
- * server's group id.
+ * Timeout has occurred for a blocking I/O.
  */
-public class GroupMismatchException extends RaftException {
-  public GroupMismatchException(String message) {
+public class TimeoutIOException extends IOException {
+  static final long serialVersionUID = 1L;
+
+  public TimeoutIOException(String message) {
     super(message);
+  }
+
+  public TimeoutIOException(String message, Throwable throwable) {
+    super(message, throwable);
   }
 }

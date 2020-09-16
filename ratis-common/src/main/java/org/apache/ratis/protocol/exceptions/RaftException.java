@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,32 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import java.io.IOException;
 
-public class NotReplicatedException extends RaftException {
-  private final long callId;
-  private final ReplicationLevel requiredReplication;
-  private final long logIndex;
+public class RaftException extends IOException {
+  private static final long serialVersionUID = 1L;
 
-  public NotReplicatedException(long callId, ReplicationLevel requiredReplication, long logIndex) {
-    super("Request with call Id " + callId + " and log index " + logIndex
-        + " is not yet replicated to " + requiredReplication);
-    this.callId = callId;
-    this.requiredReplication = requiredReplication;
-    this.logIndex = logIndex;
+  public RaftException(String message) {
+    super(message);
   }
 
-  public long getCallId() {
-    return callId;
+  public RaftException(Throwable cause) {
+    super(cause);
   }
 
-  public ReplicationLevel getRequiredReplication() {
-    return requiredReplication;
-  }
-
-  public long getLogIndex() {
-    return logIndex;
+  public RaftException(String message, Throwable cause) {
+    super(message, cause);
   }
 }

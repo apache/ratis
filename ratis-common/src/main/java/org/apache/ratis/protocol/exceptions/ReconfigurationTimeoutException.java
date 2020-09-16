@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,21 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-public class StateMachineException extends RaftException {
-  public StateMachineException(RaftGroupMemberId serverId, Throwable cause) {
-    // cause.getMessage is added to this exception message as the exception received through
-    // RPC call contains similar message but Simulated RPC doesn't. Adding the message
-    // from cause to this exception makes it consistent across simulated and other RPC implementations.
-    super(cause.getClass().getName() + " from Server " + serverId + ": " + cause.getMessage(), cause);
-  }
-
-  public StateMachineException(String msg) {
-    super(msg);
-  }
-
-  public StateMachineException(String message, Throwable cause) {
-    super(message, cause);
+public class ReconfigurationTimeoutException extends RaftException {
+  public ReconfigurationTimeoutException(String message) {
+    super(message);
   }
 }

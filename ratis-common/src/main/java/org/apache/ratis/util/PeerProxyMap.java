@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.util;
 
-import org.apache.ratis.protocol.AlreadyClosedException;
+import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.function.CheckedFunction;

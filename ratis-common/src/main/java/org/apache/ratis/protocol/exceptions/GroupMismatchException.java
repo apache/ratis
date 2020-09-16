@@ -15,10 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-public class ReconfigurationInProgressException extends RaftException {
-  public ReconfigurationInProgressException(String message) {
+/**
+ * This exception indicates that the group id in the request does not match
+ * server's group id.
+ */
+public class GroupMismatchException extends RaftException {
+  public GroupMismatchException(String message) {
     super(message);
   }
 }

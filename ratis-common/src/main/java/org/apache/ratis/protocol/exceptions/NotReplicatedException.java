@@ -15,21 +15,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-import java.io.IOException;
+import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 
-/**
- * Timeout has occurred for a blocking I/O.
- */
-public class TimeoutIOException extends IOException {
-  static final long serialVersionUID = 1L;
+public class NotReplicatedException extends RaftException {
+  private final long callId;
+  private final ReplicationLevel requiredReplication;
+  private final long logIndex;
 
-  public TimeoutIOException(String message) {
-    super(message);
+  public NotReplicatedException(long callId, ReplicationLevel requiredReplication, long logIndex) {
+    super("Request with call Id " + callId + " and log index " + logIndex
+        + " is not yet replicated to " + requiredReplication);
+    this.callId = callId;
+    this.requiredReplication = requiredReplication;
+    this.logIndex = logIndex;
   }
 
-  public TimeoutIOException(String message, Throwable throwable) {
-    super(message, throwable);
+  public long getCallId() {
+    return callId;
+  }
+
+  public ReplicationLevel getRequiredReplication() {
+    return requiredReplication;
+  }
+
+  public long getLogIndex() {
+    return logIndex;
   }
 }

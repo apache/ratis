@@ -15,24 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-import org.apache.ratis.retry.RetryPolicy;
+import org.apache.ratis.protocol.RaftGroupMemberId;
 
-/**
- * Retry failure as per the {@link RetryPolicy} defined.
- */
-public class RaftRetryFailureException extends RaftException {
-
-  private final int attemptCount;
-
-  public RaftRetryFailureException(
-      RaftClientRequest request, int attemptCount, RetryPolicy retryPolicy, Throwable cause) {
-    super("Failed " + request + " for " + attemptCount + " attempts with " + retryPolicy, cause);
-    this.attemptCount = attemptCount;
+public class StateMachineException extends RaftException {
+  public StateMachineException(RaftGroupMemberId serverId, Throwable cause) {
+    // cause.getMessage is added to this exception message as the exception received through
+    // RPC call contains similar message but Simulated RPC doesn't. Adding the message
+    // from cause to this exception makes it consistent across simulated and other RPC implementations.
+    super(cause.getClass().getName() + " from Server " + serverId + ": " + cause.getMessage(), cause);
   }
 
-  public int getAttemptCount() {
-    return attemptCount;
+  public StateMachineException(String msg) {
+    super(msg);
+  }
+
+  public StateMachineException(String message, Throwable cause) {
+    super(message, cause);
   }
 }

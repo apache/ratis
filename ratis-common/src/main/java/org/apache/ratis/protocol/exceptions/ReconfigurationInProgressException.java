@@ -15,13 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-/**
- * The server is not ready yet.
- */
-public class ServerNotReadyException extends RaftException {
-  public ServerNotReadyException(String message) {
+public class ReconfigurationInProgressException extends RaftException {
+  public ReconfigurationInProgressException(String message) {
     super(message);
   }
 }

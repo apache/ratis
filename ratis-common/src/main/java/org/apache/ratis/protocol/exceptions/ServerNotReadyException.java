@@ -15,22 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
 
-import java.io.IOException;
-
-public class RaftException extends IOException {
-  private static final long serialVersionUID = 1L;
-
-  public RaftException(String message) {
+/**
+ * The server is not ready yet.
+ */
+public class ServerNotReadyException extends RaftException {
+  public ServerNotReadyException(String message) {
     super(message);
-  }
-
-  public RaftException(Throwable cause) {
-    super(cause);
-  }
-
-  public RaftException(String message, Throwable cause) {
-    super(message, cause);
   }
 }

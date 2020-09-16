@@ -15,17 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.protocol.exceptions;
+
+import org.apache.ratis.protocol.RaftGroupMemberId;
 
 /**
- * The corresponding object is already closed.
+ * This exception is sent from the server to a client. The server has just
+ * become the current leader, but has not committed its first place-holder
+ * log entry yet. Thus the leader cannot accept any new client requests since
+ * it cannot determine whether a request is just a retry.
  */
-public class AlreadyClosedException extends RaftException {
-  public AlreadyClosedException(String message) {
-    super(message);
+public class LeaderNotReadyException extends ServerNotReadyException {
+  private final RaftGroupMemberId serverId;
+
+  public LeaderNotReadyException(RaftGroupMemberId id) {
+    super(id + " is in LEADER state but not ready yet.");
+    this.serverId = id;
   }
 
-  public AlreadyClosedException(String message, Throwable t) {
-    super(message, t);
+  public RaftGroupMemberId getServerId() {
+    return serverId;
   }
 }
