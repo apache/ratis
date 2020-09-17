@@ -40,7 +40,7 @@ public final class RaftGroupMemberId {
   private RaftGroupMemberId(RaftPeerId peerId, RaftGroupId groupId, int numMembers) {
     this.peerId = Objects.requireNonNull(peerId, "peerId == null");
     this.groupId = Objects.requireNonNull(groupId, "groupId == null");
-    this.name = "p:" + peerId + "@g:" + groupId + "@s:" + numMembers;
+    this.name = "p:" + peerId + "@g:" + groupId + "@n:" + numMembers;
   }
 
   private RaftGroupMemberId(RaftPeerId peerId, RaftGroupId groupId) {
