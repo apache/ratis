@@ -25,8 +25,6 @@ import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotReplyProto;
 import org.apache.ratis.proto.RaftProtos.InstallSnapshotRequestProto;
-import org.apache.ratis.proto.RaftProtos.PauseReplyProto;
-import org.apache.ratis.proto.RaftProtos.PauseRequestProto;
 import org.apache.ratis.proto.RaftProtos.RaftRpcRequestProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteReplyProto;
 import org.apache.ratis.proto.RaftProtos.RequestVoteRequestProto;
@@ -473,11 +471,6 @@ public class RaftServerProxy implements RaftServer {
   @Override
   public InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) throws IOException {
     return getImpl(request.getServerRequest()).installSnapshot(request);
-  }
-
-  @Override
-  public PauseReplyProto pause(PauseRequestProto request) throws IOException {
-    throw new UnsupportedOperationException("RaftServerProxy does not support pause()");
   }
 
   @Override

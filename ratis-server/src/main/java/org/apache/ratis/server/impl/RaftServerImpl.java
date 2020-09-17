@@ -1181,8 +1181,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return reply;
   }
 
-  @Override
-  public PauseReplyProto pause(PauseRequestProto request) throws IOException {
+  public boolean pause() throws IOException {
     // TODO: should pause() be limited on only working for a follower?
 
     // Now the state of lifeCycle should be PAUSING, which will prevent future other operations.
@@ -1190,13 +1189,13 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     //  a. call {@link StateMachine#pause()}.
     synchronized (this) {
       if (!lifeCycle.compareAndTransition(RUNNING, PAUSING)) {
-        return PauseReplyProto.newBuilder().setSuccess(false).build();
+        return false;
       }
       // TODO: any other operations that needs to be paused?
       stateMachine.pause();
       lifeCycle.compareAndTransition(PAUSING, PAUSED);
     }
-    return PauseReplyProto.newBuilder().setSuccess(true).build();
+    return true;
   }
 
   private InstallSnapshotReplyProto installSnapshotImpl(InstallSnapshotRequestProto request) throws IOException {

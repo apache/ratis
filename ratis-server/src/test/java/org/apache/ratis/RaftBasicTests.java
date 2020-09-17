@@ -352,8 +352,8 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     List<RaftServerImpl> followers = cluster.getFollowers();
     Assert.assertTrue(followers.size() >= 1);
     RaftServerImpl follower = followers.get(0);
-    PauseReplyProto replyProto = follower.pause(PauseRequestProto.newBuilder().build());
-    Assert.assertTrue(replyProto.getSuccess());
+    boolean isSuccess = follower.pause();
+    Assert.assertTrue(isSuccess);
     Assert.assertFalse(follower.isActive());
   }
 

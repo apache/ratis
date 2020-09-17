@@ -17,8 +17,6 @@
  */
 package org.apache.ratis.server;
 
-import org.apache.ratis.proto.RaftProtos.PauseReplyProto;
-import org.apache.ratis.proto.RaftProtos.PauseRequestProto;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.rpc.RpcType;
@@ -68,9 +66,5 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeabl
 
   /** The server role changes from leader to a non-leader role. */
   default void notifyNotLeader(RaftGroupId groupId) {
-  }
-
-  default PauseReplyProto pause(PauseRequestProto request) throws IOException {
-    throw new UnsupportedOperationException("pause is not supported");
   }
 }
