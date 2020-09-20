@@ -642,6 +642,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         if (type.getStream().getEndOfRequest()) {
           final CompletableFuture<RaftClientRequest> f = streamEndOfRequestAsync(request);
           if (f.isCompletedExceptionally()) {
+            raftServerMetrics.onFailedClientRequest();
             return f.thenApply(r -> null);
           }
           request = f.join();
@@ -687,6 +688,9 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     replyFuture.whenComplete((clientReply, exception) -> {
       if (clientReply.isSuccess() && timerContext != null) {
         timerContext.stop();
+      }
+      if (exception != null || clientReply.getException() != null) {
+        raftServerMetrics.onFailedClientRequest();
       }
     });
     return replyFuture;

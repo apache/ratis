@@ -65,6 +65,8 @@ public final class RaftServerMetrics extends RatisMetrics {
   public static final String RETRY_CACHE_HIT_RATE_METRIC = "retryCacheHitRate";
   public static final String RETRY_CACHE_MISS_COUNT_METRIC = "retryCacheMissCount";
   public static final String RETRY_CACHE_MISS_RATE_METRIC = "retryCacheMissRate";
+  public static final String RATIS_SERVER_FAILED_CLIENT_REQUEST_COUNT =
+      "numFailedClientRequestOnServer";
 
   private Map<String, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
   private CommitInfoCache commitInfoCache;
@@ -228,6 +230,10 @@ public final class RaftServerMetrics extends RatisMetrics {
 
   void onResourceLimitHit() {
     registry.counter(RESOURCE_LIMIT_HIT_COUNTER).inc();
+  }
+
+  void onFailedClientRequest() {
+    registry.counter(RATIS_SERVER_FAILED_CLIENT_REQUEST_COUNT).inc();
   }
 
   public RatisMetricRegistry getRegistry() {
