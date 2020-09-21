@@ -86,6 +86,12 @@ public class GrpcLogAppender extends LogAppender {
   }
 
   private synchronized void resetClient(AppendEntriesRequest request) {
+    try {
+      rpcService.getProxies().getProxy(getFollowerId()).resetConnectBackoff();
+    } catch (IOException ie) {
+      LOG.warn(this + ": Failed to reset channel by " + ie);
+    }
+
     appendLogRequestObserver = null;
     firstResponseReceived = false;
 
