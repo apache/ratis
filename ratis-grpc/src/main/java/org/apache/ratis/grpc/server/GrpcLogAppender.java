@@ -86,7 +86,6 @@ public class GrpcLogAppender extends LogAppender {
   }
 
   private synchronized void resetClient(AppendEntriesRequest request) {
-    rpcService.getProxies().resetProxy(getFollowerId());
     appendLogRequestObserver = null;
     firstResponseReceived = false;
 
