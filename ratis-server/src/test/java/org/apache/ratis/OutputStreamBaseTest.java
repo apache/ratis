@@ -26,6 +26,7 @@ import org.apache.ratis.server.raftlog.RaftLog;
 import org.apache.ratis.util.SizeInBytes;
 import org.apache.ratis.util.StringUtils;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -75,6 +76,7 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
   private void runTestSimpleWrite(CLUSTER cluster) throws Exception {
     final int numRequests = 5000;
     final int bufferSize = 4;
+    RaftTestUtil.waitForLeader(cluster);
     try (OutputStream out = newOutputStream(cluster, bufferSize)) {
       for (int i = 0; i < numRequests; i++) { // generate requests
         out.write(toBytes(i));
@@ -259,6 +261,7 @@ public abstract class OutputStreamBaseTest<CLUSTER extends MiniRaftCluster>
   /**
    * Write while leader is killed
    */
+  @Ignore
   @Test
   public void testKillLeader() throws Exception {
     runWithNewCluster(NUM_SERVERS, this::runTestKillLeader);
