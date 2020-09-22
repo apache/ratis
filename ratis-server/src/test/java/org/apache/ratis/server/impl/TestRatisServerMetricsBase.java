@@ -17,8 +17,7 @@
  */
 package org.apache.ratis.server.impl;
 
-import static org.apache.ratis.server.impl.RaftServerMetrics.RATIS_SERVER_FAILED_CLIENT_REQUEST_COUNT;
-import static org.apache.ratis.server.impl.RaftServerMetrics.RETRY_CACHE_ENTRY_COUNT_METRIC;
+import static org.apache.ratis.server.impl.RaftServerMetrics.RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
@@ -29,8 +28,6 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.metrics.RatisMetricRegistry;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -58,17 +55,13 @@ public abstract class TestRatisServerMetricsBase<CLUSTER extends MiniRaftCluster
   void runTestClientFailedRequest(CLUSTER cluster)
       throws InterruptedException, IOException, ExecutionException {
     RaftServerImpl leaderImpl = RaftTestUtil.waitForLeader(cluster);
-
     ClientId clientId = ClientId.randomId();
     // StaleRead with Long.MAX_VALUE minIndex will fail.
     RaftClientRequest r = new RaftClientRequest(clientId, leaderImpl.getId(), cluster.getGroupId(),
         0, Message.EMPTY, RaftClientRequest.staleReadRequestType(Long.MAX_VALUE), null);
     CompletableFuture<RaftClientReply> f = leaderImpl.submitClientRequestAsync(r);
     Assert.assertTrue(!f.get().isSuccess());
-    checkFailedRequestCount(leaderImpl.getRaftServerMetrics().getRegistry(), 1L);
-  }
-
-  static void checkFailedRequestCount(RatisMetricRegistry registry, long count) {
-    assertEquals(count, registry.counter(RATIS_SERVER_FAILED_CLIENT_REQUEST_COUNT).getCount());
+    assertEquals(1L,
+        leaderImpl.getRaftServerMetrics().getRegistry().counter(RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT).getCount());
   }
 }
