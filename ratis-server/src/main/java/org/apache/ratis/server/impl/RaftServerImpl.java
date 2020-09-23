@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.*;
+import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
@@ -628,14 +629,16 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final Timer.Context timerContext = (timer != null) ? timer.time() : null;
 
     CompletableFuture<RaftClientReply> replyFuture;
+
     if (request.is(RaftClientRequestProto.TypeCase.STALEREAD)) {
-      replyFuture =  staleReadAsync(request);
+      replyFuture = staleReadAsync(request);
     } else {
       // first check the server's leader state
       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
       if (reply != null) {
         return reply;
       }
+
       // let the state machine handle read-only request from client
       RaftClientRequest.Type type = request.getType();
       if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
@@ -652,7 +655,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (type.is(RaftClientRequestProto.TypeCase.READ)) {
         // TODO: We might not be the leader anymore by the time this completes.
         // See the RAFT paper section 8 (last part)
-        replyFuture =  processQueryFuture(stateMachine.query(request.getMessage()), request);
+        replyFuture = processQueryFuture(stateMachine.query(request.getMessage()), request);
       } else if (type.is(RaftClientRequestProto.TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
       } else if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
@@ -684,12 +687,30 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
     }
 
+    final RaftClientRequest.Type type = request.getType();
     replyFuture.whenComplete((clientReply, exception) -> {
       if (clientReply.isSuccess() && timerContext != null) {
         timerContext.stop();
       }
+      if (exception != null || clientReply.getException() != null) {
+        incFailedRequestCount(type);
+      }
     });
     return replyFuture;
+  }
+
+  private void incFailedRequestCount(RaftClientRequest.Type type) {
+    if (type.is(TypeCase.STALEREAD)) {
+      raftServerMetrics.onFailedClientStaleRead();
+    } else if (type.is(TypeCase.WATCH)) {
+      raftServerMetrics.onFailedClientWatch();
+    } else if (type.is(TypeCase.WRITE)) {
+      raftServerMetrics.onFailedClientWrite();
+    } else if (type.is(TypeCase.READ)) {
+      raftServerMetrics.onFailedClientRead();
+    } else if (type.is(TypeCase.STREAM)) {
+      raftServerMetrics.onFailedClientStream();
+    }
   }
 
   private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
