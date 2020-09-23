@@ -361,7 +361,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   }
 
   public boolean isPausingOrPaused() {
-    return !lifeCycle.getCurrentState().isPausingOrPaused();
+    return lifeCycle.getCurrentState().isPausingOrPaused();
   }
 
   /**
