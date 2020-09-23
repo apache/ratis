@@ -360,7 +360,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return role.isLeader();
   }
 
-  public boolean isActive() {
+  public boolean isPausingOrPaused() {
     return !lifeCycle.getCurrentState().isPausingOrPaused();
   }
 
@@ -1194,6 +1194,24 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       // TODO: any other operations that needs to be paused?
       stateMachine.pause();
       lifeCycle.compareAndTransition(PAUSING, PAUSED);
+    }
+    return true;
+  }
+
+  public boolean resume() {
+    synchronized (this) {
+      if (!lifeCycle.compareAndTransition(PAUSED, STARTING)) {
+        return false;
+      }
+      // TODO: any other operations that needs to be resumed?
+      try {
+        stateMachine.reinitialize();
+      } catch (IOException e) {
+        LOG.warn("Failed to reinitialize statemachine: {}", stateMachine.toString());
+        lifeCycle.compareAndTransition(STARTING, PAUSED);
+        return false;
+      }
+      lifeCycle.compareAndTransition(STARTING, RUNNING);
     }
     return true;
   }

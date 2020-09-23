@@ -338,19 +338,44 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
   }
 
   @Test
-  public void testPauseFollowers() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::runTestPauseFollowers);
+  public void testPauseResume() throws Exception {
+    runWithNewCluster(NUM_SERVERS, this::runTestPauseResume);
   }
 
-  void runTestPauseFollowers(CLUSTER cluster) throws Exception {
+  void runTestPauseResume(CLUSTER cluster) throws InterruptedException, IOException {
     // wait leader be elected.
-    waitForLeader(cluster);
+    RaftServerImpl leader = waitForLeader(cluster);
+    RaftPeerId leaderId = leader.getId();
     List<RaftServerImpl> followers = cluster.getFollowers();
     Assert.assertTrue(followers.size() >= 1);
     RaftServerImpl follower = followers.get(0);
+
+    // keep sending messages to the leader.
+    SimpleMessage[] messages = SimpleMessage.create(100);
+    Thread writeThread = RaftTestUtil.sendMessageInNewThread(cluster, leaderId, messages);
+    // pause follower.
     boolean isSuccess = follower.pause();
     Assert.assertTrue(isSuccess);
-    Assert.assertFalse(follower.isActive());
+    Assert.assertFalse(follower.isPausingOrPaused());
+
+    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
+    writeThread.join();
+
+    RaftLog leaderLog = leader.getState().getLog();
+    // leader should contain all logs.
+    Assert.assertTrue(RaftTestUtil.logEntriesContains(leaderLog, messages));
+    RaftLog followerLog = follower.getState().getLog();
+    // follower should contain less messages because it was paused already.
+    Assert.assertTrue(followerLog.getEntries(0, messages.length).length < messages.length);
+
+    // resume follower.
+    isSuccess = follower.resume();
+    Assert.assertTrue(isSuccess);
+    Assert.assertFalse(!follower.isPausingOrPaused());
+
+    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
+    // follower is resumed so should be able to catch up.
+    Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, messages));
   }
 
   static void testWithLoad(final int numClients, final int numMessages,

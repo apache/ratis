@@ -425,8 +425,8 @@ public interface RaftTestUtil {
     Thread.sleep(3 * maxTimeout.toLong(TimeUnit.MILLISECONDS));
   }
 
-  static void sendMessageInNewThread(MiniRaftCluster cluster, RaftPeerId leaderId, SimpleMessage... messages) {
-    new Thread(() -> {
+  static Thread sendMessageInNewThread(MiniRaftCluster cluster, RaftPeerId leaderId, SimpleMessage... messages) {
+    Thread t = new Thread(() -> {
       try (final RaftClient client = cluster.createClient(leaderId)) {
         for (SimpleMessage mssg: messages) {
           client.send(mssg);
@@ -434,7 +434,9 @@ public interface RaftTestUtil {
       } catch (Exception e) {
         e.printStackTrace();
       }
-    }).start();
+    });
+    t.start();
+    return t;
   }
 
   static void assertSameLog(RaftLog expected, RaftLog computed) throws Exception {
