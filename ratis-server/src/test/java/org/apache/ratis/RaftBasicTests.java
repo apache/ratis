@@ -358,7 +358,6 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     Assert.assertTrue(isSuccess);
     Assert.assertTrue(follower.isPausingOrPaused());
 
-    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
     writeThread.join();
 
     RaftLog leaderLog = leader.getState().getLog();
@@ -373,7 +372,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     Assert.assertTrue(isSuccess);
     Assert.assertTrue(!follower.isPausingOrPaused());
 
-    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) + 100);
+    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) * 5);
     // follower is resumed so should be able to catch up.
     Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, messages));
   }
