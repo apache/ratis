@@ -221,11 +221,12 @@ public class LogAppender {
     return null;
   }
 
-  protected AppendEntriesRequestProto createRequest(long callId) throws RaftLogIOException {
+  protected AppendEntriesRequestProto createRequest(long callId,
+      boolean heartbeat) throws RaftLogIOException {
     final TermIndex previous = getPrevious(follower.getNextIndex());
     final long snapshotIndex = follower.getSnapshotIndex();
     final long heartbeatRemainingMs = getHeartbeatRemainingTime();
-    if (heartbeatRemainingMs <= 0L) {
+    if (heartbeatRemainingMs <= 0L || heartbeat) {
       // heartbeat
       return leaderState.newAppendEntriesRequestProto(
           getFollowerId(), previous, Collections.emptyList(), !follower.isAttendingVote(), callId);
@@ -281,7 +282,7 @@ public class LogAppender {
     while (isAppenderRunning()) { // keep retrying for IOException
       try {
         if (request == null || request.getEntriesCount() == 0) {
-          request = createRequest(DEFAULT_CALLID);
+          request = createRequest(DEFAULT_CALLID, false);
         }
 
         if (request == null) {
@@ -571,14 +572,22 @@ public class LogAppender {
 
   /** Should the leader send appendEntries RPC to this follower? */
   protected boolean shouldSendRequest() {
-    return shouldAppendEntries(follower.getNextIndex()) || shouldHeartbeat();
+    return shouldAppendEntries(follower.getNextIndex()) || heartbeatTimeout();
+  }
+
+  protected boolean haveLogEntriesToSendOut() {
+    return shouldAppendEntries(follower.getNextIndex());
+  }
+
+  protected boolean isFollowerCommitBehindLastCommitIndex() {
+    return raftLog.getLastCommittedIndex() > follower.getCommitIndex();
   }
 
   private boolean shouldAppendEntries(long followerIndex) {
     return followerIndex < raftLog.getNextIndex();
   }
 
-  protected boolean shouldHeartbeat() {
+  protected boolean heartbeatTimeout() {
     return getHeartbeatRemainingTime() <= 0;
   }
 
