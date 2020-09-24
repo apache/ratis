@@ -82,6 +82,11 @@ public class LifeCycle {
       return States.CLOSING_OR_CLOSED.contains(this);
     }
 
+    /** Is this {@link State#PAUSING} or {@link State#PAUSED}? */
+    public boolean isPausingOrPaused() {
+      return States.PAUSING_OR_PAUSED.contains(this);
+    }
+
     static void put(State key, Map<State, List<State>> map, State... values) {
       map.put(key, Collections.unmodifiableList(Arrays.asList(values)));
     }
@@ -127,6 +132,9 @@ public class LifeCycle {
 
     public static final Set<State> CLOSING_OR_CLOSED
         = Collections.unmodifiableSet(EnumSet.of(State.CLOSING, State.CLOSED));
+
+    public static final Set<State> PAUSING_OR_PAUSED
+        = Collections.unmodifiableSet(EnumSet.of(State.PAUSING, State.PAUSED));
 
     public static final Set<State> CLOSING_OR_CLOSED_OR_EXCEPTION
         = Collections.unmodifiableSet(EnumSet.of(State.CLOSING, State.CLOSED, State.EXCEPTION));

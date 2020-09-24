@@ -67,7 +67,10 @@ import java.util.stream.Collectors;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
+import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
 import static org.apache.ratis.util.LifeCycle.State.NEW;
+import static org.apache.ratis.util.LifeCycle.State.PAUSED;
+import static org.apache.ratis.util.LifeCycle.State.PAUSING;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
@@ -365,6 +368,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
 
   public boolean isLeader() {
     return role.isLeader();
+  }
+
+  public boolean isPausingOrPaused() {
+    return lifeCycle.getCurrentState().isPausingOrPaused();
   }
 
   /**
@@ -899,6 +906,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     boolean shouldShutdown = false;
     final RequestVoteReplyProto reply;
     synchronized (this) {
+      // Check life cycle state again to avoid the PAUSING/PAUSED state.
+      assertLifeCycleState(LifeCycle.States.RUNNING);
       final FollowerState fs = role.getFollowerState().orElse(null);
       if (shouldWithholdVotes(candidateTerm)) {
         LOG.info("{}-{}: Withhold vote from candidate {} with term {}. State: leader={}, term={}, lastRpcElapsed={}",
@@ -1048,7 +1057,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   @SuppressWarnings("checkstyle:parameternumber")
   private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
       RaftPeerId leaderId, long leaderTerm, TermIndex previous, long leaderCommit, long callId, boolean initializing,
-      List<CommitInfoProto> commitInfos, LogEntryProto... entries) {
+      List<CommitInfoProto> commitInfos, LogEntryProto... entries) throws IOException {
     final boolean isHeartbeat = entries.length == 0;
     logAppendEntries(isHeartbeat,
         () -> getMemberId() + ": receive appendEntries(" + leaderId + ", " + leaderTerm + ", "
@@ -1061,6 +1070,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final Optional<FollowerState> followerState;
     Timer.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
     synchronized (this) {
+      // Check life cycle state again to avoid the PAUSING/PAUSED state.
+      assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
@@ -1198,6 +1209,41 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       LOG.info("{}: reply installSnapshot: {}", getMemberId(), ServerProtoUtils.toString(reply));
     }
     return reply;
+  }
+
+  public boolean pause() throws IOException {
+    // TODO: should pause() be limited on only working for a follower?
+
+    // Now the state of lifeCycle should be PAUSING, which will prevent future other operations.
+    // Pause() should pause ongoing operations:
+    //  a. call {@link StateMachine#pause()}.
+    synchronized (this) {
+      if (!lifeCycle.compareAndTransition(RUNNING, PAUSING)) {
+        return false;
+      }
+      // TODO: any other operations that needs to be paused?
+      stateMachine.pause();
+      lifeCycle.compareAndTransition(PAUSING, PAUSED);
+    }
+    return true;
+  }
+
+  public boolean resume() throws IOException {
+    synchronized (this) {
+      if (!lifeCycle.compareAndTransition(PAUSED, STARTING)) {
+        return false;
+      }
+      // TODO: any other operations that needs to be resumed?
+      try {
+        stateMachine.reinitialize();
+      } catch (IOException e) {
+        LOG.warn("Failed to reinitialize statemachine: {}", stateMachine.toString());
+        lifeCycle.compareAndTransition(STARTING, EXCEPTION);
+        throw e;
+      }
+      lifeCycle.compareAndTransition(STARTING, RUNNING);
+    }
+    return true;
   }
 
   private InstallSnapshotReplyProto installSnapshotImpl(InstallSnapshotRequestProto request) throws IOException {
