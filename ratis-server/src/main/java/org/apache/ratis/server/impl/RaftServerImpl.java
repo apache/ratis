@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
+import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
 import static org.apache.ratis.util.LifeCycle.State.NEW;
 import static org.apache.ratis.util.LifeCycle.State.PAUSED;
 import static org.apache.ratis.util.LifeCycle.State.PAUSING;
@@ -1198,7 +1199,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return true;
   }
 
-  public boolean resume() {
+  public boolean resume() throws IOException {
     synchronized (this) {
       if (!lifeCycle.compareAndTransition(PAUSED, STARTING)) {
         return false;
@@ -1208,8 +1209,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
         stateMachine.reinitialize();
       } catch (IOException e) {
         LOG.warn("Failed to reinitialize statemachine: {}", stateMachine.toString());
-        lifeCycle.compareAndTransition(STARTING, PAUSED);
-        return false;
+        lifeCycle.compareAndTransition(STARTING, EXCEPTION);
+        throw e;
       }
       lifeCycle.compareAndTransition(STARTING, RUNNING);
     }

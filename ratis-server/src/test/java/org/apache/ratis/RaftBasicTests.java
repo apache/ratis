@@ -337,46 +337,6 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
     runWithNewCluster(NUM_SERVERS, cluster -> testWithLoad(10, 300, false, cluster, LOG));
   }
 
-  @Test
-  public void testPauseResume() throws Exception {
-    runWithNewCluster(NUM_SERVERS, this::runTestPauseResume);
-  }
-
-  void runTestPauseResume(CLUSTER cluster) throws InterruptedException, IOException {
-    // wait leader be elected.
-    RaftServerImpl leader = waitForLeader(cluster);
-    RaftPeerId leaderId = leader.getId();
-    List<RaftServerImpl> followers = cluster.getFollowers();
-    Assert.assertTrue(followers.size() >= 1);
-    RaftServerImpl follower = followers.get(0);
-
-    // keep sending messages to the leader.
-    SimpleMessage[] messages = SimpleMessage.create(100);
-    Thread writeThread = RaftTestUtil.sendMessageInNewThread(cluster, leaderId, messages);
-    // pause follower.
-    boolean isSuccess = follower.pause();
-    Assert.assertTrue(isSuccess);
-    Assert.assertTrue(follower.isPausingOrPaused());
-
-    writeThread.join();
-
-    RaftLog leaderLog = leader.getState().getLog();
-    // leader should contain all logs.
-    Assert.assertTrue(RaftTestUtil.logEntriesContains(leaderLog, messages));
-    RaftLog followerLog = follower.getState().getLog();
-    // follower should contain less messages because it was paused already.
-    Assert.assertTrue(followerLog.getEntries(0, messages.length).length < messages.length);
-
-    // resume follower.
-    isSuccess = follower.resume();
-    Assert.assertTrue(isSuccess);
-    Assert.assertTrue(!follower.isPausingOrPaused());
-
-    Thread.sleep(cluster.getTimeoutMax().toLong(TimeUnit.MILLISECONDS) * 5);
-    // follower is resumed so should be able to catch up.
-    Assert.assertTrue(RaftTestUtil.logEntriesContains(followerLog, messages));
-  }
-
   static void testWithLoad(final int numClients, final int numMessages,
       boolean useAsync, MiniRaftCluster cluster, Logger LOG) throws Exception {
     LOG.info("Running testWithLoad: numClients=" + numClients
