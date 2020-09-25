@@ -345,14 +345,14 @@ public class RaftStorageDirectory {
       // Cannot read from the locked file on Windows.
       LOG.error("It appears that another process "
           + "has already locked the storage directory: " + root, oe);
-      file.close();
       throw new IOException("Failed to lock storage " + this.root + ". The directory is already locked", oe);
     } catch(IOException e) {
       LOG.error("Failed to acquire lock on " + lockF
           + ". If this storage directory is mounted via NFS, "
           + "ensure that the appropriate nfs lock services are running.", e);
-      file.close();
       throw e;
+    } finally {
+      file.close();
     }
     if (!deletionHookAdded) {
       // If the file existed prior to our startup, we didn't
