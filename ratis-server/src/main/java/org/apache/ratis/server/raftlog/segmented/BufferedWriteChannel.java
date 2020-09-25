@@ -34,16 +34,15 @@ import java.nio.channels.FileChannel;
  */
 class BufferedWriteChannel implements Closeable {
   static BufferedWriteChannel open(File file, boolean append, ByteBuffer buffer) throws IOException {
-    try (final RandomAccessFile raf = new RandomAccessFile(file, "rw")) {
-      final FileChannel fc = raf.getChannel();
-      if (append) {
-        fc.position(fc.size());
-      } else {
-        fc.truncate(0);
-      }
-      Preconditions.assertSame(fc.size(), fc.position(), "fc.position");
-      return new BufferedWriteChannel(fc, buffer);
+    final RandomAccessFile raf = new RandomAccessFile(file, "rw");
+    final FileChannel fc = raf.getChannel();
+    if (append) {
+      fc.position(fc.size());
+    } else {
+      fc.truncate(0);
     }
+    Preconditions.assertSame(fc.size(), fc.position(), "fc.position");
+    return new BufferedWriteChannel(fc, buffer);
   }
 
   private final FileChannel fileChannel;
