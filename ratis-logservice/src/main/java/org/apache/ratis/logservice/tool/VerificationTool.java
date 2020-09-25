@@ -113,7 +113,7 @@ public class VerificationTool {
     public static final String LOG_NAME_PREFIX = "testlog";
     public static final String MESSAGE_PREFIX = "message";
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
         VerificationTool tool = new VerificationTool();
         JCommander jc = JCommander.newBuilder()
                 .addObject(tool)
@@ -176,6 +176,7 @@ public class VerificationTool {
           }
           waitForCompletion(futures);
         }
+        client.close();
         executor.shutdownNow();
     }
 
