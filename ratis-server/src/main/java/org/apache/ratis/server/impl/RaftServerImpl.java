@@ -19,6 +19,7 @@ package org.apache.ratis.server.impl;
 
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.*;
+import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
@@ -66,7 +67,10 @@ import java.util.stream.Collectors;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.INCONSISTENCY;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.NOT_LEADER;
 import static org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto.AppendResult.SUCCESS;
+import static org.apache.ratis.util.LifeCycle.State.EXCEPTION;
 import static org.apache.ratis.util.LifeCycle.State.NEW;
+import static org.apache.ratis.util.LifeCycle.State.PAUSED;
+import static org.apache.ratis.util.LifeCycle.State.PAUSING;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
@@ -366,6 +370,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     return role.isLeader();
   }
 
+  public boolean isPausingOrPaused() {
+    return lifeCycle.getCurrentState().isPausingOrPaused();
+  }
+
   /**
    * return ref to the commit info cache.
    * @return commit info cache
@@ -628,14 +636,16 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final Timer.Context timerContext = (timer != null) ? timer.time() : null;
 
     CompletableFuture<RaftClientReply> replyFuture;
+
     if (request.is(RaftClientRequestProto.TypeCase.STALEREAD)) {
-      replyFuture =  staleReadAsync(request);
+      replyFuture = staleReadAsync(request);
     } else {
       // first check the server's leader state
       CompletableFuture<RaftClientReply> reply = checkLeaderState(request, null);
       if (reply != null) {
         return reply;
       }
+
       // let the state machine handle read-only request from client
       RaftClientRequest.Type type = request.getType();
       if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
@@ -652,7 +662,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       if (type.is(RaftClientRequestProto.TypeCase.READ)) {
         // TODO: We might not be the leader anymore by the time this completes.
         // See the RAFT paper section 8 (last part)
-        replyFuture =  processQueryFuture(stateMachine.query(request.getMessage()), request);
+        replyFuture = processQueryFuture(stateMachine.query(request.getMessage()), request);
       } else if (type.is(RaftClientRequestProto.TypeCase.WATCH)) {
         replyFuture = watchAsync(request);
       } else if (type.is(RaftClientRequestProto.TypeCase.STREAM)) {
@@ -684,12 +694,30 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
     }
 
+    final RaftClientRequest.Type type = request.getType();
     replyFuture.whenComplete((clientReply, exception) -> {
       if (clientReply.isSuccess() && timerContext != null) {
         timerContext.stop();
       }
+      if (exception != null || clientReply.getException() != null) {
+        incFailedRequestCount(type);
+      }
     });
     return replyFuture;
+  }
+
+  private void incFailedRequestCount(RaftClientRequest.Type type) {
+    if (type.is(TypeCase.STALEREAD)) {
+      raftServerMetrics.onFailedClientStaleRead();
+    } else if (type.is(TypeCase.WATCH)) {
+      raftServerMetrics.onFailedClientWatch();
+    } else if (type.is(TypeCase.WRITE)) {
+      raftServerMetrics.onFailedClientWrite();
+    } else if (type.is(TypeCase.READ)) {
+      raftServerMetrics.onFailedClientRead();
+    } else if (type.is(TypeCase.STREAM)) {
+      raftServerMetrics.onFailedClientStream();
+    }
   }
 
   private CompletableFuture<RaftClientReply> watchAsync(RaftClientRequest request) {
@@ -878,6 +906,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     boolean shouldShutdown = false;
     final RequestVoteReplyProto reply;
     synchronized (this) {
+      // Check life cycle state again to avoid the PAUSING/PAUSED state.
+      assertLifeCycleState(LifeCycle.States.RUNNING);
       final FollowerState fs = role.getFollowerState().orElse(null);
       if (shouldWithholdVotes(candidateTerm)) {
         LOG.info("{}-{}: Withhold vote from candidate {} with term {}. State: leader={}, term={}, lastRpcElapsed={}",
@@ -1027,7 +1057,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
   @SuppressWarnings("checkstyle:parameternumber")
   private CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(
       RaftPeerId leaderId, long leaderTerm, TermIndex previous, long leaderCommit, long callId, boolean initializing,
-      List<CommitInfoProto> commitInfos, LogEntryProto... entries) {
+      List<CommitInfoProto> commitInfos, LogEntryProto... entries) throws IOException {
     final boolean isHeartbeat = entries.length == 0;
     logAppendEntries(isHeartbeat,
         () -> getMemberId() + ": receive appendEntries(" + leaderId + ", " + leaderTerm + ", "
@@ -1040,6 +1070,8 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     final Optional<FollowerState> followerState;
     Timer.Context timer = raftServerMetrics.getFollowerAppendEntryTimer(isHeartbeat).time();
     synchronized (this) {
+      // Check life cycle state again to avoid the PAUSING/PAUSED state.
+      assertLifeCycleState(LifeCycle.States.STARTING_OR_RUNNING);
       final boolean recognized = state.recognizeLeader(leaderId, leaderTerm);
       currentTerm = state.getCurrentTerm();
       if (!recognized) {
@@ -1177,6 +1209,41 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       LOG.info("{}: reply installSnapshot: {}", getMemberId(), ServerProtoUtils.toString(reply));
     }
     return reply;
+  }
+
+  public boolean pause() throws IOException {
+    // TODO: should pause() be limited on only working for a follower?
+
+    // Now the state of lifeCycle should be PAUSING, which will prevent future other operations.
+    // Pause() should pause ongoing operations:
+    //  a. call {@link StateMachine#pause()}.
+    synchronized (this) {
+      if (!lifeCycle.compareAndTransition(RUNNING, PAUSING)) {
+        return false;
+      }
+      // TODO: any other operations that needs to be paused?
+      stateMachine.pause();
+      lifeCycle.compareAndTransition(PAUSING, PAUSED);
+    }
+    return true;
+  }
+
+  public boolean resume() throws IOException {
+    synchronized (this) {
+      if (!lifeCycle.compareAndTransition(PAUSED, STARTING)) {
+        return false;
+      }
+      // TODO: any other operations that needs to be resumed?
+      try {
+        stateMachine.reinitialize();
+      } catch (IOException e) {
+        LOG.warn("Failed to reinitialize statemachine: {}", stateMachine.toString());
+        lifeCycle.compareAndTransition(STARTING, EXCEPTION);
+        throw e;
+      }
+      lifeCycle.compareAndTransition(STARTING, RUNNING);
+    }
+    return true;
   }
 
   private InstallSnapshotReplyProto installSnapshotImpl(InstallSnapshotRequestProto request) throws IOException {

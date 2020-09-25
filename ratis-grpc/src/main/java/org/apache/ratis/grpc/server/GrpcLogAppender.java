@@ -85,7 +85,7 @@ public class GrpcLogAppender extends LogAppender {
     return rpcService.getProxies().getProxy(getFollowerId());
   }
 
-  private synchronized void resetClient(AppendEntriesRequest request) {
+  private synchronized void resetClient(AppendEntriesRequest request, boolean onError) {
     try {
       rpcService.getProxies().getProxy(getFollowerId()).resetConnectBackoff();
     } catch (IOException ie) {
@@ -96,51 +96,61 @@ public class GrpcLogAppender extends LogAppender {
     firstResponseReceived = false;
 
     // clear the pending requests queue and reset the next index of follower
+    pendingRequests.clear();
+
     final long nextIndex = 1 + Optional.ofNullable(request)
         .map(AppendEntriesRequest::getPreviousLog)
         .map(TermIndex::getIndex)
         .orElseGet(getFollower()::getMatchIndex);
-    pendingRequests.clear();
+
+    if (onError && getFollower().getMatchIndex() == 0 && request == null) {
+      LOG.warn("{}: Leader has not got in touch with Follower {} yet, " +
+          "just keep nextIndex unchanged and retry.", this, getFollower());
+      return;
+    }
     getFollower().decreaseNextIndex(nextIndex);
   }
 
   @Override
   protected void runAppenderImpl() throws IOException {
-    boolean shouldAppendLog;
+    boolean installSnapshotRequired;
     for(; isAppenderRunning(); mayWait()) {
-      shouldAppendLog = true;
-      if (shouldSendRequest()) {
+      installSnapshotRequired = false;
+
+      //HB period is expired OR we have messages OR follower is behind with commit index
+      if (haveLogEntriesToSendOut() || heartbeatTimeout() || isFollowerCommitBehindLastCommitIndex()) {
+
         if (installSnapshotEnabled) {
           SnapshotInfo snapshot = shouldInstallSnapshot();
           if (snapshot != null) {
             installSnapshot(snapshot);
-            shouldAppendLog = false;
+            installSnapshotRequired = true;
           }
         } else {
           TermIndex installSnapshotNotificationTermIndex = shouldNotifyToInstallSnapshot();
           if (installSnapshotNotificationTermIndex != null) {
             installSnapshot(installSnapshotNotificationTermIndex);
-            shouldAppendLog = false;
+            installSnapshotRequired = true;
           }
         }
-        if (shouldHeartbeat() || (shouldAppendLog && !shouldWait())) {
-          // keep appending log entries or sending heartbeats
-          appendLog();
-        }
+
+        appendLog(installSnapshotRequired || haveTooManyPendingRequests());
+
       }
       checkSlowness();
+
     }
 
     Optional.ofNullable(appendLogRequestObserver).ifPresent(StreamObserver::onCompleted);
   }
 
   private long getWaitTimeMs() {
-    if (!shouldSendRequest()) {
-      return getHeartbeatRemainingTime(); // No requests, wait until heartbeat
-    } else if (shouldWait()) {
-      return getHalfMinTimeoutMs(); // Should wait for a short time
+    if (haveTooManyPendingRequests()) {
+      return getHeartbeatRemainingTime(); // Should wait for a short time
+    } else if (haveLogEntriesToSendOut() || heartbeatTimeout()) {
+      return 0L;
     }
-    return 0L;
+    return Math.min(10L, getHeartbeatRemainingTime());
   }
 
   private void mayWait() {
@@ -171,8 +181,10 @@ public class GrpcLogAppender extends LogAppender {
     return appendLogRequestObserver == null || super.shouldSendRequest();
   }
 
-  /** @return true iff not received first response or queue is full. */
-  private boolean shouldWait() {
+  /**
+   * @return true iff not received first response or queue is full.
+   */
+  private boolean haveTooManyPendingRequests() {
     final int size = pendingRequests.logRequestsSize();
     if (size == 0) {
       return false;
@@ -180,7 +192,7 @@ public class GrpcLogAppender extends LogAppender {
     return !firstResponseReceived || size >= maxPendingRequestsNum;
   }
 
-  private void appendLog() throws IOException {
+  private void appendLog(boolean excludeLogEntries) throws IOException {
     final AppendEntriesRequestProto pending;
     final AppendEntriesRequest request;
     final StreamObserver<AppendEntriesRequestProto> s;
@@ -188,7 +200,7 @@ public class GrpcLogAppender extends LogAppender {
       // prepare and enqueue the append request. note changes on follower's
       // nextIndex and ops on pendingRequests should always be associated
       // together and protected by the lock
-      pending = createRequest(callId++);
+      pending = createRequest(callId++, excludeLogEntries);
       if (pending == null) {
         return;
       }
@@ -316,13 +328,13 @@ public class GrpcLogAppender extends LogAppender {
       GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
       AppendEntriesRequest request = pendingRequests.remove(GrpcUtil.getCallId(t), GrpcUtil.isHeartbeat(t));
-      resetClient(request);
+      resetClient(request, true);
     }
 
     @Override
     public void onCompleted() {
       LOG.info("{}: follower responses appendEntries COMPLETED", this);
-      resetClient(null);
+      resetClient(null, false);
     }
 
     @Override
@@ -430,7 +442,7 @@ public class GrpcLogAppender extends LogAppender {
       }
       GrpcUtil.warn(LOG, () -> this + ": Failed InstallSnapshot", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
-      resetClient(null);
+      resetClient(null, true);
       close();
     }
 

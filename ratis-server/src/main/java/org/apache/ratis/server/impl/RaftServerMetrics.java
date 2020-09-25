@@ -65,6 +65,16 @@ public final class RaftServerMetrics extends RatisMetrics {
   public static final String RETRY_CACHE_HIT_RATE_METRIC = "retryCacheHitRate";
   public static final String RETRY_CACHE_MISS_COUNT_METRIC = "retryCacheMissCount";
   public static final String RETRY_CACHE_MISS_RATE_METRIC = "retryCacheMissRate";
+  public static final String RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT =
+      "numFailedClientStaleReadOnServer";
+  public static final String RATIS_SERVER_FAILED_CLIENT_READ_COUNT =
+      "numFailedClientReadOnServer";
+  public static final String RATIS_SERVER_FAILED_CLIENT_WRITE_COUNT =
+      "numFailedClientWriteOnServer";
+  public static final String RATIS_SERVER_FAILED_CLIENT_WATCH_COUNT =
+      "numFailedClientWatchOnServer";
+  public static final String RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT =
+      "numFailedClientStreamOnServer";
 
   private Map<String, Long> followerLastHeartbeatElapsedTimeMap = new HashMap<>();
   private CommitInfoCache commitInfoCache;
@@ -230,6 +240,25 @@ public final class RaftServerMetrics extends RatisMetrics {
     registry.counter(RESOURCE_LIMIT_HIT_COUNTER).inc();
   }
 
+  void onFailedClientStaleRead() {
+    registry.counter(RATIS_SERVER_FAILED_CLIENT_STALE_READ_COUNT).inc();
+  }
+
+  void onFailedClientRead() {
+    registry.counter(RATIS_SERVER_FAILED_CLIENT_READ_COUNT).inc();
+  }
+
+  void onFailedClientWatch() {
+    registry.counter(RATIS_SERVER_FAILED_CLIENT_WATCH_COUNT).inc();
+  }
+
+  void onFailedClientWrite() {
+    registry.counter(RATIS_SERVER_FAILED_CLIENT_WRITE_COUNT).inc();
+  }
+
+  void onFailedClientStream() {
+    registry.counter(RATIS_SERVER_FAILED_CLIENT_STREAM_COUNT).inc();
+  }
   public RatisMetricRegistry getRegistry() {
     return registry;
   }
