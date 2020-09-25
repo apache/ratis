@@ -90,9 +90,9 @@ public class MetaFile {
     Properties properties = new Properties();
     properties.setProperty(TERM_KEY, Long.toString(givenTerm));
     properties.setProperty(VOTEDFOR_KEY, votedForInfo);
-    try (BufferedWriter bufferedWriter =
-        new BufferedWriter(new OutputStreamWriter(fos, StandardCharsets.UTF_8))) {
-      properties.store(bufferedWriter, "");
+    try {
+      properties.store(
+          new BufferedWriter(new OutputStreamWriter(fos, StandardCharsets.UTF_8)), "");
       fos.close();
       fos = null;
     } finally {
