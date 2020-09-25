@@ -85,17 +85,24 @@ public class GrpcLogAppender extends LogAppender {
     return rpcService.getProxies().getProxy(getFollowerId());
   }
 
-  private synchronized void resetClient(AppendEntriesRequest request) {
+  private synchronized void resetClient(AppendEntriesRequest request, boolean onError) {
     rpcService.getProxies().resetProxy(getFollowerId());
     appendLogRequestObserver = null;
     firstResponseReceived = false;
 
     // clear the pending requests queue and reset the next index of follower
+    pendingRequests.clear();
+
     final long nextIndex = 1 + Optional.ofNullable(request)
         .map(AppendEntriesRequest::getPreviousLog)
         .map(TermIndex::getIndex)
         .orElseGet(getFollower()::getMatchIndex);
-    pendingRequests.clear();
+
+    if (onError && getFollower().getMatchIndex() == 0 && request == null) {
+      LOG.warn("{}: Leader has not got in touch with Follower {} yet, " +
+          "just keep nextIndex unchanged and retry.", this, getFollower());
+      return;
+    }
     getFollower().decreaseNextIndex(nextIndex);
   }
 
@@ -316,13 +323,13 @@ public class GrpcLogAppender extends LogAppender {
       GrpcUtil.warn(LOG, () -> this + ": Failed appendEntries", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
       AppendEntriesRequest request = pendingRequests.remove(GrpcUtil.getCallId(t), GrpcUtil.isHeartbeat(t));
-      resetClient(request);
+      resetClient(request, true);
     }
 
     @Override
     public void onCompleted() {
       LOG.info("{}: follower responses appendEntries COMPLETED", this);
-      resetClient(null);
+      resetClient(null, false);
     }
 
     @Override
@@ -430,7 +437,7 @@ public class GrpcLogAppender extends LogAppender {
       }
       GrpcUtil.warn(LOG, () -> this + ": Failed InstallSnapshot", t);
       grpcServerMetrics.onRequestRetry(); // Update try counter
-      resetClient(null);
+      resetClient(null, true);
       close();
     }
 
