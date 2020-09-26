@@ -33,19 +33,19 @@ public class GrpcServerMetrics extends RatisMetrics {
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_LATENCY =
       "%s_latency";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_SUCCESS =
-      "%s_success_reply_count";
+      "%s_successReplyCount";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_NOT_LEADER =
-      "%s_not_leader_reply_count";
+      "%s_notLeaderReplyCount";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_INCONSISTENCY =
-      "%s_inconsistency_reply_count";
+      "%s_inconsistencyReplyCount";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_TIMEOUT =
-      "%s_append_entry_timeout_count";
+      "%s_appendEntryTimeoutCount";
   public static final String RATIS_GRPC_METRICS_LOG_APPENDER_PENDING_COUNT
-      = "%s_pending_log_requests_count";
+      = "%s_pendingLogRequestsCount";
 
-  public static final String RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT = "num_retries";
-  public static final String RATIS_GRPC_METRICS_REQUESTS_TOTAL = "num_requests";
-  public static final String RATIS_GRPC_INSTALL_SNAPSHOT_COUNT = "num_install_snapshot";
+  public static final String RATIS_GRPC_METRICS_REQUEST_RETRY_COUNT = "numRetries";
+  public static final String RATIS_GRPC_METRICS_REQUESTS_TOTAL = "numRequests";
+  public static final String RATIS_GRPC_INSTALL_SNAPSHOT_COUNT = "numInstallSnapshot";
 
   public GrpcServerMetrics(String serverId) {
     registry = getMetricRegistryForGrpcServer(serverId);
