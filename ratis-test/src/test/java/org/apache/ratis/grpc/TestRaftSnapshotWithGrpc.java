@@ -41,7 +41,7 @@ public class TestRaftSnapshotWithGrpc extends RaftSnapshotBaseTest {
         "ratis_grpc", "log_appender", "Metrics for Ratis Grpc Log Appender");
     Optional<RatisMetricRegistry> metricRegistry = MetricRegistries.global().get(info);
     Assert.assertTrue(metricRegistry.isPresent());
-    Counter installSnapshotCounter = metricRegistry.get().counter("num_install_snapshot");
+    Counter installSnapshotCounter = metricRegistry.get().counter("numInstallSnapshot");
     Assert.assertNotNull(installSnapshotCounter);
     Assert.assertTrue(installSnapshotCounter.getCount() >= 1);
   }
