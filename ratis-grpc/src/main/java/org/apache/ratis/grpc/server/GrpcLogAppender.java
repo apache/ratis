@@ -86,7 +86,12 @@ public class GrpcLogAppender extends LogAppender {
   }
 
   private synchronized void resetClient(AppendEntriesRequest request, boolean onError) {
-    rpcService.getProxies().resetProxy(getFollowerId());
+    try {
+      getClient().resetConnectBackoff();
+    } catch (IOException ie) {
+      LOG.warn(this + ": Failed to getClient for " + getFollowerId(), ie);
+    }
+
     appendLogRequestObserver = null;
     firstResponseReceived = false;
 

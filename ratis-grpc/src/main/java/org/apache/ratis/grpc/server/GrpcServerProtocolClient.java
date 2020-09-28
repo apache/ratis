@@ -110,4 +110,9 @@ public class GrpcServerProtocolClient implements Closeable {
     return asyncStub.withDeadlineAfter(requestTimeoutDuration.getDuration(), requestTimeoutDuration.getUnit())
         .installSnapshot(responseHandler);
   }
+
+  // short-circuit the backoff timer and make them reconnect immediately.
+  public void resetConnectBackoff() {
+    channel.resetConnectBackoff();
+  }
 }
