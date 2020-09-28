@@ -18,11 +18,8 @@
 
 package org.apache.ratis.netty.server;
 
-import org.apache.ratis.netty.decoders.DataStreamRequestDecoder;
-import org.apache.ratis.netty.encoders.DataStreamReplyEncoder;
 import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.DataStreamReplyImpl;
-import org.apache.ratis.protocol.DataStreamRequestServer;
+import org.apache.ratis.protocol.DataStreamReplyByteBuffer;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
@@ -65,13 +62,13 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        DataStreamRequestServer req = (DataStreamRequestServer)msg;
+        final DataStreamRequestByteBuf req = (DataStreamRequestByteBuf)msg;
         ByteBuffer[] bfs = req.getBuf().nioBuffers();
         for(int i = 0; i < bfs.length; i++){
           fileChannel.write(bfs[i]);
         }
         req.getBuf().release();
-        DataStreamReply reply = new DataStreamReplyImpl(req.getStreamId(),
+        final DataStreamReply reply = new DataStreamReplyByteBuffer(req.getStreamId(),
                                                         req.getDataOffset(),
                                                         ByteBuffer.wrap("OK".getBytes()));
         ctx.writeAndFlush(reply);

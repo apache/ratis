@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -20,10 +20,7 @@ package org.apache.ratis.netty.client;
 
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.netty.decoders.DataStreamReplyDecoder;
-import org.apache.ratis.netty.encoders.DataStreamRequestEncoder;
 import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.DataStreamReplyImpl;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
@@ -44,7 +41,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyClientStreamRpc.class);
 
   private RaftPeer server;
-  private RaftProperties raftProperties;
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private Channel channel;
   private Queue<CompletableFuture<DataStreamReply>> replies
@@ -52,7 +48,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   public NettyClientStreamRpc(RaftPeer server, RaftProperties properties){
     this.server = server;
-    this.raftProperties = properties;
   }
 
   synchronized CompletableFuture<DataStreamReply> pollReply() {
@@ -63,9 +58,8 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws InterruptedException {
-        final DataStreamReplyImpl reply = (DataStreamReplyImpl) msg;
-        CompletableFuture<DataStreamReply> f = pollReply();
-        f.complete(reply);
+        final DataStreamReply reply = (DataStreamReply) msg;
+        pollReply().complete(reply);
       }
     };
   }

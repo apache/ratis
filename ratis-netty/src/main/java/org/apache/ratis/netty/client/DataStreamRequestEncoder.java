@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,9 +16,9 @@
  * limitations under the License.
  */
 
-package org.apache.ratis.netty.encoders;
+package org.apache.ratis.netty.client;
 
-import org.apache.ratis.protocol.DataStreamRequestClient;
+import org.apache.ratis.protocol.DataStreamRequestByteBuffer;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
@@ -26,12 +26,11 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncode
 import java.nio.ByteBuffer;
 import java.util.List;
 
-public class DataStreamRequestEncoder
-    extends MessageToMessageEncoder<DataStreamRequestClient> {
+public class DataStreamRequestEncoder extends MessageToMessageEncoder<DataStreamRequestByteBuffer> {
 
   @Override
   protected void encode(ChannelHandlerContext channelHandlerContext,
-                        DataStreamRequestClient requestData, List<Object> list) throws Exception {
+                        DataStreamRequestByteBuffer requestData, List<Object> list) {
     ByteBuffer bb = ByteBuffer.allocateDirect(24);
     bb.putLong(requestData.getStreamId());
     bb.putLong(requestData.getDataOffset());
