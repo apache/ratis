@@ -22,7 +22,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
-import org.apache.ratis.protocol.DataStreamRequestClient;
+import org.apache.ratis.protocol.DataStreamRequestByteBuffer;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -47,8 +47,8 @@ public class OrderedStreamAsync {
     private boolean isFirst = false;
     private CompletableFuture<DataStreamReply> replyFuture = new CompletableFuture<>();
 
-    public DataStreamRequestClient newDataStreamRequest(){
-      return new DataStreamRequestClient(streamId, messageId, data.slice());
+    public DataStreamRequestByteBuffer newDataStreamRequest(){
+      return new DataStreamRequestByteBuffer(streamId, messageId, data.slice());
     }
 
     @Override
@@ -142,7 +142,7 @@ public class OrderedStreamAsync {
     if(slidingWindow.isFirst(request.getSeqNum())){
       request.setFirstRequest();
     }
-    DataStreamRequestClient rpcRequest = request.newDataStreamRequest();
+    DataStreamRequestByteBuffer rpcRequest = request.newDataStreamRequest();
     CompletableFuture<DataStreamReply> requestFuture = dataStreamClientRpc.streamAsync(rpcRequest);
     requestFuture.thenApply(reply -> {
       slidingWindow.receiveReply(

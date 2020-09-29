@@ -16,9 +16,9 @@
  *  limitations under the License.
  */
 
-package org.apache.ratis.netty.encoders;
+package org.apache.ratis.netty.server;
 
-import org.apache.ratis.protocol.DataStreamReplyImpl;
+import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
@@ -26,13 +26,11 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncode
 import java.nio.ByteBuffer;
 import java.util.List;
 
-public class DataStreamReplyEncoder extends
-    MessageToMessageEncoder<DataStreamReplyImpl> {
-
+public class DataStreamReplyEncoder extends MessageToMessageEncoder<DataStreamReply> {
   @Override
   protected void encode(ChannelHandlerContext channelHandlerContext,
-                        DataStreamReplyImpl dataStreamReply,
-                        List<Object> list) throws Exception {
+                        DataStreamReply dataStreamReply,
+                        List<Object> list) {
 
     ByteBuffer bb = ByteBuffer.allocateDirect(24);
     bb.putLong(dataStreamReply.getStreamId());

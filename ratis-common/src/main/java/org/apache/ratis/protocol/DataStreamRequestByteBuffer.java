@@ -20,22 +20,15 @@ package org.apache.ratis.protocol;
 
 import java.nio.ByteBuffer;
 
-public class DataStreamReplyImpl implements DataStreamReply {
+public class DataStreamRequestByteBuffer implements DataStreamRequest{
   private long streamId;
   private long dataOffset;
-  private ByteBuffer response;
+  private ByteBuffer buf;
 
-  public DataStreamReplyImpl(long streamId,
-                             long dataOffset,
-                             ByteBuffer bf){
+  public DataStreamRequestByteBuffer(long streamId, long dataOffset, ByteBuffer buf){
     this.streamId = streamId;
     this.dataOffset = dataOffset;
-    this.response = bf;
-  }
-
-  @Override
-  public ByteBuffer getResponse() {
-    return response;
+    this.buf = buf;
   }
 
   @Override
@@ -50,6 +43,10 @@ public class DataStreamReplyImpl implements DataStreamReply {
 
   @Override
   public long getDataLength() {
-    return response.capacity();
+    return buf.capacity();
+  }
+
+  public ByteBuffer getBuf() {
+    return buf;
   }
 }

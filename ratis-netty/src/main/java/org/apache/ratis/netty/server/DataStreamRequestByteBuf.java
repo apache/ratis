@@ -16,17 +16,17 @@
  *  limitations under the License.
  */
 
-package org.apache.ratis.protocol;
+package org.apache.ratis.netty.server;
 
+import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 
-public class DataStreamRequestServer implements DataStreamRequest {
+class DataStreamRequestByteBuf implements DataStreamRequest {
   private long streamId;
   private long dataOffset;
   private ByteBuf buf;
 
-  public DataStreamRequestServer(long streamId, long dataOffset,
-                                 ByteBuf buf){
+  DataStreamRequestByteBuf(long streamId, long dataOffset, ByteBuf buf) {
     this.streamId = streamId;
     this.dataOffset = dataOffset;
     this.buf = buf;
