@@ -17,22 +17,14 @@
  */
 package org.apache.ratis.client.api;
 
+import org.apache.ratis.io.CloseAsync;
 import org.apache.ratis.protocol.DataStreamReply;
+
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
-public interface DataStreamOutput extends AutoCloseable {
+/** An asynchronous output stream supporting zero buffer copying. */
+public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
+  /** Send out the data in the buffer asynchronously */
   CompletableFuture<DataStreamReply> streamAsync(ByteBuffer buf);
-
-  CompletableFuture<DataStreamReply> closeAsync();
-
-  default void close() throws Exception {
-    try {
-      closeAsync().get();
-    } catch (ExecutionException e) {
-      final Throwable cause = e.getCause();
-      throw cause instanceof Exception? (Exception)cause: e;
-    }
-  }
 }

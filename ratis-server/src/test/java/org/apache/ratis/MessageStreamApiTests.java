@@ -36,7 +36,7 @@ import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
 
-public abstract class StreamApiTests<CLUSTER extends MiniRaftCluster> extends BaseTest
+public abstract class MessageStreamApiTests<CLUSTER extends MiniRaftCluster> extends BaseTest
     implements MiniRaftCluster.Factory.Get<CLUSTER> {
   {
     Log4jUtils.setLogLevel(RaftServerImpl.LOG, Level.DEBUG);
@@ -62,7 +62,7 @@ public abstract class StreamApiTests<CLUSTER extends MiniRaftCluster> extends Ba
     final int endOfRequest = 6;
     final StringBuilder key = new StringBuilder();
     try(RaftClient client = cluster.createClient();
-        MessageOutputStream out = client.getStreamApi().stream()) {
+        MessageOutputStream out = client.getMessageStreamApi().stream()) {
       for (int i = 1; i <= numParts; i++) {
         key.append(i);
         out.sendAsync(new SimpleMessage(i + ""), i == endOfRequest);
@@ -112,7 +112,7 @@ public abstract class StreamApiTests<CLUSTER extends MiniRaftCluster> extends Ba
     }
 
     try(RaftClient client = cluster.createClient()) {
-      final RaftClientReply reply = client.getStreamApi().streamAsync(Message.valueOf(bytes)).get();
+      final RaftClientReply reply = client.getMessageStreamApi().streamAsync(Message.valueOf(bytes)).get();
       Assert.assertTrue(reply.isSuccess());
     }
 

@@ -17,28 +17,24 @@
  */
 package org.apache.ratis.client.api;
 
-import org.apache.ratis.io.CloseAsync;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.util.SizeInBytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 
-/** Stream {@link Message}(s) asynchronously. */
-public interface MessageOutputStream extends CloseAsync<RaftClientReply> {
-  /**
-   * Send asynchronously the given message to this stream.
-   *
-   * If end-of-request is true, this message is the last message of the request.
-   * All the messages accumulated are considered as a single request.
-   *
-   * @param message the message to be sent.
-   * @param endOfRequest Is this an end-of-request?
-   * @return a future of the reply.
-   */
-  CompletableFuture<RaftClientReply> sendAsync(Message message, boolean endOfRequest);
+/** A client who sends requests to a raft service. */
+public interface MessageStreamApi {
+  Logger LOG = LoggerFactory.getLogger(MessageStreamApi.class);
 
-  /** The same as sendAsync(message, false). */
-  default CompletableFuture<RaftClientReply> sendAsync(Message message) {
-    return sendAsync(message, false);
-  }
+  /** Create a stream to send a large message. */
+  MessageOutputStream stream();
+
+  /** Send the given (large) message using a stream with the submessage size. */
+  CompletableFuture<RaftClientReply> streamAsync(Message message, SizeInBytes submessageSize);
+
+  /** Send the given message using a stream with submessage size specified in conf. */
+  CompletableFuture<RaftClientReply> streamAsync(Message message);
 }

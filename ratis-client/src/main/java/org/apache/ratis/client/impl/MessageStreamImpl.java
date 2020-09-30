@@ -19,7 +19,7 @@ package org.apache.ratis.client.impl;
 
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.client.api.MessageOutputStream;
-import org.apache.ratis.client.api.StreamApi;
+import org.apache.ratis.client.api.MessageStreamApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -33,11 +33,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** Send ordered asynchronous requests to a raft service. */
-public final class StreamImpl implements StreamApi {
-  public static final Logger LOG = LoggerFactory.getLogger(StreamImpl.class);
+public final class MessageStreamImpl implements MessageStreamApi {
+  public static final Logger LOG = LoggerFactory.getLogger(MessageStreamImpl.class);
 
-  static StreamImpl newInstance(RaftClientImpl client, RaftProperties properties) {
-    return new StreamImpl(client, properties);
+  static MessageStreamImpl newInstance(RaftClientImpl client, RaftProperties properties) {
+    return new MessageStreamImpl(client, properties);
   }
 
   class MessageOutputStreamImpl implements MessageOutputStream {
@@ -63,7 +63,7 @@ public final class StreamImpl implements StreamApi {
   private final SizeInBytes submessageSize;
   private final AtomicLong streamId = new AtomicLong();
 
-  private StreamImpl(RaftClientImpl client, RaftProperties properties) {
+  private MessageStreamImpl(RaftClientImpl client, RaftProperties properties) {
     this.client = Objects.requireNonNull(client, "client == null");
     this.submessageSize = RaftClientConfigKeys.Stream.submessageSize(properties);
   }

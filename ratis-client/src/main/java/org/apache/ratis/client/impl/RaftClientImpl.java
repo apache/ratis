@@ -20,7 +20,7 @@ package org.apache.ratis.client.impl;
 import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
-import org.apache.ratis.client.api.StreamApi;
+import org.apache.ratis.client.api.MessageStreamApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
@@ -114,7 +114,7 @@ public final class RaftClientImpl implements RaftClient {
   private final TimeoutScheduler scheduler;
 
   private final Supplier<OrderedAsync> orderedAsync;
-  private final Supplier<StreamApi> streamApi;
+  private final Supplier<MessageStreamApi> streamApi;
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
@@ -130,7 +130,7 @@ public final class RaftClientImpl implements RaftClient {
     clientRpc.addServers(peers);
 
     this.orderedAsync = JavaUtils.memoize(() -> OrderedAsync.newInstance(this, properties));
-    this.streamApi = JavaUtils.memoize(() -> StreamImpl.newInstance(this, properties));
+    this.streamApi = JavaUtils.memoize(() -> MessageStreamImpl.newInstance(this, properties));
   }
 
   public RaftPeerId getLeaderId() {
@@ -177,7 +177,7 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public StreamApi getStreamApi() {
+  public MessageStreamApi getMessageStreamApi() {
     return streamApi.get();
   }
 

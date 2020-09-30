@@ -17,8 +17,8 @@
  */
 package org.apache.ratis.grpc;
 
-import org.apache.ratis.StreamApiTests;
+import org.apache.ratis.MessageStreamApiTests;
 
-public class TestStreamApiWithGrpc extends StreamApiTests<MiniRaftClusterWithGrpc>
+public class TestMessageStreamApiWithGrpc extends MessageStreamApiTests<MiniRaftClusterWithGrpc>
     implements MiniRaftClusterWithGrpc.FactoryGet {
 }
