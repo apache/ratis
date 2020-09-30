@@ -15,26 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.client.api;
-
-import org.apache.ratis.protocol.Message;
-import org.apache.ratis.protocol.RaftClientReply;
-import org.apache.ratis.util.SizeInBytes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+package org.apache.ratis.io;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
-/** A client who sends requests to a raft service. */
-public interface StreamApi {
-  Logger LOG = LoggerFactory.getLogger(StreamApi.class);
+/** Support the {@link CloseAsync#closeAsync()} method. */
+public interface CloseAsync<REPLY> extends AutoCloseable {
+  /** Close asynchronously. */
+  CompletableFuture<REPLY> closeAsync();
 
-  /** Create a stream to send a large message. */
-  MessageOutputStream stream();
-
-  /** Send the given (large) message using a stream with the submessage size. */
-  CompletableFuture<RaftClientReply> streamAsync(Message message, SizeInBytes submessageSize);
-
-  /** Send the given message using a stream with submessage size specified in conf. */
-  CompletableFuture<RaftClientReply> streamAsync(Message message);
+  /**
+   * The same as {@link AutoCloseable#close()}.
+   *
+   * The default implementation simply calls {@link CloseAsync#closeAsync()}
+   * and then waits for the returned future to complete.
+   */
+  default void close() throws Exception {
+    try {
+      closeAsync().get();
+    } catch (ExecutionException e) {
+      final Throwable cause = e.getCause();
+      throw cause instanceof Exception? (Exception)cause: e;
+    }
+  }
 }

@@ -17,14 +17,24 @@
  */
 package org.apache.ratis.client.api;
 
-import org.apache.ratis.io.CloseAsync;
-import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.util.SizeInBytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 
-/** An asynchronous output stream supporting zero buffer copying. */
-public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
-  /** Send out the data in the buffer asynchronously */
-  CompletableFuture<DataStreamReply> streamAsync(ByteBuffer buf);
+/** A client who sends requests to a raft service. */
+public interface MessageStreamApi {
+  Logger LOG = LoggerFactory.getLogger(MessageStreamApi.class);
+
+  /** Create a stream to send a large message. */
+  MessageOutputStream stream();
+
+  /** Send the given (large) message using a stream with the submessage size. */
+  CompletableFuture<RaftClientReply> streamAsync(Message message, SizeInBytes submessageSize);
+
+  /** Send the given message using a stream with submessage size specified in conf. */
+  CompletableFuture<RaftClientReply> streamAsync(Message message);
 }

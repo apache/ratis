@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.api;
 
+import org.apache.ratis.io.CloseAsync;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 
@@ -24,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 /** Stream {@link Message}(s) asynchronously. */
-public interface MessageOutputStream extends AutoCloseable {
+public interface MessageOutputStream extends CloseAsync<RaftClientReply> {
   /**
    * Send asynchronously the given message to this stream.
    *
@@ -40,16 +41,5 @@ public interface MessageOutputStream extends AutoCloseable {
   /** The same as sendAsync(message, false). */
   default CompletableFuture<RaftClientReply> sendAsync(Message message) {
     return sendAsync(message, false);
-  }
-
-  CompletableFuture<RaftClientReply> closeAsync();
-
-  default void close() throws Exception {
-    try {
-      closeAsync().get();
-    } catch (ExecutionException e) {
-      final Throwable cause = e.getCause();
-      throw cause instanceof Exception? (Exception)cause: e;
-    }
   }
 }
