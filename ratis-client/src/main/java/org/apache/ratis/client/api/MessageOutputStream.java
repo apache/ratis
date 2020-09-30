@@ -22,7 +22,6 @@ import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 /** Stream {@link Message}(s) asynchronously. */
 public interface MessageOutputStream extends CloseAsync<RaftClientReply> {
