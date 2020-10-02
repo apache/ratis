@@ -37,7 +37,6 @@ import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.concurrent.CompletableFuture;
@@ -66,7 +65,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private CompletableFuture<DataStream> getDataStreamFuture(ByteBuf buf, AtomicBoolean released) {
     try {
-      // TODO: read the request from buf
+      // TODO RATIS-1085: read the request from buf
       final RaftClientRequest request = null;
       return stateMachine.data().stream(request);
     } finally {
@@ -88,8 +87,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       for (ByteBuffer buffer : buf.nioBuffers()) {
         try {
           channel.write(buffer);
-        } catch (IOException e) {
-          throw new CompletionException(e);
+        } catch (Throwable t) {
+          throw new CompletionException(t);
         }
       }
     } finally {

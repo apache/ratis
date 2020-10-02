@@ -36,7 +36,7 @@ public interface DataStreamClient {
   /** Return the rpc client instance **/
   DataStreamClientRpc getClientRpc();
 
-  /** Return Streamer Api instance. */
+  /** @return a new output stream. */
   DataStreamOutput stream();
 
   /** add information of the raft peers to communicate with */
