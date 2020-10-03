@@ -18,6 +18,7 @@
 
 package org.apache.ratis.datastream;
 
+import java.util.stream.Collectors;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.api.DataStreamOutput;
@@ -101,26 +102,49 @@ public class TestDataStream extends BaseTest {
     }
   }
 
-  private RaftPeer[] peers;
+  private List<RaftPeer> peers;
   private RaftProperties properties;
-  private DataStreamServerImpl server;
+  private List<DataStreamServerImpl> servers;
   private DataStreamClientImpl client;
   private int byteWritten = 0;
   private RaftClientRequest writeRequest;
 
   public void setupServer(){
-    server = new DataStreamServerImpl(peers[0], new SingleDataStreamStateMachine(), properties, null);
-    server.getServerRpc().startServer();
+    servers = new ArrayList<>(peers.size());
+    // start stream servers on raft peers.
+    for (int i = 0; i < peers.size(); i++) {
+      if (i == 0) {
+        // only the first server routes requests to peers.
+        List<RaftPeer> otherPeers = new ArrayList<>(peers);
+        otherPeers.remove(peers.get(i));
+        DataStreamServerImpl streamServer =
+            new DataStreamServerImpl(peers.get(i), properties, null, otherPeers);
+        servers.add(streamServer);
+        streamServer.getServerRpc().startServer();
+      } else {
+        DataStreamServerImpl streamServer =
+            new DataStreamServerImpl(peers.get(i),
+                new SingleDataStreamStateMachine(),
+                properties, null);
+        servers.add(streamServer);
+        streamServer.getServerRpc().startServer();
+      }
+    }
+
+    // start peer clients on stream servers
+    for (DataStreamServerImpl streamServer : servers) {
+      streamServer.getServerRpc().startClientToPeers();
+    }
   }
 
   public void setupClient(){
-    client = new DataStreamClientImpl(peers[0], properties, null);
+    client = new DataStreamClientImpl(peers.get(0), properties, null);
     client.start();
   }
 
   public void shutDownSetup(){
     client.close();
-    server.close();
+    servers.stream().forEach(s -> s.close());
   }
 
   @Test
@@ -128,8 +152,21 @@ public class TestDataStream extends BaseTest {
     properties = new RaftProperties();
     peers = Arrays.stream(MiniRaftCluster.generateIds(1, 0))
                        .map(RaftPeerId::valueOf)
-                       .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
-                       .toArray(RaftPeer[]::new);
+                       .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress())).collect(
+            Collectors.toList());
+
+    setupServer();
+    setupClient();
+    runTestDataStream();
+  }
+
+  @Test
+  public void testDataStreamMultipleServer(){
+    properties = new RaftProperties();
+    peers = Arrays.asList(MiniRaftCluster.generateIds(3, 0)).stream()
+        .map(RaftPeerId::valueOf)
+        .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress())).collect(
+            Collectors.toList());
 
     setupServer();
     setupClient();

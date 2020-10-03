@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.server;
 
+import java.util.List;
+import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.DataStreamFactory;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.ServerFactory;
@@ -37,4 +39,11 @@ public interface DataStreamServerFactory extends DataStreamFactory {
    * Server implementation for streaming in Raft group
    */
   DataStreamServerRpc newDataStreamServerRpc(RaftPeer server, StateMachine stateMachine);
+
+  /**
+   * Server implementation for streaming in Raft group. The server will forward requests
+   * to peers.
+   */
+  DataStreamServerRpc newDataStreamServerRpc(
+      RaftPeer server, List<RaftPeer> peers, StateMachine stateMachine, RaftProperties properties);
 }

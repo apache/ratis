@@ -28,6 +28,11 @@ public interface DataStreamServerRpc {
   void startServer();
 
   /**
+   * start clients that used to forward requests to peers.
+   */
+  void startClientToPeers();
+
+  /**
    * shutdown server
    */
   void closeServer();

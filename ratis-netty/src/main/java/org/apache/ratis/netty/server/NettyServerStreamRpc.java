@@ -21,6 +21,15 @@ package org.apache.ratis.netty.server;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ratis.client.api.DataStreamOutput;
+import org.apache.ratis.client.impl.DataStreamClientImpl;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.DataStreamReplyByteBuffer;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
@@ -58,6 +67,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private final StateMachine stateMachine;
   private final ConcurrentMap<Long, CompletableFuture<DataStream>> streams = new ConcurrentHashMap<>();
+
+  private List<DataStreamClientImpl> clients = new ArrayList<>();
+  private List<DataStreamOutput> streamOutputs = new ArrayList<>();
 
   public NettyServerStreamRpc(RaftPeer server, StateMachine stateMachine) {
     this.raftServer = server;
@@ -109,6 +121,15 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     ctx.writeAndFlush(reply);
   }
 
+  public NettyServerStreamRpc(
+      RaftPeer server, List<RaftPeer> otherPeers,
+      StateMachine stateMachine, RaftProperties properties){
+    this.raftServer = server;
+    this.stateMachine = stateMachine;
+    this.channelFuture = buildChannel();
+    setupClient(otherPeers, properties);
+  }
+
   private ChannelInboundHandler getServerHandler(){
     return new ChannelInboundHandlerAdapter(){
       @Override
@@ -119,6 +140,29 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         streams.computeIfAbsent(request.getStreamId(), id -> getDataStreamFuture(buf, released))
             .thenApply(stream -> writeTo(buf, stream, released.get()))
             .thenAccept(byteWritten -> sendReply(request, byteWritten, ctx));
+        // streams.computeIfAbsent(streamId, id -> getDataStreamFuture(buf, released))
+        //     .thenAccept(stream -> writeTo(buf, stream, released.get()))
+        //     .thenAccept(dummy -> sendReply(req, ctx));
+        //
+        // List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
+        // // forward requests to other stream servers.
+        // for (DataStreamOutput streamOutput : streamOutputs) {
+        //   CompletableFuture<DataStreamReply> future =
+        //       streamOutput.streamAsync(req.getBuf().nioBuffer());
+        //   futures.add(future);
+        // }
+        //
+        // try {
+        //   for (CompletableFuture<DataStreamReply> future : futures) {
+        //       future.join();
+        //   }
+        //   final DataStreamReply reply = new DataStreamReplyByteBuffer(req.getStreamId(),
+        //       req.getDataOffset(),
+        //       ByteBuffer.wrap("OK".getBytes()));
+        //   ctx.writeAndFlush(reply);
+        // } finally {
+        //   req.getBuf().release();
+        // }
       }
     };
   }
@@ -146,6 +190,14 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .bind();
   }
 
+  public void setupClient(List<RaftPeer> otherPeers, RaftProperties properties) {
+    for (RaftPeer peer : otherPeers) {
+      DataStreamClientImpl impl = new DataStreamClientImpl(peer, properties, null);
+      clients.add(impl);
+      streamOutputs.add(impl.stream());
+    }
+  }
+
   private Channel getChannel() {
     return channelFuture.awaitUninterruptibly().channel();
   }
@@ -153,6 +205,13 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   @Override
   public void startServer() {
     channelFuture.syncUninterruptibly();
+  }
+
+  @Override
+  public void startClientToPeers() {
+    for (DataStreamClientImpl client : clients) {
+      client.start();
+    }
   }
 
   @Override
@@ -166,6 +225,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       workerGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       LOG.error("Interrupt EventLoopGroup terminate", e);
+    }
+
+    for (DataStreamClientImpl client : clients) {
+      client.close();
     }
   }
 }
