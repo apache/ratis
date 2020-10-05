@@ -36,12 +36,18 @@ import org.junit.Test;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class TestDataStream extends BaseTest {
   static final int MODULUS = 23;
+
+  static byte pos2byte(int pos) {
+    return (byte) ('A' + pos%MODULUS);
+  }
 
   class SingleDataStreamStateMachine extends BaseStateMachine {
     final WritableByteChannel channel = new WritableByteChannel() {
@@ -54,7 +60,7 @@ public class TestDataStream extends BaseTest {
         }
         final int remaining = src.remaining();
         for(; src.remaining() > 0; ) {
-          Assert.assertEquals('A' + byteWritten%MODULUS, src.get());
+          Assert.assertEquals(pos2byte(byteWritten), src.get());
           byteWritten++;
         }
         return remaining;
@@ -133,6 +139,7 @@ public class TestDataStream extends BaseTest {
     final int bufferNum = 10;
     final DataStreamOutput out = client.stream();
 
+    //send request
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
     futures.add(sendRequest(out, 1024));
 
@@ -145,8 +152,10 @@ public class TestDataStream extends BaseTest {
       futures.add(out.streamAsync(bf));
       dataSize += size;
     }
-    for(int i = 0; i < futures.size(); i++){
-      futures.get(i).join();
+
+    //join all requests
+    for(CompletableFuture<DataStreamReply> f : futures) {
+      f.join();
     }
     Assert.assertEquals(dataSize, byteWritten);
     shutDownSetup();
@@ -162,11 +171,8 @@ public class TestDataStream extends BaseTest {
     final ByteBuffer buffer = ByteBuffer.allocateDirect(size);
     final int length = buffer.capacity();
     buffer.position(0).limit(length);
-    final StringBuilder b = new StringBuilder();
     for (int j = 0; j < length; j++) {
-      final byte c = (byte)('A' + (offset + j)%MODULUS);
-      buffer.put(c);
-      b.append((char)c);
+      buffer.put(pos2byte(offset + j));
     }
     buffer.flip();
     Assert.assertEquals(length, buffer.remaining());
