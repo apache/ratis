@@ -96,6 +96,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     }
   }
 
+  private void sendReply(DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
+    final DataStreamReply reply = new DataStreamReplyByteBuffer(
+        request.getStreamId(), request.getDataOffset(), ByteBuffer.wrap("OK".getBytes()));
+    ctx.writeAndFlush(reply);
+  }
+
   private ChannelInboundHandler getServerHandler(){
     return new ChannelInboundHandlerAdapter(){
       @Override
@@ -105,11 +111,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         final ByteBuf buf = req.getBuf();
         final AtomicBoolean released = new AtomicBoolean();
         streams.computeIfAbsent(streamId, id -> getDataStreamFuture(buf, released))
-            .thenAccept(stream -> writeTo(buf, stream, released.get()));
-        final DataStreamReply reply = new DataStreamReplyByteBuffer(req.getStreamId(),
-                                                        req.getDataOffset(),
-                                                        ByteBuffer.wrap("OK".getBytes()));
-        ctx.writeAndFlush(reply);
+            .thenAccept(stream -> writeTo(buf, stream, released.get()))
+            .thenAccept(dummy -> sendReply(req, ctx));
       }
     };
   }
