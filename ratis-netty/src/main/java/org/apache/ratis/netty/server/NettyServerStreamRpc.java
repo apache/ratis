@@ -20,9 +20,13 @@ package org.apache.ratis.netty.server;
 
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyByteBuffer;
+import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
+import org.apache.ratis.statemachine.StateMachine;
+import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
@@ -33,45 +37,82 @@ import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
+import java.nio.channels.WritableByteChannel;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NettyServerStreamRpc implements DataStreamServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyServerStreamRpc.class);
 
-  private RaftPeer raftServer;
-  private EventLoopGroup bossGroup = new NioEventLoopGroup();
-  private EventLoopGroup workerGroup = new NioEventLoopGroup();
-  private ChannelFuture channelFuture;
-  private RandomAccessFile stream;
-  private FileChannel fileChannel;
-  private File file = new File("client-data-stream");
+  private final RaftPeer raftServer;
+  private final EventLoopGroup bossGroup = new NioEventLoopGroup();
+  private final EventLoopGroup workerGroup = new NioEventLoopGroup();
+  private final ChannelFuture channelFuture;
 
+  private final StateMachine stateMachine;
+  private final ConcurrentMap<Long, CompletableFuture<DataStream>> streams = new ConcurrentHashMap<>();
 
-  public NettyServerStreamRpc(RaftPeer server){
+  public NettyServerStreamRpc(RaftPeer server, StateMachine stateMachine) {
     this.raftServer = server;
-    setupServer();
+    this.stateMachine = stateMachine;
+    this.channelFuture = buildChannel();
+  }
+
+  private CompletableFuture<DataStream> getDataStreamFuture(ByteBuf buf, AtomicBoolean released) {
+    try {
+      // TODO RATIS-1085: read the request from buf
+      final RaftClientRequest request = null;
+      return stateMachine.data().stream(request);
+    } finally {
+      buf.release();
+      released.set(true);
+    }
+  }
+
+  private void writeTo(ByteBuf buf, DataStream stream, boolean released) {
+    if (released) {
+      return;
+    }
+    try {
+      if (stream == null) {
+        return;
+      }
+
+      final WritableByteChannel channel = stream.getWritableByteChannel();
+      for (ByteBuffer buffer : buf.nioBuffers()) {
+        try {
+          channel.write(buffer);
+        } catch (Throwable t) {
+          throw new CompletionException(t);
+        }
+      }
+    } finally {
+      buf.release();
+    }
+  }
+
+  private void sendReply(DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
+    final DataStreamReply reply = new DataStreamReplyByteBuffer(
+        request.getStreamId(), request.getDataOffset(), ByteBuffer.wrap("OK".getBytes()));
+    ctx.writeAndFlush(reply);
   }
 
   private ChannelInboundHandler getServerHandler(){
     return new ChannelInboundHandlerAdapter(){
       @Override
-      public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+      public void channelRead(ChannelHandlerContext ctx, Object msg) {
         final DataStreamRequestByteBuf req = (DataStreamRequestByteBuf)msg;
-        ByteBuffer[] bfs = req.getBuf().nioBuffers();
-        for(int i = 0; i < bfs.length; i++){
-          fileChannel.write(bfs[i]);
-        }
-        req.getBuf().release();
-        final DataStreamReply reply = new DataStreamReplyByteBuffer(req.getStreamId(),
-                                                        req.getDataOffset(),
-                                                        ByteBuffer.wrap("OK".getBytes()));
-        ctx.writeAndFlush(reply);
+        final long streamId = req.getStreamId();
+        final ByteBuf buf = req.getBuf();
+        final AtomicBoolean released = new AtomicBoolean();
+        streams.computeIfAbsent(streamId, id -> getDataStreamFuture(buf, released))
+            .thenAccept(stream -> writeTo(buf, stream, released.get()))
+            .thenAccept(dummy -> sendReply(req, ctx));
       }
     };
   }
@@ -79,8 +120,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private ChannelInitializer<SocketChannel> getInitializer(){
     return new ChannelInitializer<SocketChannel>(){
       @Override
-      public void initChannel(SocketChannel ch)
-          throws Exception {
+      public void initChannel(SocketChannel ch) {
         ChannelPipeline p = ch.pipeline();
         p.addLast(new DataStreamRequestDecoder());
         p.addLast(new DataStreamReplyEncoder());
@@ -89,8 +129,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
-  public void setupServer(){
-    channelFuture = new ServerBootstrap()
+  ChannelFuture buildChannel() {
+    return new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)
         .handler(new LoggingHandler(LogLevel.INFO))
@@ -98,12 +138,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .childOption(ChannelOption.SO_KEEPALIVE, true)
         .localAddress(NetUtils.createSocketAddr(raftServer.getAddress()))
         .bind();
-    try {
-      stream = new RandomAccessFile(file, "rw");
-      fileChannel = stream.getChannel();
-    } catch (FileNotFoundException e){
-      LOG.info("exception cause is {}", e.getCause());
-    }
   }
 
   private Channel getChannel() {
@@ -118,13 +152,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   @Override
   public void closeServer() {
     final ChannelFuture f = getChannel().close();
-    try {
-      stream.close();
-      file.delete();
-      fileChannel.close();
-    } catch (IOException e){
-      LOG.info("Unable to close file on server");
-    }
     f.syncUninterruptibly();
     bossGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
     workerGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
