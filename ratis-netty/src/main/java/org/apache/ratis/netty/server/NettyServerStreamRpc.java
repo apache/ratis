@@ -50,7 +50,6 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -116,6 +115,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         }
       }
       return byteWritten;
+
+      // forward requests to other stream servers.
+      // for (DataStreamOutput streamOutput : streamOutputs) {
+      //   streamOutput.streamAsync(buf.nioBuffer());
+      // }
     } finally {
       buf.release();
     }

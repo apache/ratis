@@ -109,7 +109,7 @@ public class TestDataStream extends BaseTest {
   private int byteWritten = 0;
   private RaftClientRequest writeRequest;
 
-  public void setupServer(){
+  private void setupServer(){
     servers = new ArrayList<>(peers.size());
     // start stream servers on raft peers.
     for (int i = 0; i < peers.size(); i++) {
@@ -135,7 +135,7 @@ public class TestDataStream extends BaseTest {
     }
   }
 
-  public void setupClient(){
+  private void setupClient(){
     client = new DataStreamClientImpl(peers.get(0), properties, null);
     client.start();
   }
