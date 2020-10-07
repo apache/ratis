@@ -50,7 +50,7 @@ public class NettyDataStreamFactory implements DataStreamServerFactory, DataStre
 
   @Override
   public DataStreamServerRpc newDataStreamServerRpc(
-      RaftPeer server, List<RaftPeer> peers, RaftProperties properties) {
-    return new NettyServerStreamRpc(server, peers, properties);
+      RaftPeer server, List<RaftPeer> peers, StateMachine stateMachine, RaftProperties properties) {
+    return new NettyServerStreamRpc(server, peers, stateMachine, properties);
   }
 }

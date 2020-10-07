@@ -117,15 +117,13 @@ public class TestDataStream extends BaseTest {
         // only the first server routes requests to peers.
         List<RaftPeer> otherPeers = new ArrayList<>(peers);
         otherPeers.remove(peers.get(i));
-        DataStreamServerImpl streamServer =
-            new DataStreamServerImpl(peers.get(i), properties, null, otherPeers);
+        DataStreamServerImpl streamServer = new DataStreamServerImpl(
+            peers.get(i), properties, null, new SingleDataStreamStateMachine(), otherPeers);
         servers.add(streamServer);
         streamServer.getServerRpc().startServer();
       } else {
-        DataStreamServerImpl streamServer =
-            new DataStreamServerImpl(peers.get(i),
-                new SingleDataStreamStateMachine(),
-                properties, null);
+        DataStreamServerImpl streamServer = new DataStreamServerImpl(
+            peers.get(i), new SingleDataStreamStateMachine(), properties, null);
         servers.add(streamServer);
         streamServer.getServerRpc().startServer();
       }

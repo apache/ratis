@@ -52,15 +52,14 @@ public class DataStreamServerImpl implements DataStreamServer {
   public DataStreamServerImpl(RaftPeer server,
       RaftProperties properties,
       Parameters parameters,
+      StateMachine stateMachine,
       List<RaftPeer> peers){
     this.raftServer = server;
-    this.parameters = parameters;
-    this.properties = properties;
-
+    this.stateMachine = stateMachine;
     final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
 
     this.serverRpc = DataStreamServerFactory.cast(type.newFactory(parameters))
-        .newDataStreamServerRpc(server, peers, properties);
+        .newDataStreamServerRpc(server, peers, stateMachine, properties);
   }
 
   @Override

@@ -77,6 +77,13 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     this.channelFuture = buildChannel();
   }
 
+  public NettyServerStreamRpc(
+      RaftPeer server, List<RaftPeer> otherPeers,
+      StateMachine stateMachine, RaftProperties properties){
+    this(server, stateMachine);
+    setupClient(otherPeers, properties);
+  }
+
   private CompletableFuture<DataStream> getDataStreamFuture(ByteBuf buf, AtomicBoolean released) {
     try {
       final RaftClientRequest request =
@@ -119,15 +126,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
         request.getStreamId(), request.getStreamOffset(), ByteBuffer.wrap("OK".getBytes()));
     ctx.writeAndFlush(reply);
-  }
-
-  public NettyServerStreamRpc(
-      RaftPeer server, List<RaftPeer> otherPeers,
-      StateMachine stateMachine, RaftProperties properties){
-    this.raftServer = server;
-    this.stateMachine = stateMachine;
-    this.channelFuture = buildChannel();
-    setupClient(otherPeers, properties);
   }
 
   private ChannelInboundHandler getServerHandler(){
