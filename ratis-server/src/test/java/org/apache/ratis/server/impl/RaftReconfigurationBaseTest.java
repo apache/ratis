@@ -300,12 +300,26 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
   }
 
   @Test
-  public void testBootstrapReconf() throws Exception {
-    // originally 3 peers
-    runWithNewCluster(3, this::runTestBootstrapReconf);
+  public void testBootstrapReconfWithSingleNodeAddOne() throws Exception {
+    // originally 1 peer, add 1 more
+    runWithNewCluster(1, cluster -> runTestBootstrapReconf(1, false, cluster));
   }
 
-  void runTestBootstrapReconf(CLUSTER cluster) throws Exception {
+  @Test
+  public void testBootstrapReconfWithSingleNodeAddTwo() throws Exception {
+    // originally 1 peer, add 2 more
+    runWithNewCluster(1, cluster -> runTestBootstrapReconf(2, false, cluster));
+  }
+
+  @Test
+  public void testBootstrapReconf() throws Exception {
+    // originally 3 peers, add 2 more
+    runWithNewCluster(3, cluster -> runTestBootstrapReconf(2, true, cluster));
+  }
+
+  void runTestBootstrapReconf(int numNewPeer, boolean startNewPeer, CLUSTER cluster) throws Exception {
+      LOG.info("Originally {} peer(s), add {} more, startNewPeer={}",
+          cluster.getServers().size(), numNewPeer, startNewPeer);
       RaftTestUtil.waitForLeader(cluster);
       final RaftPeerId leaderId = cluster.getLeader().getId();
       try (final RaftClient client = cluster.createClient(leaderId)) {
@@ -316,7 +330,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
           Assert.assertTrue(reply.isSuccess());
         }
 
-        PeerChanges c1 = cluster.addNewPeers(2, true);
+        final PeerChanges c1 = cluster.addNewPeers(numNewPeer, startNewPeer);
         LOG.info("Start changing the configuration: {}",
                 asList(c1.allPeersInNewConf));
         final AtomicReference<Boolean> success = new AtomicReference<>();
@@ -331,7 +345,15 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
         });
         clientThread.start();
 
-        Thread.sleep(5000);
+        if (!startNewPeer) {
+          final TimeDuration delay = FIVE_SECONDS;
+          LOG.info("delay {} and start new peer(s): {}", delay, c1.newPeers);
+          delay.sleep();
+          for(RaftPeer p : c1.newPeers) {
+            cluster.restartServer(p.getId(), true);
+          }
+        }
+        FIVE_SECONDS.sleep();
         LOG.info(cluster.printServers());
         assertSuccess(success);
 
