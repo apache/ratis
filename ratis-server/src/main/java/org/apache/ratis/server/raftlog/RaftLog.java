@@ -428,7 +428,7 @@ public abstract class RaftLog implements RaftLogSequentialOps, Closeable {
 
   public abstract Metadata loadMetadata() throws IOException;
 
-  public abstract void syncWithSnapshot(long lastSnapshotIndex);
+  public abstract CompletableFuture<Long> syncWithSnapshot(long lastSnapshotIndex);
 
   public abstract boolean isConfigEntry(TermIndex ti);
 

@@ -217,7 +217,8 @@ public class MemoryRaftLog extends RaftLog {
   }
 
   @Override
-  public void syncWithSnapshot(long lastSnapshotIndex) {
+  public CompletableFuture<Long> syncWithSnapshot(long lastSnapshotIndex) {
+    return CompletableFuture.completedFuture(lastSnapshotIndex);
     // do nothing
   }
 

@@ -401,4 +401,9 @@ public class LogSegment implements Comparable<Long> {
   boolean containsIndex(long index) {
     return startIndex <= index && endIndex >= index;
   }
+
+  boolean hasEntries() {
+    return numOfEntries() > 0;
+  }
+
 }
