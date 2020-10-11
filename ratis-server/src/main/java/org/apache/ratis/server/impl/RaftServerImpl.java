@@ -497,7 +497,6 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
     // start election
     role.startLeaderElection(this);
-    leaderElectionMetrics.onNewLeaderElection();
   }
 
   @Override

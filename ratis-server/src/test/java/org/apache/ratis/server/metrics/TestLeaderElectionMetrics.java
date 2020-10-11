@@ -18,8 +18,7 @@
 
 package org.apache.ratis.server.metrics;
 
-import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_COUNT_METRIC;
-import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_LATENCY;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_ELECTION_ELAPSED_TIME;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -58,21 +57,11 @@ public class TestLeaderElectionMetrics {
   }
 
   @Test
-  public void testOnNewLeaderElection() throws Exception {
-    long numLeaderElections = ratisMetricRegistry.counter(
-        LEADER_ELECTION_COUNT_METRIC).getCount();
-    assertTrue(numLeaderElections == 0);
-    leaderElectionMetrics.onNewLeaderElection();
-    numLeaderElections = ratisMetricRegistry.counter(LEADER_ELECTION_COUNT_METRIC).getCount();
-    assertEquals(1, numLeaderElections);
-  }
-
-  @Test
   public void testOnLeaderElectionCompletion() throws Exception {
-    leaderElectionMetrics.onLeaderElectionCompletion(500L);
+    leaderElectionMetrics.onNewLeaderElectionCompletion();
     Long leaderElectionLatency = (Long) ratisMetricRegistry.getGauges((s, metric) ->
-        s.contains(LEADER_ELECTION_LATENCY)).values().iterator().next().getValue();
-    assertEquals(500L, leaderElectionLatency.longValue());
+        s.contains(LAST_LEADER_ELECTION_ELAPSED_TIME)).values().iterator().next().getValue();
+    assertTrue(leaderElectionLatency > 0L);
   }
 
   @Test

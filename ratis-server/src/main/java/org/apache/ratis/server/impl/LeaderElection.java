@@ -53,6 +53,8 @@ import static org.apache.ratis.util.LifeCycle.State.NEW;
 import static org.apache.ratis.util.LifeCycle.State.RUNNING;
 import static org.apache.ratis.util.LifeCycle.State.STARTING;
 
+import com.codahale.metrics.Timer;
+
 class LeaderElection implements Runnable {
   public static final Logger LOG = LoggerFactory.getLogger(LeaderElection.class);
 
@@ -157,7 +159,8 @@ class LeaderElection implements Runnable {
       return;
     }
 
-    Timestamp electionStartTime = Timestamp.currentTime();
+    Timer.Context electionContext =
+        server.getLeaderElectionMetrics().getLeaderElectionTimer().time();
     try {
       askForVotes();
     } catch(Throwable e) {
@@ -176,7 +179,8 @@ class LeaderElection implements Runnable {
       }
     } finally {
       // Update leader election completion metric(s).
-      server.getLeaderElectionMetrics().onLeaderElectionCompletion(electionStartTime.elapsedTimeMs());
+      electionContext.stop();
+      server.getLeaderElectionMetrics().onNewLeaderElectionCompletion();
       lifeCycle.checkStateAndClose(() -> {});
     }
   }
