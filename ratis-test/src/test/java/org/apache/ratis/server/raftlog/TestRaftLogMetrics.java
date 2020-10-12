@@ -104,7 +104,7 @@ public class TestRaftLogMetrics extends BaseTest
 
     try (final RaftClient client = cluster.createClient()) {
       for (RaftTestUtil.SimpleMessage message : messages) {
-        client.send(message);
+        client.getBlockingApi().send(message);
       }
     }
 

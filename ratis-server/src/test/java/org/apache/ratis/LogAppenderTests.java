@@ -101,7 +101,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
       try {
         latch.await();
         for (SimpleMessage msg : messages) {
-          client.send(msg);
+          client.getBlockingApi().send(msg);
         }
         client.close();
         succeed.set(true);
@@ -134,7 +134,7 @@ public abstract class LogAppenderTests<CLUSTER extends MiniRaftCluster>
     // Write 10 messages to leader.
     try(RaftClient client = cluster.createClient(leaderServer.getId())) {
       for (int i = 1; i <= 10; i++) {
-        client.send(new RaftTestUtil.SimpleMessage("Msg to make leader ready " +  i));
+        client.getBlockingApi().send(new RaftTestUtil.SimpleMessage("Msg to make leader ready " +  i));
       }
     } catch (IOException e) {
       throw e;

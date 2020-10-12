@@ -145,7 +145,7 @@ public class LogServer extends BaseServer {
                 .setClientId(ClientId.randomId())
                 .setProperties(properties)
                 .build();
-        metaClient.send(() -> MetaServiceProtoUtil.toPingRequestProto(peer).toByteString());
+        metaClient.getBlockingApi().send(() -> MetaServiceProtoUtil.toPingRequestProto(peer).toByteString());
         daemon = new Daemon(new HeartbeatSender(new RaftPeer(raftServer.getId())),
                 "heartbeat-Sender"+raftServer.getId());
         daemon.start();
@@ -200,7 +200,7 @@ public class LogServer extends BaseServer {
 
             while (true) {
                 try {
-                    metaClient.send(() -> MetaServiceProtoUtil.
+                    metaClient.getBlockingApi().send(() -> MetaServiceProtoUtil.
                             toHeartbeatRequestProto(peer).toByteString());
                     Thread.sleep(heartbeatInterval);
                 } catch (InterruptedException e) {

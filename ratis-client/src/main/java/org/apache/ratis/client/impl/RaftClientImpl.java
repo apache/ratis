@@ -207,28 +207,7 @@ public final class RaftClientImpl implements RaftClient {
         callId, message, type, slidingWindowEntry);
   }
 
-  @Override
-  public RaftClientReply send(Message message) throws IOException {
-    return send(RaftClientRequest.writeRequestType(), message, null);
-  }
-
-  @Override
-  public RaftClientReply sendReadOnly(Message message) throws IOException {
-    return send(RaftClientRequest.readRequestType(), message, null);
-  }
-
-  @Override
-  public RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server)
-      throws IOException {
-    return send(RaftClientRequest.staleReadRequestType(minIndex), message, server);
-  }
-
-  @Override
-  public RaftClientReply sendWatch(long index, ReplicationLevel replication) throws IOException {
-    return send(RaftClientRequest.watchRequestType(index, replication), null, null);
-  }
-
-  private RaftClientReply send(RaftClientRequest.Type type, Message message, RaftPeerId server)
+  RaftClientReply send(RaftClientRequest.Type type, Message message, RaftPeerId server)
       throws IOException {
     if (!type.is(TypeCase.WATCH)) {
       Objects.requireNonNull(message, "message == null");
@@ -259,6 +238,11 @@ public final class RaftClientImpl implements RaftClient {
   @Override
   public GroupManagementApi getGroupManagementApi(RaftPeerId server) {
     return new GroupManagementImpl(server, this);
+  }
+
+  @Override
+  public BlockingApiImpl getBlockingApi() {
+    return new BlockingApiImpl(this);
   }
 
   void addServers(Stream<RaftPeer> peersInNewConf) {
