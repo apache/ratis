@@ -263,7 +263,7 @@ public class MetaStateMachine extends BaseStateMachine {
             raftPeers.stream().forEach(peer -> {
                 try (RaftClient client = RaftClient.newBuilder().setProperties(properties)
                     .setClientId(ClientId.randomId()).setRaftGroup(RaftGroup.valueOf(logServerGroupId, peer)).build()){
-                    client.groupRemove(raftGroup.getGroupId(), true, false, peer.getId());
+                    client.getGroupManagementApi(peer.getId()).remove(raftGroup.getGroupId(), true, false);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -319,7 +319,7 @@ public class MetaStateMachine extends BaseStateMachine {
                 for (RaftPeer peer : peers) {
                     try (RaftClient client = RaftClient.newBuilder().setProperties(properties)
                         .setRaftGroup(RaftGroup.valueOf(logServerGroupId, peer)).build()) {
-                        client.groupAdd(raftGroup, peer.getId());
+                        client.getGroupManagementApi(peer.getId()).add(raftGroup);
                     } catch (IOException e) {
                         LOG.error("Failed to add Raft group ({}) for new Log({})",
                             raftGroup.getGroupId(), name, e);
@@ -338,7 +338,7 @@ public class MetaStateMachine extends BaseStateMachine {
                         }
                         try (RaftClient client = RaftClient.newBuilder().setProperties(properties)
                             .setRaftGroup(RaftGroup.valueOf(logServerGroupId, peer)).build()) {
-                            client.groupRemove(raftGroup.getGroupId(), true, false, peer.getId());
+                            client.getGroupManagementApi(peer.getId()).remove(raftGroup.getGroupId(), true, false);
                         } catch (IOException e) {
                             LOG.error("Failed to clean up Raft group ({}) for peer ({}), "
                                 + "ignoring exception", raftGroup.getGroupId(), peer, e);

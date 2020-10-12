@@ -19,6 +19,7 @@ package org.apache.ratis.client;
 
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.api.DataStreamApi;
+import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.client.api.MessageStreamApi;
 import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.Parameters;
@@ -49,6 +50,9 @@ public interface RaftClient extends Closeable {
 
   /** @return the {@link RaftClientRpc}. */
   RaftClientRpc getClientRpc();
+
+  /** Get the {@link GroupManagementApi} for the given server. */
+  GroupManagementApi getGroupManagementApi(RaftPeerId server);
 
   /** @return the {@link MessageStreamApi}. */
   MessageStreamApi getMessageStreamApi();
@@ -100,19 +104,6 @@ public interface RaftClient extends Closeable {
 
   /** Send set configuration request to the raft service. */
   RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException;
-
-  /** Send groupAdd request to the given server (not the raft service). */
-  RaftClientReply groupAdd(RaftGroup newGroup, RaftPeerId server) throws IOException;
-
-  /** Send groupRemove request to the given server (not the raft service). */
-  RaftClientReply groupRemove(RaftGroupId groupId, boolean deleteDirectory,
-      boolean renameDirectory, RaftPeerId server) throws IOException;
-
-  /** Send getGroupList request to the given server.*/
-  GroupListReply getGroupList(RaftPeerId server) throws IOException;
-
-  /** Send getGroupInfo request to the given server.*/
-  GroupInfoReply getGroupInfo(RaftGroupId group, RaftPeerId server) throws IOException;
 
   /** @return a {@link Builder}. */
   static Builder newBuilder() {

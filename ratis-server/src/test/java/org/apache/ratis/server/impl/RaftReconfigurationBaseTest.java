@@ -105,7 +105,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
       LOG.info("add new group: " + newGroup);
       try (final RaftClient client = cluster.createClient(newGroup)) {
         for (RaftPeer p : newGroup.getPeers()) {
-          client.groupAdd(newGroup, p.getId());
+          client.getGroupManagementApi(p.getId()).add(newGroup);
         }
       }
 
