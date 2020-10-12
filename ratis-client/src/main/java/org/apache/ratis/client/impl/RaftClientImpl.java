@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
@@ -135,6 +136,10 @@ public final class RaftClientImpl implements RaftClient {
 
   public RaftPeerId getLeaderId() {
     return leaderId;
+  }
+
+  RaftGroupId getGroupId() {
+    return groupId;
   }
 
   private RaftPeerId getHighestPriorityPeerId() {
@@ -266,46 +271,11 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public RaftClientReply groupAdd(RaftGroup newGroup, RaftPeerId server) throws IOException {
-    Objects.requireNonNull(newGroup, "newGroup == null");
-    Objects.requireNonNull(server, "server == null");
-
-    final long callId = nextCallId();
-    addServers(newGroup.getPeers().stream());
-    return sendRequest(GroupManagementRequest.newAdd(clientId, server, callId, newGroup));
+  public GroupManagementApi getGroupManagementApi(RaftPeerId server) {
+    return new GroupManagementImpl(server, this);
   }
 
-  @Override
-  public RaftClientReply groupRemove(RaftGroupId grpId, boolean deleteDirectory,
-      boolean renameDirectory, RaftPeerId server)
-      throws IOException {
-    Objects.requireNonNull(groupId, "groupId == null");
-    Objects.requireNonNull(server, "server == null");
-
-    final long callId = nextCallId();
-    return sendRequest(GroupManagementRequest.newRemove(clientId, server,
-        callId, grpId, deleteDirectory, renameDirectory));
-  }
-
-  @Override
-  public GroupListReply getGroupList(RaftPeerId server) throws IOException {
-    Objects.requireNonNull(server, "server == null");
-
-    final RaftClientReply reply = sendRequest(new GroupListRequest(clientId, server, groupId, nextCallId()));
-    Preconditions.assertTrue(reply instanceof GroupListReply, () -> "Unexpected reply: " + reply);
-    return (GroupListReply)reply;
-  }
-
-  @Override
-  public GroupInfoReply getGroupInfo(RaftGroupId raftGroupId, RaftPeerId server) throws IOException {
-    Objects.requireNonNull(server, "server == null");
-    RaftGroupId rgi = raftGroupId == null ? groupId : raftGroupId;
-    final RaftClientReply reply = sendRequest(new GroupInfoRequest(clientId, server, rgi, nextCallId()));
-    Preconditions.assertTrue(reply instanceof GroupInfoReply, () -> "Unexpected reply: " + reply);
-    return (GroupInfoReply)reply;
-  }
-
-  private void addServers(Stream<RaftPeer> peersInNewConf) {
+  void addServers(Stream<RaftPeer> peersInNewConf) {
     clientRpc.addServers(
         peersInNewConf.filter(p -> !peers.contains(p))::iterator);
   }
@@ -358,7 +328,7 @@ public final class RaftClientImpl implements RaftClient {
     return new RaftRetryFailureException(event.getRequest(), attemptCount, retryPolicy, throwable);
   }
 
-  private RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
+  RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
     LOG.debug("{}: send {}", clientId, request);
     RaftClientReply reply;
     try {
@@ -370,7 +340,7 @@ public final class RaftClientImpl implements RaftClient {
       throw ioe;
     }
     LOG.debug("{}: receive {}", clientId, reply);
-    reply = handleLeaderException(request, reply, null);
+    reply = handleLeaderException(request, reply);
     reply = handleRaftException(reply, Function.identity());
     return reply;
   }
@@ -391,8 +361,7 @@ public final class RaftClientImpl implements RaftClient {
    * {@link NotLeaderException} or {@link LeaderNotReadyException}
    * otherwise return the same reply.
    */
-  RaftClientReply handleLeaderException(RaftClientRequest request, RaftClientReply reply,
-                                        Consumer<RaftClientRequest> handler) {
+  RaftClientReply handleLeaderException(RaftClientRequest request, RaftClientReply reply) {
     if (reply == null || reply.getException() instanceof LeaderNotReadyException) {
       return null;
     }
@@ -400,7 +369,7 @@ public final class RaftClientImpl implements RaftClient {
     if (nle == null) {
       return reply;
     }
-    return handleNotLeaderException(request, nle, handler);
+    return handleNotLeaderException(request, nle, null);
   }
 
   RaftClientReply handleNotLeaderException(RaftClientRequest request, NotLeaderException nle,

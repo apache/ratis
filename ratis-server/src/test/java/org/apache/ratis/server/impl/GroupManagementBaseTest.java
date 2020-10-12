@@ -22,6 +22,7 @@ import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.RaftTestUtil;
 import org.apache.ratis.client.RaftClient;
+import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.exceptions.AlreadyExistsException;
 import org.apache.ratis.protocol.RaftClientReply;
@@ -72,7 +73,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
 
   public abstract MiniRaftCluster.Factory<? extends MiniRaftCluster> getClusterFactory();
 
-  public MiniRaftCluster getCluster(int peerNum) throws IOException {
+  public MiniRaftCluster getCluster(int peerNum) {
     return getClusterFactory().newCluster(peerNum, prop);
   }
 
@@ -115,7 +116,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       // Before request, client try leader with the highest priority
       Assert.assertTrue(client.getLeaderId() == peersWithPriority.get(suggestedLeaderIndex).getId());
       for (RaftPeer p : newGroup.getPeers()) {
-        client.groupAdd(newGroup, p.getId());
+        client.getGroupManagementApi(p.getId()).add(newGroup);
       }
     }
 
@@ -190,7 +191,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     LOG.info("add new group: " + newGroup);
     try (final RaftClient client = cluster.createClient(newGroup)) {
       for (RaftPeer p : newGroup.getPeers()) {
-        client.groupAdd(newGroup, p.getId());
+        client.getGroupManagementApi(p.getId()).add(newGroup);
       }
     }
     Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster));
@@ -274,7 +275,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       LOG.info(i + ") starting " + groups[i]);
       for(RaftPeer p : peers) {
         try(final RaftClient client = cluster.createClient(p.getId(), emptyGroup)) {
-          client.groupAdd(groups[i], p.getId());
+          client.getGroupManagementApi(p.getId()).add(groups[i]);
         }
       }
       Assert.assertNotNull(RaftTestUtil.waitForLeader(cluster, gid));
@@ -291,13 +292,14 @@ public abstract class GroupManagementBaseTest extends BaseTest {
         final RaftGroup g = groups[i];
         LOG.info(i + ") close " + cluster.printServers(g.getGroupId()));
         for(RaftPeer p : g.getPeers()) {
-          final File root = cluster.getServer(p.getId()).getImpl(g.getGroupId()).getState().getStorage().getStorageDir().getRoot();
+          final File root = cluster.getServer(p.getId()).getImpl(g.getGroupId())
+              .getState().getStorage().getStorageDir().getRoot();
           Assert.assertTrue(root.exists());
           Assert.assertTrue(root.isDirectory());
 
           final RaftClientReply r;
           try (final RaftClient client = cluster.createClient(p.getId(), g)) {
-            r = client.groupRemove(g.getGroupId(), true, false, p.getId());
+            r = client.getGroupManagementApi(p.getId()).remove(g.getGroupId(), true, false);
           }
           Assert.assertTrue(r.isSuccess());
           Assert.assertFalse(root.exists());
@@ -314,7 +316,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
         LOG.info(i + ") groupAdd: " + cluster.printServers(groups[i].getGroupId()));
         for (RaftPeer p : groups[i].getPeers()) {
           try (final RaftClient client = cluster.createClient(p.getId(), groups[i])) {
-            client.groupAdd(newGroup, p.getId());
+            client.getGroupManagementApi(p.getId()).add(newGroup);
           }
         }
       }
@@ -348,7 +350,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     try (final RaftClient client = cluster.createClient()) {
       Assert.assertEquals(group, cluster.getRaftServerImpl(peerId).getGroup());
       try {
-        client.groupAdd(group, peer.getId());
+        client.getGroupManagementApi(peer.getId()).add(group);
       } catch (IOException ex) {
         // HadoopRPC throws RemoteException, which makes it hard to check if
         // the exception is instance of AlreadyExistsException
@@ -376,12 +378,13 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       try {
 
         // Group2 is added to one of the peers in Group1
-        client.groupAdd(group2, peerId1);
+        final GroupManagementApi api1 = client.getGroupManagementApi(peerId1);
+        api1.add(group2);
         List<RaftGroupId> groupIds1 = cluster1.getServer(peerId1).getGroupIds();
         Assert.assertEquals(groupIds1.size(), 2);
 
         // Group2 is renamed from the peer1 of Group1
-        client.groupRemove(group2.getGroupId(), false, true, peerId1);
+        api1.remove(group2.getGroupId(), false, true);
 
         groupIds1 = cluster1.getServer(peerId1).getGroupIds();
         Assert.assertEquals(groupIds1.size(), 1);
@@ -423,12 +426,13 @@ public abstract class GroupManagementBaseTest extends BaseTest {
       try {
 
         // Group2 is added again to one of the peers in Group1
-        client.groupAdd(group2, peerId1);
+        final GroupManagementApi api1 = client.getGroupManagementApi(peerId1);
+        api1.add(group2);
         List<RaftGroupId> groupIds1 = cluster1.getServer(peerId1).getGroupIds();
         Assert.assertEquals(groupIds1.size(), 2);
 
         // Group2 is deleted from the peer1 of Group1
-        client.groupRemove(group2.getGroupId(), true, false, peerId1);
+        api1.remove(group2.getGroupId(), true, false);
 
         groupIds1 = cluster1.getServer(peerId1).getGroupIds();
         Assert.assertEquals(groupIds1.size(), 1);

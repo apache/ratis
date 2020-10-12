@@ -77,7 +77,7 @@ public interface UnorderedAsync {
       try {
         LOG.debug("{}: attempt #{} receive~ {}", clientId, attemptCount, reply);
         final RaftException replyException = reply != null? reply.getException(): null;
-        reply = client.handleLeaderException(request, reply, null);
+        reply = client.handleLeaderException(request, reply);
         if (reply != null) {
           f.complete(reply);
           return;
