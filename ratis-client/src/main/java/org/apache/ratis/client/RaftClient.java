@@ -18,6 +18,7 @@
 package org.apache.ratis.client;
 
 import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.api.MessageStreamApi;
 import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.conf.Parameters;
@@ -27,6 +28,7 @@ import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
+import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,11 +47,18 @@ public interface RaftClient extends Closeable {
   /** @return the cluster leaderId recorded by this client. */
   RaftPeerId getLeaderId();
 
-  /** @return the client rpct. */
+  /** @return the {@link RaftClientRpc}. */
   RaftClientRpc getClientRpc();
 
   /** @return the {@link MessageStreamApi}. */
   MessageStreamApi getMessageStreamApi();
+
+  /** @return the {@link DataStreamApi}. */
+  default DataStreamApi getDataStreamApi() {
+    // TODO RATIS-1090: Implements this once the streaming feature has become usable.
+    throw new UnsupportedOperationException(
+        JavaUtils.getCurrentStackTraceElement().getMethodName() + " is not yet supported.");
+  }
 
   /**
    * Async call to send the given message to the raft service.

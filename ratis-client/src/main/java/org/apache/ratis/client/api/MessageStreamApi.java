@@ -25,7 +25,22 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 
-/** A client who sends requests to a raft service. */
+/**
+ * Stream (large) {@link Message}(s) asynchronously to the leader.
+ * Once a stream has been closed or has been signaled an end-of-request,
+ * the leader creates a raft log entry for the request
+ * and then replicates the log entry to all the followers.
+ *
+ * Note that this API is similar to {@link org.apache.ratis.client.RaftClient#sendAsync(Message)}
+ * except that {@link MessageStreamApi} divides a (large) message into multiple (small) sub-messages in the stream
+ * but {@link org.apache.ratis.client.RaftClient#sendAsync(Message)} sends the entire message in a single RPC.
+ * For sending large messages,
+ * {@link MessageStreamApi} is more efficient than {@link org.apache.ratis.client.RaftClient#sendAsync(Message)}}.
+ *
+ * Note also that this API is different from {@link DataStreamApi} in the sense that
+ * this API streams messages only to the leader
+ * but {@link DataStreamApi} streams data to all the servers in the {@link org.apache.ratis.protocol.RaftGroup}.
+ */
 public interface MessageStreamApi {
   Logger LOG = LoggerFactory.getLogger(MessageStreamApi.class);
 

@@ -17,7 +17,7 @@
  */
 package org.apache.ratis.client;
 
-import org.apache.ratis.client.api.DataStreamOutput;
+import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -29,15 +29,12 @@ import org.slf4j.LoggerFactory;
  * A client interface that sends request to the streaming pipeline.
  * Associated with it will be a Netty Client.
  */
-public interface DataStreamClient {
+public interface DataStreamClient extends DataStreamApi {
 
   Logger LOG = LoggerFactory.getLogger(DataStreamClient.class);
 
   /** Return the rpc client instance **/
   DataStreamClientRpc getClientRpc();
-
-  /** @return a new output stream. */
-  DataStreamOutput stream();
 
   /** add information of the raft peers to communicate with */
   void addPeers(Iterable<RaftPeer> peers);
