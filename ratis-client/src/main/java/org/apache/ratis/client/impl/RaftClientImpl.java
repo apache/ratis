@@ -17,23 +17,27 @@
  */
 package org.apache.ratis.client.impl;
 
-import org.apache.ratis.client.api.AsyncApi;
-import org.apache.ratis.client.api.GroupManagementApi;
-import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.client.RaftClient;
 import org.apache.ratis.client.RaftClientRpc;
+import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.client.api.MessageStreamApi;
+import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
-import org.apache.ratis.protocol.*;
-import org.apache.ratis.protocol.exceptions.GroupMismatchException;
+import org.apache.ratis.protocol.ClientId;
+import org.apache.ratis.protocol.Message;
+import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.protocol.exceptions.LeaderNotReadyException;
 import org.apache.ratis.protocol.exceptions.NotLeaderException;
 import org.apache.ratis.protocol.exceptions.RaftException;
 import org.apache.ratis.protocol.exceptions.RaftRetryFailureException;
 import org.apache.ratis.protocol.exceptions.ResourceUnavailableException;
-import org.apache.ratis.protocol.exceptions.StateMachineException;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.util.CollectionUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -42,7 +46,6 @@ import org.apache.ratis.util.TimeDuration;
 import org.apache.ratis.util.TimeoutScheduler;
 
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -116,6 +119,8 @@ public final class RaftClientImpl implements RaftClient {
 
   private final Supplier<OrderedAsync> orderedAsync;
   private final Supplier<MessageStreamApi> streamApi;
+  private final Supplier<AsyncImpl> asyncApi;
+  private final Supplier<BlockingImpl> blockingApi;
 
   RaftClientImpl(ClientId clientId, RaftGroup group, RaftPeerId leaderId,
       RaftClientRpc clientRpc, RaftProperties properties, RetryPolicy retryPolicy) {
@@ -132,6 +137,8 @@ public final class RaftClientImpl implements RaftClient {
 
     this.orderedAsync = JavaUtils.memoize(() -> OrderedAsync.newInstance(this, properties));
     this.streamApi = JavaUtils.memoize(() -> MessageStreamImpl.newInstance(this, properties));
+    this.asyncApi = JavaUtils.memoize(() -> new AsyncImpl(this));
+    this.blockingApi = JavaUtils.memoize(() -> new BlockingImpl(this));
   }
 
   public RaftPeerId getLeaderId() {
@@ -186,19 +193,6 @@ public final class RaftClientImpl implements RaftClient {
     return streamApi.get();
   }
 
-  CompletableFuture<RaftClientReply> streamAsync(long streamId, long messageId, Message message, boolean endOfRequest) {
-    return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, endOfRequest), message, null);
-  }
-
-  CompletableFuture<RaftClientReply> streamCloseAsync(long streamId, long messageId) {
-    return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, true), null, null);
-  }
-
-  CompletableFuture<RaftClientReply> sendAsync(
-      RaftClientRequest.Type type, Message message, RaftPeerId server) {
-    return getOrderedAsync().send(type, message, server);
-  }
-
   RaftClientRequest newRaftClientRequest(
       RaftPeerId server, long callId, Message message, RaftClientRequest.Type type,
       SlidingWindowEntry slidingWindowEntry) {
@@ -206,15 +200,6 @@ public final class RaftClientImpl implements RaftClient {
         callId, message, type, slidingWindowEntry);
   }
 
-  RaftClientReply send(RaftClientRequest.Type type, Message message, RaftPeerId server)
-      throws IOException {
-    if (!type.is(TypeCase.WATCH)) {
-      Objects.requireNonNull(message, "message == null");
-    }
-
-    final long callId = nextCallId();
-    return sendRequestWithRetry(() -> newRaftClientRequest(server, callId, message, type, null));
-  }
 
   // TODO: change peersInNewConf to List<RaftPeer>
   @Override
@@ -225,13 +210,13 @@ public final class RaftClientImpl implements RaftClient {
     final long callId = nextCallId();
     // also refresh the rpc proxies for these peers
     addServers(Arrays.stream(peersInNewConf));
-    return sendRequestWithRetry(() -> new SetConfigurationRequest(
+    return io().sendRequestWithRetry(() -> new SetConfigurationRequest(
         clientId, leaderId, groupId, callId, Arrays.asList(peersInNewConf)));
   }
 
   @Override
-  public AsyncApi async() {
-    return new AsyncImpl(this);
+  public AsyncImpl async() {
+    return asyncApi.get();
   }
 
   @Override
@@ -241,51 +226,12 @@ public final class RaftClientImpl implements RaftClient {
 
   @Override
   public BlockingImpl io() {
-    return new BlockingImpl(this);
+    return blockingApi.get();
   }
 
   void addServers(Stream<RaftPeer> peersInNewConf) {
     clientRpc.addServers(
         peersInNewConf.filter(p -> !peers.contains(p))::iterator);
-  }
-
-  private RaftClientReply sendRequestWithRetry(Supplier<RaftClientRequest> supplier) throws IOException {
-    PendingClientRequest pending = new PendingClientRequest() {
-      @Override
-      public RaftClientRequest newRequestImpl() {
-        return supplier.get();
-      }
-    };
-    while (true) {
-      final RaftClientRequest request = pending.newRequest();
-      IOException ioe = null;
-      try {
-        final RaftClientReply reply = sendRequest(request);
-
-        if (reply != null) {
-          return reply;
-        }
-      } catch (GroupMismatchException | StateMachineException e) {
-        throw e;
-      } catch (IOException e) {
-        ioe = e;
-      }
-
-      pending.incrementExceptionCount(ioe);
-      ClientRetryEvent event = new ClientRetryEvent(request, ioe, pending);
-      final RetryPolicy.Action action = retryPolicy.handleAttemptFailure(event);
-      TimeDuration sleepTime = getEffectiveSleepTime(ioe, action.getSleepTime());
-
-      if (!action.shouldRetry()) {
-        throw (IOException)noMoreRetries(event);
-      }
-
-      try {
-        sleepTime.sleep();
-      } catch (InterruptedException e) {
-        throw new InterruptedIOException("retry policy=" + retryPolicy);
-      }
-    }
   }
 
   Throwable noMoreRetries(ClientRetryEvent event) {
@@ -295,23 +241,6 @@ public final class RaftClientImpl implements RaftClient {
       return throwable;
     }
     return new RaftRetryFailureException(event.getRequest(), attemptCount, retryPolicy, throwable);
-  }
-
-  RaftClientReply sendRequest(RaftClientRequest request) throws IOException {
-    LOG.debug("{}: send {}", clientId, request);
-    RaftClientReply reply;
-    try {
-      reply = clientRpc.sendRequest(request);
-    } catch (GroupMismatchException gme) {
-      throw gme;
-    } catch (IOException ioe) {
-      handleIOException(request, ioe);
-      throw ioe;
-    }
-    LOG.debug("{}: receive {}", clientId, reply);
-    reply = handleLeaderException(request, reply);
-    reply = handleRaftException(reply, Function.identity());
-    return reply;
   }
 
   static <E extends Throwable> RaftClientReply handleRaftException(

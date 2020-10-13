@@ -23,6 +23,8 @@ import org.apache.ratis.client.api.MessageStreamApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftClientRequest.Type;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.SizeInBytes;
 import org.slf4j.Logger;
@@ -48,14 +50,18 @@ public final class MessageStreamImpl implements MessageStreamApi {
       this.id = id;
     }
 
+    private Type getStreamRequestType(boolean endOfRequest) {
+      return RaftClientRequest.streamRequestType(id, messageId.getAndIncrement(), endOfRequest);
+    }
+
     @Override
     public CompletableFuture<RaftClientReply> sendAsync(Message message, boolean endOfRequest) {
-      return client.streamAsync(id, messageId.getAndIncrement(), message, endOfRequest);
+      return client.async().send(getStreamRequestType(endOfRequest), message, null);
     }
 
     @Override
     public CompletableFuture<RaftClientReply> closeAsync() {
-      return client.streamCloseAsync(id, messageId.getAndIncrement());
+      return client.async().send(getStreamRequestType(true), null, null);
     }
   }
 
