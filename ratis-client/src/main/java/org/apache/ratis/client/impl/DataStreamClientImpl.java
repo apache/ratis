@@ -103,9 +103,12 @@ public class DataStreamClientImpl implements DataStreamClient {
       return null;
     }
 
-    @VisibleForTesting
-    public RaftClientRequest getRequest() {
-      return request;
+    public RaftClientRequest getHeader() {
+      return header;
+    }
+
+    public CompletableFuture<DataStreamReply> getHeaderFuture() {
+      return headerFuture;
     }
   }
 
