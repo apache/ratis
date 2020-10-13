@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 
 /** Blocking api implementations. */
 class BlockingImpl implements BlockingApi {
-  Logger LOG = LoggerFactory.getLogger(BlockingApi.class);
+  Logger LOG = LoggerFactory.getLogger(BlockingImpl.class);
 
   private final RaftClientImpl client;
 

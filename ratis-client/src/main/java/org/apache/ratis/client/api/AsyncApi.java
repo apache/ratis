@@ -24,7 +24,10 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 
 /**
- * APIs to support asynchronous operations such as send message, send (stale)read message and watch request.
+ * Asynchronous API to support operations
+ * such as sending message, read-message, stale-read-message and watch-request.
+ *
+ * Note that this API and {@link BlockingApi} support the same set of operations.
  */
 public interface AsyncApi {
   /**

@@ -24,7 +24,10 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftPeerId;
 
 /**
- * APIs to support blocking operations such as send message, send (stale)read message and watch request.
+ * Blocking API to support operations
+ * such as sending message, read-message, stale-read-message and watch-request.
+ *
+ * Note that this API and {@link AsyncApi} support the same set of operations.
  */
 public interface BlockingApi {
   /**
@@ -47,6 +50,8 @@ public interface BlockingApi {
 
   /**
    * Send the given stale-read message to the given server (not the raft service).
+   * If the server commit index is larger than or equal to the given min-index, the request will be processed.
+   * Otherwise, the server throws a {@link org.apache.ratis.protocol.exceptions.StaleReadException}.
    *
    * @param message The request message.
    * @param minIndex The minimum log index that the server log must have already committed.
