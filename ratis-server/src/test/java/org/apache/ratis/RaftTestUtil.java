@@ -456,7 +456,7 @@ public interface RaftTestUtil {
     Thread t = new Thread(() -> {
       try (final RaftClient client = cluster.createClient(leaderId)) {
         for (SimpleMessage mssg: messages) {
-          client.send(mssg);
+          client.io().send(mssg);
         }
       } catch (Exception e) {
         e.printStackTrace();

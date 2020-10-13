@@ -123,7 +123,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
       try(final RaftClient client = cluster.createClient(leaderId)) {
         for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
           RaftClientReply
-              reply = client.send(new RaftTestUtil.SimpleMessage("m" + i));
+              reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
           Assert.assertTrue(reply.isSuccess());
         }
       }
@@ -159,7 +159,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
       // generate some more traffic
       try(final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
-        Assert.assertTrue(client.send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
+        Assert.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
       }
 
       final SnapshotInfo leaderSnapshotInfo = cluster.getLeader().getStateMachine().getLatestSnapshot();
@@ -203,7 +203,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
     try (final RaftClient client = cluster.createClient(leaderId)) {
       for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-        final RaftClientReply reply = client.send(new RaftTestUtil.SimpleMessage("m" + i));
+        final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
     }
@@ -225,7 +225,7 @@ public abstract class InstallSnapshotNotificationTests<CLUSTER extends MiniRaftC
 
     // generate some more traffic
     try (final RaftClient client = cluster.createClient(leader.getId())) {
-      Assert.assertTrue(client.send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
+      Assert.assertTrue(client.io().send(new RaftTestUtil.SimpleMessage("m" + i)).isSuccess());
     }
 
     FIVE_SECONDS.sleep();

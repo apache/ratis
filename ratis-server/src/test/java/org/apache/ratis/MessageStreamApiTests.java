@@ -73,11 +73,11 @@ public abstract class MessageStreamApiTests<CLUSTER extends MiniRaftCluster> ext
     final String k = key.toString();
     try(RaftClient client = cluster.createClient()) {
       final String k1 = k.substring(0, endOfRequest);
-      final RaftClientReply r1= client.sendReadOnly(new SimpleMessage(k1));
+      final RaftClientReply r1= client.io().sendReadOnly(new SimpleMessage(k1));
       Assert.assertTrue(r1.isSuccess());
 
       final String k2 = k.substring(endOfRequest);
-      final RaftClientReply r2 = client.sendReadOnly(new SimpleMessage(k2));
+      final RaftClientReply r2 = client.io().sendReadOnly(new SimpleMessage(k2));
       Assert.assertTrue(r2.isSuccess());
     }
   }
@@ -119,7 +119,7 @@ public abstract class MessageStreamApiTests<CLUSTER extends MiniRaftCluster> ext
 
     // check if all the parts are streamed as a single message.
     try(RaftClient client = cluster.createClient()) {
-      final RaftClientReply reply = client.sendReadOnly(new SimpleMessage(bytes.toString(StandardCharsets.UTF_8)));
+      final RaftClientReply reply = client.io().sendReadOnly(new SimpleMessage(bytes.toString(StandardCharsets.UTF_8)));
       Assert.assertTrue(reply.isSuccess());
     }
   }

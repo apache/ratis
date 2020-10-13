@@ -143,7 +143,7 @@ public abstract class GroupManagementBaseTest extends BaseTest {
     // when suggested leader rejoin cluster, it will catch up log first.
     try (final RaftClient client = cluster.createClient(newGroup)) {
       for (int i = 0; i < 10; i ++) {
-        RaftClientReply reply = client.send(new RaftTestUtil.SimpleMessage("m" + i));
+        RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
     }

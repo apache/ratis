@@ -99,14 +99,14 @@ public abstract class RequestLimitAsyncBaseTest<CLUSTER extends MiniRaftCluster>
       try(RaftClient c2 = cluster.createClient(leader.getId(), RetryPolicies.noRetry())) {
         // more write requests should get ResourceUnavailableException
         final SimpleMessage message = new SimpleMessage("err");
-        testFailureCase("send should fail", () -> c2.send(message),
+        testFailureCase("send should fail", () -> c2.io().send(message),
             ResourceUnavailableException.class);
         testFailureCase("sendAsync should fail", () -> c2.async().send(message).get(),
             ExecutionException.class, ResourceUnavailableException.class);
 
         // more watch requests should get ResourceUnavailableException
         final long watchIndex = watchBase + watchElementLimit;
-        testFailureCase("sendWatch should fail", () -> c2.sendWatch(watchIndex, ReplicationLevel.ALL),
+        testFailureCase("sendWatch should fail", () -> c2.io().watch(watchIndex, ReplicationLevel.ALL),
             ResourceUnavailableException.class);
         testFailureCase("sendWatchAsync should fail", () -> c2.async().watch(watchIndex, ReplicationLevel.ALL).get(),
             ExecutionException.class, ResourceUnavailableException.class);

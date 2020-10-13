@@ -196,7 +196,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
         // submit some msgs before reconf
         for (int i = 0; i < STAGING_CATCHUP_GAP * 2; i++) {
-          RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+          RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
           Assert.assertTrue(reply.isSuccess());
         }
 
@@ -326,7 +326,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
 
         // submit some msgs before reconf
         for (int i = 0; i < STAGING_CATCHUP_GAP * 2; i++) {
-          RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+          RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
           Assert.assertTrue(reply.isSuccess());
         }
 
@@ -465,7 +465,7 @@ public abstract class RaftReconfigurationBaseTest<CLUSTER extends MiniRaftCluste
   void runTestNoChangeRequest(CLUSTER cluster) throws Exception {
     final RaftServerImpl leader = RaftTestUtil.waitForLeader(cluster);
     try(final RaftClient client = cluster.createClient(leader.getId())) {
-      client.send(new SimpleMessage("m"));
+      client.io().send(new SimpleMessage("m"));
 
       final RaftLog leaderLog = leader.getState().getLog();
       final long committedIndex = leaderLog.getLastCommittedIndex();

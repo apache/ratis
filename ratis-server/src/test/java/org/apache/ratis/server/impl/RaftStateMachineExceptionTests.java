@@ -87,7 +87,7 @@ public abstract class RaftStateMachineExceptionTests<CLUSTER extends MiniRaftClu
     RaftPeerId leaderId = RaftTestUtil.waitForLeader(cluster).getId();
 
     try(final RaftClient client = cluster.createClient(leaderId)) {
-      client.send(new RaftTestUtil.SimpleMessage("m"));
+      client.io().send(new RaftTestUtil.SimpleMessage("m"));
       fail("Exception expected");
     } catch (StateMachineException e) {
       e.printStackTrace();

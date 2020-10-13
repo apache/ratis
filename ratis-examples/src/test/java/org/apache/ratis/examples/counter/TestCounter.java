@@ -47,21 +47,21 @@ public class TestCounter extends ParameterizedBaseTest {
     setAndStart(cluster);
     try (final RaftClient client = cluster.createClient()) {
       for (int i = 0; i < 10; i++) {
-        client.send(Message.valueOf("INCREMENT"));
+        client.io().send(Message.valueOf("INCREMENT"));
       }
-      RaftClientReply reply1 = client.sendReadOnly(Message.valueOf("GET"));
+      RaftClientReply reply1 = client.io().sendReadOnly(Message.valueOf("GET"));
       Assert.assertEquals("10",
           reply1.getMessage().getContent().toString(Charset.defaultCharset()));
       for (int i = 0; i < 10; i++) {
-        client.send(Message.valueOf("INCREMENT"));
+        client.io().send(Message.valueOf("INCREMENT"));
       }
-      RaftClientReply reply2 = client.sendReadOnly(Message.valueOf("GET"));
+      RaftClientReply reply2 = client.io().sendReadOnly(Message.valueOf("GET"));
       Assert.assertEquals("20",
           reply2.getMessage().getContent().toString(Charset.defaultCharset()));
       for (int i = 0; i < 10; i++) {
-        client.send(Message.valueOf("INCREMENT"));
+        client.io().send(Message.valueOf("INCREMENT"));
       }
-      RaftClientReply reply3 = client.sendReadOnly(Message.valueOf("GET"));
+      RaftClientReply reply3 = client.io().sendReadOnly(Message.valueOf("GET"));
       Assert.assertEquals("30",
           reply3.getMessage().getContent().toString(Charset.defaultCharset()));
     }

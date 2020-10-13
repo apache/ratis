@@ -62,7 +62,7 @@ public final class CounterClient {
     System.out.printf("Sending %d increment command...\n", increment);
     for (int i = 0; i < increment; i++) {
       executorService.submit(() ->
-          raftClient.send(Message.valueOf("INCREMENT")));
+          raftClient.io().send(Message.valueOf("INCREMENT")));
     }
 
     //shutdown the executor service and wait until they finish their work
@@ -70,7 +70,7 @@ public final class CounterClient {
     executorService.awaitTermination(increment * 500L, TimeUnit.MILLISECONDS);
 
     //send GET command and print the response
-    RaftClientReply count = raftClient.sendReadOnly(Message.valueOf("GET"));
+    RaftClientReply count = raftClient.io().sendReadOnly(Message.valueOf("GET"));
     String response = count.getMessage().getContent().toString(Charset.defaultCharset());
     System.out.println(response);
   }

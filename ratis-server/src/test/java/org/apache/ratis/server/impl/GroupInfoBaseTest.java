@@ -121,7 +121,7 @@ public abstract class GroupInfoBaseTest<CLUSTER extends MiniRaftCluster>
     RaftClientReply reply = null;
     try(final RaftClient client = cluster.createClient()) {
       for(int i = 0; i < n; i++) {
-        reply = client.send(Message.valueOf("m" + i));
+        reply = client.io().send(Message.valueOf("m" + i));
       }
     }
     return reply;

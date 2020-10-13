@@ -99,7 +99,7 @@ public abstract class RaftAsyncExceptionTests<CLUSTER extends MiniRaftCluster>
   private void runTestTimeoutException(CLUSTER cluster) throws Exception {
     // send a message to make sure the cluster is working
     try(RaftClient client = cluster.createClient()) {
-      final RaftClientReply reply = client.send(new SimpleMessage("m0"));
+      final RaftClientReply reply = client.io().send(new SimpleMessage("m0"));
       Assert.assertTrue(reply.isSuccess());
 
       RaftClientConfigKeys.Rpc.setRequestTimeout(properties.get(), ONE_SECOND);

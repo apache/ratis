@@ -270,7 +270,7 @@ public class MetaStateMachine extends BaseStateMachine {
             });
             try (RaftClient client = RaftClient.newBuilder().setRaftGroup(currentGroup)
                 .setClientId(ClientId.randomId()).setProperties(properties).build()){
-                client.send(() -> MetaServiceProtos.MetaSMRequestProto.newBuilder()
+                client.io().send(() -> MetaServiceProtos.MetaSMRequestProto.newBuilder()
                         .setUnregisterRequest(
                                 LogServiceUnregisterLogRequestProto.newBuilder()
                                         .setLogname(LogServiceProtoUtil.toLogNameProto(logName)))
@@ -352,7 +352,7 @@ public class MetaStateMachine extends BaseStateMachine {
                 }
                 try (RaftClient client = RaftClient.newBuilder().setRaftGroup(currentGroup)
                     .setClientId(ClientId.randomId()).setProperties(properties).build()){
-                    client.send(() -> MetaServiceProtos.MetaSMRequestProto.newBuilder()
+                    client.io().send(() -> MetaServiceProtos.MetaSMRequestProto.newBuilder()
                             .setRegisterRequest(LogServiceRegisterLogRequestProto.newBuilder()
                                     .setLogname(LogServiceProtoUtil.toLogNameProto(name))
                                     .setRaftGroup(MetaServiceProtoUtil
@@ -451,7 +451,7 @@ public class MetaStateMachine extends BaseStateMachine {
                                         LOG.warn(String.format("Peer %s in the group %s went down." +
                                                         " Hence closing the log %s serve by the group.",
                                                 raftPeer.toString(), group.toString(), logName.toString()));
-                                        RaftClientReply reply = client.send(
+                                        RaftClientReply reply = client.io().send(
                                                 () -> LogServiceProtoUtil.
                                                         toChangeStateRequestProto(logName, LogStream.State.CLOSED, true)
                                                         .toByteString());

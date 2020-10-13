@@ -93,7 +93,7 @@ public class LogServiceClient implements AutoCloseable {
      * @throws IOException
      */
     public LogStream createLog(LogName logName) throws IOException {
-        RaftClientReply reply = client.sendReadOnly(
+        RaftClientReply reply = client.io().sendReadOnly(
             () -> MetaServiceProtoUtil.toCreateLogRequestProto(logName).toByteString());
         CreateLogReplyProto message =
             CreateLogReplyProto.parseFrom(reply.getMessage().getContent());
@@ -138,7 +138,7 @@ public class LogServiceClient implements AutoCloseable {
 
     public List<ArchivalInfo> getExportStatus(LogName logName) throws IOException {
         try (RaftClient client = getRaftClient(getLogInfo(logName))) {
-            RaftClientReply exportInfoReply = client.sendReadOnly(
+            RaftClientReply exportInfoReply = client.io().sendReadOnly(
                 () -> LogServiceProtoUtil.toExportInfoRequestProto(logName).toByteString());
             LogServiceProtos.GetExportInfoReplyProto message =
                 LogServiceProtos.GetExportInfoReplyProto
@@ -153,7 +153,7 @@ public class LogServiceClient implements AutoCloseable {
     }
 
     public void deleteLog(LogName logName) throws IOException {
-        RaftClientReply reply = client.sendReadOnly
+        RaftClientReply reply = client.io().sendReadOnly
                 (() -> MetaServiceProtoUtil.toDeleteLogRequestProto(logName).toByteString());
         DeleteLogReplyProto message = DeleteLogReplyProto.parseFrom(reply.getMessage().getContent());
         if(message.hasException()) {
@@ -167,7 +167,7 @@ public class LogServiceClient implements AutoCloseable {
      * @throws IOException
      */
     public List<LogInfo> listLogs() throws IOException {
-        RaftClientReply reply = client.sendReadOnly
+        RaftClientReply reply = client.io().sendReadOnly
                 (() -> MetaServiceProtoUtil.toListLogRequestProto().toByteString());
         ListLogsReplyProto message = ListLogsReplyProto.parseFrom(reply.getMessage().getContent());
         List<LogInfoProto> infoProtos = message.getLogsList();
@@ -197,7 +197,7 @@ public class LogServiceClient implements AutoCloseable {
     }
 
     private LogInfo getLogInfo(LogName logName) throws IOException {
-        RaftClientReply reply = client.sendReadOnly(
+        RaftClientReply reply = client.io().sendReadOnly(
             () -> MetaServiceProtoUtil.toGetLogRequestProto(logName).toByteString());
         GetLogReplyProto message = GetLogReplyProto.parseFrom(reply.getMessage().getContent());
         if (message.hasException()) {
@@ -234,7 +234,8 @@ public class LogServiceClient implements AutoCloseable {
      */
     public void exportLog(LogName logName, String location, long recordId) throws IOException {
         try (RaftClient client = getRaftClient(getLogInfo(logName))) {
-            RaftClientReply archiveLogReply = client.sendReadOnly(() -> LogServiceProtoUtil
+            RaftClientReply archiveLogReply =
+                client.io().sendReadOnly(() -> LogServiceProtoUtil
                 .toArchiveLogRequestProto(logName, location, recordId,
                     location == null ? true : false, ArchivalInfo.ArchivalStatus.SUBMITTED)
                 .toByteString());
@@ -256,7 +257,7 @@ public class LogServiceClient implements AutoCloseable {
     // TODO this name sucks, confusion WRT the Java Closeable interface.
     public void closeLog(LogName name) throws IOException {
         try (RaftClient client = getRaftClient(getLogInfo(name))) {
-            RaftClientReply reply = client.send(
+            RaftClientReply reply = client.io().send(
                 () -> LogServiceProtoUtil.toChangeStateRequestProto(name, State.CLOSED)
                     .toByteString());
             LogServiceProtos.ChangeStateReplyProto message =

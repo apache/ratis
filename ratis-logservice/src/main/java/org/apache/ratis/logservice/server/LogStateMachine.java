@@ -722,7 +722,7 @@ public class LogStateMachine extends BaseStateMachine {
 
   private void sendArchiveLogrequestToNewLeader(long recordId, LogName logName, String location)
       throws IOException {
-    getClient().sendReadOnly(() -> LogServiceProtoUtil
+    getClient().io().sendReadOnly(() -> LogServiceProtoUtil
         .toArchiveLogRequestProto(logName, location, recordId, isArchivalRequest,
             ArchivalStatus.INTERRUPTED).toByteString());
   }
@@ -744,7 +744,7 @@ public class LogStateMachine extends BaseStateMachine {
   private void updateArchivingInfo(long recordId, LogName logName, String location,
       boolean isArchival, ArchivalStatus status)
       throws IOException {
-    RaftClientReply archiveLogReply = getClient().send(() -> LogServiceProtoUtil
+    RaftClientReply archiveLogReply = getClient().io().send(() -> LogServiceProtoUtil
         .toArchiveLogRequestProto(logName, location, recordId, isArchival, status).toByteString());
     LogServiceProtos.ArchiveLogReplyProto message=LogServiceProtos.ArchiveLogReplyProto
         .parseFrom(archiveLogReply.getMessage().getContent());
@@ -754,7 +754,7 @@ public class LogStateMachine extends BaseStateMachine {
   }
 
   private void sendChangeStateRequest(State st, boolean force) throws IOException {
-      getClient().send(
+      getClient().io().send(
           () -> LogServiceProtoUtil.toChangeStateRequestProto(LogName.of("Dummy"), st, force)
               .toByteString());
   }

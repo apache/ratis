@@ -56,7 +56,7 @@ public class Assign extends Client {
 
   @Override
   protected void operation(RaftClient client) throws IOException {
-    RaftClientReply send = client.send(
+    RaftClientReply send = client.io().send(
         new AssignmentMessage(new Variable(name), createExpression(value)));
     System.out.println("Success: " + send.isSuccess());
     System.out.println("Response: " + send.getMessage().getClass());

@@ -19,6 +19,7 @@ package org.apache.ratis.client;
 
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.api.AsyncApi;
+import org.apache.ratis.client.api.BlockingApi;
 import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.client.api.MessageStreamApi;
@@ -29,7 +30,6 @@ import org.apache.ratis.protocol.*;
 import org.apache.ratis.retry.RetryPolicies;
 import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.util.JavaUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,31 +60,15 @@ public interface RaftClient extends Closeable {
   /** @return the {@link MessageStreamApi}. */
   MessageStreamApi getMessageStreamApi();
 
+  /** @return the {@link BlockingApi}. */
+  BlockingApi io();
+
   /** @return the {@link DataStreamApi}. */
   default DataStreamApi getDataStreamApi() {
     // TODO RATIS-1090: Implements this once the streaming feature has become usable.
     throw new UnsupportedOperationException(
         JavaUtils.getCurrentStackTraceElement().getMethodName() + " is not yet supported.");
   }
-
-  /**
-   * Send the given message to the raft service.
-   * The message may change the state of the service.
-   * For readonly messages, use {@link #sendReadOnly(Message)} instead.
-   *
-   * @param message The request message.
-   * @return the reply.
-   */
-  RaftClientReply send(Message message) throws IOException;
-
-  /** Send the given readonly message to the raft service. */
-  RaftClientReply sendReadOnly(Message message) throws IOException;
-
-  /** Send the given stale-read message to the given server (not the raft service). */
-  RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server) throws IOException;
-
-  /** Watch the given index to satisfy the given replication level. */
-  RaftClientReply sendWatch(long index, ReplicationLevel replication) throws IOException;
 
   /** Send set configuration request to the raft service. */
   RaftClientReply setConfiguration(RaftPeer[] serversInNewConf) throws IOException;

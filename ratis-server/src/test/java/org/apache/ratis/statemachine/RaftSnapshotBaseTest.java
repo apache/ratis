@@ -145,7 +145,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
     int i = 0;
     try(final RaftClient client = cluster.createClient(leaderId)) {
       for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-        RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+        RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
         Assert.assertTrue(reply.isSuccess());
       }
     }
@@ -192,7 +192,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
       try(final RaftClient client = cluster.createClient(leaderId)) {
         for (; i < SNAPSHOT_TRIGGER_THRESHOLD * 2 - 1; i++) {
-          RaftClientReply reply = client.send(new SimpleMessage("m" + i));
+          RaftClientReply reply = client.io().send(new SimpleMessage("m" + i));
           Assert.assertTrue(reply.isSuccess());
         }
       }
@@ -227,7 +227,7 @@ public abstract class RaftSnapshotBaseTest extends BaseTest {
 
       // generate some more traffic
       try(final RaftClient client = cluster.createClient(cluster.getLeader().getId())) {
-        Assert.assertTrue(client.send(new SimpleMessage("m" + i)).isSuccess());
+        Assert.assertTrue(client.io().send(new SimpleMessage("m" + i)).isSuccess());
       }
 
       // add two more peers

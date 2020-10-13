@@ -63,7 +63,7 @@ public class TestLogAppenderWithGrpc
 
     // client and leader setup
     try (final RaftClient client = cluster.createClient(cluster.getGroup())) {
-      client.send(new RaftTestUtil.SimpleMessage("m"));
+      client.io().send(new RaftTestUtil.SimpleMessage("m"));
       RaftServerImpl leader = waitForLeader(cluster);
       long initialNextIndex = leader.getState().getNextIndex();
 
@@ -104,7 +104,7 @@ public class TestLogAppenderWithGrpc
     // Send some messages
     try(RaftClient client = cluster.createClient(leader.getId())) {
       for(int i = 0; i < 10; i++) {
-        final RaftClientReply reply = client.send(new RaftTestUtil.SimpleMessage("m" + ++messageCount));
+        final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + ++messageCount));
         Assert.assertTrue(reply.isSuccess());
       }
     }
@@ -121,7 +121,7 @@ public class TestLogAppenderWithGrpc
     // Send some more messages
     try(RaftClient client = cluster.createClient(leader.getId())) {
       for(int i = 0; i < 10; i++) {
-        final RaftClientReply reply = client.send(new RaftTestUtil.SimpleMessage("m" + ++messageCount));
+        final RaftClientReply reply = client.io().send(new RaftTestUtil.SimpleMessage("m" + ++messageCount));
         Assert.assertTrue(reply.isSuccess());
       }
     }

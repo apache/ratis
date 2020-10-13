@@ -91,7 +91,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
   }
 
   static void sendMessage(String message, RaftClient client) throws IOException {
-    final RaftClientReply reply = client.send(new SimpleMessage(message));
+    final RaftClientReply reply = client.io().send(new SimpleMessage(message));
     Assert.assertTrue(reply.isSuccess());
   }
 
@@ -149,11 +149,11 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     // Create client using another group
     try(RaftClient client = cluster.createClient(anotherGroup)) {
       testFailureCase("send(..) with client group being different from the server group",
-          () -> client.send(Message.EMPTY),
+          () -> client.io().send(Message.EMPTY),
           GroupMismatchException.class);
 
       testFailureCase("sendReadOnly(..) with client group being different from the server group",
-          () -> client.sendReadOnly(Message.EMPTY),
+          () -> client.io().sendReadOnly(Message.EMPTY),
           GroupMismatchException.class);
 
       testFailureCase("setConfiguration(..) with client group being different from the server group",
@@ -177,7 +177,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     try (RaftClient client = cluster.createClient()) {
       final RaftPeerId follower = cluster.getFollowers().iterator().next().getId();
       testFailureCase("sendStaleRead(..) with a large commit index",
-          () -> client.sendStaleRead(Message.EMPTY, 1_000_000_000L, follower),
+          () -> client.io().sendStaleRead(Message.EMPTY, 1_000_000_000L, follower),
           StateMachineException.class, StaleReadException.class);
     }
   }
@@ -194,7 +194,7 @@ public abstract class RaftExceptionBaseTest<CLUSTER extends MiniRaftCluster>
     SimpleMessage msg = new SimpleMessage(new String(bytes));
     try (RaftClient client = cluster.createClient(leaderId)) {
       testFailureCase("testLogAppenderBufferCapacity",
-          () -> client.send(msg),
+          () -> client.io().send(msg),
           StateMachineException.class, RaftLogIOException.class);
     }
   }

@@ -90,13 +90,13 @@ public abstract class StateMachineShutdownTests<CLUSTER extends MiniRaftCluster>
     cluster.getLeaderAndSendFirstMessage(true);
 
     try (final RaftClient client = cluster.createClient(leaderId)) {
-      client.send(new RaftTestUtil.SimpleMessage("message"));
-      RaftClientReply reply = client.send(
+      client.io().send(new RaftTestUtil.SimpleMessage("message"));
+      RaftClientReply reply = client.io().send(
               new RaftTestUtil.SimpleMessage("message2"));
 
       long logIndex = reply.getLogIndex();
       //Confirm that followers have committed
-      RaftClientReply watchReply = client.sendWatch(
+      RaftClientReply watchReply = client.io().watch(
               logIndex, RaftProtos.ReplicationLevel.ALL_COMMITTED);
       watchReply.getCommitInfos().forEach(
               val -> Assert.assertTrue(val.getCommitIndex() >= logIndex));

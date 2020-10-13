@@ -492,7 +492,7 @@ public abstract class MiniRaftCluster implements Closeable {
   public RaftServerImpl getLeaderAndSendFirstMessage(boolean ignoreException) throws IOException {
     final RaftServerImpl leader = getLeader();
     try(RaftClient client = createClient(leader.getId())) {
-      client.send(new RaftTestUtil.SimpleMessage("first msg to make leader ready"));
+      client.io().send(new RaftTestUtil.SimpleMessage("first msg to make leader ready"));
     } catch (IOException e) {
       if (!ignoreException) {
         throw e;

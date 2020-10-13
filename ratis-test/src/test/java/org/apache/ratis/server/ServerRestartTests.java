@@ -143,7 +143,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       for(int i = 0; i < messageCount.get(); i++) {
         if (i != truncatedMessageIndex) {
           final Message m = new SimpleMessage("m" + i);
-          final RaftClientReply reply = client.sendReadOnly(m);
+          final RaftClientReply reply = client.io().sendReadOnly(m);
           Assert.assertTrue(reply.isSuccess());
           LOG.info("query {}: {} {}", m, reply, LogEntryProto.parseFrom(reply.getMessage().getContent()));
         }
@@ -155,7 +155,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     try(final RaftClient client = cluster.createClient()) {
       // write some messages
       for(int i = 0; i < 10; i++) {
-        Assert.assertTrue(client.send(newMessage.get()).isSuccess());
+        Assert.assertTrue(client.io().send(newMessage.get()).isSuccess());
       }
     }
   }
@@ -239,7 +239,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
       final SimpleMessage m = messages[i];
       new Thread(() -> {
         try (final RaftClient client = cluster.createClient()) {
-          Assert.assertTrue(client.send(m).isSuccess());
+          Assert.assertTrue(client.io().send(m).isSuccess());
         } catch (IOException e) {
           throw new IllegalStateException("Failed to send " + m, e);
         }
@@ -356,11 +356,11 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     final SimpleMessage lastMessage = messages[messages.length - 1];
     try (final RaftClient client = cluster.createClient()) {
       for (SimpleMessage m : messages) {
-        Assert.assertTrue(client.send(m).isSuccess());
+        Assert.assertTrue(client.io().send(m).isSuccess());
       }
 
       // assert that the last message exists
-      Assert.assertTrue(client.sendReadOnly(lastMessage).isSuccess());
+      Assert.assertTrue(client.io().sendReadOnly(lastMessage).isSuccess());
     }
 
     final RaftLog log = leader.getState().getLog();
@@ -382,7 +382,7 @@ public abstract class ServerRestartTests<CLUSTER extends MiniRaftCluster>
     cluster.restartServer(id, false);
     testFailureCase("last-entry-not-found", () -> {
       try (final RaftClient client = cluster.createClient()) {
-        client.sendReadOnly(lastMessage);
+        client.io().sendReadOnly(lastMessage);
       }
     }, StateMachineException.class, IndexOutOfBoundsException.class);
   }

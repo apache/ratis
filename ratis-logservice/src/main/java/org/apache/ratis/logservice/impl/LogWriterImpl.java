@@ -67,7 +67,7 @@ public class LogWriterImpl implements LogWriter {
   @Override
   public List<Long> write(List<ByteBuffer> list) throws IOException {
     try {
-      RaftClientReply reply = raftClient.send(
+      RaftClientReply reply = raftClient.io().send(
           Message.valueOf(LogServiceProtoUtil.toAppendBBEntryLogRequestProto(parent.getName(), list).toByteString()));
       if (reply.getException() != null) {
         throw new IOException(reply.getException());
@@ -89,7 +89,7 @@ public class LogWriterImpl implements LogWriter {
  @Override
  public long sync() throws IOException {
      try {
-       RaftClientReply reply = raftClient.send(Message
+       RaftClientReply reply = raftClient.io().send(Message
            .valueOf(LogServiceProtoUtil.toSyncLogRequestProto(parent.getName()).toByteString()));
        if (reply.getException() != null) {
          throw new IOException(reply.getException());

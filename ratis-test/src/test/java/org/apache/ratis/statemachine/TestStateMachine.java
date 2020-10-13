@@ -144,7 +144,7 @@ public class TestStateMachine extends BaseTest implements MiniRaftClusterWithSim
     final RaftTestUtil.SimpleMessage[] messages = RaftTestUtil.SimpleMessage.create(numTrx);
     try(final RaftClient client = cluster.createClient()) {
       for (RaftTestUtil.SimpleMessage message : messages) {
-        client.send(message);
+        client.io().send(message);
       }
     }
 

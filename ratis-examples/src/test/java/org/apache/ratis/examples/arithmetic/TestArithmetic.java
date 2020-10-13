@@ -153,7 +153,7 @@ public class TestArithmetic extends ParameterizedBaseTest {
   }
 
   static Expression assign(RaftClient client, Variable x, Expression e, Double expected) throws IOException {
-    final RaftClientReply r = client.send(x.assign(e));
+    final RaftClientReply r = client.io().send(x.assign(e));
     return assertRaftClientReply(r, expected);
   }
 

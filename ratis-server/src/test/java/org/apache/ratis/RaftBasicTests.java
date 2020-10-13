@@ -147,7 +147,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
             }
           });
         } else {
-          final RaftClientReply reply = client.send(message);
+          final RaftClientReply reply = client.io().send(message);
           Assert.assertTrue(reply.isSuccess());
         }
       }
@@ -288,7 +288,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
         for (int i = 0; i < messages.length; i++) {
           if (!useAsync) {
             final RaftClientReply reply =
-                client.send(messages[step.getAndIncrement()]);
+                client.io().send(messages[step.getAndIncrement()]);
             Assert.assertTrue(reply.isSuccess());
           } else {
             final CompletableFuture<RaftClientReply> replyFuture =
@@ -436,7 +436,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
         CompletableFuture<RaftClientReply> replyFuture = client.async().send(new SimpleMessage("abc"));
         replyFuture.get();
       } else {
-        client.send(new SimpleMessage("abc"));
+        client.io().send(new SimpleMessage("abc"));
       }
       // Eventually the request would be accepted by the server
       // when the retry cache entry is invalidated.
@@ -467,7 +467,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
         CompletableFuture<RaftClientReply> replyFuture = client.async().send(new SimpleMessage("abc"));
         replyFuture.get();
       } else {
-        client.send(new SimpleMessage("abc"));
+        client.io().send(new SimpleMessage("abc"));
       }
 
       long appliedIndexAfter = (Long) appliedIndexGauge.getValue();
