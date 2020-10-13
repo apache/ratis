@@ -48,7 +48,9 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   private DataStreamClientRpc dataStreamClientRpc;
   private OrderedStreamAsync orderedStreamAsync;
-  private final ClientId clientId;
+  // TODO Similar to RaftClientImpl, pass ClientId and RaftGroupId/RaftGroup in constructor.
+  private final ClientId clientId = ClientId.randomId();
+  private final RaftGroupId groupId =  RaftGroupId.randomId();
   private RaftPeer raftServer;
   private RaftProperties properties;
   private Parameters parameters;
