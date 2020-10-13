@@ -37,12 +37,30 @@ public interface BlockingApi {
    */
   RaftClientReply send(Message message) throws IOException;
 
-  /** Send the given readonly message to the raft service. */
+  /**
+   * Send the given readonly message to the raft service.
+   *
+   * @param message The request message.
+   * @return the reply.
+   */
   RaftClientReply sendReadOnly(Message message) throws IOException;
 
-  /** Send the given stale-read message to the given server (not the raft service). */
+  /**
+   * Send the given stale-read message to the given server (not the raft service).
+   *
+   * @param message The request message.
+   * @param minIndex The minimum log index that the server log must have already committed.
+   * @param server The target server
+   * @return the reply.
+   */
   RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server) throws IOException;
 
-  /** Watch the given index to satisfy the given replication level. */
+  /**
+   * Watch the given index to satisfy the given replication level.
+   *
+   * @param index The log index to be watched.
+   * @param replication The replication level required.
+   * @return the reply.
+   */
   RaftClientReply watch(long index, ReplicationLevel replication) throws IOException;
 }
