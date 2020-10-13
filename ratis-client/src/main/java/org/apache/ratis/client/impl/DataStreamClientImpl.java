@@ -75,7 +75,8 @@ public class DataStreamClientImpl implements DataStreamClient {
   public class DataStreamOutputImpl implements DataStreamOutput {
     private long streamId = 0;
     private long messageId = 0;
-    private RaftClientRequest request;
+    private final RaftClientRequest header;
+    private final CompletableFuture<DataStreamReply> headerFuture;
 
     public DataStreamOutputImpl(long id){
       this.streamId = id;
