@@ -79,6 +79,10 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     public DataStreamOutputImpl(long id){
       this.streamId = id;
+      this.header = new RaftClientRequest(clientId, raftServer.getId(), groupId, RaftClientImpl.nextCallId(),
+          RaftClientRequest.writeRequestType());
+      this.headerFuture = orderedStreamAsync.sendRequest(streamId, messageId,
+          ClientProtoUtils.toRaftClientRequestProto(header).toByteString().asReadOnlyByteBuffer());
     }
 
     // send to the attached dataStreamClientRpc
