@@ -25,6 +25,9 @@ import java.util.concurrent.CompletableFuture;
 
 /** An asynchronous output stream supporting zero buffer copying. */
 public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
+  /** Create a RaftClientRequest and send out it asynchronously */
+  CompletableFuture<DataStreamReply> streamRequestAsync();
+
   /** Send out the data in the buffer asynchronously */
-  CompletableFuture<DataStreamReply> streamAsync(ByteBuffer buf);
+  CompletableFuture<DataStreamReply> streamDataAsync(ByteBuffer buf);
 }

@@ -48,6 +48,14 @@ public class RaftClientRequest extends RaftClientMessage {
         .build());
   }
 
+  public static Type dataStreamRequestType(long streamId, long messageId, boolean endOfRequest) {
+    return new Type(DataStreamRequestTypeProto.newBuilder()
+        .setStreamId(streamId)
+        .setMessageId(messageId)
+        .setEndOfRequest(endOfRequest)
+        .build());
+  }
+
   public static Type readRequestType() {
     return DEFAULT_READ;
   }
@@ -87,6 +95,10 @@ public class RaftClientRequest extends RaftClientMessage {
       return streamRequestType(stream.getStreamId(), stream.getMessageId(), stream.getEndOfRequest());
     }
 
+    public static Type valueOf(DataStreamRequestTypeProto stream) {
+      return dataStreamRequestType(stream.getStreamId(), stream.getMessageId(), stream.getEndOfRequest());
+    }
+
     /**
      * The type case of the proto.
      * Only the corresponding proto (must be non-null) is used.
@@ -106,6 +118,10 @@ public class RaftClientRequest extends RaftClientMessage {
 
     private Type(StreamRequestTypeProto stream) {
       this(STREAM, stream);
+    }
+
+    private Type(DataStreamRequestTypeProto stream) {
+      this(DATASTREAM, stream);
     }
 
     private Type(ReadRequestTypeProto read) {
@@ -136,6 +152,11 @@ public class RaftClientRequest extends RaftClientMessage {
     public StreamRequestTypeProto getStream() {
       Preconditions.assertTrue(is(STREAM), () -> "proto = " + proto);
       return (StreamRequestTypeProto)proto;
+    }
+
+    public DataStreamRequestTypeProto getDataStream() {
+      Preconditions.assertTrue(is(DATASTREAM), () -> "proto = " + proto);
+      return (DataStreamRequestTypeProto)proto;
     }
 
     public ReadRequestTypeProto getRead() {

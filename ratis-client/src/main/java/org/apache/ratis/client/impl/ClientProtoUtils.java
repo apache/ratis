@@ -89,6 +89,8 @@ public interface ClientProtoUtils {
         return RaftClientRequest.Type.valueOf(p.getWrite());
       case STREAM:
         return RaftClientRequest.Type.valueOf(p.getStream());
+      case DATASTREAM:
+        return RaftClientRequest.Type.valueOf(p.getDataStream());
       case READ:
         return RaftClientRequest.Type.valueOf(p.getRead());
       case STALEREAD:
@@ -129,6 +131,9 @@ public interface ClientProtoUtils {
         break;
       case STREAM:
         b.setStream(type.getStream());
+        break;
+      case DATASTREAM:
+        b.setDataStream(type.getDataStream());
         break;
       case READ:
         b.setRead(type.getRead());

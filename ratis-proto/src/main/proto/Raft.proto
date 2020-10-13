@@ -253,6 +253,12 @@ message StreamRequestTypeProto {
   bool endOfRequest = 3;// Is this the end-of-request?
 }
 
+message DataStreamRequestTypeProto {
+  uint64 streamId = 1;  // the id of this stream
+  uint64 messageId = 2; // the message id within a particular stream.
+  bool endOfRequest = 3;// Is this the end-of-request?
+}
+
 message ReadRequestTypeProto {
 }
 
@@ -276,6 +282,7 @@ message RaftClientRequestProto {
     StaleReadRequestTypeProto staleRead = 5;
     WatchRequestTypeProto watch = 6;
     StreamRequestTypeProto stream = 7;
+    DataStreamRequestTypeProto dataStream = 8;
   }
 }
 

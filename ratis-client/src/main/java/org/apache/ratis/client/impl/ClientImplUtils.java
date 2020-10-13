@@ -25,10 +25,19 @@ import org.apache.ratis.retry.RetryPolicy;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.RaftPeerId;
 
+import java.nio.ByteBuffer;
+
 /** Client utilities for internal use. */
 public final class ClientImplUtils {
+  private static final ByteBuffer REPLY_OK_IN_BYTE_BUFFER = ByteBuffer.wrap("OK".getBytes());
+
   private ClientImplUtils() {
 
+  }
+
+  /** @return "OK" reply store in byte buffer. */
+  public static ByteBuffer getReplyOkInByteBuffer() {
+    return REPLY_OK_IN_BYTE_BUFFER;
   }
 
   public static RaftClient newRaftClient(ClientId clientId, RaftGroup group,

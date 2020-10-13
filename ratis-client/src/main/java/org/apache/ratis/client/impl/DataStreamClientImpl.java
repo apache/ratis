@@ -25,8 +25,12 @@ import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +48,7 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   private DataStreamClientRpc dataStreamClientRpc;
   private OrderedStreamAsync orderedStreamAsync;
+  private final ClientId clientId;
   private RaftPeer raftServer;
   private RaftProperties properties;
   private Parameters parameters;
@@ -52,6 +57,7 @@ public class DataStreamClientImpl implements DataStreamClient {
   public DataStreamClientImpl(RaftPeer raftServer,
                               RaftProperties properties,
                               Parameters parameters) {
+    this.clientId = ClientId.randomId();
     this.raftServer = Objects.requireNonNull(raftServer,
                                           "peer == null");
     this.properties = properties;
@@ -64,9 +70,10 @@ public class DataStreamClientImpl implements DataStreamClient {
     this.orderedStreamAsync = new OrderedStreamAsync(dataStreamClientRpc, properties);
   }
 
-  class DataStreamOutputImpl implements DataStreamOutput {
+  public class DataStreamOutputImpl implements DataStreamOutput {
     private long streamId = 0;
     private long messageId = 0;
+    private RaftClientRequest request;
 
     public DataStreamOutputImpl(long id){
       this.streamId = id;
@@ -74,7 +81,18 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     // send to the attached dataStreamClientRpc
     @Override
-    public CompletableFuture<DataStreamReply> streamAsync(ByteBuffer buf) {
+    public CompletableFuture<DataStreamReply> streamRequestAsync() {
+      messageId++;
+      RaftClientRequest.Type type = RaftClientRequest.dataStreamRequestType(streamId, messageId, false);
+      request = new RaftClientRequest(
+          clientId, raftServer.getId(), RaftGroupId.randomId(), RaftClientImpl.nextCallId(), type);
+      ByteBuffer buf = ClientProtoUtils.toRaftClientRequestProto(request).toByteString().asReadOnlyByteBuffer();
+      return orderedStreamAsync.sendRequest(streamId, messageId, buf);
+    }
+
+    // send to the attached dataStreamClientRpc
+    @Override
+    public CompletableFuture<DataStreamReply> streamDataAsync(ByteBuffer buf) {
       messageId++;
       return orderedStreamAsync.sendRequest(streamId, messageId, buf);
     }
@@ -83,6 +101,11 @@ public class DataStreamClientImpl implements DataStreamClient {
     @Override
     public CompletableFuture<DataStreamReply> closeAsync() {
       return null;
+    }
+
+    @VisibleForTesting
+    public RaftClientRequest getRequest() {
+      return request;
     }
   }
 
