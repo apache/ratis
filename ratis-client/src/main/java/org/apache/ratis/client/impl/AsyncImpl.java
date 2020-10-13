@@ -34,19 +34,24 @@ class AsyncImpl implements AsyncApi {
     this.client = Objects.requireNonNull(client, "client == null");
   }
 
+  CompletableFuture<RaftClientReply> send(
+      RaftClientRequest.Type type, Message message, RaftPeerId server) {
+    return client.getOrderedAsync().send(type, message, server);
+  }
+
   @Override
   public CompletableFuture<RaftClientReply> send(Message message) {
-    return client.sendAsync(RaftClientRequest.writeRequestType(), message, null);
+    return send(RaftClientRequest.writeRequestType(), message, null);
   }
 
   @Override
   public CompletableFuture<RaftClientReply> sendReadOnly(Message message) {
-    return client.sendAsync(RaftClientRequest.readRequestType(), message, null);
+    return send(RaftClientRequest.readRequestType(), message, null);
   }
 
   @Override
   public CompletableFuture<RaftClientReply> sendStaleRead(Message message, long minIndex, RaftPeerId server) {
-    return client.sendAsync(RaftClientRequest.staleReadRequestType(minIndex), message, server);
+    return send(RaftClientRequest.staleReadRequestType(minIndex), message, server);
   }
 
   @Override

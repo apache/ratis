@@ -47,7 +47,7 @@ class GroupManagementImpl implements GroupManagementApi {
 
     final long callId = RaftClientImpl.nextCallId();
     client.addServers(newGroup.getPeers().stream());
-    return client.sendRequest(GroupManagementRequest.newAdd(client.getId(), server, callId, newGroup));
+    return client.io().sendRequest(GroupManagementRequest.newAdd(client.getId(), server, callId, newGroup));
   }
 
   @Override
@@ -56,14 +56,14 @@ class GroupManagementImpl implements GroupManagementApi {
     Objects.requireNonNull(groupId, "groupId == null");
 
     final long callId = RaftClientImpl.nextCallId();
-    return client.sendRequest(GroupManagementRequest.newRemove(client.getId(), server,
+    return client.io().sendRequest(GroupManagementRequest.newRemove(client.getId(), server,
         callId, groupId, deleteDirectory, renameDirectory));
   }
 
   @Override
   public GroupListReply list() throws IOException {
     final long callId = RaftClientImpl.nextCallId();
-    final RaftClientReply reply = client.sendRequest(
+    final RaftClientReply reply = client.io().sendRequest(
         new GroupListRequest(client.getId(), server, client.getGroupId(), callId));
     Preconditions.assertTrue(reply instanceof GroupListReply, () -> "Unexpected reply: " + reply);
     return (GroupListReply)reply;
@@ -75,7 +75,7 @@ class GroupManagementImpl implements GroupManagementApi {
       groupId = client.getGroupId();
     }
     final long callId = RaftClientImpl.nextCallId();
-    final RaftClientReply reply = client.sendRequest(
+    final RaftClientReply reply = client.io().sendRequest(
         new GroupInfoRequest(client.getId(), server, groupId, callId));
     Preconditions.assertTrue(reply instanceof GroupInfoReply, () -> "Unexpected reply: " + reply);
     return (GroupInfoReply)reply;
