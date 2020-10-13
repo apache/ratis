@@ -32,7 +32,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
-/** An {@link OutputStream} implementation using {@link RaftClient#sendAsync(Message)} API. */
+/** An {@link OutputStream} implementation using {@link org.apache.ratis.client.api.AsyncApi#send(Message)} API. */
 public class RaftOutputStream extends OutputStream {
   private final Supplier<RaftClient> client;
   private final AtomicBoolean closed = new AtomicBoolean();
@@ -87,7 +87,7 @@ public class RaftOutputStream extends OutputStream {
       return;
     }
 
-    final CompletableFuture<Long> f = getClient().sendAsync(
+    final CompletableFuture<Long> f = getClient().async().send(
         Message.valueOf(ProtoUtils.toByteString(buffer, 0, byteCount))
     ).thenApply(reply -> RaftClientImpl.handleRaftException(reply, CompletionException::new)
     ).thenApply(reply -> reply != null && reply.isSuccess()? pos: null);

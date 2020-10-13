@@ -73,7 +73,7 @@ public class TestLogAppenderWithGrpc
       }
       Collection<CompletableFuture<RaftClientReply>> futures = new ArrayList<>(maxAppends * 2);
       for (int i = 0; i < maxAppends * 2; i++) {
-        futures.add(client.sendAsync(new RaftTestUtil.SimpleMessage("m")));
+        futures.add(client.async().send(new RaftTestUtil.SimpleMessage("m")));
       }
 
       FIVE_SECONDS.sleep();

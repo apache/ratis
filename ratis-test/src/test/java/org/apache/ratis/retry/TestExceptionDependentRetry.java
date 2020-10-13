@@ -185,12 +185,12 @@ public class TestExceptionDependentRetry implements MiniRaftClusterWithGrpc.Fact
 
       // create a client with the exception dependent policy
       try (final RaftClient client = cluster.createClient(builder.build())) {
-        client.sendAsync(new RaftTestUtil.SimpleMessage("1")).get();
+        client.async().send(new RaftTestUtil.SimpleMessage("1")).get();
 
         leader = cluster.getLeader();
         ((SimpleStateMachine4Testing) leader.getStateMachine()).blockWriteStateMachineData();
 
-        client.sendAsync(new RaftTestUtil.SimpleMessage("2")).get();
+        client.async().send(new RaftTestUtil.SimpleMessage("2")).get();
       }
       Assert.fail("Test should have failed.");
     } catch (ExecutionException e) {

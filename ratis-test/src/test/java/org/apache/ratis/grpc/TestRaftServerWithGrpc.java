@@ -149,7 +149,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
     try (final RaftClient client = cluster.createClient()) {
       // send a request to make sure leader is ready
-      final CompletableFuture<RaftClientReply> f = client.sendAsync(new SimpleMessage("testing"));
+      final CompletableFuture<RaftClientReply> f = client.async().send(new SimpleMessage("testing"));
       Assert.assertTrue(f.get().isSuccess());
     }
 
@@ -211,7 +211,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
 
     try (RaftClient client = cluster.createClient()) {
       // send a request to make sure leader is ready
-      final CompletableFuture< RaftClientReply > f = client.sendAsync(new SimpleMessage("testing"));
+      final CompletableFuture< RaftClientReply > f = client.async().send(new SimpleMessage("testing"));
       Assert.assertTrue(f.get().isSuccess());
     }
 
@@ -226,7 +226,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     try {
       RaftClient client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
       clients.add(client);
-      client.sendAsync(new SimpleMessage(message));
+      client.async().send(new SimpleMessage(message));
 
 
       final SortedMap<String, Gauge> gaugeMap =
@@ -239,7 +239,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       for (int i = 0; i < 10; i++) {
         client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
         clients.add(client);
-        client.sendAsync(new SimpleMessage(message));
+        client.async().send(new SimpleMessage(message));
       }
 
       // Because we have passed 11 requests, and the element queue size is 10.
@@ -252,7 +252,7 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
       // and byte size counter limit will be hit.
 
       client = cluster.createClient(cluster.getLeader().getId(), RetryPolicies.noRetry());
-      client.sendAsync(new SimpleMessage(RandomStringUtils.random(120, true, false)));
+      client.async().send(new SimpleMessage(RandomStringUtils.random(120, true, false)));
       clients.add(client);
 
       RaftTestUtil.waitFor(() -> cluster.getLeader().getRaftServerMetrics()
@@ -274,24 +274,24 @@ public class TestRaftServerWithGrpc extends BaseTest implements MiniRaftClusterW
     RaftServerMetrics raftServerMetrics = leader.getRaftServerMetrics();
 
     try (final RaftClient client = cluster.createClient()) {
-      final CompletableFuture<RaftClientReply> f1 = client.sendAsync(new SimpleMessage("testing"));
+      final CompletableFuture<RaftClientReply> f1 = client.async().send(new SimpleMessage("testing"));
       Assert.assertTrue(f1.get().isSuccess());
       Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_WRITE_REQUEST).getCount() > 0);
 
-      final CompletableFuture<RaftClientReply> f2 = client.sendReadOnlyAsync(new SimpleMessage("testing"));
+      final CompletableFuture<RaftClientReply> f2 = client.async().sendReadOnly(new SimpleMessage("testing"));
       Assert.assertTrue(f2.get().isSuccess());
       Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_READ_REQUEST).getCount() > 0);
 
-      final CompletableFuture<RaftClientReply> f3 = client.sendStaleReadAsync(new SimpleMessage("testing"),
+      final CompletableFuture<RaftClientReply> f3 = client.async().sendStaleRead(new SimpleMessage("testing"),
           0, leader.getId());
       Assert.assertTrue(f3.get().isSuccess());
       Assert.assertTrue(raftServerMetrics.getTimer(RAFT_CLIENT_STALE_READ_REQUEST).getCount() > 0);
 
-      final CompletableFuture<RaftClientReply> f4 = client.sendWatchAsync(0, RaftProtos.ReplicationLevel.ALL);
+      final CompletableFuture<RaftClientReply> f4 = client.async().watch(0, RaftProtos.ReplicationLevel.ALL);
       Assert.assertTrue(f4.get().isSuccess());
       Assert.assertTrue(raftServerMetrics.getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, "-ALL")).getCount() > 0);
 
-      final CompletableFuture<RaftClientReply> f5 = client.sendWatchAsync(0, RaftProtos.ReplicationLevel.MAJORITY);
+      final CompletableFuture<RaftClientReply> f5 = client.async().watch(0, RaftProtos.ReplicationLevel.MAJORITY);
       Assert.assertTrue(f5.get().isSuccess());
       Assert.assertTrue(raftServerMetrics.getTimer(String.format(RAFT_CLIENT_WATCH_REQUEST, "")).getCount() > 0);
     }

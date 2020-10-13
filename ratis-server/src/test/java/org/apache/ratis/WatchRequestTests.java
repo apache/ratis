@@ -98,7 +98,8 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
       for(int i = 0; i < numMessages; i++) {
         final String message = "m" + i;
         log.info("SEND_REQUEST {}: message={}", i, message);
-        final CompletableFuture<RaftClientReply> replyFuture = writeClient.sendAsync(new RaftTestUtil.SimpleMessage(message));
+        final CompletableFuture<RaftClientReply> replyFuture =
+            writeClient.async().send(new RaftTestUtil.SimpleMessage(message));
         replies.add(replyFuture);
         final CompletableFuture<WatchReplies> watchFuture = new CompletableFuture<>();
         watches.add(watchFuture);
@@ -106,10 +107,10 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
           final long logIndex = reply.getLogIndex();
           log.info("SEND_WATCH: message={}, logIndex={}", message, logIndex);
           watchFuture.complete(new WatchReplies(logIndex,
-              writeClient.sendWatchAsync(logIndex, ReplicationLevel.MAJORITY),
-              writeClient.sendWatchAsync(logIndex, ReplicationLevel.ALL),
-              writeClient.sendWatchAsync(logIndex, ReplicationLevel.MAJORITY_COMMITTED),
-              writeClient.sendWatchAsync(logIndex, ReplicationLevel.ALL_COMMITTED),
+              writeClient.async().watch(logIndex, ReplicationLevel.MAJORITY),
+              writeClient.async().watch(logIndex, ReplicationLevel.ALL),
+              writeClient.async().watch(logIndex, ReplicationLevel.MAJORITY_COMMITTED),
+              writeClient.async().watch(logIndex, ReplicationLevel.ALL_COMMITTED),
               log));
         });
       }
@@ -122,11 +123,11 @@ public abstract class WatchRequestTests<CLUSTER extends MiniRaftCluster>
           cluster.createClient(RaftTestUtil.waitForLeader(cluster).getId(), policy)) {
 
         CompletableFuture<RaftClientReply> reply =
-            watchClient.sendAsync(new RaftTestUtil.SimpleMessage("message"));
+            watchClient.async().send(new RaftTestUtil.SimpleMessage("message"));
         long writeIndex = reply.get().getLogIndex();
         Assert.assertTrue(writeIndex > 0);
-        watchClient.sendWatchAsync(writeIndex, ReplicationLevel.MAJORITY_COMMITTED);
-        return watchClient.sendWatchAsync(logIndex, ReplicationLevel.MAJORITY);
+        watchClient.async().watch(writeIndex, ReplicationLevel.MAJORITY_COMMITTED);
+        return watchClient.async().watch(logIndex, ReplicationLevel.MAJORITY);
       }
 
     }

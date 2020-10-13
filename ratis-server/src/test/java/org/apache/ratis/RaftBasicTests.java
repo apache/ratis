@@ -138,7 +138,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
       for (SimpleMessage message : messages) {
         if (async) {
-          client.sendAsync(message).thenAcceptAsync(reply -> {
+          client.async().send(message).thenAcceptAsync(reply -> {
             if (!reply.isSuccess()) {
               f.completeExceptionally(
                   new AssertionError("Failed with reply " + reply));
@@ -292,7 +292,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
             Assert.assertTrue(reply.isSuccess());
           } else {
             final CompletableFuture<RaftClientReply> replyFuture =
-                client.sendAsync(messages[i]);
+                client.async().send(messages[i]);
             replyFuture.thenAcceptAsync(r -> {
               if (!r.isSuccess()) {
                 f.completeExceptionally(
@@ -433,7 +433,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       // Ideally the client request should timeout and the client should retry.
       // The retry is successful when the retry cache entry for the corresponding callId and clientId expires.
       if (async) {
-        CompletableFuture<RaftClientReply> replyFuture = client.sendAsync(new SimpleMessage("abc"));
+        CompletableFuture<RaftClientReply> replyFuture = client.async().send(new SimpleMessage("abc"));
         replyFuture.get();
       } else {
         client.send(new SimpleMessage("abc"));
@@ -464,7 +464,7 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
       checkFollowerCommitLagsLeader(cluster);
 
       if (async) {
-        CompletableFuture<RaftClientReply> replyFuture = client.sendAsync(new SimpleMessage("abc"));
+        CompletableFuture<RaftClientReply> replyFuture = client.async().send(new SimpleMessage("abc"));
         replyFuture.get();
       } else {
         client.send(new SimpleMessage("abc"));

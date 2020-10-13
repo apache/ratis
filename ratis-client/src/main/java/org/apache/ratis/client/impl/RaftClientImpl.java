@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.client.impl;
 
+import org.apache.ratis.client.api.AsyncApi;
 import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.client.retry.ClientRetryEvent;
 import org.apache.ratis.client.RaftClient;
@@ -186,26 +187,6 @@ public final class RaftClientImpl implements RaftClient {
     return streamApi.get();
   }
 
-  @Override
-  public CompletableFuture<RaftClientReply> sendAsync(Message message) {
-    return sendAsync(RaftClientRequest.writeRequestType(), message, null);
-  }
-
-  @Override
-  public CompletableFuture<RaftClientReply> sendReadOnlyAsync(Message message) {
-    return sendAsync(RaftClientRequest.readRequestType(), message, null);
-  }
-
-  @Override
-  public CompletableFuture<RaftClientReply> sendStaleReadAsync(Message message, long minIndex, RaftPeerId server) {
-    return sendAsync(RaftClientRequest.staleReadRequestType(minIndex), message, server);
-  }
-
-  @Override
-  public CompletableFuture<RaftClientReply> sendWatchAsync(long index, ReplicationLevel replication) {
-    return UnorderedAsync.send(RaftClientRequest.watchRequestType(index, replication), this);
-  }
-
   CompletableFuture<RaftClientReply> streamAsync(long streamId, long messageId, Message message, boolean endOfRequest) {
     return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, endOfRequest), message, null);
   }
@@ -214,7 +195,7 @@ public final class RaftClientImpl implements RaftClient {
     return sendAsync(RaftClientRequest.streamRequestType(streamId, messageId, true), null, null);
   }
 
-  private CompletableFuture<RaftClientReply> sendAsync(
+  CompletableFuture<RaftClientReply> sendAsync(
       RaftClientRequest.Type type, Message message, RaftPeerId server) {
     return getOrderedAsync().send(type, message, server);
   }
@@ -268,6 +249,11 @@ public final class RaftClientImpl implements RaftClient {
     addServers(Arrays.stream(peersInNewConf));
     return sendRequestWithRetry(() -> new SetConfigurationRequest(
         clientId, leaderId, groupId, callId, Arrays.asList(peersInNewConf)));
+  }
+
+  @Override
+  public AsyncApi async() {
+    return new AsyncImpl(this);
   }
 
   @Override

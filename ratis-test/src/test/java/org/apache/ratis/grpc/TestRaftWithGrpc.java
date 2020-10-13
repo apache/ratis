@@ -80,7 +80,7 @@ public class TestRaftWithGrpc
           .forEach(SimpleStateMachine4Testing::blockWriteStateMachineData);
 
       CompletableFuture<RaftClientReply>
-          replyFuture = client.sendAsync(new RaftTestUtil.SimpleMessage("abc"));
+          replyFuture = client.async().send(new RaftTestUtil.SimpleMessage("abc"));
       TimeDuration.valueOf(5 , TimeUnit.SECONDS).sleep();
       // replyFuture should not be completed until append request is unblocked.
       Assert.assertTrue(!replyFuture.isDone());

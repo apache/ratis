@@ -18,6 +18,7 @@
 package org.apache.ratis.client;
 
 import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.client.api.AsyncApi;
 import org.apache.ratis.client.api.DataStreamApi;
 import org.apache.ratis.client.api.GroupManagementApi;
 import org.apache.ratis.client.api.MessageStreamApi;
@@ -36,7 +37,6 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 
 /** A client who sends requests to a raft service. */
 public interface RaftClient extends Closeable {
@@ -54,6 +54,9 @@ public interface RaftClient extends Closeable {
   /** Get the {@link GroupManagementApi} for the given server. */
   GroupManagementApi getGroupManagementApi(RaftPeerId server);
 
+  /** Get the {@link AsyncApi}. */
+  AsyncApi async();
+
   /** @return the {@link MessageStreamApi}. */
   MessageStreamApi getMessageStreamApi();
 
@@ -63,25 +66,6 @@ public interface RaftClient extends Closeable {
     throw new UnsupportedOperationException(
         JavaUtils.getCurrentStackTraceElement().getMethodName() + " is not yet supported.");
   }
-
-  /**
-   * Async call to send the given message to the raft service.
-   * The message may change the state of the service.
-   * For readonly messages, use {@link #sendReadOnlyAsync(Message)} instead.
-   *
-   * @param message The request message.
-   * @return a future of the reply.
-   */
-  CompletableFuture<RaftClientReply> sendAsync(Message message);
-
-  /** Async call to send the given readonly message to the raft service. */
-  CompletableFuture<RaftClientReply> sendReadOnlyAsync(Message message);
-
-  /** Async call to send the given stale-read message to the given server (not the raft service). */
-  CompletableFuture<RaftClientReply> sendStaleReadAsync(Message message, long minIndex, RaftPeerId server);
-
-  /** Async call to watch the given index to satisfy the given replication level. */
-  CompletableFuture<RaftClientReply> sendWatchAsync(long index, ReplicationLevel replication);
 
   /**
    * Send the given message to the raft service.
