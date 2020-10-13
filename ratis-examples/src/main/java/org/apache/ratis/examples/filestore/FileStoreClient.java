@@ -95,11 +95,11 @@ public class FileStoreClient implements Closeable {
   }
 
   private ByteString send(ByteString request) throws IOException {
-    return send(request, client.getBlockingApi()::send);
+    return send(request, client.io()::send);
   }
 
   private ByteString sendReadOnly(ByteString request) throws IOException {
-    return send(request, client.getBlockingApi()::sendReadOnly);
+    return send(request, client.io()::sendReadOnly);
   }
 
   private CompletableFuture<ByteString> sendAsync(ByteString request) {

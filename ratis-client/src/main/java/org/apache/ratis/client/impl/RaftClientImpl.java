@@ -25,7 +25,6 @@ import org.apache.ratis.client.RaftClientRpc;
 import org.apache.ratis.client.api.MessageStreamApi;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto.TypeCase;
-import org.apache.ratis.proto.RaftProtos.ReplicationLevel;
 import org.apache.ratis.proto.RaftProtos.SlidingWindowEntry;
 import org.apache.ratis.protocol.*;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
@@ -241,8 +240,8 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public BlockingApiImpl getBlockingApi() {
-    return new BlockingApiImpl(this);
+  public BlockingImpl io() {
+    return new BlockingImpl(this);
   }
 
   void addServers(Stream<RaftPeer> peersInNewConf) {

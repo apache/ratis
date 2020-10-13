@@ -27,10 +27,10 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 
 /** Blocking api implementations. */
-class BlockingApiImpl implements BlockingApi {
+class BlockingImpl implements BlockingApi {
   private final RaftClientImpl client;
 
-  BlockingApiImpl(RaftClientImpl client) {
+  BlockingImpl(RaftClientImpl client) {
     this.client = Objects.requireNonNull(client, "client == null");
   }
 
@@ -51,7 +51,7 @@ class BlockingApiImpl implements BlockingApi {
   }
 
   @Override
-  public RaftClientReply sendWatch(long index, ReplicationLevel replication) throws IOException {
+  public RaftClientReply watch(long index, ReplicationLevel replication) throws IOException {
     return client.send(RaftClientRequest.watchRequestType(index, replication), null, null);
   }
 }

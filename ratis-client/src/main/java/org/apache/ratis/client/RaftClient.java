@@ -61,7 +61,7 @@ public interface RaftClient extends Closeable {
   MessageStreamApi getMessageStreamApi();
 
   /** @return the {@link BlockingApi}. */
-  BlockingApi getBlockingApi();
+  BlockingApi io();
 
   /** @return the {@link DataStreamApi}. */
   default DataStreamApi getDataStreamApi() {

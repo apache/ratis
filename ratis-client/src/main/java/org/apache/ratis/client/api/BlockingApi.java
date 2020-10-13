@@ -44,5 +44,5 @@ public interface BlockingApi {
   RaftClientReply sendStaleRead(Message message, long minIndex, RaftPeerId server) throws IOException;
 
   /** Watch the given index to satisfy the given replication level. */
-  RaftClientReply sendWatch(long index, ReplicationLevel replication) throws IOException;
+  RaftClientReply watch(long index, ReplicationLevel replication) throws IOException;
 }
