@@ -56,7 +56,7 @@ public class TestGrpcMessageMetrics extends BaseTest
     waitForLeader(cluster);
     try (final RaftClient client = cluster.createClient()) {
       CompletableFuture<RaftClientReply> replyFuture =
-          client.getAsyncApi().sendAsync(new RaftTestUtil.SimpleMessage("abc"));
+          client.async().send(new RaftTestUtil.SimpleMessage("abc"));
     }
     // Wait for commits to happen on leader
     JavaUtils.attempt(() -> assertMessageCount(cluster.getLeader()), 100, HUNDRED_MILLIS, cluster.getLeader().getId() + "-assertMessageCount", null);

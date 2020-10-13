@@ -55,7 +55,7 @@ public interface RaftClient extends Closeable {
   GroupManagementApi getGroupManagementApi(RaftPeerId server);
 
   /** Get the {@link AsyncApi}. */
-  AsyncApi getAsyncApi();
+  AsyncApi async();
 
   /** @return the {@link MessageStreamApi}. */
   MessageStreamApi getMessageStreamApi();

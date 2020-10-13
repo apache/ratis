@@ -252,8 +252,8 @@ public final class RaftClientImpl implements RaftClient {
   }
 
   @Override
-  public AsyncApi getAsyncApi() {
-    return new AsyncApiImpl(this);
+  public AsyncApi async() {
+    return new AsyncImpl(this);
   }
 
   @Override

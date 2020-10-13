@@ -27,30 +27,30 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeerId;
 
 /** Async api implementations. */
-class AsyncApiImpl implements AsyncApi {
+class AsyncImpl implements AsyncApi {
   private final RaftClientImpl client;
 
-  AsyncApiImpl(RaftClientImpl client) {
+  AsyncImpl(RaftClientImpl client) {
     this.client = Objects.requireNonNull(client, "client == null");
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> sendAsync(Message message) {
+  public CompletableFuture<RaftClientReply> send(Message message) {
     return client.sendAsync(RaftClientRequest.writeRequestType(), message, null);
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> sendReadOnlyAsync(Message message) {
+  public CompletableFuture<RaftClientReply> sendReadOnly(Message message) {
     return client.sendAsync(RaftClientRequest.readRequestType(), message, null);
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> sendStaleReadAsync(Message message, long minIndex, RaftPeerId server) {
+  public CompletableFuture<RaftClientReply> sendStaleRead(Message message, long minIndex, RaftPeerId server) {
     return client.sendAsync(RaftClientRequest.staleReadRequestType(minIndex), message, server);
   }
 
   @Override
-  public CompletableFuture<RaftClientReply> sendWatchAsync(long index, ReplicationLevel replication) {
+  public CompletableFuture<RaftClientReply> watch(long index, ReplicationLevel replication) {
     return UnorderedAsync.send(RaftClientRequest.watchRequestType(index, replication), client);
   }
 }

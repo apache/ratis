@@ -30,19 +30,19 @@ public interface AsyncApi {
   /**
    * Async call to send the given message to the raft service.
    * The message may change the state of the service.
-   * For readonly messages, use {@link #sendReadOnlyAsync(Message)} instead.
+   * For readonly messages, use {@link #sendReadOnly(Message)} instead.
    *
    * @param message The request message.
    * @return a future of the reply.
    */
-  CompletableFuture<RaftClientReply> sendAsync(Message message);
+  CompletableFuture<RaftClientReply> send(Message message);
 
   /** Async call to send the given readonly message to the raft service. */
-  CompletableFuture<RaftClientReply> sendReadOnlyAsync(Message message);
+  CompletableFuture<RaftClientReply> sendReadOnly(Message message);
 
   /** Async call to send the given stale-read message to the given server (not the raft service). */
-  CompletableFuture<RaftClientReply> sendStaleReadAsync(Message message, long minIndex, RaftPeerId server);
+  CompletableFuture<RaftClientReply> sendStaleRead(Message message, long minIndex, RaftPeerId server);
 
   /** Async call to watch the given index to satisfy the given replication level. */
-  CompletableFuture<RaftClientReply> sendWatchAsync(long index, ReplicationLevel replication);
+  CompletableFuture<RaftClientReply> watch(long index, ReplicationLevel replication);
 }
