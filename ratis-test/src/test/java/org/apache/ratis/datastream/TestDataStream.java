@@ -140,10 +140,12 @@ public class TestDataStream extends BaseTest {
     final int bufferSize = 1024*1024;
     final int bufferNum = 10;
     final DataStreamOutput out = client.stream();
+    DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
 
-    //send request
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-    futures.add(sendRequest(out));
+
+    // add header
+    futures.add(impl.getHeaderFuture());
 
     //send data
     final int halfBufferSize = bufferSize/2;
@@ -151,7 +153,7 @@ public class TestDataStream extends BaseTest {
     for(int i = 0; i < bufferNum; i++) {
       final int size = halfBufferSize + ThreadLocalRandom.current().nextInt(halfBufferSize);
       final ByteBuffer bf = initBuffer(dataSize, size);
-      futures.add(out.streamDataAsync(bf));
+      futures.add(out.writeAsync(bf));
       dataSize += size;
     }
 
@@ -160,18 +162,13 @@ public class TestDataStream extends BaseTest {
       f.join();
     }
 
-    DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
-    Assert.assertEquals(writeRequest.getClientId(), impl.getRequest().getClientId());
-    Assert.assertEquals(writeRequest.getCallId(), impl.getRequest().getCallId());
-    Assert.assertEquals(writeRequest.getRaftGroupId(), impl.getRequest().getRaftGroupId());
-    Assert.assertEquals(writeRequest.getServerId(), impl.getRequest().getServerId());
+    Assert.assertEquals(writeRequest.getClientId(), impl.getHeader().getClientId());
+    Assert.assertEquals(writeRequest.getCallId(), impl.getHeader().getCallId());
+    Assert.assertEquals(writeRequest.getRaftGroupId(), impl.getHeader().getRaftGroupId());
+    Assert.assertEquals(writeRequest.getServerId(), impl.getHeader().getServerId());
 
     Assert.assertEquals(dataSize, byteWritten);
     shutDownSetup();
-  }
-
-  CompletableFuture<DataStreamReply> sendRequest(DataStreamOutput out) {
-    return out.streamRequestAsync();
   }
 
   static ByteBuffer initBuffer(int offset, int size) {

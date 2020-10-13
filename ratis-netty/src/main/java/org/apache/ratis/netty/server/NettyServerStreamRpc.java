@@ -18,7 +18,6 @@
 
 package org.apache.ratis.netty.server;
 
-import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.DataStreamReply;
@@ -104,7 +103,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private void sendReply(DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
     final DataStreamReply reply = new DataStreamReplyByteBuffer(
-        request.getStreamId(), request.getDataOffset(), ClientImplUtils.getReplyOkInByteBuffer());
+        request.getStreamId(), request.getDataOffset(), ByteBuffer.wrap("OK".getBytes()));
     ctx.writeAndFlush(reply);
   }
 
