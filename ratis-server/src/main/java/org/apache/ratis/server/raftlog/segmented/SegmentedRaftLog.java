@@ -493,21 +493,15 @@ public class SegmentedRaftLog extends RaftLog {
 
     // Close open log segment if entries are already included in snapshot
     LogSegment openSegment = cache.getOpenSegment();
-    long purgeIndex = lastSnapshotIndex;
     if (openSegment != null && openSegment.hasEntries()) {
-      LOG.debug("Found open segment {}, with end index {}, snapshotIndex {}",
-          openSegment, openSegment.getEndIndex(), lastSnapshotIndex);
+      LOG.debug("syncWithSnapshot : Found open segment {}, with end index {}," +
+              " snapshotIndex {}", openSegment, openSegment.getEndIndex(), lastSnapshotIndex);
       if (openSegment.getEndIndex() <= lastSnapshotIndex) {
         fileLogWorker.closeLogSegment(openSegment);
         cache.rollOpenSegment(true);
-        if (openSegment.getEndIndex() == lastSnapshotIndex) {
-          // Since purgeImpl does not delete any segment which has overlap,
-          // passing in snapshotIndex + 1.
-          purgeIndex = lastSnapshotIndex + 1;
-        }
       }
     }
-    return purgeImpl(purgeIndex);
+    return purgeImpl(lastSnapshotIndex);
   }
 
   @Override
