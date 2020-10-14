@@ -71,7 +71,7 @@ public final class MessageStreamImpl implements MessageStreamApi {
 
   private MessageStreamImpl(RaftClientImpl client, RaftProperties properties) {
     this.client = Objects.requireNonNull(client, "client == null");
-    this.submessageSize = RaftClientConfigKeys.Stream.submessageSize(properties);
+    this.submessageSize = RaftClientConfigKeys.MessageStream.submessageSize(properties);
   }
 
   @Override

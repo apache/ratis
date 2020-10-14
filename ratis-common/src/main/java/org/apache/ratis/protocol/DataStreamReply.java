@@ -18,8 +18,5 @@
 
 package org.apache.ratis.protocol;
 
-import java.nio.ByteBuffer;
-
-public interface DataStreamReply extends DataStreamMessage {
-  ByteBuffer getResponse();
+public interface DataStreamReply extends DataStreamPacket {
 }

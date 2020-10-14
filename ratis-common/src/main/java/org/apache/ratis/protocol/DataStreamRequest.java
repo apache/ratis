@@ -18,5 +18,5 @@
 
 package org.apache.ratis.protocol;
 
-public interface DataStreamRequest extends DataStreamMessage {
+public interface DataStreamRequest extends DataStreamPacket {
 }

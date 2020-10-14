@@ -21,15 +21,20 @@ package org.apache.ratis.netty.server;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 
+/**
+ * Implements {@link DataStreamRequest} with {@link ByteBuf}.
+ *
+ * This class is immutable.
+ */
 class DataStreamRequestByteBuf implements DataStreamRequest {
-  private long streamId;
-  private long dataOffset;
-  private ByteBuf buf;
+  private final long streamId;
+  private final long streamOffset;
+  private final ByteBuf buf;
 
-  DataStreamRequestByteBuf(long streamId, long dataOffset, ByteBuf buf) {
+  DataStreamRequestByteBuf(long streamId, long streamOffset, ByteBuf buf) {
     this.streamId = streamId;
-    this.dataOffset = dataOffset;
-    this.buf = buf;
+    this.streamOffset = streamOffset;
+    this.buf = buf.asReadOnly();
   }
 
   @Override
@@ -38,16 +43,16 @@ class DataStreamRequestByteBuf implements DataStreamRequest {
   }
 
   @Override
-  public long getDataOffset() {
-    return dataOffset;
+  public long getStreamOffset() {
+    return streamOffset;
   }
 
   @Override
   public long getDataLength() {
-    return buf.capacity();
+    return buf.readableBytes();
   }
 
-  public ByteBuf getBuf() {
-    return buf;
+  public ByteBuf slice() {
+    return buf.slice();
   }
 }

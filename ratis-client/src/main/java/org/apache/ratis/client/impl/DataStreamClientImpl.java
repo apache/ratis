@@ -36,59 +36,56 @@ import org.slf4j.LoggerFactory;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Streaming client implementation
  * allows client to create streams and send asynchronously.
  */
-
 public class DataStreamClientImpl implements DataStreamClient {
   public static final Logger LOG = LoggerFactory.getLogger(DataStreamClientImpl.class);
 
-  private DataStreamClientRpc dataStreamClientRpc;
-  private OrderedStreamAsync orderedStreamAsync;
   // TODO Similar to RaftClientImpl, pass ClientId and RaftGroupId/RaftGroup in constructor.
   private final ClientId clientId = ClientId.randomId();
   private final RaftGroupId groupId =  RaftGroupId.randomId();
-  private RaftPeer raftServer;
-  private RaftProperties properties;
-  private Parameters parameters;
-  private long streamId = 0;
 
-  public DataStreamClientImpl(RaftPeer raftServer,
-                              RaftProperties properties,
-                              Parameters parameters) {
-    this.raftServer = Objects.requireNonNull(raftServer,
-                                          "peer == null");
-    this.properties = properties;
-    this.parameters = parameters;
+  private final RaftPeer raftServer;
+  private final DataStreamClientRpc dataStreamClientRpc;
+  private final OrderedStreamAsync orderedStreamAsync;
+
+  private final AtomicInteger streamId = new AtomicInteger();
+
+  public DataStreamClientImpl(RaftPeer server, RaftProperties properties, Parameters parameters) {
+    this.raftServer = Objects.requireNonNull(server, "server == null");
 
     final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
     this.dataStreamClientRpc = DataStreamClientFactory.cast(type.newFactory(parameters))
                                .newDataStreamClientRpc(raftServer, properties);
 
-    this.orderedStreamAsync = new OrderedStreamAsync(dataStreamClientRpc, properties);
+    this.orderedStreamAsync = new OrderedStreamAsync(clientId, dataStreamClientRpc, properties);
   }
 
   public class DataStreamOutputImpl implements DataStreamOutput {
-    private long streamId = 0;
-    private long messageId = 0;
+    private final long streamId;
     private final RaftClientRequest header;
     private final CompletableFuture<DataStreamReply> headerFuture;
+
+    private long streamOffset = 0;
 
     public DataStreamOutputImpl(long id){
       this.streamId = id;
       this.header = new RaftClientRequest(clientId, raftServer.getId(), groupId, RaftClientImpl.nextCallId(),
           RaftClientRequest.writeRequestType());
-      this.headerFuture = orderedStreamAsync.sendRequest(streamId, messageId,
+      this.headerFuture = orderedStreamAsync.sendRequest(streamId, -1,
           ClientProtoUtils.toRaftClientRequestProto(header).toByteString().asReadOnlyByteBuffer());
     }
 
     // send to the attached dataStreamClientRpc
     @Override
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf) {
-      messageId++;
-      return orderedStreamAsync.sendRequest(streamId, messageId, buf);
+      final CompletableFuture<DataStreamReply> f = orderedStreamAsync.sendRequest(streamId, streamOffset, buf);
+      streamOffset += buf.remaining();
+      return f;
     }
 
     // should wait for attached sliding window to terminate
@@ -113,8 +110,7 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamOutput stream() {
-    streamId++;
-    return new DataStreamOutputImpl(streamId);
+    return new DataStreamOutputImpl(streamId.incrementAndGet());
   }
 
   @Override

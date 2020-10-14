@@ -18,10 +18,10 @@
 
 package org.apache.ratis.protocol;
 
-public interface DataStreamMessage{
+public interface DataStreamPacket {
   long getStreamId();
 
-  long getDataOffset();
+  long getStreamOffset();
 
   long getDataLength();
 }

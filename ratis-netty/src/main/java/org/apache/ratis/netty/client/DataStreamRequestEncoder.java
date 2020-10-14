@@ -30,12 +30,13 @@ public class DataStreamRequestEncoder extends MessageToMessageEncoder<DataStream
 
   @Override
   protected void encode(ChannelHandlerContext channelHandlerContext,
-                        DataStreamRequestByteBuffer requestData, List<Object> list) {
+      DataStreamRequestByteBuffer request, List<Object> list) {
+    final ByteBuffer data = request.slice();
     ByteBuffer bb = ByteBuffer.allocateDirect(24);
-    bb.putLong(requestData.getStreamId());
-    bb.putLong(requestData.getDataOffset());
-    bb.putLong(requestData.getDataLength());
+    bb.putLong(request.getStreamId());
+    bb.putLong(request.getStreamOffset());
+    bb.putLong(data.remaining());
     bb.flip();
-    list.add(Unpooled.wrappedBuffer(bb, requestData.getBuf()));
+    list.add(Unpooled.wrappedBuffer(bb, data));
   }
 }

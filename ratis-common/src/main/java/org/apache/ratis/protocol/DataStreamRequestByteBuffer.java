@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,38 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ratis.protocol;
 
 import java.nio.ByteBuffer;
 
-public class DataStreamRequestByteBuffer implements DataStreamRequest{
-  private long streamId;
-  private long dataOffset;
-  private ByteBuffer buf;
-
-  public DataStreamRequestByteBuffer(long streamId, long dataOffset, ByteBuffer buf){
-    this.streamId = streamId;
-    this.dataOffset = dataOffset;
-    this.buf = buf;
-  }
-
-  @Override
-  public long getStreamId() {
-    return streamId;
-  }
-
-  @Override
-  public long getDataOffset() {
-    return dataOffset;
-  }
-
-  @Override
-  public long getDataLength() {
-    return buf.capacity();
-  }
-
-  public ByteBuffer getBuf() {
-    return buf;
+/**
+ * Implements {@link DataStreamRequest} with {@link ByteBuffer}.
+ *
+ * This class is immutable.
+ */
+public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer implements DataStreamRequest {
+  public DataStreamRequestByteBuffer(long streamId, long streamOffset, ByteBuffer buffer) {
+    super(streamId, streamOffset, buffer);
   }
 }
