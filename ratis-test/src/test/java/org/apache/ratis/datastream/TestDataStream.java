@@ -96,6 +96,7 @@ public class TestDataStream extends BaseTest {
 
     @Override
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {
+      writeRequest = request;
       return CompletableFuture.completedFuture(stream);
     }
   }
@@ -105,6 +106,7 @@ public class TestDataStream extends BaseTest {
   private DataStreamServerImpl server;
   private DataStreamClientImpl client;
   private int byteWritten = 0;
+  private RaftClientRequest writeRequest;
 
   public void setupServer(){
     server = new DataStreamServerImpl(peers[0], new SingleDataStreamStateMachine(), properties, null);
@@ -138,10 +140,12 @@ public class TestDataStream extends BaseTest {
     final int bufferSize = 1024*1024;
     final int bufferNum = 10;
     final DataStreamOutput out = client.stream();
+    DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
 
-    //send request
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-    futures.add(sendRequest(out, 1024));
+
+    // add header
+    futures.add(impl.getHeaderFuture());
 
     //send data
     final int halfBufferSize = bufferSize/2;
@@ -149,7 +153,7 @@ public class TestDataStream extends BaseTest {
     for(int i = 0; i < bufferNum; i++) {
       final int size = halfBufferSize + ThreadLocalRandom.current().nextInt(halfBufferSize);
       final ByteBuffer bf = initBuffer(dataSize, size);
-      futures.add(out.streamAsync(bf));
+      futures.add(out.writeAsync(bf));
       dataSize += size;
     }
 
@@ -157,14 +161,14 @@ public class TestDataStream extends BaseTest {
     for(CompletableFuture<DataStreamReply> f : futures) {
       f.join();
     }
+
+    Assert.assertEquals(writeRequest.getClientId(), impl.getHeader().getClientId());
+    Assert.assertEquals(writeRequest.getCallId(), impl.getHeader().getCallId());
+    Assert.assertEquals(writeRequest.getRaftGroupId(), impl.getHeader().getRaftGroupId());
+    Assert.assertEquals(writeRequest.getServerId(), impl.getHeader().getServerId());
+
     Assert.assertEquals(dataSize, byteWritten);
     shutDownSetup();
-  }
-
-  CompletableFuture<DataStreamReply> sendRequest(DataStreamOutput out, int size) {
-    // TODO RATIS-1085: create a RaftClientRequest and put it in the buffer
-    final ByteBuffer buffer = initBuffer(0, size);
-    return out.streamAsync(buffer);
   }
 
   static ByteBuffer initBuffer(int offset, int size) {

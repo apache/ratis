@@ -18,6 +18,8 @@
 
 package org.apache.ratis.netty.server;
 
+import org.apache.ratis.client.impl.ClientProtoUtils;
+import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyByteBuffer;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -25,6 +27,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
@@ -65,9 +68,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private CompletableFuture<DataStream> getDataStreamFuture(ByteBuf buf, AtomicBoolean released) {
     try {
-      // TODO RATIS-1085: read the request from buf
-      final RaftClientRequest request = null;
+      final RaftClientRequest request =
+          ClientProtoUtils.toRaftClientRequest(RaftProtos.RaftClientRequestProto.parseFrom(buf.nioBuffer()));
       return stateMachine.data().stream(request);
+    } catch (InvalidProtocolBufferException e) {
+      throw new CompletionException(e);
     } finally {
       buf.release();
       released.set(true);
