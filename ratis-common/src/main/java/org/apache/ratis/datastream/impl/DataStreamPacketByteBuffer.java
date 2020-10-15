@@ -17,12 +17,10 @@
  */
 package org.apache.ratis.datastream.impl;
 
-import org.apache.ratis.protocol.DataStreamPacket;
-
 import java.nio.ByteBuffer;
 
 /**
- * Implements {@link DataStreamPacket} with {@link ByteBuffer}.
+ * Implements {@link org.apache.ratis.protocol.DataStreamPacket} with {@link ByteBuffer}.
  *
  * This class is immutable.
  */
