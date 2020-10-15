@@ -18,7 +18,7 @@
 
 package org.apache.ratis.netty.server;
 
-import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
@@ -26,17 +26,15 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncode
 import java.nio.ByteBuffer;
 import java.util.List;
 
-public class DataStreamReplyEncoder extends MessageToMessageEncoder<DataStreamReply> {
+public class DataStreamReplyEncoder extends MessageToMessageEncoder<DataStreamReplyByteBuffer> {
   @Override
-  protected void encode(ChannelHandlerContext channelHandlerContext,
-                        DataStreamReply dataStreamReply,
-                        List<Object> list) {
+  protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> list) {
 
     ByteBuffer bb = ByteBuffer.allocateDirect(24);
-    bb.putLong(dataStreamReply.getStreamId());
-    bb.putLong(dataStreamReply.getDataOffset());
-    bb.putLong(dataStreamReply.getDataLength());
+    bb.putLong(reply.getStreamId());
+    bb.putLong(reply.getStreamOffset());
+    bb.putLong(reply.getDataLength());
     bb.flip();
-    list.add(Unpooled.wrappedBuffer(bb, dataStreamReply.getResponse()));
+    list.add(Unpooled.wrappedBuffer(bb, reply.slice()));
   }
 }

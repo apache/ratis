@@ -20,10 +20,9 @@ package org.apache.ratis.client.impl;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.DataStreamRequest;
-import org.apache.ratis.protocol.DataStreamRequestByteBuffer;
-import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.SlidingWindow;
@@ -38,37 +37,18 @@ import java.util.function.LongFunction;
 public class OrderedStreamAsync {
   public static final Logger LOG = LoggerFactory.getLogger(OrderedStreamAsync.class);
 
-  public static class DataStreamWindowRequest implements DataStreamRequest,
-      SlidingWindow.ClientSideRequest<DataStreamReply> {
-    private final long streamId;
-    private final long messageId;
+  static class DataStreamWindowRequest extends DataStreamRequestByteBuffer
+      implements SlidingWindow.ClientSideRequest<DataStreamReply> {
     private final long seqNum;
-    private final ByteBuffer data;
-    private boolean isFirst = false;
-    private CompletableFuture<DataStreamReply> replyFuture = new CompletableFuture<>();
+    private final CompletableFuture<DataStreamReply> replyFuture = new CompletableFuture<>();
 
-    public DataStreamRequestByteBuffer newDataStreamRequest(){
-      return new DataStreamRequestByteBuffer(streamId, messageId, data.slice());
-    }
-
-    @Override
-    public long getStreamId() {
-      return streamId;
-    }
-
-    @Override
-    public long getDataOffset() {
-      return messageId;
-    }
-
-    @Override
-    public long getDataLength() {
-      return data.capacity();
+    DataStreamWindowRequest(long streamId, long offset, ByteBuffer data, long seqNum){
+      super(streamId, offset, data);
+      this.seqNum = seqNum;
     }
 
     @Override
     public void setFirstRequest() {
-      isFirst = true;
     }
 
     @Override
@@ -94,42 +74,28 @@ public class OrderedStreamAsync {
     public CompletableFuture<DataStreamReply> getReplyFuture(){
       return replyFuture;
     }
-
-    public DataStreamWindowRequest(long streamId, long messageId,
-                                 long seqNum, ByteBuffer data){
-      this.streamId = streamId;
-      this.messageId = messageId;
-      this.data = data.slice();
-      this.seqNum = seqNum;
-    }
   }
 
-  private SlidingWindow.Client<DataStreamWindowRequest, DataStreamReply> slidingWindow;
-  private Semaphore requestSemaphore;
-  private DataStreamClientRpc dataStreamClientRpc;
+  private final DataStreamClientRpc dataStreamClientRpc;
+  private final SlidingWindow.Client<DataStreamWindowRequest, DataStreamReply> slidingWindow;
+  private final Semaphore requestSemaphore;
 
-  public OrderedStreamAsync(DataStreamClientRpc dataStreamClientRpc,
-                            RaftProperties properties){
+  OrderedStreamAsync(ClientId clientId, DataStreamClientRpc dataStreamClientRpc, RaftProperties properties){
     this.dataStreamClientRpc = dataStreamClientRpc;
-    this.requestSemaphore = new Semaphore(RaftClientConfigKeys.Async.outstandingRequestsMax(properties)*2);
-    this.slidingWindow = new SlidingWindow.Client<>("sliding");
+    this.slidingWindow = new SlidingWindow.Client<>(clientId);
+    this.requestSemaphore = new Semaphore(RaftClientConfigKeys.DataStream.outstandingRequestsMax(properties)*2);
   }
 
-  private void resetSlidingWindow(RaftClientRequest request) {
-    slidingWindow.resetFirstSeqNum();
-  }
-
-  public CompletableFuture<DataStreamReply> sendRequest(long streamId,
-                                                        long messageId,
-                                                        ByteBuffer data){
+  CompletableFuture<DataStreamReply> sendRequest(long streamId, long offset, ByteBuffer data){
+    final int length = data.remaining();
     try {
       requestSemaphore.acquire();
     } catch (InterruptedException e){
       return JavaUtils.completeExceptionally(IOUtils.toInterruptedIOException(
-          "Interrupted when sending streamId=" + streamId + ", messageId= " + messageId, e));
+          "Interrupted when sending streamId=" + streamId + ", offset= " + offset + ", length=" + length, e));
     }
-    final LongFunction<DataStreamWindowRequest> constructor = seqNum -> new DataStreamWindowRequest(streamId,
-                                                                          messageId, seqNum, data);
+    final LongFunction<DataStreamWindowRequest> constructor
+        = seqNum -> new DataStreamWindowRequest(streamId, offset, data.slice(), seqNum);
     return slidingWindow.submitNewRequest(constructor, this::sendRequestToNetwork).
            getReplyFuture().whenComplete((r, e) -> requestSemaphore.release());
   }
@@ -142,8 +108,7 @@ public class OrderedStreamAsync {
     if(slidingWindow.isFirst(request.getSeqNum())){
       request.setFirstRequest();
     }
-    DataStreamRequestByteBuffer rpcRequest = request.newDataStreamRequest();
-    CompletableFuture<DataStreamReply> requestFuture = dataStreamClientRpc.streamAsync(rpcRequest);
+    final CompletableFuture<DataStreamReply> requestFuture = dataStreamClientRpc.streamAsync(request);
     requestFuture.thenApply(reply -> {
       slidingWindow.receiveReply(
           request.getSeqNum(), reply, this::sendRequestToNetwork);
@@ -155,6 +120,4 @@ public class OrderedStreamAsync {
       f.complete(reply);
     });
   }
-
-
 }

@@ -15,13 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ratis.datastream.impl;
 
-package org.apache.ratis.protocol;
+import java.nio.ByteBuffer;
 
-public interface DataStreamMessage{
-  long getStreamId();
+/**
+ * Implements {@link org.apache.ratis.protocol.DataStreamPacket} with {@link ByteBuffer}.
+ *
+ * This class is immutable.
+ */
+public class DataStreamPacketByteBuffer extends DataStreamPacketImpl {
+  private final ByteBuffer buffer;
 
-  long getDataOffset();
+  public DataStreamPacketByteBuffer(long streamId, long streamOffset, ByteBuffer buffer) {
+    super(streamId, streamOffset);
+    this.buffer = buffer.asReadOnlyBuffer();
+  }
 
-  long getDataLength();
+  @Override
+  public long getDataLength() {
+    return buffer.remaining();
+  }
+
+  public ByteBuffer slice() {
+    return buffer.slice();
+  }
 }

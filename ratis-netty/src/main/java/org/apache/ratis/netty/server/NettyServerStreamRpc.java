@@ -20,8 +20,7 @@ package org.apache.ratis.netty.server;
 
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.proto.RaftProtos;
-import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.DataStreamReplyByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
@@ -79,31 +78,34 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     }
   }
 
-  private void writeTo(ByteBuf buf, DataStream stream, boolean released) {
+  private long writeTo(ByteBuf buf, DataStream stream, boolean released) {
     if (released) {
-      return;
+      return 0;
     }
     try {
       if (stream == null) {
-        return;
+        return 0;
       }
 
       final WritableByteChannel channel = stream.getWritableByteChannel();
+      long byteWritten = 0;
       for (ByteBuffer buffer : buf.nioBuffers()) {
         try {
-          channel.write(buffer);
+          byteWritten += channel.write(buffer);
         } catch (Throwable t) {
           throw new CompletionException(t);
         }
       }
+      return byteWritten;
     } finally {
       buf.release();
     }
   }
 
-  private void sendReply(DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
-    final DataStreamReply reply = new DataStreamReplyByteBuffer(
-        request.getStreamId(), request.getDataOffset(), ByteBuffer.wrap("OK".getBytes()));
+  private void sendReply(DataStreamRequestByteBuf request, long byteWritten, ChannelHandlerContext ctx) {
+    // TODO RATIS-1098: include byteWritten and isSuccess in the reply
+    final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
+        request.getStreamId(), request.getStreamOffset(), ByteBuffer.wrap("OK".getBytes()));
     ctx.writeAndFlush(reply);
   }
 
@@ -111,13 +113,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        final DataStreamRequestByteBuf req = (DataStreamRequestByteBuf)msg;
-        final long streamId = req.getStreamId();
-        final ByteBuf buf = req.getBuf();
+        final DataStreamRequestByteBuf request = (DataStreamRequestByteBuf)msg;
+        final ByteBuf buf = request.slice();
         final AtomicBoolean released = new AtomicBoolean();
-        streams.computeIfAbsent(streamId, id -> getDataStreamFuture(buf, released))
-            .thenAccept(stream -> writeTo(buf, stream, released.get()))
-            .thenAccept(dummy -> sendReply(req, ctx));
+        streams.computeIfAbsent(request.getStreamId(), id -> getDataStreamFuture(buf, released))
+            .thenApply(stream -> writeTo(buf, stream, released.get()))
+            .thenAccept(byteWritten -> sendReply(request, byteWritten, ctx));
       }
     };
   }

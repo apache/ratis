@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,20 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.ratis.datastream.impl;
 
-package org.apache.ratis.protocol;
+import org.apache.ratis.protocol.DataStreamPacket;
 
-import java.nio.ByteBuffer;
+/**
+ * This is an abstract implementation of {@link DataStreamPacket}.
+ *
+ * This class is immutable.
+ */
+public abstract class DataStreamPacketImpl implements DataStreamPacket {
+  private final long streamId;
+  private final long streamOffset;
 
-public class DataStreamRequestByteBuffer implements DataStreamRequest{
-  private long streamId;
-  private long dataOffset;
-  private ByteBuffer buf;
-
-  public DataStreamRequestByteBuffer(long streamId, long dataOffset, ByteBuffer buf){
+  public DataStreamPacketImpl(long streamId, long streamOffset) {
     this.streamId = streamId;
-    this.dataOffset = dataOffset;
-    this.buf = buf;
+    this.streamOffset = streamOffset;
   }
 
   @Override
@@ -37,16 +39,16 @@ public class DataStreamRequestByteBuffer implements DataStreamRequest{
   }
 
   @Override
-  public long getDataOffset() {
-    return dataOffset;
+  public long getStreamOffset() {
+    return streamOffset;
   }
 
   @Override
-  public long getDataLength() {
-    return buf.capacity();
-  }
-
-  public ByteBuffer getBuf() {
-    return buf;
+  public String toString() {
+    return getClass().getSimpleName() + "{"
+        + "streamId=" + getStreamId()
+        + ", streamOffset=" + getStreamOffset()
+        + ", dataLength=" + getDataLength()
+        + '}';
   }
 }

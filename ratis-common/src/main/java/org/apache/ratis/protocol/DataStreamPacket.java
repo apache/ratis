@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,36 +18,10 @@
 
 package org.apache.ratis.protocol;
 
-import java.nio.ByteBuffer;
+public interface DataStreamPacket {
+  long getStreamId();
 
-public class DataStreamReplyByteBuffer implements DataStreamReply {
-  private long streamId;
-  private long dataOffset;
-  private ByteBuffer response;
+  long getStreamOffset();
 
-  public DataStreamReplyByteBuffer(long streamId, long dataOffset, ByteBuffer bf){
-    this.streamId = streamId;
-    this.dataOffset = dataOffset;
-    this.response = bf;
-  }
-
-  @Override
-  public ByteBuffer getResponse() {
-    return response;
-  }
-
-  @Override
-  public long getStreamId() {
-    return streamId;
-  }
-
-  @Override
-  public long getDataOffset() {
-    return dataOffset;
-  }
-
-  @Override
-  public long getDataLength() {
-    return response.capacity();
-  }
+  long getDataLength();
 }

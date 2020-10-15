@@ -87,12 +87,12 @@ public abstract class MessageStreamApiTests<CLUSTER extends MiniRaftCluster> ext
   @Test
   public void testStreamAsync() throws Exception {
     final RaftProperties p = getProperties();
-    RaftClientConfigKeys.Stream.setSubmessageSize(p, SUBMESSAGE_SIZE);
+    RaftClientConfigKeys.MessageStream.setSubmessageSize(p, SUBMESSAGE_SIZE);
     p.setClass(MiniRaftCluster.STATEMACHINE_CLASS_KEY,
         SimpleStateMachine4Testing.class, StateMachine.class);
 
     runWithNewCluster(NUM_SERVERS, this::runTestStreamAsync);
-    RaftClientConfigKeys.Stream.setSubmessageSize(p);
+    RaftClientConfigKeys.MessageStream.setSubmessageSize(p);
   }
 
   void runTestStreamAsync(CLUSTER cluster) throws Exception {
