@@ -18,7 +18,7 @@
 
 package org.apache.ratis.netty.server;
 
-import org.apache.ratis.protocol.DataStreamReplyByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;

@@ -15,17 +15,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.datastream.impl;
 
-import java.nio.ByteBuffer;
+import org.apache.ratis.protocol.DataStreamPacket;
 
 /**
- * Implements {@link DataStreamRequest} with {@link ByteBuffer}.
+ * This is an abstract implementation of {@link DataStreamPacket}.
  *
  * This class is immutable.
  */
-public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer implements DataStreamRequest {
-  public DataStreamRequestByteBuffer(long streamId, long streamOffset, ByteBuffer buffer) {
-    super(streamId, streamOffset, buffer);
+public abstract class DataStreamPacketImpl implements DataStreamPacket {
+  private final long streamId;
+  private final long streamOffset;
+
+  public DataStreamPacketImpl(long streamId, long streamOffset) {
+    this.streamId = streamId;
+    this.streamOffset = streamOffset;
+  }
+
+  @Override
+  public long getStreamId() {
+    return streamId;
+  }
+
+  @Override
+  public long getStreamOffset() {
+    return streamOffset;
+  }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() + "{"
+        + "streamId=" + getStreamId()
+        + ", streamOffset=" + getStreamOffset()
+        + ", dataLength=" + getDataLength()
+        + '}';
   }
 }

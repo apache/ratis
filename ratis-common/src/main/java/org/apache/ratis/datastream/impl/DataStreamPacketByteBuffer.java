@@ -15,7 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.protocol;
+package org.apache.ratis.datastream.impl;
+
+import org.apache.ratis.protocol.DataStreamPacket;
 
 import java.nio.ByteBuffer;
 
@@ -24,29 +26,12 @@ import java.nio.ByteBuffer;
  *
  * This class is immutable.
  */
-public class DataStreamPacketByteBuffer implements DataStreamPacket {
-  private final long streamId;
-  private final long streamOffset;
+public class DataStreamPacketByteBuffer extends DataStreamPacketImpl {
   private final ByteBuffer buffer;
 
   public DataStreamPacketByteBuffer(long streamId, long streamOffset, ByteBuffer buffer) {
-    this.streamId = streamId;
-    this.streamOffset = streamOffset;
+    super(streamId, streamOffset);
     this.buffer = buffer.asReadOnlyBuffer();
-  }
-
-  @Override
-  public long getStreamId() {
-    return streamId;
-  }
-
-  @Override
-  public long getStreamOffset() {
-    return streamOffset;
-  }
-
-  public ByteBuffer slice() {
-    return buffer.slice();
   }
 
   @Override
@@ -54,12 +39,7 @@ public class DataStreamPacketByteBuffer implements DataStreamPacket {
     return buffer.remaining();
   }
 
-  @Override
-  public String toString() {
-    return getClass().getSimpleName() + "{"
-        + "streamId=" + getStreamId()
-        + ", streamOffset=" + getStreamOffset()
-        + ", dataLength=" + getDataLength()
-        + '}';
+  public ByteBuffer slice() {
+    return buffer.slice();
   }
 }
