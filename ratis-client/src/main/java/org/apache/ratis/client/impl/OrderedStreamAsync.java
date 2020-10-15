@@ -83,7 +83,7 @@ public class OrderedStreamAsync {
   OrderedStreamAsync(ClientId clientId, DataStreamClientRpc dataStreamClientRpc, RaftProperties properties){
     this.dataStreamClientRpc = dataStreamClientRpc;
     this.slidingWindow = new SlidingWindow.Client<>(clientId);
-    this.requestSemaphore = new Semaphore(RaftClientConfigKeys.Async.outstandingRequestsMax(properties)*2);
+    this.requestSemaphore = new Semaphore(RaftClientConfigKeys.DataStream.outstandingRequestsMax(properties)*2);
   }
 
   CompletableFuture<DataStreamReply> sendRequest(long streamId, long offset, ByteBuffer data){
