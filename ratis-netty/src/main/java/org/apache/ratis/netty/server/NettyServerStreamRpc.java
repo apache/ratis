@@ -151,7 +151,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
             DataStreamClientImpl.DataStreamOutputImpl impl =
                 (DataStreamClientImpl.DataStreamOutputImpl) peersStreamOutput.get(request.getStreamId()).get(i);
             parallelWrites[i + 1] = impl.getHeaderFuture();
-          } else if (!shouldRelease.get()) {
+          } else {
             CompletableFuture<?> remoteWrites;
             if (shouldRelease.get()) {
               remoteWrites = new CompletableFuture<>();
