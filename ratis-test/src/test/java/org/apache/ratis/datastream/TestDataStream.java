@@ -51,6 +51,7 @@ public class TestDataStream extends BaseTest {
   }
 
   class SingleDataStreamStateMachine extends BaseStateMachine {
+    private int bytesWritten = 0;
     final WritableByteChannel channel = new WritableByteChannel() {
       private volatile boolean open = true;
 
@@ -61,8 +62,8 @@ public class TestDataStream extends BaseTest {
         }
         final int remaining = src.remaining();
         for(; src.remaining() > 0; ) {
-          Assert.assertEquals(pos2byte(byteWritten), src.get());
-          byteWritten++;
+          Assert.assertEquals(pos2byte(bytesWritten), src.get());
+          bytesWritten += 1;
         }
         return remaining;
       }
@@ -97,8 +98,14 @@ public class TestDataStream extends BaseTest {
 
     @Override
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {
-      writeRequest = request;
+      if (request.getClientId().equals(impl.getHeader().getClientId())) {
+        writeRequest = request;
+      }
       return CompletableFuture.completedFuture(stream);
+    }
+
+    public int getByteWritten() {
+      return bytesWritten;
     }
   }
 
@@ -106,24 +113,29 @@ public class TestDataStream extends BaseTest {
   private RaftProperties properties;
   private List<DataStreamServerImpl> servers;
   private DataStreamClientImpl client;
-  private int byteWritten = 0;
   private RaftClientRequest writeRequest;
+  private DataStreamClientImpl.DataStreamOutputImpl impl;
+  private List<SingleDataStreamStateMachine> singleDataStreamStateMachines;
 
   private void setupServer(){
     servers = new ArrayList<>(peers.size());
+    singleDataStreamStateMachines = new ArrayList<>(peers.size());
     // start stream servers on raft peers.
     for (int i = 0; i < peers.size(); i++) {
+      SingleDataStreamStateMachine singleDataStreamStateMachine = new SingleDataStreamStateMachine();
+      singleDataStreamStateMachines.add(singleDataStreamStateMachine);
+
       if (i == 0) {
         // only the first server routes requests to peers.
         List<RaftPeer> otherPeers = new ArrayList<>(peers);
         otherPeers.remove(peers.get(i));
         DataStreamServerImpl streamServer = new DataStreamServerImpl(
-            peers.get(i), properties, null, new SingleDataStreamStateMachine(), otherPeers);
+            peers.get(i), properties, null, singleDataStreamStateMachine, otherPeers);
         servers.add(streamServer);
         streamServer.getServerRpc().startServer();
       } else {
         DataStreamServerImpl streamServer = new DataStreamServerImpl(
-            peers.get(i), new SingleDataStreamStateMachine(), properties, null);
+            peers.get(i), singleDataStreamStateMachine, properties, null);
         servers.add(streamServer);
         streamServer.getServerRpc().startServer();
       }
@@ -175,7 +187,7 @@ public class TestDataStream extends BaseTest {
     final int bufferSize = 1024*1024;
     final int bufferNum = 10;
     final DataStreamOutput out = client.stream();
-    DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
+    impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
 
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
 
@@ -201,8 +213,11 @@ public class TestDataStream extends BaseTest {
     Assert.assertEquals(writeRequest.getCallId(), impl.getHeader().getCallId());
     Assert.assertEquals(writeRequest.getRaftGroupId(), impl.getHeader().getRaftGroupId());
     Assert.assertEquals(writeRequest.getServerId(), impl.getHeader().getServerId());
-
-    Assert.assertEquals(dataSize, byteWritten);
+    int actualBytesWritten = 0;
+    for (SingleDataStreamStateMachine s : singleDataStreamStateMachines) {
+      actualBytesWritten += s.getByteWritten();
+    }
+    Assert.assertEquals(dataSize * peers.size(), actualBytesWritten);
     shutDownSetup();
   }
 

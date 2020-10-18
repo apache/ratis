@@ -18,6 +18,7 @@
 
 package org.apache.ratis.netty.server;
 
+import java.util.stream.Collectors;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
@@ -28,8 +29,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.DataStreamReplyByteBuffer;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
@@ -66,9 +65,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private final StateMachine stateMachine;
   private final ConcurrentMap<Long, CompletableFuture<DataStream>> streams = new ConcurrentHashMap<>();
+  private final ConcurrentMap<Long, List<DataStreamOutput>> peersStreamOutput = new ConcurrentHashMap<>();
 
   private List<DataStreamClientImpl> clients = new ArrayList<>();
-  private List<DataStreamOutput> streamOutputs = new ArrayList<>();
 
   public NettyServerStreamRpc(RaftPeer server, StateMachine stateMachine) {
     this.raftServer = server;
@@ -83,7 +82,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     setupClient(otherPeers, properties);
   }
 
-  private CompletableFuture<DataStream> getDataStreamFuture(ByteBuf buf, AtomicBoolean released) {
+  private List<DataStreamOutput> getDataStreamOutput() {
+    return clients.stream().map(client -> client.stream()).collect(Collectors.toList());
+  }
+
+  private CompletableFuture<DataStream> getDataStreamFuture(ByteBuf buf, AtomicBoolean shouldRelease) {
     try {
       final RaftClientRequest request =
           ClientProtoUtils.toRaftClientRequest(RaftProtos.RaftClientRequestProto.parseFrom(buf.nioBuffer()));
@@ -91,16 +94,15 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     } catch (InvalidProtocolBufferException e) {
       throw new CompletionException(e);
     } finally {
-      buf.release();
-      released.set(true);
+      shouldRelease.set(true);
     }
   }
 
-  private long writeTo(ByteBuf buf, DataStream stream, boolean released) {
-    if (released) {
+  private long writeTo(ByteBuf buf, DataStream stream, boolean shouldRelease) {
+    if (shouldRelease) {
       return 0;
     }
-    try {
+
       if (stream == null) {
         return 0;
       }
@@ -115,21 +117,17 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         }
       }
       return byteWritten;
+  }
 
-      // forward requests to other stream servers.
-      // for (DataStreamOutput streamOutput : streamOutputs) {
-      //   streamOutput.streamAsync(buf.nioBuffer());
-      // }
+  private void sendReply(DataStreamRequestByteBuf request, ChannelHandlerContext ctx, ByteBuf buf) {
+    // TODO RATIS-1098: include byteWritten and isSuccess in the reply
+    try {
+      final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
+          request.getStreamId(), request.getStreamOffset(), ByteBuffer.wrap("OK".getBytes()));
+      ctx.writeAndFlush(reply);
     } finally {
       buf.release();
     }
-  }
-
-  private void sendReply(DataStreamRequestByteBuf request, long byteWritten, ChannelHandlerContext ctx) {
-    // TODO RATIS-1098: include byteWritten and isSuccess in the reply
-    final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
-        request.getStreamId(), request.getStreamOffset(), ByteBuffer.wrap("OK".getBytes()));
-    ctx.writeAndFlush(reply);
   }
 
   private ChannelInboundHandler getServerHandler(){
@@ -138,33 +136,33 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
         final DataStreamRequestByteBuf request = (DataStreamRequestByteBuf)msg;
         final ByteBuf buf = request.slice();
-        final AtomicBoolean released = new AtomicBoolean();
-        streams.computeIfAbsent(request.getStreamId(), id -> getDataStreamFuture(buf, released))
-            .thenApply(stream -> writeTo(buf, stream, released.get()))
-            .thenAccept(byteWritten -> sendReply(request, byteWritten, ctx));
-        // streams.computeIfAbsent(streamId, id -> getDataStreamFuture(buf, released))
-        //     .thenAccept(stream -> writeTo(buf, stream, released.get()))
-        //     .thenAccept(dummy -> sendReply(req, ctx));
-        //
-        // List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-        // // forward requests to other stream servers.
-        // for (DataStreamOutput streamOutput : streamOutputs) {
-        //   CompletableFuture<DataStreamReply> future =
-        //       streamOutput.streamAsync(req.getBuf().nioBuffer());
-        //   futures.add(future);
-        // }
-        //
-        // try {
-        //   for (CompletableFuture<DataStreamReply> future : futures) {
-        //       future.join();
-        //   }
-        //   final DataStreamReply reply = new DataStreamReplyByteBuffer(req.getStreamId(),
-        //       req.getDataOffset(),
-        //       ByteBuffer.wrap("OK".getBytes()));
-        //   ctx.writeAndFlush(reply);
-        // } finally {
-        //   req.getBuf().release();
-        // }
+        final AtomicBoolean shouldRelease = new AtomicBoolean();
+
+        CompletableFuture<?>[] parallelWrites = new CompletableFuture<?>[clients.size() + 1];
+        CompletableFuture<?> localWrites =
+            streams.computeIfAbsent(request.getStreamId(), id -> getDataStreamFuture(buf, shouldRelease))
+            .thenApply(stream -> writeTo(buf, stream, shouldRelease.get()));
+        parallelWrites[0] = localWrites;
+        peersStreamOutput.putIfAbsent(request.getStreamId(), getDataStreamOutput());
+
+        for (int i = 0; i < clients.size(); i++) {
+          // do not need to forward header request
+          if (request.getStreamOffset() == -1) {
+            DataStreamClientImpl.DataStreamOutputImpl impl =
+                (DataStreamClientImpl.DataStreamOutputImpl) peersStreamOutput.get(request.getStreamId()).get(i);
+            parallelWrites[i + 1] = impl.getHeaderFuture();
+          } else if (!shouldRelease.get()) {
+            CompletableFuture<?> remoteWrites;
+            if (shouldRelease.get()) {
+              remoteWrites = new CompletableFuture<>();
+            } else {
+              remoteWrites =
+                  peersStreamOutput.get(request.getStreamId()).get(i).writeAsync(request.slice().nioBuffer());
+            }
+            parallelWrites[i + 1] = remoteWrites;
+          }
+        }
+        CompletableFuture.allOf(parallelWrites).whenComplete((t, r) -> sendReply(request, ctx, buf));
       }
     };
   }
@@ -196,7 +194,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     for (RaftPeer peer : otherPeers) {
       DataStreamClientImpl impl = new DataStreamClientImpl(peer, properties, null);
       clients.add(impl);
-      streamOutputs.add(impl.stream());
     }
   }
 
