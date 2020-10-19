@@ -21,7 +21,6 @@ package org.apache.ratis.netty.server;
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.client.api.DataStreamOutput;
-import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.proto.RaftProtos;
