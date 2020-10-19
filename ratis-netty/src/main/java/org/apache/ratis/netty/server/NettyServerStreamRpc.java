@@ -188,7 +188,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private void setupClient(List<RaftPeer> otherPeers, RaftProperties properties) {
     for (RaftPeer peer : otherPeers) {
-      clients.add(DataStreamClient.Builder.getClientBuilder()
+      clients.add(DataStreamClient.Builder.newBuilder()
               .setParameters(null)
               .setRaftServer(peer)
               .setProperties(properties)

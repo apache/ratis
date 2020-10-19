@@ -52,7 +52,7 @@ public class TestDataStream extends BaseTest {
   }
 
   class SingleDataStreamStateMachine extends BaseStateMachine {
-    private int bytesWritten = 0;
+    private int byteWritten = 0;
     private RaftClientRequest writeRequest;
 
     final WritableByteChannel channel = new WritableByteChannel() {
@@ -65,8 +65,8 @@ public class TestDataStream extends BaseTest {
         }
         final int remaining = src.remaining();
         for(; src.remaining() > 0; ) {
-          Assert.assertEquals(pos2byte(bytesWritten), src.get());
-          bytesWritten += 1;
+          Assert.assertEquals(pos2byte(byteWritten), src.get());
+          byteWritten += 1;
         }
         return remaining;
       }
@@ -106,7 +106,7 @@ public class TestDataStream extends BaseTest {
     }
 
     public int getByteWritten() {
-      return bytesWritten;
+      return byteWritten;
     }
 
     public RaftClientRequest getWriteRequest() {

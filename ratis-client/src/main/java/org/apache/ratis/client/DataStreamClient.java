@@ -53,7 +53,7 @@ public interface DataStreamClient extends DataStreamApi {
 
     private Builder() {}
 
-    public static Builder getClientBuilder() {
+    public static Builder newBuilder() {
       return new Builder();
     }
 
