@@ -111,15 +111,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     return byteWritten;
   }
 
-  private void sendReply(DataStreamRequestByteBuf request, ChannelHandlerContext ctx, ByteBuf buf) {
+  private void sendReply(DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
     // TODO RATIS-1098: include byteWritten and isSuccess in the reply
-    try {
-      final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
-          request.getStreamId(), request.getStreamOffset(), ByteBuffer.wrap("OK".getBytes()));
-      ctx.writeAndFlush(reply);
-    } finally {
-      buf.release();
-    }
+    final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
+        request.getStreamId(), request.getStreamOffset(), ByteBuffer.wrap("OK".getBytes()));
+    ctx.writeAndFlush(reply);
   }
 
   private ChannelInboundHandler getServerHandler(){
@@ -150,7 +146,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
               peersStreamOutput.get(request.getStreamId()).get(i).writeAsync(request.slice().nioBuffer());
           }
         }
-        CompletableFuture.allOf(parallelWrites).whenComplete((t, r) -> sendReply(request, ctx, buf));
+        CompletableFuture.allOf(parallelWrites).whenComplete((t, r) -> {
+              buf.release();
+              sendReply(request, ctx);
+        });
       }
     };
   }

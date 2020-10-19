@@ -118,7 +118,6 @@ public class TestDataStream extends BaseTest {
   private RaftProperties properties;
   private List<DataStreamServerImpl> servers;
   private DataStreamClientImpl client;
-  private DataStreamClientImpl.DataStreamOutputImpl impl;
   private List<SingleDataStreamStateMachine> singleDataStreamStateMachines;
 
   private void setupServer(){
@@ -189,7 +188,7 @@ public class TestDataStream extends BaseTest {
     final int bufferSize = 1024*1024;
     final int bufferNum = 10;
     final DataStreamOutput out = client.stream();
-    impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
+    DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
 
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
 
