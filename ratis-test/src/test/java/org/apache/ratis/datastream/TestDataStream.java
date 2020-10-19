@@ -135,14 +135,12 @@ public class TestDataStream extends BaseTest {
         otherPeers.remove(peers.get(i));
         streamServer = new DataStreamServerImpl(
             peers.get(i), properties, null, singleDataStreamStateMachine, otherPeers);
-        servers.add(streamServer);
-        streamServer.getServerRpc().startServer();
       } else {
         streamServer = new DataStreamServerImpl(
             peers.get(i), singleDataStreamStateMachine, properties, null);
-        servers.add(streamServer);
-        streamServer.getServerRpc().startServer();
       }
+      servers.add(streamServer);
+      streamServer.getServerRpc().startServer();
     }
 
     // start peer clients on stream servers
