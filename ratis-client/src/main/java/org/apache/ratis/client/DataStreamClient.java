@@ -45,6 +45,10 @@ public interface DataStreamClient extends DataStreamApi {
   /** start the client */
   void start();
 
+  static Builder newBuilder() {
+    return new Builder();
+  }
+
   /** To build {@link DataStreamClient} objects */
   class Builder {
     private RaftPeer raftServer;
@@ -52,10 +56,6 @@ public interface DataStreamClient extends DataStreamApi {
     private Parameters parameters;
 
     private Builder() {}
-
-    public static Builder newBuilder() {
-      return new Builder();
-    }
 
     public DataStreamClientImpl build(){
       return new DataStreamClientImpl(raftServer, properties, parameters);
