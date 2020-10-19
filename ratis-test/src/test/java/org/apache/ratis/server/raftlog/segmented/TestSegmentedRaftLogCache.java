@@ -262,8 +262,9 @@ public class TestSegmentedRaftLogCache {
 
     int purgeIndex = (end - start) * segmentSize - 1;
 
-    // overlapped close segment will not purged.
-    TruncationSegments ts = cache.purge(purgeIndex);
+    // overlapped close segment will not purged. Passing in index - 1 since
+    // we purge a closed segment when end index == passed in purge index.
+    TruncationSegments ts = cache.purge(purgeIndex - 1);
     Assert.assertNull(ts.getToTruncate());
     Assert.assertEquals(end - start - 1, ts.getToDelete().length);
     Assert.assertEquals(1, cache.getNumOfSegments());

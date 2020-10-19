@@ -398,7 +398,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     int endTerm = 5;
     int segmentSize = 200;
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
-    long expectedIndex = segmentSize * (endTerm - startTerm - 2);
+    long expectedIndex = segmentSize * (endTerm - startTerm - 1);
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
   }
 
@@ -408,7 +408,7 @@ public class TestSegmentedRaftLog extends BaseTest {
     int endTerm = 5;
     int segmentSize = 200;
     long endIndexOfClosedSegment = segmentSize * (endTerm - startTerm - 1) - 1;
-    long expectedIndex = segmentSize * (endTerm - startTerm - 2);
+    long expectedIndex = segmentSize * (endTerm - startTerm - 1);
     RatisMetricRegistry metricRegistryForLogWorker = new RaftLogMetrics(memberId.toString()).getRegistry();
     purgeAndVerify(startTerm, endTerm, segmentSize, 1, endIndexOfClosedSegment, expectedIndex);
     Assert.assertTrue(metricRegistryForLogWorker.timer("purgeLog").getCount() > 0);
