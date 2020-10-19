@@ -494,8 +494,11 @@ public class SegmentedRaftLog extends RaftLog {
     // Close open log segment if entries are already included in snapshot
     LogSegment openSegment = cache.getOpenSegment();
     if (openSegment != null && openSegment.hasEntries()) {
-      LOG.debug("syncWithSnapshot : Found open segment {}, with end index {}," +
-              " snapshotIndex {}", openSegment, openSegment.getEndIndex(), lastSnapshotIndex);
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("syncWithSnapshot : Found open segment {}, with end index {},"
+                + " snapshotIndex {}", openSegment, openSegment.getEndIndex(),
+            lastSnapshotIndex);
+      }
       if (openSegment.getEndIndex() <= lastSnapshotIndex) {
         fileLogWorker.closeLogSegment(openSegment);
         cache.rollOpenSegment(true);
