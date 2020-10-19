@@ -24,6 +24,7 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.netty.server.NettyServerStreamRpc;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
@@ -52,6 +53,8 @@ public class TestDataStream extends BaseTest {
 
   class SingleDataStreamStateMachine extends BaseStateMachine {
     private int bytesWritten = 0;
+    private RaftClientRequest writeRequest;
+
     final WritableByteChannel channel = new WritableByteChannel() {
       private volatile boolean open = true;
 
@@ -98,14 +101,16 @@ public class TestDataStream extends BaseTest {
 
     @Override
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {
-      if (request.getClientId().equals(impl.getHeader().getClientId())) {
-        writeRequest = request;
-      }
+      writeRequest = request;
       return CompletableFuture.completedFuture(stream);
     }
 
     public int getByteWritten() {
       return bytesWritten;
+    }
+
+    public RaftClientRequest getWriteRequest() {
+      return writeRequest;
     }
   }
 
@@ -113,7 +118,6 @@ public class TestDataStream extends BaseTest {
   private RaftProperties properties;
   private List<DataStreamServerImpl> servers;
   private DataStreamClientImpl client;
-  private RaftClientRequest writeRequest;
   private DataStreamClientImpl.DataStreamOutputImpl impl;
   private List<SingleDataStreamStateMachine> singleDataStreamStateMachines;
 
@@ -124,17 +128,17 @@ public class TestDataStream extends BaseTest {
     for (int i = 0; i < peers.size(); i++) {
       SingleDataStreamStateMachine singleDataStreamStateMachine = new SingleDataStreamStateMachine();
       singleDataStreamStateMachines.add(singleDataStreamStateMachine);
-
+      DataStreamServerImpl streamServer;
       if (i == 0) {
         // only the first server routes requests to peers.
         List<RaftPeer> otherPeers = new ArrayList<>(peers);
         otherPeers.remove(peers.get(i));
-        DataStreamServerImpl streamServer = new DataStreamServerImpl(
+        streamServer = new DataStreamServerImpl(
             peers.get(i), properties, null, singleDataStreamStateMachine, otherPeers);
         servers.add(streamServer);
         streamServer.getServerRpc().startServer();
       } else {
-        DataStreamServerImpl streamServer = new DataStreamServerImpl(
+        streamServer = new DataStreamServerImpl(
             peers.get(i), singleDataStreamStateMachine, properties, null);
         servers.add(streamServer);
         streamServer.getServerRpc().startServer();
@@ -143,7 +147,7 @@ public class TestDataStream extends BaseTest {
 
     // start peer clients on stream servers
     for (DataStreamServerImpl streamServer : servers) {
-      streamServer.getServerRpc().startClientToPeers();
+      ((NettyServerStreamRpc) streamServer.getServerRpc()).startClientToPeers();
     }
   }
 
@@ -209,15 +213,16 @@ public class TestDataStream extends BaseTest {
       f.join();
     }
 
-    Assert.assertEquals(writeRequest.getClientId(), impl.getHeader().getClientId());
-    Assert.assertEquals(writeRequest.getCallId(), impl.getHeader().getCallId());
-    Assert.assertEquals(writeRequest.getRaftGroupId(), impl.getHeader().getRaftGroupId());
-    Assert.assertEquals(writeRequest.getServerId(), impl.getHeader().getServerId());
-    int actualBytesWritten = 0;
     for (SingleDataStreamStateMachine s : singleDataStreamStateMachines) {
-      actualBytesWritten += s.getByteWritten();
+      RaftClientRequest writeRequest = s.getWriteRequest();
+      if (writeRequest.getClientId().equals(impl.getHeader().getClientId())) {
+        Assert.assertEquals(writeRequest.getCallId(), impl.getHeader().getCallId());
+        Assert.assertEquals(writeRequest.getRaftGroupId(), impl.getHeader().getRaftGroupId());
+        Assert.assertEquals(writeRequest.getServerId(), impl.getHeader().getServerId());
+      }
+      Assert.assertEquals(dataSize, s.getByteWritten());
     }
-    Assert.assertEquals(dataSize * peers.size(), actualBytesWritten);
+
     shutDownSetup();
   }
 

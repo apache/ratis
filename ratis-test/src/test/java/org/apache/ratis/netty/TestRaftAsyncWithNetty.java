@@ -15,29 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.datastream.impl;
+package org.apache.ratis.netty;
 
-import java.nio.ByteBuffer;
+import org.apache.ratis.RaftAsyncTests;
 
-/**
- * Implements {@link org.apache.ratis.protocol.DataStreamPacket} with {@link ByteBuffer}.
- *
- * This class is immutable.
- */
-public class DataStreamPacketByteBuffer extends DataStreamPacketImpl {
-  private final ByteBuffer buffer;
-
-  public DataStreamPacketByteBuffer(long streamId, long streamOffset, ByteBuffer buffer) {
-    super(streamId, streamOffset);
-    this.buffer = buffer.asReadOnlyBuffer();
-  }
-
-  @Override
-  public long getDataLength() {
-    return buffer.remaining();
-  }
-
-  public ByteBuffer slice() {
-    return buffer.slice();
-  }
+public class TestRaftAsyncWithNetty extends RaftAsyncTests<MiniRaftClusterWithNetty>
+        implements MiniRaftClusterWithNetty.FactoryGet {
 }

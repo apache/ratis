@@ -27,4 +27,7 @@ import java.util.concurrent.CompletableFuture;
 public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
   /** Send out the data in the buffer asynchronously */
   CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf);
+
+  /** Get the future of the header request. */
+  CompletableFuture<DataStreamReply> getHeaderFuture();
 }
