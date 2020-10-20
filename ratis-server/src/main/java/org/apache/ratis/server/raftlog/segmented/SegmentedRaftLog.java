@@ -484,7 +484,7 @@ public class SegmentedRaftLog extends RaftLog {
   }
 
   @Override
-  public void syncWithSnapshot(long lastSnapshotIndex) {
+  public CompletableFuture<Long> syncWithSnapshot(long lastSnapshotIndex) {
     fileLogWorker.syncWithSnapshot(lastSnapshotIndex);
     // TODO purge normal/tmp/corrupt snapshot files
     // if the last index in snapshot is larger than the index of the last
@@ -493,10 +493,18 @@ public class SegmentedRaftLog extends RaftLog {
 
     // Close open log segment if entries are already included in snapshot
     LogSegment openSegment = cache.getOpenSegment();
-    if (openSegment != null && openSegment.getEndIndex() <= lastSnapshotIndex) {
-      fileLogWorker.closeLogSegment(openSegment);
+    if (openSegment != null && openSegment.hasEntries()) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("syncWithSnapshot : Found open segment {}, with end index {},"
+                + " snapshotIndex {}", openSegment, openSegment.getEndIndex(),
+            lastSnapshotIndex);
+      }
+      if (openSegment.getEndIndex() <= lastSnapshotIndex) {
+        fileLogWorker.closeLogSegment(openSegment);
+        cache.rollOpenSegment(true);
+      }
     }
-    purgeImpl(lastSnapshotIndex);
+    return purgeImpl(lastSnapshotIndex);
   }
 
   @Override
