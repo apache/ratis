@@ -17,17 +17,14 @@
  */
 package org.apache.ratis.server;
 
+import java.io.Closeable;
+
 /**
  * Interface for streaming server.
  */
-public interface DataStreamServer {
+public interface DataStreamServer extends Closeable {
   /**
    * Get network interface for server.
    */
   DataStreamServerRpc getServerRpc();
-
-  /**
-   * close server.
-   */
-  void close();
 }
