@@ -98,6 +98,7 @@ public class DataStreamClientImpl implements DataStreamClient {
       return header;
     }
 
+    @Override
     public CompletableFuture<DataStreamReply> getHeaderFuture() {
       return headerFuture;
     }
@@ -123,6 +124,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     dataStreamClientRpc.closeClient();
   }
 
+  @Override
   public void start(){
     dataStreamClientRpc.startClient();
   }

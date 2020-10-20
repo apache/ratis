@@ -18,6 +18,7 @@
 
 package org.apache.ratis.server.impl;
 
+import java.util.List;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -46,6 +47,19 @@ public class DataStreamServerImpl implements DataStreamServer {
 
     this.serverRpc = DataStreamServerFactory.cast(type.newFactory(parameters))
         .newDataStreamServerRpc(raftServer, stateMachine);
+  }
+
+  public DataStreamServerImpl(RaftPeer server,
+      RaftProperties properties,
+      Parameters parameters,
+      StateMachine stateMachine,
+      List<RaftPeer> peers){
+    this.raftServer = server;
+    this.stateMachine = stateMachine;
+    final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
+
+    this.serverRpc = DataStreamServerFactory.cast(type.newFactory(parameters))
+        .newDataStreamServerRpc(server, peers, stateMachine, properties);
   }
 
   @Override

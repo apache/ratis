@@ -42,6 +42,13 @@ public interface DataStreamClient extends DataStreamApi {
   /** close the client */
   void close();
 
+  /** start the client */
+  void start();
+
+  static Builder newBuilder() {
+    return new Builder();
+  }
+
   /** To build {@link DataStreamClient} objects */
   class Builder {
     private RaftPeer raftServer;
