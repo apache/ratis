@@ -17,7 +17,6 @@
  */
 package org.apache.ratis.netty;
 
-import java.util.List;
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.client.DataStreamClientFactory;
 import org.apache.ratis.conf.Parameters;

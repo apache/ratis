@@ -23,10 +23,11 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.statemachine.StateMachine;
 
+/** A {@link DataStreamFactory} to create server-side objects. */
 public interface DataStreamServerFactory extends DataStreamFactory {
 
   static DataStreamServerFactory cast(DataStreamFactory dataStreamFactory) {
-    if (dataStreamFactory instanceof DataStreamFactory) {
+    if (dataStreamFactory instanceof DataStreamServerFactory) {
       return (DataStreamServerFactory)dataStreamFactory;
     }
     throw new ClassCastException("Cannot cast " + dataStreamFactory.getClass()
@@ -34,8 +35,6 @@ public interface DataStreamServerFactory extends DataStreamFactory {
         + "; rpc type is " + dataStreamFactory.getDataStreamType());
   }
 
-  /**
-   * Server implementation for streaming in Raft group.
-   */
+  /** Create a new {@link DataStreamServerRpc}. */
   DataStreamServerRpc newDataStreamServerRpc(RaftPeer server, StateMachine stateMachine, RaftProperties properties);
 }

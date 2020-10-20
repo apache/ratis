@@ -18,6 +18,7 @@
 package org.apache.ratis.client;
 
 import org.apache.ratis.client.api.DataStreamApi;
+import org.apache.ratis.client.impl.ClientImplUtils;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;

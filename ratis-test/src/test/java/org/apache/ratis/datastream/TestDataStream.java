@@ -25,11 +25,11 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.netty.server.NettyServerStreamRpc;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.JavaUtils;
@@ -130,14 +130,15 @@ public class TestDataStream extends BaseTest {
       singleDataStreamStateMachines.add(singleDataStreamStateMachine);
       final DataStreamServerImpl streamServer = new DataStreamServerImpl(
           peers.get(i), singleDataStreamStateMachine, properties, null);
+      final DataStreamServerRpc rpc = streamServer.getServerRpc();
       if (i == 0) {
         // only the first server routes requests to peers.
         List<RaftPeer> otherPeers = new ArrayList<>(peers);
         otherPeers.remove(peers.get(i));
-        streamServer.getServerRpc().addPeers(otherPeers);
+        rpc.addPeers(otherPeers);
       }
+      rpc.start();
       servers.add(streamServer);
-      streamServer.getServerRpc().start();
     }
   }
 
@@ -146,7 +147,7 @@ public class TestDataStream extends BaseTest {
     client.start();
   }
 
-  public void shutDownSetup() throws IOException {
+  public void shutdown() throws IOException {
     client.close();
     for (DataStreamServerImpl server : servers) {
       server.close();
@@ -175,11 +176,11 @@ public class TestDataStream extends BaseTest {
     try {
       runTestDataStream();
     } finally {
-      shutDownSetup();
+      shutdown();
     }
   }
 
-  public void runTestDataStream() {
+  public void runTestDataStream(){
     final int bufferSize = 1024*1024;
     final int bufferNum = 10;
     final DataStreamOutput out = client.stream();
