@@ -228,9 +228,14 @@ public abstract class RaftBasicTests<CLUSTER extends MiniRaftCluster>
 
     List<RaftServerImpl> followers = cluster.getFollowers();
     final RaftServerImpl followerToCommit = followers.get(0);
-    for (int i = 1; i < NUM_SERVERS - 1; i++) {
-      RaftServerImpl follower = followers.get(i);
-      cluster.killServer(follower.getId());
+    try {
+      for (int i = 1; i < NUM_SERVERS - 1; i++) {
+        RaftServerImpl follower = followers.get(i);
+        cluster.killServer(follower.getId());
+      }
+    } catch (IndexOutOfBoundsException e) {
+      throw new org.junit.AssumptionViolatedException("The assumption is follower.size() = NUM_SERVERS - 1, "
+              + "actual NUM_SERVERS is " + NUM_SERVERS + ", and actual follower.size() is " + followers.size(), e);
     }
 
     SimpleMessage[] messages = SimpleMessage.create(1);
