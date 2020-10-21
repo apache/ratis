@@ -18,33 +18,17 @@
 
 package org.apache.ratis.netty.client;
 
-import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 
 import java.util.List;
+import java.util.Optional;
 
 public class DataStreamReplyDecoder extends ByteToMessageDecoder {
-
   @Override
-  protected void decode(ChannelHandlerContext channelHandlerContext,
-                        ByteBuf byteBuf, List<Object> list) {
-
-    if(byteBuf.readableBytes() >= 24){
-      long streamId = byteBuf.readLong();
-      long dataOffset = byteBuf.readLong();
-      long dataLength = byteBuf.readLong();
-      if(byteBuf.readableBytes() >= dataLength){
-        DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(streamId,
-            dataOffset,
-            byteBuf.slice(byteBuf.readerIndex(), (int) dataLength).nioBuffer());
-        byteBuf.readerIndex(byteBuf.readerIndex() + (int)dataLength);
-        byteBuf.markReaderIndex();
-        list.add(reply);
-      } else {
-        byteBuf.resetReaderIndex();
-      }
-    }
+  protected void decode(ChannelHandlerContext channelHandlerContext, ByteBuf buf, List<Object> list) {
+    Optional.ofNullable(NettyDataStreamUtils.decode(buf)).ifPresent(list::add);
   }
 }

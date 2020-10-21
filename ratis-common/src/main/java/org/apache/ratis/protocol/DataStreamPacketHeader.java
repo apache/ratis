@@ -15,31 +15,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.datastream.impl;
 
-import java.nio.ByteBuffer;
+package org.apache.ratis.protocol;
 
-/**
- * Implements {@link org.apache.ratis.protocol.DataStreamPacket} with {@link ByteBuffer}.
- *
- * This class is immutable.
- */
-public class DataStreamPacketByteBuffer extends DataStreamPacketImpl {
-  private static final ByteBuffer EMPTY = ByteBuffer.allocateDirect(0).asReadOnlyBuffer();
+import org.apache.ratis.datastream.impl.DataStreamPacketImpl;
+import org.apache.ratis.util.SizeInBytes;
 
-  private final ByteBuffer buffer;
+import java.util.function.LongSupplier;
 
-  public DataStreamPacketByteBuffer(long streamId, long streamOffset, ByteBuffer buffer) {
+/** The header format is streamId, streamOffset, dataLength. */
+public class DataStreamPacketHeader extends DataStreamPacketImpl {
+  private static final SizeInBytes SIZE = SizeInBytes.valueOf(24);
+
+  public static int getSize() {
+    return SIZE.getSizeInt();
+  }
+
+  public static DataStreamPacketHeader read(LongSupplier readLong, int readableBytes) {
+    if (readableBytes < getSize()) {
+      return null;
+    }
+    return new DataStreamPacketHeader(readLong.getAsLong(), readLong.getAsLong(), readLong.getAsLong());
+  }
+
+  private final long dataLength;
+
+  public DataStreamPacketHeader(long streamId, long streamOffset, long dataLength) {
     super(streamId, streamOffset);
-    this.buffer = buffer != null? buffer.asReadOnlyBuffer(): EMPTY;
+    this.dataLength = dataLength;
   }
 
   @Override
   public long getDataLength() {
-    return buffer.remaining();
-  }
-
-  public ByteBuffer slice() {
-    return buffer.slice();
+    return dataLength;
   }
 }

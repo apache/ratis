@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream.impl;
 
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.DataStreamReplyHeader;
 
 import java.nio.ByteBuffer;
 
@@ -27,7 +28,28 @@ import java.nio.ByteBuffer;
  * This class is immutable.
  */
 public class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer implements DataStreamReply {
-  public DataStreamReplyByteBuffer(long streamId, long streamOffset, ByteBuffer buffer) {
+  private final long bytesWritten;
+  private final boolean success;
+
+  public DataStreamReplyByteBuffer(long streamId, long streamOffset, ByteBuffer buffer,
+      long bytesWritten, boolean success ) {
     super(streamId, streamOffset, buffer);
+
+    this.success = success;
+    this.bytesWritten = bytesWritten;
+  }
+
+  public DataStreamReplyByteBuffer(DataStreamReplyHeader header, ByteBuffer buffer) {
+    this(header.getStreamId(), header.getStreamOffset(), buffer, header.getBytesWritten(), header.isSuccess());
+  }
+
+  @Override
+  public long getBytesWritten() {
+    return bytesWritten;
+  }
+
+  @Override
+  public boolean isSuccess() {
+    return success;
   }
 }

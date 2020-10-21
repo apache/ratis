@@ -19,6 +19,7 @@
 package org.apache.ratis.netty.server;
 
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.protocol.DataStreamReplyHeader;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 import org.apache.ratis.thirdparty.io.netty.channel.ChannelHandlerContext;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
@@ -29,12 +30,9 @@ import java.util.List;
 public class DataStreamReplyEncoder extends MessageToMessageEncoder<DataStreamReplyByteBuffer> {
   @Override
   protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> list) {
-
-    ByteBuffer bb = ByteBuffer.allocateDirect(24);
-    bb.putLong(reply.getStreamId());
-    bb.putLong(reply.getStreamOffset());
-    bb.putLong(reply.getDataLength());
-    bb.flip();
-    list.add(Unpooled.wrappedBuffer(bb, reply.slice()));
+    final ByteBuffer buffer = ByteBuffer.allocateDirect(DataStreamReplyHeader.getSize());
+    reply.putTo(buffer::putLong);
+    buffer.flip();
+    list.add(Unpooled.wrappedBuffer(buffer, reply.slice()));
   }
 }
