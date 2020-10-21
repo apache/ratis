@@ -78,7 +78,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
     void addPeers(Collection<RaftPeer> newPeers) {
       // add to the map first in order to preserve the invariant.
-      map.addPeers(newPeers);
+      map.addRaftPeers(newPeers);
       // must use atomic addAll
       peers.addAll(newPeers);
     }
@@ -145,7 +145,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   }
 
   @Override
-  public void addPeers(Collection<RaftPeer> newPeers) {
+  public void addRaftPeers(Collection<RaftPeer> newPeers) {
     proxies.addPeers(newPeers);
   }
 

@@ -845,7 +845,7 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
       }
 
       // add new peers into the rpc service
-      getServerRpc().addPeers(peersInNewConf);
+      getServerRpc().addRaftPeers(peersInNewConf);
       // add staging state into the leaderState
       pending = leaderState.startSetConfiguration(request);
     }

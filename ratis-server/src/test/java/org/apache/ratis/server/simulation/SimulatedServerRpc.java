@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -124,7 +125,7 @@ class SimulatedServerRpc implements RaftServerRpc {
   }
 
   @Override
-  public void addPeers(Iterable<RaftPeer> peers) {
+  public void addRaftPeers(Collection<RaftPeer> peers) {
     // do nothing
   }
 

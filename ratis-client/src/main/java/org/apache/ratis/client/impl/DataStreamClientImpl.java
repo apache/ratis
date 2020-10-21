@@ -115,11 +115,6 @@ public class DataStreamClientImpl implements DataStreamClient {
   }
 
   @Override
-  public void addPeers(Iterable<RaftPeer> peers) {
-    return;
-  }
-
-  @Override
   public void close(){
     dataStreamClientRpc.closeClient();
   }

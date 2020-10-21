@@ -135,7 +135,7 @@ public class TestDataStream extends BaseTest {
         // only the first server routes requests to peers.
         List<RaftPeer> otherPeers = new ArrayList<>(peers);
         otherPeers.remove(peers.get(i));
-        rpc.addPeers(otherPeers);
+        rpc.addRaftPeers(otherPeers);
       }
       rpc.start();
       servers.add(streamServer);

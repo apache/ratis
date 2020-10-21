@@ -29,7 +29,7 @@ import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /** The client side rpc of a raft service. */
-public interface RaftClientRpc extends Closeable {
+public interface RaftClientRpc extends RaftPeer.Add, Closeable {
   /** Async call to send a request. */
   default CompletableFuture<RaftClientReply> sendRequestAsync(RaftClientRequest request) {
     throw new UnsupportedOperationException(getClass() + " does not support this method.");
@@ -43,9 +43,6 @@ public interface RaftClientRpc extends Closeable {
 
   /** Send a request. */
   RaftClientReply sendRequest(RaftClientRequest request) throws IOException;
-
-  /** Add the information of the given raft servers */
-  void addServers(Iterable<RaftPeer> servers);
 
   /**
    * Handle the given throwable. For example, try reconnecting.

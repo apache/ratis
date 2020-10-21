@@ -370,7 +370,7 @@ public class ServerState implements Closeable {
 
   void setRaftConf(long logIndex, RaftConfiguration conf) {
     configurationManager.addConfiguration(logIndex, conf);
-    server.getServerRpc().addPeers(conf.getPeers());
+    server.getServerRpc().addRaftPeers(conf.getPeers());
     LOG.info("{}: set configuration {} at {}", getMemberId(), conf, logIndex);
     LOG.trace("{}: {}", getMemberId(), configurationManager);
   }

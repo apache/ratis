@@ -22,6 +22,8 @@ import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 
+import java.util.Collection;
+
 class SimulatedClientRpc
     extends SimulatedRequestReply<RaftClientRequest, RaftClientReply>
     implements RaftClientRpc {
@@ -30,7 +32,7 @@ class SimulatedClientRpc
   }
 
   @Override
-  public void addServers(Iterable<RaftPeer> servers) {
+  public void addRaftPeers(Collection<RaftPeer> servers) {
     // do nothing
   }
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -22,6 +22,8 @@ import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 
 import java.net.InetSocketAddress;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -36,6 +38,16 @@ public class RaftPeer {
   /** @return an empty array. */
   public static RaftPeer[] emptyArray() {
     return EMPTY_ARRAY;
+  }
+
+  public interface Add {
+    /** Add the given peers. */
+    void addRaftPeers(Collection<RaftPeer> peers);
+
+    /** Add the given peers. */
+    default void addRaftPeers(RaftPeer... peers) {
+      addRaftPeers(Arrays.asList(peers));
+    }
   }
 
   /** The id of the peer. */

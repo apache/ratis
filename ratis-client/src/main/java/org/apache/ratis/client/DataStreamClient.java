@@ -38,9 +38,6 @@ public interface DataStreamClient extends DataStreamApi, Closeable {
   /** Return the rpc client instance **/
   DataStreamClientRpc getClientRpc();
 
-  /** add information of the raft peers to communicate with */
-  void addPeers(Iterable<RaftPeer> peers);
-
   /** start the client */
   void start();
 

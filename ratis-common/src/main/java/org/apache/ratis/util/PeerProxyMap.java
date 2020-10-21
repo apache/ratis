@@ -26,13 +26,14 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** A map from peer id to peer and its proxy. */
-public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
+public class PeerProxyMap<PROXY extends Closeable> implements RaftPeer.Add, Closeable {
   public static final Logger LOG = LoggerFactory.getLogger(PeerProxyMap.class);
 
   /** Peer and its proxy. */
@@ -113,7 +114,8 @@ public class PeerProxyMap<PROXY extends Closeable> implements Closeable {
     return p.getProxy();
   }
 
-  public void addPeers(Iterable<RaftPeer> newPeers) {
+  @Override
+  public void addRaftPeers(Collection<RaftPeer> newPeers) {
     for(RaftPeer p : newPeers) {
       computeIfAbsent(p);
     }

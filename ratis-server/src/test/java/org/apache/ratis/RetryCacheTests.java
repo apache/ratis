@@ -150,7 +150,7 @@ public abstract class RetryCacheTests<CLUSTER extends MiniRaftCluster>
       // same clientId and callId in the request
       r = cluster.newRaftClientRequest(client.getId(), newLeaderId,
               callId, new SimpleMessage("message"));
-      rpc.addServers(Arrays.asList(change.newPeers));
+      rpc.addRaftPeers(Arrays.asList(change.newPeers));
       for (int i = 0; i < 10; i++) {
         try {
           assertReply(rpc.sendRequest(r), client, callId);
