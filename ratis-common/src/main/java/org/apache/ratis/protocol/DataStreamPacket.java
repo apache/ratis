@@ -18,10 +18,18 @@
 
 package org.apache.ratis.protocol;
 
+import java.util.function.LongConsumer;
+
 public interface DataStreamPacket {
   long getStreamId();
 
   long getStreamOffset();
 
   long getDataLength();
+
+  default void putTo(LongConsumer putLong) {
+    putLong.accept(getStreamId());
+    putLong.accept(getStreamOffset());
+    putLong.accept(getDataLength());
+  }
 }

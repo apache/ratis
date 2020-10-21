@@ -22,24 +22,24 @@ import org.apache.ratis.util.SizeInBytes;
 
 import java.util.function.LongSupplier;
 
-/** The header format is streamId, streamOffset, dataLength, bytesWritten and flags. */
+/** The header format is {@link DataStreamPacketHeader}, bytesWritten and flags. */
 public class DataStreamReplyHeader extends DataStreamPacketHeader implements DataStreamReply {
-  static final SizeInBytes SIZE = SizeInBytes.valueOf(DataStreamPacketHeader.SIZE.getSizeInt() + 16);
+  private static final SizeInBytes SIZE = SizeInBytes.valueOf(DataStreamPacketHeader.getSize() + 16);
 
-  public static DataStreamReplyHeader read(LongSupplier readLong, int readableBytes) {
-    if (readableBytes < SIZE.getSizeInt()) {
-      return null;
-    }
-    return new DataStreamReplyHeader(
-        readLong.getAsLong(),
-        readLong.getAsLong(),
-        readLong.getAsLong(),
-        readLong.getAsLong(),
-        getSuccess(readLong.getAsLong()));
+  public static int getSize() {
+    return SIZE.getSizeInt();
   }
 
-  public static boolean getSuccess(long flags) {
-    return flags == 0;
+  public static DataStreamReplyHeader read(LongSupplier readLong, int readableBytes) {
+    if (readableBytes < getSize()) {
+      return null;
+    }
+    final DataStreamPacketHeader packerHeader = DataStreamPacketHeader.read(readLong, readableBytes);
+    if (packerHeader == null) {
+      return null;
+    }
+    return new DataStreamReplyHeader(packerHeader, readLong.getAsLong(),
+        DataStreamReply.getSuccess(readLong.getAsLong()));
   }
 
   private final long bytesWritten;
@@ -49,6 +49,10 @@ public class DataStreamReplyHeader extends DataStreamPacketHeader implements Dat
     super(streamId, streamOffset, dataLength);
     this.bytesWritten = bytesWritten;
     this.success = success;
+  }
+
+  public DataStreamReplyHeader(DataStreamPacketHeader header, long bytesWritten, boolean success) {
+    this(header.getStreamId(), header.getStreamOffset(), header.getDataLength(), bytesWritten, success);
   }
 
   @Override

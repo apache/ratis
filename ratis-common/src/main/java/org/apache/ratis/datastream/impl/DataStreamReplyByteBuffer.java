@@ -44,12 +44,12 @@ public class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer implem
   }
 
   @Override
-  public boolean isSuccess() {
-    return success;
+  public long getBytesWritten() {
+    return bytesWritten;
   }
 
   @Override
-  public long getBytesWritten() {
-    return bytesWritten;
+  public boolean isSuccess() {
+    return success;
   }
 }

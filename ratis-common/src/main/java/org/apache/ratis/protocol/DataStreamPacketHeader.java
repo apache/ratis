@@ -23,12 +23,16 @@ import org.apache.ratis.util.SizeInBytes;
 
 import java.util.function.LongSupplier;
 
-/** The header is streamId, streamOffset, dataLength. */
+/** The header format is streamId, streamOffset, dataLength. */
 public class DataStreamPacketHeader extends DataStreamPacketImpl {
-  static final SizeInBytes SIZE = SizeInBytes.valueOf(24);
+  private static final SizeInBytes SIZE = SizeInBytes.valueOf(24);
+
+  public static int getSize() {
+    return SIZE.getSizeInt();
+  }
 
   public static DataStreamPacketHeader read(LongSupplier readLong, int readableBytes) {
-    if (readableBytes < SIZE.getSizeInt()) {
+    if (readableBytes < getSize()) {
       return null;
     }
     return new DataStreamPacketHeader(readLong.getAsLong(), readLong.getAsLong(), readLong.getAsLong());

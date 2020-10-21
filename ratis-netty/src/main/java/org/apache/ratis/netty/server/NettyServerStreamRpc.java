@@ -178,7 +178,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private void sendReply(DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
-            request.getStreamId(), request.getStreamOffset(), null, bytesWritten, true);
+        request.getStreamId(), request.getStreamOffset(), null, bytesWritten, true);
     ctx.writeAndFlush(reply);
   }
 
