@@ -18,7 +18,7 @@
 
 package org.apache.ratis.server.impl;
 
-import java.util.List;
+import java.io.IOException;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
@@ -34,32 +34,14 @@ import org.slf4j.LoggerFactory;
 public class DataStreamServerImpl implements DataStreamServer {
   public static final Logger LOG = LoggerFactory.getLogger(DataStreamServerImpl.class);
 
-  private DataStreamServerRpc serverRpc;
-  private RaftPeer raftServer;
-  private final StateMachine stateMachine;
+  private final DataStreamServerRpc serverRpc;
 
   public DataStreamServerImpl(RaftPeer server, StateMachine stateMachine,
       RaftProperties properties, Parameters parameters){
-    this.raftServer = server;
-    this.stateMachine = stateMachine;
-
     final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
 
     this.serverRpc = DataStreamServerFactory.cast(type.newFactory(parameters))
-        .newDataStreamServerRpc(raftServer, stateMachine);
-  }
-
-  public DataStreamServerImpl(RaftPeer server,
-      RaftProperties properties,
-      Parameters parameters,
-      StateMachine stateMachine,
-      List<RaftPeer> peers){
-    this.raftServer = server;
-    this.stateMachine = stateMachine;
-    final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
-
-    this.serverRpc = DataStreamServerFactory.cast(type.newFactory(parameters))
-        .newDataStreamServerRpc(server, peers, stateMachine, properties);
+        .newDataStreamServerRpc(server, stateMachine, properties);
   }
 
   @Override
@@ -68,7 +50,7 @@ public class DataStreamServerImpl implements DataStreamServer {
   }
 
   @Override
-  public void close(){
-    serverRpc.closeServer();
+  public void close() throws IOException {
+    serverRpc.close();
   }
 }

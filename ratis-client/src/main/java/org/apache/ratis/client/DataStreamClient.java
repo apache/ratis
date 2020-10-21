@@ -25,11 +25,13 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
+
 /**
  * A client interface that sends request to the streaming pipeline.
  * Associated with it will be a Netty Client.
  */
-public interface DataStreamClient extends DataStreamApi {
+public interface DataStreamClient extends DataStreamApi, Closeable {
 
   Logger LOG = LoggerFactory.getLogger(DataStreamClient.class);
 
@@ -38,9 +40,6 @@ public interface DataStreamClient extends DataStreamApi {
 
   /** add information of the raft peers to communicate with */
   void addPeers(Iterable<RaftPeer> peers);
-
-  /** close the client */
-  void close();
 
   /** start the client */
   void start();

@@ -17,19 +17,21 @@
  */
 package org.apache.ratis.server;
 
+import org.apache.ratis.protocol.RaftPeer;
+
+import java.io.Closeable;
+import java.util.Collection;
+
 /**
  * A server interface handling incoming streams
  * Relays those streams to other servers after persisting
  */
-public interface DataStreamServerRpc {
+public interface DataStreamServerRpc extends Closeable {
   /**
    * start server
    */
-  void startServer();
+  void start();
 
-  /**
-   * shutdown server
-   */
-  void closeServer();
-
+  /** Add the given peers */
+  void addPeers(Collection<RaftPeer> peers);
 }
