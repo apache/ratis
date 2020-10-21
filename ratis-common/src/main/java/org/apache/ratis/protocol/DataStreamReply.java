@@ -19,4 +19,7 @@
 package org.apache.ratis.protocol;
 
 public interface DataStreamReply extends DataStreamPacket {
+  boolean isSuccess();
+
+  long getBytesWritten();
 }

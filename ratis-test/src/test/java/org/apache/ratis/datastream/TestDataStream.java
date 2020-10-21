@@ -187,23 +187,31 @@ public class TestDataStream extends BaseTest {
     DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
 
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-
-    // add header
-    futures.add(impl.getHeaderFuture());
+    final List<Integer> sizes = new ArrayList<>();
 
     //send data
     final int halfBufferSize = bufferSize/2;
     int dataSize = 0;
     for(int i = 0; i < bufferNum; i++) {
       final int size = halfBufferSize + ThreadLocalRandom.current().nextInt(halfBufferSize);
+      sizes.add(size);
+
       final ByteBuffer bf = initBuffer(dataSize, size);
       futures.add(out.writeAsync(bf));
       dataSize += size;
     }
 
-    //join all requests
-    for(CompletableFuture<DataStreamReply> f : futures) {
-      f.join();
+    { // check header
+      final DataStreamReply reply = impl.getHeaderFuture().join();
+      Assert.assertTrue(reply.isSuccess());
+      Assert.assertEquals(0, reply.getBytesWritten());
+    }
+
+    // check writeAsync requests
+    for(int i = 0; i < futures.size(); i++) {
+      final DataStreamReply reply = futures.get(i).join();
+      Assert.assertTrue(reply.isSuccess());
+      Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
     }
 
     for (SingleDataStreamStateMachine s : singleDataStreamStateMachines) {

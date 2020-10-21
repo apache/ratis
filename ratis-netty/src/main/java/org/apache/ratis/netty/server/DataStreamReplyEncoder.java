@@ -30,10 +30,12 @@ public class DataStreamReplyEncoder extends MessageToMessageEncoder<DataStreamRe
   @Override
   protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> list) {
 
-    ByteBuffer bb = ByteBuffer.allocateDirect(24);
+    ByteBuffer bb = ByteBuffer.allocateDirect(40);
     bb.putLong(reply.getStreamId());
     bb.putLong(reply.getStreamOffset());
     bb.putLong(reply.getDataLength());
+    bb.putLong(reply.getBytesWritten());
+    bb.putLong(reply.isSuccess()? 0: 1);
     bb.flip();
     list.add(Unpooled.wrappedBuffer(bb, reply.slice()));
   }
