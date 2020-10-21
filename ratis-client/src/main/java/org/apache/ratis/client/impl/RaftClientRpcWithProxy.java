@@ -23,6 +23,7 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.util.PeerProxyMap;
 
 import java.io.Closeable;
+import java.util.Collection;
 
 /** An abstract {@link RaftClientRpc} implementation using {@link PeerProxyMap}. */
 public abstract class RaftClientRpcWithProxy<PROXY extends Closeable>
@@ -38,8 +39,8 @@ public abstract class RaftClientRpcWithProxy<PROXY extends Closeable>
   }
 
   @Override
-  public void addServers(Iterable<RaftPeer> servers) {
-    proxies.addPeers(servers);
+  public void addRaftPeers(Collection<RaftPeer> servers) {
+    proxies.addRaftPeers(servers);
   }
 
   @Override

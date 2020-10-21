@@ -101,7 +101,7 @@ public class GrpcClientStreamer implements Closeable {
     proxyMap = new PeerProxyMap<>(clientId.toString(),
         raftPeer -> new GrpcClientProtocolProxy(clientId, raftPeer,
             ResponseHandler::new, prop, tlsConfig));
-    proxyMap.addPeers(group.getPeers());
+    proxyMap.addRaftPeers(group.getPeers());
     refreshLeaderProxy(leaderId, null);
 
     senderThread = new Sender();

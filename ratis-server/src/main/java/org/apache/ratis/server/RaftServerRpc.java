@@ -32,7 +32,7 @@ import java.util.Objects;
  * An server-side interface for supporting different RPC implementations
  * such as Netty, gRPC and Hadoop.
  */
-public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeable {
+public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, RaftPeer.Add, Closeable {
   /** To build {@link RaftServerRpc} objects. */
   abstract class Builder<B extends Builder, RPC extends RaftServerRpc> {
     private RaftServer server;
@@ -57,9 +57,6 @@ public interface RaftServerRpc extends RaftServerProtocol, RpcType.Get, Closeabl
 
   /** @return the address where this RPC server is listening to. */
   InetSocketAddress getInetSocketAddress();
-
-  /** add information of the given peers */
-  void addPeers(Iterable<RaftPeer> peers);
 
   /** Handle the given exception.  For example, try reconnecting. */
   void handleException(RaftPeerId serverId, Exception e, boolean reconnect);

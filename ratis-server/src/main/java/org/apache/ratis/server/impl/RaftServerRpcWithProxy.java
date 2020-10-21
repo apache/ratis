@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -26,6 +26,7 @@ import org.apache.ratis.util.PeerProxyMap;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -55,8 +56,8 @@ public abstract class RaftServerRpcWithProxy<PROXY extends Closeable, PROXIES ex
   }
 
   @Override
-  public void addPeers(Iterable<RaftPeer> peers) {
-    getProxies().addPeers(peers);
+  public void addRaftPeers(Collection<RaftPeer> peers) {
+    getProxies().addRaftPeers(peers);
   }
 
   @Override

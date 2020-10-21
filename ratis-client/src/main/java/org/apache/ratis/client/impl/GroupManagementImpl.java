@@ -46,7 +46,7 @@ class GroupManagementImpl implements GroupManagementApi {
     Objects.requireNonNull(newGroup, "newGroup == null");
 
     final long callId = RaftClientImpl.nextCallId();
-    client.addServers(newGroup.getPeers().stream());
+    client.getClientRpc().addRaftPeers(newGroup.getPeers());
     return client.io().sendRequest(GroupManagementRequest.newAdd(client.getId(), server, callId, newGroup));
   }
 

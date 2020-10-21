@@ -60,7 +60,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /** A client who sends requests to a raft service. */
 public final class RaftClientImpl implements RaftClient {
@@ -133,7 +132,7 @@ public final class RaftClientImpl implements RaftClient {
     this.retryPolicy = retryPolicy;
 
     scheduler = TimeoutScheduler.getInstance();
-    clientRpc.addServers(peers);
+    clientRpc.addRaftPeers(peers);
 
     this.orderedAsync = JavaUtils.memoize(() -> OrderedAsync.newInstance(this, properties));
     this.streamApi = JavaUtils.memoize(() -> MessageStreamImpl.newInstance(this, properties));
@@ -209,7 +208,7 @@ public final class RaftClientImpl implements RaftClient {
 
     final long callId = nextCallId();
     // also refresh the rpc proxies for these peers
-    addServers(Arrays.stream(peersInNewConf));
+    clientRpc.addRaftPeers(peersInNewConf);
     return io().sendRequestWithRetry(() -> new SetConfigurationRequest(
         clientId, leaderId, groupId, callId, Arrays.asList(peersInNewConf)));
   }
@@ -227,11 +226,6 @@ public final class RaftClientImpl implements RaftClient {
   @Override
   public BlockingImpl io() {
     return blockingApi.get();
-  }
-
-  void addServers(Stream<RaftPeer> peersInNewConf) {
-    clientRpc.addServers(
-        peersInNewConf.filter(p -> !peers.contains(p))::iterator);
   }
 
   Throwable noMoreRetries(ClientRetryEvent event) {
@@ -284,7 +278,7 @@ public final class RaftClientImpl implements RaftClient {
       peers.clear();
       peers.addAll(newPeers);
       // also refresh the rpc proxies for these peers
-      clientRpc.addServers(newPeers);
+      clientRpc.addRaftPeers(newPeers);
     }
   }
 
