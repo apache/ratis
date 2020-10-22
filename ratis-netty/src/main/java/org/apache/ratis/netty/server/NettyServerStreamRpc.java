@@ -18,7 +18,6 @@
 
 package org.apache.ratis.netty.server;
 
-import java.util.concurrent.ExecutionException;
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.client.impl.ClientProtoUtils;
@@ -60,6 +59,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 public class NettyServerStreamRpc implements DataStreamServerRpc {
