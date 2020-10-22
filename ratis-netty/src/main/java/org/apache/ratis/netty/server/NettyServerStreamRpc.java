@@ -191,7 +191,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   }
 
   private void sendReply(List<CompletableFuture<DataStreamReply>> remoteWrites,
-              DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
+      DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
     try {
       if (!checkSuccessRemoteWrite(remoteWrites, bytesWritten)) {
         sendReplyNotSuccess(request, ctx);
@@ -201,7 +201,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     } catch (ExecutionException | InterruptedException e) {
       IOUtils.asIOException(e);
     }
-
   }
 
   private ChannelInboundHandler getServerHandler(){
