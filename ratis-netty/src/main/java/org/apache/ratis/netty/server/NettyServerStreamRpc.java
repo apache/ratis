@@ -184,10 +184,24 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     ctx.writeAndFlush(reply);
   }
 
-  private void sendReply(DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
+  private void sendReplySuccess(DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
         request.getStreamId(), request.getStreamOffset(), null, bytesWritten, true);
     ctx.writeAndFlush(reply);
+  }
+
+  private void sendReply(List<CompletableFuture<DataStreamReply>> remoteWrites,
+              DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
+    try {
+      if (!checkSuccessRemoteWrite(remoteWrites, bytesWritten)) {
+        sendReplyNotSuccess(request, ctx);
+      } else {
+        sendReplySuccess(request, bytesWritten, ctx);
+      }
+    } catch (ExecutionException | InterruptedException e) {
+      IOUtils.asIOException(e);
+    }
+
   }
 
   private ChannelInboundHandler getServerHandler(){
@@ -219,15 +233,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
         JavaUtils.allOf(remoteWrites).thenCombine(localWrite, (v, bytesWritten) -> {
               buf.release();
-              try {
-                if (!checkSuccessRemoteWrite(remoteWrites, bytesWritten)) {
-                  sendReplyNotSuccess(request, ctx);
-                } else {
-                  sendReply(request, bytesWritten, ctx);
-                }
-              } catch (ExecutionException | InterruptedException e) {
-                IOUtils.asIOException(e);
-              }
+              sendReply(remoteWrites, request, bytesWritten, ctx);
               return null;
         });
       }
