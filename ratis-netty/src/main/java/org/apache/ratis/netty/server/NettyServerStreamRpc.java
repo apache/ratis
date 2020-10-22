@@ -18,6 +18,7 @@
 
 package org.apache.ratis.netty.server;
 
+import java.util.concurrent.ExecutionException;
 import org.apache.ratis.client.DataStreamClient;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.client.impl.ClientProtoUtils;
@@ -40,6 +41,7 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
+import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.PeerProxyMap;
@@ -176,6 +178,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     return byteWritten;
   }
 
+  private void sendReplyNotSuccess(DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
+    final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
+        request.getStreamId(), request.getStreamOffset(), null, -1, false);
+    ctx.writeAndFlush(reply);
+  }
+
   private void sendReply(DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
         request.getStreamId(), request.getStreamOffset(), null, bytesWritten, true);
@@ -211,6 +219,17 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
         JavaUtils.allOf(remoteWrites).thenCombine(localWrite, (v, bytesWritten) -> {
               buf.release();
+              for (CompletableFuture<DataStreamReply> replyFuture : remoteWrites) {
+                try {
+                  DataStreamReply reply = replyFuture.get();
+                  if (!reply.isSuccess() || reply.getBytesWritten() != bytesWritten) {
+                    sendReplyNotSuccess(request, ctx);
+                    return null;
+                  }
+                } catch (InterruptedException | ExecutionException e) {
+                  IOUtils.asIOException(e);
+                }
+              }
               sendReply(request, bytesWritten, ctx);
               return null;
         });
