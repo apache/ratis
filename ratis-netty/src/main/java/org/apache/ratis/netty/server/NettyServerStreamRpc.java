@@ -194,11 +194,11 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
-        final DataStreamRequestByteBuf request = (DataStreamRequestByteBuf)msg;
+        final DataStreamRequestByteBuf request = (DataStreamRequestByteBuf) msg;
         final ByteBuf buf = request.slice();
         final boolean isHeader = request.getStreamOffset() == -1;
 
-        final CompletableFuture<Long> localWrite = isHeader?
+        final CompletableFuture<Long> localWrite = isHeader ?
                 streams.computeIfAbsent(request.getStreamId(), id -> getDataStreamFuture(buf)).thenApply(stream -> 0L)
                 : streams.get(request.getStreamId()).thenApply(stream -> writeTo(buf, stream));
 
@@ -207,34 +207,43 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
           // do not need to forward header request
           final List<DataStreamOutput> outs = proxies.getDataStreamOutput();
           peersStreamOutput.put(request.getStreamId(), outs);
-          for(DataStreamOutput out : outs) {
+          for (DataStreamOutput out : outs) {
             remoteWrites.add(out.getHeaderFuture());
           }
         } else {
           // body
-          for(DataStreamOutput out : peersStreamOutput.get(request.getStreamId())) {
+          for (DataStreamOutput out : peersStreamOutput.get(request.getStreamId())) {
             remoteWrites.add(out.writeAsync(request.slice().nioBuffer()));
           }
         }
 
         JavaUtils.allOf(remoteWrites).thenCombine(localWrite, (v, bytesWritten) -> {
               buf.release();
-              for (CompletableFuture<DataStreamReply> replyFuture : remoteWrites) {
-                try {
-                  DataStreamReply reply = replyFuture.get();
-                  if (!reply.isSuccess() || reply.getBytesWritten() != bytesWritten) {
-                    sendReplyNotSuccess(request, ctx);
-                    return null;
-                  }
-                } catch (InterruptedException | ExecutionException e) {
-                  IOUtils.asIOException(e);
+              try {
+                if (!checkSuccessRemoteWrite(remoteWrites, bytesWritten)) {
+                  sendReplyNotSuccess(request, ctx);
+                } else {
+                  sendReply(request, bytesWritten, ctx);
                 }
+              } catch (ExecutionException | InterruptedException e) {
+                IOUtils.asIOException(e);
               }
-              sendReply(request, bytesWritten, ctx);
               return null;
         });
       }
     };
+  }
+
+  private boolean checkSuccessRemoteWrite(
+          List<CompletableFuture<DataStreamReply>> replyFutures, long bytesWritten)
+          throws ExecutionException, InterruptedException {
+    for (CompletableFuture<DataStreamReply> replyFuture : replyFutures) {
+      DataStreamReply reply = replyFuture.get();
+      if (!reply.isSuccess() || reply.getBytesWritten() != bytesWritten) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private ChannelInitializer<SocketChannel> getInitializer(){
