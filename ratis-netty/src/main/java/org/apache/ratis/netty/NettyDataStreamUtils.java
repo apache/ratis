@@ -32,11 +32,11 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 public interface NettyDataStreamUtils {
-  static void encodeDataStreamPacketByteBuffer(DataStreamPacketByteBuffer packet, Consumer<ByteBuf> addTo) {
+  static void encodeDataStreamPacketByteBuffer(DataStreamPacketByteBuffer packet, Consumer<ByteBuf> out) {
     final ByteBuf buf = PooledByteBufAllocator.DEFAULT.directBuffer(packet.getHeaderSize());
     packet.writeHeaderTo(buf::writeLong);
-    addTo.accept(buf);
-    addTo.accept(Unpooled.wrappedBuffer(packet.slice()));
+    out.accept(buf);
+    out.accept(Unpooled.wrappedBuffer(packet.slice()));
   }
 
   static DataStreamRequestByteBuf decodeDataStreamRequestByteBuf(ByteBuf buf) {

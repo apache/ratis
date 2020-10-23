@@ -135,5 +135,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   @Override
   public void closeClient(){
     channel.close().syncUninterruptibly();
+    workerGroup.shutdownGracefully();
   }
 }
