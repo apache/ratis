@@ -209,6 +209,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private ChannelInboundHandler getServerHandler(){
     return new ChannelInboundHandlerAdapter(){
+      volatile CompletableFuture<?> previous = CompletableFuture.completedFuture(null);
+
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
         final DataStreamRequestByteBuf request = (DataStreamRequestByteBuf) msg;
@@ -234,7 +236,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
           }
         }
 
-        JavaUtils.allOf(remoteWrites).thenCombine(localWrite, (v, bytesWritten) -> {
+        previous = previous.thenCombine(JavaUtils.allOf(remoteWrites), (u, v) -> null)
+            .thenCombine(localWrite, (v, bytesWritten) -> {
               buf.release();
               sendReply(remoteWrites, request, bytesWritten, ctx);
               return null;
