@@ -64,11 +64,11 @@ public interface NettyDataStreamUtils {
     return header;
   }
 
-  static <DATA> DATA decodeData(ByteBuf buf, DataStreamPacketHeader header, Function<ByteBuf, DATA> toBuffer) {
+  static <DATA> DATA decodeData(ByteBuf buf, DataStreamPacketHeader header, Function<ByteBuf, DATA> toData) {
     final int dataLength = Math.toIntExact(header.getDataLength());
     final DATA data;
     if (dataLength > 0) {
-      data = toBuffer.apply(buf.slice(buf.readerIndex(), dataLength));
+      data = toData.apply(buf.slice(buf.readerIndex(), dataLength));
       buf.readerIndex(buf.readerIndex() + dataLength);
     } else {
       data = null;

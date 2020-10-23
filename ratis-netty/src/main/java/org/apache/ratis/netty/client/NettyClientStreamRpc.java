@@ -95,6 +95,10 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
 
   ByteToMessageDecoder newDecoder() {
     return new ByteToMessageDecoder() {
+      {
+        this.setCumulator(ByteToMessageDecoder.COMPOSITE_CUMULATOR);
+      }
+
       @Override
       protected void decode(ChannelHandlerContext context, ByteBuf buf, List<Object> out) {
         Optional.ofNullable(NettyDataStreamUtils.decodeDataStreamReplyByteBuffer(buf)).ifPresent(out::add);
