@@ -18,40 +18,37 @@
 
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.datastream.impl.DataStreamPacketImpl;
 import org.apache.ratis.util.SizeInBytes;
 
 import java.util.function.LongSupplier;
 
-/** The header format is streamId, streamOffset, dataLength. */
-public class DataStreamPacketHeader extends DataStreamPacketImpl {
-  private static final SizeInBytes SIZE = SizeInBytes.valueOf(24);
+/**
+ * The header format is the same {@link DataStreamPacketHeader}
+ * since there are no additional fields.
+ */
+public class DataStreamRequestHeader extends DataStreamPacketHeader implements DataStreamRequest {
+  private static final SizeInBytes SIZE = SizeInBytes.valueOf(DataStreamPacketHeader.getSize());
 
   public static int getSize() {
     return SIZE.getSizeInt();
   }
 
-  public static DataStreamPacketHeader read(LongSupplier readLong, int readableBytes) {
+  public static DataStreamRequestHeader read(LongSupplier readLong, int readableBytes) {
     if (readableBytes < getSize()) {
       return null;
     }
-    return new DataStreamPacketHeader(readLong.getAsLong(), readLong.getAsLong(), readLong.getAsLong());
+    final DataStreamPacketHeader packerHeader = DataStreamPacketHeader.read(readLong, readableBytes);
+    if (packerHeader == null) {
+      return null;
+    }
+    return new DataStreamRequestHeader(packerHeader);
   }
 
-  private final long dataLength;
-
-  public DataStreamPacketHeader(long streamId, long streamOffset, long dataLength) {
-    super(streamId, streamOffset);
-    this.dataLength = dataLength;
+  public DataStreamRequestHeader(long streamId, long streamOffset, long dataLength) {
+    super(streamId, streamOffset, dataLength);
   }
 
-  @Override
-  public long getDataLength() {
-    return dataLength;
-  }
-
-  @Override
-  public int getHeaderSize() {
-    return getSize();
+  public DataStreamRequestHeader(DataStreamPacketHeader header) {
+    this(header.getStreamId(), header.getStreamOffset(), header.getDataLength());
   }
 }

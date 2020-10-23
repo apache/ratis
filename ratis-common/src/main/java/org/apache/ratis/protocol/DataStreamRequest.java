@@ -19,4 +19,8 @@
 package org.apache.ratis.protocol;
 
 public interface DataStreamRequest extends DataStreamPacket {
+  @Override
+  default int getHeaderSize() {
+    return DataStreamRequestHeader.getSize();
+  }
 }

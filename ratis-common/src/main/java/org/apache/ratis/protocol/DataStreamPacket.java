@@ -27,7 +27,9 @@ public interface DataStreamPacket {
 
   long getDataLength();
 
-  default void putTo(LongConsumer putLong) {
+  int getHeaderSize();
+
+  default void writeHeaderTo(LongConsumer putLong) {
     putLong.accept(getStreamId());
     putLong.accept(getStreamOffset());
     putLong.accept(getDataLength());

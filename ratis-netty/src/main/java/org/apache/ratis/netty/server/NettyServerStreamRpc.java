@@ -24,6 +24,7 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.io.CloseAsync;
+import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -38,6 +39,8 @@ import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioServerSocketChannel;
+import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
+import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.util.IOUtils;
@@ -53,6 +56,7 @@ import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -256,9 +260,31 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       @Override
       public void initChannel(SocketChannel ch) {
         ChannelPipeline p = ch.pipeline();
-        p.addLast(new DataStreamRequestDecoder());
-        p.addLast(new DataStreamReplyEncoder());
+        p.addLast(newDecoder());
+        p.addLast(newEncoder());
         p.addLast(getServerHandler());
+      }
+    };
+  }
+
+  ByteToMessageDecoder newDecoder() {
+    return new ByteToMessageDecoder() {
+      {
+        this.setCumulator(ByteToMessageDecoder.COMPOSITE_CUMULATOR);
+      }
+
+      @Override
+      protected void decode(ChannelHandlerContext context, ByteBuf buf, List<Object> out) {
+        Optional.ofNullable(NettyDataStreamUtils.decodeDataStreamRequestByteBuf(buf)).ifPresent(out::add);
+      }
+    };
+  }
+
+  MessageToMessageEncoder<DataStreamReplyByteBuffer> newEncoder() {
+    return new MessageToMessageEncoder<DataStreamReplyByteBuffer>() {
+      @Override
+      protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> out) {
+        NettyDataStreamUtils.encodeDataStreamPacketByteBuffer(reply, out::add);
       }
     };
   }

@@ -34,8 +34,13 @@ public interface DataStreamReply extends DataStreamPacket {
   long getBytesWritten();
 
   @Override
-  default void putTo(LongConsumer putLong) {
-    DataStreamPacket.super.putTo(putLong);
+  default int getHeaderSize() {
+    return DataStreamReplyHeader.getSize();
+  }
+
+  @Override
+  default void writeHeaderTo(LongConsumer putLong) {
+    DataStreamPacket.super.writeHeaderTo(putLong);
     putLong.accept(getBytesWritten());
     putLong.accept(toFlags(isSuccess()));
   }
