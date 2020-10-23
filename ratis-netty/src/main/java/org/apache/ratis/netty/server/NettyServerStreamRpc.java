@@ -65,6 +65,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class NettyServerStreamRpc implements DataStreamServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyServerStreamRpc.class);
@@ -209,7 +210,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private ChannelInboundHandler getServerHandler(){
     return new ChannelInboundHandlerAdapter(){
-      volatile CompletableFuture<?> previous = CompletableFuture.completedFuture(null);
+      private final AtomicReference<CompletableFuture<?>> previous
+          = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
@@ -236,12 +238,14 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
           }
         }
 
-        previous = previous.thenCombine(JavaUtils.allOf(remoteWrites), (u, v) -> null)
+        final CompletableFuture<?> current = previous.get()
+            .thenCombine(JavaUtils.allOf(remoteWrites), (u, v) -> null)
             .thenCombine(localWrite, (v, bytesWritten) -> {
               buf.release();
               sendReply(remoteWrites, request, bytesWritten, ctx);
               return null;
         });
+        previous.set(current);
       }
     };
   }
