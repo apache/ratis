@@ -64,7 +64,7 @@ public class MetricRegistriesImpl extends MetricRegistries {
       if (reporterRegistrations.isEmpty()) {
         LOG.warn(
             "First MetricRegistry has been created without registering reporters. You may need to call" +
-                " MetricRegistries.global().addReportRegistration(...) before.");
+                " MetricRegistries.global().addReporterRegistration(...) before.");
       }
       RatisMetricRegistry registry = factory.create(info);
       reporterRegistrations.forEach(reg -> reg.accept(registry));
