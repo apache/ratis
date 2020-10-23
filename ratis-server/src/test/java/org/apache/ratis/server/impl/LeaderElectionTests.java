@@ -46,14 +46,17 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.ratis.RaftTestUtil.waitForLeader;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LAST_LEADER_ELECTION_ELAPSED_TIME;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_COUNT_METRIC;
-import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_LATENCY;
+import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIME_TAKEN;
 import static org.apache.ratis.server.metrics.LeaderElectionMetrics.LEADER_ELECTION_TIMEOUT_COUNT_METRIC;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import com.codahale.metrics.Timer;
 
 public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     extends BaseTest
@@ -189,7 +192,6 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
 
   @Test
   public void testLeaderElectionMetrics() throws IOException, InterruptedException {
-    LOG.info("Running testLeaderElectionMetrics");
     Timestamp timestamp = Timestamp.currentTime();
     final MiniRaftCluster cluster = newCluster(3);
     cluster.start();
@@ -204,9 +206,13 @@ public abstract class LeaderElectionTests<CLUSTER extends MiniRaftCluster>
     long numLeaderElectionTimeout = ratisMetricRegistry.counter(LEADER_ELECTION_TIMEOUT_COUNT_METRIC).getCount();
     assertTrue(numLeaderElectionTimeout > 0);
 
+    Timer timer = ratisMetricRegistry.timer(LEADER_ELECTION_TIME_TAKEN);
+    double meanTimeNs = timer.getSnapshot().getMean();
+    long elapsedNs = timestamp.elapsedTime().toLong(TimeUnit.NANOSECONDS);
+    assertTrue(timer.getCount() > 0 && meanTimeNs < elapsedNs);
     Long leaderElectionLatency = (Long) ratisMetricRegistry.getGauges((s, metric) ->
-        s.contains(LEADER_ELECTION_LATENCY)).values().iterator().next().getValue();
-    assertTrue(leaderElectionLatency > 0 && leaderElectionLatency < timestamp.elapsedTimeMs());
+        s.contains(LAST_LEADER_ELECTION_ELAPSED_TIME)).values().iterator().next().getValue();
+    assertTrue(leaderElectionLatency > 0L);
   }
 
   @Test
