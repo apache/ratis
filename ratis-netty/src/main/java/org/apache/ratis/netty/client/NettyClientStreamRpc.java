@@ -20,20 +20,27 @@ package org.apache.ratis.netty.client;
 
 import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
+import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.Bootstrap;
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.channel.*;
 import org.apache.ratis.thirdparty.io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
+import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
+import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
 import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 
@@ -70,9 +77,31 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
       public void initChannel(SocketChannel ch)
           throws Exception {
         ChannelPipeline p = ch.pipeline();
-        p.addLast(new DataStreamRequestEncoder());
-        p.addLast(new DataStreamReplyDecoder());
+        p.addLast(newEncoder());
+        p.addLast(newDecoder());
         p.addLast(getClientHandler());
+      }
+    };
+  }
+
+  MessageToMessageEncoder<DataStreamRequestByteBuffer> newEncoder() {
+    return new MessageToMessageEncoder<DataStreamRequestByteBuffer>() {
+      @Override
+      protected void encode(ChannelHandlerContext context, DataStreamRequestByteBuffer request, List<Object> out) {
+        NettyDataStreamUtils.encodeDataStreamPacketByteBuffer(request, out::add);
+      }
+    };
+  }
+
+  ByteToMessageDecoder newDecoder() {
+    return new ByteToMessageDecoder() {
+      {
+        this.setCumulator(ByteToMessageDecoder.COMPOSITE_CUMULATOR);
+      }
+
+      @Override
+      protected void decode(ChannelHandlerContext context, ByteBuf buf, List<Object> out) {
+        Optional.ofNullable(NettyDataStreamUtils.decodeDataStreamReplyByteBuffer(buf)).ifPresent(out::add);
       }
     };
   }
@@ -106,5 +135,6 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   @Override
   public void closeClient(){
     channel.close().syncUninterruptibly();
+    workerGroup.shutdownGracefully();
   }
 }

@@ -17,34 +17,63 @@
  */
 package org.apache.ratis.netty;
 
+import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.netty.server.DataStreamRequestByteBuf;
+import org.apache.ratis.protocol.DataStreamPacketHeader;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
+import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
+import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
+import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 
-import java.nio.ByteBuffer;
+import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 public interface NettyDataStreamUtils {
-  static DataStreamReplyByteBuffer decode(ByteBuf buf) {
-    final DataStreamReplyHeader header = DataStreamReplyHeader.read(buf::readLong, buf.readableBytes());
+  static void encodeDataStreamPacketByteBuffer(DataStreamPacketByteBuffer packet, Consumer<ByteBuf> out) {
+    final ByteBuf buf = PooledByteBufAllocator.DEFAULT.directBuffer(packet.getHeaderSize());
+    packet.writeHeaderTo(buf::writeLong);
+    out.accept(buf);
+    out.accept(Unpooled.wrappedBuffer(packet.slice()));
+  }
+
+  static DataStreamRequestByteBuf decodeDataStreamRequestByteBuf(ByteBuf buf) {
+    return Optional.ofNullable(DataStreamRequestHeader.read(buf::readLong, buf.readableBytes()))
+        .map(header -> checkHeader(header, buf))
+        .map(header -> new DataStreamRequestByteBuf(header, decodeData(buf, header, ByteBuf::retain)))
+        .orElse(null);
+  }
+
+  static DataStreamReplyByteBuffer decodeDataStreamReplyByteBuffer(ByteBuf buf) {
+    return Optional.ofNullable(DataStreamReplyHeader.read(buf::readLong, buf.readableBytes()))
+        .map(header -> checkHeader(header, buf))
+        .map(header -> new DataStreamReplyByteBuffer(header, decodeData(buf, header, ByteBuf::nioBuffer)))
+        .orElse(null);
+  }
+
+  static <HEADER extends DataStreamPacketHeader> HEADER checkHeader(HEADER header, ByteBuf buf) {
     if (header == null) {
       return null;
     }
-    final int dataLength = Math.toIntExact(header.getDataLength());
-
-    if (buf.readableBytes() < dataLength) {
+    if (buf.readableBytes() < header.getDataLength()) {
       buf.resetReaderIndex();
       return null;
     }
+    return header;
+  }
 
-    final ByteBuffer buffer;
+  static <DATA> DATA decodeData(ByteBuf buf, DataStreamPacketHeader header, Function<ByteBuf, DATA> toData) {
+    final int dataLength = Math.toIntExact(header.getDataLength());
+    final DATA data;
     if (dataLength > 0) {
-      buffer = buf.slice(buf.readerIndex(), dataLength).nioBuffer();
+      data = toData.apply(buf.slice(buf.readerIndex(), dataLength));
       buf.readerIndex(buf.readerIndex() + dataLength);
     } else {
-      buffer = null;
+      data = null;
     }
     buf.markReaderIndex();
-
-    return new DataStreamReplyByteBuffer(header, buffer);
+    return data;
   }
 }
