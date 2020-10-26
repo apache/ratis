@@ -17,9 +17,12 @@
  */
 package org.apache.ratis.netty;
 
-import org.apache.ratis.datastream.impl.DataStreamPacketByteBuffer;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
+import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.netty.server.DataStreamRequestByteBuf;
+import org.apache.ratis.proto.RaftProtos.DataStreamReplyHeaderProto;
+import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.protocol.DataStreamPacketHeader;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
@@ -27,27 +30,74 @@ import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 
+import java.nio.ByteBuffer;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 public interface NettyDataStreamUtils {
-  static void encodeDataStreamPacketByteBuffer(DataStreamPacketByteBuffer packet, Consumer<ByteBuf> out) {
-    final ByteBuf buf = PooledByteBufAllocator.DEFAULT.directBuffer(packet.getHeaderSize());
-    packet.writeHeaderTo(buf::writeLong);
-    out.accept(buf);
-    out.accept(Unpooled.wrappedBuffer(packet.slice()));
+
+  static ByteBuffer getDataStreamRequestHeaderProtoByteBuf(DataStreamRequestByteBuffer request) {
+    DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto
+        .newBuilder()
+        .setStreamId(request.getStreamId())
+        .setStreamOffset(request.getStreamOffset())
+        .setType(request.getType())
+        .setDataLength(request.getDataLength());
+    return DataStreamRequestHeaderProto
+        .newBuilder()
+        .setPacketHeader(b)
+        .build()
+        .toByteString()
+        .asReadOnlyByteBuffer();
+  }
+
+  static ByteBuffer getDataStreamReplyHeaderProtoByteBuf(DataStreamReplyByteBuffer reply) {
+    DataStreamPacketHeaderProto.Builder b = DataStreamPacketHeaderProto
+        .newBuilder()
+        .setStreamId(reply.getStreamId())
+        .setStreamOffset(reply.getStreamOffset())
+        .setType(reply.getType())
+        .setDataLength(reply.getDataLength());
+    return DataStreamReplyHeaderProto
+        .newBuilder()
+        .setPacketHeader(b)
+        .setBytesWritten(reply.getBytesWritten())
+        .setSuccess(reply.isSuccess())
+        .build()
+        .toByteString()
+        .asReadOnlyByteBuffer();
+  }
+
+  static void encodeDataStreamRequestByteBuffer(DataStreamRequestByteBuffer request, Consumer<ByteBuf> out) {
+    ByteBuffer headerBuf = getDataStreamRequestHeaderProtoByteBuf(request);
+    final ByteBuf headerLenBuf =
+        PooledByteBufAllocator.DEFAULT.directBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
+    headerLenBuf.writeInt(headerBuf.remaining());
+    out.accept(headerLenBuf);
+    out.accept(Unpooled.wrappedBuffer(headerBuf));
+    out.accept(Unpooled.wrappedBuffer(request.slice()));
+  }
+
+  static void encodeDataStreamReplyByteBuffer(DataStreamReplyByteBuffer reply, Consumer<ByteBuf> out) {
+    ByteBuffer headerBuf = getDataStreamReplyHeaderProtoByteBuf(reply);
+    final ByteBuf headerLenBuf =
+        PooledByteBufAllocator.DEFAULT.directBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
+    headerLenBuf.writeInt(headerBuf.remaining());
+    out.accept(headerLenBuf);
+    out.accept(Unpooled.wrappedBuffer(headerBuf));
+    out.accept(Unpooled.wrappedBuffer(reply.slice()));
   }
 
   static DataStreamRequestByteBuf decodeDataStreamRequestByteBuf(ByteBuf buf) {
-    return Optional.ofNullable(DataStreamRequestHeader.read(buf::readLong, buf.readableBytes()))
+    return Optional.ofNullable(DataStreamRequestHeader.read(buf))
         .map(header -> checkHeader(header, buf))
         .map(header -> new DataStreamRequestByteBuf(header, decodeData(buf, header, ByteBuf::retain)))
         .orElse(null);
   }
 
   static DataStreamReplyByteBuffer decodeDataStreamReplyByteBuffer(ByteBuf buf) {
-    return Optional.ofNullable(DataStreamReplyHeader.read(buf::readLong, buf.readableBytes()))
+    return Optional.ofNullable(DataStreamReplyHeader.read(buf))
         .map(header -> checkHeader(header, buf))
         .map(header -> new DataStreamReplyByteBuffer(header, decodeData(buf, header, ByteBuf::nioBuffer)))
         .orElse(null);

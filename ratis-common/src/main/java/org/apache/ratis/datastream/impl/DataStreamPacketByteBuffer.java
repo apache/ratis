@@ -17,6 +17,7 @@
  */
 package org.apache.ratis.datastream.impl;
 
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import java.nio.ByteBuffer;
 
 /**
@@ -27,8 +28,8 @@ public abstract class DataStreamPacketByteBuffer extends DataStreamPacketImpl {
 
   private final ByteBuffer buffer;
 
-  public DataStreamPacketByteBuffer(long streamId, long streamOffset, ByteBuffer buffer) {
-    super(streamId, streamOffset);
+  public DataStreamPacketByteBuffer(long streamId, long streamOffset, ByteBuffer buffer, Type type) {
+    super(streamId, streamOffset, type);
     this.buffer = buffer != null? buffer.asReadOnlyBuffer(): EMPTY;
   }
 

@@ -18,37 +18,54 @@
 
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.util.SizeInBytes;
-
-import java.util.function.LongSupplier;
+import org.apache.ratis.proto.RaftProtos.DataStreamRequestHeaderProto;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The header format is the same {@link DataStreamPacketHeader}
  * since there are no additional fields.
  */
 public class DataStreamRequestHeader extends DataStreamPacketHeader implements DataStreamRequest {
-  private static final SizeInBytes SIZE = SizeInBytes.valueOf(DataStreamPacketHeader.getSize());
+  private static final Logger LOG = LoggerFactory.getLogger(DataStreamRequestHeader.class);
 
-  public static int getSize() {
-    return SIZE.getSizeInt();
-  }
-
-  public static DataStreamRequestHeader read(LongSupplier readLong, int readableBytes) {
-    if (readableBytes < getSize()) {
+  public static DataStreamRequestHeader read(ByteBuf buf) {
+    if (getSizeOfHeaderLen() > buf.readableBytes()) {
       return null;
     }
-    final DataStreamPacketHeader packerHeader = DataStreamPacketHeader.read(readLong, readableBytes);
-    if (packerHeader == null) {
+
+    int headerBufLen = buf.readInt();
+    if (headerBufLen > buf.readableBytes()) {
+      buf.resetReaderIndex();
       return null;
     }
-    return new DataStreamRequestHeader(packerHeader);
+
+    try {
+      ByteBuf headerBuf = buf.slice(buf.readerIndex(), headerBufLen);
+      DataStreamRequestHeaderProto header = DataStreamRequestHeaderProto.parseFrom(headerBuf.nioBuffer());
+
+      if (header.getPacketHeader().getDataLength() + headerBufLen <= buf.readableBytes()) {
+        buf.readerIndex(buf.readerIndex() + headerBufLen);
+        return new DataStreamRequestHeader(
+            header.getPacketHeader().getStreamId(),
+            header.getPacketHeader().getStreamOffset(),
+            header.getPacketHeader().getDataLength(),
+            header.getPacketHeader().getType());
+      } else {
+        buf.resetReaderIndex();
+        return null;
+      }
+    } catch (InvalidProtocolBufferException e) {
+      LOG.error("Fail to decode request header:", e);
+      buf.resetReaderIndex();
+      return null;
+    }
   }
 
-  public DataStreamRequestHeader(long streamId, long streamOffset, long dataLength) {
-    super(streamId, streamOffset, dataLength);
-  }
-
-  public DataStreamRequestHeader(DataStreamPacketHeader header) {
-    this(header.getStreamId(), header.getStreamOffset(), header.getDataLength());
+  public DataStreamRequestHeader(long streamId, long streamOffset, long dataLength, Type type) {
+    super(streamId, streamOffset, dataLength, type);
   }
 }

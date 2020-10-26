@@ -22,6 +22,7 @@ import org.apache.ratis.client.RaftClientConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.ClientId;
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.datastream.impl.DataStreamRequestByteBuffer;
 import org.apache.ratis.util.IOUtils;
 import org.apache.ratis.util.JavaUtils;
@@ -42,8 +43,8 @@ public class OrderedStreamAsync {
     private final long seqNum;
     private final CompletableFuture<DataStreamReply> replyFuture = new CompletableFuture<>();
 
-    DataStreamWindowRequest(long streamId, long offset, ByteBuffer data, long seqNum){
-      super(streamId, offset, data);
+    DataStreamWindowRequest(long streamId, long offset, ByteBuffer data, long seqNum, Type type){
+      super(streamId, offset, data, type);
       this.seqNum = seqNum;
     }
 
@@ -86,7 +87,7 @@ public class OrderedStreamAsync {
     this.requestSemaphore = new Semaphore(RaftClientConfigKeys.DataStream.outstandingRequestsMax(properties)*2);
   }
 
-  CompletableFuture<DataStreamReply> sendRequest(long streamId, long offset, ByteBuffer data){
+  CompletableFuture<DataStreamReply> sendRequest(long streamId, long offset, ByteBuffer data, Type type){
     final int length = data.remaining();
     try {
       requestSemaphore.acquire();
@@ -95,7 +96,7 @@ public class OrderedStreamAsync {
           "Interrupted when sending streamId=" + streamId + ", offset= " + offset + ", length=" + length, e));
     }
     final LongFunction<DataStreamWindowRequest> constructor
-        = seqNum -> new DataStreamWindowRequest(streamId, offset, data.slice(), seqNum);
+        = seqNum -> new DataStreamWindowRequest(streamId, offset, data.slice(), seqNum, type);
     return slidingWindow.submitNewRequest(constructor, this::sendRequestToNetwork).
            getReplyFuture().whenComplete((r, e) -> requestSemaphore.release());
   }

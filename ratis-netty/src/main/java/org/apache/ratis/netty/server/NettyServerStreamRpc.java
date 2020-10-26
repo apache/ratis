@@ -26,6 +26,7 @@ import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.io.CloseAsync;
 import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
@@ -185,13 +186,13 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private void sendReplyNotSuccess(DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
-        request.getStreamId(), request.getStreamOffset(), null, -1, false);
+        request.getStreamId(), request.getStreamOffset(), null, -1, false, request.getType());
     ctx.writeAndFlush(reply);
   }
 
   private void sendReplySuccess(DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
-        request.getStreamId(), request.getStreamOffset(), null, bytesWritten, true);
+        request.getStreamId(), request.getStreamOffset(), null, bytesWritten, true, request.getType());
     ctx.writeAndFlush(reply);
   }
 
@@ -217,7 +218,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       public void channelRead(ChannelHandlerContext ctx, Object msg) throws IOException {
         final DataStreamRequestByteBuf request = (DataStreamRequestByteBuf) msg;
         final ByteBuf buf = request.slice();
-        final boolean isHeader = request.getStreamOffset() == -1;
+        final boolean isHeader = request.getType() == Type.STREAM_HEADER;
 
         final CompletableFuture<Long> localWrite = isHeader ?
                 streams.computeIfAbsent(request.getStreamId(), id -> getDataStreamFuture(buf)).thenApply(stream -> 0L)
@@ -291,7 +292,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     return new MessageToMessageEncoder<DataStreamReplyByteBuffer>() {
       @Override
       protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> out) {
-        NettyDataStreamUtils.encodeDataStreamPacketByteBuffer(reply, out::add);
+        NettyDataStreamUtils.encodeDataStreamReplyByteBuffer(reply, out::add);
       }
     };
   }

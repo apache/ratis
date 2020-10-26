@@ -19,6 +19,7 @@ package org.apache.ratis.datastream.impl;
 
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 
 import java.nio.ByteBuffer;
 
@@ -32,15 +33,16 @@ public class DataStreamReplyByteBuffer extends DataStreamPacketByteBuffer implem
   private final boolean success;
 
   public DataStreamReplyByteBuffer(long streamId, long streamOffset, ByteBuffer buffer,
-      long bytesWritten, boolean success ) {
-    super(streamId, streamOffset, buffer);
+      long bytesWritten, boolean success, Type type) {
+    super(streamId, streamOffset, buffer, type);
 
     this.success = success;
     this.bytesWritten = bytesWritten;
   }
 
   public DataStreamReplyByteBuffer(DataStreamReplyHeader header, ByteBuffer buffer) {
-    this(header.getStreamId(), header.getStreamOffset(), buffer, header.getBytesWritten(), header.isSuccess());
+    this(header.getStreamId(), header.getStreamOffset(), buffer, header.getBytesWritten(), header.isSuccess(),
+        header.getType());
   }
 
   @Override

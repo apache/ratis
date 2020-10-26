@@ -18,30 +18,9 @@
 
 package org.apache.ratis.protocol;
 
-import java.util.function.LongConsumer;
-
 public interface DataStreamReply extends DataStreamPacket {
-  static boolean getSuccess(long flags) {
-    return flags == 0;
-  }
-
-  static long toFlags(boolean success) {
-    return success? 0: 1;
-  }
 
   boolean isSuccess();
 
   long getBytesWritten();
-
-  @Override
-  default int getHeaderSize() {
-    return DataStreamReplyHeader.getSize();
-  }
-
-  @Override
-  default void writeHeaderTo(LongConsumer putLong) {
-    DataStreamPacket.super.writeHeaderTo(putLong);
-    putLong.accept(getBytesWritten());
-    putLong.accept(toFlags(isSuccess()));
-  }
 }

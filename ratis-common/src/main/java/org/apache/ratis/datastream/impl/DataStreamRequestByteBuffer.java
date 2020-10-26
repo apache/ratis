@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream.impl;
 
 import org.apache.ratis.protocol.DataStreamRequest;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 
 import java.nio.ByteBuffer;
 
@@ -27,7 +28,7 @@ import java.nio.ByteBuffer;
  * This class is immutable.
  */
 public class DataStreamRequestByteBuffer extends DataStreamPacketByteBuffer implements DataStreamRequest {
-  public DataStreamRequestByteBuffer(long streamId, long streamOffset, ByteBuffer buffer) {
-    super(streamId, streamOffset, buffer);
+  public DataStreamRequestByteBuffer(long streamId, long streamOffset, ByteBuffer buffer, Type type) {
+    super(streamId, streamOffset, buffer, type);
   }
 }

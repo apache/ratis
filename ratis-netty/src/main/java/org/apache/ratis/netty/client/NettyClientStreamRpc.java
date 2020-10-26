@@ -88,7 +88,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     return new MessageToMessageEncoder<DataStreamRequestByteBuffer>() {
       @Override
       protected void encode(ChannelHandlerContext context, DataStreamRequestByteBuffer request, List<Object> out) {
-        NettyDataStreamUtils.encodeDataStreamPacketByteBuffer(request, out::add);
+        NettyDataStreamUtils.encodeDataStreamRequestByteBuffer(request, out::add);
       }
     };
   }

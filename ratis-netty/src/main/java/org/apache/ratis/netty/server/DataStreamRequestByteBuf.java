@@ -21,6 +21,7 @@ package org.apache.ratis.netty.server;
 import org.apache.ratis.datastream.impl.DataStreamPacketImpl;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 
@@ -32,13 +33,13 @@ import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 public class DataStreamRequestByteBuf extends DataStreamPacketImpl implements DataStreamRequest {
   private final ByteBuf buf;
 
-  public DataStreamRequestByteBuf(long streamId, long streamOffset, ByteBuf buf) {
-    super(streamId, streamOffset);
+  public DataStreamRequestByteBuf(long streamId, long streamOffset, ByteBuf buf, Type type) {
+    super(streamId, streamOffset, type);
     this.buf = buf != null? buf.asReadOnly(): Unpooled.EMPTY_BUFFER;
   }
 
   public DataStreamRequestByteBuf(DataStreamRequestHeader header, ByteBuf buf) {
-    this(header.getStreamId(), header.getStreamOffset(), buf);
+    this(header.getStreamId(), header.getStreamOffset(), buf, header.getType());
   }
 
   @Override
