@@ -33,6 +33,7 @@ import org.apache.ratis.protocol.exceptions.AlreadyClosedException;
 import org.apache.ratis.protocol.exceptions.AlreadyExistsException;
 import org.apache.ratis.protocol.exceptions.GroupMismatchException;
 import org.apache.ratis.rpc.RpcType;
+import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.server.RaftServerRpc;
@@ -165,6 +166,8 @@ public class RaftServerProxy implements RaftServer {
   private final RaftServerRpc serverRpc;
   private final ServerFactory factory;
 
+  private final DataStreamServerRpc dataStreamServerRpc;
+
   private ExecutorService implExecutor;
 
   private final ImplMap impls = new ImplMap();
@@ -178,6 +181,12 @@ public class RaftServerProxy implements RaftServer {
     this.factory = ServerFactory.cast(rpcType.newFactory(parameters));
 
     this.serverRpc = factory.newRaftServerRpc(this);
+
+    // TODO: Support multi-raft and should pass StateMachineRegistry to DataStreamServerImpl instead of StateMachine
+    this.dataStreamServerRpc =
+        new DataStreamServerImpl(this, stateMachineRegistry.apply(RaftGroupId.emptyGroupId()), properties, null)
+            .getServerRpc();
+
     this.id = id != null? id: RaftPeerId.valueOf(getIdStringFrom(serverRpc));
     this.lifeCycle = new LifeCycle(this.id + "-" + getClass().getSimpleName());
 
@@ -265,6 +274,10 @@ public class RaftServerProxy implements RaftServer {
     return serverRpc;
   }
 
+  public DataStreamServerRpc getDataStreamServerRpc() {
+    return dataStreamServerRpc;
+  }
+
   public boolean containsGroup(RaftGroupId groupId) {
     return impls.containsGroup(groupId);
   }
@@ -306,6 +319,7 @@ public class RaftServerProxy implements RaftServer {
     lifeCycle.startAndTransition(() -> {
       LOG.info("{}: start RPC server", getId());
       getServerRpc().start();
+      getDataStreamServerRpc().start();
     }, IOException.class);
   }
 
@@ -324,6 +338,7 @@ public class RaftServerProxy implements RaftServer {
 
       try {
         getServerRpc().close();
+        getDataStreamServerRpc().close();
       } catch(IOException ignored) {
         LOG.warn(getId() + ": Failed to close " + getRpcType() + " server", ignored);
       }
