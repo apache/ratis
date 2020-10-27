@@ -23,7 +23,6 @@ import org.apache.ratis.util.ReflectionUtils;
 /** The RPC types supported. */
 public enum SupportedRpcType implements RpcType {
   NETTY("org.apache.ratis.netty.NettyFactory"),
-  NETTY_DATA_STREAM("org.apache.ratis.netty.NettyDataStreamFactory"),
   GRPC("org.apache.ratis.grpc.GrpcFactory"),
   HADOOP("org.apache.ratis.hadooprpc.HadoopFactory");
 

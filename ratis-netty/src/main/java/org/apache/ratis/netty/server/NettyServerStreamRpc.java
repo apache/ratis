@@ -28,7 +28,6 @@ import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
@@ -36,7 +35,6 @@ import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
-import org.apache.ratis.thirdparty.com.google.common.annotations.VisibleForTesting;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
@@ -139,7 +137,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   }
 
   public NettyServerStreamRpc(RaftServer server, StateMachine stateMachine, RaftProperties properties) {
-    this(server, server.getId(), stateMachine, properties, NettyConfigKeys.Server.port(server.getProperties()));
+    this(server, server.getId(), stateMachine, properties, NettyConfigKeys.DataStream.port(server.getProperties()));
   }
 
   public NettyServerStreamRpc(
@@ -179,11 +177,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     } catch (InvalidProtocolBufferException e) {
       throw new CompletionException(e);
     }
-  }
-
-  @VisibleForTesting
-  public CompletableFuture<RaftClientReply> submitClientRequestAsync(RaftClientRequest request) throws IOException {
-    return server.submitClientRequestAsync(request);
   }
 
   private long writeTo(ByteBuf buf, DataStream stream) {

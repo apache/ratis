@@ -20,6 +20,7 @@ package org.apache.ratis.server.impl;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesReplyProto;
 import org.apache.ratis.proto.RaftProtos.AppendEntriesRequestProto;
 import org.apache.ratis.proto.RaftProtos.CommitInfoProto;
@@ -338,9 +339,14 @@ public class RaftServerProxy implements RaftServer {
 
       try {
         getServerRpc().close();
-        getDataStreamServerRpc().close();
       } catch(IOException ignored) {
         LOG.warn(getId() + ": Failed to close " + getRpcType() + " server", ignored);
+      }
+
+      try {
+        getDataStreamServerRpc().close();
+      } catch (IOException ignored) {
+        LOG.warn(getId() + ": Failed to close " + SupportedDataStreamType.NETTY + " server", ignored);
       }
     });
   }
