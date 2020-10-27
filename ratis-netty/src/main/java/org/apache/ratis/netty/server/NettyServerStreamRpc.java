@@ -24,13 +24,16 @@ import org.apache.ratis.client.impl.ClientProtoUtils;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.impl.DataStreamReplyByteBuffer;
 import org.apache.ratis.io.CloseAsync;
+import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.proto.RaftProtos;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DataStreamServerRpc;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
@@ -117,6 +120,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     }
   }
 
+  private final RaftServer server;
   private final String name;
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -129,7 +133,18 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private final Proxies proxies;
 
   public NettyServerStreamRpc(RaftPeer server, StateMachine stateMachine, RaftProperties properties) {
-    this.name = server + "-" + getClass().getSimpleName();
+    this(null, server.getId(), stateMachine, properties,
+        NetUtils.createSocketAddr(server.getAddress()).getPort());
+  }
+
+  public NettyServerStreamRpc(RaftServer server, StateMachine stateMachine, RaftProperties properties) {
+    this(server, server.getId(), stateMachine, properties, NettyConfigKeys.DataStream.port(server.getProperties()));
+  }
+
+  public NettyServerStreamRpc(
+      RaftServer server, RaftPeerId id, StateMachine stateMachine, RaftProperties properties, int port) {
+    this.server = server;
+    this.name = id + "-" + getClass().getSimpleName();
     this.stateMachine = stateMachine;
     this.channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
@@ -137,9 +152,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(getInitializer())
         .childOption(ChannelOption.SO_KEEPALIVE, true)
-        .localAddress(NetUtils.createSocketAddr(server.getAddress()))
-        .bind();
-
+        .bind(port);
     this.proxies = new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties)));
   }
 

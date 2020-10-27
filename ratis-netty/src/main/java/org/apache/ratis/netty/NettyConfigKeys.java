@@ -49,6 +49,27 @@ public interface NettyConfigKeys {
     }
   }
 
+  interface DataStream {
+    Logger LOG = LoggerFactory.getLogger(Server.class);
+    static Consumer<String> getDefaultLog() {
+      return LOG::info;
+    }
+
+    String PREFIX = NettyConfigKeys.PREFIX + ".dataStream";
+
+    String PORT_KEY = PREFIX + ".port";
+    int PORT_DEFAULT = 0;
+
+    static int port(RaftProperties properties) {
+      return getInt(properties::getInt,
+          PORT_KEY, PORT_DEFAULT, getDefaultLog(), requireMin(0), requireMax(65536));
+    }
+
+    static void setPort(RaftProperties properties, int port) {
+      setInt(properties::setInt, PORT_KEY, port);
+    }
+  }
+
   static void main(String[] args) {
     printAll(NettyConfigKeys.class);
   }

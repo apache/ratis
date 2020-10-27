@@ -37,4 +37,7 @@ public interface DataStreamServerFactory extends DataStreamFactory {
 
   /** Create a new {@link DataStreamServerRpc}. */
   DataStreamServerRpc newDataStreamServerRpc(RaftPeer server, StateMachine stateMachine, RaftProperties properties);
+
+  /** Create a new {@link DataStreamServerRpc}. */
+  DataStreamServerRpc newDataStreamServerRpc(RaftServer server, StateMachine stateMachine, RaftProperties properties);
 }

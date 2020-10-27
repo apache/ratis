@@ -27,6 +27,7 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DataStreamServerFactory;
 import org.apache.ratis.server.DataStreamServerRpc;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.StateMachine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,14 @@ public class DataStreamServerImpl implements DataStreamServer {
   private final DataStreamServerRpc serverRpc;
 
   public DataStreamServerImpl(RaftPeer server, StateMachine stateMachine,
+      RaftProperties properties, Parameters parameters){
+    final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
+
+    this.serverRpc = DataStreamServerFactory.cast(type.newFactory(parameters))
+        .newDataStreamServerRpc(server, stateMachine, properties);
+  }
+
+  public DataStreamServerImpl(RaftServer server, StateMachine stateMachine,
       RaftProperties properties, Parameters parameters){
     final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
 
