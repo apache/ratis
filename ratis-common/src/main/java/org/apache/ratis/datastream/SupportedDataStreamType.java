@@ -21,6 +21,7 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.util.ReflectionUtils;
 
 public enum SupportedDataStreamType implements DataStreamFactory {
+  DISABLED("org.apache.ratis.server.impl.DisabledDataStreamFactory"),
   NETTY("org.apache.ratis.netty.NettyDataStreamFactory");
 
   private final String factoryClassName;

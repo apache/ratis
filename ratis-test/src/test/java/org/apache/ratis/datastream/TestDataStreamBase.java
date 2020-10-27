@@ -15,29 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ratis.datastream;
 
 import java.io.IOException;
-import java.util.stream.Collectors;
-import org.apache.ratis.BaseTest;
-import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.client.api.DataStreamOutput;
-import org.apache.ratis.client.impl.DataStreamClientImpl;
-import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.RaftClientRequest;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
-import org.apache.ratis.server.DataStreamServerRpc;
-import org.apache.ratis.server.impl.DataStreamServerImpl;
-import org.apache.ratis.statemachine.impl.BaseStateMachine;
-import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.NetUtils;
-import org.junit.Assert;
-import org.junit.Test;
-
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
@@ -45,8 +25,25 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+import org.apache.ratis.BaseTest;
+import org.apache.ratis.MiniRaftCluster;
+import org.apache.ratis.client.api.DataStreamOutput;
+import org.apache.ratis.client.impl.DataStreamClientImpl;
+import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
+import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.server.DataStreamServerRpc;
+import org.apache.ratis.server.impl.DataStreamServerImpl;
+import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.NetUtils;
+import org.junit.Assert;
 
-public class TestDataStream extends BaseTest {
+class TestDataStreamBase extends BaseTest {
   static final int MODULUS = 23;
 
   static byte pos2byte(int pos) {
@@ -116,11 +113,84 @@ public class TestDataStream extends BaseTest {
     }
   }
 
-  private List<RaftPeer> peers;
-  private RaftProperties properties;
+  protected RaftProperties properties;
+
   private List<DataStreamServerImpl> servers;
+  private List<RaftPeer> peers;
   private DataStreamClientImpl client;
   private List<SingleDataStreamStateMachine> singleDataStreamStateMachines;
+
+  protected void runTestDataStream(int numServers, int bufferSize, int bufferNum) throws Exception {
+    peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
+        .map(RaftPeerId::valueOf)
+        .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
+        .collect(Collectors.toList());
+
+    try {
+      setupServer();
+      setupClient();
+      runTestDataStream(bufferSize, bufferNum);
+    } finally {
+      shutdown();
+    }
+  }
+
+  private void runTestDataStream(int bufferSize, int bufferNum) {
+    final DataStreamOutput out = client.stream();
+    DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
+
+    final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
+    final List<Integer> sizes = new ArrayList<>();
+
+    //send data
+    final int halfBufferSize = bufferSize/2;
+    int dataSize = 0;
+    for(int i = 0; i < bufferNum; i++) {
+      final int size = halfBufferSize + ThreadLocalRandom.current().nextInt(halfBufferSize);
+      sizes.add(size);
+
+      final ByteBuffer bf = initBuffer(dataSize, size);
+      futures.add(out.writeAsync(bf));
+      dataSize += size;
+    }
+
+    { // check header
+      final DataStreamReply reply = impl.getHeaderFuture().join();
+      Assert.assertTrue(reply.isSuccess());
+      Assert.assertEquals(0, reply.getBytesWritten());
+      Assert.assertEquals(reply.getType(), DataStreamPacketHeaderProto.Type.STREAM_HEADER);
+    }
+
+    // check writeAsync requests
+    for(int i = 0; i < futures.size(); i++) {
+      final DataStreamReply reply = futures.get(i).join();
+      Assert.assertTrue(reply.isSuccess());
+      Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
+      Assert.assertEquals(reply.getType(), DataStreamPacketHeaderProto.Type.STREAM_DATA);
+    }
+
+    for (SingleDataStreamStateMachine s : singleDataStreamStateMachines) {
+      RaftClientRequest writeRequest = s.getWriteRequest();
+      if (writeRequest.getClientId().equals(impl.getHeader().getClientId())) {
+        Assert.assertEquals(writeRequest.getCallId(), impl.getHeader().getCallId());
+        Assert.assertEquals(writeRequest.getRaftGroupId(), impl.getHeader().getRaftGroupId());
+        Assert.assertEquals(writeRequest.getServerId(), impl.getHeader().getServerId());
+      }
+      Assert.assertEquals(dataSize, s.getByteWritten());
+    }
+  }
+
+  static ByteBuffer initBuffer(int offset, int size) {
+    final ByteBuffer buffer = ByteBuffer.allocateDirect(size);
+    final int length = buffer.capacity();
+    buffer.position(0).limit(length);
+    for (int j = 0; j < length; j++) {
+      buffer.put(pos2byte(offset + j));
+    }
+    buffer.flip();
+    Assert.assertEquals(length, buffer.remaining());
+    return buffer;
+  }
 
   private void setupServer(){
     servers = new ArrayList<>(peers.size());
@@ -148,95 +218,10 @@ public class TestDataStream extends BaseTest {
     client.start();
   }
 
-  public void shutdown() throws IOException {
+  private void shutdown() throws IOException {
     client.close();
     for (DataStreamServerImpl server : servers) {
       server.close();
     }
-  }
-
-  @Test
-  public void testDataStreamSingleServer() throws Exception {
-    runTestDataStream(1, 1_000_000, 100);
-    runTestDataStream(1,1_000, 10_000);
-  }
-
-  @Test
-  public void testDataStreamMultipleServer() throws Exception {
-    runTestDataStream(3, 1_000_000, 100);
-    runTestDataStream(3, 1_000, 10_000);
-  }
-
-  void runTestDataStream(int numServers, int bufferSize, int bufferNum) throws Exception {
-    properties = new RaftProperties();
-    peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
-        .map(RaftPeerId::valueOf)
-        .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
-        .collect(Collectors.toList());
-
-    setupServer();
-    setupClient();
-    try {
-      runTestDataStream(bufferSize, bufferNum);
-    } finally {
-      shutdown();
-    }
-  }
-
-  void runTestDataStream(int bufferSize, int bufferNum) {
-    final DataStreamOutput out = client.stream();
-    DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
-
-    final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
-    final List<Integer> sizes = new ArrayList<>();
-
-    //send data
-    final int halfBufferSize = bufferSize/2;
-    int dataSize = 0;
-    for(int i = 0; i < bufferNum; i++) {
-      final int size = halfBufferSize + ThreadLocalRandom.current().nextInt(halfBufferSize);
-      sizes.add(size);
-
-      final ByteBuffer bf = initBuffer(dataSize, size);
-      futures.add(out.writeAsync(bf));
-      dataSize += size;
-    }
-
-    { // check header
-      final DataStreamReply reply = impl.getHeaderFuture().join();
-      Assert.assertTrue(reply.isSuccess());
-      Assert.assertEquals(0, reply.getBytesWritten());
-      Assert.assertEquals(reply.getType(), Type.STREAM_HEADER);
-    }
-
-    // check writeAsync requests
-    for(int i = 0; i < futures.size(); i++) {
-      final DataStreamReply reply = futures.get(i).join();
-      Assert.assertTrue(reply.isSuccess());
-      Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
-      Assert.assertEquals(reply.getType(), Type.STREAM_DATA);
-    }
-
-    for (SingleDataStreamStateMachine s : singleDataStreamStateMachines) {
-      RaftClientRequest writeRequest = s.getWriteRequest();
-      if (writeRequest.getClientId().equals(impl.getHeader().getClientId())) {
-        Assert.assertEquals(writeRequest.getCallId(), impl.getHeader().getCallId());
-        Assert.assertEquals(writeRequest.getRaftGroupId(), impl.getHeader().getRaftGroupId());
-        Assert.assertEquals(writeRequest.getServerId(), impl.getHeader().getServerId());
-      }
-      Assert.assertEquals(dataSize, s.getByteWritten());
-    }
-  }
-
-  static ByteBuffer initBuffer(int offset, int size) {
-    final ByteBuffer buffer = ByteBuffer.allocateDirect(size);
-    final int length = buffer.capacity();
-    buffer.position(0).limit(length);
-    for (int j = 0; j < length; j++) {
-      buffer.put(pos2byte(offset + j));
-    }
-    buffer.flip();
-    Assert.assertEquals(length, buffer.remaining());
-    return buffer;
   }
 }
