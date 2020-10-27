@@ -279,6 +279,30 @@ message RaftClientRequestProto {
   }
 }
 
+message DataStreamPacketHeaderProto {
+  enum Type {
+    STREAM_HEADER = 0;
+    STREAM_DATA = 1;
+    STREAM_CLOSE = 2;
+    START_TRANSACTION = 3;
+  }
+
+  uint64 streamId = 1;
+  uint64 streamOffset = 2;
+  Type type = 3;
+  uint64 dataLength = 4;
+}
+
+message DataStreamRequestHeaderProto {
+  DataStreamPacketHeaderProto packetHeader = 1;
+}
+
+message DataStreamReplyHeaderProto {
+  DataStreamPacketHeaderProto packetHeader = 1;
+  uint64 bytesWritten = 2;
+  bool success = 3;
+}
+
 message NotLeaderExceptionProto {
   RaftPeerProto suggestedLeader = 1;
   repeated RaftPeerProto peersInConf = 2;

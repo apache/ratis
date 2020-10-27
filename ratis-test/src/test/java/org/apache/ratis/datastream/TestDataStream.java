@@ -29,6 +29,7 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
@@ -205,6 +206,7 @@ public class TestDataStream extends BaseTest {
       final DataStreamReply reply = impl.getHeaderFuture().join();
       Assert.assertTrue(reply.isSuccess());
       Assert.assertEquals(0, reply.getBytesWritten());
+      Assert.assertEquals(reply.getType(), Type.STREAM_HEADER);
     }
 
     // check writeAsync requests
@@ -212,6 +214,7 @@ public class TestDataStream extends BaseTest {
       final DataStreamReply reply = futures.get(i).join();
       Assert.assertTrue(reply.isSuccess());
       Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
+      Assert.assertEquals(reply.getType(), Type.STREAM_DATA);
     }
 
     for (SingleDataStreamStateMachine s : singleDataStreamStateMachines) {

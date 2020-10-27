@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream.impl;
 
 import org.apache.ratis.protocol.DataStreamPacket;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 
 /**
  * This is an abstract implementation of {@link DataStreamPacket}.
@@ -27,10 +28,12 @@ import org.apache.ratis.protocol.DataStreamPacket;
 public abstract class DataStreamPacketImpl implements DataStreamPacket {
   private final long streamId;
   private final long streamOffset;
+  private final Type type;
 
-  public DataStreamPacketImpl(long streamId, long streamOffset) {
+  public DataStreamPacketImpl(long streamId, long streamOffset, Type type) {
     this.streamId = streamId;
     this.streamOffset = streamOffset;
+    this.type = type;
   }
 
   @Override
@@ -44,11 +47,17 @@ public abstract class DataStreamPacketImpl implements DataStreamPacket {
   }
 
   @Override
+  public Type getType() {
+    return type;
+  }
+
+  @Override
   public String toString() {
     return getClass().getSimpleName() + "{"
         + "streamId=" + getStreamId()
         + ", streamOffset=" + getStreamOffset()
         + ", dataLength=" + getDataLength()
+        + ", type=" + getType()
         + '}';
   }
 }

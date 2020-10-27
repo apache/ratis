@@ -30,6 +30,7 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,13 +78,14 @@ public class DataStreamClientImpl implements DataStreamClient {
       this.header = new RaftClientRequest(clientId, raftServer.getId(), groupId, RaftClientImpl.nextCallId(),
           RaftClientRequest.writeRequestType());
       this.headerFuture = orderedStreamAsync.sendRequest(streamId, -1,
-          ClientProtoUtils.toRaftClientRequestProto(header).toByteString().asReadOnlyByteBuffer());
+          ClientProtoUtils.toRaftClientRequestProto(header).toByteString().asReadOnlyByteBuffer(), Type.STREAM_HEADER);
     }
 
     // send to the attached dataStreamClientRpc
     @Override
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf) {
-      final CompletableFuture<DataStreamReply> f = orderedStreamAsync.sendRequest(streamId, streamOffset, buf);
+      final CompletableFuture<DataStreamReply> f = orderedStreamAsync.sendRequest(streamId, streamOffset, buf,
+          Type.STREAM_DATA);
       streamOffset += buf.remaining();
       return f;
     }

@@ -18,41 +18,60 @@
 
 package org.apache.ratis.protocol;
 
-import org.apache.ratis.util.SizeInBytes;
-
-import java.util.function.LongSupplier;
+import org.apache.ratis.proto.RaftProtos.DataStreamReplyHeaderProto;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.thirdparty.com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** The header format is {@link DataStreamPacketHeader}, bytesWritten and flags. */
 public class DataStreamReplyHeader extends DataStreamPacketHeader implements DataStreamReply {
-  private static final SizeInBytes SIZE = SizeInBytes.valueOf(DataStreamPacketHeader.getSize() + 16);
+  private static final Logger LOG = LoggerFactory.getLogger(DataStreamReplyHeader.class);
 
-  public static int getSize() {
-    return SIZE.getSizeInt();
-  }
-
-  public static DataStreamReplyHeader read(LongSupplier readLong, int readableBytes) {
-    if (readableBytes < getSize()) {
+  public static DataStreamReplyHeader read(ByteBuf buf) {
+    if (getSizeOfHeaderLen() > buf.readableBytes()) {
       return null;
     }
-    final DataStreamPacketHeader packerHeader = DataStreamPacketHeader.read(readLong, readableBytes);
-    if (packerHeader == null) {
+
+    int headerBufLen = buf.readInt();
+    if (headerBufLen > buf.readableBytes()) {
+      buf.resetReaderIndex();
       return null;
     }
-    return new DataStreamReplyHeader(packerHeader, readLong.getAsLong(),
-        DataStreamReply.getSuccess(readLong.getAsLong()));
+
+    try {
+      ByteBuf headerBuf = buf.slice(buf.readerIndex(), headerBufLen);
+      DataStreamReplyHeaderProto header = DataStreamReplyHeaderProto.parseFrom(headerBuf.nioBuffer());
+
+      if (header.getPacketHeader().getDataLength() + headerBufLen <= buf.readableBytes()) {
+        buf.readerIndex(buf.readerIndex() + headerBufLen);
+        return new DataStreamReplyHeader(
+            header.getPacketHeader().getStreamId(),
+            header.getPacketHeader().getStreamOffset(),
+            header.getPacketHeader().getDataLength(),
+            header.getPacketHeader().getType(),
+            header.getBytesWritten(),
+            header.getSuccess());
+      } else {
+        buf.resetReaderIndex();
+        return null;
+      }
+    } catch (InvalidProtocolBufferException e) {
+      LOG.error("Fail to decode reply header:", e);
+      buf.resetReaderIndex();
+      return null;
+    }
   }
 
   private final long bytesWritten;
   private final boolean success;
 
-  public DataStreamReplyHeader(long streamId, long streamOffset, long dataLength, long bytesWritten, boolean success) {
-    super(streamId, streamOffset, dataLength);
+  public DataStreamReplyHeader(
+      long streamId, long streamOffset, long dataLength, Type type, long bytesWritten, boolean success) {
+    super(streamId, streamOffset, dataLength, type);
     this.bytesWritten = bytesWritten;
     this.success = success;
-  }
-
-  public DataStreamReplyHeader(DataStreamPacketHeader header, long bytesWritten, boolean success) {
-    this(header.getStreamId(), header.getStreamOffset(), header.getDataLength(), bytesWritten, success);
   }
 
   @Override

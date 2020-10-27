@@ -18,7 +18,7 @@
 
 package org.apache.ratis.protocol;
 
-import java.util.function.LongConsumer;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 
 public interface DataStreamPacket {
   long getStreamId();
@@ -27,11 +27,5 @@ public interface DataStreamPacket {
 
   long getDataLength();
 
-  int getHeaderSize();
-
-  default void writeHeaderTo(LongConsumer putLong) {
-    putLong.accept(getStreamId());
-    putLong.accept(getStreamOffset());
-    putLong.accept(getDataLength());
-  }
+  Type getType();
 }

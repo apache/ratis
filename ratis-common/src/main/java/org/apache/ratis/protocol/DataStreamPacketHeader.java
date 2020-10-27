@@ -19,29 +19,17 @@
 package org.apache.ratis.protocol;
 
 import org.apache.ratis.datastream.impl.DataStreamPacketImpl;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.util.SizeInBytes;
-
-import java.util.function.LongSupplier;
 
 /** The header format is streamId, streamOffset, dataLength. */
 public class DataStreamPacketHeader extends DataStreamPacketImpl {
-  private static final SizeInBytes SIZE = SizeInBytes.valueOf(24);
-
-  public static int getSize() {
-    return SIZE.getSizeInt();
-  }
-
-  public static DataStreamPacketHeader read(LongSupplier readLong, int readableBytes) {
-    if (readableBytes < getSize()) {
-      return null;
-    }
-    return new DataStreamPacketHeader(readLong.getAsLong(), readLong.getAsLong(), readLong.getAsLong());
-  }
+  private static final SizeInBytes SIZE_OF_HEADER_LEN = SizeInBytes.valueOf(4);
 
   private final long dataLength;
 
-  public DataStreamPacketHeader(long streamId, long streamOffset, long dataLength) {
-    super(streamId, streamOffset);
+  public DataStreamPacketHeader(long streamId, long streamOffset, long dataLength, Type type) {
+    super(streamId, streamOffset, type);
     this.dataLength = dataLength;
   }
 
@@ -50,8 +38,7 @@ public class DataStreamPacketHeader extends DataStreamPacketImpl {
     return dataLength;
   }
 
-  @Override
-  public int getHeaderSize() {
-    return getSize();
+  public static int getSizeOfHeaderLen() {
+    return SIZE_OF_HEADER_LEN.getSizeInt();
   }
 }
