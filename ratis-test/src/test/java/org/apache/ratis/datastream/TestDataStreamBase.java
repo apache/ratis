@@ -121,6 +121,39 @@ class TestDataStreamBase extends BaseTest {
   private DataStreamClientImpl client;
   private List<SingleDataStreamStateMachine> singleDataStreamStateMachines;
 
+  private void setupServer(){
+    servers = new ArrayList<>(peers.size());
+    singleDataStreamStateMachines = new ArrayList<>(peers.size());
+    // start stream servers on raft peers.
+    for (int i = 0; i < peers.size(); i++) {
+      SingleDataStreamStateMachine singleDataStreamStateMachine = new SingleDataStreamStateMachine();
+      singleDataStreamStateMachines.add(singleDataStreamStateMachine);
+      final DataStreamServerImpl streamServer = new DataStreamServerImpl(
+              peers.get(i), singleDataStreamStateMachine, properties, null);
+      final DataStreamServerRpc rpc = streamServer.getServerRpc();
+      if (i == 0) {
+        // only the first server routes requests to peers.
+        List<RaftPeer> otherPeers = new ArrayList<>(peers);
+        otherPeers.remove(peers.get(i));
+        rpc.addRaftPeers(otherPeers);
+      }
+      rpc.start();
+      servers.add(streamServer);
+    }
+  }
+
+  private void setupClient(){
+    client = new DataStreamClientImpl(peers.get(0), properties, null);
+    client.start();
+  }
+
+  private void shutdown() throws IOException {
+    client.close();
+    for (DataStreamServerImpl server : servers) {
+      server.close();
+    }
+  }
+
   protected void runTestDataStream(int numServers, int bufferSize, int bufferNum) throws Exception {
     peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
         .map(RaftPeerId::valueOf)
@@ -191,38 +224,5 @@ class TestDataStreamBase extends BaseTest {
     buffer.flip();
     Assert.assertEquals(length, buffer.remaining());
     return buffer;
-  }
-
-  private void setupServer(){
-    servers = new ArrayList<>(peers.size());
-    singleDataStreamStateMachines = new ArrayList<>(peers.size());
-    // start stream servers on raft peers.
-    for (int i = 0; i < peers.size(); i++) {
-      SingleDataStreamStateMachine singleDataStreamStateMachine = new SingleDataStreamStateMachine();
-      singleDataStreamStateMachines.add(singleDataStreamStateMachine);
-      final DataStreamServerImpl streamServer = new DataStreamServerImpl(
-          peers.get(i), singleDataStreamStateMachine, properties, null);
-      final DataStreamServerRpc rpc = streamServer.getServerRpc();
-      if (i == 0) {
-        // only the first server routes requests to peers.
-        List<RaftPeer> otherPeers = new ArrayList<>(peers);
-        otherPeers.remove(peers.get(i));
-        rpc.addRaftPeers(otherPeers);
-      }
-      rpc.start();
-      servers.add(streamServer);
-    }
-  }
-
-  private void setupClient(){
-    client = new DataStreamClientImpl(peers.get(0), properties, null);
-    client.start();
-  }
-
-  private void shutdown() throws IOException {
-    client.close();
-    for (DataStreamServerImpl server : servers) {
-      server.close();
-    }
   }
 }
