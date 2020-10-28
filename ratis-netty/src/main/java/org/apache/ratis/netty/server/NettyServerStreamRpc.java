@@ -253,8 +253,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         }
 
         final CompletableFuture<?> current = previous.get()
-            .thenCombine(JavaUtils.allOf(remoteWrites), (u, v) -> null)
-            .thenCombine(localWrite, (v, bytesWritten) -> {
+            .thenCombineAsync(JavaUtils.allOf(remoteWrites), (u, v) -> null)
+            .thenCombineAsync(localWrite, (v, bytesWritten) -> {
               buf.release();
               sendReply(remoteWrites, request, bytesWritten, ctx);
               return null;

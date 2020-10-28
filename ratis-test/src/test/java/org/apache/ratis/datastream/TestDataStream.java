@@ -157,15 +157,17 @@ public class TestDataStream extends BaseTest {
 
   @Test
   public void testDataStreamSingleServer() throws Exception {
-    runTestDataStream(1);
+    runTestDataStream(1, 1_000_000, 100);
+    runTestDataStream(1,1_000, 10_000);
   }
 
   @Test
   public void testDataStreamMultipleServer() throws Exception {
-    runTestDataStream(3);
+    runTestDataStream(3, 1_000_000, 100);
+    runTestDataStream(3, 1_000, 10_000);
   }
 
-  void runTestDataStream(int numServers) throws Exception {
+  void runTestDataStream(int numServers, int bufferSize, int bufferNum) throws Exception {
     properties = new RaftProperties();
     peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
         .map(RaftPeerId::valueOf)
@@ -175,15 +177,13 @@ public class TestDataStream extends BaseTest {
     setupServer();
     setupClient();
     try {
-      runTestDataStream();
+      runTestDataStream(bufferSize, bufferNum);
     } finally {
       shutdown();
     }
   }
 
-  public void runTestDataStream(){
-    final int bufferSize = 1024*1024;
-    final int bufferNum = 10;
+  void runTestDataStream(int bufferSize, int bufferNum) {
     final DataStreamOutput out = client.stream();
     DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
 
