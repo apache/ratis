@@ -29,6 +29,7 @@ import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
@@ -276,9 +277,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     ctx.writeAndFlush(reply);
   }
 
-  private void sendReplySuccess(DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
+  private void sendReplySuccess(DataStreamRequestByteBuf request, ByteBuffer buffer, long bytesWritten,
+      ChannelHandlerContext ctx) {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
-        request.getStreamId(), request.getStreamOffset(), null, bytesWritten, true, request.getType());
+        request.getStreamId(), request.getStreamOffset(), buffer, bytesWritten, true, request.getType());
     LOG.debug("{}: write {}", this, reply);
     ctx.writeAndFlush(reply);
   }
@@ -288,7 +290,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       if (!checkSuccessRemoteWrite(remoteWrites, bytesWritten)) {
         sendReplyNotSuccess(request, ctx);
       } else {
-        sendReplySuccess(request, bytesWritten, ctx);
+        sendReplySuccess(request, null, bytesWritten, ctx);
       }
   }
 
@@ -301,34 +303,110 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
+  private void primaryServerStartTransaction(
+      final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
+    info.getStream().thenApplyAsync(stream -> {
+      try {
+        RaftClientReply reply = server.submitClientRequest(stream.getRaftClientRequest());
+        if (reply.isSuccess()) {
+          ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
+          sendReplySuccess(request, buffer, -1, ctx);
+        } else if (reply.getNotLeaderException() != null) {
+          // if primary server is not the leader, primary ask all the other peers to start transaction
+          askPeerStartTransaction(info, request, ctx);
+        } else {
+          sendReplyNotSuccess(request, ctx);
+        }
+      } catch (IOException e) {
+        sendReplyNotSuccess(request, ctx);
+      }
+      return null;
+    });
+  }
+
+  private void askPeerStartTransaction(
+      final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
+    List<CompletableFuture<DataStreamReply>> replies = new ArrayList<>();
+    for (DataStreamOutput out : info.getDataStreamOutputs()) {
+      replies.add(out.startTransactionAsync());
+    }
+
+    for (CompletableFuture<DataStreamReply> reply : replies) {
+      DataStreamReplyByteBuffer replyByteBuffer = (DataStreamReplyByteBuffer) reply.join();
+      if (replyByteBuffer.isSuccess()) {
+        sendReplySuccess(request, replyByteBuffer.slice(), -1, ctx);
+        return;
+      }
+    }
+
+    sendReplyNotSuccess(request, ctx);
+  }
+
+  private void peerServerStartTransaction(
+      final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
+    info.getStream().thenApplyAsync(stream -> {
+      try {
+        RaftClientReply reply = server.submitClientRequest(stream.getRaftClientRequest());
+        if (reply.isSuccess()) {
+          ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
+          sendReplySuccess(request, buffer, -1, ctx);
+        } else {
+          sendReplyNotSuccess(request, ctx);
+        }
+      } catch (IOException e) {
+        sendReplyNotSuccess(request, ctx);
+      }
+      return null;
+    });
+  }
+
   private void read(ChannelHandlerContext ctx, DataStreamRequestByteBuf request) {
     LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
-    final boolean isHeader = request.getType() == Type.STREAM_HEADER;
 
     final StreamInfo info;
     final CompletableFuture<Long> localWrite;
     final List<CompletableFuture<DataStreamReply>> remoteWrites = new ArrayList<>();
     final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
-    if (isHeader) {
+    if (request.getType() == Type.STREAM_HEADER) {
       info = streams.computeIfAbsent(key, id -> newStreamInfo(buf));
       localWrite = CompletableFuture.completedFuture(0L);
       for (DataStreamOutput out : info.getDataStreamOutputs()) {
         remoteWrites.add(out.getHeaderFuture());
       }
-    } else {
+    } else if (request.getType() == Type.STREAM_DATA) {
       info = streams.get(key);
       localWrite = info.getPrevious().get()
           .thenCombineAsync(info.getStream(), (u, stream) -> writeTo(buf, stream), executorService);
       for (DataStreamOutput out : info.getDataStreamOutputs()) {
         remoteWrites.add(out.writeAsync(request.slice().nioBuffer()));
       }
+    } else if (request.getType() == Type.STREAM_CLOSE) {
+      info = streams.get(key);
+      localWrite = info.getStream().thenApplyAsync(stream -> stream.close());
+      for (DataStreamOutput out : info.getDataStreamOutputs()) {
+        remoteWrites.add(out.closeAsync());
+      }
+    } else {
+      // peer server start transaction
+      peerServerStartTransaction(streams.get(key), request, ctx);
+      return;
     }
 
     final CompletableFuture<?> current = JavaUtils.allOf(remoteWrites)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           buf.release();
-          sendReply(remoteWrites, request, bytesWritten, ctx);
+          if (request.getType() == Type.STREAM_HEADER || request.getType() == Type.STREAM_DATA) {
+            sendReply(remoteWrites, request, bytesWritten, ctx);
+          } else if (request.getType() == Type.STREAM_CLOSE) {
+            if (info.getDataStreamOutputs().size() > 0) {
+              // after all server close stream, primary server start transaction
+              // TODO(runzhiwang): send start transaction to leader directly
+              primaryServerStartTransaction(info, request, ctx);
+            } else {
+              sendReply(remoteWrites, request, bytesWritten, ctx);
+            }
+          }
           return null;
         }, executorService);
 

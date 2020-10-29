@@ -135,6 +135,15 @@ public interface StateMachine extends Closeable {
      * @return a future for the cleanup task.
      */
     CompletableFuture<?> cleanUp();
+
+    /** @return the {@link RaftClientRequest}.. */
+    RaftClientRequest getRaftClientRequest();
+
+    /**
+     * Close data stream and usually cause OS to flush/sync the data
+     * @return 0 if success, -1 if fail
+     */
+    long close();
   }
 
   /**
