@@ -18,6 +18,7 @@
 package org.apache.ratis.datastream;
 
 import org.apache.ratis.RaftConfigKeys;
+import org.apache.ratis.client.DisabledDataStreamClientFactory;
 import org.apache.ratis.conf.RaftProperties;
 import org.junit.Before;
 import org.junit.Rule;
@@ -41,7 +42,8 @@ public class TestDataStreamDisabled extends TestDataStreamBase {
       setupServer();
       setupClient();
       exception.expect(UnsupportedOperationException.class);
-      exception.expectMessage("org.apache.ratis.server.impl.DisabledDataStreamFactory$1 does not support streamAsync");
+      exception.expectMessage(DisabledDataStreamClientFactory.class.getName()
+          + "$1 does not support streamAsync");
       // stream() will create a header request, thus it will hit UnsupportedOperationException due to
       // DisabledDataStreamFactory.
       client.stream();

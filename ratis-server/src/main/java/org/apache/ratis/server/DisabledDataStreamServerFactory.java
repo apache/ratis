@@ -15,35 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.ratis.server.impl;
+package org.apache.ratis.server;
 
-import org.apache.ratis.client.DataStreamClientFactory;
-import org.apache.ratis.client.DataStreamClientRpc;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.server.DataStreamServerFactory;
-import org.apache.ratis.server.DataStreamServerRpc;
-import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.StateMachine;
 
 import java.util.Collection;
 
 /** A stream factory that does nothing when data stream is disabled. */
-public class DisabledDataStreamFactory implements DataStreamServerFactory, DataStreamClientFactory {
-  public DisabledDataStreamFactory(Parameters parameters) {}
-
-  @Override
-  public DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties) {
-    return new DataStreamClientRpc() {
-      @Override
-      public void startClient() {}
-
-      @Override
-      public void closeClient() {}
-    };
-  }
+public class DisabledDataStreamServerFactory implements DataStreamServerFactory {
+  public DisabledDataStreamServerFactory(Parameters parameters) {}
 
   @Override
   public DataStreamServerRpc newDataStreamServerRpc(

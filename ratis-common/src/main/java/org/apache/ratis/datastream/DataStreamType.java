@@ -15,37 +15,36 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package org.apache.ratis.rpc;
+package org.apache.ratis.datastream;
 
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.util.ReflectionUtils;
 
-/** The type of RPC implementations. */
-public interface RpcType {
+/** The type of data stream implementations. */
+public interface DataStreamType {
   /**
-   * Parse the given string as a {@link SupportedRpcType}
-   * or a user-defined {@link RpcType}.
+   * Parse the given string as a {@link SupportedDataStreamType}
+   * or a user-defined {@link DataStreamType}.
    *
-   * @param rpcType The string representation of an {@link RpcType}.
-   * @return a {@link SupportedRpcType} or a user-defined {@link RpcType}.
+   * @param dataStreamType The string representation of an {@link DataStreamType}.
+   * @return a {@link SupportedDataStreamType} or a user-defined {@link DataStreamType}.
    */
-  static RpcType valueOf(String rpcType) {
+  static DataStreamType valueOf(String dataStreamType) {
     final Throwable fromSupportedRpcType;
     try { // Try parsing it as a SupportedRpcType
-      return SupportedRpcType.valueOfIgnoreCase(rpcType);
+      return SupportedDataStreamType.valueOfIgnoreCase(dataStreamType);
     } catch (Throwable t) {
       fromSupportedRpcType = t;
     }
 
     try {
       // Try using it as a class name
-      return ReflectionUtils.newInstance(
-          ReflectionUtils.getClass(rpcType, RpcType.class));
+      return ReflectionUtils.newInstance(ReflectionUtils.getClass(dataStreamType, DataStreamType.class));
     } catch(Throwable t) {
       final IllegalArgumentException iae = new IllegalArgumentException(
-          "Invalid " + RpcType.class.getSimpleName() + ": \"" + rpcType + "\" "
-              + " cannot be used as a user-defined " + RpcType.class.getSimpleName()
-              + " and it is not a " + SupportedRpcType.class.getSimpleName() + ".");
+          "Invalid " + DataStreamType.class.getSimpleName() + ": \"" + dataStreamType + "\" "
+              + " cannot be used as a user-defined " + DataStreamType.class.getSimpleName()
+              + " and it is not a " + SupportedDataStreamType.class.getSimpleName() + ".");
       iae.addSuppressed(t);
       iae.addSuppressed(fromSupportedRpcType);
       throw iae;
@@ -55,12 +54,15 @@ public interface RpcType {
   /** @return the name of the rpc type. */
   String name();
 
-  /** @return a new factory created using the given parameters. */
-  RpcFactory newFactory(Parameters parameters);
+  /** @return a new client factory created using the given parameters. */
+  DataStreamFactory newClientFactory(Parameters parameters);
 
-  /** An interface to get {@link RpcType}. */
+  /** @return a new server factory created using the given parameters. */
+  DataStreamFactory newServerFactory(Parameters parameters);
+
+  /** An interface to get {@link DataStreamType}. */
   interface Get {
-    /** @return the {@link RpcType}. */
-    RpcType getRpcType();
+    /** @return the {@link DataStreamType}. */
+    DataStreamType getDataStreamType();
   }
 }

@@ -20,11 +20,10 @@ package org.apache.ratis.datastream;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.util.ReflectionUtils;
 
-public enum SupportedDataStreamType implements DataStreamFactory {
-  DISABLED("org.apache.ratis.server.impl.DisabledDataStreamFactory"),
+public enum SupportedDataStreamType implements DataStreamType {
+  DISABLED("org.apache.ratis.client.DisabledDataStreamClientFactory",
+      "org.apache.ratis.server.DisabledDataStreamServerFactory"),
   NETTY("org.apache.ratis.netty.NettyDataStreamFactory");
-
-  private final String factoryClassName;
 
   private static final Class<?>[] ARG_CLASSES = {Parameters.class};
 
@@ -32,18 +31,29 @@ public enum SupportedDataStreamType implements DataStreamFactory {
     return valueOf(s.toUpperCase());
   }
 
+  private final String clientFactoryClassName;
+  private final String serverFactoryClassName;
+
+  SupportedDataStreamType(String clientFactoryClassName, String serverFactoryClassName) {
+    this.clientFactoryClassName = clientFactoryClassName;
+    this.serverFactoryClassName = serverFactoryClassName;
+  }
+
   SupportedDataStreamType(String factoryClassName) {
-    this.factoryClassName = factoryClassName;
+    this(factoryClassName, factoryClassName);
   }
 
   @Override
-  public SupportedDataStreamType getDataStreamType() {
-    return valueOf(this.factoryClassName.toUpperCase());
+  public DataStreamFactory newClientFactory(Parameters parameters) {
+    final Class<? extends DataStreamFactory> clazz = ReflectionUtils.getClass(
+        clientFactoryClassName, DataStreamFactory.class);
+    return ReflectionUtils.newInstance(clazz, ARG_CLASSES, parameters);
   }
 
-  public DataStreamFactory newFactory(Parameters parameters) {
+  @Override
+  public DataStreamFactory newServerFactory(Parameters parameters) {
     final Class<? extends DataStreamFactory> clazz = ReflectionUtils.getClass(
-        factoryClassName, DataStreamFactory.class);
+        serverFactoryClassName, DataStreamFactory.class);
     return ReflectionUtils.newInstance(clazz, ARG_CLASSES, parameters);
   }
 }
