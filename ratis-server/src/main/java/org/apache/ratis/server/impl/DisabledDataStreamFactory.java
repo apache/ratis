@@ -28,56 +28,55 @@ import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.StateMachine;
 
-import java.io.IOException;
 import java.util.Collection;
 
 /** A stream factory that does nothing when data stream is disabled. */
 public class DisabledDataStreamFactory implements DataStreamServerFactory, DataStreamClientFactory {
-    public DisabledDataStreamFactory(Parameters parameters){}
+  public DisabledDataStreamFactory(Parameters parameters) {}
 
-    @Override
-    public DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties) {
-      return new DataStreamClientRpc() {
-        @Override
-        public void startClient() {}
+  @Override
+  public DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties) {
+    return new DataStreamClientRpc() {
+      @Override
+      public void startClient() {}
 
-        @Override
-        public void closeClient() {}
-      };
-    }
+      @Override
+      public void closeClient() {}
+    };
+  }
 
-    @Override
-    public DataStreamServerRpc newDataStreamServerRpc(
-        RaftPeer server, StateMachine stateMachine, RaftProperties properties) {
-      return new DataStreamServerRpc() {
-        @Override
-        public void start() {}
+  @Override
+  public DataStreamServerRpc newDataStreamServerRpc(
+      RaftPeer server, StateMachine stateMachine, RaftProperties properties) {
+    return new DataStreamServerRpc() {
+      @Override
+      public void start() {}
 
-        @Override
-        public void close() throws IOException {}
+      @Override
+      public void close() {}
 
-        @Override
-        public void addRaftPeers(Collection<RaftPeer> peers) {}
-      };
-    }
+      @Override
+      public void addRaftPeers(Collection<RaftPeer> peers) {}
+    };
+  }
 
-    @Override
-    public DataStreamServerRpc newDataStreamServerRpc(
-        RaftServer server, StateMachine stateMachine, RaftProperties properties) {
-      return new DataStreamServerRpc() {
-        @Override
-        public void start() {}
+  @Override
+  public DataStreamServerRpc newDataStreamServerRpc(
+      RaftServer server, StateMachine stateMachine, RaftProperties properties) {
+    return new DataStreamServerRpc() {
+      @Override
+      public void start() {}
 
-        @Override
-        public void close() throws IOException {}
+      @Override
+      public void close() {}
 
-        @Override
-        public void addRaftPeers(Collection<RaftPeer> peers) {}
-      };
-    }
+      @Override
+      public void addRaftPeers(Collection<RaftPeer> peers) {}
+    };
+  }
 
-    @Override
-    public SupportedDataStreamType getDataStreamType() {
-        return SupportedDataStreamType.DISABLED;
-    }
+  @Override
+  public SupportedDataStreamType getDataStreamType() {
+    return SupportedDataStreamType.DISABLED;
+  }
 }
