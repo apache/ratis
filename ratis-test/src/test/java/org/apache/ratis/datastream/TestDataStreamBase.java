@@ -22,11 +22,11 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
+import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
@@ -115,13 +115,13 @@ class TestDataStreamBase extends BaseTest {
   }
 
   protected RaftProperties properties;
+  protected DataStreamClientImpl client;
 
   private List<DataStreamServerImpl> servers;
   private List<RaftPeer> peers;
-  private DataStreamClientImpl client;
   private List<SingleDataStreamStateMachine> singleDataStreamStateMachines;
 
-  private void setupServer(){
+  protected void setupServer(){
     servers = new ArrayList<>(peers.size());
     singleDataStreamStateMachines = new ArrayList<>(peers.size());
     // start stream servers on raft peers.
@@ -129,7 +129,7 @@ class TestDataStreamBase extends BaseTest {
       SingleDataStreamStateMachine singleDataStreamStateMachine = new SingleDataStreamStateMachine();
       singleDataStreamStateMachines.add(singleDataStreamStateMachine);
       final DataStreamServerImpl streamServer = new DataStreamServerImpl(
-              peers.get(i), singleDataStreamStateMachine, properties, null);
+          peers.get(i), singleDataStreamStateMachine, properties, null);
       final DataStreamServerRpc rpc = streamServer.getServerRpc();
       if (i == 0) {
         // only the first server routes requests to peers.
@@ -142,24 +142,27 @@ class TestDataStreamBase extends BaseTest {
     }
   }
 
-  private void setupClient(){
+  protected void setupClient(){
     client = new DataStreamClientImpl(peers.get(0), properties, null);
     client.start();
   }
 
-  private void shutdown() throws IOException {
+  protected void shutdown() throws IOException {
     client.close();
     for (DataStreamServerImpl server : servers) {
       server.close();
     }
   }
 
-  protected void runTestDataStream(int numServers, int bufferSize, int bufferNum) throws Exception {
+  protected void setupRaftPeers(int numServers) {
     peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
         .map(RaftPeerId::valueOf)
         .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
         .collect(Collectors.toList());
+  }
 
+  protected void runTestDataStream(int numServers, int bufferSize, int bufferNum) throws Exception {
+    setupRaftPeers(numServers);
     try {
       setupServer();
       setupClient();
@@ -192,7 +195,7 @@ class TestDataStreamBase extends BaseTest {
       final DataStreamReply reply = impl.getHeaderFuture().join();
       Assert.assertTrue(reply.isSuccess());
       Assert.assertEquals(0, reply.getBytesWritten());
-      Assert.assertEquals(reply.getType(), DataStreamPacketHeaderProto.Type.STREAM_HEADER);
+      Assert.assertEquals(reply.getType(), Type.STREAM_HEADER);
     }
 
     // check writeAsync requests
@@ -200,7 +203,7 @@ class TestDataStreamBase extends BaseTest {
       final DataStreamReply reply = futures.get(i).join();
       Assert.assertTrue(reply.isSuccess());
       Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
-      Assert.assertEquals(reply.getType(), DataStreamPacketHeaderProto.Type.STREAM_DATA);
+      Assert.assertEquals(reply.getType(), Type.STREAM_DATA);
     }
 
     for (SingleDataStreamStateMachine s : singleDataStreamStateMachines) {

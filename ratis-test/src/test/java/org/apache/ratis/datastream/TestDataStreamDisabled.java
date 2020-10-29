@@ -35,10 +35,21 @@ public class TestDataStreamDisabled extends TestDataStreamBase {
   }
 
   @Test
-  public void testDataStreamSingleServer() throws Exception {
-    exception.expect(UnsupportedOperationException.class);
-    exception.expectMessage("org.apache.ratis.server.impl.DisabledDataStreamFactory$1 does not support streamAsync");
-    runTestDataStream(1, 1_000_000, 100);
-    runTestDataStream(1,1_000, 10_000);
+  public void testDataStreamDisabled() throws Exception {
+    setupRaftPeers(1);
+    try {
+      setupServer();
+      setupClient();
+      exception.expect(UnsupportedOperationException.class);
+      exception.expectMessage("org.apache.ratis.server.impl.DisabledDataStreamFactory$1 does not support streamAsync");
+      // stream() will create a header request, thus it will hit UnsupportedOperationException due to
+      // DisabledDataStreamFactory.
+      client.stream();
+
+    } finally {
+      shutdown();
+    }
+
+
   }
 }
