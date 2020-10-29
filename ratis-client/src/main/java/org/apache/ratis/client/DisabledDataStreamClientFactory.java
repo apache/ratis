@@ -15,27 +15,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ratis.client;
 
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.datastream.DataStreamFactory;
-import org.apache.ratis.datastream.DataStreamType;
+import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.protocol.RaftPeer;
 
-/**
- * A factory to create streaming client.
- */
-public interface DataStreamClientFactory extends DataStreamFactory {
-  static DataStreamClientFactory newInstance(DataStreamType type, Parameters parameters) {
-    final DataStreamFactory dataStreamFactory = type.newClientFactory(parameters);
-    if (dataStreamFactory instanceof DataStreamClientFactory) {
-      return (DataStreamClientFactory) dataStreamFactory;
-    }
-    throw new ClassCastException("Cannot cast " + dataStreamFactory.getClass()
-        + " to " + DataStreamClientFactory.class + "; stream type is " + type);
+/** A stream factory that does nothing when data stream is disabled. */
+public class DisabledDataStreamClientFactory implements DataStreamClientFactory {
+  public DisabledDataStreamClientFactory(Parameters parameters) {}
+
+  @Override
+  public SupportedDataStreamType getDataStreamType() {
+    return SupportedDataStreamType.DISABLED;
   }
 
-  DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties);
+  @Override
+  public DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties) {
+    return new DataStreamClientRpc() {
+      @Override
+      public void startClient() {}
+
+      @Override
+      public void closeClient() {}
+    };
+  }
 }

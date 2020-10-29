@@ -17,22 +17,22 @@
  */
 package org.apache.ratis.server;
 
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.DataStreamFactory;
+import org.apache.ratis.datastream.DataStreamType;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.server.impl.ServerFactory;
 import org.apache.ratis.statemachine.StateMachine;
 
 /** A {@link DataStreamFactory} to create server-side objects. */
 public interface DataStreamServerFactory extends DataStreamFactory {
-
-  static DataStreamServerFactory cast(DataStreamFactory dataStreamFactory) {
+  static DataStreamServerFactory newInstance(DataStreamType type, Parameters parameters) {
+    final DataStreamFactory dataStreamFactory = type.newServerFactory(parameters);
     if (dataStreamFactory instanceof DataStreamServerFactory) {
       return (DataStreamServerFactory)dataStreamFactory;
     }
     throw new ClassCastException("Cannot cast " + dataStreamFactory.getClass()
-        + " to " + ServerFactory.class
-        + "; rpc type is " + dataStreamFactory.getDataStreamType());
+        + " to " + DataStreamServerFactory.class + "; rpc type is " + type);
   }
 
   /** Create a new {@link DataStreamServerRpc}. */

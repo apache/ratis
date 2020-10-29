@@ -60,7 +60,7 @@ public class DataStreamClientImpl implements DataStreamClient {
     this.raftServer = Objects.requireNonNull(server, "server == null");
 
     final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
-    this.dataStreamClientRpc = DataStreamClientFactory.cast(type.newFactory(parameters))
+    this.dataStreamClientRpc = DataStreamClientFactory.newInstance(type, parameters)
                                .newDataStreamClientRpc(raftServer, properties);
 
     this.orderedStreamAsync = new OrderedStreamAsync(clientId, dataStreamClientRpc, properties);
