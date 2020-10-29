@@ -320,7 +320,6 @@ public class RaftServerProxy implements RaftServer {
     lifeCycle.startAndTransition(() -> {
       LOG.info("{}: start RPC server", getId());
       getServerRpc().start();
-      getDataStreamServerRpc().start();
     }, IOException.class);
   }
 

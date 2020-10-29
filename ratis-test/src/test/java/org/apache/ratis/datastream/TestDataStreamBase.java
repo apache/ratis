@@ -137,7 +137,6 @@ class TestDataStreamBase extends BaseTest {
         otherPeers.remove(peers.get(i));
         rpc.addRaftPeers(otherPeers);
       }
-      rpc.start();
       servers.add(streamServer);
     }
   }

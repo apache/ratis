@@ -67,6 +67,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 public class NettyServerStreamRpc implements DataStreamServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyServerStreamRpc.class);
@@ -145,7 +146,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private final String name;
   private final EventLoopGroup bossGroup = new NioEventLoopGroup();
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
-  private final ChannelFuture channelFuture;
+  private final Supplier<Channel> nettyChannel;
 
   private final StateMachine stateMachine;
   private final ConcurrentMap<Long, StreamInfo> streams = new ConcurrentHashMap<>();
@@ -166,13 +167,14 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     this.server = server;
     this.name = id + "-" + getClass().getSimpleName();
     this.stateMachine = stateMachine;
-    this.channelFuture = new ServerBootstrap()
+    final ChannelFuture channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)
         .handler(new LoggingHandler(LogLevel.INFO))
         .childHandler(getInitializer())
         .childOption(ChannelOption.SO_KEEPALIVE, true)
         .bind(port);
+    this.nettyChannel = JavaUtils.memoize(() -> channelFuture.syncUninterruptibly().channel());
     this.proxies = new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties)));
   }
 
@@ -325,14 +327,9 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   }
 
   @Override
-  public void start() {
-    channelFuture.syncUninterruptibly();
-  }
-
-  @Override
   public void close() {
     try {
-      channelFuture.channel().close().sync();
+      nettyChannel.get().close().sync();
       bossGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
       workerGroup.shutdownGracefully(0, 100, TimeUnit.MILLISECONDS);
       bossGroup.awaitTermination(1000, TimeUnit.MILLISECONDS);

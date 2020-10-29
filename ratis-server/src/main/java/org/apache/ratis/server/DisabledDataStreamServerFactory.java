@@ -34,9 +34,6 @@ public class DisabledDataStreamServerFactory implements DataStreamServerFactory 
       RaftPeer server, StateMachine stateMachine, RaftProperties properties) {
     return new DataStreamServerRpc() {
       @Override
-      public void start() {}
-
-      @Override
       public void close() {}
 
       @Override
@@ -48,9 +45,6 @@ public class DisabledDataStreamServerFactory implements DataStreamServerFactory 
   public DataStreamServerRpc newDataStreamServerRpc(
       RaftServer server, StateMachine stateMachine, RaftProperties properties) {
     return new DataStreamServerRpc() {
-      @Override
-      public void start() {}
-
       @Override
       public void close() {}
 

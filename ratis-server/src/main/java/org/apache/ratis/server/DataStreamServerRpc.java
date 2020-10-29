@@ -26,8 +26,5 @@ import java.io.Closeable;
  * Relays those streams to other servers after persisting
  */
 public interface DataStreamServerRpc extends RaftPeer.Add, Closeable {
-  /**
-   * start server
-   */
-  void start();
+
 }
