@@ -45,11 +45,8 @@ public class TestDataStreamDisabled extends TestDataStreamBase {
       // stream() will create a header request, thus it will hit UnsupportedOperationException due to
       // DisabledDataStreamFactory.
       client.stream();
-
     } finally {
       shutdown();
     }
-
-
   }
 }
