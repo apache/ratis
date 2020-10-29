@@ -18,22 +18,23 @@
 
 package org.apache.ratis.client;
 
+import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.DataStreamFactory;
+import org.apache.ratis.datastream.DataStreamType;
 import org.apache.ratis.protocol.RaftPeer;
 
 /**
  * A factory to create streaming client.
  */
 public interface DataStreamClientFactory extends DataStreamFactory {
-
-  static DataStreamClientFactory cast(DataStreamFactory dataStreamFactory) {
+  static DataStreamClientFactory newInstance(DataStreamType type, Parameters parameters) {
+    final DataStreamFactory dataStreamFactory = type.newClientFactory(parameters);
     if (dataStreamFactory instanceof DataStreamClientFactory) {
       return (DataStreamClientFactory) dataStreamFactory;
     }
     throw new ClassCastException("Cannot cast " + dataStreamFactory.getClass()
-        + " to " + ClientFactory.class
-        + "; stream type is " + dataStreamFactory.getDataStreamType());
+        + " to " + DataStreamClientFactory.class + "; stream type is " + type);
   }
 
   DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties);
