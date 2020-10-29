@@ -15,11 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ratis.datastream;
 
-import java.io.IOException;
-import java.util.stream.Collectors;
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.api.DataStreamOutput;
@@ -36,8 +33,8 @@ import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 import org.junit.Assert;
-import org.junit.Test;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
@@ -45,8 +42,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
-public class TestDataStream extends BaseTest {
+class TestDataStreamBase extends BaseTest {
   static final int MODULUS = 23;
 
   static byte pos2byte(int pos) {
@@ -116,13 +114,14 @@ public class TestDataStream extends BaseTest {
     }
   }
 
-  private List<RaftPeer> peers;
-  private RaftProperties properties;
+  protected RaftProperties properties;
+  protected DataStreamClientImpl client;
+
   private List<DataStreamServerImpl> servers;
-  private DataStreamClientImpl client;
+  private List<RaftPeer> peers;
   private List<SingleDataStreamStateMachine> singleDataStreamStateMachines;
 
-  private void setupServer(){
+  protected void setupServer(){
     servers = new ArrayList<>(peers.size());
     singleDataStreamStateMachines = new ArrayList<>(peers.size());
     // start stream servers on raft peers.
@@ -143,47 +142,37 @@ public class TestDataStream extends BaseTest {
     }
   }
 
-  private void setupClient(){
+  protected void setupClient(){
     client = new DataStreamClientImpl(peers.get(0), properties, null);
     client.start();
   }
 
-  public void shutdown() throws IOException {
+  protected void shutdown() throws IOException {
     client.close();
     for (DataStreamServerImpl server : servers) {
       server.close();
     }
   }
 
-  @Test
-  public void testDataStreamSingleServer() throws Exception {
-    runTestDataStream(1, 1_000_000, 100);
-    runTestDataStream(1,1_000, 10_000);
-  }
-
-  @Test
-  public void testDataStreamMultipleServer() throws Exception {
-    runTestDataStream(3, 1_000_000, 100);
-    runTestDataStream(3, 1_000, 10_000);
-  }
-
-  void runTestDataStream(int numServers, int bufferSize, int bufferNum) throws Exception {
-    properties = new RaftProperties();
+  protected void setupRaftPeers(int numServers) {
     peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
         .map(RaftPeerId::valueOf)
         .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
         .collect(Collectors.toList());
+  }
 
-    setupServer();
-    setupClient();
+  protected void runTestDataStream(int numServers, int bufferSize, int bufferNum) throws Exception {
+    setupRaftPeers(numServers);
     try {
+      setupServer();
+      setupClient();
       runTestDataStream(bufferSize, bufferNum);
     } finally {
       shutdown();
     }
   }
 
-  void runTestDataStream(int bufferSize, int bufferNum) {
+  private void runTestDataStream(int bufferSize, int bufferNum) {
     final DataStreamOutput out = client.stream();
     DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
 
