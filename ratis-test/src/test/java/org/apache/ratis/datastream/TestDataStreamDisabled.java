@@ -23,6 +23,11 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.mockito.internal.matchers.Contains;
+import org.mockito.internal.matchers.StartsWith;
+
+import static org.mockito.Matchers.contains;
+import static org.mockito.Matchers.startsWith;
 
 public class TestDataStreamDisabled extends TestDataStreamBase {
   @Rule
@@ -37,6 +42,7 @@ public class TestDataStreamDisabled extends TestDataStreamBase {
   @Test
   public void testDataStreamSingleServer() throws Exception {
     exception.expect(UnsupportedOperationException.class);
+    exception.expectMessage("org.apache.ratis.server.impl.DisabledDataStreamFactory$1 does not support streamAsync");
     runTestDataStream(1, 1_000_000, 100);
     runTestDataStream(1,1_000, 10_000);
   }
