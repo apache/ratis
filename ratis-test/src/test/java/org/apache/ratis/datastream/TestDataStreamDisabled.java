@@ -23,11 +23,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-import org.mockito.internal.matchers.Contains;
-import org.mockito.internal.matchers.StartsWith;
-
-import static org.mockito.Matchers.contains;
-import static org.mockito.Matchers.startsWith;
 
 public class TestDataStreamDisabled extends TestDataStreamBase {
   @Rule
