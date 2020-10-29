@@ -144,7 +144,6 @@ class TestDataStreamBase extends BaseTest {
 
   protected void setupClient(){
     client = new DataStreamClientImpl(peers.get(0), properties, null);
-    client.start();
   }
 
   protected void shutdown() throws IOException {

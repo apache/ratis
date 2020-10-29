@@ -31,9 +31,8 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -44,8 +43,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * allows client to create streams and send asynchronously.
  */
 public class DataStreamClientImpl implements DataStreamClient {
-  public static final Logger LOG = LoggerFactory.getLogger(DataStreamClientImpl.class);
-
   // TODO Similar to RaftClientImpl, pass ClientId and RaftGroupId/RaftGroup in constructor.
   private final ClientId clientId = ClientId.randomId();
   private final RaftGroupId groupId =  RaftGroupId.randomId();
@@ -117,12 +114,7 @@ public class DataStreamClientImpl implements DataStreamClient {
   }
 
   @Override
-  public void close(){
-    dataStreamClientRpc.closeClient();
-  }
-
-  @Override
-  public void start(){
-    dataStreamClientRpc.startClient();
+  public void close() throws IOException {
+    dataStreamClientRpc.close();
   }
 }
