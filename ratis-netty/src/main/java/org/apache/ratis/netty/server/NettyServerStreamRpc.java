@@ -224,6 +224,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private void sendReplySuccess(DataStreamRequestByteBuf request, long bytesWritten, ChannelHandlerContext ctx) {
     final DataStreamReplyByteBuffer reply = new DataStreamReplyByteBuffer(
         request.getStreamId(), request.getStreamOffset(), null, bytesWritten, true, request.getType());
+    LOG.debug("{}: write {}", this, reply);
     ctx.writeAndFlush(reply);
   }
 
@@ -246,6 +247,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   }
 
   private void read(ChannelHandlerContext ctx, DataStreamRequestByteBuf request) {
+    LOG.debug("{}: read {}", this, request);
     final ByteBuf buf = request.slice();
     final boolean isHeader = request.getType() == Type.STREAM_HEADER;
 
