@@ -33,28 +33,40 @@ import org.apache.ratis.thirdparty.io.netty.channel.socket.SocketChannel;
 import org.apache.ratis.thirdparty.io.netty.channel.socket.nio.NioSocketChannel;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.ByteToMessageDecoder;
 import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncoder;
+import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetSocketAddress;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 public class NettyClientStreamRpc implements DataStreamClientRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyClientStreamRpc.class);
 
-  private RaftPeer server;
+  private final RaftPeer server;
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
-  private Channel channel;
-  private Queue<CompletableFuture<DataStreamReply>> replies
-      = new LinkedList<>();
+  private final Supplier<Channel> channel;
+  private final Queue<CompletableFuture<DataStreamReply>> replies = new LinkedList<>();
 
   public NettyClientStreamRpc(RaftPeer server, RaftProperties properties){
     this.server = server;
+
+    final ChannelFuture f = new Bootstrap()
+        .group(workerGroup)
+        .channel(NioSocketChannel.class)
+        .handler(getInitializer())
+        .option(ChannelOption.SO_KEEPALIVE, true)
+        .connect(NetUtils.createSocketAddr(server.getAddress()));
+    this.channel = JavaUtils.memoize(() -> f.syncUninterruptibly().channel());
+  }
+
+  private Channel getChannel() {
+    return channel.get();
   }
 
   synchronized CompletableFuture<DataStreamReply> pollReply() {
@@ -64,7 +76,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   private ChannelInboundHandler getClientHandler(){
     return new ChannelInboundHandlerAdapter(){
       @Override
-      public void channelRead(ChannelHandlerContext ctx, Object msg) throws InterruptedException {
+      public void channelRead(ChannelHandlerContext ctx, Object msg) {
         final DataStreamReply reply = (DataStreamReply) msg;
         pollReply().complete(reply);
       }
@@ -74,8 +86,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   private ChannelInitializer<SocketChannel> getInitializer(){
     return new ChannelInitializer<SocketChannel>(){
       @Override
-      public void initChannel(SocketChannel ch)
-          throws Exception {
+      public void initChannel(SocketChannel ch) {
         ChannelPipeline p = ch.pipeline();
         p.addLast(newEncoder());
         p.addLast(newDecoder());
@@ -110,31 +121,18 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   public synchronized CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
     CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
     replies.offer(f);
-    channel.writeAndFlush(request);
+    getChannel().writeAndFlush(request);
     return f;
   }
 
   @Override
-  public void startClient() {
-    final InetSocketAddress address = NetUtils.createSocketAddr(server.getAddress());
-    try {
-      channel = (new Bootstrap())
-          .group(workerGroup)
-          .channel(NioSocketChannel.class)
-          .handler(getInitializer())
-          .option(ChannelOption.SO_KEEPALIVE, true)
-          .connect(address)
-          .sync()
-          .channel();
-      System.out.println(channel);
-    } catch (Exception e){
-      LOG.info("Exception {}", e.getCause());
-    }
+  public void close() {
+    getChannel().close().syncUninterruptibly();
+    workerGroup.shutdownGracefully();
   }
 
   @Override
-  public void closeClient(){
-    channel.close().syncUninterruptibly();
-    workerGroup.shutdownGracefully();
+  public String toString() {
+    return getClass().getSimpleName() + "->" + server;
   }
 }

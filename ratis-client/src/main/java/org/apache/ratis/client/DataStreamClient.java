@@ -28,18 +28,13 @@ import org.slf4j.LoggerFactory;
 import java.io.Closeable;
 
 /**
- * A client interface that sends request to the streaming pipeline.
- * Associated with it will be a Netty Client.
+ * A user interface extending {@link DataStreamApi}.
  */
 public interface DataStreamClient extends DataStreamApi, Closeable {
-
   Logger LOG = LoggerFactory.getLogger(DataStreamClient.class);
 
   /** Return the rpc client instance **/
   DataStreamClientRpc getClientRpc();
-
-  /** start the client */
-  void start();
 
   static Builder newBuilder() {
     return new Builder();

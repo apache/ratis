@@ -35,10 +35,7 @@ public class DisabledDataStreamClientFactory implements DataStreamClientFactory 
   public DataStreamClientRpc newDataStreamClientRpc(RaftPeer server, RaftProperties properties) {
     return new DataStreamClientRpc() {
       @Override
-      public void startClient() {}
-
-      @Override
-      public void closeClient() {}
+      public void close() {}
     };
   }
 }

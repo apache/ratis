@@ -22,20 +22,18 @@ import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.DataStreamRequest;
 import org.apache.ratis.util.JavaUtils;
 
+import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * An api interface for to stream from client to server.
+ * A client interface for sending stream requests.
+ * The underlying implementation is pluggable, depending on the {@link org.apache.ratis.datastream.DataStreamType}.
+ * The implementations of this interface define how the requests are transported to the server.
  */
-public interface DataStreamClientRpc {
-
+public interface DataStreamClientRpc extends Closeable {
   /** Async call to send a request. */
   default CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
     throw new UnsupportedOperationException(getClass() + " does not support "
         + JavaUtils.getCurrentStackTraceElement().getMethodName());
   }
-
-  void startClient();
-
-  void closeClient();
 }
