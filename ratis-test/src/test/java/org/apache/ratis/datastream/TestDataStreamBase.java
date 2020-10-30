@@ -45,7 +45,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 class TestDataStreamBase extends BaseTest {
@@ -71,8 +70,8 @@ class TestDataStreamBase extends BaseTest {
   }
 
   static class SingleDataStream {
-    private final AtomicInteger byteWritten = new AtomicInteger();
-    private volatile RaftClientRequest writeRequest;
+    private int byteWritten = 0;
+    private RaftClientRequest writeRequest;
 
     final WritableByteChannel channel = new WritableByteChannel() {
       private volatile boolean open = true;
@@ -84,7 +83,8 @@ class TestDataStreamBase extends BaseTest {
         }
         final int remaining = src.remaining();
         for(; src.remaining() > 0; ) {
-          Assert.assertEquals(pos2byte(byteWritten.getAndIncrement()), src.get());
+          Assert.assertEquals(pos2byte(byteWritten), src.get());
+          byteWritten += 1;
         }
         return remaining;
       }
@@ -117,13 +117,13 @@ class TestDataStreamBase extends BaseTest {
       }
     };
 
-    CompletableFuture<DataStream> stream(RaftClientRequest request) {
+    public CompletableFuture<DataStream> stream(RaftClientRequest request) {
       writeRequest = request;
       return CompletableFuture.completedFuture(stream);
     }
 
     public int getByteWritten() {
-      return byteWritten.get();
+      return byteWritten;
     }
 
     public RaftClientRequest getWriteRequest() {
