@@ -206,6 +206,12 @@ public final class RaftConfiguration {
         (oldConf == null || oldConf.hasMajority(others, selfId));
   }
 
+  /** @return true if the rejects are in the majority(maybe half is enough in some cases). */
+  boolean majorityRejectVotes(Collection<RaftPeerId> rejects) {
+    return conf.majorityRejectVotes(rejects) ||
+            (oldConf != null && oldConf.majorityRejectVotes(rejects));
+  }
+
   @Override
   public String toString() {
     return logEntryIndex + ": " + conf + ", old=" + oldConf;
