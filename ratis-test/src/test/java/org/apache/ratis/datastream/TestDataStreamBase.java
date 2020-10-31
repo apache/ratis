@@ -132,13 +132,16 @@ class TestDataStreamBase extends BaseTest {
   }
 
   protected RaftProperties properties;
-  protected DataStreamClientImpl client;
 
   private List<DataStreamServerImpl> servers;
   private List<RaftPeer> peers;
   private List<MultiDataStreamStateMachine> stateMachines;
 
-  protected void setupServer(){
+  protected void setup(int numServers){
+    peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
+        .map(RaftPeerId::valueOf)
+        .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
+        .collect(Collectors.toList());
     servers = new ArrayList<>(peers.size());
     stateMachines = new ArrayList<>(peers.size());
     // start stream servers on raft peers.
@@ -159,42 +162,45 @@ class TestDataStreamBase extends BaseTest {
     }
   }
 
-  protected void setupClient(){
-    client = new DataStreamClientImpl(peers.get(0), properties, null);
+  DataStreamClientImpl newDataStreamClientImpl() {
+    return new DataStreamClientImpl(peers.get(0), properties, null);
   }
 
   protected void shutdown() throws IOException {
-    client.close();
     for (DataStreamServerImpl server : servers) {
       server.close();
     }
   }
 
-  protected void setupRaftPeers(int numServers) {
-    peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
-        .map(RaftPeerId::valueOf)
-        .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
-        .collect(Collectors.toList());
-  }
-
-  protected void runTestDataStream(int numServers, int numStreams, int bufferSize, int bufferNum) throws Exception {
-    setupRaftPeers(numServers);
+  protected void runTestDataStream(int numServers, int numClients, int numStreams, int bufferSize, int bufferNum)
+      throws Exception {
     try {
-      setupServer();
-      setupClient();
-      runTestDataStream(numStreams, bufferSize, bufferNum);
+      setup(numServers);
+      runTestDataStream(numClients, numStreams, bufferSize, bufferNum);
     } finally {
       shutdown();
     }
   }
 
-  private void runTestDataStream(int numStreams, int bufferSize, int bufferNum) {
+  private void runTestDataStream(int numClients, int numStreams, int bufferSize, int bufferNum) throws Exception {
     final List<CompletableFuture<Void>> futures = new ArrayList<>();
-    for (int i = 0; i < numStreams; i++) {
-      futures.add(CompletableFuture.runAsync(
-          () -> runTestDataStream((DataStreamOutputImpl) client.stream(), bufferSize, bufferNum)));
+    final List<DataStreamClientImpl> clients = new ArrayList<>();
+    try {
+      for (int j = 0; j < numClients; j++) {
+        final DataStreamClientImpl client = newDataStreamClientImpl();
+        clients.add(client);
+        for (int i = 0; i < numStreams; i++) {
+          futures.add(CompletableFuture.runAsync(
+              () -> runTestDataStream((DataStreamOutputImpl) client.stream(), bufferSize, bufferNum)));
+        }
+      }
+      Assert.assertEquals(numClients*numStreams, futures.size());
+      futures.forEach(CompletableFuture::join);
+    } finally {
+      for (int j = 0; j < numClients; j++) {
+        clients.get(j).close();
+      }
     }
-    futures.forEach(CompletableFuture::join);
   }
 
   private void runTestDataStream(DataStreamOutputImpl out, int bufferSize, int bufferNum) {

@@ -33,13 +33,13 @@ public class TestDataStreamNetty extends TestDataStreamBase {
 
   @Test
   public void testDataStreamSingleServer() throws Exception {
-    runTestDataStream(1, 5, 1_000_000, 100);
-    runTestDataStream(1,5, 1_000, 10_000);
+    runTestDataStream(1, 2, 3, 1_000_000, 10);
+    runTestDataStream(1, 2, 3, 1_000, 10_000);
   }
 
   @Test
   public void testDataStreamMultipleServer() throws Exception {
-    runTestDataStream(3, 5, 1_000_000, 100);
-    runTestDataStream(3, 5, 1_000, 10_000);
+    runTestDataStream(3, 2, 3, 1_000_000, 100);
+    runTestDataStream(3, 2, 3, 1_000, 10_000);
   }
 }
