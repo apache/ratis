@@ -28,7 +28,6 @@ import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.DataStreamServerFactory;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.statemachine.StateMachine;
 
 public class NettyDataStreamFactory implements DataStreamServerFactory, DataStreamClientFactory {
   public NettyDataStreamFactory(Parameters parameters){}
@@ -44,14 +43,7 @@ public class NettyDataStreamFactory implements DataStreamServerFactory, DataStre
   }
 
   @Override
-  public DataStreamServerRpc newDataStreamServerRpc(RaftPeer server, StateMachine stateMachine,
-      RaftProperties properties) {
-    return new NettyServerStreamRpc(server, stateMachine, properties);
-  }
-
-  @Override
-  public DataStreamServerRpc newDataStreamServerRpc(RaftServer server, StateMachine stateMachine,
-      RaftProperties properties) {
-    return new NettyServerStreamRpc(server, stateMachine, properties);
+  public DataStreamServerRpc newDataStreamServerRpc(RaftServer server, RaftProperties properties) {
+    return new NettyServerStreamRpc(server, properties);
   }
 }

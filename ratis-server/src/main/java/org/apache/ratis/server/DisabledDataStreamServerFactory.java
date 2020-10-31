@@ -21,7 +21,6 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.statemachine.StateMachine;
 
 import java.util.Collection;
 
@@ -30,23 +29,7 @@ public class DisabledDataStreamServerFactory implements DataStreamServerFactory 
   public DisabledDataStreamServerFactory(Parameters parameters) {}
 
   @Override
-  public DataStreamServerRpc newDataStreamServerRpc(
-      RaftPeer server, StateMachine stateMachine, RaftProperties properties) {
-    return new DataStreamServerRpc() {
-      @Override
-      public void start() {}
-
-      @Override
-      public void close() {}
-
-      @Override
-      public void addRaftPeers(Collection<RaftPeer> peers) {}
-    };
-  }
-
-  @Override
-  public DataStreamServerRpc newDataStreamServerRpc(
-      RaftServer server, StateMachine stateMachine, RaftProperties properties) {
+  public DataStreamServerRpc newDataStreamServerRpc(RaftServer server, RaftProperties properties) {
     return new DataStreamServerRpc() {
       @Override
       public void start() {}

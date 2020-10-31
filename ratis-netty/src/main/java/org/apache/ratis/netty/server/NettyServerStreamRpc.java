@@ -31,7 +31,6 @@ import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.statemachine.StateMachine;
@@ -47,7 +46,6 @@ import org.apache.ratis.thirdparty.io.netty.handler.codec.MessageToMessageEncode
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LogLevel;
 import org.apache.ratis.thirdparty.io.netty.handler.logging.LoggingHandler;
 import org.apache.ratis.util.JavaUtils;
-import org.apache.ratis.util.NetUtils;
 import org.apache.ratis.util.PeerProxyMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -203,25 +201,15 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final ChannelFuture channelFuture;
 
-  private final StateMachine stateMachine;
   private final StreamMap streams = new StreamMap();
 
   private final Proxies proxies;
 
-  public NettyServerStreamRpc(RaftPeer server, StateMachine stateMachine, RaftProperties properties) {
-    this(null, server.getId(), stateMachine, properties,
-        NetUtils.createSocketAddr(server.getAddress()).getPort());
-  }
-
-  public NettyServerStreamRpc(RaftServer server, StateMachine stateMachine, RaftProperties properties) {
-    this(server, server.getId(), stateMachine, properties, NettyConfigKeys.DataStream.port(server.getProperties()));
-  }
-
-  public NettyServerStreamRpc(
-      RaftServer server, RaftPeerId id, StateMachine stateMachine, RaftProperties properties, int port) {
+  public NettyServerStreamRpc(RaftServer server, RaftProperties properties) {
     this.server = server;
-    this.name = id + "-" + getClass().getSimpleName();
-    this.stateMachine = stateMachine;
+    this.name = server.getId() + "-" + getClass().getSimpleName();
+
+    final int port = NettyConfigKeys.DataStream.port(server.getProperties());
     this.channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)
@@ -248,6 +236,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     try {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
+      final StateMachine stateMachine = server.getStateMachine(request.getRaftGroupId());
       return new StreamInfo(request, stateMachine.data().stream(request), proxies.getDataStreamOutput());
     } catch (Throwable e) {
       throw new CompletionException(e);

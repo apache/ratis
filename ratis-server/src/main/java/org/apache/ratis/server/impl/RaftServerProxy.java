@@ -182,11 +182,7 @@ public class RaftServerProxy implements RaftServer {
     this.factory = ServerFactory.cast(rpcType.newFactory(parameters));
 
     this.serverRpc = factory.newRaftServerRpc(this);
-
-    // TODO: Support multi-raft and should pass StateMachineRegistry to DataStreamServerImpl instead of StateMachine
-    this.dataStreamServerRpc =
-        new DataStreamServerImpl(this, stateMachineRegistry.apply(RaftGroupId.emptyGroupId()), properties, null)
-            .getServerRpc();
+    this.dataStreamServerRpc = new DataStreamServerImpl(this, properties, null).getServerRpc();
 
     this.id = id != null? id: RaftPeerId.valueOf(getIdStringFrom(serverRpc));
     this.lifeCycle = new LifeCycle(this.id + "-" + getClass().getSimpleName());
@@ -306,6 +302,11 @@ public class RaftServerProxy implements RaftServer {
       list.add(IOUtils.getFromFuture(f, this::getId));
     }
     return list;
+  }
+
+  @Override
+  public StateMachine getStateMachine(RaftGroupId groupId) throws IOException {
+    return getImpl(groupId).getStateMachine();
   }
 
   @Override

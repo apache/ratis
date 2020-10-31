@@ -21,8 +21,6 @@ import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.DataStreamFactory;
 import org.apache.ratis.datastream.DataStreamType;
-import org.apache.ratis.protocol.RaftPeer;
-import org.apache.ratis.statemachine.StateMachine;
 
 /** A {@link DataStreamFactory} to create server-side objects. */
 public interface DataStreamServerFactory extends DataStreamFactory {
@@ -36,8 +34,5 @@ public interface DataStreamServerFactory extends DataStreamFactory {
   }
 
   /** Create a new {@link DataStreamServerRpc}. */
-  DataStreamServerRpc newDataStreamServerRpc(RaftPeer server, StateMachine stateMachine, RaftProperties properties);
-
-  /** Create a new {@link DataStreamServerRpc}. */
-  DataStreamServerRpc newDataStreamServerRpc(RaftServer server, StateMachine stateMachine, RaftProperties properties);
+  DataStreamServerRpc newDataStreamServerRpc(RaftServer server, RaftProperties properties);
 }

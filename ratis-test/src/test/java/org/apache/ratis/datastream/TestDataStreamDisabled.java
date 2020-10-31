@@ -26,7 +26,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
-public class TestDataStreamDisabled extends TestDataStreamBase {
+public class TestDataStreamDisabled extends DataStreamBaseTest {
   @Rule
   public final ExpectedException exception = ExpectedException.none();
 

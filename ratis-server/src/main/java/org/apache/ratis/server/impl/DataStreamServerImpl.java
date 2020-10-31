@@ -23,12 +23,10 @@ import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.Parameters;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
-import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DataStreamServerFactory;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
-import org.apache.ratis.statemachine.StateMachine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,20 +35,11 @@ public class DataStreamServerImpl implements DataStreamServer {
 
   private final DataStreamServerRpc serverRpc;
 
-  public DataStreamServerImpl(RaftPeer server, StateMachine stateMachine,
-      RaftProperties properties, Parameters parameters){
+  public DataStreamServerImpl(RaftServer server, RaftProperties properties, Parameters parameters) {
     final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
 
     this.serverRpc = DataStreamServerFactory.newInstance(type, parameters)
-        .newDataStreamServerRpc(server, stateMachine, properties);
-  }
-
-  public DataStreamServerImpl(RaftServer server, StateMachine stateMachine,
-      RaftProperties properties, Parameters parameters){
-    final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
-
-    this.serverRpc = DataStreamServerFactory.newInstance(type, parameters)
-        .newDataStreamServerRpc(server, stateMachine, properties);
+        .newDataStreamServerRpc(server, properties);
   }
 
   @Override
