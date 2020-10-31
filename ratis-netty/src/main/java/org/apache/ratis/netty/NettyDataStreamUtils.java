@@ -27,7 +27,7 @@ import org.apache.ratis.protocol.DataStreamPacketHeader;
 import org.apache.ratis.protocol.DataStreamReplyHeader;
 import org.apache.ratis.protocol.DataStreamRequestHeader;
 import org.apache.ratis.thirdparty.io.netty.buffer.ByteBuf;
-import org.apache.ratis.thirdparty.io.netty.buffer.PooledByteBufAllocator;
+import org.apache.ratis.thirdparty.io.netty.buffer.ByteBufAllocator;
 import org.apache.ratis.thirdparty.io.netty.buffer.Unpooled;
 
 import java.nio.ByteBuffer;
@@ -69,20 +69,20 @@ public interface NettyDataStreamUtils {
         .asReadOnlyByteBuffer();
   }
 
-  static void encodeDataStreamRequestByteBuffer(DataStreamRequestByteBuffer request, Consumer<ByteBuf> out) {
+  static void encodeDataStreamRequestByteBuffer(DataStreamRequestByteBuffer request, Consumer<ByteBuf> out,
+      ByteBufAllocator allocator) {
     ByteBuffer headerBuf = getDataStreamRequestHeaderProtoByteBuf(request);
-    final ByteBuf headerLenBuf =
-        PooledByteBufAllocator.DEFAULT.directBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
+    final ByteBuf headerLenBuf = allocator.directBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
     headerLenBuf.writeInt(headerBuf.remaining());
     out.accept(headerLenBuf);
     out.accept(Unpooled.wrappedBuffer(headerBuf));
     out.accept(Unpooled.wrappedBuffer(request.slice()));
   }
 
-  static void encodeDataStreamReplyByteBuffer(DataStreamReplyByteBuffer reply, Consumer<ByteBuf> out) {
+  static void encodeDataStreamReplyByteBuffer(DataStreamReplyByteBuffer reply, Consumer<ByteBuf> out,
+      ByteBufAllocator allocator) {
     ByteBuffer headerBuf = getDataStreamReplyHeaderProtoByteBuf(reply);
-    final ByteBuf headerLenBuf =
-        PooledByteBufAllocator.DEFAULT.directBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
+    final ByteBuf headerLenBuf = allocator.directBuffer(DataStreamPacketHeader.getSizeOfHeaderLen());
     headerLenBuf.writeInt(headerBuf.remaining());
     out.accept(headerLenBuf);
     out.accept(Unpooled.wrappedBuffer(headerBuf));

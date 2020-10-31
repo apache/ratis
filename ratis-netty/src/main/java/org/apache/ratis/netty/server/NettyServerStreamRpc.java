@@ -58,6 +58,7 @@ import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -67,6 +68,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 public class NettyServerStreamRpc implements DataStreamServerRpc {
   public static final Logger LOG = LoggerFactory.getLogger(NettyServerStreamRpc.class);
@@ -118,12 +120,14 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   }
 
   static class StreamInfo {
+    private final RaftClientRequest request;
     private final CompletableFuture<DataStream> stream;
     private final List<DataStreamOutput> outs;
     private final AtomicReference<CompletableFuture<?>> previous
         = new AtomicReference<>(CompletableFuture.completedFuture(null));
 
-    StreamInfo(CompletableFuture<DataStream> stream, List<DataStreamOutput> outs) {
+    StreamInfo(RaftClientRequest request, CompletableFuture<DataStream> stream, List<DataStreamOutput> outs) {
+      this.request = request;
       this.stream = stream;
       this.outs = outs;
     }
@@ -139,6 +143,58 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     AtomicReference<CompletableFuture<?>> getPrevious() {
       return previous;
     }
+
+    @Override
+    public String toString() {
+      return getClass().getSimpleName() + ":" + request;
+    }
+  }
+
+  static class StreamMap {
+    static class Key {
+      private final ChannelId channelId;
+      private final long streamId;
+
+      Key(ChannelId channelId, long streamId) {
+        this.channelId = channelId;
+        this.streamId = streamId;
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (this == obj) {
+          return true;
+        } else if (obj == null || getClass() != obj.getClass()) {
+          return false;
+        }
+        final Key that = (Key) obj;
+        return this.streamId == that.streamId && Objects.equals(this.channelId, that.channelId);
+      }
+
+      @Override
+      public int hashCode() {
+        return Objects.hash(channelId, streamId);
+      }
+
+      @Override
+      public String toString() {
+        return channelId + "-" + streamId;
+      }
+    }
+
+    private final ConcurrentMap<Key, StreamInfo> map = new ConcurrentHashMap<>();
+
+    StreamInfo computeIfAbsent(Key key, Function<Key, StreamInfo> function) {
+      final StreamInfo info = map.computeIfAbsent(key, function);
+      LOG.debug("computeIfAbsent({}) returns {}", key, info);
+      return info;
+    }
+
+    StreamInfo get(Key key) {
+      final StreamInfo info = map.get(key);
+      LOG.debug("get({}) returns {}", key, info);
+      return info;
+    }
   }
 
   private final RaftServer server;
@@ -148,7 +204,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   private final ChannelFuture channelFuture;
 
   private final StateMachine stateMachine;
-  private final ConcurrentMap<Long, StreamInfo> streams = new ConcurrentHashMap<>();
+  private final StreamMap streams = new StreamMap();
 
   private final Proxies proxies;
 
@@ -192,7 +248,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     try {
       final RaftClientRequest request = ClientProtoUtils.toRaftClientRequest(
           RaftClientRequestProto.parseFrom(buf.nioBuffer()));
-      return new StreamInfo(stateMachine.data().stream(request), proxies.getDataStreamOutput());
+      return new StreamInfo(request, stateMachine.data().stream(request), proxies.getDataStreamOutput());
     } catch (Throwable e) {
       throw new CompletionException(e);
     }
@@ -254,14 +310,15 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     final StreamInfo info;
     final CompletableFuture<Long> localWrite;
     final List<CompletableFuture<DataStreamReply>> remoteWrites = new ArrayList<>();
+    final StreamMap.Key key = new StreamMap.Key(ctx.channel().id(), request.getStreamId());
     if (isHeader) {
-      info = streams.computeIfAbsent(request.getStreamId(), id -> newStreamInfo(buf));
+      info = streams.computeIfAbsent(key, id -> newStreamInfo(buf));
       localWrite = CompletableFuture.completedFuture(0L);
       for (DataStreamOutput out : info.getDataStreamOutputs()) {
         remoteWrites.add(out.getHeaderFuture());
       }
     } else {
-      info = streams.get(request.getStreamId());
+      info = streams.get(key);
       localWrite = info.getStream().thenApply(stream -> writeTo(buf, stream));
       for (DataStreamOutput out : info.getDataStreamOutputs()) {
         remoteWrites.add(out.writeAsync(request.slice().nioBuffer()));
@@ -319,7 +376,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     return new MessageToMessageEncoder<DataStreamReplyByteBuffer>() {
       @Override
       protected void encode(ChannelHandlerContext context, DataStreamReplyByteBuffer reply, List<Object> out) {
-        NettyDataStreamUtils.encodeDataStreamReplyByteBuffer(reply, out::add);
+        NettyDataStreamUtils.encodeDataStreamReplyByteBuffer(reply, out::add, context.alloc());
       }
     };
   }

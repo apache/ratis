@@ -19,6 +19,7 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.client.DisabledDataStreamClientFactory;
+import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.junit.Before;
 import org.junit.Rule;
@@ -37,10 +38,9 @@ public class TestDataStreamDisabled extends TestDataStreamBase {
 
   @Test
   public void testDataStreamDisabled() throws Exception {
-    setupRaftPeers(1);
     try {
-      setupServer();
-      setupClient();
+      setup(1);
+      final DataStreamClientImpl client = newDataStreamClientImpl();
       exception.expect(UnsupportedOperationException.class);
       exception.expectMessage(DisabledDataStreamClientFactory.class.getName()
           + "$1 does not support streamAsync");

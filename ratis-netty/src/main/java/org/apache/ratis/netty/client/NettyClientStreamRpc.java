@@ -75,6 +75,10 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
+        if (!(msg instanceof DataStreamReply)) {
+          LOG.error("{}: unexpected message {}", this, msg.getClass());
+          return;
+        }
         final DataStreamReply reply = (DataStreamReply) msg;
         LOG.debug("{}: read {}", this, reply);
         Optional.ofNullable(replies.get(reply.getStreamId()))
@@ -100,7 +104,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     return new MessageToMessageEncoder<DataStreamRequestByteBuffer>() {
       @Override
       protected void encode(ChannelHandlerContext context, DataStreamRequestByteBuffer request, List<Object> out) {
-        NettyDataStreamUtils.encodeDataStreamRequestByteBuffer(request, out::add);
+        NettyDataStreamUtils.encodeDataStreamRequestByteBuffer(request, out::add, context.alloc());
       }
     };
   }
@@ -119,11 +123,14 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   }
 
   @Override
-  public synchronized CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
-    CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
+  public CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
+    final CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
     final Queue<CompletableFuture<DataStreamReply>> q = replies.computeIfAbsent(
         request.getStreamId(), key -> new ConcurrentLinkedQueue<>());
-    q.offer(f);
+    if (!q.offer(f)) {
+      f.completeExceptionally(new IllegalStateException(this + ": Failed to offer a future for " + request));
+      return f;
+    }
     LOG.debug("{}: write {}", this, request);
     getChannel().writeAndFlush(request);
     return f;
