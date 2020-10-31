@@ -38,11 +38,13 @@ import org.apache.ratis.util.NetUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
 
 public class NettyClientStreamRpc implements DataStreamClientRpc {
@@ -51,7 +53,7 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   private final RaftPeer server;
   private final EventLoopGroup workerGroup = new NioEventLoopGroup();
   private final Supplier<Channel> channel;
-  private final Queue<CompletableFuture<DataStreamReply>> replies = new LinkedList<>();
+  private final ConcurrentMap<Long, Queue<CompletableFuture<DataStreamReply>>> replies = new ConcurrentHashMap<>();
 
   public NettyClientStreamRpc(RaftPeer server, RaftProperties properties){
     this.server = server;
@@ -69,16 +71,15 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
     return channel.get();
   }
 
-  synchronized CompletableFuture<DataStreamReply> pollReply() {
-    return replies.poll();
-  }
-
   private ChannelInboundHandler getClientHandler(){
     return new ChannelInboundHandlerAdapter(){
       @Override
       public void channelRead(ChannelHandlerContext ctx, Object msg) {
         final DataStreamReply reply = (DataStreamReply) msg;
-        pollReply().complete(reply);
+        LOG.debug("{}: read {}", this, reply);
+        Optional.ofNullable(replies.get(reply.getStreamId()))
+            .map(Queue::poll)
+            .ifPresent(f -> f.complete(reply));
       }
     };
   }
@@ -120,7 +121,10 @@ public class NettyClientStreamRpc implements DataStreamClientRpc {
   @Override
   public synchronized CompletableFuture<DataStreamReply> streamAsync(DataStreamRequest request) {
     CompletableFuture<DataStreamReply> f = new CompletableFuture<>();
-    replies.offer(f);
+    final Queue<CompletableFuture<DataStreamReply>> q = replies.computeIfAbsent(
+        request.getStreamId(), key -> new ConcurrentLinkedQueue<>());
+    q.offer(f);
+    LOG.debug("{}: write {}", this, request);
     getChannel().writeAndFlush(request);
     return f;
   }

@@ -19,8 +19,8 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.BaseTest;
 import org.apache.ratis.MiniRaftCluster;
-import org.apache.ratis.client.api.DataStreamOutput;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
+import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.RaftClientRequest;
@@ -30,6 +30,7 @@ import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
+import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.util.JavaUtils;
 import org.apache.ratis.util.NetUtils;
 import org.junit.Assert;
@@ -41,6 +42,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
@@ -51,7 +54,22 @@ class TestDataStreamBase extends BaseTest {
     return (byte) ('A' + pos%MODULUS);
   }
 
-  static class SingleDataStreamStateMachine extends BaseStateMachine {
+  static class MultiDataStreamStateMachine extends BaseStateMachine {
+    final ConcurrentMap<Long, SingleDataStream> streams = new ConcurrentHashMap<>();
+
+    @Override
+    public CompletableFuture<DataStream> stream(RaftClientRequest request) {
+      final SingleDataStream s = new SingleDataStream();
+      streams.put(request.getCallId(), s);
+      return s.stream(request);
+    }
+
+    SingleDataStream getSingleDataStream(long callId) {
+      return streams.get(callId);
+    }
+  }
+
+  static class SingleDataStream {
     private int byteWritten = 0;
     private RaftClientRequest writeRequest;
 
@@ -99,7 +117,6 @@ class TestDataStreamBase extends BaseTest {
       }
     };
 
-    @Override
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {
       writeRequest = request;
       return CompletableFuture.completedFuture(stream);
@@ -119,17 +136,17 @@ class TestDataStreamBase extends BaseTest {
 
   private List<DataStreamServerImpl> servers;
   private List<RaftPeer> peers;
-  private List<SingleDataStreamStateMachine> singleDataStreamStateMachines;
+  private List<MultiDataStreamStateMachine> stateMachines;
 
   protected void setupServer(){
     servers = new ArrayList<>(peers.size());
-    singleDataStreamStateMachines = new ArrayList<>(peers.size());
+    stateMachines = new ArrayList<>(peers.size());
     // start stream servers on raft peers.
     for (int i = 0; i < peers.size(); i++) {
-      SingleDataStreamStateMachine singleDataStreamStateMachine = new SingleDataStreamStateMachine();
-      singleDataStreamStateMachines.add(singleDataStreamStateMachine);
+      final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
+      stateMachines.add(stateMachine);
       final DataStreamServerImpl streamServer = new DataStreamServerImpl(
-          peers.get(i), singleDataStreamStateMachine, properties, null);
+          peers.get(i), stateMachine, properties, null);
       final DataStreamServerRpc rpc = streamServer.getServerRpc();
       if (i == 0) {
         // only the first server routes requests to peers.
@@ -160,21 +177,27 @@ class TestDataStreamBase extends BaseTest {
         .collect(Collectors.toList());
   }
 
-  protected void runTestDataStream(int numServers, int bufferSize, int bufferNum) throws Exception {
+  protected void runTestDataStream(int numServers, int numStreams, int bufferSize, int bufferNum) throws Exception {
     setupRaftPeers(numServers);
     try {
       setupServer();
       setupClient();
-      runTestDataStream(bufferSize, bufferNum);
+      runTestDataStream(numStreams, bufferSize, bufferNum);
     } finally {
       shutdown();
     }
   }
 
-  private void runTestDataStream(int bufferSize, int bufferNum) {
-    final DataStreamOutput out = client.stream();
-    DataStreamClientImpl.DataStreamOutputImpl impl = (DataStreamClientImpl.DataStreamOutputImpl) out;
+  private void runTestDataStream(int numStreams, int bufferSize, int bufferNum) {
+    final List<CompletableFuture<Void>> futures = new ArrayList<>();
+    for (int i = 0; i < numStreams; i++) {
+      futures.add(CompletableFuture.runAsync(
+          () -> runTestDataStream((DataStreamOutputImpl) client.stream(), bufferSize, bufferNum)));
+    }
+    futures.forEach(CompletableFuture::join);
+  }
 
+  private void runTestDataStream(DataStreamOutputImpl out, int bufferSize, int bufferNum) {
     final List<CompletableFuture<DataStreamReply>> futures = new ArrayList<>();
     final List<Integer> sizes = new ArrayList<>();
 
@@ -191,7 +214,7 @@ class TestDataStreamBase extends BaseTest {
     }
 
     { // check header
-      final DataStreamReply reply = impl.getHeaderFuture().join();
+      final DataStreamReply reply = out.getHeaderFuture().join();
       Assert.assertTrue(reply.isSuccess());
       Assert.assertEquals(0, reply.getBytesWritten());
       Assert.assertEquals(reply.getType(), Type.STREAM_HEADER);
@@ -205,14 +228,19 @@ class TestDataStreamBase extends BaseTest {
       Assert.assertEquals(reply.getType(), Type.STREAM_DATA);
     }
 
-    for (SingleDataStreamStateMachine s : singleDataStreamStateMachines) {
-      RaftClientRequest writeRequest = s.getWriteRequest();
-      if (writeRequest.getClientId().equals(impl.getHeader().getClientId())) {
-        Assert.assertEquals(writeRequest.getCallId(), impl.getHeader().getCallId());
-        Assert.assertEquals(writeRequest.getRaftGroupId(), impl.getHeader().getRaftGroupId());
-        Assert.assertEquals(writeRequest.getServerId(), impl.getHeader().getServerId());
+    final RaftClientRequest header = out.getHeader();
+    for (MultiDataStreamStateMachine s : stateMachines) {
+      final SingleDataStream stream = s.getSingleDataStream(header.getCallId());
+      if (stream == null) {
+        continue;
       }
-      Assert.assertEquals(dataSize, s.getByteWritten());
+      final RaftClientRequest writeRequest = stream.getWriteRequest();
+      if (writeRequest.getClientId().equals(header.getClientId())) {
+        Assert.assertEquals(writeRequest.getCallId(), header.getCallId());
+        Assert.assertEquals(writeRequest.getRaftGroupId(), header.getRaftGroupId());
+        Assert.assertEquals(writeRequest.getServerId(), header.getServerId());
+      }
+      Assert.assertEquals(dataSize, stream.getByteWritten());
     }
   }
 
