@@ -22,16 +22,32 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.netty.NettyConfigKeys;
+import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.DataStreamReply;
+import org.apache.ratis.protocol.GroupInfoReply;
+import org.apache.ratis.protocol.GroupInfoRequest;
+import org.apache.ratis.protocol.GroupListReply;
+import org.apache.ratis.protocol.GroupListRequest;
+import org.apache.ratis.protocol.GroupManagementRequest;
+import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
+import org.apache.ratis.protocol.RaftGroup;
+import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
+import org.apache.ratis.protocol.SetConfigurationRequest;
+import org.apache.ratis.rpc.RpcType;
 import org.apache.ratis.server.DataStreamServerRpc;
+import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
+import org.apache.ratis.server.impl.ServerFactory;
+import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.impl.BaseStateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.util.JavaUtils;
+import org.apache.ratis.util.LifeCycle;
 import org.apache.ratis.util.NetUtils;
 import org.junit.Assert;
 
@@ -47,7 +63,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-class TestDataStreamBase extends BaseTest {
+abstract class DataStreamBaseTest extends BaseTest {
   static final int MODULUS = 23;
 
   static byte pos2byte(int pos) {
@@ -137,6 +153,132 @@ class TestDataStreamBase extends BaseTest {
   private List<RaftPeer> peers;
   private List<MultiDataStreamStateMachine> stateMachines;
 
+  protected RaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
+    final ConcurrentMap<RaftGroupId, StateMachine> stateMachines = new ConcurrentHashMap<>();
+
+    return new RaftServer() {
+      @Override
+      public RaftPeerId getId() {
+        return peer.getId();
+      }
+
+      @Override
+      public StateMachine getStateMachine(RaftGroupId groupId) {
+        return stateMachines.computeIfAbsent(groupId, key -> new MultiDataStreamStateMachine());
+      }
+
+      @Override
+      public RaftProperties getProperties() {
+        return properties;
+      }
+
+
+      @Override
+      public RequestVoteReplyProto requestVote(RequestVoteRequestProto request) {
+        return null;
+      }
+
+      @Override
+      public AppendEntriesReplyProto appendEntries(AppendEntriesRequestProto request) {
+        return null;
+      }
+
+      @Override
+      public InstallSnapshotReplyProto installSnapshot(InstallSnapshotRequestProto request) {
+        return null;
+      }
+
+      @Override
+      public CompletableFuture<AppendEntriesReplyProto> appendEntriesAsync(AppendEntriesRequestProto request) {
+        return null;
+      }
+
+      @Override
+      public RpcType getRpcType() {
+        return null;
+      }
+
+      @Override
+      public RaftClientReply submitClientRequest(RaftClientRequest request) {
+        return null;
+      }
+
+      @Override
+      public RaftClientReply setConfiguration(SetConfigurationRequest request) {
+        return null;
+      }
+
+      @Override
+      public CompletableFuture<RaftClientReply> submitClientRequestAsync(RaftClientRequest request) {
+        return null;
+      }
+
+      @Override
+      public CompletableFuture<RaftClientReply> setConfigurationAsync(SetConfigurationRequest request) {
+        return null;
+      }
+
+      @Override
+      public GroupListReply getGroupList(GroupListRequest request) {
+        return null;
+      }
+
+      @Override
+      public GroupInfoReply getGroupInfo(GroupInfoRequest request) {
+        return null;
+      }
+
+      @Override
+      public RaftClientReply groupManagement(GroupManagementRequest request) {
+        return null;
+      }
+
+      @Override
+      public CompletableFuture<GroupListReply> getGroupListAsync(GroupListRequest request) {
+        return null;
+      }
+
+      @Override
+      public CompletableFuture<GroupInfoReply> getGroupInfoAsync(GroupInfoRequest request) {
+        return null;
+      }
+
+      @Override
+      public CompletableFuture<RaftClientReply> groupManagementAsync(GroupManagementRequest request) {
+        return null;
+      }
+
+      @Override
+      public void close() {
+      }
+
+      @Override
+      public Iterable<RaftGroupId> getGroupIds() {
+        return null;
+      }
+
+      @Override
+      public Iterable<RaftGroup> getGroups() {
+        return null;
+      }
+
+      @Override
+      public ServerFactory getFactory() {
+        return null;
+      }
+
+      @Override
+      public void start() {
+      }
+
+      @Override
+      public LifeCycle.State getLifeCycleState() {
+        return null;
+      }
+    };
+  }
+
+
   protected void setup(int numServers){
     peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
         .map(RaftPeerId::valueOf)
@@ -148,8 +290,9 @@ class TestDataStreamBase extends BaseTest {
     for (int i = 0; i < peers.size(); i++) {
       final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
       stateMachines.add(stateMachine);
-      final DataStreamServerImpl streamServer = new DataStreamServerImpl(
-          peers.get(i), stateMachine, properties, null);
+      final RaftPeer peer = peers.get(i);
+      final RaftServer server = newRaftServer(peer, properties);
+      final DataStreamServerImpl streamServer = new DataStreamServerImpl(server, properties, null);
       final DataStreamServerRpc rpc = streamServer.getServerRpc();
       if (i == 0) {
         // only the first server routes requests to peers.

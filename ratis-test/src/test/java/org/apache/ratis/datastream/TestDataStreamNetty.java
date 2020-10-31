@@ -20,15 +20,26 @@ package org.apache.ratis.datastream;
 
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.RaftProperties;
+import org.apache.ratis.netty.NettyConfigKeys;
+import org.apache.ratis.protocol.RaftPeer;
+import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.util.NetUtils;
 import org.junit.Before;
 import org.junit.Test;
 
 
-public class TestDataStreamNetty extends TestDataStreamBase {
+public class TestDataStreamNetty extends DataStreamBaseTest {
   @Before
   public void setup() {
     properties = new RaftProperties();
     RaftConfigKeys.DataStream.setType(properties, SupportedDataStreamType.NETTY);
+  }
+
+  @Override
+  protected RaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
+    final RaftProperties p = new RaftProperties(properties);
+    NettyConfigKeys.DataStream.setPort(p,  NetUtils.createSocketAddr(peer.getAddress()).getPort());
+    return super.newRaftServer(peer, p);
   }
 
   @Test

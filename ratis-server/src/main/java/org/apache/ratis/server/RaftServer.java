@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -46,6 +46,8 @@ public interface RaftServer extends Closeable, RpcType.Get,
 
   /** @return the groups the server is part of. */
   Iterable<RaftGroup> getGroups() throws IOException;
+
+  StateMachine getStateMachine(RaftGroupId groupId) throws IOException;
 
   /** @return the server properties. */
   RaftProperties getProperties();
