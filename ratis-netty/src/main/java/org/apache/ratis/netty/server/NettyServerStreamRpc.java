@@ -29,7 +29,6 @@ import org.apache.ratis.netty.NettyDataStreamUtils;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.proto.RaftProtos.RaftClientRequestProto;
 import org.apache.ratis.protocol.DataStreamReply;
-import org.apache.ratis.protocol.RaftClientReply;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
 import org.apache.ratis.protocol.RaftPeer;
@@ -145,6 +144,10 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
     AtomicReference<CompletableFuture<?>> getPrevious() {
       return previous;
+    }
+
+    RaftClientRequest getRequest() {
+      return request;
     }
 
     @Override
@@ -307,16 +310,16 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
     info.getStream().thenApplyAsync(stream -> {
       try {
-        RaftClientReply reply = server.submitClientRequest(stream.getRaftClientRequest());
-        if (reply.isSuccess()) {
-          ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
-          sendReplySuccess(request, buffer, -1, ctx);
-        } else if (reply.getNotLeaderException() != null) {
-          // if primary server is not the leader, primary ask all the other peers to start transaction
-          askPeerStartTransaction(info, request, ctx);
-        } else {
-          sendReplyNotSuccess(request, ctx);
-        }
+        server.submitClientRequestAsync(info.getRequest()).thenApplyAsync(reply -> {
+          if (reply.isSuccess()) {
+            ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
+            sendReplySuccess(request, buffer, -1, ctx);
+          } else {
+            // if primary server is not the leader, primary ask all the other peers to start transaction
+            askPeerStartTransaction(info, request, ctx);
+          }
+          return null;
+        });
       } catch (IOException e) {
         sendReplyNotSuccess(request, ctx);
       }
@@ -326,33 +329,42 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private void askPeerStartTransaction(
       final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
-    List<CompletableFuture<DataStreamReply>> replies = new ArrayList<>();
+    final List<CompletableFuture<Boolean>> results = new ArrayList<>();
     for (DataStreamOutput out : info.getDataStreamOutputs()) {
-      replies.add(out.startTransactionAsync());
+      final CompletableFuture<Boolean> f = out.startTransactionAsync().thenApplyAsync(reply -> {
+        if (reply.isSuccess()) {
+          final ByteBuffer buffer = reply instanceof DataStreamReplyByteBuffer?
+              ((DataStreamReplyByteBuffer)reply).slice(): null;
+          sendReplySuccess(request, buffer, -1, ctx);
+          return true;
+        } else {
+          return false;
+        }
+      });
+
+      results.add(f);
     }
 
-    for (CompletableFuture<DataStreamReply> reply : replies) {
-      DataStreamReplyByteBuffer replyByteBuffer = (DataStreamReplyByteBuffer) reply.join();
-      if (replyByteBuffer.isSuccess()) {
-        sendReplySuccess(request, replyByteBuffer.slice(), -1, ctx);
-        return;
+    JavaUtils.allOf(results).thenAccept(v -> {
+      if (!results.stream().map(CompletableFuture::join).reduce(false, Boolean::logicalOr)) {
+        sendReplyNotSuccess(request, ctx);
       }
-    }
-
-    sendReplyNotSuccess(request, ctx);
+    });
   }
 
   private void peerServerStartTransaction(
       final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
     info.getStream().thenApplyAsync(stream -> {
       try {
-        RaftClientReply reply = server.submitClientRequest(stream.getRaftClientRequest());
-        if (reply.isSuccess()) {
-          ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
-          sendReplySuccess(request, buffer, -1, ctx);
-        } else {
-          sendReplyNotSuccess(request, ctx);
-        }
+        server.submitClientRequestAsync(info.getRequest()).thenApplyAsync(reply -> {
+          if (reply.isSuccess()) {
+            ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
+            sendReplySuccess(request, buffer, -1, ctx);
+          } else {
+            sendReplyNotSuccess(request, ctx);
+          }
+          return null;
+        });
       } catch (IOException e) {
         sendReplyNotSuccess(request, ctx);
       }
@@ -383,7 +395,15 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       }
     } else if (request.getType() == Type.STREAM_CLOSE) {
       info = streams.get(key);
-      localWrite = info.getStream().thenApplyAsync(stream -> stream.close());
+      localWrite = info.getStream().thenApplyAsync(stream -> {
+        try {
+          stream.getWritableByteChannel().close();
+          return 0L;
+        } catch (IOException e) {
+          throw new CompletionException("Failed to close " + stream, e);
+        }
+      });
+
       for (DataStreamOutput out : info.getDataStreamOutputs()) {
         remoteWrites.add(out.closeAsync());
       }

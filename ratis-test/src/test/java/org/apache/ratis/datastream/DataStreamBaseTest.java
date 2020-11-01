@@ -134,16 +134,6 @@ abstract class DataStreamBaseTest extends BaseTest {
         }
         return CompletableFuture.completedFuture(null);
       }
-
-      @Override
-      public RaftClientRequest getRaftClientRequest() {
-        return writeRequest;
-      }
-
-      @Override
-      public long close() {
-        return 0;
-      }
     };
 
     public CompletableFuture<DataStream> stream(RaftClientRequest request) {

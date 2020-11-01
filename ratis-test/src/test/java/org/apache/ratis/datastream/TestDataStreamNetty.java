@@ -39,6 +39,7 @@ import org.mockito.Mockito;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -95,7 +96,8 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
             groupId, callId, false, null, notLeaderException, longIndex, null);
       }
 
-      when(raftServer.submitClientRequest(Mockito.any(RaftClientRequest.class))).thenReturn(raftClientReply);
+      when(raftServer.submitClientRequestAsync(Mockito.any(RaftClientRequest.class)))
+          .thenReturn(CompletableFuture.completedFuture(raftClientReply));
       when(raftServer.getProperties()).thenReturn(properties);
       when(raftServer.getId()).thenReturn(peerId);
       when(raftServer.getStateMachine(Mockito.any(RaftGroupId.class))).thenReturn(new MultiDataStreamStateMachine());

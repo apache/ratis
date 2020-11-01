@@ -90,13 +90,13 @@ public class DataStreamClientImpl implements DataStreamClient {
 
     @Override
     public CompletableFuture<DataStreamReply> closeAsync() {
-      return orderedStreamAsync.sendRequest(streamId, streamOffset, Unpooled.EMPTY_BUFFER.nioBuffer(),
+      return orderedStreamAsync.sendRequest(getStreamId(), streamOffset, Unpooled.EMPTY_BUFFER.nioBuffer(),
           Type.STREAM_CLOSE);
     }
 
     @Override
     public CompletableFuture<DataStreamReply> startTransactionAsync() {
-      return orderedStreamAsync.sendRequest(streamId, streamOffset, Unpooled.EMPTY_BUFFER.nioBuffer(),
+      return orderedStreamAsync.sendRequest(getStreamId(), streamOffset, Unpooled.EMPTY_BUFFER.nioBuffer(),
           Type.START_TRANSACTION);
     }
 
