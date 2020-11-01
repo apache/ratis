@@ -283,6 +283,7 @@ abstract class DataStreamBaseTest extends BaseTest {
         .collect(Collectors.toList());
     servers = new ArrayList<>(peers.size());
     stateMachines = new ConcurrentHashMap<>();
+    // start stream servers on raft peers.
     for (int i = 0; i < peers.size(); i++) {
       final RaftPeer peer = peers.get(i);
       final RaftServer server = newRaftServer(peer, properties);
