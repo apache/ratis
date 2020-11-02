@@ -38,7 +38,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.server.impl.ServerFactory;
@@ -55,8 +54,10 @@ import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -146,14 +147,50 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
   }
 
+  class Server {
+    private final RaftPeer peer;
+    private final RaftServer raftServer;
+    private final DataStreamServerImpl dataStreamServer;
+
+    Server(RaftPeer peer) {
+      this.peer = peer;
+      this.raftServer = newRaftServer(peer, properties);
+      this.dataStreamServer = new DataStreamServerImpl(raftServer, null);
+    }
+
+    RaftPeer getPeer() {
+      return peer;
+    }
+
+    MultiDataStreamStateMachine getStateMachine(RaftGroupId groupId) throws IOException {
+      return (MultiDataStreamStateMachine)raftServer.getStateMachine(groupId);
+    }
+
+    void start() {
+      dataStreamServer.getServerRpc().start();
+    }
+
+    void addRaftPeers(Collection<RaftPeer> peers) {
+      dataStreamServer.getServerRpc().addRaftPeers(peers);
+    }
+
+    void close() throws IOException {
+      dataStreamServer.close();
+    }
+  }
+
   protected RaftProperties properties;
 
-  private List<DataStreamServerImpl> servers;
-  private List<RaftPeer> peers;
-  private ConcurrentMap<RaftGroupId, MultiDataStreamStateMachine> stateMachines;
+  private List<Server> servers;
+
+  Server getPrimaryServer() {
+    return servers.get(0);
+  }
 
   protected RaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
     return new RaftServer() {
+      private final ConcurrentMap<RaftGroupId, MultiDataStreamStateMachine> stateMachines = new ConcurrentHashMap<>();
+
       @Override
       public RaftPeerId getId() {
         return peer.getId();
@@ -277,35 +314,32 @@ abstract class DataStreamBaseTest extends BaseTest {
 
 
   protected void setup(int numServers){
-    peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
+    final List<RaftPeer> peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
         .map(RaftPeerId::valueOf)
         .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
         .collect(Collectors.toList());
     servers = new ArrayList<>(peers.size());
-    stateMachines = new ConcurrentHashMap<>();
     // start stream servers on raft peers.
     for (int i = 0; i < peers.size(); i++) {
       final RaftPeer peer = peers.get(i);
-      final RaftServer server = newRaftServer(peer, properties);
-      final DataStreamServerImpl streamServer = new DataStreamServerImpl(server, properties, null);
-      final DataStreamServerRpc rpc = streamServer.getServerRpc();
+      final Server server = new Server(peer);
       if (i == 0) {
         // only the first server routes requests to peers.
         List<RaftPeer> otherPeers = new ArrayList<>(peers);
         otherPeers.remove(peers.get(i));
-        rpc.addRaftPeers(otherPeers);
+        server.addRaftPeers(otherPeers);
       }
-      rpc.start();
-      servers.add(streamServer);
+      server.start();
+      servers.add(server);
     }
   }
 
   DataStreamClientImpl newDataStreamClientImpl() {
-    return new DataStreamClientImpl(peers.get(0), properties, null);
+    return new DataStreamClientImpl(getPrimaryServer().getPeer(), properties, null);
   }
 
   protected void shutdown() throws IOException {
-    for (DataStreamServerImpl server : servers) {
+    for (Server server : servers) {
       server.close();
     }
   }
@@ -371,21 +405,22 @@ abstract class DataStreamBaseTest extends BaseTest {
       Assert.assertEquals(sizes.get(i).longValue(), reply.getBytesWritten());
       Assert.assertEquals(reply.getType(), Type.STREAM_DATA);
     }
-
-    final RaftClientRequest header = out.getHeader();
-    for (MultiDataStreamStateMachine s : stateMachines.values()) {
-      final SingleDataStream stream = s.getSingleDataStream(header.getCallId());
-      if (stream == null) {
-        continue;
-      }
-      final RaftClientRequest writeRequest = stream.getWriteRequest();
-      if (writeRequest.getClientId().equals(header.getClientId())) {
-        Assert.assertEquals(writeRequest.getCallId(), header.getCallId());
-        Assert.assertEquals(writeRequest.getRaftGroupId(), header.getRaftGroupId());
-        Assert.assertEquals(writeRequest.getServerId(), header.getServerId());
-      }
-      Assert.assertEquals(dataSize, stream.getByteWritten());
+    try {
+      assertHeader(out.getHeader(), dataSize);
+    } catch (Throwable e) {
+      throw new CompletionException(e);
     }
+  }
+
+  void assertHeader(RaftClientRequest header, int dataSize) throws Exception {
+    final Server server = getPrimaryServer();
+    final MultiDataStreamStateMachine s = server.getStateMachine(header.getRaftGroupId());
+    final SingleDataStream stream = s.getSingleDataStream(header.getCallId());
+    final RaftClientRequest writeRequest = stream.getWriteRequest();
+    Assert.assertEquals(writeRequest.getCallId(), header.getCallId());
+    Assert.assertEquals(writeRequest.getRaftGroupId(), header.getRaftGroupId());
+    Assert.assertEquals(writeRequest.getServerId(), header.getServerId());
+    Assert.assertEquals(dataSize, stream.getByteWritten());
   }
 
   static ByteBuffer initBuffer(int offset, int size) {

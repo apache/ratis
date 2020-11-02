@@ -21,7 +21,6 @@ package org.apache.ratis.server.impl;
 import java.io.IOException;
 import org.apache.ratis.RaftConfigKeys;
 import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.server.DataStreamServer;
 import org.apache.ratis.server.DataStreamServerFactory;
@@ -35,11 +34,9 @@ public class DataStreamServerImpl implements DataStreamServer {
 
   private final DataStreamServerRpc serverRpc;
 
-  public DataStreamServerImpl(RaftServer server, RaftProperties properties, Parameters parameters) {
-    final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
-
-    this.serverRpc = DataStreamServerFactory.newInstance(type, parameters)
-        .newDataStreamServerRpc(server, properties);
+  public DataStreamServerImpl(RaftServer server, Parameters parameters) {
+    final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(server.getProperties(), LOG::info);
+    this.serverRpc = DataStreamServerFactory.newInstance(type, parameters).newDataStreamServerRpc(server);
   }
 
   @Override

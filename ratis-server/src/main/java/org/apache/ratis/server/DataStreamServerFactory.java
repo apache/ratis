@@ -18,7 +18,6 @@
 package org.apache.ratis.server;
 
 import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.DataStreamFactory;
 import org.apache.ratis.datastream.DataStreamType;
 
@@ -34,5 +33,5 @@ public interface DataStreamServerFactory extends DataStreamFactory {
   }
 
   /** Create a new {@link DataStreamServerRpc}. */
-  DataStreamServerRpc newDataStreamServerRpc(RaftServer server, RaftProperties properties);
+  DataStreamServerRpc newDataStreamServerRpc(RaftServer server);
 }

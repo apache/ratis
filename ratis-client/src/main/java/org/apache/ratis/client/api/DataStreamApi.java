@@ -17,6 +17,8 @@
  */
 package org.apache.ratis.client.api;
 
+import org.apache.ratis.protocol.RaftGroupId;
+
 /**
  * Stream data asynchronously to all the servers in the {@link org.apache.ratis.protocol.RaftGroup}.
  * Clients may stream data to the nearest server and then the server will forward the data to the other servers.
@@ -35,6 +37,9 @@ package org.apache.ratis.client.api;
  * but {@link MessageStreamApi} streams messages only to the leader.
  */
 public interface DataStreamApi {
-  /** Create a stream to send data. */
+  /** Create a stream to write data to the default group. */
   DataStreamOutput stream();
+
+  /** Create a stream to write data to the given group. */
+  DataStreamOutput stream(RaftGroupId groupId);
 }

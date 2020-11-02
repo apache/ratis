@@ -36,7 +36,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Streaming client implementation
@@ -51,8 +50,6 @@ public class DataStreamClientImpl implements DataStreamClient {
   private final DataStreamClientRpc dataStreamClientRpc;
   private final OrderedStreamAsync orderedStreamAsync;
 
-  private final AtomicInteger streamId = new AtomicInteger();
-
   public DataStreamClientImpl(RaftPeer server, RaftProperties properties, Parameters parameters) {
     this.raftServer = Objects.requireNonNull(server, "server == null");
 
@@ -64,24 +61,27 @@ public class DataStreamClientImpl implements DataStreamClient {
   }
 
   public class DataStreamOutputImpl implements DataStreamOutput {
-    private final long streamId;
     private final RaftClientRequest header;
     private final CompletableFuture<DataStreamReply> headerFuture;
 
     private long streamOffset = 0;
 
-    public DataStreamOutputImpl(long id){
-      this.streamId = id;
-      this.header = new RaftClientRequest(clientId, raftServer.getId(), groupId, RaftClientImpl.nextCallId(),
+    public DataStreamOutputImpl(RaftGroupId groupId) {
+      final long streamId = RaftClientImpl.nextCallId();
+      this.header = new RaftClientRequest(clientId, raftServer.getId(), groupId, streamId,
           RaftClientRequest.writeRequestType());
       this.headerFuture = orderedStreamAsync.sendRequest(streamId, -1,
           ClientProtoUtils.toRaftClientRequestProto(header).toByteString().asReadOnlyByteBuffer(), Type.STREAM_HEADER);
     }
 
+    long getStreamId() {
+      return header.getCallId();
+    }
+
     // send to the attached dataStreamClientRpc
     @Override
     public CompletableFuture<DataStreamReply> writeAsync(ByteBuffer buf) {
-      final CompletableFuture<DataStreamReply> f = orderedStreamAsync.sendRequest(streamId, streamOffset, buf,
+      final CompletableFuture<DataStreamReply> f = orderedStreamAsync.sendRequest(getStreamId(), streamOffset, buf,
           Type.STREAM_DATA);
       streamOffset += buf.remaining();
       return f;
@@ -110,7 +110,12 @@ public class DataStreamClientImpl implements DataStreamClient {
 
   @Override
   public DataStreamOutput stream() {
-    return new DataStreamOutputImpl(streamId.incrementAndGet());
+    return stream(groupId);
+  }
+
+  @Override
+  public DataStreamOutput stream(RaftGroupId gid) {
+    return new DataStreamOutputImpl(gid);
   }
 
   @Override
