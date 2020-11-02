@@ -114,8 +114,8 @@ public class DataStreamClientImpl implements DataStreamClient {
   }
 
   @Override
-  public DataStreamOutput stream(RaftGroupId groupId) {
-    return new DataStreamOutputImpl(groupId);
+  public DataStreamOutput stream(RaftGroupId gid) {
+    return new DataStreamOutputImpl(gid);
   }
 
   @Override

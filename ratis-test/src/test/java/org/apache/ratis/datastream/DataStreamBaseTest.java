@@ -38,7 +38,6 @@ import org.apache.ratis.protocol.RaftPeerId;
 import org.apache.ratis.proto.RaftProtos.DataStreamPacketHeaderProto.Type;
 import org.apache.ratis.protocol.SetConfigurationRequest;
 import org.apache.ratis.rpc.RpcType;
-import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.DataStreamServerImpl;
 import org.apache.ratis.server.impl.ServerFactory;
@@ -149,12 +148,18 @@ abstract class DataStreamBaseTest extends BaseTest {
   }
 
   class Server {
-    final RaftServer raftServer;
-    final DataStreamServerImpl dataStreamServer;
+    private final RaftPeer peer;
+    private final RaftServer raftServer;
+    private final DataStreamServerImpl dataStreamServer;
 
     Server(RaftPeer peer) {
-      raftServer = newRaftServer(peer, properties);
-      dataStreamServer = new DataStreamServerImpl(raftServer, null);
+      this.peer = peer;
+      this.raftServer = newRaftServer(peer, properties);
+      this.dataStreamServer = new DataStreamServerImpl(raftServer, null);
+    }
+
+    RaftPeer getPeer() {
+      return peer;
     }
 
     MultiDataStreamStateMachine getStateMachine(RaftGroupId groupId) throws IOException {
@@ -177,7 +182,10 @@ abstract class DataStreamBaseTest extends BaseTest {
   protected RaftProperties properties;
 
   private List<Server> servers;
-  private List<RaftPeer> peers;
+
+  Server getPrimaryServer() {
+    return servers.get(0);
+  }
 
   protected RaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
     return new RaftServer() {
@@ -306,7 +314,7 @@ abstract class DataStreamBaseTest extends BaseTest {
 
 
   protected void setup(int numServers){
-    peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
+    final List<RaftPeer> peers = Arrays.stream(MiniRaftCluster.generateIds(numServers, 0))
         .map(RaftPeerId::valueOf)
         .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
         .collect(Collectors.toList());
@@ -327,7 +335,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   }
 
   DataStreamClientImpl newDataStreamClientImpl() {
-    return new DataStreamClientImpl(peers.get(0), properties, null);
+    return new DataStreamClientImpl(getPrimaryServer().getPeer(), properties, null);
   }
 
   protected void shutdown() throws IOException {
@@ -405,7 +413,7 @@ abstract class DataStreamBaseTest extends BaseTest {
   }
 
   void assertHeader(RaftClientRequest header, int dataSize) throws Exception {
-    final Server server = servers.get(0);
+    final Server server = getPrimaryServer();
     final MultiDataStreamStateMachine s = server.getStateMachine(header.getRaftGroupId());
     final SingleDataStream stream = s.getSingleDataStream(header.getCallId());
     final RaftClientRequest writeRequest = stream.getWriteRequest();
