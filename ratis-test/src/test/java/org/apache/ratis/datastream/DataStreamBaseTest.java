@@ -22,7 +22,6 @@ import org.apache.ratis.MiniRaftCluster;
 import org.apache.ratis.client.impl.DataStreamClientImpl;
 import org.apache.ratis.client.impl.DataStreamClientImpl.DataStreamOutputImpl;
 import org.apache.ratis.conf.RaftProperties;
-import org.apache.ratis.netty.NettyConfigKeys;
 import org.apache.ratis.proto.RaftProtos.*;
 import org.apache.ratis.protocol.DataStreamReply;
 import org.apache.ratis.protocol.GroupInfoReply;
@@ -151,11 +150,9 @@ abstract class DataStreamBaseTest extends BaseTest {
 
   private List<DataStreamServerImpl> servers;
   private List<RaftPeer> peers;
-  private List<MultiDataStreamStateMachine> stateMachines;
+  private ConcurrentMap<RaftGroupId, MultiDataStreamStateMachine> stateMachines;
 
   protected RaftServer newRaftServer(RaftPeer peer, RaftProperties properties) {
-    final ConcurrentMap<RaftGroupId, StateMachine> stateMachines = new ConcurrentHashMap<>();
-
     return new RaftServer() {
       @Override
       public RaftPeerId getId() {
@@ -285,11 +282,9 @@ abstract class DataStreamBaseTest extends BaseTest {
         .map(id -> new RaftPeer(id, NetUtils.createLocalServerAddress()))
         .collect(Collectors.toList());
     servers = new ArrayList<>(peers.size());
-    stateMachines = new ArrayList<>(peers.size());
+    stateMachines = new ConcurrentHashMap<>();
     // start stream servers on raft peers.
     for (int i = 0; i < peers.size(); i++) {
-      final MultiDataStreamStateMachine stateMachine = new MultiDataStreamStateMachine();
-      stateMachines.add(stateMachine);
       final RaftPeer peer = peers.get(i);
       final RaftServer server = newRaftServer(peer, properties);
       final DataStreamServerImpl streamServer = new DataStreamServerImpl(server, properties, null);
@@ -378,7 +373,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     }
 
     final RaftClientRequest header = out.getHeader();
-    for (MultiDataStreamStateMachine s : stateMachines) {
+    for (MultiDataStreamStateMachine s : stateMachines.values()) {
       final SingleDataStream stream = s.getSingleDataStream(header.getCallId());
       if (stream == null) {
         continue;
