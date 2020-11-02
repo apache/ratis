@@ -406,6 +406,22 @@ public interface RaftServerConfigKeys {
     }
   }
 
+  interface DataStream {
+    String PREFIX = RaftServerConfigKeys.PREFIX + ".data-stream";
+
+    String ASYNC_THREAD_POOL_SIZE_KEY = PREFIX + ".async.thread.pool.size";
+    int ASYNC_THREAD_POOL_SIZE_DEFAULT = 4;
+
+    static int asyncThreadPoolSize(RaftProperties properties) {
+      return getInt(properties::getInt, ASYNC_THREAD_POOL_SIZE_KEY, ASYNC_THREAD_POOL_SIZE_DEFAULT, getDefaultLog(),
+          requireMin(0), requireMax(65536));
+    }
+
+    static void setAsyncThreadPoolSize(RaftProperties properties, int port) {
+      setInt(properties::setInt, ASYNC_THREAD_POOL_SIZE_KEY, port);
+    }
+  }
+
   /** server rpc timeout related */
   interface Rpc {
     String PREFIX = RaftServerConfigKeys.PREFIX + ".rpc";
