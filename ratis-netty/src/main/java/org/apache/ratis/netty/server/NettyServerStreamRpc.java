@@ -33,6 +33,7 @@ import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftPeer;
 import org.apache.ratis.server.DataStreamServerRpc;
 import org.apache.ratis.server.RaftServer;
+import org.apache.ratis.server.RaftServerConfigKeys;
 import org.apache.ratis.statemachine.StateMachine;
 import org.apache.ratis.statemachine.StateMachine.DataStream;
 import org.apache.ratis.thirdparty.io.netty.bootstrap.ServerBootstrap;
@@ -64,6 +65,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -205,6 +208,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private final Proxies proxies;
 
+  private final ExecutorService executorService;
+
   public NettyServerStreamRpc(RaftServer server) {
     this.server = server;
     this.name = server.getId() + "-" + getClass().getSimpleName();
@@ -219,6 +224,8 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         .childOption(ChannelOption.SO_KEEPALIVE, true)
         .bind(port);
     this.proxies = new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties)));
+    this.executorService = Executors.newFixedThreadPool(
+        RaftServerConfigKeys.DataStream.asyncThreadPoolSize(server.getProperties()));
   }
 
   static DataStreamClient newClient(RaftPeer peer, RaftProperties properties) {
@@ -317,12 +324,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
     final AtomicReference<CompletableFuture<?>> previous = info.getPrevious();
     final CompletableFuture<?> current = previous.get()
-        .thenCombineAsync(JavaUtils.allOf(remoteWrites), (u, v) -> null)
+        .thenCombineAsync(JavaUtils.allOf(remoteWrites), (u, v) -> null, executorService)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           buf.release();
           sendReply(remoteWrites, request, bytesWritten, ctx);
           return null;
-        });
+        }, executorService);
     previous.set(current);
   }
 
