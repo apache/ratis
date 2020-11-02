@@ -306,28 +306,25 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     };
   }
 
-  private void primaryServerStartTransaction(
-      final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
-    info.getStream().thenApplyAsync(stream -> {
-      try {
-        server.submitClientRequestAsync(info.getRequest()).thenApplyAsync(reply -> {
-          if (reply.isSuccess()) {
-            ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
-            sendReplySuccess(request, buffer, -1, ctx);
-          } else {
-            // if primary server is not the leader, primary ask all the other peers to start transaction
-            askPeerStartTransaction(info, request, ctx);
-          }
-          return null;
-        });
-      } catch (IOException e) {
-        sendReplyNotSuccess(request, ctx);
-      }
-      return null;
-    });
+  private void startTransaction(StreamInfo info, DataStreamRequestByteBuf request, ChannelHandlerContext ctx) {
+    try {
+      server.submitClientRequestAsync(info.getRequest()).thenAcceptAsync(reply -> {
+        if (reply.isSuccess()) {
+          ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
+          sendReplySuccess(request, buffer, -1, ctx);
+        } else if (info.getDataStreamOutputs().size() > 0) {
+          // if this server is not the leader, forward start transition to the other peers
+          forwardStartTransaction(info, request, ctx);
+        } else {
+          sendReplyNotSuccess(request, ctx);
+        }
+      });
+    } catch (IOException e) {
+      sendReplyNotSuccess(request, ctx);
+    }
   }
 
-  private void askPeerStartTransaction(
+  private void forwardStartTransaction(
       final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
     final List<CompletableFuture<Boolean>> results = new ArrayList<>();
     for (DataStreamOutput out : info.getDataStreamOutputs()) {
@@ -349,26 +346,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       if (!results.stream().map(CompletableFuture::join).reduce(false, Boolean::logicalOr)) {
         sendReplyNotSuccess(request, ctx);
       }
-    });
-  }
-
-  private void peerServerStartTransaction(
-      final StreamInfo info, final DataStreamRequestByteBuf request, final ChannelHandlerContext ctx) {
-    info.getStream().thenApplyAsync(stream -> {
-      try {
-        server.submitClientRequestAsync(info.getRequest()).thenApplyAsync(reply -> {
-          if (reply.isSuccess()) {
-            ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
-            sendReplySuccess(request, buffer, -1, ctx);
-          } else {
-            sendReplyNotSuccess(request, ctx);
-          }
-          return null;
-        });
-      } catch (IOException e) {
-        sendReplyNotSuccess(request, ctx);
-      }
-      return null;
     });
   }
 
@@ -409,7 +386,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       }
     } else {
       // peer server start transaction
-      peerServerStartTransaction(streams.get(key), request, ctx);
+      startTransaction(streams.get(key), request, ctx);
       return;
     }
 
@@ -422,7 +399,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
             if (info.getDataStreamOutputs().size() > 0) {
               // after all server close stream, primary server start transaction
               // TODO(runzhiwang): send start transaction to leader directly
-              primaryServerStartTransaction(info, request, ctx);
+              startTransaction(info, request, ctx);
             } else {
               sendReply(remoteWrites, request, bytesWritten, ctx);
             }
