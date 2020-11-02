@@ -30,9 +30,4 @@ public interface DataStreamServerRpc extends RaftPeer.Add, Closeable {
    * start server
    */
   void start();
-
-  /**
-   * mark as primary server
-   */
-  void markPrimary();
 }

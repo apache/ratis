@@ -183,10 +183,6 @@ abstract class DataStreamBaseTest extends BaseTest {
       dataStreamServer.getServerRpc().addRaftPeers(peers);
     }
 
-    void markPrimary() {
-      dataStreamServer.getServerRpc().markPrimary();
-    }
-
     void close() throws IOException {
       dataStreamServer.close();
     }
@@ -359,7 +355,6 @@ abstract class DataStreamBaseTest extends BaseTest {
         List<RaftPeer> otherPeers = new ArrayList<>(peers);
         otherPeers.remove(peers.get(i));
         server.addRaftPeers(otherPeers);
-        server.markPrimary();
       }
       server.start();
       servers.add(server);

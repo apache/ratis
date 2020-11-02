@@ -215,8 +215,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private final ExecutorService executorService;
 
-  private boolean primary;
-
   public NettyServerStreamRpc(RaftServer server) {
     this.server = server;
     this.name = server.getId() + "-" + getClass().getSimpleName();
@@ -233,7 +231,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     this.proxies = new Proxies(new PeerProxyMap<>(name, peer -> newClient(peer, properties)));
     this.executorService = Executors.newFixedThreadPool(
         RaftServerConfigKeys.DataStream.asyncThreadPoolSize(server.getProperties()));
-    this.primary = false;
   }
 
   static DataStreamClient newClient(RaftPeer peer, RaftProperties properties) {
@@ -246,10 +243,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   @Override
   public void addRaftPeers(Collection<RaftPeer> newPeers) {
     proxies.addPeers(newPeers);
-  }
-
-  private boolean isPrimary() {
-    return primary;
   }
 
   private StreamInfo newStreamInfo(ByteBuf buf) {
@@ -426,7 +419,7 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
           if (request.getType() == Type.STREAM_HEADER || request.getType() == Type.STREAM_DATA) {
             sendReply(remoteWrites, request, bytesWritten, ctx);
           } else if (request.getType() == Type.STREAM_CLOSE) {
-            if (isPrimary()) {
+            if (info.getDataStreamOutputs().size() > 0) {
               // after all server close stream, primary server start transaction
               // TODO(runzhiwang): send start transaction to leader directly
               primaryServerStartTransaction(info, request, ctx);
@@ -488,11 +481,6 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
   @Override
   public void start() {
     channelFuture.syncUninterruptibly();
-  }
-
-  @Override
-  public void markPrimary() {
-    this.primary = true;
   }
 
   @Override
