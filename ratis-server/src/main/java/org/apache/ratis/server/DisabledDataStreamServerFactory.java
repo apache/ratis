@@ -34,6 +34,9 @@ public class DisabledDataStreamServerFactory implements DataStreamServerFactory 
       public void start() {}
 
       @Override
+      public void markPrimary() {}
+
+      @Override
       public void close() {}
 
       @Override
