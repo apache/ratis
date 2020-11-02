@@ -18,7 +18,6 @@
 package org.apache.ratis.server;
 
 import org.apache.ratis.conf.Parameters;
-import org.apache.ratis.conf.RaftProperties;
 import org.apache.ratis.datastream.SupportedDataStreamType;
 import org.apache.ratis.protocol.RaftPeer;
 
@@ -29,7 +28,7 @@ public class DisabledDataStreamServerFactory implements DataStreamServerFactory 
   public DisabledDataStreamServerFactory(Parameters parameters) {}
 
   @Override
-  public DataStreamServerRpc newDataStreamServerRpc(RaftServer server, RaftProperties properties) {
+  public DataStreamServerRpc newDataStreamServerRpc(RaftServer server) {
     return new DataStreamServerRpc() {
       @Override
       public void start() {}

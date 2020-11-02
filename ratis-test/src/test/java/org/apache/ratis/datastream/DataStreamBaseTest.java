@@ -287,7 +287,7 @@ abstract class DataStreamBaseTest extends BaseTest {
     for (int i = 0; i < peers.size(); i++) {
       final RaftPeer peer = peers.get(i);
       final RaftServer server = newRaftServer(peer, properties);
-      final DataStreamServerImpl streamServer = new DataStreamServerImpl(server, properties, null);
+      final DataStreamServerImpl streamServer = new DataStreamServerImpl(server, null);
       final DataStreamServerRpc rpc = streamServer.getServerRpc();
       if (i == 0) {
         // only the first server routes requests to peers.

@@ -43,7 +43,7 @@ public class NettyDataStreamFactory implements DataStreamServerFactory, DataStre
   }
 
   @Override
-  public DataStreamServerRpc newDataStreamServerRpc(RaftServer server, RaftProperties properties) {
-    return new NettyServerStreamRpc(server, properties);
+  public DataStreamServerRpc newDataStreamServerRpc(RaftServer server) {
+    return new NettyServerStreamRpc(server);
   }
 }

@@ -205,11 +205,12 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
 
   private final Proxies proxies;
 
-  public NettyServerStreamRpc(RaftServer server, RaftProperties properties) {
+  public NettyServerStreamRpc(RaftServer server) {
     this.server = server;
     this.name = server.getId() + "-" + getClass().getSimpleName();
 
-    final int port = NettyConfigKeys.DataStream.port(server.getProperties());
+    final RaftProperties properties = server.getProperties();
+    final int port = NettyConfigKeys.DataStream.port(properties);
     this.channelFuture = new ServerBootstrap()
         .group(bossGroup, workerGroup)
         .channel(NioServerSocketChannel.class)

@@ -35,11 +35,9 @@ public class DataStreamServerImpl implements DataStreamServer {
 
   private final DataStreamServerRpc serverRpc;
 
-  public DataStreamServerImpl(RaftServer server, RaftProperties properties, Parameters parameters) {
-    final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(properties, LOG::info);
-
-    this.serverRpc = DataStreamServerFactory.newInstance(type, parameters)
-        .newDataStreamServerRpc(server, properties);
+  public DataStreamServerImpl(RaftServer server, Parameters parameters) {
+    final SupportedDataStreamType type = RaftConfigKeys.DataStream.type(server.getProperties(), LOG::info);
+    this.serverRpc = DataStreamServerFactory.newInstance(type, parameters).newDataStreamServerRpc(server);
   }
 
   @Override
