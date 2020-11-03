@@ -33,4 +33,7 @@ public interface DataStreamOutput extends CloseAsync<DataStreamReply> {
 
   /** Get the future of the header request. */
   CompletableFuture<DataStreamReply> getHeaderFuture();
+
+  /** Peer close asynchronously. */
+  CompletableFuture<DataStreamReply> closeForwardAsync();
 }
