@@ -59,7 +59,7 @@ class StateMachineUpdater implements Runnable {
   static final Logger LOG = LoggerFactory.getLogger(StateMachineUpdater.class);
 
   enum State {
-    RUNNING, STOP, RELOAD
+    RUNNING, STOP, RELOAD, EXCEPTION
   }
 
   private final Consumer<Object> infoIndexChange;
@@ -137,6 +137,10 @@ class StateMachineUpdater implements Runnable {
    * have been applied to the state machine.
    */
   void stopAndJoin() throws InterruptedException {
+    if (state == State.EXCEPTION) {
+      stop();
+      return;
+    }
     if (stopIndex.compareAndSet(null, raftLog.getLastCommittedIndex())) {
       notifyUpdater();
       LOG.info("{}: set stopIndex = {}", this, stopIndex);
@@ -175,18 +179,14 @@ class StateMachineUpdater implements Runnable {
           checkAndTakeSnapshot(futures);
           stop();
         }
-      } catch (InterruptedException e) {
-        if (state == State.STOP) {
-          LOG.info("{}: the StateMachineUpdater is interrupted and will exit.", this);
+      } catch (Throwable t) {
+        if (t instanceof InterruptedException && state == State.STOP) {
+          LOG.info("{} was interrupted.  Exiting ...", this);
         } else {
-          final String s = this + ": the StateMachineUpdater is wrongly interrupted";
-          LOG.error(s, e);
+          state = State.EXCEPTION;
+          LOG.error(this + " caught a Throwable.", t);
           server.shutdown();
         }
-      } catch (Throwable t) {
-        final String s = this + ": the StateMachineUpdater hits Throwable";
-        LOG.error(s, t);
-        server.shutdown();
       }
     }
   }
