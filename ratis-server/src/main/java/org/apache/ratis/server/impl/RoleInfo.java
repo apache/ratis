@@ -111,8 +111,8 @@ class RoleInfo {
     return Optional.ofNullable(followerState.get());
   }
 
-  void startFollowerState(RaftServerImpl server) {
-    updateAndGet(followerState, new FollowerState(server)).start();
+  void startFollowerState(RaftServerImpl server, Object reason) {
+    updateAndGet(followerState, new FollowerState(server, reason)).start();
   }
 
   void shutdownFollowerState() {
