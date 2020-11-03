@@ -63,6 +63,11 @@ public final class MessageStreamImpl implements MessageStreamApi {
     public CompletableFuture<RaftClientReply> closeAsync() {
       return client.async().send(getStreamRequestType(true), null, null);
     }
+
+    @Override
+    public CompletableFuture<RaftClientReply> closeForwardAsync() {
+      return null;
+    }
   }
 
   private final RaftClientImpl client;

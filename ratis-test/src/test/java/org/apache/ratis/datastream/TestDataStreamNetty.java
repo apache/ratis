@@ -70,7 +70,7 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
     runTestDataStream(3, 2, 20, 1_000, 10_000);
   }
 
-  private void testCloseStream(int leaderIndex) throws Exception {
+  private void testCloseStream(int leaderIndex, int numServers) throws Exception {
     List<RaftServer> raftServers = new ArrayList<>();
     ClientId clientId = ClientId.randomId();
     RaftGroupId groupId = RaftGroupId.randomId();
@@ -111,12 +111,18 @@ public class TestDataStreamNetty extends DataStreamBaseTest {
   @Test
   public void testCloseStreamPrimaryIsLeader() throws Exception {
     // primary is 0, leader is 0
-    testCloseStream(0);
+    testCloseStream(0, 3);
   }
 
   @Test
   public void testCloseStreamPrimaryIsNotLeader() throws Exception {
     // primary is 0, leader is 1
-    testCloseStream(1);
+    testCloseStream(1, 3);
+  }
+
+  @Test
+  public void testCloseStreamOneServer() throws Exception {
+    // primary is 0, leader is 0
+    testCloseStream(0, 1);
   }
 }

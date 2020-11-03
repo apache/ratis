@@ -22,8 +22,11 @@ import java.util.concurrent.ExecutionException;
 
 /** Support the {@link CloseAsync#closeAsync()} method. */
 public interface CloseAsync<REPLY> extends AutoCloseable {
-  /** Close asynchronously. */
+  /** Primary close asynchronously. */
   CompletableFuture<REPLY> closeAsync();
+
+  /** Peer close asynchronously. */
+  CompletableFuture<REPLY> closeForwardAsync();
 
   /**
    * The same as {@link AutoCloseable#close()}.

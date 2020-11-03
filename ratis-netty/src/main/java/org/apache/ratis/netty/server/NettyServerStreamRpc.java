@@ -312,11 +312,15 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         if (reply.isSuccess()) {
           ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
           sendReplySuccess(request, buffer, -1, ctx);
-        } else if (info.getDataStreamOutputs().size() > 0) {
-          // if this server is not the leader, forward start transition to the other peers
-          forwardStartTransaction(info, request, ctx);
         } else {
-          sendReplyNotSuccess(request, ctx);
+          if (request.getType() == Type.STREAM_CLOSE) {
+            // if this server is not the leader, forward start transition to the other peers
+            forwardStartTransaction(info, request, ctx);
+          } else if (request.getType() == Type.START_TRANSACTION){
+            sendReplyNotSuccess(request, ctx);
+          } else {
+            LOG.error("{}: Unexpected type:{}", this, request.getType());
+          }
         }
       });
     } catch (IOException e) {
@@ -382,8 +386,18 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
       });
 
       for (DataStreamOutput out : info.getDataStreamOutputs()) {
-        remoteWrites.add(out.closeAsync());
+        remoteWrites.add(out.closeForwardAsync());
       }
+    } else if (request.getType() == Type.STREAM_CLOSE_FORWARD) {
+      info = streams.get(key);
+      localWrite = info.getStream().thenApplyAsync(stream -> {
+        try {
+          stream.getWritableByteChannel().close();
+          return 0L;
+        } catch (IOException e) {
+          throw new CompletionException("Failed to close " + stream, e);
+        }
+      });
     } else {
       // peer server start transaction
       startTransaction(streams.get(key), request, ctx);
@@ -393,16 +407,16 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
     final CompletableFuture<?> current = JavaUtils.allOf(remoteWrites)
         .thenCombineAsync(localWrite, (v, bytesWritten) -> {
           buf.release();
-          if (request.getType() == Type.STREAM_HEADER || request.getType() == Type.STREAM_DATA) {
+          if (request.getType() == Type.STREAM_HEADER
+              || request.getType() == Type.STREAM_DATA
+              || request.getType() == Type.STREAM_CLOSE_FORWARD) {
             sendReply(remoteWrites, request, bytesWritten, ctx);
           } else if (request.getType() == Type.STREAM_CLOSE) {
-            if (info.getDataStreamOutputs().size() > 0) {
-              // after all server close stream, primary server start transaction
-              // TODO(runzhiwang): send start transaction to leader directly
-              startTransaction(info, request, ctx);
-            } else {
-              sendReply(remoteWrites, request, bytesWritten, ctx);
-            }
+            // after all server close stream, primary server start transaction
+            // TODO(runzhiwang): send start transaction to leader directly
+            startTransaction(info, request, ctx);
+          } else {
+            LOG.error("{}: Unexpected type:{}", this, request.getType());
           }
           return null;
         }, executorService);
