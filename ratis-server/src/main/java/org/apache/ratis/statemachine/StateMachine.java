@@ -18,6 +18,9 @@
 package org.apache.ratis.statemachine;
 
 import org.apache.ratis.proto.RaftProtos;
+import org.apache.ratis.proto.RaftProtos.RaftConfigurationProto;
+import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
+import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.protocol.Message;
 import org.apache.ratis.protocol.RaftClientRequest;
 import org.apache.ratis.protocol.RaftGroupId;
@@ -27,8 +30,6 @@ import org.apache.ratis.server.RaftServer;
 import org.apache.ratis.server.impl.ServerProtoUtils;
 import org.apache.ratis.server.protocol.TermIndex;
 import org.apache.ratis.server.storage.RaftStorage;
-import org.apache.ratis.proto.RaftProtos.RoleInfoProto;
-import org.apache.ratis.proto.RaftProtos.LogEntryProto;
 import org.apache.ratis.thirdparty.com.google.protobuf.ByteString;
 import org.apache.ratis.util.LifeCycle;
 import org.slf4j.Logger;
@@ -264,7 +265,7 @@ public interface StateMachine extends Closeable {
 
   /**
    * Called to notify state machine about indexes which are processed
-   * internally by Raft Server, this currently happens when conf entries are
+   * internally by Raft Server, this currently happens when metadata entries are
    * processed in raft Server. This keep state machine to keep a track of index
    * updates.
    * @param term term of the current log entry
@@ -272,6 +273,20 @@ public interface StateMachine extends Closeable {
    */
   default void notifyIndexUpdate(long term, long index) {
 
+  }
+
+  /**
+   * Called to notify state machine about configuration changes to the Raft
+   * Server. This currently happens when conf entries are processed in raft
+   * server. This allows state machine to keep track of configuration changes
+   * on the raft server and also track the index updates corresponding to
+   * configuration changes.
+   * @param term term of the current log entry
+   * @param index index which is being updated
+   * @param newRaftConfiguration new configuration
+   */
+  default void notifyConfigurationChange(long term, long index,
+      RaftConfigurationProto newRaftConfiguration) {
   }
 
   /**

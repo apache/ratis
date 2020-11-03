@@ -1489,8 +1489,10 @@ public class RaftServerImpl implements RaftServerProtocol, RaftServerAsynchronou
     }
     if (next.hasConfigurationEntry()) {
       // the reply should have already been set. only need to record
-      // the new conf in the metadata file.
+      // the new conf in the metadata file and notify the StateMachine.
       state.writeRaftConfiguration(next);
+      stateMachine.notifyConfigurationChange(next.getTerm(), next.getIndex(),
+            next.getConfigurationEntry());
     } else if (next.hasStateMachineLogEntry()) {
       // check whether there is a TransactionContext because we are the leader.
       TransactionContext trx = role.getLeaderState()
