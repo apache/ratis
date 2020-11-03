@@ -312,15 +312,14 @@ public class NettyServerStreamRpc implements DataStreamServerRpc {
         if (reply.isSuccess()) {
           ByteBuffer buffer = ClientProtoUtils.toRaftClientReplyProto(reply).toByteString().asReadOnlyByteBuffer();
           sendReplySuccess(request, buffer, -1, ctx);
+        } else if (request.getType() == Type.STREAM_CLOSE) {
+          // if this server is not the leader, forward start transition to the other peers
+          // there maybe other unexpected reason cause failure except not leader, forwardStartTransaction anyway
+          forwardStartTransaction(info, request, ctx);
+        } else if (request.getType() == Type.START_TRANSACTION){
+          sendReplyNotSuccess(request, ctx);
         } else {
-          if (request.getType() == Type.STREAM_CLOSE) {
-            // if this server is not the leader, forward start transition to the other peers
-            forwardStartTransaction(info, request, ctx);
-          } else if (request.getType() == Type.START_TRANSACTION){
-            sendReplyNotSuccess(request, ctx);
-          } else {
-            LOG.error("{}: Unexpected type:{}", this, request.getType());
-          }
+          LOG.error("{}: Unexpected type:{}", this, request.getType());
         }
       });
     } catch (IOException e) {
